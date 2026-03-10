@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/config" },
+    { "path": "packages/file-system" },
+    { "path": "packages/hubspot-client" },
+    { "path": "packages/diff-engine" },
+    { "path": "packages/executor" },
+    { "path": "apps/cli" }
+  ]
+}

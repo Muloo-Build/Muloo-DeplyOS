@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.corepack/
+.env
+artifacts/*.json
+!artifacts/.gitkeep

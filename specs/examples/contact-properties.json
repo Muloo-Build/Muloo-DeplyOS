@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0",
+  "client": {
+    "name": "Example Client",
+    "slug": "example-client"
+  },
+  "crm": {
+    "objectType": "contacts",
+    "properties": [
+      {
+        "name": "muloo_project_tier",
+        "label": "Muloo Project Tier",
+        "type": "enumeration",
+        "fieldType": "select",
+        "description": "Primary delivery tier assigned during onboarding.",
+        "groupName": "contactinformation",
+        "formField": false,
+        "options": [
+          {
+            "label": "Foundation",
+            "value": "foundation",
+            "displayOrder": 0
+          },
+          {
+            "label": "Growth",
+            "value": "growth",
+            "displayOrder": 1
+          },
+          {
+            "label": "Scale",
+            "value": "scale",
+            "displayOrder": 2
+          }
+        ]
+      },
+      {
+        "name": "muloo_onboarding_owner",
+        "label": "Muloo Onboarding Owner",
+        "type": "string",
+        "fieldType": "text",
+        "description": "Internal Muloo owner for the onboarding engagement.",
+        "groupName": "contactinformation",
+        "formField": false
+      }
+    ]
+  }
+}

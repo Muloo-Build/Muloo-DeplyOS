@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../../packages/config" },
+    { "path": "../../packages/core" },
+    { "path": "../../packages/executor" },
+    { "path": "../../packages/file-system" },
+    { "path": "../../packages/hubspot-client" }
+  ]
+}

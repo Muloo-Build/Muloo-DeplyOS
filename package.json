@@ -1,0 +1,20 @@
+{
+  "name": "muloo-deploy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Internal HubSpot provisioning engine for Muloo delivery operations",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "build": "node node_modules/typescript/lib/tsc.js -b tsconfig.json",
+    "typecheck": "node node_modules/typescript/lib/tsc.js -b tsconfig.json",
+    "clean": "node node_modules/typescript/lib/tsc.js -b tsconfig.json --clean",
+    "cli": "corepack pnpm --filter @muloo/cli cli"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.2"
+  }
+}
