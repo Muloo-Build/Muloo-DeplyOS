@@ -9,7 +9,9 @@ import type {
 } from "@muloo/core";
 
 interface PropertyReader {
-  fetchProperties(objectType: OnboardingSpec["crm"]["objectType"]): Promise<ComparablePropertyDefinition[]>;
+  fetchProperties(
+    objectType: OnboardingSpec["crm"]["objectType"]
+  ): Promise<ComparablePropertyDefinition[]>;
 }
 
 interface WriteArtifact {
@@ -25,14 +27,18 @@ interface ExecutePropertyDryRunOptions {
   writeArtifact: WriteArtifact;
 }
 
-export async function executePropertyDryRun(options: ExecutePropertyDryRunOptions): Promise<DryRunExecutionResult> {
+export async function executePropertyDryRun(
+  options: ExecutePropertyDryRunOptions
+): Promise<DryRunExecutionResult> {
   options.logger.info("Starting dry-run execution.", {
     client: options.spec.spec.client.slug,
     objectType: options.spec.spec.crm.objectType,
     specPath: options.specPath
   });
 
-  const existingProperties = await options.hubSpotClient.fetchProperties(options.spec.spec.crm.objectType);
+  const existingProperties = await options.hubSpotClient.fetchProperties(
+    options.spec.spec.crm.objectType
+  );
   const diff = diffProperties({
     objectType: options.spec.spec.crm.objectType,
     desired: options.spec.spec.crm.properties,

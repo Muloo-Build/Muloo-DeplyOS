@@ -1,35 +1,62 @@
-# Architecture Notes
+# Architecture
 
-## Scope
+## Proposed shape
 
-This repository currently implements only the first dry-run vertical slice for HubSpot contact property comparison. It does not apply changes.
+Muloo Deploy OS remains a modular TypeScript monorepo with a clear split between operator experience, internal APIs, execution services, and shared domain models.
 
-## Package responsibilities
+## Layers
 
-- `apps/cli`: command-line orchestration and human-readable output
-- `packages/core`: domain schema, shared types, structured logger, summary formatting
-- `packages/config`: environment loading and guardrail validation
-- `packages/file-system`: JSON input loading and artifact persistence
-- `packages/hubspot-client`: typed HubSpot service layer for CRM property reads
-- `packages/diff-engine`: deterministic property comparison logic
-- `packages/executor`: dry-run workflow orchestration
+### Front end
 
-## Flow
+The operator-facing shell lives in `apps/web` and is served by `apps/api`. It now exposes project list and project detail views alongside dashboard, modules, and settings pages.
 
-1. The CLI resolves the spec path and rejects any live/apply flags.
-2. Config is loaded from `.env` plus process env and validated with Zod.
-3. The onboarding spec JSON is loaded from disk and validated with Zod.
-4. The executor fetches current HubSpot contact properties.
-5. The diff engine groups desired properties into:
-   - unchanged
-   - needs creation
-   - needs review
-6. The executor writes a JSON artifact to `artifacts/`.
-7. The CLI prints a concise summary for operators.
+### Backend and API layer
 
-## Design choices
+`apps/api` is the internal HTTP boundary. It exposes health, configuration readiness, module metadata, and now project read models from file-backed onboarding project inputs.
 
-- Dry-run enforcement happens in config and executor layers, not only in the CLI.
-- HubSpot calls are isolated behind a service class to keep future write paths contained.
-- The diff logic compares a small normalized property shape to avoid noisy output.
-- Artifact output is a stable JSON structure intended for later automation, auditing, and testing.
+### Job and execution layer
+
+Execution orchestration remains package-driven. The existing dry-run property comparison flow is preserved and can now be entered from a project/module context instead of only a raw spec path.
+
+### Integration layer
+
+HubSpot and future external systems stay behind service packages with typed request and response shaping, auditability, and dry-run guardrails.
+
+## OnboardingProject as the central planning object
+
+The first real application object is `OnboardingProject`.
+
+It represents a Muloo onboarding blueprint with:
+
+- project metadata and owner
+- client context
+- HubSpot scope and environment
+- CRM design inputs
+- property planning by object
+- module planning and dependencies
+- execution context and validation state
+
+For now, projects are stored as validated JSON files in `data/projects/`. This keeps the system easy to inspect while product shape is still settling.
+
+## Current flow
+
+1. `apps/api` loads projects from `data/projects/` through file-backed helpers.
+2. Project summaries and module views are exposed through `/api/projects` endpoints.
+3. The web shell renders those views for operators.
+4. The CLI can still execute from a raw spec path.
+5. The CLI can also resolve `--project <id> --module properties` into the existing dry-run property slice.
+
+## Principles
+
+- Modular: keep UI, API, execution logic, and integrations clearly separated.
+- Typed: validate project inputs and environment boundaries with Zod and TypeScript.
+- Auditable: preserve dry-run artifacts and structured logs.
+- Secure: never hardcode secrets and keep destructive work explicitly gated.
+- Execution focused: optimise for reliable internal delivery workflows over broad product surface area.
+
+## Near-term direction
+
+1. Expand project input modelling carefully before adding writes.
+2. Introduce richer module-specific input resolvers.
+3. Add persistence only once project and execution lifecycles are clearer.
+4. Keep dry-run as the default for any action that could affect HubSpot.

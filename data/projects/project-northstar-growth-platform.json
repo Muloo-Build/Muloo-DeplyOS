@@ -1,0 +1,255 @@
+{
+  "schemaVersion": "1.0",
+  "id": "project-northstar-growth-platform",
+  "name": "Northstar Growth Platform Multi-Hub Rollout",
+  "clientId": "northstar-growth-platform",
+  "portalId": "208441772",
+  "status": "ready-for-execution",
+  "owner": {
+    "name": "Jordan Pike",
+    "email": "jordan.pike@muloo.example"
+  },
+  "createdAt": "2026-03-01T10:30:00.000Z",
+  "updatedAt": "2026-03-10T10:15:00.000Z",
+  "clientContext": {
+    "clientName": "Northstar Growth Platform",
+    "primaryRegion": "EMEA",
+    "implementationType": "multi-hub-implementation",
+    "notes": "Multi-hub implementation spanning Sales, Marketing, and Service with a strong emphasis on lifecycle governance, attribution-ready segmentation, and service handover readiness."
+  },
+  "hubspotScope": {
+    "hubsInScope": ["sales", "marketing", "service", "ops"],
+    "portal": {
+      "portalId": "208441772",
+      "displayName": "Northstar Growth Platform Sandbox",
+      "region": "EU",
+      "connected": false
+    },
+    "environment": "sandbox"
+  },
+  "crmDesign": {
+    "lifecycleStages": [
+      "subscriber",
+      "lead",
+      "marketingqualifiedlead",
+      "salesqualifiedlead",
+      "opportunity",
+      "customer",
+      "evangelist"
+    ],
+    "leadStatuses": [
+      "New",
+      "Working",
+      "Nurturing",
+      "Qualified",
+      "Disqualified"
+    ],
+    "pipelines": [
+      {
+        "objectType": "deals",
+        "internalName": "northstar_new_logo",
+        "label": "New Logo",
+        "stages": [
+          {
+            "internalName": "qualified",
+            "label": "Qualified",
+            "order": 0,
+            "probability": 10
+          },
+          {
+            "internalName": "solution_fit",
+            "label": "Solution Fit",
+            "order": 1,
+            "probability": 35
+          },
+          {
+            "internalName": "procurement",
+            "label": "Procurement",
+            "order": 2,
+            "probability": 70
+          },
+          {
+            "internalName": "closed_won",
+            "label": "Closed Won",
+            "order": 3,
+            "probability": 100
+          }
+        ]
+      },
+      {
+        "objectType": "tickets",
+        "internalName": "northstar_customer_success",
+        "label": "Customer Success",
+        "stages": [
+          {
+            "internalName": "new_request",
+            "label": "New Request",
+            "order": 0
+          },
+          {
+            "internalName": "in_progress",
+            "label": "In Progress",
+            "order": 1
+          },
+          {
+            "internalName": "waiting_on_customer",
+            "label": "Waiting on Customer",
+            "order": 2
+          },
+          {
+            "internalName": "closed",
+            "label": "Closed",
+            "order": 3
+          }
+        ]
+      }
+    ],
+    "objectsInScope": ["contacts", "companies", "deals", "tickets"],
+    "customObjectsPlanned": [
+      {
+        "internalName": "implementation_workstream",
+        "label": "Implementation Workstream",
+        "description": "Planned custom object for post-phase-one delivery orchestration."
+      }
+    ]
+  },
+  "propertyPlanning": {
+    "propertyGroupsByObject": [
+      {
+        "objectType": "contacts",
+        "groups": [
+          {
+            "internalName": "muloo_marketing_ops",
+            "label": "Muloo Marketing Ops",
+            "description": "Lead routing and lifecycle fields for campaign operations."
+          }
+        ]
+      },
+      {
+        "objectType": "companies",
+        "groups": [
+          {
+            "internalName": "muloo_account_planning",
+            "label": "Muloo Account Planning",
+            "description": "Shared fields for account segmentation and service readiness."
+          }
+        ]
+      }
+    ],
+    "propertiesByObject": [
+      {
+        "objectType": "contacts",
+        "properties": [
+          {
+            "internalName": "northstar_buying_role",
+            "label": "Northstar Buying Role",
+            "description": "Buying role used for campaign segmentation and contact routing.",
+            "required": true,
+            "valueType": "enumeration",
+            "fieldType": "select",
+            "groupName": "muloo_marketing_ops",
+            "options": [
+              {
+                "label": "Champion",
+                "value": "champion",
+                "displayOrder": 0
+              },
+              {
+                "label": "Decision Maker",
+                "value": "decision_maker",
+                "displayOrder": 1
+              },
+              {
+                "label": "Evaluator",
+                "value": "evaluator",
+                "displayOrder": 2
+              }
+            ]
+          },
+          {
+            "internalName": "northstar_attribution_source_detail",
+            "label": "Northstar Attribution Source Detail",
+            "description": "Free-text enrichment field used by marketing operations for campaign QA.",
+            "required": false,
+            "valueType": "string",
+            "fieldType": "textarea",
+            "groupName": "muloo_marketing_ops"
+          }
+        ]
+      },
+      {
+        "objectType": "companies",
+        "properties": [
+          {
+            "internalName": "northstar_service_tier",
+            "label": "Northstar Service Tier",
+            "description": "Company-level service eligibility tier for onboarding and support motions.",
+            "required": true,
+            "valueType": "enumeration",
+            "fieldType": "select",
+            "groupName": "muloo_account_planning",
+            "options": [
+              {
+                "label": "Standard",
+                "value": "standard",
+                "displayOrder": 0
+              },
+              {
+                "label": "Priority",
+                "value": "priority",
+                "displayOrder": 1
+              },
+              {
+                "label": "Strategic",
+                "value": "strategic",
+                "displayOrder": 2
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "modulePlanning": [
+    {
+      "moduleId": "crm-setup",
+      "status": "ready",
+      "dependencies": [],
+      "notes": "Object scope and lifecycle design approved."
+    },
+    {
+      "moduleId": "properties",
+      "status": "ready",
+      "dependencies": ["crm-setup"],
+      "notes": "Contact property design is ready for dry-run comparison in sandbox."
+    },
+    {
+      "moduleId": "automation",
+      "status": "planned",
+      "dependencies": ["properties"],
+      "notes": "Automation planning depends on field validation and naming review."
+    },
+    {
+      "moduleId": "reporting",
+      "status": "planned",
+      "dependencies": ["properties"],
+      "notes": "Reporting foundation follows attribution field finalisation."
+    },
+    {
+      "moduleId": "qa",
+      "status": "planned",
+      "dependencies": ["automation", "reporting"],
+      "notes": "QA gate remains downstream of execution outputs."
+    }
+  ],
+  "executionContext": {
+    "dryRunEnabled": true,
+    "validationStatus": "validated",
+    "lastExecutionSummary": {
+      "status": "warning",
+      "lastRunAt": "2026-03-09T14:45:00.000Z",
+      "artifactPath": "artifacts/2026-03-09T14-45-00-000Z-northstar-growth-platform-contact-properties-dry-run.json",
+      "notes": "Sandbox dry run highlighted existing contact fields requiring review before apply work is introduced."
+    }
+  }
+}

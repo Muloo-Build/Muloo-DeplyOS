@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Muloo Deploy OS</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body data-page="dashboard">
+    <div class="shell">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">Muloo Internal</p>
+          <h1>Deploy OS</h1>
+          <p class="sidebar-copy">
+            Execution workspace for HubSpot onboarding, delivery setup, QA, and
+            handover operations.
+          </p>
+        </div>
+        <nav class="nav">
+          <a class="nav-link active" href="/">Dashboard</a>
+          <a class="nav-link" href="/projects">Projects</a>
+          <a class="nav-link" href="/modules">Modules</a>
+          <a class="nav-link" href="/settings">Settings</a>
+        </nav>
+        <div class="panel muted">
+          <p class="panel-label">Current mode</p>
+          <strong>Foundation stage</strong>
+          <span class="small"
+            >Dry run remains the default execution guardrail.</span
+          >
+        </div>
+      </aside>
+      <main class="content">
+        <section class="hero">
+          <div>
+            <p class="eyebrow">Operator dashboard</p>
+            <h2>
+              Structured projects now drive the internal execution surface.
+            </h2>
+            <p class="hero-copy">
+              Muloo Deploy OS now models real onboarding projects with client
+              context, HubSpot scope, CRM planning, module readiness, and a
+              dry-run execution path for the properties module.
+            </p>
+          </div>
+          <div class="status-card" id="health-card">
+            <span class="panel-label">Platform health</span>
+            <strong>Checking API</strong>
+            <span class="small">Waiting for /api/health</span>
+          </div>
+        </section>
+
+        <section class="stats" id="dashboard-stats"></section>
+
+        <section class="panel">
+          <div class="section-header">
+            <div>
+              <p class="panel-label">Project preview</p>
+              <h3>Onboarding work currently modelled in the repo</h3>
+            </div>
+            <a class="button-link" href="/projects">Open projects</a>
+          </div>
+          <div class="module-grid" id="dashboard-projects"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-header">
+            <div>
+              <p class="panel-label">Module preview</p>
+              <h3>Execution surfaces planned for operators</h3>
+            </div>
+            <a class="button-link" href="/modules">Open modules</a>
+          </div>
+          <div class="module-grid" id="dashboard-modules"></div>
+        </section>
+      </main>
+    </div>
+    <script src="/assets/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,222 @@
+{
+  "schemaVersion": "1.0",
+  "id": "project-apex-revenue-ops",
+  "name": "Apex Revenue Systems Sales Hub Foundation",
+  "clientId": "apex-revenue-systems",
+  "portalId": "128745901",
+  "status": "designed",
+  "owner": {
+    "name": "Taylor Adams",
+    "email": "taylor.adams@muloo.example"
+  },
+  "createdAt": "2026-03-05T08:00:00.000Z",
+  "updatedAt": "2026-03-10T09:00:00.000Z",
+  "clientContext": {
+    "clientName": "Apex Revenue Systems",
+    "primaryRegion": "North America",
+    "implementationType": "sales-hub-foundation",
+    "notes": "Discovery confirmed a Sales Hub-led rollout with immediate focus on lifecycle hygiene, lead qualification, and deal pipeline consistency for the SDR and AE teams."
+  },
+  "hubspotScope": {
+    "hubsInScope": ["sales", "ops"],
+    "portal": {
+      "portalId": "128745901",
+      "displayName": "Apex Revenue Systems",
+      "region": "NA",
+      "connected": false
+    },
+    "environment": "production"
+  },
+  "crmDesign": {
+    "lifecycleStages": [
+      "subscriber",
+      "lead",
+      "marketingqualifiedlead",
+      "salesqualifiedlead",
+      "opportunity",
+      "customer"
+    ],
+    "leadStatuses": [
+      "New",
+      "Attempting Contact",
+      "Connected",
+      "Open Deal",
+      "Unqualified"
+    ],
+    "pipelines": [
+      {
+        "objectType": "deals",
+        "internalName": "apex_new_business",
+        "label": "New Business",
+        "stages": [
+          {
+            "internalName": "discovery_complete",
+            "label": "Discovery Complete",
+            "order": 0,
+            "probability": 15
+          },
+          {
+            "internalName": "solution_review",
+            "label": "Solution Review",
+            "order": 1,
+            "probability": 35
+          },
+          {
+            "internalName": "proposal_sent",
+            "label": "Proposal Sent",
+            "order": 2,
+            "probability": 60
+          },
+          {
+            "internalName": "closed_won",
+            "label": "Closed Won",
+            "order": 3,
+            "probability": 100
+          }
+        ]
+      }
+    ],
+    "objectsInScope": ["contacts", "companies", "deals"],
+    "customObjectsPlanned": []
+  },
+  "propertyPlanning": {
+    "propertyGroupsByObject": [
+      {
+        "objectType": "contacts",
+        "groups": [
+          {
+            "internalName": "contactinformation",
+            "label": "Contact Information",
+            "description": "Existing default group used for launch-phase custom fields."
+          },
+          {
+            "internalName": "muloo_revenue_ops",
+            "label": "Muloo Revenue Ops",
+            "description": "Operational planning fields owned by Muloo during onboarding."
+          }
+        ]
+      },
+      {
+        "objectType": "companies",
+        "groups": [
+          {
+            "internalName": "companyinformation",
+            "label": "Company Information",
+            "description": "Default company field group for phase one rollout."
+          }
+        ]
+      }
+    ],
+    "propertiesByObject": [
+      {
+        "objectType": "contacts",
+        "properties": [
+          {
+            "internalName": "apex_segment",
+            "label": "Apex Segment",
+            "description": "Primary revenue segment assignment used for routing and reporting.",
+            "required": true,
+            "valueType": "enumeration",
+            "fieldType": "select",
+            "groupName": "muloo_revenue_ops",
+            "options": [
+              {
+                "label": "SMB",
+                "value": "smb",
+                "displayOrder": 0
+              },
+              {
+                "label": "Mid-Market",
+                "value": "mid_market",
+                "displayOrder": 1
+              },
+              {
+                "label": "Enterprise",
+                "value": "enterprise",
+                "displayOrder": 2
+              }
+            ]
+          },
+          {
+            "internalName": "apex_sales_region",
+            "label": "Apex Sales Region",
+            "description": "Named selling region used by SDR and AE routing rules.",
+            "required": true,
+            "valueType": "string",
+            "fieldType": "text",
+            "groupName": "muloo_revenue_ops"
+          },
+          {
+            "internalName": "apex_handover_ready",
+            "label": "Apex Handover Ready",
+            "description": "Internal Muloo QA check for delivery handover readiness.",
+            "required": false,
+            "valueType": "bool",
+            "fieldType": "booleancheckbox",
+            "groupName": "muloo_revenue_ops"
+          }
+        ]
+      },
+      {
+        "objectType": "companies",
+        "properties": [
+          {
+            "internalName": "apex_customer_tier",
+            "label": "Apex Customer Tier",
+            "description": "Planned company-level segmentation for future reporting.",
+            "required": false,
+            "valueType": "enumeration",
+            "fieldType": "select",
+            "groupName": "companyinformation",
+            "options": [
+              {
+                "label": "Core",
+                "value": "core",
+                "displayOrder": 0
+              },
+              {
+                "label": "Strategic",
+                "value": "strategic",
+                "displayOrder": 1
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "modulePlanning": [
+    {
+      "moduleId": "crm-setup",
+      "status": "ready",
+      "dependencies": [],
+      "notes": "Core object and lifecycle setup is fully designed."
+    },
+    {
+      "moduleId": "properties",
+      "status": "ready",
+      "dependencies": ["crm-setup"],
+      "notes": "Contact property plan can be dry-run validated immediately."
+    },
+    {
+      "moduleId": "pipelines",
+      "status": "planned",
+      "dependencies": ["crm-setup"],
+      "notes": "Pipeline work follows property review sign-off."
+    },
+    {
+      "moduleId": "qa",
+      "status": "planned",
+      "dependencies": ["properties", "pipelines"],
+      "notes": "QA checklist remains pending execution work."
+    }
+  ],
+  "executionContext": {
+    "dryRunEnabled": true,
+    "validationStatus": "validated",
+    "lastExecutionSummary": {
+      "status": "never-run",
+      "notes": "Project model approved, awaiting first dry-run property comparison."
+    }
+  }
+}

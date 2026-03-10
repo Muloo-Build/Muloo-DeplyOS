@@ -7,7 +7,9 @@ import type {
   PropertyOption
 } from "@muloo/core";
 
-const comparableFields: Array<keyof Omit<ComparablePropertyDefinition, "name">> = [
+const comparableFields: Array<
+  keyof Omit<ComparablePropertyDefinition, "name">
+> = [
   "label",
   "type",
   "fieldType",
@@ -17,22 +19,28 @@ const comparableFields: Array<keyof Omit<ComparablePropertyDefinition, "name">> 
   "options"
 ];
 
-function normalizeOptions(options?: ComparablePropertyDefinition["options"]): string {
+function normalizeOptions(
+  options?: ComparablePropertyDefinition["options"]
+): string {
   if (!options || options.length === 0) {
     return "[]";
   }
 
   return JSON.stringify(
-    [...options].sort((left, right) => left.value.localeCompare(right.value)).map((option) => ({
-      label: option.label,
-      value: option.value,
-      displayOrder: option.displayOrder ?? null,
-      hidden: option.hidden ?? false
-    }))
+    [...options]
+      .sort((left, right) => left.value.localeCompare(right.value))
+      .map((option) => ({
+        label: option.label,
+        value: option.value,
+        displayOrder: option.displayOrder ?? null,
+        hidden: option.hidden ?? false
+      }))
   );
 }
 
-function copyOptions(options?: DesiredPropertyDefinition["options"]): PropertyOption[] | undefined {
+function copyOptions(
+  options?: DesiredPropertyDefinition["options"]
+): PropertyOption[] | undefined {
   if (!options || options.length === 0) {
     return undefined;
   }
@@ -55,9 +63,16 @@ function copyOptions(options?: DesiredPropertyDefinition["options"]): PropertyOp
   });
 }
 
-function isSameValue(field: keyof Omit<ComparablePropertyDefinition, "name">, desired: unknown, existing: unknown): boolean {
+function isSameValue(
+  field: keyof Omit<ComparablePropertyDefinition, "name">,
+  desired: unknown,
+  existing: unknown
+): boolean {
   if (field === "options") {
-    return normalizeOptions(desired as ComparablePropertyDefinition["options"]) === normalizeOptions(existing as ComparablePropertyDefinition["options"]);
+    return (
+      normalizeOptions(desired as ComparablePropertyDefinition["options"]) ===
+      normalizeOptions(existing as ComparablePropertyDefinition["options"])
+    );
   }
 
   return (desired ?? null) === (existing ?? null);
@@ -83,7 +98,9 @@ function collectChanges(
   }, []);
 }
 
-function toComparableProperty(property: DesiredPropertyDefinition): ComparablePropertyDefinition {
+function toComparableProperty(
+  property: DesiredPropertyDefinition
+): ComparablePropertyDefinition {
   const comparable: ComparablePropertyDefinition = {
     name: property.name,
     label: property.label,
@@ -116,7 +133,9 @@ export function diffProperties(params: {
   desired: DesiredPropertyDefinition[];
   existing: ComparablePropertyDefinition[];
 }): PropertyDiffResult {
-  const existingByName = new Map(params.existing.map((property) => [property.name, property]));
+  const existingByName = new Map(
+    params.existing.map((property) => [property.name, property])
+  );
 
   const result: PropertyDiffResult = {
     objectType: params.objectType,

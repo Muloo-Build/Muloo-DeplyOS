@@ -1,4 +1,9 @@
-import type { ComparablePropertyDefinition, HubSpotObjectType, Logger, PropertyOption } from "@muloo/core";
+import type {
+  ComparablePropertyDefinition,
+  HubSpotObjectType,
+  Logger,
+  PropertyOption
+} from "@muloo/core";
 
 interface HubSpotClientOptions {
   accessToken: string;
@@ -28,7 +33,9 @@ interface HubSpotPropertyOptionResponse {
   hidden?: boolean;
 }
 
-function normalizeOptions(options?: HubSpotPropertyOptionResponse[]): PropertyOption[] | undefined {
+function normalizeOptions(
+  options?: HubSpotPropertyOptionResponse[]
+): PropertyOption[] | undefined {
   if (!options || options.length === 0) {
     return undefined;
   }
@@ -51,7 +58,9 @@ function normalizeOptions(options?: HubSpotPropertyOptionResponse[]): PropertyOp
   });
 }
 
-function normalizeProperty(property: HubSpotPropertyResponse): ComparablePropertyDefinition {
+function normalizeProperty(
+  property: HubSpotPropertyResponse
+): ComparablePropertyDefinition {
   const normalized: ComparablePropertyDefinition = {
     name: property.name,
     label: property.label,
@@ -90,7 +99,9 @@ export class HubSpotClient {
     this.logger = options.logger;
   }
 
-  public async fetchProperties(objectType: HubSpotObjectType): Promise<ComparablePropertyDefinition[]> {
+  public async fetchProperties(
+    objectType: HubSpotObjectType
+  ): Promise<ComparablePropertyDefinition[]> {
     const url = `${this.baseUrl}/crm/v3/properties/${objectType}`;
     this.logger.info("Fetching HubSpot CRM properties.", { objectType, url });
 
@@ -104,7 +115,9 @@ export class HubSpotClient {
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(`HubSpot property fetch failed with status ${response.status}: ${body}`);
+      throw new Error(
+        `HubSpot property fetch failed with status ${response.status}: ${body}`
+      );
     }
 
     const payload = (await response.json()) as HubSpotPropertiesResponse;

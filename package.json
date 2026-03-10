@@ -1,20 +1,31 @@
 {
-  "name": "muloo-deploy",
-  "version": "0.1.0",
+  "name": "muloo-deploy-os",
+  "version": "0.2.0",
   "private": true,
-  "description": "Internal HubSpot provisioning engine for Muloo delivery operations",
+  "description": "Internal execution platform for Muloo delivery operations and HubSpot onboarding automation",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
     "build": "node node_modules/typescript/lib/tsc.js -b tsconfig.json",
     "typecheck": "node node_modules/typescript/lib/tsc.js -b tsconfig.json",
     "clean": "node node_modules/typescript/lib/tsc.js -b tsconfig.json --clean",
+    "lint": "node node_modules/eslint/bin/eslint.js . --ext .ts,.js,.mjs",
+    "format": "node node_modules/prettier/bin/prettier.cjs --write .",
+    "format:check": "node node_modules/prettier/bin/prettier.cjs --check .",
+    "dev": "node apps/api/dist/index.js",
+    "start": "node apps/api/dist/index.js",
     "cli": "corepack pnpm --filter @muloo/cli cli"
   },
   "engines": {
     "node": ">=18.18.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.24.0",
     "@types/node": "^24.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.29.0",
+    "@typescript-eslint/parser": "^8.29.0",
+    "eslint": "^9.24.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.5.3",
     "typescript": "^5.8.2"
   }
 }

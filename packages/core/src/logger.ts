@@ -4,7 +4,12 @@ interface LoggerOptions {
   service: string;
 }
 
-function write(level: "INFO" | "WARN" | "ERROR", service: string, message: string, context?: Record<string, unknown>): void {
+function write(
+  level: "INFO" | "WARN" | "ERROR",
+  service: string,
+  message: string,
+  context?: Record<string, unknown>
+): void {
   const entry = {
     timestamp: new Date().toISOString(),
     level,

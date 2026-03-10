@@ -1,5 +1,5 @@
 {
-  "name": "@muloo/file-system",
+  "name": "@muloo/api",
   "version": "0.2.0",
   "private": true,
   "main": "dist/index.js",
@@ -10,7 +10,8 @@
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
   },
   "dependencies": {
-    "@muloo/core": "workspace:*",
+    "@muloo/config": "workspace:*",
+    "@muloo/file-system": "workspace:*",
     "@muloo/shared": "workspace:*"
   }
 }

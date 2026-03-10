@@ -11,9 +11,21 @@ const propertyOptionSchema = z
 
 export const desiredPropertySchema = z
   .object({
-    name: z.string().regex(/^[a-z0-9_]+$/, "Property names must use lowercase letters, numbers, and underscores."),
+    name: z
+      .string()
+      .regex(
+        /^[a-z0-9_]+$/,
+        "Property names must use lowercase letters, numbers, and underscores."
+      ),
     label: z.string().min(1),
-    type: z.enum(["string", "number", "date", "datetime", "enumeration", "bool"]),
+    type: z.enum([
+      "string",
+      "number",
+      "date",
+      "datetime",
+      "enumeration",
+      "bool"
+    ]),
     fieldType: z.enum([
       "text",
       "textarea",
@@ -31,7 +43,10 @@ export const desiredPropertySchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    if (value.type === "enumeration" && (!value.options || value.options.length === 0)) {
+    if (
+      value.type === "enumeration" &&
+      (!value.options || value.options.length === 0)
+    ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Enumeration properties must define at least one option.",
@@ -46,7 +61,12 @@ export const onboardingSpecSchema = z
     client: z
       .object({
         name: z.string().min(1),
-        slug: z.string().regex(/^[a-z0-9-]+$/, "Client slug must use lowercase letters, numbers, and hyphens.")
+        slug: z
+          .string()
+          .regex(
+            /^[a-z0-9-]+$/,
+            "Client slug must use lowercase letters, numbers, and hyphens."
+          )
       })
       .strict(),
     crm: z
