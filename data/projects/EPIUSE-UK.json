@@ -18,10 +18,7 @@
     "notes": "Initial onboarding workspace created in Muloo Deploy."
   },
   "hubspotScope": {
-    "hubsInScope": [
-      "sales",
-      "marketing"
-    ],
+    "hubsInScope": ["sales", "marketing"],
     "portal": {
       "portalId": "1234",
       "displayName": "EPIUSE",
@@ -31,20 +28,10 @@
     "environment": "production"
   },
   "crmDesign": {
-    "lifecycleStages": [
-      "subscriber",
-      "lead",
-      "customer"
-    ],
-    "leadStatuses": [
-      "New"
-    ],
+    "lifecycleStages": ["subscriber", "lead", "customer"],
+    "leadStatuses": ["New"],
     "pipelines": [],
-    "objectsInScope": [
-      "contacts",
-      "companies",
-      "deals"
-    ],
+    "objectsInScope": ["contacts", "companies", "deals"],
     "customObjectsPlanned": []
   },
   "propertyPlanning": {
@@ -101,9 +88,6 @@
     "seedType": "blank",
     "seededAt": "2026-03-11T10:58:32.504Z",
     "baselineSourceTags": [],
-    "seededModuleIds": [
-      "crm-setup",
-      "properties"
-    ]
+    "seededModuleIds": ["crm-setup", "properties"]
   }
 }
