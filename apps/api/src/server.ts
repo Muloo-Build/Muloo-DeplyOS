@@ -6,6 +6,7 @@ import { getIntegrationStatus, type BaseConfig } from "@muloo/config";
 import {
   createProject,
   createProjectFromTemplate,
+  loadAllExecutionRecords,
   loadAllProjectSummaries,
   loadAllTemplates,
   loadExecutionById,
@@ -51,11 +52,14 @@ const staticRoutes: Record<string, string> = {
   "/execution": "execution.html",
   "/module": "module.html",
   "/modules": "modules.html",
+  "/guide": "guide.html",
+  "/runs": "runs.html",
   "/project/design/lifecycle": "project-design-lifecycle.html",
   "/project/design/pipelines": "project-design-pipelines.html",
   "/project/design/properties": "project-design-properties.html",
   "/projects/new": "project-new.html",
   "/projects": "projects.html",
+  "/templates": "templates.html",
   "/project": "project.html",
   "/settings": "settings.html",
   "/assets/styles.css": path.join("assets", "styles.css"),
@@ -254,6 +258,12 @@ export function createAppServer(config: BaseConfig): http.Server {
           executionMode: config.executionMode,
           applyEnabled: config.applyEnabled,
           integrationStatus: getIntegrationStatus(config)
+        });
+      }
+
+      if (url.pathname === "/api/runs") {
+        return sendJson(response, 200, {
+          runs: await loadAllExecutionRecords()
         });
       }
 

@@ -3,76 +3,106 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy OS</title>
+    <title>Muloo Deploy Home</title>
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
-  <body data-page="dashboard">
+  <body data-page="home">
     <div class="shell">
       <aside class="sidebar">
         <div>
           <p class="eyebrow">Muloo Internal</p>
-          <h1>Deploy OS</h1>
+          <h1>Muloo Deploy</h1>
           <p class="sidebar-copy">
-            Execution workspace for HubSpot onboarding, delivery setup, QA, and
-            handover operations.
+            Internal HubSpot onboarding and optimisation workspace for taking
+            discovery into structured delivery.
           </p>
         </div>
         <nav class="nav">
-          <a class="nav-link active" href="/">Dashboard</a>
+          <a class="nav-link active" href="/">Home</a>
           <a class="nav-link" href="/projects">Projects</a>
-          <a class="nav-link" href="/modules">Modules</a>
+          <a class="nav-link" href="/templates">Templates</a>
+          <a class="nav-link" href="/runs">Runs</a>
+          <a class="nav-link" href="/guide">Guide</a>
           <a class="nav-link" href="/settings">Settings</a>
         </nav>
-        <div class="panel muted">
-          <p class="panel-label">Current mode</p>
-          <strong>Foundation stage</strong>
+        <div class="panel muted sidebar-note">
+          <p class="panel-label">Operator focus</p>
+          <strong>Move projects from blueprint to safe run.</strong>
           <span class="small"
-            >Dry run remains the default execution guardrail.</span
+            >Dry run stays default. Guarded apply remains narrow and
+            explicit.</span
           >
         </div>
       </aside>
       <main class="content">
-        <section class="hero">
+        <section class="workspace-header">
           <div>
-            <p class="eyebrow">Operator dashboard</p>
+            <p class="eyebrow">Home</p>
             <h2>
-              Structured projects now drive the internal execution surface.
+              Take discovery into a clear onboarding blueprint, review it, and
+              run safely.
             </h2>
             <p class="hero-copy">
-              Muloo Deploy OS now models real onboarding projects with client
-              context, HubSpot scope, CRM planning, module readiness, and a
-              dry-run execution path for the properties module.
+              Muloo Deploy helps one operator manage multiple HubSpot onboarding
+              projects from blueprint through dry run, safe apply, and delivery
+              history.
             </p>
           </div>
-          <div class="status-card" id="health-card">
-            <span class="panel-label">Platform health</span>
-            <strong>Checking API</strong>
-            <span class="small">Waiting for /api/health</span>
+          <div class="action-row">
+            <a class="button-link" href="/projects/new"
+              >Start Onboarding Project</a
+            >
+            <a class="button-secondary" href="/templates">Browse Templates</a>
+            <a class="button-secondary" href="/runs">View Recent Runs</a>
           </div>
         </section>
-
-        <section class="stats" id="dashboard-stats"></section>
-
-        <section class="panel">
-          <div class="section-header">
-            <div>
-              <p class="panel-label">Project preview</p>
-              <h3>Onboarding work currently modelled in the repo</h3>
+        <section class="stats" id="home-priority-stats"></section>
+        <section class="grid two-col">
+          <article class="panel">
+            <div class="section-header">
+              <div>
+                <p class="panel-label">Needs attention</p>
+                <h3>Blocked or incomplete projects</h3>
+              </div>
+              <a class="button-secondary" href="/projects?filter=blocked"
+                >Open queue</a
+              >
             </div>
-            <a class="button-link" href="/projects">Open projects</a>
-          </div>
-          <div class="module-grid" id="dashboard-projects"></div>
+            <div id="home-attention-list"></div>
+          </article>
+          <article class="panel">
+            <div class="section-header">
+              <div>
+                <p class="panel-label">Ready next</p>
+                <h3>Projects ready for review or run</h3>
+              </div>
+              <a class="button-secondary" href="/projects?filter=ready-to-run"
+                >View ready work</a
+              >
+            </div>
+            <div id="home-ready-list"></div>
+          </article>
         </section>
-
-        <section class="panel">
-          <div class="section-header">
-            <div>
-              <p class="panel-label">Module preview</p>
-              <h3>Execution surfaces planned for operators</h3>
+        <section class="grid two-col">
+          <article class="panel">
+            <div class="section-header">
+              <div>
+                <p class="panel-label">Recent runs</p>
+                <h3>What happened most recently</h3>
+              </div>
+              <a class="button-secondary" href="/runs">Open runs</a>
             </div>
-            <a class="button-link" href="/modules">Open modules</a>
-          </div>
-          <div class="module-grid" id="dashboard-modules"></div>
+            <div id="home-recent-runs"></div>
+          </article>
+          <article class="panel">
+            <div class="section-header">
+              <div>
+                <p class="panel-label">Platform</p>
+                <h3>Workspace status and guidance</h3>
+              </div>
+            </div>
+            <div id="home-health-panel"></div>
+          </article>
         </section>
       </main>
     </div>

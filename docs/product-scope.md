@@ -13,6 +13,7 @@
 - Add practical project authoring with file-backed create and update workflows.
 - Seed projects from Muloo starter templates and a reusable standard property library.
 - Add practical design editors for lifecycle data, property planning, and pipeline structure.
+- Reset the operator UX around a clear onboarding workflow instead of an abstract platform shell.
 
 ## Non-goals
 
@@ -36,6 +37,17 @@
 - QA
 - Audit and handover support
 
+## Operator workflow
+
+- Start project
+- Connect or confirm portal
+- Build blueprint
+- Review blockers and readiness
+- Dry run changes
+- Apply safe actions
+- Track history
+- Use built-in guide and standards
+
 ## Template and authoring scope
 
 - Blank project creation
@@ -52,6 +64,7 @@
 - property editing is form-based rather than spreadsheet-based
 - pipeline editing is structural only
 - advanced workflow behavior such as probabilities, SLAs, routing, and permissions stays out of scope
+- the current UI remains a light internal shell rather than a full collaborative operations product
 
 ## Success criteria
 

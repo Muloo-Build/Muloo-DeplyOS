@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy OS Create Project</title>
+    <title>Muloo Deploy Start Project</title>
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body data-page="project-new">
@@ -11,46 +11,47 @@
       <aside class="sidebar">
         <div>
           <p class="eyebrow">Muloo Internal</p>
-          <h1>Deploy OS</h1>
+          <h1>Muloo Deploy</h1>
           <p class="sidebar-copy">
-            Create a file-backed onboarding project from blank or a Muloo
-            starter template.
+            Start a new onboarding workspace with the right starting point,
+            project details, and HubSpot scope.
           </p>
         </div>
         <nav class="nav">
-          <a class="nav-link" href="/">Dashboard</a>
+          <a class="nav-link" href="/">Home</a>
           <a class="nav-link" href="/projects">Projects</a>
-          <a class="nav-link active" href="/projects/new">Create Project</a>
-          <a class="nav-link" href="/modules">Modules</a>
+          <a class="nav-link" href="/templates">Templates</a>
+          <a class="nav-link" href="/runs">Runs</a>
+          <a class="nav-link" href="/guide">Guide</a>
           <a class="nav-link" href="/settings">Settings</a>
         </nav>
       </aside>
       <main class="content">
-        <section class="hero compact">
+        <section class="workspace-header">
           <div>
-            <p class="eyebrow">Project authoring</p>
+            <p class="eyebrow">Start project</p>
             <h2>
-              Seed a new onboarding blueprint with a practical starting point.
+              Start a new client onboarding workspace with a clearer guided
+              setup flow.
             </h2>
             <p class="hero-copy">
-              Blank projects stay minimal. Template-seeded projects copy Muloo
-              baseline modules, CRM defaults, pipelines, and standard property
-              library entries into the project file.
+              Choose how to start, confirm the client and portal context, then
+              seed the right scope before review and dry-run work begins.
             </p>
           </div>
         </section>
         <section class="grid two-col">
           <article class="panel">
-            <p class="panel-label">Create project</p>
+            <p class="panel-label">Step-by-step setup</p>
             <form class="form-grid" id="project-create-form"></form>
           </article>
           <article class="panel">
-            <p class="panel-label">Template details</p>
+            <p class="panel-label">Starting point preview</p>
             <div id="project-create-template-detail"></div>
           </article>
         </section>
         <section class="panel">
-          <p class="panel-label">Save result</p>
+          <p class="panel-label">Project created</p>
           <div id="project-create-status"></div>
         </section>
       </main>

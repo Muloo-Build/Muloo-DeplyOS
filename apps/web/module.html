@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy OS Module Detail</title>
+    <title>Muloo Deploy Setup Area Detail</title>
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body data-page="module-detail">
@@ -11,43 +11,45 @@
       <aside class="sidebar">
         <div>
           <p class="eyebrow">Muloo Internal</p>
-          <h1>Deploy OS</h1>
+          <h1>Muloo Deploy</h1>
           <p class="sidebar-copy">
-            Contract, readiness, and execution detail for a single project
-            module.
+            Setup area detail for readiness, safe run rules, and latest run
+            context.
           </p>
         </div>
         <nav class="nav">
-          <a class="nav-link" href="/">Dashboard</a>
-          <a class="nav-link active" href="/projects">Projects</a>
-          <a class="nav-link" href="/modules">Modules</a>
+          <a class="nav-link" href="/">Home</a>
+          <a class="nav-link" href="/projects">Projects</a>
+          <a class="nav-link" href="/templates">Templates</a>
+          <a class="nav-link" href="/runs">Runs</a>
+          <a class="nav-link" href="/guide">Guide</a>
           <a class="nav-link" href="/settings">Settings</a>
         </nav>
       </aside>
       <main class="content">
-        <section class="hero compact" id="module-detail-hero">
+        <section class="workspace-header compact" id="module-detail-hero">
           <div>
-            <p class="eyebrow">Module detail</p>
-            <h2>Loading module...</h2>
+            <p class="eyebrow">Setup area detail</p>
+            <h2>Loading setup area...</h2>
           </div>
         </section>
         <section class="grid two-col">
           <article class="panel">
-            <p class="panel-label">Contract</p>
+            <p class="panel-label">Run contract</p>
             <div id="module-detail-contract"></div>
           </article>
           <article class="panel">
-            <p class="panel-label">Readiness</p>
+            <p class="panel-label">Review status</p>
             <div id="module-detail-readiness"></div>
           </article>
         </section>
         <section class="grid two-col">
           <article class="panel">
-            <p class="panel-label">Inputs</p>
+            <p class="panel-label">Required inputs</p>
             <div id="module-detail-inputs"></div>
           </article>
           <article class="panel">
-            <p class="panel-label">Execution summary</p>
+            <p class="panel-label">Latest run</p>
             <div id="module-detail-execution"></div>
           </article>
         </section>

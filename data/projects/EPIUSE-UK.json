@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "1.0",
+  "id": "EPIUSE-UK",
+  "name": "Epiuse port connect",
+  "clientId": "12345",
+  "portalId": "1234",
+  "status": "draft",
+  "owner": {
+    "name": "Jarrud",
+    "email": "Jarrud@muloo.co"
+  },
+  "createdAt": "2026-03-11T10:58:32.504Z",
+  "updatedAt": "2026-03-11T10:58:32.504Z",
+  "clientContext": {
+    "clientName": "EPIUSE",
+    "primaryRegion": "North America",
+    "implementationType": "marketing-ops-rollout",
+    "notes": "Initial onboarding workspace created in Muloo Deploy."
+  },
+  "hubspotScope": {
+    "hubsInScope": [
+      "sales",
+      "marketing"
+    ],
+    "portal": {
+      "portalId": "1234",
+      "displayName": "EPIUSE",
+      "region": "North America",
+      "connected": false
+    },
+    "environment": "production"
+  },
+  "crmDesign": {
+    "lifecycleStages": [
+      "subscriber",
+      "lead",
+      "customer"
+    ],
+    "leadStatuses": [
+      "New"
+    ],
+    "pipelines": [],
+    "objectsInScope": [
+      "contacts",
+      "companies",
+      "deals"
+    ],
+    "customObjectsPlanned": []
+  },
+  "propertyPlanning": {
+    "propertyGroupsByObject": [
+      {
+        "objectType": "contacts",
+        "groups": []
+      },
+      {
+        "objectType": "companies",
+        "groups": []
+      },
+      {
+        "objectType": "deals",
+        "groups": []
+      }
+    ],
+    "propertiesByObject": [
+      {
+        "objectType": "contacts",
+        "properties": []
+      },
+      {
+        "objectType": "companies",
+        "properties": []
+      },
+      {
+        "objectType": "deals",
+        "properties": []
+      }
+    ]
+  },
+  "modulePlanning": [
+    {
+      "moduleId": "crm-setup",
+      "status": "ready",
+      "dependencies": []
+    },
+    {
+      "moduleId": "properties",
+      "status": "planned",
+      "dependencies": []
+    }
+  ],
+  "executionContext": {
+    "dryRunEnabled": true,
+    "validationStatus": "draft",
+    "lastExecutionSummary": {
+      "status": "never-run",
+      "notes": "Blank project created through Muloo Deploy OS authoring."
+    }
+  },
+  "templateProvenance": {
+    "seedType": "blank",
+    "seededAt": "2026-03-11T10:58:32.504Z",
+    "baselineSourceTags": [],
+    "seededModuleIds": [
+      "crm-setup",
+      "properties"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 # Muloo Deploy OS
 
-Muloo Deploy OS is an internal execution platform for Muloo. It standardises and automates the delivery work that happens after discovery is complete, starting with HubSpot onboarding and expanding into broader execution support for CRM design, module planning, QA, and handover operations.
+Muloo Deploy is an internal HubSpot onboarding and optimisation workspace for Muloo. It helps a solo operator take a completed discovery, turn it into a structured onboarding blueprint, review what needs to happen, dry run changes, safely execute approved actions, and track delivery history.
 
 ## Who it is for
 
@@ -8,7 +8,7 @@ This repository is for Muloo operators, delivery leads, and internal builders. I
 
 ## Current stage
 
-The repository is in foundation-plus-operations-readiness stage.
+The repository is in operator-workspace stage.
 
 What is real today:
 
@@ -23,6 +23,17 @@ What is real today:
 - Muloo starter templates and a standard property library for seeded project creation
 - project design editors for lifecycle stages, lead statuses, property groups, properties, pipelines, and stages
 - shared execution packages for config, diffing, filesystem output, HubSpot reads, and executor flow
+
+Current product workflow:
+
+1. Start project
+2. Connect or confirm portal
+3. Build blueprint
+4. Review blockers and readiness
+5. Dry run changes
+6. Apply safe actions
+7. Track history
+8. Use built-in guide and standards
 
 What is intentionally not built yet:
 
@@ -153,6 +164,7 @@ The internal API now exposes:
 - `GET /api/health`
 - `GET /api/modules`
 - `GET /api/settings`
+- `GET /api/runs`
 - `GET /api/templates`
 - `GET /api/templates/:id`
 - `GET /api/projects`
@@ -235,6 +247,26 @@ Design pages:
 - `/project/design/pipelines?project=<id>`
 
 These editors are intentionally practical and form-based. They preserve template provenance visibility, keep `sourceTag` markers on seeded baseline fields, and feed directly into the existing validation and readiness model after each save.
+
+## Product navigation
+
+Top-level navigation now uses:
+
+- Home
+- Projects
+- Templates
+- Runs
+- Guide
+- Settings
+
+Inside a project workspace, the operator flow is:
+
+- Overview
+- Blueprint
+- Review
+- Run
+- History
+- Guide
 
 ## CLI usage
 

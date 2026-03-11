@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy OS Settings</title>
+    <title>Muloo Deploy Settings</title>
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body data-page="settings">
@@ -11,43 +11,40 @@
       <aside class="sidebar">
         <div>
           <p class="eyebrow">Muloo Internal</p>
-          <h1>Deploy OS</h1>
+          <h1>Muloo Deploy</h1>
           <p class="sidebar-copy">
-            Configuration readiness and environment conventions for local
-            development.
+            Environment, runtime, and integration settings for local delivery
+            work.
           </p>
         </div>
         <nav class="nav">
-          <a class="nav-link" href="/">Dashboard</a>
+          <a class="nav-link" href="/">Home</a>
           <a class="nav-link" href="/projects">Projects</a>
-          <a class="nav-link" href="/modules">Modules</a>
+          <a class="nav-link" href="/templates">Templates</a>
+          <a class="nav-link" href="/runs">Runs</a>
+          <a class="nav-link" href="/guide">Guide</a>
           <a class="nav-link active" href="/settings">Settings</a>
         </nav>
       </aside>
       <main class="content">
-        <section class="hero compact">
+        <section class="workspace-header">
           <div>
-            <p class="eyebrow">Environment status</p>
-            <h2>Keep config explicit, validated, and boring.</h2>
+            <p class="eyebrow">Settings</p>
+            <h2>Keep the workspace explicit, validated, and safe to run.</h2>
           </div>
         </section>
         <section class="grid two-col">
           <article class="panel">
-            <p class="panel-label">Runtime readiness</p>
+            <p class="panel-label">Workspace status</p>
             <div id="settings-readiness"></div>
           </article>
           <article class="panel">
-            <p class="panel-label">Conventions</p>
+            <p class="panel-label">Safe run rules</p>
             <ul class="list">
+              <li>Dry run stays the default execution mode.</li>
+              <li>Guarded apply must be explicit and tightly scoped.</li>
               <li>
-                Use `.env` locally and keep secrets out of source control.
-              </li>
-              <li>
-                Dry run is the default and only allowed execution mode today.
-              </li>
-              <li>
-                Only require external credentials for the modules that actually
-                need them.
+                Only configure the integrations the current workflow needs.
               </li>
             </ul>
           </article>

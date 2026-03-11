@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy OS Project Detail</title>
+    <title>Muloo Deploy Project Workspace</title>
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body data-page="project-detail">
@@ -11,23 +11,25 @@
       <aside class="sidebar">
         <div>
           <p class="eyebrow">Muloo Internal</p>
-          <h1>Deploy OS</h1>
+          <h1>Muloo Deploy</h1>
           <p class="sidebar-copy">
-            Project-level read view for modules, readiness, and dry-run history.
+            Guided project workspace for blueprint, review, runs, and delivery
+            history.
           </p>
         </div>
         <nav class="nav">
-          <a class="nav-link" href="/">Dashboard</a>
+          <a class="nav-link" href="/">Home</a>
           <a class="nav-link active" href="/projects">Projects</a>
-          <a class="nav-link" href="/projects/new">Create Project</a>
-          <a class="nav-link" href="/modules">Modules</a>
+          <a class="nav-link" href="/templates">Templates</a>
+          <a class="nav-link" href="/runs">Runs</a>
+          <a class="nav-link" href="/guide">Guide</a>
           <a class="nav-link" href="/settings">Settings</a>
         </nav>
       </aside>
       <main class="content">
-        <section class="hero compact" id="project-detail-hero">
+        <section class="workspace-header compact" id="project-detail-hero">
           <div>
-            <p class="eyebrow">Project detail</p>
+            <p class="eyebrow">Project workspace</p>
             <h2>Loading project...</h2>
           </div>
         </section>
@@ -36,47 +38,92 @@
         </section>
         <section class="grid two-col">
           <article class="panel">
-            <p class="panel-label">Summary</p>
+            <p class="panel-label">Project summary</p>
             <div id="project-detail-summary"></div>
           </article>
           <article class="panel">
-            <p class="panel-label">Readiness</p>
-            <div id="project-detail-readiness"></div>
+            <p class="panel-label">Next best action</p>
+            <div id="project-detail-next-step"></div>
           </article>
         </section>
-        <section class="grid two-col">
-          <article class="panel">
-            <p class="panel-label">Baseline</p>
-            <div id="project-detail-baseline"></div>
-          </article>
-          <article class="panel">
-            <p class="panel-label">Edit metadata</p>
-            <form class="form-grid" id="project-metadata-form"></form>
-          </article>
-        </section>
-        <section class="grid two-col">
-          <article class="panel">
-            <p class="panel-label">Validation findings</p>
-            <div id="project-detail-validation"></div>
-          </article>
-          <article class="panel">
-            <p class="panel-label">Recent executions</p>
-            <div id="project-detail-executions"></div>
-          </article>
-        </section>
-        <section class="panel">
+        <section class="panel" id="project-section-blueprint">
           <div class="section-header">
             <div>
-              <p class="panel-label">Project modules</p>
-              <h3>Module status and readiness</h3>
+              <p class="panel-label">Blueprint</p>
+              <h3>Lifecycle, properties, pipelines, and scope</h3>
             </div>
           </div>
-          <div class="module-grid" id="project-detail-modules"></div>
+          <div class="grid two-col">
+            <article class="panel muted">
+              <div id="project-detail-blueprint"></div>
+            </article>
+            <article class="panel muted">
+              <div id="project-detail-baseline"></div>
+            </article>
+          </div>
         </section>
-        <section class="panel">
-          <p class="panel-label">Edit scope</p>
-          <form class="form-grid" id="project-scope-form"></form>
-          <div id="project-scope-status"></div>
+        <section class="panel" id="project-section-review">
+          <div class="section-header">
+            <div>
+              <p class="panel-label">Review</p>
+              <h3>Review state, blockers, and what still needs shaping</h3>
+            </div>
+          </div>
+          <div class="grid two-col">
+            <article class="panel muted">
+              <div id="project-detail-readiness"></div>
+            </article>
+            <article class="panel muted">
+              <div id="project-detail-validation"></div>
+            </article>
+          </div>
+        </section>
+        <section class="panel" id="project-section-run">
+          <div class="section-header">
+            <div>
+              <p class="panel-label">Run</p>
+              <h3>
+                Preview changes, safe run scope, and next execution options
+              </h3>
+            </div>
+          </div>
+          <div class="grid two-col">
+            <article class="panel muted">
+              <div id="project-detail-run-summary"></div>
+            </article>
+            <article class="panel muted">
+              <div id="project-detail-modules"></div>
+            </article>
+          </div>
+        </section>
+        <section class="panel" id="project-section-history">
+          <div class="section-header">
+            <div>
+              <p class="panel-label">History</p>
+              <h3>Past runs, changes, and delivery timeline</h3>
+            </div>
+          </div>
+          <div id="project-detail-executions"></div>
+        </section>
+        <section class="panel" id="project-section-guide">
+          <div class="section-header">
+            <div>
+              <p class="panel-label">Guide</p>
+              <h3>Muloo standards and operator notes</h3>
+            </div>
+          </div>
+          <div id="project-detail-guide"></div>
+        </section>
+        <section class="grid two-col">
+          <article class="panel">
+            <p class="panel-label">Update project details</p>
+            <form class="form-grid" id="project-metadata-form"></form>
+          </article>
+          <article class="panel">
+            <p class="panel-label">Update scope</p>
+            <form class="form-grid" id="project-scope-form"></form>
+            <div id="project-scope-status"></div>
+          </article>
         </section>
       </main>
     </div>

@@ -3,25 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy Setup Areas</title>
+    <title>Muloo Deploy Runs</title>
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
-  <body data-page="modules">
+  <body data-page="runs">
     <div class="shell">
       <aside class="sidebar">
         <div>
           <p class="eyebrow">Muloo Internal</p>
           <h1>Muloo Deploy</h1>
           <p class="sidebar-copy">
-            Internal map of setup areas that support review, dry run, and safe
-            apply work.
+            Review dry runs, safe apply activity, and delivery history across
+            projects.
           </p>
         </div>
         <nav class="nav">
           <a class="nav-link" href="/">Home</a>
           <a class="nav-link" href="/projects">Projects</a>
           <a class="nav-link" href="/templates">Templates</a>
-          <a class="nav-link" href="/runs">Runs</a>
+          <a class="nav-link active" href="/runs">Runs</a>
           <a class="nav-link" href="/guide">Guide</a>
           <a class="nav-link" href="/settings">Settings</a>
         </nav>
@@ -29,21 +29,22 @@
       <main class="content">
         <section class="workspace-header">
           <div>
-            <p class="eyebrow">Setup areas</p>
+            <p class="eyebrow">Runs</p>
             <h2>
-              Execution capabilities are organised as setup areas, not as the
-              primary navigation of the product.
+              Track dry runs, safe apply attempts, and delivery history in one
+              queue.
             </h2>
           </div>
         </section>
         <section class="panel">
           <div class="section-header">
             <div>
-              <p class="panel-label">Capability map</p>
-              <h3>Current setup areas in the workspace</h3>
+              <p class="panel-label">Recent runs</p>
+              <h3>Latest activity across the workspace</h3>
             </div>
           </div>
-          <div class="module-grid" id="modules-page-grid"></div>
+          <div id="runs-filter-bar"></div>
+          <div id="runs-page-grid"></div>
         </section>
       </main>
     </div>

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy OS Pipelines Design</title>
+    <title>Muloo Deploy Blueprint Pipelines</title>
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body data-page="project-design-pipelines">
@@ -11,25 +11,28 @@
       <aside class="sidebar">
         <div>
           <p class="eyebrow">Muloo Internal</p>
-          <h1>Deploy OS</h1>
+          <h1>Muloo Deploy</h1>
           <p class="sidebar-copy">
-            Edit pipeline structure and stage ordering for the project
-            blueprint.
+            Blueprint editor for pipeline structure and stage ordering.
           </p>
         </div>
         <nav class="nav">
-          <a class="nav-link" href="/">Dashboard</a>
-          <a class="nav-link active" href="/projects">Projects</a>
-          <a class="nav-link" href="/projects/new">Create Project</a>
-          <a class="nav-link" href="/modules">Modules</a>
+          <a class="nav-link" href="/">Home</a>
+          <a class="nav-link" href="/projects">Projects</a>
+          <a class="nav-link" href="/templates">Templates</a>
+          <a class="nav-link" href="/runs">Runs</a>
+          <a class="nav-link" href="/guide">Guide</a>
           <a class="nav-link" href="/settings">Settings</a>
         </nav>
       </aside>
       <main class="content">
-        <section class="hero compact" id="project-design-pipelines-hero">
+        <section
+          class="workspace-header compact"
+          id="project-design-pipelines-hero"
+        >
           <div>
-            <p class="eyebrow">Design editor</p>
-            <h2>Loading pipeline design...</h2>
+            <p class="eyebrow">Blueprint</p>
+            <h2>Loading pipeline blueprint...</h2>
           </div>
         </section>
         <section class="panel">
@@ -40,7 +43,7 @@
             <div class="section-header">
               <div>
                 <p class="panel-label">Pipelines</p>
-                <h3>Structural CRM pipeline planning</h3>
+                <h3>Structural deal and ticket pipeline design</h3>
               </div>
             </div>
             <form id="project-design-pipelines-form"></form>
@@ -48,8 +51,8 @@
           <article class="panel">
             <div class="section-header">
               <div>
-                <p class="panel-label">Readiness impact</p>
-                <h3>Validation and module blockers</h3>
+                <p class="panel-label">Review impact</p>
+                <h3>Blockers and warnings before run</h3>
               </div>
             </div>
             <div id="project-design-pipelines-status"></div>

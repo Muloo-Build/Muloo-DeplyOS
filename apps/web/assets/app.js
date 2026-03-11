@@ -63,12 +63,198 @@ const propertyValueTypeOptions = [
   "bool"
 ];
 const pipelineObjectTypeOptions = ["deals", "tickets"];
+const projectFilterOptions = [
+  { key: "all", label: "All" },
+  { key: "active", label: "Active" },
+  { key: "blocked", label: "Blocked" },
+  { key: "ready-to-review", label: "Ready to Review" },
+  { key: "ready-to-run", label: "Ready to Run" },
+  { key: "completed", label: "Completed" }
+];
+const runFilterOptions = [
+  { key: "all", label: "All runs" },
+  { key: "dry-run", label: "Dry runs" },
+  { key: "apply", label: "Apply runs" },
+  { key: "failed", label: "Failed" }
+];
+const templateDisplayMap = {
+  "muloo-sales-foundation": {
+    label: "Sales Hub starter",
+    summary: "Deal pipelines, deal stages, sales properties.",
+    implementationType: "sales-hub-foundation"
+  },
+  "muloo-revops-foundation": {
+    label: "Core CRM starter",
+    summary: "Lifecycle, core contact/company fields, ownership basics.",
+    implementationType: "multi-hub-implementation"
+  },
+  "muloo-service-foundation": {
+    label: "Service Hub starter",
+    summary: "Ticket pipelines, support fields, service process setup.",
+    implementationType: "service-hub-enablement"
+  }
+};
+const futureImportPrefillFields = [
+  "client name",
+  "company name",
+  "region",
+  "portal id",
+  "owner",
+  "hubs in scope",
+  "implementation type",
+  "onboarding notes"
+];
+const startOptionDefinitions = [
+  {
+    key: "blank-project",
+    label: "Blank project",
+    summary: "Start clean and shape the blueprint yourself.",
+    detail:
+      "Use a blank start when discovery is clear but the blueprint still needs to be shaped from scratch.",
+    available: true,
+    mode: "blank",
+    defaultHubs: ["sales"],
+    implementationType: "sales-hub-foundation",
+    defaultModuleIds: ["crm-setup", "properties"]
+  },
+  {
+    key: "import-from-hubspot-deal",
+    label: "Import from HubSpot deal",
+    summary: "Create the project from an existing HubSpot deal record.",
+    detail:
+      "Coming next. This flow will turn a scoped deal into a working onboarding project with the key discovery details already carried over.",
+    available: false,
+    mode: "preview",
+    previewStatus: "Coming next"
+  },
+  {
+    key: "core-crm-starter",
+    label: "Core CRM starter",
+    summary: "Lifecycle, core contact/company fields, ownership basics.",
+    detail:
+      "Seed a practical CRM foundation so the operator can move quickly into review and dry-run work.",
+    available: true,
+    mode: "template",
+    templateId: "muloo-revops-foundation"
+  },
+  {
+    key: "marketing-hub-starter",
+    label: "Marketing Hub starter",
+    summary: "Segmentation, marketing properties, campaign-ready structure.",
+    detail:
+      "Visible now so the guided flow can support a dedicated marketing start point when the template and import support are ready.",
+    available: false,
+    mode: "preview",
+    previewStatus: "Coming next"
+  },
+  {
+    key: "sales-hub-starter",
+    label: "Sales Hub starter",
+    summary: "Deal pipelines, deal stages, sales properties.",
+    detail:
+      "Seed the baseline sales structure first, then tune it for the client before dry-run and apply.",
+    available: true,
+    mode: "template",
+    templateId: "muloo-sales-foundation"
+  },
+  {
+    key: "service-hub-starter",
+    label: "Service Hub starter",
+    summary: "Ticket pipelines, support fields, service process setup.",
+    detail:
+      "Start from a service-focused blueprint with ticket structure and support fields already mapped.",
+    available: true,
+    mode: "template",
+    templateId: "muloo-service-foundation"
+  },
+  {
+    key: "cms-hub-starter",
+    label: "CMS Hub starter",
+    summary: "Website and content setup foundation.",
+    detail:
+      "Visible now so website and content onboarding can slot into the same project flow without changing the creation experience later.",
+    available: false,
+    mode: "preview",
+    previewStatus: "Coming next"
+  },
+  {
+    key: "clone-past-project",
+    label: "Clone past project",
+    summary: "Reuse a previous Muloo delivery blueprint as the starting point.",
+    detail:
+      "Planned after the deal import flow so operators can duplicate a known-good project structure without starting over.",
+    available: false,
+    mode: "preview",
+    previewStatus: "Planned"
+  }
+];
 
-function formatDate(value) {
-  return new Date(value).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric"
+function getTemplateDisplayInfo(templateOrId) {
+  const id = typeof templateOrId === "string" ? templateOrId : templateOrId.id;
+  const fallbackLabel =
+    typeof templateOrId === "string" ? templateOrId : templateOrId.name;
+  const fallbackSummary =
+    typeof templateOrId === "string" ? "" : templateOrId.description;
+  const mapped = templateDisplayMap[id];
+
+  return {
+    label: mapped?.label ?? fallbackLabel,
+    summary: mapped?.summary ?? fallbackSummary,
+    implementationType: mapped?.implementationType
+  };
+}
+
+function getStartOptionDefinition(startKey) {
+  return (
+    startOptionDefinitions.find((option) => option.key === startKey) ??
+    startOptionDefinitions[0]
+  );
+}
+
+function renderStartOptionCard(option, selectedKey) {
+  return `
+    <label class="start-option-card${selectedKey === option.key ? " active" : ""}${option.available ? "" : " disabled-preview"}">
+      <input type="radio" name="startOption" value="${option.key}"${selectedKey === option.key ? " checked" : ""} />
+      <div class="start-option-meta">
+        <strong>${option.label}</strong>
+        <span class="${option.available ? "badge good" : "badge"}">${option.available ? "Available" : (option.previewStatus ?? "Preview")}</span>
+      </div>
+      <p class="small">${option.summary}</p>
+    </label>
+  `;
+}
+
+function decorateShell() {
+  document.querySelectorAll(".sidebar").forEach((sidebar) => {
+    const intro = sidebar.firstElementChild;
+
+    if (!(intro instanceof HTMLElement) || intro.dataset.decorated === "true") {
+      return;
+    }
+
+    const eyebrow = intro.querySelector(".eyebrow")?.textContent?.trim() ?? "";
+    const title =
+      intro.querySelector("h1")?.textContent?.trim() ?? "Muloo Deploy";
+    const copy =
+      intro.querySelector(".sidebar-copy")?.textContent?.trim() ?? "";
+
+    intro.dataset.decorated = "true";
+    intro.classList.add("sidebar-brand");
+    intro.innerHTML = `
+      <div class="brand-lockup">
+        <div class="brand-topline">
+          <span class="brand-mark-chip">
+            <img class="brand-mark" src="/assets/brand/muloo-mark.svg" alt="Muloo mark" />
+          </span>
+          <div class="brand-context">
+            <p class="eyebrow">${eyebrow}</p>
+            <img class="brand-wordmark" src="/assets/brand/muloo-logo.svg" alt="${title}" />
+          </div>
+        </div>
+        <span class="brand-product">Deploy OS</span>
+      </div>
+      <p class="sidebar-copy">${copy}</p>
+    `;
   });
 }
 
@@ -80,6 +266,90 @@ function formatTimestamp(value) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function formatRelativeDate(value) {
+  const timestamp = new Date(value).getTime();
+  const deltaHours = Math.round((Date.now() - timestamp) / (1000 * 60 * 60));
+
+  if (deltaHours < 1) {
+    return "Updated under an hour ago";
+  }
+
+  if (deltaHours < 24) {
+    return `Updated ${deltaHours}h ago`;
+  }
+
+  const deltaDays = Math.round(deltaHours / 24);
+  return `Updated ${deltaDays}d ago`;
+}
+
+function deriveProjectNextAction(project) {
+  if (project.status === "completed") {
+    return "Review history and handover notes";
+  }
+
+  if (project.readiness === "ready") {
+    return "Review dry run and decide whether to apply safe actions";
+  }
+
+  if (project.validationStatus === "invalid") {
+    return "Fix blueprint blockers before review";
+  }
+
+  if (project.validationStatus === "warning") {
+    return "Review warnings and finish the blueprint";
+  }
+
+  if (project.executionCount === 0) {
+    return "Run the first dry run when the blueprint is ready";
+  }
+
+  return "Open the project and continue the next setup step";
+}
+
+function projectMatchesFilter(project, filterKey) {
+  if (filterKey === "all") {
+    return true;
+  }
+
+  if (filterKey === "completed") {
+    return project.status === "completed";
+  }
+
+  if (filterKey === "blocked") {
+    return project.validationStatus === "invalid";
+  }
+
+  if (filterKey === "ready-to-review") {
+    return (
+      project.validationStatus !== "invalid" &&
+      project.status !== "completed" &&
+      project.moduleCount > 0
+    );
+  }
+
+  if (filterKey === "ready-to-run") {
+    return project.readiness === "ready";
+  }
+
+  if (filterKey === "active") {
+    return project.status !== "completed";
+  }
+
+  return true;
+}
+
+function runMatchesFilter(run, filterKey) {
+  if (filterKey === "all") {
+    return true;
+  }
+
+  if (filterKey === "failed") {
+    return run.status === "failed";
+  }
+
+  return run.mode === filterKey;
 }
 
 function renderBadgeClass(value) {
@@ -105,13 +375,42 @@ function renderBadgeClass(value) {
 }
 
 function renderEmptyState(label, message) {
-  return `<div class="kv"><div class="kv-item"><span>${label}</span><strong>${message}</strong></div></div>`;
+  return `
+    <div class="empty-state">
+      <p class="panel-label">${label}</p>
+      <h3>${message}</h3>
+      <p class="small">Use the next suggested action in this workspace to keep delivery moving.</p>
+    </div>
+  `;
+}
+
+function renderFilterBar(options, activeKey, basePath) {
+  return `
+    <div class="workflow-nav">
+      ${options
+        .map(
+          (option) =>
+            `<a class="workflow-link${option.key === activeKey ? " active" : ""}" href="${basePath}?filter=${encodeURIComponent(option.key)}">${option.label}</a>`
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderHomeStatCard(label, value, copy) {
+  return `
+    <article class="stat-card">
+      <p class="panel-label">${label}</p>
+      <h3>${value}</h3>
+      <p class="small">${copy}</p>
+    </article>
+  `;
 }
 
 function renderModuleCard(module) {
   return `
     <article class="module-card">
-      <p class="panel-label">${module.category}</p>
+      <p class="panel-label">Setup area / ${module.category}</p>
       <h3>${module.name}</h3>
       <p class="module-copy">${module.summary}</p>
       <div class="section-header">
@@ -122,25 +421,67 @@ function renderModuleCard(module) {
   `;
 }
 
+function getProjectTemplateLabel(project) {
+  if (!project.templateProvenance?.templateId) {
+    return "Blank project";
+  }
+
+  return getTemplateDisplayInfo(project.templateProvenance.templateId).label;
+}
+
+function countModuleStatuses(modules) {
+  return modules.reduce(
+    (counts, module) => {
+      counts.total += 1;
+      counts[module.status] = (counts[module.status] ?? 0) + 1;
+      return counts;
+    },
+    { total: 0, ready: 0, planned: 0, blocked: 0, "not-started": 0 }
+  );
+}
+
 function renderProjectCard(project) {
-  const seedLabel =
-    project.seedType === "template"
-      ? `Template: ${project.templateName ?? "seeded"}`
-      : project.seedType === "blank"
-        ? "Blank authoring project"
-        : "Project blueprint";
+  return `
+    <article class="queue-row">
+      <div class="section-header">
+        <div>
+          <p class="panel-label">${project.implementationType}</p>
+          <h3>${project.name}</h3>
+          <p class="module-copy">${project.clientName} / ${project.portalDisplayName}</p>
+        </div>
+        <div class="queue-meta">
+          <span class="${renderBadgeClass(project.validationStatus)}">${project.validationStatus}</span>
+          <span class="${renderBadgeClass(project.readiness)}">${project.readiness === "ready" ? "Ready to Run" : "Needs Review"}</span>
+        </div>
+      </div>
+      <div class="queue-grid">
+        <div><span>Phase</span><strong>${project.status}</strong></div>
+        <div><span>Last activity</span><strong>${formatRelativeDate(project.updatedAt)}</strong></div>
+        <div><span>Runs</span><strong>${project.executionCount}</strong></div>
+        <div><span>Next step</span><strong>${deriveProjectNextAction(project)}</strong></div>
+      </div>
+      <div class="action-row">
+        <a class="button-link" href="/project?id=${encodeURIComponent(project.id)}">Open workspace</a>
+      </div>
+    </article>
+  `;
+}
+
+function renderTemplateCard(template) {
+  const display = getTemplateDisplayInfo(template);
 
   return `
     <article class="module-card">
-      <p class="panel-label">${project.implementationType}</p>
-      <h3>${project.name}</h3>
-      <p class="module-copy">${project.clientName} / ${project.primaryRegion}</p>
-      <div class="section-header">
-        <span class="${renderBadgeClass(project.validationStatus)}">${project.validationStatus}</span>
-        <span class="small">${project.readiness} / ${project.executionCount} run(s)</span>
+      <p class="panel-label">Muloo starter</p>
+      <h3>${display.label}</h3>
+      <p class="module-copy">${display.summary}</p>
+      <div class="kv compact">
+        <div class="kv-item"><span>Hubs</span><strong>${template.hubsInScope.join(", ")}</strong></div>
+        <div class="kv-item"><span>Modules</span><strong>${template.defaultModules.map((module) => module.moduleId).join(", ")}</strong></div>
+        <div class="kv-item"><span>Pipelines</span><strong>${template.defaultPipelines.length}</strong></div>
+        <div class="kv-item"><span>Properties</span><strong>${template.propertyLibrary.properties.length}</strong></div>
       </div>
-      <p class="small">${seedLabel}</p>
-      <a class="button-link" href="/project?id=${encodeURIComponent(project.id)}">Open project</a>
+      <a class="button-link" href="/projects/new">Start from template</a>
     </article>
   `;
 }
@@ -156,12 +497,12 @@ function renderProjectModuleCard(projectId, module) {
       <h3>${module.name}</h3>
       <p class="module-copy">${module.summary}</p>
       <div class="section-header">
-        <span class="${renderBadgeClass(module.validationStatus)}">${module.validationStatus}</span>
-        <span class="small">${module.readiness}</span>
+        <span class="${renderBadgeClass(module.validationStatus)}">${module.readiness === "ready" ? "Ready to Run" : "Needs Review"}</span>
+        <span class="small">${module.validationStatus}</span>
       </div>
       <p class="small">${dependencyText}</p>
       <p class="small">Blockers: ${module.blockerCount} / Missing inputs: ${module.missingInputCount} / Warnings: ${module.warningCount}</p>
-      <a class="button-link" href="/module?project=${encodeURIComponent(projectId)}&module=${encodeURIComponent(module.moduleId)}">Inspect module</a>
+      <a class="button-link" href="/module?project=${encodeURIComponent(projectId)}&module=${encodeURIComponent(module.moduleId)}">Open setup area</a>
     </article>
   `;
 }
@@ -244,7 +585,34 @@ function renderExecutionCard(execution) {
         <span class="small">${executionCounts}</span>
       </div>
       <p class="small">${execution.result?.summary ?? execution.output.summaryText ?? "No summary available."}</p>
-      <a class="button-link" href="/execution?id=${encodeURIComponent(execution.id)}">Open execution</a>
+      <a class="button-link" href="/execution?id=${encodeURIComponent(execution.id)}">Open run</a>
+    </article>
+  `;
+}
+
+function renderRunQueueRow(execution) {
+  return `
+    <article class="queue-row">
+      <div class="section-header">
+        <div>
+          <p class="panel-label">${execution.projectId}</p>
+          <h3>${execution.moduleKey}</h3>
+          <p class="module-copy">${execution.mode} / ${formatTimestamp(execution.startedAt)}</p>
+        </div>
+        <div class="queue-meta">
+          <span class="${renderBadgeClass(execution.status)}">${execution.status}</span>
+        </div>
+      </div>
+      <div class="queue-grid">
+        <div><span>Mode</span><strong>${execution.mode}</strong></div>
+        <div><span>Requested</span><strong>${execution.operations.requested.length}</strong></div>
+        <div><span>Executed</span><strong>${execution.operations.executed.length}</strong></div>
+        <div><span>Blocked</span><strong>${execution.operations.blocked.length}</strong></div>
+      </div>
+      <p class="small">${execution.result?.summary ?? execution.output.summaryText ?? "No run summary recorded."}</p>
+      <div class="action-row">
+        <a class="button-link" href="/execution?id=${encodeURIComponent(execution.id)}">Open run</a>
+      </div>
     </article>
   `;
 }
@@ -390,24 +758,29 @@ function renderProjectWorkflowNav(projectId, activeKey) {
       href: `/project?id=${encodeURIComponent(projectId)}`
     },
     {
-      key: "lifecycle",
-      label: "Lifecycle",
+      key: "blueprint",
+      label: "Blueprint",
       href: `/project/design/lifecycle?project=${encodeURIComponent(projectId)}`
     },
     {
-      key: "properties",
-      label: "Properties",
-      href: `/project/design/properties?project=${encodeURIComponent(projectId)}`
+      key: "review",
+      label: "Review",
+      href: `/project?id=${encodeURIComponent(projectId)}#project-section-review`
     },
     {
-      key: "pipelines",
-      label: "Pipelines",
-      href: `/project/design/pipelines?project=${encodeURIComponent(projectId)}`
+      key: "run",
+      label: "Run",
+      href: `/project?id=${encodeURIComponent(projectId)}#project-section-run`
     },
     {
-      key: "executions",
-      label: "Execution history",
-      href: `/project?id=${encodeURIComponent(projectId)}`
+      key: "history",
+      label: "History",
+      href: `/project?id=${encodeURIComponent(projectId)}#project-section-history`
+    },
+    {
+      key: "guide",
+      label: "Guide",
+      href: `/project?id=${encodeURIComponent(projectId)}#project-section-guide`
     }
   ];
 
@@ -488,9 +861,9 @@ function renderProjectDesignStatus(
   return `
     <div class="status-panel">
       <div class="kv">
-        <div class="kv-item"><span>Validation</span><strong>${validation.status}</strong></div>
-        <div class="kv-item"><span>Readiness</span><strong>${readiness.readiness}</strong></div>
-        <div class="kv-item"><span>Template</span><strong>${project.templateProvenance?.templateName ?? "Blank project"}</strong></div>
+        <div class="kv-item"><span>Ready to review</span><strong>${validation.status !== "invalid" ? "yes" : "not yet"}</strong></div>
+        <div class="kv-item"><span>Ready to run</span><strong>${readiness.readiness === "ready" ? "yes" : "not yet"}</strong></div>
+        <div class="kv-item"><span>Starting point</span><strong>${getProjectTemplateLabel(project)}</strong></div>
         <div class="kv-item"><span>Seed type</span><strong>${project.templateProvenance?.seedType ?? "none"}</strong></div>
         <div class="kv-item"><span>Blockers</span><strong>${readiness.blockers.length}</strong></div>
         <div class="kv-item"><span>Warnings</span><strong>${validation.warnings.length}</strong></div>
@@ -504,58 +877,111 @@ function renderProjectDesignStatus(
   `;
 }
 
-async function initDashboard() {
-  const [health, modules, projects] = await Promise.all([
+async function initHomePage() {
+  const [health, projectsResponse, runsResponse] = await Promise.all([
     fetchJson("/api/health"),
-    fetchJson("/api/modules"),
-    fetchJson("/api/projects")
+    fetchJson("/api/projects"),
+    fetchJson("/api/runs")
   ]);
-  const healthCard = document.getElementById("health-card");
-  const stats = document.getElementById("dashboard-stats");
-  const moduleGrid = document.getElementById("dashboard-modules");
-  const projectGrid = document.getElementById("dashboard-projects");
-
-  if (healthCard) {
-    healthCard.innerHTML = `
-      <span class="panel-label">Platform health</span>
-      <strong>${health.status}</strong>
-      <span class="small">${health.environment} / ${health.executionMode}</span>
-    `;
-  }
+  const projects = projectsResponse.projects;
+  const runs = runsResponse.runs;
+  const stats = document.getElementById("home-priority-stats");
+  const attention = document.getElementById("home-attention-list");
+  const ready = document.getElementById("home-ready-list");
+  const recentRuns = document.getElementById("home-recent-runs");
+  const healthPanel = document.getElementById("home-health-panel");
 
   if (stats) {
-    const readyProjects = projects.projects.filter(
+    const blockedCount = projects.filter(
+      (project) => project.validationStatus === "invalid"
+    ).length;
+    const readyToRunCount = projects.filter(
       (project) => project.readiness === "ready"
+    ).length;
+    const readyToReviewCount = projects.filter(
+      (project) =>
+        project.validationStatus !== "invalid" && project.status !== "completed"
     ).length;
 
     stats.innerHTML = `
-      <article class="stat-card">
-        <p class="panel-label">Known modules</p>
-        <h3>${modules.modules.length}</h3>
-        <p class="small">Execution areas defined for delivery operations.</p>
-      </article>
-      <article class="stat-card">
-        <p class="panel-label">Modelled projects</p>
-        <h3>${projects.projects.length}</h3>
-        <p class="small">Structured onboarding blueprints currently available.</p>
-      </article>
-      <article class="stat-card">
-        <p class="panel-label">Ready projects</p>
-        <h3>${readyProjects}</h3>
-        <p class="small">Projects whose full module plan is ready for execution.</p>
-      </article>
+      ${renderHomeStatCard(
+        "Active projects",
+        projects.filter((project) => project.status !== "completed").length,
+        "Onboarding work currently in progress."
+      )}
+      ${renderHomeStatCard(
+        "Needs attention",
+        blockedCount,
+        "Projects blocked by missing or invalid blueprint inputs."
+      )}
+      ${renderHomeStatCard(
+        "Ready to review",
+        readyToReviewCount,
+        "Projects whose blueprint is far enough along for operator review."
+      )}
+      ${renderHomeStatCard(
+        "Ready to run",
+        readyToRunCount,
+        "Projects whose planned work is ready for a dry run."
+      )}
     `;
   }
 
-  if (projectGrid) {
-    projectGrid.innerHTML = projects.projects.map(renderProjectCard).join("");
+  if (attention) {
+    const items = projects
+      .filter(
+        (project) =>
+          project.validationStatus === "invalid" ||
+          project.validationStatus === "warning"
+      )
+      .slice(0, 4);
+
+    attention.innerHTML = items.length
+      ? items.map(renderProjectCard).join("")
+      : renderEmptyState(
+          "Attention",
+          "No blocked projects right now. Start a project or open the queue."
+        );
   }
 
-  if (moduleGrid) {
-    moduleGrid.innerHTML = modules.modules
-      .slice(0, 3)
-      .map(renderModuleCard)
-      .join("");
+  if (ready) {
+    const items = projects
+      .filter(
+        (project) =>
+          project.readiness === "ready" ||
+          project.validationStatus === "warning"
+      )
+      .slice(0, 4);
+
+    ready.innerHTML = items.length
+      ? items.map(renderProjectCard).join("")
+      : renderEmptyState(
+          "Ready next",
+          "Nothing is ready yet. Finish a blueprint and review blockers first."
+        );
+  }
+
+  if (recentRuns) {
+    recentRuns.innerHTML = runs.length
+      ? runs.slice(0, 4).map(renderRunQueueRow).join("")
+      : renderEmptyState(
+          "Runs",
+          "No runs yet. Start with a dry run once a project is ready."
+        );
+  }
+
+  if (healthPanel) {
+    healthPanel.innerHTML = `
+      <div class="kv">
+        <div class="kv-item"><span>Status</span><strong>${health.status}</strong></div>
+        <div class="kv-item"><span>Environment</span><strong>${health.environment}</strong></div>
+        <div class="kv-item"><span>Run mode</span><strong>${health.executionMode}</strong></div>
+        <div class="kv-item"><span>Apply enabled</span><strong>${health.applyEnabled ? "yes" : "no"}</strong></div>
+      </div>
+      <div class="callout">
+        <p>Use Home to decide what needs blueprint work, what is ready for review, and what should run next.</p>
+      </div>
+    `;
   }
 }
 
@@ -569,11 +995,109 @@ async function initModulesPage() {
 }
 
 async function initProjectsPage() {
+  const params = new URLSearchParams(window.location.search);
+  const activeFilter = params.get("filter") ?? "all";
   const projects = await fetchJson("/api/projects");
   const grid = document.getElementById("projects-page-grid");
+  const filterBar = document.getElementById("projects-filter-bar");
+
+  if (filterBar) {
+    filterBar.innerHTML = renderFilterBar(
+      projectFilterOptions,
+      activeFilter,
+      "/projects"
+    );
+  }
 
   if (grid) {
-    grid.innerHTML = projects.projects.map(renderProjectCard).join("");
+    const filteredProjects = projects.projects.filter((project) =>
+      projectMatchesFilter(project, activeFilter)
+    );
+
+    grid.innerHTML = filteredProjects.length
+      ? filteredProjects.map(renderProjectCard).join("")
+      : renderEmptyState("Projects", "No projects match this queue view yet.");
+  }
+}
+
+async function initTemplatesPage() {
+  const templatesResponse = await fetchJson("/api/templates");
+  const grid = document.getElementById("templates-page-grid");
+
+  if (grid) {
+    grid.innerHTML = templatesResponse.templates.length
+      ? templatesResponse.templates.map(renderTemplateCard).join("")
+      : renderEmptyState("Templates", "No Muloo templates are available yet.");
+  }
+}
+
+async function initRunsPage() {
+  const params = new URLSearchParams(window.location.search);
+  const activeFilter = params.get("filter") ?? "all";
+  const runsResponse = await fetchJson("/api/runs");
+  const grid = document.getElementById("runs-page-grid");
+  const filterBar = document.getElementById("runs-filter-bar");
+
+  if (filterBar) {
+    filterBar.innerHTML = renderFilterBar(
+      runFilterOptions,
+      activeFilter,
+      "/runs"
+    );
+  }
+
+  if (grid) {
+    const filteredRuns = runsResponse.runs.filter((run) =>
+      runMatchesFilter(run, activeFilter)
+    );
+
+    grid.innerHTML = filteredRuns.length
+      ? filteredRuns.map(renderRunQueueRow).join("")
+      : renderEmptyState(
+          "Runs",
+          "No runs match this view yet. Start with a dry run from a ready project."
+        );
+  }
+}
+
+async function initGuidePage() {
+  const grid = document.getElementById("guide-page-grid");
+
+  if (grid) {
+    grid.innerHTML = `
+      <article class="panel">
+        <p class="panel-label">Muloo standards</p>
+        <h3>How to use the workspace</h3>
+        <ul class="list">
+          <li>Start with the closest starter when you want lifecycle, fields, or pipelines seeded for you.</li>
+          <li>Use Blueprint to finish lifecycle, properties, pipelines, and scope before review.</li>
+          <li>Use Review to clear blockers and warnings before running anything.</li>
+        </ul>
+      </article>
+      <article class="panel">
+        <p class="panel-label">HubSpot setup help</p>
+        <h3>What the operator should check</h3>
+        <ul class="list">
+          <li>Confirm the correct portal and environment before any run.</li>
+          <li>Dry run first. Use guarded apply only where the safe run rules allow it.</li>
+          <li>Review project history after each run so delivery stays auditable.</li>
+        </ul>
+      </article>
+      <article class="panel">
+        <p class="panel-label">Product notes</p>
+        <h3>What this guide area will grow into</h3>
+        <ul class="list">
+          <li>Muloo onboarding standards and playbooks.</li>
+          <li>HubSpot product change notes relevant to delivery work.</li>
+          <li>Module-specific setup guidance for operators.</li>
+        </ul>
+      </article>
+      <article class="panel">
+        <p class="panel-label">Current limitation</p>
+        <h3>Guide content is intentionally light in v1</h3>
+        <p class="small">This shell exists so standards and product notes can become part of the working product, not separate documentation that operators forget to open.</p>
+      </article>
+    `;
   }
 }
 
@@ -594,26 +1118,27 @@ async function initProjectNewPage() {
     return;
   }
 
+  const blankModuleSelection = modules
+    .filter((module) => ["crm-setup", "properties"].includes(module.id))
+    .map((module) => ({
+      moduleId: module.id,
+      status: module.id === "crm-setup" ? "ready" : "planned",
+      dependencies: []
+    }));
+
   form.innerHTML = `
-    <label class="field">
-      <span>Seed type</span>
-      <select name="seedType">
-        <option value="blank">Blank</option>
-        <option value="template">Template</option>
-      </select>
-    </label>
-    <label class="field">
-      <span>Template</span>
-      <select name="templateId">
-        <option value="">Select a template</option>
-        ${templates
-          .map(
-            (template) =>
-              `<option value="${template.id}">${template.name}</option>`
-          )
+    <div class="field field-full">
+      <span>Step 1 / How do you want to start?</span>
+      <div class="start-option-grid">
+        ${startOptionDefinitions
+          .map((option) => renderStartOptionCard(option, "blank-project"))
           .join("")}
-      </select>
-    </label>
+      </div>
+    </div>
+    <div class="field field-full">
+      <span>Step 2 / Project details</span>
+      <p class="small">Set the client, portal, and delivery owner so the workspace starts with the right context.</p>
+    </div>
     <label class="field">
       <span>Project id</span>
       <input name="id" placeholder="project-client-foundation" required />
@@ -628,27 +1153,27 @@ async function initProjectNewPage() {
     </label>
     <label class="field">
       <span>Client name</span>
-      <input name="clientName" placeholder="Client Name" required />
+      <input name="clientName" data-prefill-key="clientName" placeholder="Client Name" required />
     </label>
     <label class="field">
       <span>Portal id</span>
-      <input name="portalId" placeholder="123456789" required />
+      <input name="portalId" data-prefill-key="portalId" placeholder="123456789" required />
     </label>
     <label class="field">
       <span>Owner name</span>
-      <input name="ownerName" placeholder="Owner Name" required />
+      <input name="ownerName" data-prefill-key="ownerName" placeholder="Owner Name" required />
     </label>
     <label class="field">
       <span>Owner email</span>
-      <input name="ownerEmail" type="email" placeholder="owner@muloo.example" required />
+      <input name="ownerEmail" data-prefill-key="ownerEmail" type="email" placeholder="owner@muloo.example" required />
     </label>
     <label class="field">
       <span>Primary region</span>
-      <input name="primaryRegion" value="North America" required />
+      <input name="primaryRegion" data-prefill-key="primaryRegion" value="North America" required />
     </label>
     <label class="field">
       <span>Implementation type</span>
-      <select name="implementationType">
+      <select name="implementationType" data-prefill-key="implementationType">
         ${renderSelectOptions(implementationTypeOptions, "sales-hub-foundation")}
       </select>
     </label>
@@ -660,79 +1185,152 @@ async function initProjectNewPage() {
     </label>
     <label class="field field-full">
       <span>Notes</span>
-      <textarea name="notes" rows="4">Initial authoring entry created in Muloo Deploy OS.</textarea>
+      <textarea name="notes" data-prefill-key="notes" rows="4">Initial onboarding workspace created in Muloo Deploy.</textarea>
     </label>
     <div class="field field-full">
-      <span>Hubs in scope</span>
+      <span>Step 3 / HubSpot scope</span>
+      <p class="small">Pick the hubs this onboarding needs today. Future HubSpot-deal import will prefill this automatically when that flow ships.</p>
       <div class="checkbox-grid">
         ${renderCheckboxGroup("hubInScope", hubOptions, ["sales"])}
       </div>
     </div>
     <div class="field field-full">
-        <span>Modules in scope</span>
-        <div class="module-selection-grid">
-          ${renderModuleSelectionRows(
-            modules,
-            modules
-              .filter((module) =>
-                ["crm-setup", "properties"].includes(module.id)
-              )
-              .map((module) => ({
-                moduleId: module.id,
-                status: module.id === "crm-setup" ? "ready" : "planned"
-              }))
-          )}
-        </div>
+      <span>Step 4 / Setup areas in scope</span>
+      <p class="small">Keep this practical. Start with the setup areas the operator actually needs to review and run.</p>
+      <div class="module-selection-grid" id="project-create-module-selection">
+        ${renderModuleSelectionRows(modules, blankModuleSelection)}
       </div>
-    <button class="button-link" type="submit">Save project</button>
+    </div>
+    <div class="wizard-footer">
+      <div class="callout">
+        <p>Dry run remains the default after project creation. Safe apply stays narrow and explicitly guarded.</p>
+      </div>
+      <button class="button-link" id="project-create-submit" type="submit">Start onboarding project</button>
+    </div>
   `;
 
-  function renderTemplateDetail(templateId) {
-    const template = templates.find((candidate) => candidate.id === templateId);
+  const moduleSelection = document.getElementById(
+    "project-create-module-selection"
+  );
+  const submitButton = document.getElementById("project-create-submit");
 
-    templateDetail.innerHTML = template
-      ? `
-        <div class="kv">
-          <div class="kv-item"><span>Name</span><strong>${template.name}</strong></div>
-          <div class="kv-item"><span>Type</span><strong>${template.templateType}</strong></div>
-          <div class="kv-item"><span>Hubs</span><strong>${template.hubsInScope.join(", ")}</strong></div>
-          <div class="kv-item"><span>Modules</span><strong>${template.defaultModules.map((module) => module.moduleId).join(", ")}</strong></div>
-          <div class="kv-item"><span>Properties</span><strong>${template.propertyLibrary.properties.length}</strong></div>
-          <div class="kv-item"><span>Pipelines</span><strong>${template.defaultPipelines.length}</strong></div>
-          <div class="kv-item"><span>Description</span><strong>${template.description}</strong></div>
-        </div>
-      `
-      : renderEmptyState(
-          "Template",
-          "Choose a Muloo template or create from blank."
-        );
+  function setCheckedValues(name, values) {
+    form
+      .querySelectorAll(`input[name="${name}"]`)
+      .forEach((input) => (input.checked = values.includes(input.value)));
   }
 
-  renderTemplateDetail("");
+  function renderStartingPointDetail(startOptionKey) {
+    const startOption = getStartOptionDefinition(startOptionKey);
+    const template = startOption.templateId
+      ? templates.find((candidate) => candidate.id === startOption.templateId)
+      : null;
+    const display = template
+      ? getTemplateDisplayInfo(template)
+      : { label: startOption.label, summary: startOption.summary };
+    const prefillPreview =
+      startOption.key === "import-from-hubspot-deal"
+        ? `
+          <div class="callout">
+            <p>This future flow will prefill: ${futureImportPrefillFields.join(", ")}.</p>
+          </div>
+        `
+        : "";
 
-  form
-    .querySelector('select[name="seedType"]')
-    ?.addEventListener("change", (event) => {
-      const seedType = event.target.value;
-      const templateSelect = form.querySelector('select[name="templateId"]');
+    templateDetail.innerHTML = `
+      <div class="status-panel">
+        <span class="${startOption.available ? "badge good" : "badge"}">${startOption.available ? "Ready now" : (startOption.previewStatus ?? "Preview")}</span>
+        <h3>${display.label}</h3>
+        <p class="module-copy">${startOption.detail}</p>
+      </div>
+      <div class="kv">
+        <div class="kv-item"><span>Practical outcome</span><strong>${display.summary}</strong></div>
+        <div class="kv-item"><span>Hubs</span><strong>${template?.hubsInScope.join(", ") ?? startOption.defaultHubs?.join(", ") ?? "Set manually"}</strong></div>
+        <div class="kv-item"><span>Setup areas</span><strong>${template?.defaultModules.map((module) => module.moduleId).join(", ") ?? startOption.defaultModuleIds?.join(", ") ?? "Choose during setup"}</strong></div>
+        <div class="kv-item"><span>Properties</span><strong>${template?.propertyLibrary.properties.length ?? 0}</strong></div>
+        <div class="kv-item"><span>Pipelines</span><strong>${template?.defaultPipelines.length ?? 0}</strong></div>
+      </div>
+      ${prefillPreview}
+    `;
+  }
 
-      templateSelect.disabled = seedType !== "template";
-      if (seedType !== "template") {
-        templateSelect.value = "";
-        renderTemplateDetail("");
-      }
+  function applyStartingPoint(startOptionKey) {
+    const startOption = getStartOptionDefinition(startOptionKey);
+    const template = startOption.templateId
+      ? templates.find((candidate) => candidate.id === startOption.templateId)
+      : null;
+    const implementationType =
+      getTemplateDisplayInfo(template ?? startOption.templateId ?? "")
+        .implementationType ??
+      startOption.implementationType ??
+      "sales-hub-foundation";
+    const selectedModules = template?.defaultModules ?? blankModuleSelection;
+
+    if (moduleSelection) {
+      moduleSelection.innerHTML = renderModuleSelectionRows(
+        modules,
+        selectedModules
+      );
+    }
+
+    if (template) {
+      setCheckedValues("hubInScope", template.hubsInScope);
+    } else if (startOption.defaultHubs) {
+      setCheckedValues("hubInScope", startOption.defaultHubs);
+    }
+
+    const implementationTypeSelect = form.querySelector(
+      'select[name="implementationType"]'
+    );
+    if (implementationTypeSelect) {
+      implementationTypeSelect.value = implementationType;
+    }
+
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = !startOption.available;
+      submitButton.textContent = startOption.available
+        ? "Start onboarding project"
+        : `${startOption.previewStatus ?? "Preview"} only`;
+    }
+
+    renderStartingPointDetail(startOptionKey);
+  }
+
+  applyStartingPoint("blank-project");
+
+  form.querySelectorAll('input[name="startOption"]').forEach((input) => {
+    input.addEventListener("change", (event) => {
+      const startOptionKey = event.target.value;
+      applyStartingPoint(startOptionKey);
+      form
+        .querySelectorAll(".start-option-card")
+        .forEach((card) =>
+          card.classList.toggle(
+            "active",
+            card.querySelector('input[name="startOption"]')?.value ===
+              startOptionKey
+          )
+        );
     });
-
-  form
-    .querySelector('select[name="templateId"]')
-    ?.addEventListener("change", (event) => {
-      renderTemplateDetail(event.target.value);
-    });
+  });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(form);
-    const seedType = String(formData.get("seedType"));
+    const startOption = getStartOptionDefinition(
+      String(formData.get("startOption"))
+    );
+
+    if (!startOption.available) {
+      if (status) {
+        status.innerHTML = renderEmptyState(
+          startOption.label,
+          `${startOption.previewStatus ?? "Preview"} only. Choose an available starting point for now.`
+        );
+      }
+      return;
+    }
+
     const payload = {
       id: String(formData.get("id")),
       name: String(formData.get("name")),
@@ -758,12 +1356,12 @@ async function initProjectNewPage() {
 
     try {
       const response =
-        seedType === "template"
+        startOption.mode === "template" && startOption.templateId
           ? await requestJson("/api/projects/from-template", {
               method: "POST",
               body: JSON.stringify({
                 ...payload,
-                templateId: String(formData.get("templateId"))
+                templateId: startOption.templateId
               })
             })
           : await requestJson("/api/projects", {
@@ -774,10 +1372,10 @@ async function initProjectNewPage() {
       if (status) {
         status.innerHTML = `
           <div class="kv">
-            <div class="kv-item"><span>Saved</span><strong>${response.project.name}</strong></div>
+            <div class="kv-item"><span>Project started</span><strong>${response.project.name}</strong></div>
             <div class="kv-item"><span>Project id</span><strong>${response.project.id}</strong></div>
           </div>
-          <a class="button-link" href="/project?id=${encodeURIComponent(response.project.id)}">Open project</a>
+          <a class="button-link" href="/project?id=${encodeURIComponent(response.project.id)}">Open workspace</a>
         `;
       }
     } catch (error) {
@@ -799,6 +1397,7 @@ async function initProjectDetailPage() {
   const [
     projectResponse,
     summaryResponse,
+    designResponse,
     modulesResponse,
     validationResponse,
     readinessResponse,
@@ -806,6 +1405,7 @@ async function initProjectDetailPage() {
   ] = await Promise.all([
     fetchJson(`/api/projects/${encodeURIComponent(projectId)}`),
     fetchJson(`/api/projects/${encodeURIComponent(projectId)}/summary`),
+    fetchJson(`/api/projects/${encodeURIComponent(projectId)}/design`),
     fetchJson(`/api/projects/${encodeURIComponent(projectId)}/modules`),
     fetchJson(`/api/projects/${encodeURIComponent(projectId)}/validation`),
     fetchJson(`/api/projects/${encodeURIComponent(projectId)}/readiness`),
@@ -814,10 +1414,14 @@ async function initProjectDetailPage() {
 
   const hero = document.getElementById("project-detail-hero");
   const summary = document.getElementById("project-detail-summary");
+  const nextStep = document.getElementById("project-detail-next-step");
+  const blueprint = document.getElementById("project-detail-blueprint");
   const readiness = document.getElementById("project-detail-readiness");
   const baseline = document.getElementById("project-detail-baseline");
   const validation = document.getElementById("project-detail-validation");
+  const runSummary = document.getElementById("project-detail-run-summary");
   const executions = document.getElementById("project-detail-executions");
+  const guide = document.getElementById("project-detail-guide");
   const modules = document.getElementById("project-detail-modules");
   const workflowNav = document.getElementById("project-workflow-nav");
   const metadataForm = document.getElementById("project-metadata-form");
@@ -825,18 +1429,37 @@ async function initProjectDetailPage() {
   const scopeStatus = document.getElementById("project-scope-status");
   let project = projectResponse.project;
   const projectSummary = summaryResponse.summary;
+  const projectDesign = designResponse.design;
   const projectValidation = validationResponse.validation;
   const projectReadiness = readinessResponse.readiness;
   const projectExecutions = executionsResponse.executions;
   const projectModules = modulesResponse.modules;
+  const latestExecution = projectExecutions[0];
   const modulesCatalog = (await fetchJson("/api/modules")).modules;
+  const setupProgress = countModuleStatuses(project.modulePlanning);
+  const templateLabel = getProjectTemplateLabel(project);
+  const blueprintChangedSinceRun =
+    latestExecution &&
+    new Date(project.updatedAt).getTime() >
+      new Date(latestExecution.startedAt).getTime();
 
   if (hero) {
     hero.innerHTML = `
       <div>
-        <p class="eyebrow">Project detail</p>
+        <p class="eyebrow">Project workspace</p>
         <h2>${project.name}</h2>
-        <p class="hero-copy">${project.clientContext.notes}</p>
+        <p class="hero-copy">${project.clientContext.clientName} / ${project.hubspotScope.portal.displayName}</p>
+        <div class="action-row">
+          <span class="${renderBadgeClass(project.status)}">${project.status}</span>
+          <span class="${renderBadgeClass(projectValidation.status)}">${projectValidation.status === "invalid" ? "Blocked" : "Ready to Review"}</span>
+          <span class="${renderBadgeClass(projectReadiness.readiness)}">${projectReadiness.readiness === "ready" ? "Ready to Run" : "Needs Work"}</span>
+        </div>
+      </div>
+      <div class="kv compact">
+        <div class="kv-item"><span>Current phase</span><strong>${projectSummary.status}</strong></div>
+        <div class="kv-item"><span>Next best action</span><strong>${deriveProjectNextAction(projectSummary)}</strong></div>
+        <div class="kv-item"><span>Setup progress</span><strong>${setupProgress.ready} ready / ${setupProgress.total} total</strong></div>
+        <div class="kv-item"><span>Last change</span><strong>${formatRelativeDate(project.updatedAt)}</strong></div>
       </div>
     `;
   }
@@ -849,12 +1472,60 @@ async function initProjectDetailPage() {
     summary.innerHTML = `
       <div class="kv">
         <div class="kv-item"><span>Client</span><strong>${projectSummary.clientName}</strong></div>
-        <div class="kv-item"><span>Region</span><strong>${projectSummary.primaryRegion}</strong></div>
-        <div class="kv-item"><span>Status</span><strong>${projectSummary.status}</strong></div>
         <div class="kv-item"><span>Portal</span><strong>${projectSummary.portalDisplayName}</strong></div>
-        <div class="kv-item"><span>Seed type</span><strong>${projectSummary.seedType ?? "unknown"}</strong></div>
-        <div class="kv-item"><span>Template</span><strong>${projectSummary.templateName ?? "none"}</strong></div>
-        <div class="kv-item"><span>Updated</span><strong>${formatDate(projectSummary.updatedAt)}</strong></div>
+        <div class="kv-item"><span>Owner</span><strong>${project.owner.name}</strong></div>
+        <div class="kv-item"><span>Current phase</span><strong>${projectSummary.status}</strong></div>
+        <div class="kv-item"><span>Starting point</span><strong>${templateLabel}</strong></div>
+        <div class="kv-item"><span>Ready to review</span><strong>${projectValidation.status !== "invalid" ? "yes" : "not yet"}</strong></div>
+        <div class="kv-item"><span>Ready to run</span><strong>${projectReadiness.readiness === "ready" ? "yes" : "not yet"}</strong></div>
+        <div class="kv-item"><span>Last activity</span><strong>${formatRelativeDate(projectSummary.updatedAt)}</strong></div>
+      </div>
+    `;
+  }
+
+  if (nextStep) {
+    nextStep.innerHTML = `
+      <div class="status-panel">
+        <span class="${renderBadgeClass(projectValidation.status)}">${projectValidation.status === "invalid" ? "Blocked" : "In progress"}</span>
+        <h3>${deriveProjectNextAction(projectSummary)}</h3>
+        <p class="small">${project.clientContext.notes || "Use the Blueprint, Review, and Run steps in order so each change stays deliberate and auditable."}</p>
+        <div class="kv compact">
+          <div class="kv-item"><span>Ready setup areas</span><strong>${setupProgress.ready}</strong></div>
+          <div class="kv-item"><span>Planned</span><strong>${setupProgress.planned}</strong></div>
+          <div class="kv-item"><span>Blocked</span><strong>${setupProgress.blocked}</strong></div>
+        </div>
+        <div class="action-row">
+          <a class="button-link" href="/project/design/lifecycle?project=${encodeURIComponent(project.id)}">Open Blueprint</a>
+          <a class="button-secondary" href="#project-section-review">Open Review</a>
+        </div>
+      </div>
+    `;
+  }
+
+  if (blueprint) {
+    const contactGroups =
+      projectDesign.propertyPlanning.propertyGroupsByObject.find(
+        (entry) => entry.objectType === "contacts"
+      )?.groups.length ?? 0;
+    const contactProperties =
+      projectDesign.propertyPlanning.propertiesByObject.find(
+        (entry) => entry.objectType === "contacts"
+      )?.properties.length ?? 0;
+
+    blueprint.innerHTML = `
+      <div class="kv">
+        <div class="kv-item"><span>Hubs in scope</span><strong>${project.hubspotScope.hubsInScope.join(", ")}</strong></div>
+        <div class="kv-item"><span>Lifecycle stages</span><strong>${projectDesign.lifecycleStages.length}</strong></div>
+        <div class="kv-item"><span>Lead statuses</span><strong>${projectDesign.leadStatuses.length}</strong></div>
+        <div class="kv-item"><span>Contact groups</span><strong>${contactGroups}</strong></div>
+        <div class="kv-item"><span>Contact properties</span><strong>${contactProperties}</strong></div>
+        <div class="kv-item"><span>Pipelines</span><strong>${projectDesign.pipelines.length}</strong></div>
+        <div class="kv-item"><span>Objects in scope</span><strong>${projectDesign.objectsInScope.join(", ")}</strong></div>
+      </div>
+      <div class="action-row">
+        <a class="button-link" href="/project/design/lifecycle?project=${encodeURIComponent(project.id)}">Edit lifecycle</a>
+        <a class="button-secondary" href="/project/design/properties?project=${encodeURIComponent(project.id)}">Edit properties</a>
+        <a class="button-secondary" href="/project/design/pipelines?project=${encodeURIComponent(project.id)}">Edit pipelines</a>
       </div>
     `;
   }
@@ -863,9 +1534,9 @@ async function initProjectDetailPage() {
     baseline.innerHTML = `
       <div class="kv">
         <div class="kv-item"><span>Seed source</span><strong>${project.templateProvenance?.seedType ?? "none"}</strong></div>
-        <div class="kv-item"><span>Template</span><strong>${project.templateProvenance?.templateName ?? "Blank project"}</strong></div>
-        <div class="kv-item"><span>Seeded modules</span><strong>${project.templateProvenance?.seededModuleIds?.join(", ") || project.modulePlanning.map((module) => module.moduleId).join(", ")}</strong></div>
-        <div class="kv-item"><span>Baseline source tags</span><strong>${project.templateProvenance?.baselineSourceTags?.join(", ") || "none"}</strong></div>
+        <div class="kv-item"><span>Starting point</span><strong>${templateLabel}</strong></div>
+        <div class="kv-item"><span>Seeded setup areas</span><strong>${project.templateProvenance?.seededModuleIds?.join(", ") || project.modulePlanning.map((module) => module.moduleId).join(", ")}</strong></div>
+        <div class="kv-item"><span>Baseline tags</span><strong>${project.templateProvenance?.baselineSourceTags?.join(", ") || "none"}</strong></div>
         <div class="kv-item"><span>Standard groups</span><strong>${countStandardGroups(project)}</strong></div>
         <div class="kv-item"><span>Standard properties</span><strong>${countStandardProperties(project)}</strong></div>
       </div>
@@ -875,10 +1546,11 @@ async function initProjectDetailPage() {
   if (readiness) {
     readiness.innerHTML = `
       <div class="kv">
-        <div class="kv-item"><span>Validation</span><strong>${projectValidation.status}</strong></div>
-        <div class="kv-item"><span>Readiness</span><strong>${projectReadiness.readiness}</strong></div>
-        <div class="kv-item"><span>Ready modules</span><strong>${projectReadiness.readyModuleIds.join(", ") || "none"}</strong></div>
-        <div class="kv-item"><span>Blocked modules</span><strong>${projectReadiness.blockedModuleIds.join(", ") || "none"}</strong></div>
+        <div class="kv-item"><span>Ready to review</span><strong>${projectValidation.status !== "invalid" ? "yes" : "not yet"}</strong></div>
+        <div class="kv-item"><span>Ready to run</span><strong>${projectReadiness.readiness === "ready" ? "yes" : "not yet"}</strong></div>
+        <div class="kv-item"><span>Ready setup areas</span><strong>${projectReadiness.readyModuleIds.join(", ") || "none"}</strong></div>
+        <div class="kv-item"><span>Blocked setup areas</span><strong>${projectReadiness.blockedModuleIds.join(", ") || "none"}</strong></div>
+        <div class="kv-item"><span>Changed since last run</span><strong>${latestExecution ? (blueprintChangedSinceRun ? "yes" : "no") : "no runs yet"}</strong></div>
         ${renderReasonRows("Blocker", projectReadiness.blockers)}
         ${renderFindingRows("Warning", projectReadiness.warnings)}
       </div>
@@ -888,9 +1560,28 @@ async function initProjectDetailPage() {
   if (validation) {
     validation.innerHTML = `
       <div class="kv">
-        ${renderFindingRows("Error", projectValidation.errors)}
+        ${renderFindingRows("Review blocker", projectValidation.errors)}
         ${renderFindingRows("Warning", projectValidation.warnings)}
-        ${renderFindingRows("Info", projectValidation.infos)}
+        ${renderFindingRows("Note", projectValidation.infos)}
+      </div>
+    `;
+  }
+
+  if (runSummary) {
+    const applyCapableModule = projectModules.find(
+      (module) => module.moduleId === "properties"
+    );
+
+    runSummary.innerHTML = `
+      <div class="kv">
+        <div class="kv-item"><span>Dry-run path</span><strong>properties, pipelines</strong></div>
+        <div class="kv-item"><span>Safe apply</span><strong>${applyCapableModule ? "create-only contact properties" : "not available"}</strong></div>
+        <div class="kv-item"><span>Last run</span><strong>${latestExecution ? formatTimestamp(latestExecution.startedAt) : "No runs yet"}</strong></div>
+        <div class="kv-item"><span>Past changes</span><strong>${latestExecution ? (blueprintChangedSinceRun ? "Blueprint updated since the last run" : "No blueprint changes since the last run") : "No run baseline yet"}</strong></div>
+        <div class="kv-item"><span>Last summary</span><strong>${latestExecution?.result?.summary ?? latestExecution?.output.summaryText ?? "No run summary yet."}</strong></div>
+      </div>
+      <div class="callout">
+        <p>Use dry run first. Safe apply remains limited to create-only contact properties when the safe run rules allow it.</p>
       </div>
     `;
   }
@@ -898,13 +1589,29 @@ async function initProjectDetailPage() {
   if (executions) {
     executions.innerHTML = projectExecutions.length
       ? projectExecutions.map(renderExecutionCard).join("")
-      : renderEmptyState("History", "No executions recorded yet.");
+      : renderEmptyState(
+          "Runs",
+          "No runs yet. Finish the blueprint, review blockers, then run a dry run."
+        );
   }
 
   if (modules) {
     modules.innerHTML = projectModules
       .map((module) => renderProjectModuleCard(projectId, module))
       .join("");
+  }
+
+  if (guide) {
+    guide.innerHTML = `
+      <div class="kv">
+        <div class="kv-item"><span>Muloo standard</span><strong>Finish blueprint work before review.</strong></div>
+        <div class="kv-item"><span>HubSpot note</span><strong>Confirm the correct portal before any run.</strong></div>
+        <div class="kv-item"><span>Run rule</span><strong>Dry run first, then use guarded apply only where safe.</strong></div>
+      </div>
+      <div class="action-row">
+        <a class="button-secondary" href="/guide">Open Guide</a>
+      </div>
+    `;
   }
 
   if (metadataForm) {
@@ -1166,7 +1873,7 @@ async function initProjectLifecycleDesignPage() {
   }
 
   if (workflowNav) {
-    workflowNav.innerHTML = renderProjectWorkflowNav(project.id, "lifecycle");
+    workflowNav.innerHTML = renderProjectWorkflowNav(project.id, "blueprint");
   }
 
   renderForm();
@@ -1463,7 +2170,7 @@ async function initProjectPropertiesDesignPage() {
   }
 
   if (workflowNav) {
-    workflowNav.innerHTML = renderProjectWorkflowNav(project.id, "properties");
+    workflowNav.innerHTML = renderProjectWorkflowNav(project.id, "blueprint");
   }
 
   renderForm();
@@ -1726,7 +2433,7 @@ async function initProjectPipelinesDesignPage() {
   }
 
   if (workflowNav) {
-    workflowNav.innerHTML = renderProjectWorkflowNav(project.id, "pipelines");
+    workflowNav.innerHTML = renderProjectWorkflowNav(project.id, "blueprint");
   }
 
   renderForm();
@@ -1820,7 +2527,7 @@ async function initModuleDetailPage() {
   if (hero) {
     hero.innerHTML = `
       <div>
-        <p class="eyebrow">Module detail</p>
+        <p class="eyebrow">Setup area detail</p>
         <h2>${module.name}</h2>
         <p class="hero-copy">${module.summary}</p>
       </div>
@@ -1831,8 +2538,8 @@ async function initModuleDetailPage() {
     const guardrails = module.contract.applyGuardrails;
     const guardrailRows = guardrails
       ? `
-        <div class="kv-item"><span>Apply support</span><strong>${guardrails.enabled ? "guarded apply" : "disabled"}</strong></div>
-        <div class="kv-item"><span>Apply summary</span><strong>${guardrails.summary}</strong></div>
+        <div class="kv-item"><span>Safe run support</span><strong>${guardrails.enabled ? "guarded apply" : "disabled"}</strong></div>
+        <div class="kv-item"><span>Safe run rules</span><strong>${guardrails.summary}</strong></div>
         <div class="kv-item"><span>Allowed operations</span><strong>${guardrails.allowedOperationTypes.join(", ") || "none"}</strong></div>
         <div class="kv-item"><span>Blocked operations</span><strong>${guardrails.blockedOperationTypes.join(", ") || "none"}</strong></div>
         <div class="kv-item"><span>Confirmation flags</span><strong>${guardrails.confirmationFlags.join(", ") || "none"}</strong></div>
@@ -1844,12 +2551,12 @@ async function initModuleDetailPage() {
           .join("")}
       `
       : `
-        <div class="kv-item"><span>Apply support</span><strong>dry-run only</strong></div>
+        <div class="kv-item"><span>Safe run support</span><strong>dry-run only</strong></div>
       `;
 
     contract.innerHTML = `
       <div class="kv">
-        <div class="kv-item"><span>Module key</span><strong>${module.contract.moduleKey}</strong></div>
+        <div class="kv-item"><span>Setup area key</span><strong>${module.contract.moduleKey}</strong></div>
         <div class="kv-item"><span>Modes</span><strong>${module.contract.supportedModes.join(", ") || "none"}</strong></div>
         <div class="kv-item"><span>Validation handler</span><strong>${module.contract.handlers.validation ? "yes" : "no"}</strong></div>
         <div class="kv-item"><span>Readiness handler</span><strong>${module.contract.handlers.readiness ? "yes" : "no"}</strong></div>
@@ -1863,8 +2570,8 @@ async function initModuleDetailPage() {
   if (readiness) {
     readiness.innerHTML = `
       <div class="kv">
-        <div class="kv-item"><span>Status</span><strong>${module.validationStatus}</strong></div>
-        <div class="kv-item"><span>Readiness</span><strong>${module.readiness}</strong></div>
+        <div class="kv-item"><span>Ready to review</span><strong>${module.validationStatus !== "invalid" ? "yes" : "not yet"}</strong></div>
+        <div class="kv-item"><span>Ready to run</span><strong>${module.readiness === "ready" ? "yes" : "not yet"}</strong></div>
         ${renderReasonRows("Blocker", module.blockers)}
         ${renderFindingRows("Warning", module.warnings)}
         ${renderFindingRows("Info", module.infos)}
@@ -1884,17 +2591,17 @@ async function initModuleDetailPage() {
     execution.innerHTML = module.executionSummary.executionCount
       ? `
         <div class="kv">
-          <div class="kv-item"><span>Execution count</span><strong>${module.executionSummary.executionCount}</strong></div>
+          <div class="kv-item"><span>Run count</span><strong>${module.executionSummary.executionCount}</strong></div>
           <div class="kv-item"><span>Last status</span><strong>${module.executionSummary.lastExecutionStatus}</strong></div>
           <div class="kv-item"><span>Last mode</span><strong>${module.executionSummary.lastExecutionMode ?? "unknown"}</strong></div>
           <div class="kv-item"><span>Last run</span><strong>${formatTimestamp(module.executionSummary.lastExecutedAt)}</strong></div>
           <div class="kv-item"><span>Last summary</span><strong>${module.executionSummary.lastSummary ?? "none"}</strong></div>
         </div>
-        <a class="button-link" href="/execution?id=${encodeURIComponent(module.executionSummary.lastExecutionId)}">Open last execution</a>
+        <a class="button-link" href="/execution?id=${encodeURIComponent(module.executionSummary.lastExecutionId)}">Open last run</a>
       `
       : renderEmptyState(
-          "Execution",
-          "No execution history recorded for this module."
+          "Runs",
+          "No run history recorded for this setup area."
         );
   }
 }
@@ -1921,9 +2628,9 @@ async function initExecutionDetailPage() {
   if (hero) {
     hero.innerHTML = `
       <div>
-        <p class="eyebrow">Execution detail</p>
+        <p class="eyebrow">Run detail</p>
         <h2>${execution.moduleKey}</h2>
-        <p class="hero-copy">${execution.result?.summary ?? execution.output.summaryText ?? "No execution summary recorded."}</p>
+        <p class="hero-copy">${execution.result?.summary ?? execution.output.summaryText ?? "No run summary recorded."}</p>
       </div>
     `;
   }
@@ -1989,8 +2696,8 @@ async function main() {
   const page = document.body.dataset.page;
 
   try {
-    if (page === "dashboard") {
-      await initDashboard();
+    if (page === "home") {
+      await initHomePage();
       return;
     }
 
@@ -2001,6 +2708,21 @@ async function main() {
 
     if (page === "projects") {
       await initProjectsPage();
+      return;
+    }
+
+    if (page === "templates") {
+      await initTemplatesPage();
+      return;
+    }
+
+    if (page === "runs") {
+      await initRunsPage();
+      return;
+    }
+
+    if (page === "guide") {
+      await initGuidePage();
       return;
     }
 
@@ -2047,4 +2769,5 @@ async function main() {
   }
 }
 
+decorateShell();
 void main();

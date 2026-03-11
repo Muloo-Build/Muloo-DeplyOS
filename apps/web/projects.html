@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy OS Projects</title>
+    <title>Muloo Deploy Projects</title>
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body data-page="projects">
@@ -11,38 +11,45 @@
       <aside class="sidebar">
         <div>
           <p class="eyebrow">Muloo Internal</p>
-          <h1>Deploy OS</h1>
+          <h1>Muloo Deploy</h1>
           <p class="sidebar-copy">
-            File-backed onboarding projects that drive planning, review, and
-            dry-run execution.
+            Operator work queue for active onboarding projects, reviews, and
+            runs.
           </p>
         </div>
         <nav class="nav">
-          <a class="nav-link" href="/">Dashboard</a>
+          <a class="nav-link" href="/">Home</a>
           <a class="nav-link active" href="/projects">Projects</a>
-          <a class="nav-link" href="/projects/new">Create Project</a>
-          <a class="nav-link" href="/modules">Modules</a>
+          <a class="nav-link" href="/templates">Templates</a>
+          <a class="nav-link" href="/runs">Runs</a>
+          <a class="nav-link" href="/guide">Guide</a>
           <a class="nav-link" href="/settings">Settings</a>
         </nav>
       </aside>
       <main class="content">
-        <section class="hero compact">
+        <section class="workspace-header">
           <div>
-            <p class="eyebrow">Project list</p>
+            <p class="eyebrow">Projects</p>
             <h2>
-              Each onboarding blueprint is explicit, typed, and reviewable.
+              Manage the onboarding queue by what needs review, what is blocked,
+              and what is ready to run.
             </h2>
+          </div>
+          <div class="action-row">
+            <a class="button-link" href="/projects/new"
+              >Start Onboarding Project</a
+            >
           </div>
         </section>
         <section class="panel">
           <div class="section-header">
             <div>
-              <p class="panel-label">Current projects</p>
-              <h3>Structured onboarding inputs in this repository</h3>
+              <p class="panel-label">Work queue</p>
+              <h3>Active client onboarding projects</h3>
             </div>
-            <a class="button-link" href="/projects/new">Create project</a>
           </div>
-          <div class="module-grid" id="projects-page-grid"></div>
+          <div id="projects-filter-bar"></div>
+          <div id="projects-page-grid"></div>
         </section>
       </main>
     </div>

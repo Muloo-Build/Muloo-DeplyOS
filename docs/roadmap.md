@@ -43,8 +43,9 @@
 
 ## Internal operator UI
 
-- Expand the project views into guided execution workflows.
+- Expand the project views into a stronger guided operator workflow.
 - Keep project authoring simple and task-focused before introducing any complex form builder.
 - Add dedicated validation, readiness, module contract, and execution history views.
 - Surface last dry-run summaries and operator next actions per project.
 - Grow project design editors incrementally rather than introducing a generic schema builder.
+- Keep refining Home, Projects, Runs, and Guide so the operator can understand what to do next on first use.

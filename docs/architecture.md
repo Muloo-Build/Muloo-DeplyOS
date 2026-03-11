@@ -2,7 +2,7 @@
 
 ## Proposed shape
 
-Muloo Deploy OS remains a modular TypeScript monorepo with a clear split between operator experience, internal APIs, execution services, and shared domain models.
+Muloo Deploy remains a modular TypeScript monorepo with a clear split between operator experience, internal APIs, execution services, and shared domain models.
 
 ## Layers
 
@@ -10,17 +10,20 @@ Muloo Deploy OS remains a modular TypeScript monorepo with a clear split between
 
 The operator-facing shell lives in `apps/web` and is served by `apps/api`. It now shows:
 
-- project lists
+- home workspace
+- project queue
+- template library
+- run history
+- guide shell
 - project authoring
 - project design editing
-- project detail views
-- validation and readiness state
-- module readiness
-- recent dry-run execution history
+- guided project workspaces
+- review and readiness state
+- recent dry-run and safe-apply history
 
 ### Backend and API layer
 
-`apps/api` is the internal HTTP boundary. It exposes health, configuration readiness, module metadata, template read models, project read models, project authoring routes, validation state, readiness summaries, and execution history.
+`apps/api` is the internal HTTP boundary. It exposes health, configuration readiness, template read models, project read models, project authoring routes, review state, readiness summaries, and run history.
 
 ### Job and execution layer
 
@@ -120,7 +123,7 @@ The current model derives:
 - per-module validation and readiness
 - finding arrays for errors, warnings, and info notes
 
-This gives operators enough signal to decide whether a dry run is likely to be useful without introducing a heavy policy engine.
+This gives operators enough signal to decide whether a project is ready to review or ready to run without introducing a heavy policy engine.
 
 Readiness detail is now explicit, not implied only from status labels.
 
@@ -182,7 +185,7 @@ The properties guarded apply sequence extends the same pattern:
 1. `apps/api` loads projects, validations, readiness summaries, and execution records from file-backed helpers.
 2. The same file-backed layer loads starter templates and handles project creation and updates.
 3. The same file-backed layer handles design updates for lifecycle data, property planning, and pipelines.
-4. The web shell renders read, authoring, and design-editing views for operators.
+4. The web shell renders an operator-first Home, Projects, Templates, Runs, Guide, and guided project workspace.
 5. The CLI still supports raw-spec execution.
 6. The CLI can resolve `--project <id> --module ...` through module contracts.
 7. Contracts drive readiness, dry-run execution, guarded apply behavior, result shaping, and execution step reporting.
