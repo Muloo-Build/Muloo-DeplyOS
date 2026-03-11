@@ -2,5 +2,7 @@ node_modules/
 dist/
 .corepack/
 .env
+.next/
+apps/api/data/
 artifacts/*.json
 !artifacts/.gitkeep

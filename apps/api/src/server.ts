@@ -12,6 +12,7 @@ import {
   loadExecutionById,
   loadExecutionSteps,
   loadProjectById,
+  loadProjectDiscoveryById,
   loadProjectDesignById,
   loadProjectExecutions,
   loadProjectModuleDetail,
@@ -20,6 +21,7 @@ import {
   loadTemplateById,
   summarizeProjectModules,
   summarizeProject,
+  updateProjectDiscoverySection,
   updateProjectLifecycleDesign,
   updateProjectMetadata,
   updateProjectPipelinesDesign,
@@ -32,6 +34,7 @@ import { moduleCatalog } from "@muloo/shared";
 import {
   createProjectFromTemplateRequestSchema,
   createProjectRequestSchema,
+  updateProjectDiscoverySectionRequestSchema,
   updateProjectLifecycleDesignRequestSchema,
   updateProjectMetadataRequestSchema,
   updateProjectPipelinesDesignRequestSchema,
@@ -112,10 +115,11 @@ function matchProjectRoute(pathname: string): {
     | "validation"
     | "readiness"
     | "executions"
-    | "scope";
+    | "scope"
+    | "discovery";
 } | null {
   const match =
-    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions|scope))?$/.exec(
+    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions|scope|discovery))?$/.exec(
       pathname
     );
 
@@ -131,7 +135,8 @@ function matchProjectRoute(pathname: string): {
     resource === "validation" ||
     resource === "readiness" ||
     resource === "executions" ||
-    resource === "scope"
+    resource === "scope" ||
+    resource === "discovery"
       ? resource
       : undefined;
 
@@ -434,6 +439,31 @@ export function createAppServer(config: BaseConfig): http.Server {
             project,
             summary: await summarizeProject(project)
           });
+        }
+
+        if (projectRoute.resource === "discovery") {
+          if (request.method === "GET") {
+            return sendJson(response, 200, {
+              projectId: projectRoute.projectId,
+              discovery: await loadProjectDiscoveryById(projectRoute.projectId)
+            });
+          }
+
+          if (request.method === "PUT") {
+            const payload = updateProjectDiscoverySectionRequestSchema.parse(
+              await readJsonBody(request)
+            );
+            const project = await updateProjectDiscoverySection(
+              projectRoute.projectId,
+              payload
+            );
+
+            return sendJson(response, 200, {
+              project,
+              discovery: await loadProjectDiscoveryById(project.id),
+              summary: await summarizeProject(project)
+            });
+          }
         }
 
         if (request.method !== "GET") {

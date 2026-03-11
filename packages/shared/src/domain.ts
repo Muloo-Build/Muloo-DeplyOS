@@ -342,6 +342,129 @@ export const onboardingTemplateSchema = z
   })
   .strict();
 
+export const discoverySectionKeySchema = z.enum([
+  "businessContext",
+  "platformContext",
+  "crmArchitecture",
+  "salesRequirements",
+  "marketingRequirements",
+  "serviceRequirements",
+  "integrationsAndData",
+  "governanceAndOps",
+  "risksAndAssumptions"
+]);
+
+export const discoveryBusinessContextSchema = z
+  .object({
+    companyName: z.string().default(""),
+    businessModel: z.string().default(""),
+    region: z.string().default(""),
+    teamStructure: z.string().default(""),
+    growthGoals: z.array(z.string().min(1)).default([]),
+    implementationObjectives: z.array(z.string().min(1)).default([])
+  })
+  .strict();
+
+export const discoveryPlatformContextSchema = z
+  .object({
+    currentHubspotUsage: z.string().default(""),
+    activeHubs: z.array(z.string().min(1)).default([]),
+    subscriptionTiers: z.array(z.string().min(1)).default([]),
+    existingCrmCleanliness: z.string().default(""),
+    connectedTools: z.array(z.string().min(1)).default([]),
+    migrationNeeds: z.string().default("")
+  })
+  .strict();
+
+export const discoveryCrmArchitectureSchema = z
+  .object({
+    objectsInScope: z.array(z.string().min(1)).default([]),
+    contactCompanyRules: z.string().default(""),
+    dealPipelines: z.array(z.string().min(1)).default([]),
+    lifecycleStages: z.array(z.string().min(1)).default([]),
+    leadStatuses: z.array(z.string().min(1)).default([]),
+    ownershipModel: z.string().default(""),
+    associations: z.string().default("")
+  })
+  .strict();
+
+export const discoverySalesRequirementsSchema = z
+  .object({
+    pipelineRequirements: z.string().default(""),
+    qualificationLogic: z.string().default(""),
+    sdrAeProcess: z.string().default(""),
+    taskAutomationNeeds: z.string().default(""),
+    reportingNeeds: z.string().default("")
+  })
+  .strict();
+
+export const discoveryMarketingRequirementsSchema = z
+  .object({
+    segmentation: z.string().default(""),
+    campaignStructure: z.string().default(""),
+    forms: z.string().default(""),
+    leadCapture: z.string().default(""),
+    emailNeeds: z.string().default(""),
+    reportingNeeds: z.string().default("")
+  })
+  .strict();
+
+export const discoveryServiceRequirementsSchema = z
+  .object({
+    tickets: z.string().default(""),
+    supportCategories: z.string().default(""),
+    routingLogic: z.string().default(""),
+    slas: z.string().default(""),
+    portalOrHelpCentreRequirements: z.string().default("")
+  })
+  .strict();
+
+export const discoveryIntegrationsAndDataSchema = z
+  .object({
+    sourceSystems: z.array(z.string().min(1)).default([]),
+    syncDirection: z.string().default(""),
+    fieldMappingNeeds: z.string().default(""),
+    importRequirements: z.string().default(""),
+    dedupeConcerns: z.string().default("")
+  })
+  .strict();
+
+export const discoveryGovernanceAndOpsSchema = z
+  .object({
+    namingConventions: z.string().default(""),
+    permissions: z.string().default(""),
+    qaRequirements: z.string().default(""),
+    trainingNeeds: z.string().default(""),
+    handoverNeeds: z.string().default("")
+  })
+  .strict();
+
+export const discoveryRisksAndAssumptionsSchema = z
+  .object({
+    blockers: z.array(z.string().min(1)).default([]),
+    dependencies: z.array(z.string().min(1)).default([]),
+    accessIssues: z.array(z.string().min(1)).default([]),
+    customDevLikely: z.boolean().nullable().default(null),
+    assumptions: z.array(z.string().min(1)).default([])
+  })
+  .strict();
+
+export const projectDiscoverySchema = z
+  .object({
+    completedSections: z.array(discoverySectionKeySchema).default([]),
+    businessContext: discoveryBusinessContextSchema.default({}),
+    platformContext: discoveryPlatformContextSchema.default({}),
+    crmArchitecture: discoveryCrmArchitectureSchema.default({}),
+    salesRequirements: discoverySalesRequirementsSchema.default({}),
+    marketingRequirements: discoveryMarketingRequirementsSchema.default({}),
+    serviceRequirements: discoveryServiceRequirementsSchema.default({}),
+    integrationsAndData: discoveryIntegrationsAndDataSchema.default({}),
+    governanceAndOps: discoveryGovernanceAndOpsSchema.default({}),
+    risksAndAssumptions: discoveryRisksAndAssumptionsSchema.default({}),
+    updatedAt: z.string().datetime().optional()
+  })
+  .strict();
+
 export const onboardingProjectSchema = z
   .object({
     schemaVersion: z.literal("1.0"),
@@ -392,7 +515,8 @@ export const onboardingProjectSchema = z
       .strict(),
     modulePlanning: z.array(projectModulePlanSchema).min(1),
     executionContext: executionContextSchema,
-    templateProvenance: projectTemplateProvenanceSchema.optional()
+    templateProvenance: projectTemplateProvenanceSchema.optional(),
+    discovery: projectDiscoverySchema.optional()
   })
   .strict();
 
@@ -492,6 +616,23 @@ export const updateProjectPropertiesDesignRequestSchema = z
 export const updateProjectPipelinesDesignRequestSchema = z
   .object({
     pipelines: z.array(pipelineSchema).default([])
+  })
+  .strict();
+
+export const updateProjectDiscoverySectionRequestSchema = z
+  .object({
+    section: discoverySectionKeySchema,
+    data: z.union([
+      discoveryBusinessContextSchema.partial(),
+      discoveryPlatformContextSchema.partial(),
+      discoveryCrmArchitectureSchema.partial(),
+      discoverySalesRequirementsSchema.partial(),
+      discoveryMarketingRequirementsSchema.partial(),
+      discoveryServiceRequirementsSchema.partial(),
+      discoveryIntegrationsAndDataSchema.partial(),
+      discoveryGovernanceAndOpsSchema.partial(),
+      discoveryRisksAndAssumptionsSchema.partial()
+    ])
   })
   .strict();
 
@@ -895,6 +1036,11 @@ export type UpdateProjectPropertiesDesignRequest = z.infer<
 >;
 export type UpdateProjectPipelinesDesignRequest = z.infer<
   typeof updateProjectPipelinesDesignRequestSchema
+>;
+export type DiscoverySectionKey = z.infer<typeof discoverySectionKeySchema>;
+export type ProjectDiscovery = z.infer<typeof projectDiscoverySchema>;
+export type UpdateProjectDiscoverySectionRequest = z.infer<
+  typeof updateProjectDiscoverySectionRequestSchema
 >;
 export type ProjectDesign = z.infer<typeof projectDesignSchema>;
 export type ModuleInputRequirement = z.infer<

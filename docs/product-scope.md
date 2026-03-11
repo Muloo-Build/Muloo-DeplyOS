@@ -1,81 +1,106 @@
 # Product Scope
 
-## Phase 1 goals
+## One-line positioning
 
-- Establish a stable internal repository foundation for Muloo Deploy OS.
-- Provide a minimal operator-facing shell and API baseline.
-- Introduce a real `OnboardingProject` blueprint that represents Muloo onboarding work.
-- Add practical project validation and module readiness checks.
-- Persist project-linked dry-run execution history.
-- Standardise module execution around a typed execution contract and step timeline.
-- Preserve and elevate the existing HubSpot execution slices by connecting properties and pipelines to projects and modules.
-- Prove the first narrow guarded apply path for create-only contact properties.
-- Add practical project authoring with file-backed create and update workflows.
-- Seed projects from Muloo starter templates and a reusable standard property library.
-- Add practical design editors for lifecycle data, property planning, and pipeline structure.
-- Reset the operator UX around a clear onboarding workflow instead of an abstract platform shell.
+Muloo Deploy OS is Muloo's internal delivery orchestration system that turns HubSpot discovery into structured, standardised, and executable implementation work.
 
-## Non-goals
+## What it is
 
-- broad HubSpot write actions
-- property updates or deletes
-- pipeline apply/write actions
-- Deep multi-step workflow automation
-- Client-facing UI
-- Multi-user auth and role management
-- Scheduling or background worker infrastructure
-- Database-backed persistence
-- Dynamic plugin systems or workflow engines
+Muloo Deploy OS is an internal operations layer for Muloo's delivery team.
 
-## Key modules
+Its purpose is to:
 
-- CRM Setup
-- Pipelines
-- Properties
-- Automation
-- Reporting
-- QA
-- Audit and handover support
+- capture structured discovery and onboarding context
+- apply Muloo standards and reusable implementation logic
+- generate a recommended implementation blueprint
+- convert that blueprint into executable work
+- sync the work into Linear and track delivery state
 
-## Operator workflow
+In plain English:
 
-- Start project
-- Connect or confirm portal
-- Build blueprint
-- Review blockers and readiness
-- Dry run changes
-- Apply safe actions
-- Track history
-- Use built-in guide and standards
+> Muloo Deploy OS turns discovery into delivery.
 
-## Template and authoring scope
+## Who it is for
 
-- Blank project creation
-- Template-seeded project creation
-- Lightweight editing of project metadata, hubs in scope, environment, and module plans
-- Editing of lifecycle stages and lead statuses
-- Editing of property groups and properties by object
-- Editing of pipelines and ordered stages
-- Read-only visibility into template provenance and seeded baseline fields
+Primary users:
 
-## v1 editor limitations
+- Jarrud
+- internal Muloo delivery team members
 
-- lifecycle and lead-status order is explicit rather than drag-and-drop
-- property editing is form-based rather than spreadsheet-based
-- pipeline editing is structural only
-- advanced workflow behavior such as probabilities, SLAs, routing, and permissions stays out of scope
-- the current UI remains a light internal shell rather than a full collaborative operations product
+Secondary users later:
 
-## Success criteria
+- consultants
+- implementation partners
+- QA reviewers
+- delivery leads
 
-- A project JSON file can describe a realistic onboarding blueprint.
-- Operators can inspect validation and readiness state per project and per module.
-- Project/module dry runs create reusable execution history records with readable step timelines.
-- At least one additional non-executing module can express validation and readiness through the same contract pattern.
-- At least two live modules can run through the same execution contract pattern without bespoke orchestration.
-- The first apply-capable path stays narrow, explicit, and auditable.
-- Operators can create and update project blueprints without editing JSON by hand.
-- Template-seeded projects start with usable Muloo baselines instead of empty property and pipeline plans.
-- Template-seeded projects can now be meaningfully evolved inside the tool after creation.
-- The current dry-run execution slice remains intact and usable.
-- The foundation stays file-backed, typed, and easy to reason about.
+Not a v1 user:
+
+- clients
+
+## What v1 includes
+
+Version 1 must do these six things well:
+
+1. Create a project tied to a client and HubSpot portal.
+2. Capture or import structured discovery inputs.
+3. Apply Muloo standard setup modules based on hubs, tiers, and use cases.
+4. Generate a blueprint of deliverables and recommended architecture.
+5. Turn the blueprint into clear tasks with dependencies and execution type.
+6. Sync those tasks into Linear and track execution status.
+
+Supporting v1 capabilities:
+
+- project setup and project states
+- structured discovery versioning
+- reusable Muloo standards library
+- blueprint generation with risks and dependencies
+- task generation with QA and approval flags
+- execution routing across API, agent, and manual work
+- QA, approval, deployment logging, and audit trail
+
+## What v1 excludes
+
+To keep scope sane, v1 does not try to do the following:
+
+- full end-to-end HubSpot execution for every task
+- deep custom UI automation from day one
+- complex multi-tenant client access
+- advanced reporting on day one
+- replacing Linear
+- replacing HubSpot
+- replacing human approval
+- becoming a full PSA, ERP, CRM, and PM tool in one
+
+## Product promise
+
+After discovery is complete, the product should answer five questions clearly:
+
+1. What needs to be built?
+2. What does Muloo recommend as the standard architecture?
+3. What tasks need to happen, and in what order?
+4. Which tasks can be executed by API, by agent, or manually?
+5. What is done, what is pending, and what still needs approval?
+
+If the system answers those five questions reliably, v1 is doing its job.
+
+## Product rules
+
+1. Discovery drives everything.
+2. Muloo standards are reusable IP, not hardcoded chaos.
+3. Blueprint comes before execution.
+4. Every task needs an execution type.
+5. Every risky task needs approval.
+6. Every execution needs a log.
+7. API first, agent second, manual when needed.
+8. The platform stays useful even if automation fails.
+
+## Immediate deliverables
+
+Before more product code is built, these artifacts are the required baseline:
+
+- [Domain Model](./domain-model.md)
+- [Discovery Schema](./discovery-schema.md)
+- [Standards Matrix](./standards-matrix.md)
+- [Execution Matrix](./execution-matrix.md)
+- [MVP Wireframes](./mvp-wireframes.md)

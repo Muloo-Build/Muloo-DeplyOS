@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://muloo.local/specs/discovery-submission.schema.json",
+  "title": "Muloo Deploy OS Discovery Submission",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "discovery_id",
+    "project_id",
+    "version",
+    "source_type",
+    "captured_at",
+    "captured_by",
+    "status",
+    "business_context",
+    "platform_context",
+    "crm_architecture",
+    "sales_requirements",
+    "marketing_requirements",
+    "service_requirements",
+    "cms_requirements",
+    "integrations_and_data",
+    "governance_and_ops",
+    "risks_and_assumptions",
+    "open_questions"
+  ],
+  "properties": {
+    "discovery_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_type": {
+      "type": "string",
+      "enum": ["manual", "imported", "ai-structured"]
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "captured_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "review", "approved"]
+    },
+    "business_context": {
+      "$ref": "#/$defs/business_context"
+    },
+    "platform_context": {
+      "$ref": "#/$defs/platform_context"
+    },
+    "crm_architecture": {
+      "$ref": "#/$defs/crm_architecture"
+    },
+    "sales_requirements": {
+      "$ref": "#/$defs/sales_requirements"
+    },
+    "marketing_requirements": {
+      "$ref": "#/$defs/marketing_requirements"
+    },
+    "service_requirements": {
+      "$ref": "#/$defs/service_requirements"
+    },
+    "cms_requirements": {
+      "$ref": "#/$defs/cms_requirements"
+    },
+    "integrations_and_data": {
+      "$ref": "#/$defs/integrations_and_data"
+    },
+    "governance_and_ops": {
+      "$ref": "#/$defs/governance_and_ops"
+    },
+    "risks_and_assumptions": {
+      "$ref": "#/$defs/risks_and_assumptions"
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "string_list": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "business_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "company_name",
+        "business_model",
+        "region",
+        "team_structure",
+        "growth_goals",
+        "implementation_objectives"
+      ],
+      "properties": {
+        "company_name": { "type": "string" },
+        "business_model": { "type": "string" },
+        "region": { "type": "string" },
+        "team_structure": { "type": "string" },
+        "growth_goals": { "$ref": "#/$defs/string_list" },
+        "implementation_objectives": { "$ref": "#/$defs/string_list" }
+      }
+    },
+    "platform_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current_hubspot_usage",
+        "active_hubs",
+        "subscription_tiers",
+        "existing_crm_cleanliness",
+        "connected_tools",
+        "migration_needs"
+      ],
+      "properties": {
+        "current_hubspot_usage": { "type": "string" },
+        "active_hubs": { "$ref": "#/$defs/string_list" },
+        "subscription_tiers": { "$ref": "#/$defs/string_list" },
+        "existing_crm_cleanliness": { "type": "string" },
+        "connected_tools": { "$ref": "#/$defs/string_list" },
+        "migration_needs": { "type": "string" }
+      }
+    },
+    "crm_architecture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "objects_in_scope",
+        "contact_company_rules",
+        "deal_pipelines",
+        "lifecycle_stages",
+        "lead_statuses",
+        "ownership_model",
+        "associations"
+      ],
+      "properties": {
+        "objects_in_scope": { "$ref": "#/$defs/string_list" },
+        "contact_company_rules": { "type": "string" },
+        "deal_pipelines": { "$ref": "#/$defs/string_list" },
+        "lifecycle_stages": { "$ref": "#/$defs/string_list" },
+        "lead_statuses": { "$ref": "#/$defs/string_list" },
+        "ownership_model": { "type": "string" },
+        "associations": { "type": "string" }
+      }
+    },
+    "sales_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pipeline_requirements",
+        "qualification_logic",
+        "sdr_ae_process",
+        "task_automation_needs",
+        "reporting_needs"
+      ],
+      "properties": {
+        "pipeline_requirements": { "type": "string" },
+        "qualification_logic": { "type": "string" },
+        "sdr_ae_process": { "type": "string" },
+        "task_automation_needs": { "type": "string" },
+        "reporting_needs": { "type": "string" }
+      }
+    },
+    "marketing_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "segmentation",
+        "campaign_structure",
+        "forms",
+        "lead_capture",
+        "email_needs",
+        "reporting_needs"
+      ],
+      "properties": {
+        "segmentation": { "type": "string" },
+        "campaign_structure": { "type": "string" },
+        "forms": { "type": "string" },
+        "lead_capture": { "type": "string" },
+        "email_needs": { "type": "string" },
+        "reporting_needs": { "type": "string" }
+      }
+    },
+    "service_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tickets",
+        "support_categories",
+        "routing_logic",
+        "slas",
+        "portal_or_help_centre_requirements"
+      ],
+      "properties": {
+        "tickets": { "type": "string" },
+        "support_categories": { "type": "string" },
+        "routing_logic": { "type": "string" },
+        "slas": { "type": "string" },
+        "portal_or_help_centre_requirements": { "type": "string" }
+      }
+    },
+    "cms_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "website_in_scope",
+        "page_structure",
+        "brand_or_region_model",
+        "smart_content_needs",
+        "blog_seo_content_migration_needs"
+      ],
+      "properties": {
+        "website_in_scope": { "type": "boolean" },
+        "page_structure": { "type": "string" },
+        "brand_or_region_model": { "type": "string" },
+        "smart_content_needs": { "type": "string" },
+        "blog_seo_content_migration_needs": { "type": "string" }
+      }
+    },
+    "integrations_and_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_systems",
+        "sync_direction",
+        "field_mapping_needs",
+        "import_requirements",
+        "dedupe_concerns"
+      ],
+      "properties": {
+        "source_systems": { "$ref": "#/$defs/string_list" },
+        "sync_direction": { "type": "string" },
+        "field_mapping_needs": { "type": "string" },
+        "import_requirements": { "type": "string" },
+        "dedupe_concerns": { "type": "string" }
+      }
+    },
+    "governance_and_ops": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "naming_conventions",
+        "permissions",
+        "qa_requirements",
+        "training_needs",
+        "handover_needs"
+      ],
+      "properties": {
+        "naming_conventions": { "type": "string" },
+        "permissions": { "type": "string" },
+        "qa_requirements": { "type": "string" },
+        "training_needs": { "type": "string" },
+        "handover_needs": { "type": "string" }
+      }
+    },
+    "risks_and_assumptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockers",
+        "dependencies",
+        "access_issues",
+        "custom_dev_likely",
+        "assumptions"
+      ],
+      "properties": {
+        "blockers": { "$ref": "#/$defs/string_list" },
+        "dependencies": { "$ref": "#/$defs/string_list" },
+        "access_issues": { "$ref": "#/$defs/string_list" },
+        "custom_dev_likely": { "type": "boolean" },
+        "assumptions": { "$ref": "#/$defs/string_list" }
+      }
+    }
+  }
+}

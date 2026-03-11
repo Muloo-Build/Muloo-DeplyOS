@@ -8,16 +8,21 @@ import {
   createProjectRequestSchema,
   onboardingProjectSchema,
   projectDesignSchema,
+  projectDiscoverySchema,
   type CreateProjectFromTemplateRequest,
   type CreateProjectRequest,
+  type DiscoverySectionKey,
   type OnboardingProject,
   type OnboardingTemplate,
+  type ProjectDiscovery,
   type ProjectDesign,
   type ProjectModulePlan,
+  type UpdateProjectDiscoverySectionRequest,
   type UpdateProjectMetadataRequest,
   type UpdateProjectLifecycleDesignRequest,
   type UpdateProjectPipelinesDesignRequest,
   type UpdateProjectPropertiesDesignRequest,
+  updateProjectDiscoverySectionRequestSchema,
   updateProjectLifecycleDesignRequestSchema,
   updateProjectMetadataRequestSchema,
   updateProjectPipelinesDesignRequestSchema,
@@ -245,6 +250,147 @@ function buildPortalDisplayName(
   return clientName;
 }
 
+function createEmptyProjectDiscovery(
+  project: Pick<
+    OnboardingProject,
+    "clientContext" | "hubspotScope" | "crmDesign"
+  >
+): ProjectDiscovery {
+  return projectDiscoverySchema.parse({
+    completedSections: [],
+    businessContext: {
+      companyName: project.clientContext.clientName,
+      region: project.clientContext.primaryRegion
+    },
+    platformContext: {
+      activeHubs: project.hubspotScope.hubsInScope
+    },
+    crmArchitecture: {
+      objectsInScope: project.crmDesign.objectsInScope,
+      dealPipelines: project.crmDesign.pipelines.map((pipeline) => pipeline.label),
+      lifecycleStages: project.crmDesign.lifecycleStages,
+      leadStatuses: project.crmDesign.leadStatuses
+    }
+  });
+}
+
+function isFilledString(value: string): boolean {
+  return value.trim().length > 0;
+}
+
+function isFilledStringArray(values: string[]): boolean {
+  return values.some((value) => value.trim().length > 0);
+}
+
+function isDiscoverySectionComplete(
+  section: DiscoverySectionKey,
+  discovery: ProjectDiscovery
+): boolean {
+  switch (section) {
+    case "businessContext":
+      return (
+        isFilledString(discovery.businessContext.companyName) &&
+        isFilledString(discovery.businessContext.businessModel) &&
+        isFilledString(discovery.businessContext.region) &&
+        isFilledString(discovery.businessContext.teamStructure) &&
+        isFilledStringArray(discovery.businessContext.growthGoals) &&
+        isFilledStringArray(discovery.businessContext.implementationObjectives)
+      );
+    case "platformContext":
+      return (
+        isFilledString(discovery.platformContext.currentHubspotUsage) &&
+        isFilledStringArray(discovery.platformContext.activeHubs) &&
+        isFilledStringArray(discovery.platformContext.subscriptionTiers) &&
+        isFilledString(discovery.platformContext.existingCrmCleanliness) &&
+        isFilledStringArray(discovery.platformContext.connectedTools) &&
+        isFilledString(discovery.platformContext.migrationNeeds)
+      );
+    case "crmArchitecture":
+      return (
+        isFilledStringArray(discovery.crmArchitecture.objectsInScope) &&
+        isFilledString(discovery.crmArchitecture.contactCompanyRules) &&
+        isFilledStringArray(discovery.crmArchitecture.dealPipelines) &&
+        isFilledStringArray(discovery.crmArchitecture.lifecycleStages) &&
+        isFilledStringArray(discovery.crmArchitecture.leadStatuses) &&
+        isFilledString(discovery.crmArchitecture.ownershipModel) &&
+        isFilledString(discovery.crmArchitecture.associations)
+      );
+    case "salesRequirements":
+      return (
+        isFilledString(discovery.salesRequirements.pipelineRequirements) &&
+        isFilledString(discovery.salesRequirements.qualificationLogic) &&
+        isFilledString(discovery.salesRequirements.sdrAeProcess) &&
+        isFilledString(discovery.salesRequirements.taskAutomationNeeds) &&
+        isFilledString(discovery.salesRequirements.reportingNeeds)
+      );
+    case "marketingRequirements":
+      return (
+        isFilledString(discovery.marketingRequirements.segmentation) &&
+        isFilledString(discovery.marketingRequirements.campaignStructure) &&
+        isFilledString(discovery.marketingRequirements.forms) &&
+        isFilledString(discovery.marketingRequirements.leadCapture) &&
+        isFilledString(discovery.marketingRequirements.emailNeeds) &&
+        isFilledString(discovery.marketingRequirements.reportingNeeds)
+      );
+    case "serviceRequirements":
+      return (
+        isFilledString(discovery.serviceRequirements.tickets) &&
+        isFilledString(discovery.serviceRequirements.supportCategories) &&
+        isFilledString(discovery.serviceRequirements.routingLogic) &&
+        isFilledString(discovery.serviceRequirements.slas) &&
+        isFilledString(
+          discovery.serviceRequirements.portalOrHelpCentreRequirements
+        )
+      );
+    case "integrationsAndData":
+      return (
+        isFilledStringArray(discovery.integrationsAndData.sourceSystems) &&
+        isFilledString(discovery.integrationsAndData.syncDirection) &&
+        isFilledString(discovery.integrationsAndData.fieldMappingNeeds) &&
+        isFilledString(discovery.integrationsAndData.importRequirements) &&
+        isFilledString(discovery.integrationsAndData.dedupeConcerns)
+      );
+    case "governanceAndOps":
+      return (
+        isFilledString(discovery.governanceAndOps.namingConventions) &&
+        isFilledString(discovery.governanceAndOps.permissions) &&
+        isFilledString(discovery.governanceAndOps.qaRequirements) &&
+        isFilledString(discovery.governanceAndOps.trainingNeeds) &&
+        isFilledString(discovery.governanceAndOps.handoverNeeds)
+      );
+    case "risksAndAssumptions":
+      return (
+        isFilledStringArray(discovery.risksAndAssumptions.blockers) &&
+        isFilledStringArray(discovery.risksAndAssumptions.dependencies) &&
+        isFilledStringArray(discovery.risksAndAssumptions.accessIssues) &&
+        discovery.risksAndAssumptions.customDevLikely !== null &&
+        isFilledStringArray(discovery.risksAndAssumptions.assumptions)
+      );
+  }
+}
+
+function normalizeDiscovery(discovery: ProjectDiscovery): ProjectDiscovery {
+  const completedSections = (
+    [
+      "businessContext",
+      "platformContext",
+      "crmArchitecture",
+      "salesRequirements",
+      "marketingRequirements",
+      "serviceRequirements",
+      "integrationsAndData",
+      "governanceAndOps",
+      "risksAndAssumptions"
+    ] as DiscoverySectionKey[]
+  ).filter((section) => isDiscoverySectionComplete(section, discovery));
+
+  return projectDiscoverySchema.parse({
+    ...discovery,
+    completedSections,
+    updatedAt: new Date().toISOString()
+  });
+}
+
 function buildBlankProject(input: CreateProjectRequest): OnboardingProject {
   const objectsInScope = deriveObjectsInScope({
     hubsInScope: input.hubspotScope.hubsInScope
@@ -289,6 +435,26 @@ function buildBlankProject(input: CreateProjectRequest): OnboardingProject {
         notes: "Blank project created through Muloo Deploy OS authoring."
       }
     },
+    discovery: createEmptyProjectDiscovery({
+      clientContext: input.clientContext,
+      hubspotScope: {
+        hubsInScope: input.hubspotScope.hubsInScope,
+        portal: {
+          portalId: input.portalId,
+          displayName: buildPortalDisplayName(input.clientContext.clientName),
+          region: input.clientContext.primaryRegion,
+          connected: false
+        },
+        environment: input.hubspotScope.environment
+      },
+      crmDesign: {
+        lifecycleStages: ["subscriber", "lead", "customer"],
+        leadStatuses: ["New"],
+        pipelines: [],
+        objectsInScope,
+        customObjectsPlanned: []
+      }
+    }),
     templateProvenance: {
       seedType: "blank",
       seededAt: now,
@@ -362,6 +528,28 @@ function buildProjectFromTemplate(params: {
         notes: `Project seeded from template '${params.template.name}'.`
       }
     },
+    discovery: createEmptyProjectDiscovery({
+      clientContext: params.input.clientContext,
+      hubspotScope: {
+        hubsInScope: params.input.hubspotScope.hubsInScope,
+        portal: {
+          portalId: params.input.portalId,
+          displayName: buildPortalDisplayName(
+            params.input.clientContext.clientName
+          ),
+          region: params.input.clientContext.primaryRegion,
+          connected: false
+        },
+        environment: params.input.hubspotScope.environment
+      },
+      crmDesign: {
+        lifecycleStages: params.template.defaultLifecycleStages,
+        leadStatuses: params.template.defaultLeadStatuses,
+        pipelines: params.template.defaultPipelines,
+        objectsInScope,
+        customObjectsPlanned: []
+      }
+    }),
     templateProvenance: {
       seedType: "template",
       templateId: params.template.id,
@@ -590,6 +778,58 @@ export async function loadProjectDesignById(
     pipelines: project.crmDesign.pipelines,
     templateProvenance: project.templateProvenance
   });
+}
+
+export async function loadProjectDiscoveryById(
+  projectId: string,
+  options?: { cwd?: string }
+): Promise<ProjectDiscovery> {
+  const project = await loadProjectById(projectId, options);
+
+  return normalizeDiscovery(
+    project.discovery ??
+      createEmptyProjectDiscovery({
+        clientContext: project.clientContext,
+        hubspotScope: project.hubspotScope,
+        crmDesign: project.crmDesign
+      })
+  );
+}
+
+export async function updateProjectDiscoverySection(
+  projectId: string,
+  payload: UpdateProjectDiscoverySectionRequest,
+  options?: { cwd?: string }
+): Promise<OnboardingProject> {
+  const cwd = options?.cwd ?? process.cwd();
+  const project = await loadProjectById(projectId, { cwd });
+  const input = updateProjectDiscoverySectionRequestSchema.parse(payload);
+  const currentDiscovery =
+    project.discovery ??
+    createEmptyProjectDiscovery({
+      clientContext: project.clientContext,
+      hubspotScope: project.hubspotScope,
+      crmDesign: project.crmDesign
+    });
+
+  const updatedDiscovery = normalizeDiscovery(
+    projectDiscoverySchema.parse({
+      ...currentDiscovery,
+      [input.section]: {
+        ...currentDiscovery[input.section],
+        ...input.data
+      }
+    })
+  );
+
+  return saveProject(
+    cwd,
+    onboardingProjectSchema.parse({
+      ...project,
+      updatedAt: new Date().toISOString(),
+      discovery: updatedDiscovery
+    })
+  );
 }
 
 export async function updateProjectLifecycleDesign(

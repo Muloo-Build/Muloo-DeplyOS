@@ -1,51 +1,111 @@
 # Roadmap
 
-## Foundation
+## Build order
 
-- Stabilise repository structure, scripts, docs, linting, and environment conventions.
-- Keep dry-run guardrails and auditable artifacts as platform defaults.
+### Phase 1: Foundation
 
-## Input modelling
+Build:
 
-- Expand `OnboardingProject` into richer module-specific planning inputs where needed.
-- Add schema versioning and migration guidance for project files.
-- Improve validation coverage only where operator value is clear.
-- Expand template coverage gradually without turning the template layer into a large generic configuration system.
-- Extend design editing only where operators need more control beyond the current lifecycle, properties, and pipelines editors.
+- auth
+- project model
+- client and portal linking
+- projects dashboard
+- project creation flow
 
-## HubSpot integration layer
+Exit criteria:
 
-- Expand read models beyond properties.
-- Keep write capabilities narrow, explicit, and auditable.
-- Start with create-only contact property apply and expand only after guardrails prove reliable.
-- Introduce retry and rate-limit handling patterns.
+- an internal user can create and manage a project tied to a client and HubSpot portal
+- project states are explicit and persisted
 
-## Execution engine
+### Phase 2: Discovery and standards
 
-- Extend module contracts to more execution areas beyond properties.
-- Keep pipeline dry-run scope intentionally narrow until write-path guardrails exist.
-- Keep apply paths create-only first, with updates and deletes blocked until review workflows exist.
-- Add idempotent dry-run/apply planning for more modules.
-- Introduce project-linked execution summaries and review queues.
-- Keep step timelines readable and consistent across modules.
+Build:
 
-## QA and audit logs
+- structured discovery model
+- discovery workspace
+- discovery versioning
+- standards engine rules v1
+- standards application UI
 
-- Capture structured audit events for operator and system actions.
-- Surface execution summaries, warnings, readiness issues, and review items per project.
+Exit criteria:
 
-## Templates and playbooks
+- discovery can be captured or imported in a structured format
+- the platform can recommend Muloo standard modules with explainable reasoning
 
-- Define reusable onboarding templates and delivery playbooks.
-- Grow the Muloo starter template library across sales, revops, and service delivery patterns.
-- Keep the standard property library curated and auditable.
-- Support controlled variation across client types, regions, and implementation types.
+### Phase 3: Blueprint and tasks
 
-## Internal operator UI
+Build:
 
-- Expand the project views into a stronger guided operator workflow.
-- Keep project authoring simple and task-focused before introducing any complex form builder.
-- Add dedicated validation, readiness, module contract, and execution history views.
-- Surface last dry-run summaries and operator next actions per project.
-- Grow project design editors incrementally rather than introducing a generic schema builder.
-- Keep refining Home, Projects, Runs, and Guide so the operator can understand what to do next on first use.
+- blueprint generator
+- deliverables model
+- task generator
+- dependency mapping
+- execution type assignment
+
+Exit criteria:
+
+- discovery plus standards produces a blueprint, deliverables, and execution-ready tasks
+
+### Phase 4: Linear integration
+
+Build:
+
+- Linear project sync
+- Linear issue creation from tasks
+- status sync back into Muloo Deploy OS
+- owner, label, and milestone mapping
+
+Exit criteria:
+
+- generated tasks can be pushed into Linear and tracked bi-directionally
+
+### Phase 5: Execution router
+
+Build:
+
+- execution classification service
+- execution job model
+- approval gates
+- shell hooks for API and agent workers
+
+Exit criteria:
+
+- every task has a route and risky tasks are blocked pending approval
+
+### Phase 6: QA and audit
+
+Build:
+
+- QA checklist system
+- QA result tracking
+- approval flow
+- deployment log
+- activity and audit views
+
+Exit criteria:
+
+- work cannot be marked complete without traceable QA and approval where required
+
+### Phase 7: Selected automation
+
+Build only a few high-confidence automations first:
+
+- read HubSpot portal context
+- create simple properties
+- create simple pipelines or stages where safe
+- log execution outcomes
+
+Exit criteria:
+
+- the platform proves safe, auditable, narrow automation without overcommitting to agent-heavy execution
+
+## Near-term operating principle
+
+Do not continue adding product features randomly on top of the current prototype.
+
+The next implementation steps should follow this order:
+
+1. lock the workflow
+2. lock the data model
+3. lock the MVP screens
+4. rebuild intentionally against that model
