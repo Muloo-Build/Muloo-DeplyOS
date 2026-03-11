@@ -15,7 +15,7 @@ const environmentSchema = z.object({
   HUBSPOT_PORTAL_ID: z.string().min(1).optional(),
   HUBSPOT_BASE_URL: z.string().url().optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
-  MULOO_EXECUTION_MODE: z.literal("dry-run").default("dry-run"),
+  MULOO_EXECUTION_MODE: z.enum(["dry-run", "guarded-apply"]).default("dry-run"),
   MULOO_ALLOW_DESTRUCTIVE_ACTIONS: z.enum(["false"]).default("false"),
   MULOO_ARTIFACT_DIR: z.string().min(1).default("artifacts")
 });
@@ -25,8 +25,9 @@ export interface BaseConfig {
   port: number;
   appBaseUrl: string;
   artifactDir: string;
-  executionMode: "dry-run";
+  executionMode: "dry-run" | "guarded-apply";
   allowDestructiveActions: false;
+  applyEnabled: boolean;
   integrations: {
     databaseUrl?: string;
     hubspotAccessToken?: string;
@@ -113,6 +114,7 @@ export function loadBaseConfig(options: LoadConfigOptions): BaseConfig {
     artifactDir: parsed.MULOO_ARTIFACT_DIR,
     executionMode: parsed.MULOO_EXECUTION_MODE,
     allowDestructiveActions: false,
+    applyEnabled: parsed.MULOO_EXECUTION_MODE === "guarded-apply",
     integrations
   };
 }

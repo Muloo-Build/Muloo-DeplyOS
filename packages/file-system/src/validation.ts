@@ -27,6 +27,18 @@ function createReason(
   return { code, message, type };
 }
 
+function findDuplicateValues(values: string[]): string[] {
+  const counts = new Map<string, number>();
+
+  for (const value of values) {
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([value]) => value);
+}
+
 function createGenericAssessment(
   project: OnboardingProject,
   modulePlan: OnboardingProject["modulePlanning"][number]
@@ -202,6 +214,44 @@ export function validateProject(
       createFinding(
         "project.modules_missing",
         "At least one module must be planned."
+      )
+    );
+  }
+
+  if (project.crmDesign.lifecycleStages.length === 0) {
+    errors.push(
+      createFinding(
+        "project.lifecycle_stages_missing",
+        "At least one lifecycle stage must be defined."
+      )
+    );
+  }
+
+  if (project.crmDesign.leadStatuses.length === 0) {
+    errors.push(
+      createFinding(
+        "project.lead_statuses_missing",
+        "At least one lead status must be defined."
+      )
+    );
+  }
+
+  for (const duplicate of findDuplicateValues(
+    project.crmDesign.lifecycleStages
+  )) {
+    warnings.push(
+      createFinding(
+        "project.lifecycle_stage_duplicate",
+        `Lifecycle stage '${duplicate}' is defined more than once.`
+      )
+    );
+  }
+
+  for (const duplicate of findDuplicateValues(project.crmDesign.leadStatuses)) {
+    warnings.push(
+      createFinding(
+        "project.lead_status_duplicate",
+        `Lead status '${duplicate}' is defined more than once.`
       )
     );
   }

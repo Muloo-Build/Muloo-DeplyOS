@@ -1,0 +1,119 @@
+{
+  "schemaVersion": "1.0",
+  "id": "muloo-service-foundation",
+  "name": "Muloo Service Foundation",
+  "description": "Service Hub starter for ticket pipeline setup, support categorisation, and baseline service properties.",
+  "templateType": "service-foundation",
+  "hubsInScope": ["service", "ops"],
+  "environment": "production",
+  "defaultModules": [
+    {
+      "moduleId": "crm-setup",
+      "status": "ready",
+      "dependencies": [],
+      "notes": "Ticket objects and service scope are seeded from the Muloo service foundation."
+    },
+    {
+      "moduleId": "properties",
+      "status": "ready",
+      "dependencies": ["crm-setup"],
+      "notes": "Ticket baseline fields are included for categorisation and SLA planning."
+    },
+    {
+      "moduleId": "pipelines",
+      "status": "ready",
+      "dependencies": ["crm-setup"],
+      "notes": "Ticket pipeline starter is included."
+    },
+    {
+      "moduleId": "qa",
+      "status": "planned",
+      "dependencies": ["properties", "pipelines"],
+      "notes": "QA remains planned until service process signoff."
+    }
+  ],
+  "defaultLifecycleStages": ["subscriber", "lead", "customer", "evangelist"],
+  "defaultLeadStatuses": ["New", "Working", "Resolved"],
+  "defaultObjectsInScope": ["contacts", "companies", "tickets"],
+  "propertyLibrary": {
+    "groups": [
+      {
+        "objectType": "tickets",
+        "internalName": "muloo_service_ticket",
+        "label": "Muloo Service Ticket",
+        "description": "Standard ticket fields for service onboarding.",
+        "sourceTag": "muloo-standard"
+      }
+    ],
+    "properties": [
+      {
+        "objectType": "tickets",
+        "groupName": "muloo_service_ticket",
+        "internalName": "muloo_ticket_category",
+        "label": "Muloo Ticket Category",
+        "description": "Primary support category used for routing and reporting.",
+        "required": true,
+        "valueType": "enumeration",
+        "fieldType": "select",
+        "options": [
+          { "label": "Technical", "value": "technical", "displayOrder": 0 },
+          { "label": "Billing", "value": "billing", "displayOrder": 1 },
+          { "label": "General", "value": "general", "displayOrder": 2 }
+        ],
+        "sourceTag": "muloo-standard"
+      },
+      {
+        "objectType": "tickets",
+        "groupName": "muloo_service_ticket",
+        "internalName": "muloo_support_priority",
+        "label": "Muloo Support Priority",
+        "description": "Priority field used for service process triage.",
+        "required": true,
+        "valueType": "enumeration",
+        "fieldType": "radio",
+        "options": [
+          { "label": "Low", "value": "low", "displayOrder": 0 },
+          { "label": "Normal", "value": "normal", "displayOrder": 1 },
+          { "label": "High", "value": "high", "displayOrder": 2 },
+          { "label": "Critical", "value": "critical", "displayOrder": 3 }
+        ],
+        "sourceTag": "muloo-standard"
+      }
+    ]
+  },
+  "defaultPipelines": [
+    {
+      "objectType": "tickets",
+      "internalName": "muloo_support_pipeline",
+      "label": "Support Pipeline",
+      "stages": [
+        {
+          "internalName": "new",
+          "label": "New",
+          "order": 0
+        },
+        {
+          "internalName": "in_progress",
+          "label": "In Progress",
+          "order": 1
+        },
+        {
+          "internalName": "waiting_on_customer",
+          "label": "Waiting on Customer",
+          "order": 2
+        },
+        {
+          "internalName": "resolved",
+          "label": "Resolved",
+          "order": 3
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "This template keeps service modelling intentionally light while still producing a usable ticket setup baseline."
+  ],
+  "assumptions": [
+    "Service-specific SLA fields and automation rules will be added later after process confirmation."
+  ]
+}

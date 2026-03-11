@@ -1,6 +1,8 @@
 import type {
+  ApplyExecutionResult,
   DryRunExecutionResult,
   PipelineDryRunArtifact,
+  PropertyApplyArtifact,
   PropertyDryRunArtifact
 } from "./types";
 
@@ -33,5 +35,21 @@ export function formatPipelineDryRunSummary(
     `Needs review: ${artifact.summary.needsReviewPipelineCount} [${formatNames(artifact.diff.needsReview.map((item) => `${item.objectType}:${item.internalName}`))}]`,
     `Desired stages: ${artifact.summary.desiredStageCount}`,
     `Existing stages fetched: ${artifact.summary.existingStageCount}`
+  ].join("\n");
+}
+
+export function formatPropertyApplySummary(
+  result: ApplyExecutionResult<PropertyApplyArtifact>
+): string {
+  const { artifact } = result;
+
+  return [
+    `Muloo Deploy apply for ${artifact.client.name} (${artifact.objectType})`,
+    `Desired properties: ${artifact.summary.desiredPropertyCount}`,
+    `Existing properties fetched: ${artifact.summary.existingPropertyCount}`,
+    `Safe creates requested: ${artifact.summary.requestedOperationCount}`,
+    `Creates executed: ${artifact.summary.executedOperationCount} [${formatNames(artifact.operations.executed.map((item) => item.targetKey))}]`,
+    `Blocked operations: ${artifact.summary.blockedOperationCount} [${formatNames(artifact.operations.blocked.map((item) => item.targetKey))}]`,
+    `Needs review in diff: ${artifact.summary.needsReviewCount} [${formatNames(artifact.diff.needsReview.map((item) => item.name))}]`
   ].join("\n");
 }

@@ -13,6 +13,7 @@
     "@muloo/config": "workspace:*",
     "@muloo/executor": "workspace:*",
     "@muloo/file-system": "workspace:*",
-    "@muloo/shared": "workspace:*"
+    "@muloo/shared": "workspace:*",
+    "zod": "^3.24.2"
   }
 }

@@ -1,5 +1,12 @@
 export type HubSpotObjectType = "contacts";
 export type PipelineObjectType = "deals" | "tickets";
+export type ApplyOperationType =
+  | "create-contact-property"
+  | "update-contact-property"
+  | "delete-contact-property"
+  | "rename-contact-property"
+  | "mutate-contact-property-options";
+export type ApplyOperationStatus = "requested" | "executed" | "blocked";
 
 export interface PropertyOption {
   label: string;
@@ -145,8 +152,58 @@ export interface PipelineDryRunArtifact {
 
 export type DryRunArtifact = PropertyDryRunArtifact | PipelineDryRunArtifact;
 
+export interface ApplyOperationRecord {
+  id: string;
+  operationType: ApplyOperationType;
+  status: ApplyOperationStatus;
+  targetType: "contact-property";
+  targetKey: string;
+  targetLabel?: string;
+  objectType: HubSpotObjectType;
+  message?: string;
+}
+
+export interface PropertyApplyArtifact {
+  kind: "hubspot-property-apply";
+  dryRun: false;
+  generatedAt: string;
+  specPath: string;
+  client: {
+    name: string;
+    slug: string;
+  };
+  objectType: "contacts";
+  summary: {
+    desiredPropertyCount: number;
+    existingPropertyCount: number;
+    unchangedCount: number;
+    toCreateCount: number;
+    needsReviewCount: number;
+    requestedOperationCount: number;
+    executedOperationCount: number;
+    blockedOperationCount: number;
+    createdPropertyCount: number;
+  };
+  diff: PropertyDiffResult;
+  operations: {
+    requested: ApplyOperationRecord[];
+    executed: ApplyOperationRecord[];
+    blocked: ApplyOperationRecord[];
+  };
+}
+
+export type ApplyArtifact = PropertyApplyArtifact;
+export type ExecutionArtifact = DryRunArtifact | ApplyArtifact;
+
 export interface DryRunExecutionResult<
   TArtifact extends DryRunArtifact = DryRunArtifact
+> {
+  artifact: TArtifact;
+  artifactPath: string;
+}
+
+export interface ApplyExecutionResult<
+  TArtifact extends ApplyArtifact = ApplyArtifact
 > {
   artifact: TArtifact;
   artifactPath: string;

@@ -19,6 +19,7 @@
         <nav class="nav">
           <a class="nav-link" href="/">Dashboard</a>
           <a class="nav-link active" href="/projects">Projects</a>
+          <a class="nav-link" href="/projects/new">Create Project</a>
           <a class="nav-link" href="/modules">Modules</a>
           <a class="nav-link" href="/settings">Settings</a>
         </nav>
@@ -30,6 +31,9 @@
             <h2>Loading project...</h2>
           </div>
         </section>
+        <section class="panel">
+          <div id="project-workflow-nav"></div>
+        </section>
         <section class="grid two-col">
           <article class="panel">
             <p class="panel-label">Summary</p>
@@ -38,6 +42,16 @@
           <article class="panel">
             <p class="panel-label">Readiness</p>
             <div id="project-detail-readiness"></div>
+          </article>
+        </section>
+        <section class="grid two-col">
+          <article class="panel">
+            <p class="panel-label">Baseline</p>
+            <div id="project-detail-baseline"></div>
+          </article>
+          <article class="panel">
+            <p class="panel-label">Edit metadata</p>
+            <form class="form-grid" id="project-metadata-form"></form>
           </article>
         </section>
         <section class="grid two-col">
@@ -58,6 +72,11 @@
             </div>
           </div>
           <div class="module-grid" id="project-detail-modules"></div>
+        </section>
+        <section class="panel">
+          <p class="panel-label">Edit scope</p>
+          <form class="form-grid" id="project-scope-form"></form>
+          <div id="project-scope-status"></div>
         </section>
       </main>
     </div>

@@ -181,6 +181,65 @@ export class HubSpotClient {
     return payload.results.map(normalizeProperty);
   }
 
+  public async createProperty(
+    objectType: HubSpotObjectType,
+    property: ComparablePropertyDefinition
+  ): Promise<ComparablePropertyDefinition> {
+    const url = `${this.baseUrl}/crm/v3/properties/${objectType}`;
+    this.logger.info("Creating HubSpot CRM property.", {
+      objectType,
+      propertyName: property.name,
+      url
+    });
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: property.name,
+        label: property.label,
+        type: property.type,
+        fieldType: property.fieldType,
+        ...(property.description !== undefined
+          ? { description: property.description }
+          : {}),
+        ...(property.groupName !== undefined
+          ? { groupName: property.groupName }
+          : {}),
+        ...(property.formField !== undefined
+          ? { formField: property.formField }
+          : {}),
+        ...(property.options !== undefined
+          ? {
+              options: property.options.map((option) => ({
+                label: option.label,
+                value: option.value,
+                ...(option.displayOrder !== undefined
+                  ? { displayOrder: option.displayOrder }
+                  : {}),
+                ...(option.hidden !== undefined
+                  ? { hidden: option.hidden }
+                  : {})
+              }))
+            }
+          : {})
+      })
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `HubSpot property create failed with status ${response.status}: ${body}`
+      );
+    }
+
+    const payload = (await response.json()) as HubSpotPropertyResponse;
+    return normalizeProperty(payload);
+  }
+
   public async fetchPipelines(
     objectType: PipelineObjectType
   ): Promise<ComparablePipelineDefinition[]> {

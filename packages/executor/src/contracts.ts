@@ -1,6 +1,6 @@
 import type {
   ComparablePropertyDefinition,
-  DryRunArtifact,
+  ExecutionArtifact,
   Logger,
   OnboardingSpec
 } from "@muloo/core";
@@ -65,6 +65,13 @@ export interface PropertyReader {
   ): Promise<ComparablePropertyDefinition[]>;
 }
 
+export interface PropertyWriter {
+  createProperty(
+    objectType: OnboardingSpec["crm"]["objectType"],
+    property: ComparablePropertyDefinition
+  ): Promise<ComparablePropertyDefinition>;
+}
+
 export interface PipelineReader {
   fetchPipelines(
     objectType: PipelineObjectType
@@ -81,7 +88,21 @@ export interface ModuleDryRunContext<
   hubSpotClient?: PropertyReader & PipelineReader;
   writeArtifact?: (params: {
     artifactDir: string;
-    artifact: DryRunArtifact;
+    artifact: ExecutionArtifact;
+  }) => Promise<string>;
+}
+
+export interface ModuleApplyContext<
+  TResolvedInput
+> extends ModuleExecutionContextBase {
+  logger: Logger;
+  artifactDir: string;
+  resolvedInput: TResolvedInput;
+  stepReporter: StepReporter;
+  hubSpotClient?: PropertyReader & PropertyWriter & PipelineReader;
+  writeArtifact?: (params: {
+    artifactDir: string;
+    artifact: ExecutionArtifact;
   }) => Promise<string>;
 }
 
@@ -94,6 +115,6 @@ export interface ModuleExecutionContract<TResolvedInput = unknown> {
     context: ModuleDryRunContext<TResolvedInput>
   ): Promise<ModuleExecutionResult>;
   apply?(
-    context: ModuleExecutionContextBase & { resolvedInput: TResolvedInput }
+    context: ModuleApplyContext<TResolvedInput>
   ): Promise<ModuleExecutionResult>;
 }

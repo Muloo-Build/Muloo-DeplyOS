@@ -319,31 +319,38 @@ const definition = moduleExecutionContractDefinitionSchema.parse({
     apply: false
   },
   resultKind: "hubspot-pipeline-dry-run",
-  executionSteps: [
-    { key: "load-project", label: "Load project", type: "project" },
-    { key: "validate-project", label: "Validate project", type: "validation" },
-    {
-      key: "resolve-module-input",
-      label: "Resolve module input",
-      type: "input"
-    },
-    {
-      key: "load-existing-hubspot-state",
-      label: "Load existing HubSpot state",
-      type: "integration"
-    },
-    {
-      key: "diff-desired-vs-existing",
-      label: "Diff desired vs existing",
-      type: "analysis"
-    },
-    { key: "write-artifact", label: "Write artifact", type: "artifact" },
-    {
-      key: "persist-execution-record",
-      label: "Persist execution record",
-      type: "persistence"
-    }
-  ]
+  executionSteps: {
+    dryRun: [
+      { key: "load-project", label: "Load project", type: "project" },
+      {
+        key: "validate-project",
+        label: "Validate project",
+        type: "validation"
+      },
+      {
+        key: "resolve-module-input",
+        label: "Resolve module input",
+        type: "input"
+      },
+      {
+        key: "load-existing-hubspot-state",
+        label: "Load existing HubSpot state",
+        type: "integration"
+      },
+      {
+        key: "diff-desired-vs-existing",
+        label: "Diff desired vs existing",
+        type: "analysis"
+      },
+      { key: "write-artifact", label: "Write artifact", type: "artifact" },
+      {
+        key: "persist-execution-record",
+        label: "Persist execution record",
+        type: "persistence"
+      }
+    ],
+    apply: []
+  }
 });
 
 export const pipelinesModuleContract: ModuleExecutionContract<PipelineModuleInput> =

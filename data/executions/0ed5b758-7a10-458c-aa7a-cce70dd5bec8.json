@@ -1,0 +1,262 @@
+{
+  "id": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8",
+  "projectId": "project-apex-revenue-ops",
+  "moduleKey": "properties",
+  "executionType": "project-module",
+  "status": "failed",
+  "mode": "apply",
+  "startedAt": "2026-03-11T07:45:46.927Z",
+  "completedAt": "2026-03-11T07:45:47.011Z",
+  "summaryMetrics": {},
+  "warnings": [
+    "Existing contact property differs from the desired plan. Apply mode only allows create-only operations."
+  ],
+  "errors": [
+    "Apply mode is blocked because the diff includes changes that are not safe create-only operations."
+  ],
+  "output": {
+    "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T07-45-47-005Z-apex-revenue-systems-contact-properties-apply.json",
+    "summaryText": "Muloo Deploy apply for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nSafe creates requested: 2\nCreates executed: 0 [none]\nBlocked operations: 1 [apex_segment]\nNeeds review in diff: 1 [apex_segment]",
+    "specPath": "project:project-apex-revenue-ops:properties"
+  },
+  "operations": {
+    "requested": [
+      {
+        "id": "create:apex_sales_region",
+        "operationType": "create-contact-property",
+        "status": "requested",
+        "targetType": "contact-property",
+        "targetKey": "apex_sales_region",
+        "targetLabel": "Apex Sales Region",
+        "objectType": "contacts"
+      },
+      {
+        "id": "create:apex_handover_ready",
+        "operationType": "create-contact-property",
+        "status": "requested",
+        "targetType": "contact-property",
+        "targetKey": "apex_handover_ready",
+        "targetLabel": "Apex Handover Ready",
+        "objectType": "contacts"
+      }
+    ],
+    "executed": [],
+    "blocked": [
+      {
+        "id": "blocked:apex_segment",
+        "operationType": "update-contact-property",
+        "status": "blocked",
+        "targetType": "contact-property",
+        "targetKey": "apex_segment",
+        "objectType": "contacts",
+        "message": "Existing contact property differs from the desired plan. Apply mode only allows create-only operations."
+      }
+    ]
+  },
+  "result": {
+    "moduleKey": "properties",
+    "moduleLabel": "Properties",
+    "mode": "apply",
+    "status": "failed",
+    "summary": "Muloo Deploy apply for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nSafe creates requested: 2\nCreates executed: 0 [none]\nBlocked operations: 1 [apex_segment]\nNeeds review in diff: 1 [apex_segment]",
+    "metrics": {
+      "desiredPropertyCount": 3,
+      "existingPropertyCount": 1,
+      "unchangedCount": 0,
+      "toCreateCount": 2,
+      "needsReviewCount": 1,
+      "requestedOperationCount": 2,
+      "executedOperationCount": 0,
+      "blockedOperationCount": 1,
+      "createdPropertyCount": 0
+    },
+    "warnings": [
+      "Existing contact property differs from the desired plan. Apply mode only allows create-only operations."
+    ],
+    "errors": [
+      "Apply mode is blocked because the diff includes changes that are not safe create-only operations."
+    ],
+    "output": {
+      "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T07-45-47-005Z-apex-revenue-systems-contact-properties-apply.json",
+      "summaryText": "Muloo Deploy apply for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nSafe creates requested: 2\nCreates executed: 0 [none]\nBlocked operations: 1 [apex_segment]\nNeeds review in diff: 1 [apex_segment]",
+      "specPath": "project:project-apex-revenue-ops:properties"
+    },
+    "operations": {
+      "requested": [
+        {
+          "id": "create:apex_sales_region",
+          "operationType": "create-contact-property",
+          "status": "requested",
+          "targetType": "contact-property",
+          "targetKey": "apex_sales_region",
+          "targetLabel": "Apex Sales Region",
+          "objectType": "contacts"
+        },
+        {
+          "id": "create:apex_handover_ready",
+          "operationType": "create-contact-property",
+          "status": "requested",
+          "targetType": "contact-property",
+          "targetKey": "apex_handover_ready",
+          "targetLabel": "Apex Handover Ready",
+          "objectType": "contacts"
+        }
+      ],
+      "executed": [],
+      "blocked": [
+        {
+          "id": "blocked:apex_segment",
+          "operationType": "update-contact-property",
+          "status": "blocked",
+          "targetType": "contact-property",
+          "targetKey": "apex_segment",
+          "objectType": "contacts",
+          "message": "Existing contact property differs from the desired plan. Apply mode only allows create-only operations."
+        }
+      ]
+    }
+  },
+  "steps": [
+    {
+      "id": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8:load-project",
+      "jobId": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8",
+      "key": "load-project",
+      "label": "Load project",
+      "type": "project",
+      "order": 0,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:45:46.933Z",
+      "completedAt": "2026-03-11T07:45:46.945Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Loaded project 'Apex Revenue Systems Sales Hub Foundation'."
+    },
+    {
+      "id": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8:validate-project",
+      "jobId": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8",
+      "key": "validate-project",
+      "label": "Validate project",
+      "type": "validation",
+      "order": 1,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:45:46.947Z",
+      "completedAt": "2026-03-11T07:45:46.951Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Module readiness is 'ready' with validation status 'valid'."
+    },
+    {
+      "id": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8:resolve-module-input",
+      "jobId": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8",
+      "key": "resolve-module-input",
+      "label": "Resolve module input",
+      "type": "input",
+      "order": 2,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:45:46.953Z",
+      "completedAt": "2026-03-11T07:45:46.955Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Resolved module input from 'project-apex-revenue-ops'.",
+      "output": {
+        "specPath": "project:project-apex-revenue-ops:properties"
+      }
+    },
+    {
+      "id": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8:load-existing-hubspot-state",
+      "jobId": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8",
+      "key": "load-existing-hubspot-state",
+      "label": "Load existing HubSpot state",
+      "type": "integration",
+      "order": 3,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:45:46.956Z",
+      "completedAt": "2026-03-11T07:45:46.995Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Fetched 1 existing HubSpot properties."
+    },
+    {
+      "id": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8:diff-desired-vs-existing",
+      "jobId": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8",
+      "key": "diff-desired-vs-existing",
+      "label": "Diff desired vs existing",
+      "type": "analysis",
+      "order": 4,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:45:46.996Z",
+      "completedAt": "2026-03-11T07:45:46.999Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "2 safe create candidates, 1 blocked review items, 0 unchanged."
+    },
+    {
+      "id": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8:evaluate-apply-guardrails",
+      "jobId": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8",
+      "key": "evaluate-apply-guardrails",
+      "label": "Evaluate apply guardrails",
+      "type": "guardrail",
+      "order": 5,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:45:46.999Z",
+      "completedAt": "2026-03-11T07:45:47.001Z",
+      "warnings": [
+        "Existing contact property differs from the desired plan. Apply mode only allows create-only operations."
+      ],
+      "errors": [],
+      "summary": "Apply mode is blocked because the diff includes changes that are not safe create-only operations."
+    },
+    {
+      "id": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8:execute-safe-creates",
+      "jobId": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8",
+      "key": "execute-safe-creates",
+      "label": "Execute safe creates",
+      "type": "execution",
+      "order": 6,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:45:47.001Z",
+      "completedAt": "2026-03-11T07:45:47.004Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "No missing contact properties required creation."
+    },
+    {
+      "id": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8:write-artifact",
+      "jobId": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8",
+      "key": "write-artifact",
+      "label": "Write artifact",
+      "type": "artifact",
+      "order": 7,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:45:47.004Z",
+      "completedAt": "2026-03-11T07:45:47.006Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Guarded apply artifact written to disk.",
+      "output": {
+        "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T07-45-47-005Z-apex-revenue-systems-contact-properties-apply.json"
+      }
+    },
+    {
+      "id": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8:persist-execution-record",
+      "jobId": "0ed5b758-7a10-458c-aa7a-cce70dd5bec8",
+      "key": "persist-execution-record",
+      "label": "Persist execution record",
+      "type": "persistence",
+      "order": 8,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:45:47.008Z",
+      "completedAt": "2026-03-11T07:45:47.010Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Execution record updated with module result.",
+      "output": {
+        "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T07-45-47-005Z-apex-revenue-systems-contact-properties-apply.json",
+        "summaryText": "Muloo Deploy apply for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nSafe creates requested: 2\nCreates executed: 0 [none]\nBlocked operations: 1 [apex_segment]\nNeeds review in diff: 1 [apex_segment]",
+        "specPath": "project:project-apex-revenue-ops:properties"
+      }
+    }
+  ],
+  "triggeredBy": "jarrud",
+  "environment": "development"
+}

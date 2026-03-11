@@ -18,11 +18,15 @@ What is real today:
 - module execution contracts for execution-capable modules
 - file-backed execution job history for project/module dry runs
 - live dry-run CLI slices for HubSpot properties and pipelines
+- one guarded apply path for create-only contact properties through the properties module
+- file-backed project authoring through the API and internal web shell
+- Muloo starter templates and a standard property library for seeded project creation
+- project design editors for lifecycle stages, lead statuses, property groups, properties, pipelines, and stages
 - shared execution packages for config, diffing, filesystem output, HubSpot reads, and executor flow
 
 What is intentionally not built yet:
 
-- HubSpot write execution
+- broad HubSpot write execution
 - persistent storage beyond file-backed JSON
 - operator authentication and permissions
 - heavy workflow orchestration or background job runners
@@ -40,6 +44,41 @@ An `OnboardingProject` is the core planning object in the system. It captures:
 - execution context and validation state
 
 Sample projects live in `data/projects/` and are validated on load.
+
+## Templates and baseline library
+
+Muloo Deploy OS now includes file-backed starter templates in `data/templates/`.
+
+Each template defines:
+
+- template metadata and type
+- hubs in scope
+- default module plans
+- lifecycle stages and lead statuses where relevant
+- baseline property groups and properties through a standard property library shape
+- starter pipelines where relevant
+- notes and assumptions
+
+The first templates are:
+
+- `muloo-sales-foundation`
+- `muloo-revops-foundation`
+- `muloo-service-foundation`
+
+The standard property library shape is intentionally simple:
+
+- `objectType`
+- `groupName`
+- `internalName`
+- `label`
+- `fieldType`
+- `valueType`
+- `description`
+- `required`
+- `options`
+- `sourceTag`
+
+Projects created from templates copy these baselines into the project blueprint so operators start from a usable Muloo standard instead of a blank file.
 
 ## Validation and readiness
 
@@ -66,10 +105,19 @@ Each contract defines:
 - declared input requirements
 - validation and readiness handlers
 - dry-run handler and apply placeholder
+- explicit apply guardrails when apply is supported
 - expected result kind
-- ordered execution step templates
+- ordered execution step templates per execution mode
 
-The `properties` and `pipelines` modules are now live dry-run contracts. Pipeline dry-run scope is intentionally narrow in v1:
+The `properties` and `pipelines` modules are now live dry-run contracts. The `properties` module also supports a guarded apply path with intentionally tiny scope:
+
+- contact properties only
+- create-only operations for missing properties
+- explicit `--apply` and `--allow-create-only` CLI flags
+- environment guard via `MULOO_EXECUTION_MODE=guarded-apply`
+- hard block on updates, deletes, renames, and option mutations
+
+Pipeline dry-run scope is intentionally narrow in v1:
 
 - deal pipelines
 - ticket pipelines when present in the project blueprint
@@ -81,7 +129,7 @@ It does not attempt pipeline rules, permissions, SLAs, or workflow behavior.
 
 ## Execution job records
 
-Project/module dry runs now create execution job records in `data/executions/`.
+Project/module dry runs and guarded applies now create execution job records in `data/executions/`.
 
 Each record stores:
 
@@ -92,6 +140,7 @@ Each record stores:
 - warnings and errors
 - artifact and summary output references
 - normalized module execution result payloads
+- requested, executed, and blocked operation summaries
 - step-level execution timelines
 - triggered-by and environment placeholders
 
@@ -104,6 +153,8 @@ The internal API now exposes:
 - `GET /api/health`
 - `GET /api/modules`
 - `GET /api/settings`
+- `GET /api/templates`
+- `GET /api/templates/:id`
 - `GET /api/projects`
 - `GET /api/projects/:id`
 - `GET /api/projects/:id/modules`
@@ -115,6 +166,14 @@ The internal API now exposes:
 - `GET /api/executions/:id`
 - `GET /api/executions/:id/steps`
 - `GET /api/projects/validation-summary`
+- `POST /api/projects`
+- `POST /api/projects/from-template`
+- `PUT /api/projects/:id`
+- `PUT /api/projects/:id/scope`
+- `GET /api/projects/:id/design`
+- `PUT /api/projects/:id/design/lifecycle`
+- `PUT /api/projects/:id/design/properties`
+- `PUT /api/projects/:id/design/pipelines`
 
 ## Run locally
 
@@ -140,6 +199,43 @@ corepack pnpm start
 
 5. Open [http://localhost:3000](http://localhost:3000).
 
+## Project authoring
+
+Operators can now:
+
+- create a blank project
+- create a project from a Muloo starter template
+- edit core project metadata
+- edit hubs in scope, environment, modules, and module statuses
+- inspect template provenance and seeded baseline fields on the project detail page
+
+The UI entry point is [http://localhost:3000/projects/new](http://localhost:3000/projects/new).
+
+## Project design editing
+
+Operators can now edit the core onboarding blueprint inside the tool.
+
+Current v1 design editors support:
+
+- lifecycle stages and lead statuses
+- property groups and properties by object
+- pipeline and stage structure
+
+Design endpoints:
+
+- `GET /api/projects/:id/design`
+- `PUT /api/projects/:id/design/lifecycle`
+- `PUT /api/projects/:id/design/properties`
+- `PUT /api/projects/:id/design/pipelines`
+
+Design pages:
+
+- `/project/design/lifecycle?project=<id>`
+- `/project/design/properties?project=<id>`
+- `/project/design/pipelines?project=<id>`
+
+These editors are intentionally practical and form-based. They preserve template provenance visibility, keep `sourceTag` markers on seeded baseline fields, and feed directly into the existing validation and readiness model after each save.
+
 ## CLI usage
 
 Legacy raw-spec mode remains available:
@@ -158,7 +254,13 @@ corepack pnpm cli -- --project project-apex-revenue-ops --module properties
 corepack pnpm cli -- --project project-apex-revenue-ops --module pipelines
 ```
 
-This resolves the selected module through its execution contract, runs the relevant dry-run flow, and persists an execution record with a step timeline on completion.
+Guarded apply for properties requires explicit confirmation and remains create-only:
+
+```bash
+MULOO_EXECUTION_MODE=guarded-apply corepack pnpm cli -- --project project-apex-revenue-ops --module properties --apply --allow-create-only
+```
+
+This resolves the selected module through its execution contract, runs the relevant dry-run or guarded apply flow, and persists an execution record with a step timeline on completion.
 
 ## Repo structure
 

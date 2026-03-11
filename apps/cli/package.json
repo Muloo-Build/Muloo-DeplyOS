@@ -16,6 +16,7 @@
     "@muloo/core": "workspace:*",
     "@muloo/executor": "workspace:*",
     "@muloo/file-system": "workspace:*",
-    "@muloo/hubspot-client": "workspace:*"
+    "@muloo/hubspot-client": "workspace:*",
+    "@muloo/shared": "workspace:*"
   }
 }

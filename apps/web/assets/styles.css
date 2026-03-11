@@ -143,7 +143,10 @@ body::before {
 .stats,
 .module-grid,
 .grid.two-col,
-.timeline {
+.timeline,
+.form-grid,
+.checkbox-grid,
+.module-selection-grid {
   display: grid;
   gap: 18px;
 }
@@ -158,6 +161,15 @@ body::before {
 
 .grid.two-col {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.checkbox-grid,
+.module-selection-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .eyebrow,
@@ -205,6 +217,147 @@ body::before {
   padding: 10px 0;
 }
 
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field span {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.field input,
+.field select,
+.field textarea,
+.module-form-row select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--text);
+  font: inherit;
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.field-full {
+  grid-column: 1 / -1;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.module-form-row {
+  display: grid;
+  gap: 10px;
+}
+
+.workflow-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.workflow-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.workflow-link.active {
+  background: var(--accent-soft);
+  border-color: rgba(15, 95, 82, 0.24);
+  color: var(--accent);
+}
+
+.editor-stack,
+.editor-list,
+.nested-list,
+.status-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.editor-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.editor-card.compact {
+  padding: 14px;
+}
+
+.editor-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.editor-grid.wide {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.6);
+  font: inherit;
+  cursor: pointer;
+}
+
+.button-danger {
+  border-color: rgba(143, 90, 10, 0.24);
+  color: var(--warning);
+}
+
+.callout {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 248, 239, 0.72);
+}
+
+.callout p {
+  margin: 0;
+}
+
 .section-header {
   display: flex;
   align-items: center;
@@ -248,7 +401,10 @@ body::before {
 
   .hero,
   .grid.two-col,
-  .stats {
+  .stats,
+  .form-grid,
+  .editor-grid,
+  .editor-grid.wide {
     grid-template-columns: 1fr;
   }
 }

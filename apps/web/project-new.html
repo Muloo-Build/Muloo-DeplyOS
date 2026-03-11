@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Muloo Deploy OS Create Project</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body data-page="project-new">
+    <div class="shell">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">Muloo Internal</p>
+          <h1>Deploy OS</h1>
+          <p class="sidebar-copy">
+            Create a file-backed onboarding project from blank or a Muloo
+            starter template.
+          </p>
+        </div>
+        <nav class="nav">
+          <a class="nav-link" href="/">Dashboard</a>
+          <a class="nav-link" href="/projects">Projects</a>
+          <a class="nav-link active" href="/projects/new">Create Project</a>
+          <a class="nav-link" href="/modules">Modules</a>
+          <a class="nav-link" href="/settings">Settings</a>
+        </nav>
+      </aside>
+      <main class="content">
+        <section class="hero compact">
+          <div>
+            <p class="eyebrow">Project authoring</p>
+            <h2>
+              Seed a new onboarding blueprint with a practical starting point.
+            </h2>
+            <p class="hero-copy">
+              Blank projects stay minimal. Template-seeded projects copy Muloo
+              baseline modules, CRM defaults, pipelines, and standard property
+              library entries into the project file.
+            </p>
+          </div>
+        </section>
+        <section class="grid two-col">
+          <article class="panel">
+            <p class="panel-label">Create project</p>
+            <form class="form-grid" id="project-create-form"></form>
+          </article>
+          <article class="panel">
+            <p class="panel-label">Template details</p>
+            <div id="project-create-template-detail"></div>
+          </article>
+        </section>
+        <section class="panel">
+          <p class="panel-label">Save result</p>
+          <div id="project-create-status"></div>
+        </section>
+      </main>
+    </div>
+    <script src="/assets/app.js"></script>
+  </body>
+</html>

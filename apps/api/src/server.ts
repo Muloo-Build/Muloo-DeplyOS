@@ -4,19 +4,40 @@ import path from "node:path";
 
 import { getIntegrationStatus, type BaseConfig } from "@muloo/config";
 import {
+  createProject,
+  createProjectFromTemplate,
   loadAllProjectSummaries,
+  loadAllTemplates,
   loadExecutionById,
   loadExecutionSteps,
   loadProjectById,
+  loadProjectDesignById,
   loadProjectExecutions,
   loadProjectModuleDetail,
   loadProjectReadinessById,
   loadProjectSummaryById,
+  loadTemplateById,
   summarizeProjectModules,
+  summarizeProject,
+  updateProjectLifecycleDesign,
+  updateProjectMetadata,
+  updateProjectPipelinesDesign,
+  updateProjectPropertiesDesign,
+  updateProjectScope,
   validateAllProjects,
   validateProjectById
 } from "@muloo/file-system";
 import { moduleCatalog } from "@muloo/shared";
+import {
+  createProjectFromTemplateRequestSchema,
+  createProjectRequestSchema,
+  updateProjectLifecycleDesignRequestSchema,
+  updateProjectMetadataRequestSchema,
+  updateProjectPipelinesDesignRequestSchema,
+  updateProjectPropertiesDesignRequestSchema,
+  updateProjectScopeRequestSchema
+} from "@muloo/shared";
+import { ZodError } from "zod";
 
 const contentTypes: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -30,6 +51,10 @@ const staticRoutes: Record<string, string> = {
   "/execution": "execution.html",
   "/module": "module.html",
   "/modules": "modules.html",
+  "/project/design/lifecycle": "project-design-lifecycle.html",
+  "/project/design/pipelines": "project-design-pipelines.html",
+  "/project/design/properties": "project-design-properties.html",
+  "/projects/new": "project-new.html",
   "/projects": "projects.html",
   "/project": "project.html",
   "/settings": "settings.html",
@@ -44,6 +69,21 @@ function sendJson(
 ): void {
   response.writeHead(statusCode, { "Content-Type": contentTypes[".json"] });
   response.end(`${JSON.stringify(payload, null, 2)}\n`);
+}
+
+async function readJsonBody(request: http.IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  if (chunks.length === 0) {
+    return {};
+  }
+
+  const content = Buffer.concat(chunks).toString("utf8").trim();
+  return content.length > 0 ? (JSON.parse(content) as unknown) : {};
 }
 
 async function serveStaticAsset(
@@ -62,10 +102,16 @@ async function serveStaticAsset(
 
 function matchProjectRoute(pathname: string): {
   projectId: string;
-  resource?: "modules" | "summary" | "validation" | "readiness" | "executions";
+  resource?:
+    | "modules"
+    | "summary"
+    | "validation"
+    | "readiness"
+    | "executions"
+    | "scope";
 } | null {
   const match =
-    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions))?$/.exec(
+    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions|scope))?$/.exec(
       pathname
     );
 
@@ -80,13 +126,52 @@ function matchProjectRoute(pathname: string): {
     resource === "summary" ||
     resource === "validation" ||
     resource === "readiness" ||
-    resource === "executions"
+    resource === "executions" ||
+    resource === "scope"
       ? resource
       : undefined;
 
   return normalizedResource
     ? { projectId, resource: normalizedResource }
     : { projectId };
+}
+
+function matchProjectDesignRoute(pathname: string): {
+  projectId: string;
+  resource?: "lifecycle" | "properties" | "pipelines";
+} | null {
+  const match =
+    /^\/api\/projects\/([^/]+?)\/design(?:\/(lifecycle|properties|pipelines))?$/.exec(
+      pathname
+    );
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  const resource =
+    match[2] === "lifecycle" ||
+    match[2] === "properties" ||
+    match[2] === "pipelines"
+      ? match[2]
+      : undefined;
+
+  return {
+    projectId: decodeURIComponent(match[1]),
+    ...(resource ? { resource } : {})
+  };
+}
+
+function matchTemplateRoute(pathname: string): { templateId: string } | null {
+  const match = /^\/api\/templates\/([^/]+)$/.exec(pathname);
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  return {
+    templateId: decodeURIComponent(match[1])
+  };
 }
 
 function matchProjectModuleRoute(pathname: string): {
@@ -130,6 +215,19 @@ export function createAppServer(config: BaseConfig): http.Server {
     const url = new URL(request.url ?? "/", config.appBaseUrl);
 
     try {
+      if (request.method === "GET" && url.pathname === "/api/templates") {
+        return sendJson(response, 200, {
+          templates: await loadAllTemplates()
+        });
+      }
+
+      const templateRoute = matchTemplateRoute(url.pathname);
+      if (request.method === "GET" && templateRoute) {
+        return sendJson(response, 200, {
+          template: await loadTemplateById(templateRoute.templateId)
+        });
+      }
+
       if (url.pathname === "/api/health") {
         return sendJson(response, 200, {
           status: "ok",
@@ -137,6 +235,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           timestamp: new Date().toISOString(),
           environment: config.nodeEnv,
           executionMode: config.executionMode,
+          applyEnabled: config.applyEnabled,
           moduleCount: moduleCatalog.length
         });
       }
@@ -153,13 +252,39 @@ export function createAppServer(config: BaseConfig): http.Server {
           appBaseUrl: config.appBaseUrl,
           artifactDir: config.artifactDir,
           executionMode: config.executionMode,
+          applyEnabled: config.applyEnabled,
           integrationStatus: getIntegrationStatus(config)
         });
       }
 
       if (url.pathname === "/api/projects") {
+        if (request.method === "POST") {
+          const payload = createProjectRequestSchema.parse(
+            await readJsonBody(request)
+          );
+          const project = await createProject(payload);
+          return sendJson(response, 201, {
+            project,
+            summary: await summarizeProject(project)
+          });
+        }
+
         return sendJson(response, 200, {
           projects: await loadAllProjectSummaries()
+        });
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/projects/from-template"
+      ) {
+        const payload = createProjectFromTemplateRequestSchema.parse(
+          await readJsonBody(request)
+        );
+        const project = await createProjectFromTemplate(payload);
+        return sendJson(response, 201, {
+          project,
+          summary: await summarizeProject(project)
         });
       }
 
@@ -179,6 +304,84 @@ export function createAppServer(config: BaseConfig): http.Server {
         });
       }
 
+      const projectDesignRoute = matchProjectDesignRoute(url.pathname);
+      if (projectDesignRoute) {
+        if (request.method === "GET" && !projectDesignRoute.resource) {
+          const design = await loadProjectDesignById(
+            projectDesignRoute.projectId
+          );
+          return sendJson(response, 200, {
+            design,
+            validation: await validateProjectById(projectDesignRoute.projectId),
+            readiness: await loadProjectReadinessById(
+              projectDesignRoute.projectId
+            )
+          });
+        }
+
+        if (
+          request.method === "PUT" &&
+          projectDesignRoute.resource === "lifecycle"
+        ) {
+          const payload = updateProjectLifecycleDesignRequestSchema.parse(
+            await readJsonBody(request)
+          );
+          const project = await updateProjectLifecycleDesign(
+            projectDesignRoute.projectId,
+            payload
+          );
+          return sendJson(response, 200, {
+            project,
+            design: await loadProjectDesignById(project.id),
+            validation: await validateProjectById(project.id),
+            readiness: await loadProjectReadinessById(project.id),
+            summary: await summarizeProject(project)
+          });
+        }
+
+        if (
+          request.method === "PUT" &&
+          projectDesignRoute.resource === "properties"
+        ) {
+          const payload = updateProjectPropertiesDesignRequestSchema.parse(
+            await readJsonBody(request)
+          );
+          const project = await updateProjectPropertiesDesign(
+            projectDesignRoute.projectId,
+            payload
+          );
+          return sendJson(response, 200, {
+            project,
+            design: await loadProjectDesignById(project.id),
+            validation: await validateProjectById(project.id),
+            readiness: await loadProjectReadinessById(project.id),
+            summary: await summarizeProject(project)
+          });
+        }
+
+        if (
+          request.method === "PUT" &&
+          projectDesignRoute.resource === "pipelines"
+        ) {
+          const payload = updateProjectPipelinesDesignRequestSchema.parse(
+            await readJsonBody(request)
+          );
+          const project = await updateProjectPipelinesDesign(
+            projectDesignRoute.projectId,
+            payload
+          );
+          return sendJson(response, 200, {
+            project,
+            design: await loadProjectDesignById(project.id),
+            validation: await validateProjectById(project.id),
+            readiness: await loadProjectReadinessById(project.id),
+            summary: await summarizeProject(project)
+          });
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
       const executionRoute = matchExecutionRoute(url.pathname);
       if (executionRoute) {
         if (executionRoute.resource === "steps") {
@@ -195,6 +398,38 @@ export function createAppServer(config: BaseConfig): http.Server {
 
       const projectRoute = matchProjectRoute(url.pathname);
       if (projectRoute) {
+        if (request.method === "PUT" && !projectRoute.resource) {
+          const payload = updateProjectMetadataRequestSchema.parse(
+            await readJsonBody(request)
+          );
+          const project = await updateProjectMetadata(
+            projectRoute.projectId,
+            payload
+          );
+          return sendJson(response, 200, {
+            project,
+            summary: await summarizeProject(project)
+          });
+        }
+
+        if (request.method === "PUT" && projectRoute.resource === "scope") {
+          const payload = updateProjectScopeRequestSchema.parse(
+            await readJsonBody(request)
+          );
+          const project = await updateProjectScope(
+            projectRoute.projectId,
+            payload
+          );
+          return sendJson(response, 200, {
+            project,
+            summary: await summarizeProject(project)
+          });
+        }
+
+        if (request.method !== "GET") {
+          return sendJson(response, 405, { error: "Method Not Allowed" });
+        }
+
         if (projectRoute.resource === "modules") {
           const project = await loadProjectById(projectRoute.projectId);
           return sendJson(response, 200, {
@@ -247,12 +482,14 @@ export function createAppServer(config: BaseConfig): http.Server {
       const message =
         error instanceof Error ? error.message : "Unexpected server error";
       const statusCode =
-        (error instanceof Error &&
-          "code" in error &&
-          error.code === "ENOENT") ||
-        message.includes("was not found")
-          ? 404
-          : 500;
+        error instanceof ZodError
+          ? 400
+          : (error instanceof Error &&
+                "code" in error &&
+                error.code === "ENOENT") ||
+              message.includes("was not found")
+            ? 404
+            : 500;
       sendJson(response, statusCode, { error: message });
     }
   });

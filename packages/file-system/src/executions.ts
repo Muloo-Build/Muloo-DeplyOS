@@ -31,9 +31,15 @@ async function saveExecutionRecord(
 
 export function createExecutionTimeline(
   jobId: string,
-  contract: ModuleExecutionContractDefinition
+  contract: ModuleExecutionContractDefinition,
+  mode: ExecutionJobRecord["mode"]
 ): ExecutionStep[] {
-  return contract.executionSteps.map((step, index) => ({
+  const stepTemplates =
+    mode === "apply"
+      ? contract.executionSteps.apply
+      : contract.executionSteps.dryRun;
+
+  return stepTemplates.map((step, index) => ({
     id: `${jobId}:${step.key}`,
     jobId,
     key: step.key,
@@ -129,6 +135,7 @@ async function patchExecutionRecord(params: {
   warnings?: string[];
   errors?: string[];
   output?: ExecutionJobRecord["output"];
+  operations?: ExecutionJobRecord["operations"];
   steps?: ExecutionStep[];
   result?: ModuleExecutionResult;
 }): Promise<ExecutionJobRecord> {
@@ -145,6 +152,7 @@ async function patchExecutionRecord(params: {
       ...existing.output,
       ...params.output
     },
+    operations: params.operations ?? existing.operations,
     steps: params.steps ?? existing.steps,
     result: params.result ?? existing.result
   });
@@ -276,6 +284,7 @@ export async function completeExecutionJobRecord(params: {
   summaryMetrics: ExecutionJobRecord["summaryMetrics"];
   warnings?: string[];
   output?: ExecutionJobRecord["output"];
+  operations?: ExecutionJobRecord["operations"];
   steps?: ExecutionStep[];
   result?: ModuleExecutionResult;
 }): Promise<ExecutionJobRecord> {
@@ -287,6 +296,7 @@ export async function completeExecutionJobRecord(params: {
     summaryMetrics: params.summaryMetrics,
     ...(params.warnings ? { warnings: params.warnings } : {}),
     ...(params.output ? { output: params.output } : {}),
+    ...(params.operations ? { operations: params.operations } : {}),
     ...(params.steps ? { steps: params.steps } : {}),
     ...(params.result ? { result: params.result } : {})
   };
@@ -297,9 +307,11 @@ export async function completeExecutionJobRecord(params: {
 export async function failExecutionJobRecord(params: {
   cwd?: string;
   executionId: string;
+  summaryMetrics?: ExecutionJobRecord["summaryMetrics"];
   errors: string[];
   warnings?: string[];
   output?: ExecutionJobRecord["output"];
+  operations?: ExecutionJobRecord["operations"];
   steps?: ExecutionStep[];
   result?: ModuleExecutionResult;
 }): Promise<ExecutionJobRecord> {
@@ -313,9 +325,11 @@ export async function failExecutionJobRecord(params: {
     executionId: params.executionId,
     status: "failed" as const,
     completedAt: new Date().toISOString(),
+    summaryMetrics: params.summaryMetrics ?? existing.summaryMetrics,
     warnings: params.warnings ?? existing.warnings,
     errors: [...existing.errors, ...params.errors],
     ...(params.output ? { output: params.output } : {}),
+    ...(params.operations ? { operations: params.operations } : {}),
     ...(params.steps ? { steps: params.steps } : {}),
     ...(params.result ? { result: params.result } : {})
   };

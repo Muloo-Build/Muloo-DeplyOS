@@ -3,7 +3,7 @@ import path from "node:path";
 
 import {
   onboardingSpecSchema,
-  type DryRunArtifact,
+  type ExecutionArtifact,
   type OnboardingSpec,
   type SpecFile
 } from "@muloo/core";
@@ -33,11 +33,15 @@ export async function loadValidatedOnboardingSpec(
   };
 }
 
-function createArtifactFileName(artifact: DryRunArtifact): string {
+function createArtifactFileName(artifact: ExecutionArtifact): string {
   const timestamp = artifact.generatedAt.replace(/[:.]/g, "-");
 
   if (artifact.kind === "hubspot-pipeline-dry-run") {
     return `${timestamp}-${artifact.client.slug}-pipelines-dry-run.json`;
+  }
+
+  if (artifact.kind === "hubspot-property-apply") {
+    return `${timestamp}-${artifact.client.slug}-contact-properties-apply.json`;
   }
 
   return `${timestamp}-${artifact.client.slug}-contact-properties-dry-run.json`;
@@ -45,7 +49,7 @@ function createArtifactFileName(artifact: DryRunArtifact): string {
 
 export async function writeJsonArtifact(params: {
   artifactDir: string;
-  artifact: DryRunArtifact;
+  artifact: ExecutionArtifact;
 }): Promise<string> {
   await fs.mkdir(params.artifactDir, { recursive: true });
 

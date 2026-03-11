@@ -72,6 +72,8 @@ export async function summarizeProject(
     readiness: validation.readiness,
     executionCount: executions.length,
     lastExecutionStatus: latestExecution?.status,
+    seedType: project.templateProvenance?.seedType,
+    templateName: project.templateProvenance?.templateName,
     updatedAt: project.updatedAt
   });
 }

@@ -1,0 +1,188 @@
+{
+  "schemaVersion": "1.0",
+  "id": "muloo-revops-foundation",
+  "name": "Muloo RevOps Foundation",
+  "description": "Sales and marketing baseline for lifecycle, lead management, segmentation, and shared contact/company/deal planning.",
+  "templateType": "revops-foundation",
+  "hubsInScope": ["sales", "marketing", "ops"],
+  "environment": "production",
+  "defaultModules": [
+    {
+      "moduleId": "crm-setup",
+      "status": "ready",
+      "dependencies": [],
+      "notes": "Lifecycle and object scope is seeded from the Muloo revops foundation."
+    },
+    {
+      "moduleId": "properties",
+      "status": "ready",
+      "dependencies": ["crm-setup"],
+      "notes": "Segmentation-ready fields are included for contact, company, and deal records."
+    },
+    {
+      "moduleId": "pipelines",
+      "status": "ready",
+      "dependencies": ["crm-setup"],
+      "notes": "Deal pipeline starter is included."
+    },
+    {
+      "moduleId": "automation",
+      "status": "planned",
+      "dependencies": ["properties"],
+      "notes": "Automation remains planned until final lifecycle decisions are confirmed."
+    },
+    {
+      "moduleId": "reporting",
+      "status": "planned",
+      "dependencies": ["properties", "pipelines"],
+      "notes": "Reporting remains planned until KPI mapping is confirmed."
+    }
+  ],
+  "defaultLifecycleStages": [
+    "subscriber",
+    "lead",
+    "marketingqualifiedlead",
+    "salesqualifiedlead",
+    "opportunity",
+    "customer",
+    "evangelist"
+  ],
+  "defaultLeadStatuses": [
+    "New",
+    "Working",
+    "Connected",
+    "Nurturing",
+    "Open Opportunity",
+    "Disqualified"
+  ],
+  "defaultObjectsInScope": ["contacts", "companies", "deals"],
+  "propertyLibrary": {
+    "groups": [
+      {
+        "objectType": "contacts",
+        "internalName": "muloo_revops_contact",
+        "label": "Muloo RevOps Contact",
+        "description": "Standard contact lifecycle and segmentation fields.",
+        "sourceTag": "muloo-standard"
+      },
+      {
+        "objectType": "companies",
+        "internalName": "muloo_revops_company",
+        "label": "Muloo RevOps Company",
+        "description": "Standard company-level segmentation and fit fields.",
+        "sourceTag": "muloo-standard"
+      },
+      {
+        "objectType": "deals",
+        "internalName": "muloo_revops_deal",
+        "label": "Muloo RevOps Deal",
+        "description": "Standard deal planning and attribution fields.",
+        "sourceTag": "muloo-standard"
+      }
+    ],
+    "properties": [
+      {
+        "objectType": "contacts",
+        "groupName": "muloo_revops_contact",
+        "internalName": "muloo_persona",
+        "label": "Muloo Persona",
+        "description": "Primary persona used for segmentation and nurture paths.",
+        "required": false,
+        "valueType": "enumeration",
+        "fieldType": "select",
+        "options": [
+          { "label": "Executive", "value": "executive", "displayOrder": 0 },
+          {
+            "label": "Practitioner",
+            "value": "practitioner",
+            "displayOrder": 1
+          },
+          { "label": "Champion", "value": "champion", "displayOrder": 2 }
+        ],
+        "sourceTag": "muloo-standard"
+      },
+      {
+        "objectType": "contacts",
+        "groupName": "muloo_revops_contact",
+        "internalName": "muloo_acquisition_channel",
+        "label": "Muloo Acquisition Channel",
+        "description": "Acquisition channel used for reporting and automation branching.",
+        "required": false,
+        "valueType": "enumeration",
+        "fieldType": "select",
+        "options": [
+          { "label": "Inbound", "value": "inbound", "displayOrder": 0 },
+          { "label": "Outbound", "value": "outbound", "displayOrder": 1 },
+          { "label": "Partner", "value": "partner", "displayOrder": 2 }
+        ],
+        "sourceTag": "muloo-standard"
+      },
+      {
+        "objectType": "companies",
+        "groupName": "muloo_revops_company",
+        "internalName": "muloo_fit_tier",
+        "label": "Muloo Fit Tier",
+        "description": "Baseline fit tier used for handoff and prioritisation.",
+        "required": false,
+        "valueType": "enumeration",
+        "fieldType": "select",
+        "options": [
+          { "label": "High", "value": "high", "displayOrder": 0 },
+          { "label": "Medium", "value": "medium", "displayOrder": 1 },
+          { "label": "Low", "value": "low", "displayOrder": 2 }
+        ],
+        "sourceTag": "muloo-standard"
+      },
+      {
+        "objectType": "deals",
+        "groupName": "muloo_revops_deal",
+        "internalName": "muloo_primary_campaign",
+        "label": "Muloo Primary Campaign",
+        "description": "Primary campaign or source program for pipeline attribution.",
+        "required": false,
+        "valueType": "string",
+        "fieldType": "text",
+        "sourceTag": "muloo-standard"
+      }
+    ]
+  },
+  "defaultPipelines": [
+    {
+      "objectType": "deals",
+      "internalName": "muloo_revops_pipeline",
+      "label": "Revenue Pipeline",
+      "stages": [
+        {
+          "internalName": "qualification",
+          "label": "Qualification",
+          "order": 0,
+          "probability": 10
+        },
+        {
+          "internalName": "discovery",
+          "label": "Discovery",
+          "order": 1,
+          "probability": 30
+        },
+        {
+          "internalName": "solution_fit",
+          "label": "Solution Fit",
+          "order": 2,
+          "probability": 55
+        },
+        {
+          "internalName": "closed_won",
+          "label": "Closed Won",
+          "order": 3,
+          "probability": 100
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "This template is intended for multi-team sales and marketing alignment without assuming mature automation from day one."
+  ],
+  "assumptions": [
+    "Lifecycle and lead status naming can be localised during final project design if the client already has established conventions."
+  ]
+}

@@ -1,0 +1,284 @@
+{
+  "id": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36",
+  "projectId": "project-apex-revenue-ops",
+  "moduleKey": "properties",
+  "executionType": "project-module",
+  "status": "succeeded",
+  "mode": "apply",
+  "startedAt": "2026-03-11T07:48:28.329Z",
+  "completedAt": "2026-03-11T07:48:28.416Z",
+  "summaryMetrics": {
+    "desiredPropertyCount": 3,
+    "existingPropertyCount": 1,
+    "unchangedCount": 1,
+    "toCreateCount": 2,
+    "needsReviewCount": 0,
+    "requestedOperationCount": 2,
+    "executedOperationCount": 2,
+    "blockedOperationCount": 0,
+    "createdPropertyCount": 2
+  },
+  "warnings": [],
+  "errors": [],
+  "output": {
+    "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T07-48-28-411Z-apex-revenue-systems-contact-properties-apply.json",
+    "summaryText": "Muloo Deploy apply for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nSafe creates requested: 2\nCreates executed: 2 [apex_sales_region, apex_handover_ready]\nBlocked operations: 0 [none]\nNeeds review in diff: 0 [none]",
+    "specPath": "project:project-apex-revenue-ops:properties"
+  },
+  "operations": {
+    "requested": [
+      {
+        "id": "create:apex_sales_region",
+        "operationType": "create-contact-property",
+        "status": "requested",
+        "targetType": "contact-property",
+        "targetKey": "apex_sales_region",
+        "targetLabel": "Apex Sales Region",
+        "objectType": "contacts"
+      },
+      {
+        "id": "create:apex_handover_ready",
+        "operationType": "create-contact-property",
+        "status": "requested",
+        "targetType": "contact-property",
+        "targetKey": "apex_handover_ready",
+        "targetLabel": "Apex Handover Ready",
+        "objectType": "contacts"
+      }
+    ],
+    "executed": [
+      {
+        "id": "create:apex_sales_region",
+        "operationType": "create-contact-property",
+        "status": "executed",
+        "targetType": "contact-property",
+        "targetKey": "apex_sales_region",
+        "targetLabel": "Apex Sales Region",
+        "objectType": "contacts",
+        "message": "Contact property created in HubSpot."
+      },
+      {
+        "id": "create:apex_handover_ready",
+        "operationType": "create-contact-property",
+        "status": "executed",
+        "targetType": "contact-property",
+        "targetKey": "apex_handover_ready",
+        "targetLabel": "Apex Handover Ready",
+        "objectType": "contacts",
+        "message": "Contact property created in HubSpot."
+      }
+    ],
+    "blocked": []
+  },
+  "result": {
+    "moduleKey": "properties",
+    "moduleLabel": "Properties",
+    "mode": "apply",
+    "status": "succeeded",
+    "summary": "Muloo Deploy apply for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nSafe creates requested: 2\nCreates executed: 2 [apex_sales_region, apex_handover_ready]\nBlocked operations: 0 [none]\nNeeds review in diff: 0 [none]",
+    "metrics": {
+      "desiredPropertyCount": 3,
+      "existingPropertyCount": 1,
+      "unchangedCount": 1,
+      "toCreateCount": 2,
+      "needsReviewCount": 0,
+      "requestedOperationCount": 2,
+      "executedOperationCount": 2,
+      "blockedOperationCount": 0,
+      "createdPropertyCount": 2
+    },
+    "warnings": [],
+    "errors": [],
+    "output": {
+      "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T07-48-28-411Z-apex-revenue-systems-contact-properties-apply.json",
+      "summaryText": "Muloo Deploy apply for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nSafe creates requested: 2\nCreates executed: 2 [apex_sales_region, apex_handover_ready]\nBlocked operations: 0 [none]\nNeeds review in diff: 0 [none]",
+      "specPath": "project:project-apex-revenue-ops:properties"
+    },
+    "operations": {
+      "requested": [
+        {
+          "id": "create:apex_sales_region",
+          "operationType": "create-contact-property",
+          "status": "requested",
+          "targetType": "contact-property",
+          "targetKey": "apex_sales_region",
+          "targetLabel": "Apex Sales Region",
+          "objectType": "contacts"
+        },
+        {
+          "id": "create:apex_handover_ready",
+          "operationType": "create-contact-property",
+          "status": "requested",
+          "targetType": "contact-property",
+          "targetKey": "apex_handover_ready",
+          "targetLabel": "Apex Handover Ready",
+          "objectType": "contacts"
+        }
+      ],
+      "executed": [
+        {
+          "id": "create:apex_sales_region",
+          "operationType": "create-contact-property",
+          "status": "executed",
+          "targetType": "contact-property",
+          "targetKey": "apex_sales_region",
+          "targetLabel": "Apex Sales Region",
+          "objectType": "contacts",
+          "message": "Contact property created in HubSpot."
+        },
+        {
+          "id": "create:apex_handover_ready",
+          "operationType": "create-contact-property",
+          "status": "executed",
+          "targetType": "contact-property",
+          "targetKey": "apex_handover_ready",
+          "targetLabel": "Apex Handover Ready",
+          "objectType": "contacts",
+          "message": "Contact property created in HubSpot."
+        }
+      ],
+      "blocked": []
+    }
+  },
+  "steps": [
+    {
+      "id": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36:load-project",
+      "jobId": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36",
+      "key": "load-project",
+      "label": "Load project",
+      "type": "project",
+      "order": 0,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:48:28.335Z",
+      "completedAt": "2026-03-11T07:48:28.347Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Loaded project 'Apex Revenue Systems Sales Hub Foundation'."
+    },
+    {
+      "id": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36:validate-project",
+      "jobId": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36",
+      "key": "validate-project",
+      "label": "Validate project",
+      "type": "validation",
+      "order": 1,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:48:28.348Z",
+      "completedAt": "2026-03-11T07:48:28.352Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Module readiness is 'ready' with validation status 'valid'."
+    },
+    {
+      "id": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36:resolve-module-input",
+      "jobId": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36",
+      "key": "resolve-module-input",
+      "label": "Resolve module input",
+      "type": "input",
+      "order": 2,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:48:28.354Z",
+      "completedAt": "2026-03-11T07:48:28.356Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Resolved module input from 'project-apex-revenue-ops'.",
+      "output": {
+        "specPath": "project:project-apex-revenue-ops:properties"
+      }
+    },
+    {
+      "id": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36:load-existing-hubspot-state",
+      "jobId": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36",
+      "key": "load-existing-hubspot-state",
+      "label": "Load existing HubSpot state",
+      "type": "integration",
+      "order": 3,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:48:28.357Z",
+      "completedAt": "2026-03-11T07:48:28.395Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Fetched 1 existing HubSpot properties."
+    },
+    {
+      "id": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36:diff-desired-vs-existing",
+      "jobId": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36",
+      "key": "diff-desired-vs-existing",
+      "label": "Diff desired vs existing",
+      "type": "analysis",
+      "order": 4,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:48:28.395Z",
+      "completedAt": "2026-03-11T07:48:28.399Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "2 safe create candidates, 0 blocked review items, 1 unchanged."
+    },
+    {
+      "id": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36:evaluate-apply-guardrails",
+      "jobId": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36",
+      "key": "evaluate-apply-guardrails",
+      "label": "Evaluate apply guardrails",
+      "type": "guardrail",
+      "order": 5,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:48:28.399Z",
+      "completedAt": "2026-03-11T07:48:28.401Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Guardrails approved 2 safe create operations."
+    },
+    {
+      "id": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36:execute-safe-creates",
+      "jobId": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36",
+      "key": "execute-safe-creates",
+      "label": "Execute safe creates",
+      "type": "execution",
+      "order": 6,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:48:28.401Z",
+      "completedAt": "2026-03-11T07:48:28.409Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Created 2 contact properties in HubSpot."
+    },
+    {
+      "id": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36:write-artifact",
+      "jobId": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36",
+      "key": "write-artifact",
+      "label": "Write artifact",
+      "type": "artifact",
+      "order": 7,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:48:28.409Z",
+      "completedAt": "2026-03-11T07:48:28.412Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Guarded apply artifact written to disk.",
+      "output": {
+        "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T07-48-28-411Z-apex-revenue-systems-contact-properties-apply.json"
+      }
+    },
+    {
+      "id": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36:persist-execution-record",
+      "jobId": "5b8d4935-4251-4b50-b6f5-e364a5dd8a36",
+      "key": "persist-execution-record",
+      "label": "Persist execution record",
+      "type": "persistence",
+      "order": 8,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:48:28.414Z",
+      "completedAt": "2026-03-11T07:48:28.416Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Execution record updated with module result.",
+      "output": {
+        "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T07-48-28-411Z-apex-revenue-systems-contact-properties-apply.json",
+        "summaryText": "Muloo Deploy apply for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nSafe creates requested: 2\nCreates executed: 2 [apex_sales_region, apex_handover_ready]\nBlocked operations: 0 [none]\nNeeds review in diff: 0 [none]",
+        "specPath": "project:project-apex-revenue-ops:properties"
+      }
+    }
+  ],
+  "triggeredBy": "jarrud",
+  "environment": "development"
+}

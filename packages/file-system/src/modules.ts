@@ -30,7 +30,10 @@ function createFallbackContract(
       apply: false
     },
     resultKind: "module-execution-placeholder",
-    executionSteps: []
+    executionSteps: {
+      dryRun: [],
+      apply: []
+    }
   });
 }
 
@@ -78,6 +81,7 @@ export function summarizeProjectModuleDetail(
       executionCount: moduleExecutions.length,
       lastExecutionId: latestExecution?.id,
       lastExecutionStatus: latestExecution?.status,
+      lastExecutionMode: latestExecution?.mode,
       lastExecutedAt:
         latestExecution?.completedAt ?? latestExecution?.startedAt,
       lastSummary:

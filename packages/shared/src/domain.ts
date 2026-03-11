@@ -41,6 +41,11 @@ export const hubInScopeSchema = z.enum([
   "ops"
 ]);
 export const hubspotEnvironmentSchema = z.enum(["sandbox", "production"]);
+export const templateTypeSchema = z.enum([
+  "sales-foundation",
+  "revops-foundation",
+  "service-foundation"
+]);
 export const objectTypeSchema = z.enum([
   "contacts",
   "companies",
@@ -67,6 +72,8 @@ export const executionStepTypeSchema = z.enum([
   "input",
   "integration",
   "analysis",
+  "guardrail",
+  "execution",
   "artifact",
   "persistence"
 ]);
@@ -94,6 +101,21 @@ export const propertyFieldTypeSchema = z.enum([
   "radio",
   "select",
   "checkbox"
+]);
+export const moduleOperationTypeSchema = z.enum([
+  "create-contact-property",
+  "update-contact-property",
+  "delete-contact-property",
+  "rename-contact-property",
+  "mutate-contact-property-options",
+  "create-pipeline",
+  "update-pipeline",
+  "delete-pipeline"
+]);
+export const executionOperationStatusSchema = z.enum([
+  "requested",
+  "executed",
+  "blocked"
 ]);
 
 export const clientSchema = z
@@ -131,7 +153,7 @@ export const pipelineSchema = z
     objectType: z.enum(["deals", "tickets"]),
     internalName: z.string().min(1),
     label: z.string().min(1),
-    stages: z.array(pipelineStageSchema).min(1)
+    stages: z.array(pipelineStageSchema).default([])
   })
   .strict();
 
@@ -155,7 +177,8 @@ export const propertyGroupPlanSchema = z
   .object({
     internalName: z.string().min(1),
     label: z.string().min(1),
-    description: z.string().min(1).optional()
+    description: z.string().min(1).optional(),
+    sourceTag: z.string().min(1).optional()
   })
   .strict();
 
@@ -175,7 +198,8 @@ export const propertyPlanSchema = z
     valueType: propertyValueTypeSchema,
     fieldType: propertyFieldTypeSchema,
     groupName: z.string().min(1),
-    options: z.array(propertyOptionPlanSchema).optional()
+    options: z.array(propertyOptionPlanSchema).optional(),
+    sourceTag: z.string().min(1).optional()
   })
   .strict()
   .superRefine((value, context) => {
@@ -198,6 +222,54 @@ export const groupedPropertyPlanSchema = z
   .object({
     objectType: objectTypeSchema,
     properties: z.array(propertyPlanSchema).default([])
+  })
+  .strict();
+
+export const propertyLibraryGroupSchema = z
+  .object({
+    objectType: objectTypeSchema,
+    internalName: z.string().min(1),
+    label: z.string().min(1),
+    description: z.string().min(1).optional(),
+    sourceTag: z.string().min(1)
+  })
+  .strict();
+
+export const propertyLibraryEntrySchema = z
+  .object({
+    objectType: objectTypeSchema,
+    groupName: z.string().min(1),
+    internalName: z.string().min(1),
+    label: z.string().min(1),
+    description: z.string().min(1).optional(),
+    required: z.boolean(),
+    valueType: propertyValueTypeSchema,
+    fieldType: propertyFieldTypeSchema,
+    options: z.array(propertyOptionPlanSchema).optional(),
+    sourceTag: z.string().min(1)
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const optionRequiredFieldTypes = new Set(["select", "radio", "checkbox"]);
+
+    if (
+      (value.valueType === "enumeration" ||
+        optionRequiredFieldTypes.has(value.fieldType)) &&
+      !value.options?.length
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Enumeration-style library fields must include at least one option.",
+        path: ["options"]
+      });
+    }
+  });
+
+export const propertyLibrarySchema = z
+  .object({
+    groups: z.array(propertyLibraryGroupSchema).default([]),
+    properties: z.array(propertyLibraryEntrySchema).default([])
   })
   .strict();
 
@@ -239,6 +311,37 @@ export const executionContextSchema = z
   })
   .strict();
 
+export const projectTemplateProvenanceSchema = z
+  .object({
+    seedType: z.enum(["blank", "template"]),
+    templateId: z.string().min(1).optional(),
+    templateName: z.string().min(1).optional(),
+    seededAt: z.string().datetime(),
+    baselineSourceTags: z.array(z.string().min(1)).default([]),
+    seededModuleIds: z.array(z.string().min(1)).default([])
+  })
+  .strict();
+
+export const onboardingTemplateSchema = z
+  .object({
+    schemaVersion: z.literal("1.0"),
+    id: z.string().min(1),
+    name: z.string().min(1),
+    description: z.string().min(1),
+    templateType: templateTypeSchema,
+    hubsInScope: z.array(hubInScopeSchema).min(1),
+    environment: hubspotEnvironmentSchema.optional(),
+    defaultModules: z.array(projectModulePlanSchema).min(1),
+    defaultLifecycleStages: z.array(z.string().min(1)).default([]),
+    defaultLeadStatuses: z.array(z.string().min(1)).default([]),
+    defaultObjectsInScope: z.array(objectTypeSchema).min(1),
+    propertyLibrary: propertyLibrarySchema,
+    defaultPipelines: z.array(pipelineSchema).default([]),
+    notes: z.array(z.string().min(1)).default([]),
+    assumptions: z.array(z.string().min(1)).default([])
+  })
+  .strict();
+
 export const onboardingProjectSchema = z
   .object({
     schemaVersion: z.literal("1.0"),
@@ -272,8 +375,8 @@ export const onboardingProjectSchema = z
       .strict(),
     crmDesign: z
       .object({
-        lifecycleStages: z.array(z.string().min(1)).min(1),
-        leadStatuses: z.array(z.string().min(1)).min(1),
+        lifecycleStages: z.array(z.string().min(1)).default([]),
+        leadStatuses: z.array(z.string().min(1)).default([]),
         pipelines: z.array(pipelineSchema).default([]),
         objectsInScope: z.array(objectTypeSchema).min(1),
         customObjectsPlanned: z.array(customObjectPlanSchema).default([])
@@ -288,7 +391,8 @@ export const onboardingProjectSchema = z
       })
       .strict(),
     modulePlanning: z.array(projectModulePlanSchema).min(1),
-    executionContext: executionContextSchema
+    executionContext: executionContextSchema,
+    templateProvenance: projectTemplateProvenanceSchema.optional()
   })
   .strict();
 
@@ -296,6 +400,117 @@ export const validationFindingSchema = z
   .object({
     code: z.string().min(1),
     message: z.string().min(1)
+  })
+  .strict();
+
+export const projectOwnerInputSchema = z
+  .object({
+    name: z.string().min(1),
+    email: z.string().email()
+  })
+  .strict();
+
+export const projectClientContextInputSchema = z
+  .object({
+    clientName: z.string().min(1),
+    primaryRegion: z.string().min(1),
+    implementationType: implementationTypeSchema,
+    notes: z.string().min(1)
+  })
+  .strict();
+
+export const projectHubspotScopeInputSchema = z
+  .object({
+    hubsInScope: z.array(hubInScopeSchema).min(1),
+    environment: hubspotEnvironmentSchema
+  })
+  .strict();
+
+export const projectModuleSelectionSchema = z
+  .object({
+    moduleId: z.string().min(1),
+    status: projectModuleStatusSchema.default("planned"),
+    dependencies: z.array(z.string().min(1)).default([]),
+    notes: z.string().min(1).optional()
+  })
+  .strict();
+
+export const createProjectRequestSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    clientId: z.string().min(1),
+    portalId: z.string().min(1),
+    owner: projectOwnerInputSchema,
+    clientContext: projectClientContextInputSchema,
+    hubspotScope: projectHubspotScopeInputSchema,
+    moduleSelection: z.array(projectModuleSelectionSchema).min(1),
+    status: projectStatusSchema.optional()
+  })
+  .strict();
+
+export const createProjectFromTemplateRequestSchema = createProjectRequestSchema
+  .extend({
+    templateId: z.string().min(1)
+  })
+  .strict();
+
+export const updateProjectMetadataRequestSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    clientId: z.string().min(1).optional(),
+    status: projectStatusSchema.optional(),
+    owner: projectOwnerInputSchema.optional(),
+    clientContext: projectClientContextInputSchema.partial().optional(),
+    hubspotScope: projectHubspotScopeInputSchema.optional(),
+    portalId: z.string().min(1).optional()
+  })
+  .strict();
+
+export const updateProjectScopeRequestSchema = z
+  .object({
+    moduleSelection: z.array(projectModuleSelectionSchema).min(1),
+    hubsInScope: z.array(hubInScopeSchema).min(1).optional(),
+    environment: hubspotEnvironmentSchema.optional()
+  })
+  .strict();
+
+export const updateProjectLifecycleDesignRequestSchema = z
+  .object({
+    lifecycleStages: z.array(z.string().min(1)).default([]),
+    leadStatuses: z.array(z.string().min(1)).default([])
+  })
+  .strict();
+
+export const updateProjectPropertiesDesignRequestSchema = z
+  .object({
+    propertyGroupsByObject: z.array(groupedPropertyGroupPlanSchema).default([]),
+    propertiesByObject: z.array(groupedPropertyPlanSchema).default([])
+  })
+  .strict();
+
+export const updateProjectPipelinesDesignRequestSchema = z
+  .object({
+    pipelines: z.array(pipelineSchema).default([])
+  })
+  .strict();
+
+export const projectDesignSchema = z
+  .object({
+    projectId: z.string().min(1),
+    lifecycleStages: z.array(z.string().min(1)).default([]),
+    leadStatuses: z.array(z.string().min(1)).default([]),
+    objectsInScope: z.array(objectTypeSchema).default([]),
+    propertyPlanning: z
+      .object({
+        propertyGroupsByObject: z
+          .array(groupedPropertyGroupPlanSchema)
+          .default([]),
+        propertiesByObject: z.array(groupedPropertyPlanSchema).default([])
+      })
+      .strict(),
+    pipelines: z.array(pipelineSchema).default([]),
+    templateProvenance: projectTemplateProvenanceSchema.optional()
   })
   .strict();
 
@@ -392,7 +607,11 @@ export const executionJobSummaryMetricsSchema = z
     toCreatePipelineCount: z.number().int().nonnegative().optional(),
     needsReviewPipelineCount: z.number().int().nonnegative().optional(),
     desiredStageCount: z.number().int().nonnegative().optional(),
-    existingStageCount: z.number().int().nonnegative().optional()
+    existingStageCount: z.number().int().nonnegative().optional(),
+    requestedOperationCount: z.number().int().nonnegative().optional(),
+    executedOperationCount: z.number().int().nonnegative().optional(),
+    blockedOperationCount: z.number().int().nonnegative().optional(),
+    createdPropertyCount: z.number().int().nonnegative().optional()
   })
   .strict();
 
@@ -401,6 +620,27 @@ export const executionJobOutputSchema = z
     artifactPath: z.string().min(1).optional(),
     summaryText: z.string().min(1).optional(),
     specPath: z.string().min(1).optional()
+  })
+  .strict();
+
+export const executionOperationSchema = z
+  .object({
+    id: z.string().min(1),
+    operationType: moduleOperationTypeSchema,
+    status: executionOperationStatusSchema,
+    targetType: z.enum(["contact-property", "pipeline"]),
+    targetKey: z.string().min(1),
+    targetLabel: z.string().min(1).optional(),
+    objectType: objectTypeSchema.optional(),
+    message: z.string().min(1).optional()
+  })
+  .strict();
+
+export const executionOperationSummarySchema = z
+  .object({
+    requested: z.array(executionOperationSchema).default([]),
+    executed: z.array(executionOperationSchema).default([]),
+    blocked: z.array(executionOperationSchema).default([])
   })
   .strict();
 
@@ -413,11 +653,39 @@ export const moduleExecutionHandlerSupportSchema = z
   })
   .strict();
 
+export const moduleApplyGuardConditionSchema = z
+  .object({
+    key: z.string().min(1),
+    label: z.string().min(1),
+    description: z.string().min(1)
+  })
+  .strict();
+
+export const moduleApplyGuardrailsSchema = z
+  .object({
+    enabled: z.boolean(),
+    summary: z.string().min(1),
+    requiresExplicitFlag: z.boolean().default(true),
+    confirmationFlags: z.array(z.string().min(1)).default([]),
+    approvalRequirement: z.string().min(1).optional(),
+    allowedOperationTypes: z.array(moduleOperationTypeSchema).default([]),
+    blockedOperationTypes: z.array(moduleOperationTypeSchema).default([]),
+    guardConditions: z.array(moduleApplyGuardConditionSchema).default([])
+  })
+  .strict();
+
 export const moduleExecutionStepTemplateSchema = z
   .object({
     key: z.string().min(1),
     label: z.string().min(1),
     type: executionStepTypeSchema
+  })
+  .strict();
+
+export const moduleExecutionStepSetSchema = z
+  .object({
+    dryRun: z.array(moduleExecutionStepTemplateSchema).default([]),
+    apply: z.array(moduleExecutionStepTemplateSchema).default([])
   })
   .strict();
 
@@ -428,8 +696,12 @@ export const moduleExecutionContractDefinitionSchema = z
     supportedModes: z.array(executionModeSchema).default([]),
     inputRequirements: z.array(moduleInputRequirementSchema).default([]),
     handlers: moduleExecutionHandlerSupportSchema,
+    applyGuardrails: moduleApplyGuardrailsSchema.optional(),
     resultKind: z.string().min(1),
-    executionSteps: z.array(moduleExecutionStepTemplateSchema).default([])
+    executionSteps: moduleExecutionStepSetSchema.default({
+      dryRun: [],
+      apply: []
+    })
   })
   .strict();
 
@@ -443,7 +715,12 @@ export const moduleExecutionResultSchema = z
     metrics: executionJobSummaryMetricsSchema,
     warnings: z.array(z.string()),
     errors: z.array(z.string()),
-    output: executionJobOutputSchema
+    output: executionJobOutputSchema,
+    operations: executionOperationSummarySchema.default({
+      requested: [],
+      executed: [],
+      blocked: []
+    })
   })
   .strict();
 
@@ -479,6 +756,11 @@ export const executionJobRecordSchema = z
     warnings: z.array(z.string()),
     errors: z.array(z.string()),
     output: executionJobOutputSchema,
+    operations: executionOperationSummarySchema.default({
+      requested: [],
+      executed: [],
+      blocked: []
+    }),
     result: moduleExecutionResultSchema.optional(),
     steps: z.array(executionStepSchema).default([]),
     triggeredBy: z.string().min(1),
@@ -503,6 +785,8 @@ export const projectSummarySchema = z
     readiness: readinessOutcomeSchema,
     executionCount: z.number().int().nonnegative(),
     lastExecutionStatus: executionStatusSchema.optional(),
+    seedType: z.enum(["blank", "template"]).optional(),
+    templateName: z.string().min(1).optional(),
     updatedAt: z.string().datetime()
   })
   .strict();
@@ -539,6 +823,7 @@ export const projectModuleDetailSchema = projectModuleSummarySchema
         executionCount: z.number().int().nonnegative(),
         lastExecutionId: z.string().min(1).optional(),
         lastExecutionStatus: executionStatusSchema.optional(),
+        lastExecutionMode: executionModeSchema.optional(),
         lastExecutedAt: z.string().datetime().optional(),
         lastSummary: z.string().min(1).optional()
       })
@@ -582,9 +867,36 @@ export const auditLogSchema = z
 export type Client = z.infer<typeof clientSchema>;
 export type HubSpotPortal = z.infer<typeof hubSpotPortalSchema>;
 export type OnboardingProject = z.infer<typeof onboardingProjectSchema>;
+export type OnboardingTemplate = z.infer<typeof onboardingTemplateSchema>;
 export type ModuleDefinition = z.infer<typeof moduleDefinitionSchema>;
 export type ProjectModulePlan = z.infer<typeof projectModulePlanSchema>;
+export type ProjectTemplateProvenance = z.infer<
+  typeof projectTemplateProvenanceSchema
+>;
+export type PropertyLibrary = z.infer<typeof propertyLibrarySchema>;
+export type PropertyLibraryEntry = z.infer<typeof propertyLibraryEntrySchema>;
+export type PropertyLibraryGroup = z.infer<typeof propertyLibraryGroupSchema>;
 export type ValidationFinding = z.infer<typeof validationFindingSchema>;
+export type CreateProjectRequest = z.infer<typeof createProjectRequestSchema>;
+export type CreateProjectFromTemplateRequest = z.infer<
+  typeof createProjectFromTemplateRequestSchema
+>;
+export type UpdateProjectMetadataRequest = z.infer<
+  typeof updateProjectMetadataRequestSchema
+>;
+export type UpdateProjectScopeRequest = z.infer<
+  typeof updateProjectScopeRequestSchema
+>;
+export type UpdateProjectLifecycleDesignRequest = z.infer<
+  typeof updateProjectLifecycleDesignRequestSchema
+>;
+export type UpdateProjectPropertiesDesignRequest = z.infer<
+  typeof updateProjectPropertiesDesignRequestSchema
+>;
+export type UpdateProjectPipelinesDesignRequest = z.infer<
+  typeof updateProjectPipelinesDesignRequestSchema
+>;
+export type ProjectDesign = z.infer<typeof projectDesignSchema>;
 export type ModuleInputRequirement = z.infer<
   typeof moduleInputRequirementSchema
 >;
@@ -609,6 +921,10 @@ export type ModuleExecutionContractDefinition = z.infer<
 >;
 export type ModuleExecutionResult = z.infer<typeof moduleExecutionResultSchema>;
 export type ExecutionJobOutput = z.infer<typeof executionJobOutputSchema>;
+export type ExecutionOperation = z.infer<typeof executionOperationSchema>;
+export type ExecutionOperationSummary = z.infer<
+  typeof executionOperationSummarySchema
+>;
 export type ExecutionJobRecord = z.infer<typeof executionJobRecordSchema>;
 export type ExecutionJob = z.infer<typeof executionJobSchema>;
 export type ExecutionStep = z.infer<typeof executionStepSchema>;

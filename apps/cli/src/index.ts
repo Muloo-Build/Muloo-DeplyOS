@@ -24,10 +24,18 @@ import {
 } from "@muloo/file-system";
 import { HubSpotClient } from "@muloo/hubspot-client";
 
+interface ExecutionOutputShape {
+  artifactPath?: string | undefined;
+  summaryText?: string | undefined;
+  specPath?: string | undefined;
+}
+
 interface CliArgs {
   specPath?: string;
   projectId?: string;
   moduleId?: string;
+  mode: "dry-run" | "apply";
+  allowCreateOnly: boolean;
 }
 
 function readFlagValue(argv: string[], flag: string): string | undefined {
@@ -36,12 +44,14 @@ function readFlagValue(argv: string[], flag: string): string | undefined {
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  if (argv.includes("--apply") || argv.includes("--live")) {
+  if (argv.includes("--live")) {
     throw new Error(
-      "Live execution is blocked in this phase. Remove --apply/--live and run a dry run."
+      "Use --apply for the guarded apply path. --live is not supported."
     );
   }
 
+  const mode: CliArgs["mode"] = argv.includes("--apply") ? "apply" : "dry-run";
+  const allowCreateOnly = argv.includes("--allow-create-only");
   const projectId = readFlagValue(argv, "--project");
   const moduleId = readFlagValue(argv, "--module");
   const specPath = readFlagValue(argv, "--spec");
@@ -66,8 +76,16 @@ function parseArgs(argv: string[]): CliArgs {
 
     return {
       projectId,
-      moduleId
+      moduleId,
+      mode,
+      allowCreateOnly
     };
+  }
+
+  if (mode === "apply") {
+    throw new Error(
+      "Guarded apply is only available in project/module mode for the properties module."
+    );
   }
 
   const resolvedSpecPath = specPath ?? positionals[0];
@@ -77,7 +95,50 @@ function parseArgs(argv: string[]): CliArgs {
     );
   }
 
-  return { specPath: resolvedSpecPath };
+  return {
+    specPath: resolvedSpecPath,
+    mode,
+    allowCreateOnly
+  };
+}
+
+function ensureApplyFlags(args: CliArgs, applyEnabled: boolean): void {
+  if (args.mode !== "apply") {
+    return;
+  }
+
+  if (!applyEnabled) {
+    throw new Error(
+      "Guarded apply is disabled. Set MULOO_EXECUTION_MODE=guarded-apply and rerun with explicit apply flags."
+    );
+  }
+
+  if (!args.allowCreateOnly) {
+    throw new Error(
+      "Guarded apply requires --allow-create-only to confirm the create-only contact-property scope."
+    );
+  }
+}
+
+function formatExecutionSummary(result: {
+  mode: "dry-run" | "apply";
+  summary: string;
+  metrics: {
+    requestedOperationCount?: number | undefined;
+    executedOperationCount?: number | undefined;
+    blockedOperationCount?: number | undefined;
+  };
+}): string {
+  if (result.mode === "apply") {
+    return [
+      result.summary,
+      `Requested operations: ${result.metrics.requestedOperationCount ?? 0}`,
+      `Executed operations: ${result.metrics.executedOperationCount ?? 0}`,
+      `Blocked operations: ${result.metrics.blockedOperationCount ?? 0}`
+    ].join("\n");
+  }
+
+  return result.summary;
 }
 
 async function main(): Promise<void> {
@@ -86,6 +147,8 @@ async function main(): Promise<void> {
   const logger = createLogger({ service: "muloo-cli" });
   const config = loadCliConfig({ cwd });
   const projectMode = Boolean(args.projectId && args.moduleId);
+
+  ensureApplyFlags(args, config.applyEnabled);
 
   const hubSpotClientOptions: {
     accessToken: string;
@@ -126,26 +189,43 @@ async function main(): Promise<void> {
     );
   }
 
-  if (
-    !contract.dryRun ||
-    !contract.definition.supportedModes.includes("dry-run")
-  ) {
-    throw new Error(
-      `Project module '${args.moduleId}' does not support contract-based dry runs yet.`
-    );
+  if (args.mode === "dry-run") {
+    if (
+      !contract.dryRun ||
+      !contract.definition.supportedModes.includes("dry-run")
+    ) {
+      throw new Error(
+        `Project module '${args.moduleId}' does not support contract-based dry runs yet.`
+      );
+    }
+  } else {
+    if (
+      !contract.apply ||
+      !contract.definition.handlers.apply ||
+      !contract.definition.supportedModes.includes("apply") ||
+      !contract.definition.applyGuardrails?.enabled
+    ) {
+      throw new Error(
+        `Project module '${args.moduleId}' does not support guarded apply execution.`
+      );
+    }
   }
 
   const executionRecord = await createExecutionJobRecord({
     projectId: args.projectId as string,
     moduleKey: args.moduleId as string,
     executionType: "project-module",
-    mode: "dry-run",
+    mode: args.mode,
     triggeredBy: process.env.USERNAME ?? process.env.USER ?? "operator",
     environment: config.nodeEnv,
     specPath: `project:${args.projectId}:${args.moduleId}`
   });
 
-  let steps = createExecutionTimeline(executionRecord.id, contract.definition);
+  let steps = createExecutionTimeline(
+    executionRecord.id,
+    contract.definition,
+    args.mode
+  );
   await replaceExecutionSteps({
     executionId: executionRecord.id,
     steps
@@ -168,11 +248,7 @@ async function main(): Promise<void> {
     params?: {
       summary?: string;
       warnings?: string[];
-      output?: {
-        artifactPath?: string;
-        summaryText?: string;
-        specPath?: string;
-      };
+      output?: ExecutionOutputShape;
     }
   ): Promise<void> {
     steps = markExecutionStepSucceeded(steps, stepKey, params);
@@ -240,6 +316,12 @@ async function main(): Promise<void> {
       summary: `Module readiness is '${moduleValidation.readiness}' with validation status '${moduleValidation.status}'.`
     });
 
+    if (args.mode === "apply" && moduleValidation.readiness !== "ready") {
+      throw new Error(
+        `Guarded apply is blocked because module '${args.moduleId}' is not ready. Review project validation and readiness before applying.`
+      );
+    }
+
     activeStepKey = "resolve-module-input";
     await startStep(
       "resolve-module-input",
@@ -284,23 +366,42 @@ async function main(): Promise<void> {
       ...moduleValidation.warnings.map((warning) => warning.message)
     ];
 
-    const result = await contract.dryRun({
-      project,
-      modulePlan,
-      projectValidation,
-      moduleValidation,
-      logger,
-      artifactDir: path.resolve(cwd, config.artifactDir),
-      resolvedInput,
-      stepReporter: {
-        start: startStep,
-        complete: completeStep,
-        fail: (stepKey, params) =>
-          failStep(stepKey, params.error, params.summary)
-      },
-      hubSpotClient,
-      writeArtifact: writeJsonArtifact
-    });
+    const result =
+      args.mode === "apply"
+        ? await contract.apply!({
+            project,
+            modulePlan,
+            projectValidation,
+            moduleValidation,
+            logger,
+            artifactDir: path.resolve(cwd, config.artifactDir),
+            resolvedInput,
+            stepReporter: {
+              start: startStep,
+              complete: completeStep,
+              fail: (stepKey, params) =>
+                failStep(stepKey, params.error, params.summary)
+            },
+            hubSpotClient,
+            writeArtifact: writeJsonArtifact
+          })
+        : await contract.dryRun!({
+            project,
+            modulePlan,
+            projectValidation,
+            moduleValidation,
+            logger,
+            artifactDir: path.resolve(cwd, config.artifactDir),
+            resolvedInput,
+            stepReporter: {
+              start: startStep,
+              complete: completeStep,
+              fail: (stepKey, params) =>
+                failStep(stepKey, params.error, params.summary)
+            },
+            hubSpotClient,
+            writeArtifact: writeJsonArtifact
+          });
 
     activeStepKey = "persist-execution-record";
     await startStep(
@@ -312,22 +413,44 @@ async function main(): Promise<void> {
       output: result.output
     });
 
-    await completeExecutionJobRecord({
-      executionId: executionRecord.id,
-      summaryMetrics: result.metrics,
-      warnings: [...readinessWarnings, ...result.warnings],
-      output: result.output,
-      steps,
-      result
-    });
-    activeStepKey = undefined;
+    if (result.status === "succeeded") {
+      await completeExecutionJobRecord({
+        executionId: executionRecord.id,
+        summaryMetrics: result.metrics,
+        warnings: [...readinessWarnings, ...result.warnings],
+        output: result.output,
+        operations: result.operations,
+        steps,
+        result
+      });
+      activeStepKey = undefined;
+    } else {
+      await failExecutionJobRecord({
+        executionId: executionRecord.id,
+        summaryMetrics: result.metrics,
+        warnings: [...readinessWarnings, ...result.warnings],
+        errors:
+          result.errors.length > 0
+            ? result.errors
+            : ["Execution completed without success."],
+        output: result.output,
+        operations: result.operations,
+        steps,
+        result
+      });
+      activeStepKey = undefined;
+    }
 
     process.stdout.write(
-      `Project: ${args.projectId}\nModule: ${args.moduleId}\n`
+      `Project: ${args.projectId}\nModule: ${args.moduleId}\nMode: ${args.mode}\n`
     );
-    process.stdout.write(`${result.summary}\n`);
+    process.stdout.write(`${formatExecutionSummary(result)}\n`);
     if (result.output.artifactPath) {
       process.stdout.write(`Artifact: ${result.output.artifactPath}\n`);
+    }
+
+    if (result.status !== "succeeded") {
+      process.exitCode = 1;
     }
   } catch (error: unknown) {
     const message =

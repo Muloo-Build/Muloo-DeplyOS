@@ -1,0 +1,291 @@
+{
+  "schemaVersion": "1.0",
+  "id": "project-sunspire-template-seeded",
+  "name": "Sunspire Growth RevOps Foundation Updated",
+  "clientId": "sunspire-growth",
+  "portalId": "555001002",
+  "status": "scoping",
+  "owner": {
+    "name": "Avery Cole",
+    "email": "avery.cole@muloo.example"
+  },
+  "createdAt": "2026-03-11T08:08:11.397Z",
+  "updatedAt": "2026-03-11T08:08:11.413Z",
+  "clientContext": {
+    "clientName": "Sunspire Growth",
+    "primaryRegion": "North America",
+    "implementationType": "multi-hub-implementation",
+    "notes": "Updated through metadata edit endpoint."
+  },
+  "hubspotScope": {
+    "hubsInScope": ["sales", "marketing", "service", "ops"],
+    "portal": {
+      "portalId": "555001002",
+      "displayName": "Sunspire Growth",
+      "region": "North America",
+      "connected": false
+    },
+    "environment": "production"
+  },
+  "crmDesign": {
+    "lifecycleStages": [
+      "subscriber",
+      "lead",
+      "marketingqualifiedlead",
+      "salesqualifiedlead",
+      "opportunity",
+      "customer",
+      "evangelist"
+    ],
+    "leadStatuses": [
+      "New",
+      "Working",
+      "Connected",
+      "Nurturing",
+      "Open Opportunity",
+      "Disqualified"
+    ],
+    "pipelines": [
+      {
+        "objectType": "deals",
+        "internalName": "muloo_revops_pipeline",
+        "label": "Revenue Pipeline",
+        "stages": [
+          {
+            "internalName": "qualification",
+            "label": "Qualification",
+            "order": 0,
+            "probability": 10
+          },
+          {
+            "internalName": "discovery",
+            "label": "Discovery",
+            "order": 1,
+            "probability": 30
+          },
+          {
+            "internalName": "solution_fit",
+            "label": "Solution Fit",
+            "order": 2,
+            "probability": 55
+          },
+          {
+            "internalName": "closed_won",
+            "label": "Closed Won",
+            "order": 3,
+            "probability": 100
+          }
+        ]
+      }
+    ],
+    "objectsInScope": ["contacts", "companies", "deals", "tickets"],
+    "customObjectsPlanned": []
+  },
+  "propertyPlanning": {
+    "propertyGroupsByObject": [
+      {
+        "objectType": "contacts",
+        "groups": [
+          {
+            "internalName": "muloo_revops_contact",
+            "label": "Muloo RevOps Contact",
+            "description": "Standard contact lifecycle and segmentation fields.",
+            "sourceTag": "muloo-standard"
+          }
+        ]
+      },
+      {
+        "objectType": "companies",
+        "groups": [
+          {
+            "internalName": "muloo_revops_company",
+            "label": "Muloo RevOps Company",
+            "description": "Standard company-level segmentation and fit fields.",
+            "sourceTag": "muloo-standard"
+          }
+        ]
+      },
+      {
+        "objectType": "deals",
+        "groups": [
+          {
+            "internalName": "muloo_revops_deal",
+            "label": "Muloo RevOps Deal",
+            "description": "Standard deal planning and attribution fields.",
+            "sourceTag": "muloo-standard"
+          }
+        ]
+      },
+      {
+        "objectType": "tickets",
+        "groups": []
+      }
+    ],
+    "propertiesByObject": [
+      {
+        "objectType": "contacts",
+        "properties": [
+          {
+            "internalName": "muloo_persona",
+            "label": "Muloo Persona",
+            "description": "Primary persona used for segmentation and nurture paths.",
+            "required": false,
+            "valueType": "enumeration",
+            "fieldType": "select",
+            "groupName": "muloo_revops_contact",
+            "options": [
+              {
+                "label": "Executive",
+                "value": "executive",
+                "displayOrder": 0
+              },
+              {
+                "label": "Practitioner",
+                "value": "practitioner",
+                "displayOrder": 1
+              },
+              {
+                "label": "Champion",
+                "value": "champion",
+                "displayOrder": 2
+              }
+            ],
+            "sourceTag": "muloo-standard"
+          },
+          {
+            "internalName": "muloo_acquisition_channel",
+            "label": "Muloo Acquisition Channel",
+            "description": "Acquisition channel used for reporting and automation branching.",
+            "required": false,
+            "valueType": "enumeration",
+            "fieldType": "select",
+            "groupName": "muloo_revops_contact",
+            "options": [
+              {
+                "label": "Inbound",
+                "value": "inbound",
+                "displayOrder": 0
+              },
+              {
+                "label": "Outbound",
+                "value": "outbound",
+                "displayOrder": 1
+              },
+              {
+                "label": "Partner",
+                "value": "partner",
+                "displayOrder": 2
+              }
+            ],
+            "sourceTag": "muloo-standard"
+          }
+        ]
+      },
+      {
+        "objectType": "companies",
+        "properties": [
+          {
+            "internalName": "muloo_fit_tier",
+            "label": "Muloo Fit Tier",
+            "description": "Baseline fit tier used for handoff and prioritisation.",
+            "required": false,
+            "valueType": "enumeration",
+            "fieldType": "select",
+            "groupName": "muloo_revops_company",
+            "options": [
+              {
+                "label": "High",
+                "value": "high",
+                "displayOrder": 0
+              },
+              {
+                "label": "Medium",
+                "value": "medium",
+                "displayOrder": 1
+              },
+              {
+                "label": "Low",
+                "value": "low",
+                "displayOrder": 2
+              }
+            ],
+            "sourceTag": "muloo-standard"
+          }
+        ]
+      },
+      {
+        "objectType": "deals",
+        "properties": [
+          {
+            "internalName": "muloo_primary_campaign",
+            "label": "Muloo Primary Campaign",
+            "description": "Primary campaign or source program for pipeline attribution.",
+            "required": false,
+            "valueType": "string",
+            "fieldType": "text",
+            "groupName": "muloo_revops_deal",
+            "sourceTag": "muloo-standard"
+          }
+        ]
+      },
+      {
+        "objectType": "tickets",
+        "properties": []
+      }
+    ]
+  },
+  "modulePlanning": [
+    {
+      "moduleId": "crm-setup",
+      "status": "ready",
+      "dependencies": [],
+      "notes": "Seeded from template."
+    },
+    {
+      "moduleId": "properties",
+      "status": "ready",
+      "dependencies": ["crm-setup"],
+      "notes": "Seeded from template."
+    },
+    {
+      "moduleId": "pipelines",
+      "status": "ready",
+      "dependencies": ["crm-setup"],
+      "notes": "Seeded from template."
+    },
+    {
+      "moduleId": "automation",
+      "status": "planned",
+      "dependencies": ["properties"],
+      "notes": "Template seeded but not started."
+    },
+    {
+      "moduleId": "qa",
+      "status": "planned",
+      "dependencies": ["properties", "pipelines"],
+      "notes": "Added during scope edit."
+    }
+  ],
+  "executionContext": {
+    "dryRunEnabled": true,
+    "validationStatus": "draft",
+    "lastExecutionSummary": {
+      "status": "never-run",
+      "notes": "Project seeded from template 'Muloo RevOps Foundation'."
+    }
+  },
+  "templateProvenance": {
+    "seedType": "template",
+    "templateId": "muloo-revops-foundation",
+    "templateName": "Muloo RevOps Foundation",
+    "seededAt": "2026-03-11T08:08:11.397Z",
+    "baselineSourceTags": ["muloo-standard"],
+    "seededModuleIds": [
+      "crm-setup",
+      "properties",
+      "pipelines",
+      "automation",
+      "qa"
+    ]
+  }
+}

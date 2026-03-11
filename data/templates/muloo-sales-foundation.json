@@ -1,0 +1,171 @@
+{
+  "schemaVersion": "1.0",
+  "id": "muloo-sales-foundation",
+  "name": "Muloo Sales Foundation",
+  "description": "Sales Hub starter for contact, company, and deal structure with core lifecycle, lead status, property, and pipeline planning.",
+  "templateType": "sales-foundation",
+  "hubsInScope": ["sales", "ops"],
+  "environment": "production",
+  "defaultModules": [
+    {
+      "moduleId": "crm-setup",
+      "status": "ready",
+      "dependencies": [],
+      "notes": "Core CRM design is seeded from the Muloo sales foundation."
+    },
+    {
+      "moduleId": "properties",
+      "status": "ready",
+      "dependencies": ["crm-setup"],
+      "notes": "Baseline contact, company, and deal properties are seeded from the template."
+    },
+    {
+      "moduleId": "pipelines",
+      "status": "ready",
+      "dependencies": ["crm-setup"],
+      "notes": "Starter sales pipeline is included for operator review."
+    },
+    {
+      "moduleId": "qa",
+      "status": "planned",
+      "dependencies": ["properties", "pipelines"],
+      "notes": "QA remains planned until project-specific execution is complete."
+    }
+  ],
+  "defaultLifecycleStages": [
+    "subscriber",
+    "lead",
+    "marketingqualifiedlead",
+    "salesqualifiedlead",
+    "opportunity",
+    "customer"
+  ],
+  "defaultLeadStatuses": [
+    "New",
+    "Attempting Contact",
+    "Connected",
+    "Open Deal",
+    "Unqualified"
+  ],
+  "defaultObjectsInScope": ["contacts", "companies", "deals"],
+  "propertyLibrary": {
+    "groups": [
+      {
+        "objectType": "contacts",
+        "internalName": "muloo_standard_contact",
+        "label": "Muloo Standard Contact",
+        "description": "Muloo standard operational contact fields for sales onboarding.",
+        "sourceTag": "muloo-standard"
+      },
+      {
+        "objectType": "companies",
+        "internalName": "muloo_standard_company",
+        "label": "Muloo Standard Company",
+        "description": "Muloo standard company fields for segmentation and handover.",
+        "sourceTag": "muloo-standard"
+      },
+      {
+        "objectType": "deals",
+        "internalName": "muloo_standard_deal",
+        "label": "Muloo Standard Deal",
+        "description": "Muloo standard sales deal fields for handoff and reporting.",
+        "sourceTag": "muloo-standard"
+      }
+    ],
+    "properties": [
+      {
+        "objectType": "contacts",
+        "groupName": "muloo_standard_contact",
+        "internalName": "muloo_contact_segment",
+        "label": "Muloo Contact Segment",
+        "description": "Commercial segment used for routing and sales reporting.",
+        "required": true,
+        "valueType": "enumeration",
+        "fieldType": "select",
+        "options": [
+          { "label": "SMB", "value": "smb", "displayOrder": 0 },
+          { "label": "Mid-Market", "value": "mid_market", "displayOrder": 1 },
+          { "label": "Enterprise", "value": "enterprise", "displayOrder": 2 }
+        ],
+        "sourceTag": "muloo-standard"
+      },
+      {
+        "objectType": "contacts",
+        "groupName": "muloo_standard_contact",
+        "internalName": "muloo_sales_region",
+        "label": "Muloo Sales Region",
+        "description": "Sales routing region for inbound and outbound ownership.",
+        "required": true,
+        "valueType": "string",
+        "fieldType": "text",
+        "sourceTag": "muloo-standard"
+      },
+      {
+        "objectType": "companies",
+        "groupName": "muloo_standard_company",
+        "internalName": "muloo_account_tier",
+        "label": "Muloo Account Tier",
+        "description": "Baseline account tier for reporting and service expectations.",
+        "required": false,
+        "valueType": "enumeration",
+        "fieldType": "select",
+        "options": [
+          { "label": "Core", "value": "core", "displayOrder": 0 },
+          { "label": "Growth", "value": "growth", "displayOrder": 1 },
+          { "label": "Strategic", "value": "strategic", "displayOrder": 2 }
+        ],
+        "sourceTag": "muloo-standard"
+      },
+      {
+        "objectType": "deals",
+        "groupName": "muloo_standard_deal",
+        "internalName": "muloo_handover_owner",
+        "label": "Muloo Handover Owner",
+        "description": "Internal owner captured for delivery handover readiness.",
+        "required": false,
+        "valueType": "string",
+        "fieldType": "text",
+        "sourceTag": "muloo-standard"
+      }
+    ]
+  },
+  "defaultPipelines": [
+    {
+      "objectType": "deals",
+      "internalName": "muloo_sales_pipeline",
+      "label": "Sales Pipeline",
+      "stages": [
+        {
+          "internalName": "qualification",
+          "label": "Qualification",
+          "order": 0,
+          "probability": 10
+        },
+        {
+          "internalName": "discovery",
+          "label": "Discovery",
+          "order": 1,
+          "probability": 25
+        },
+        {
+          "internalName": "proposal",
+          "label": "Proposal",
+          "order": 2,
+          "probability": 60
+        },
+        {
+          "internalName": "closed_won",
+          "label": "Closed Won",
+          "order": 3,
+          "probability": 100
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "This template seeds a practical sales onboarding baseline without enforcing client-specific field proliferation."
+  ],
+  "assumptions": [
+    "Deal pipeline naming and probabilities will be reviewed with the client delivery lead before execution."
+  ]
+}

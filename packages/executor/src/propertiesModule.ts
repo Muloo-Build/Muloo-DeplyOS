@@ -1,5 +1,6 @@
 import {
   formatDryRunSummary,
+  formatPropertyApplySummary,
   onboardingSpecSchema,
   type OnboardingSpec,
   type SpecFile
@@ -15,12 +16,14 @@ import {
 } from "@muloo/shared";
 
 import type {
+  ModuleApplyContext,
   ModuleContractAssessment,
   ModuleContractContext,
   ModuleDryRunContext,
   ModuleExecutionContract
 } from "./contracts";
 import { executePropertyDryRun } from "./dryRunExecutor";
+import { executePropertyApply } from "./propertyApplyExecutor";
 
 function createFinding(code: string, message: string): ValidationFinding {
   return { code, message };
@@ -123,6 +126,10 @@ function buildAssessment(
     createFinding(
       "properties.dry_run_supported",
       "Properties module is connected to the contract-based project/module dry-run flow."
+    ),
+    createFinding(
+      "properties.apply_create_only_supported",
+      "Properties module supports guarded apply for create-only contact properties."
     )
   ];
   const blockers: ReadinessReason[] = [];
@@ -278,10 +285,22 @@ export function createPropertySpecFromProject(
   };
 }
 
+function toExecutionOperations(
+  operations: Awaited<
+    ReturnType<typeof executePropertyApply>
+  >["artifact"]["operations"]
+) {
+  return {
+    requested: operations.requested.map((operation) => ({ ...operation })),
+    executed: operations.executed.map((operation) => ({ ...operation })),
+    blocked: operations.blocked.map((operation) => ({ ...operation }))
+  };
+}
+
 const definition = moduleExecutionContractDefinitionSchema.parse({
   moduleKey: "properties",
   moduleLabel: "Properties",
-  supportedModes: ["dry-run"],
+  supportedModes: ["dry-run", "apply"],
   inputRequirements: [
     {
       key: "crm.contacts-scope",
@@ -307,34 +326,115 @@ const definition = moduleExecutionContractDefinitionSchema.parse({
     validation: true,
     readiness: true,
     dryRun: true,
-    apply: false
+    apply: true
   },
-  resultKind: "hubspot-property-dry-run",
-  executionSteps: [
-    { key: "load-project", label: "Load project", type: "project" },
-    { key: "validate-project", label: "Validate project", type: "validation" },
-    {
-      key: "resolve-module-input",
-      label: "Resolve module input",
-      type: "input"
-    },
-    {
-      key: "load-existing-hubspot-state",
-      label: "Load existing HubSpot state",
-      type: "integration"
-    },
-    {
-      key: "diff-desired-vs-existing",
-      label: "Diff desired vs existing",
-      type: "analysis"
-    },
-    { key: "write-artifact", label: "Write artifact", type: "artifact" },
-    {
-      key: "persist-execution-record",
-      label: "Persist execution record",
-      type: "persistence"
-    }
-  ]
+  applyGuardrails: {
+    enabled: true,
+    summary:
+      "Only create-only contact property apply is enabled in this phase. Updates, deletes, renames, and option mutations remain blocked.",
+    requiresExplicitFlag: true,
+    confirmationFlags: ["--allow-create-only"],
+    approvalRequirement:
+      "Apply execution requires both an explicit CLI apply flag and an operator confirmation flag.",
+    allowedOperationTypes: ["create-contact-property"],
+    blockedOperationTypes: [
+      "update-contact-property",
+      "delete-contact-property",
+      "rename-contact-property",
+      "mutate-contact-property-options"
+    ],
+    guardConditions: [
+      {
+        key: "properties.contacts_only",
+        label: "Contacts only",
+        description:
+          "Apply mode is limited to contact properties in this phase."
+      },
+      {
+        key: "properties.create_only",
+        label: "Create only",
+        description:
+          "Only missing contact properties may be created. Existing property mutations remain blocked."
+      },
+      {
+        key: "properties.clean_diff_required",
+        label: "Clean diff required",
+        description:
+          "Apply stops if the diff contains review/update-style changes."
+      }
+    ]
+  },
+  resultKind: "hubspot-property-execution",
+  executionSteps: {
+    dryRun: [
+      { key: "load-project", label: "Load project", type: "project" },
+      {
+        key: "validate-project",
+        label: "Validate project",
+        type: "validation"
+      },
+      {
+        key: "resolve-module-input",
+        label: "Resolve module input",
+        type: "input"
+      },
+      {
+        key: "load-existing-hubspot-state",
+        label: "Load existing HubSpot state",
+        type: "integration"
+      },
+      {
+        key: "diff-desired-vs-existing",
+        label: "Diff desired vs existing",
+        type: "analysis"
+      },
+      { key: "write-artifact", label: "Write artifact", type: "artifact" },
+      {
+        key: "persist-execution-record",
+        label: "Persist execution record",
+        type: "persistence"
+      }
+    ],
+    apply: [
+      { key: "load-project", label: "Load project", type: "project" },
+      {
+        key: "validate-project",
+        label: "Validate project",
+        type: "validation"
+      },
+      {
+        key: "resolve-module-input",
+        label: "Resolve module input",
+        type: "input"
+      },
+      {
+        key: "load-existing-hubspot-state",
+        label: "Load existing HubSpot state",
+        type: "integration"
+      },
+      {
+        key: "diff-desired-vs-existing",
+        label: "Diff desired vs existing",
+        type: "analysis"
+      },
+      {
+        key: "evaluate-apply-guardrails",
+        label: "Evaluate apply guardrails",
+        type: "guardrail"
+      },
+      {
+        key: "execute-safe-creates",
+        label: "Execute safe creates",
+        type: "execution"
+      },
+      { key: "write-artifact", label: "Write artifact", type: "artifact" },
+      {
+        key: "persist-execution-record",
+        label: "Persist execution record",
+        type: "persistence"
+      }
+    ]
+  }
 });
 
 export const propertiesModuleContract: ModuleExecutionContract<
@@ -457,6 +557,220 @@ export const propertiesModuleContract: ModuleExecutionContract<
         await context.stepReporter.fail(activeStepKey, {
           error: message,
           summary: "Properties dry run failed."
+        });
+      }
+
+      throw error;
+    }
+  },
+  async apply(context: ModuleApplyContext<SpecFile<OnboardingSpec>>) {
+    if (!context.hubSpotClient?.fetchProperties) {
+      throw new Error("Properties apply requires a HubSpot read dependency.");
+    }
+
+    if (!context.hubSpotClient?.createProperty) {
+      throw new Error(
+        "Properties apply requires a HubSpot property create dependency."
+      );
+    }
+
+    if (!context.writeArtifact) {
+      throw new Error(
+        "Properties apply requires an artifact writer dependency."
+      );
+    }
+
+    if (context.resolvedInput.spec.crm.objectType !== "contacts") {
+      throw new Error(
+        "Properties apply is limited to contact properties in this phase."
+      );
+    }
+
+    let activeStepKey:
+      | "load-existing-hubspot-state"
+      | "diff-desired-vs-existing"
+      | "evaluate-apply-guardrails"
+      | "execute-safe-creates"
+      | "write-artifact"
+      | undefined = "load-existing-hubspot-state";
+
+    await context.stepReporter.start(
+      "load-existing-hubspot-state",
+      "Fetching current HubSpot CRM properties before guarded apply."
+    );
+
+    try {
+      const result = await executePropertyApply({
+        artifactDir: context.artifactDir,
+        hubSpotClient: context.hubSpotClient,
+        logger: context.logger,
+        spec: context.resolvedInput,
+        specPath: context.resolvedInput.absolutePath,
+        writeArtifact: context.writeArtifact,
+        onExistingStateLoaded(existingProperties) {
+          const completeResult = context.stepReporter.complete(
+            "load-existing-hubspot-state",
+            {
+              summary: `Fetched ${existingProperties.length} existing HubSpot properties.`
+            }
+          );
+          activeStepKey = "diff-desired-vs-existing";
+          const startResult = context.stepReporter.start(
+            "diff-desired-vs-existing",
+            "Comparing desired property plan with existing HubSpot properties."
+          );
+          return Promise.all([completeResult, startResult]).then(
+            () => undefined
+          );
+        },
+        onDiffComputed(diff) {
+          const completeResult = context.stepReporter.complete(
+            "diff-desired-vs-existing",
+            {
+              summary: `${diff.toCreate.length} safe create candidates, ${diff.needsReview.length} blocked review items, ${diff.unchanged.length} unchanged.`
+            }
+          );
+          activeStepKey = "evaluate-apply-guardrails";
+          const startResult = context.stepReporter.start(
+            "evaluate-apply-guardrails",
+            "Evaluating create-only apply guardrails."
+          );
+          return Promise.all([completeResult, startResult]).then(
+            () => undefined
+          );
+        },
+        async onGuardrailsEvaluated(evaluation) {
+          const warnings = evaluation.blockedOperations
+            .map((operation) => operation.message)
+            .filter((value): value is string => Boolean(value));
+          const completeResult = context.stepReporter.complete(
+            "evaluate-apply-guardrails",
+            {
+              summary: evaluation.allowed
+                ? `Guardrails approved ${evaluation.requestedOperations.length} safe create operations.`
+                : (evaluation.message ?? "Guardrails blocked apply execution."),
+              warnings
+            }
+          );
+
+          if (evaluation.allowed) {
+            activeStepKey = "execute-safe-creates";
+            const startResult = context.stepReporter.start(
+              "execute-safe-creates",
+              "Creating missing contact properties in HubSpot."
+            );
+            await Promise.all([completeResult, startResult]);
+            return;
+          }
+
+          activeStepKey = "execute-safe-creates";
+          const skippedStep = context.stepReporter.start(
+            "execute-safe-creates",
+            "Safe create execution skipped because guardrails blocked apply."
+          );
+          const completeSkippedStep = context.stepReporter.complete(
+            "execute-safe-creates",
+            {
+              summary:
+                "No property creates were executed because apply guardrails blocked the run."
+            }
+          );
+          activeStepKey = "write-artifact";
+          const startArtifact = context.stepReporter.start(
+            "write-artifact",
+            "Writing guarded apply artifact to disk."
+          );
+          await Promise.all([
+            completeResult,
+            skippedStep,
+            completeSkippedStep,
+            startArtifact
+          ]);
+        },
+        onCreatesExecuted(createdProperties) {
+          const completeResult = context.stepReporter.complete(
+            "execute-safe-creates",
+            {
+              summary:
+                createdProperties.length > 0
+                  ? `Created ${createdProperties.length} contact properties in HubSpot.`
+                  : "No missing contact properties required creation."
+            }
+          );
+          activeStepKey = "write-artifact";
+          const startResult = context.stepReporter.start(
+            "write-artifact",
+            "Writing guarded apply artifact to disk."
+          );
+          return Promise.all([completeResult, startResult]).then(
+            () => undefined
+          );
+        },
+        onArtifactWritten(artifactPath) {
+          activeStepKey = undefined;
+          return context.stepReporter.complete("write-artifact", {
+            summary: "Guarded apply artifact written to disk.",
+            output: {
+              artifactPath
+            }
+          });
+        }
+      });
+
+      const summary = formatPropertyApplySummary(result);
+      const operations = toExecutionOperations(result.artifact.operations);
+      const warnings = operations.blocked
+        .map((operation) => operation.message)
+        .filter((value): value is string => Boolean(value));
+
+      if (!result.guardrails.allowed) {
+        return moduleExecutionResultSchema.parse({
+          moduleKey: definition.moduleKey,
+          moduleLabel: definition.moduleLabel,
+          mode: "apply",
+          status: "failed",
+          summary,
+          metrics: result.artifact.summary,
+          warnings,
+          errors: [
+            result.guardrails.message ??
+              "Guarded apply blocked because the diff includes unsupported operations."
+          ],
+          output: {
+            artifactPath: result.artifactPath,
+            summaryText: summary,
+            specPath: context.resolvedInput.absolutePath
+          },
+          operations
+        });
+      }
+
+      return moduleExecutionResultSchema.parse({
+        moduleKey: definition.moduleKey,
+        moduleLabel: definition.moduleLabel,
+        mode: "apply",
+        status: "succeeded",
+        summary,
+        metrics: result.artifact.summary,
+        warnings,
+        errors: [],
+        output: {
+          artifactPath: result.artifactPath,
+          summaryText: summary,
+          specPath: context.resolvedInput.absolutePath
+        },
+        operations
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unknown properties apply failure";
+
+      if (activeStepKey) {
+        await context.stepReporter.fail(activeStepKey, {
+          error: message,
+          summary: "Properties apply failed."
         });
       }
 

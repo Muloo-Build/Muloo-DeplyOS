@@ -46,6 +46,9 @@ importers:
       "@muloo/shared":
         specifier: workspace:*
         version: link:../../packages/shared
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
 
   apps/cli:
     dependencies:
@@ -64,6 +67,9 @@ importers:
       "@muloo/hubspot-client":
         specifier: workspace:*
         version: link:../../packages/hubspot-client
+      "@muloo/shared":
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   packages/config:
     dependencies:

@@ -11,6 +11,8 @@ Muloo Deploy OS remains a modular TypeScript monorepo with a clear split between
 The operator-facing shell lives in `apps/web` and is served by `apps/api`. It now shows:
 
 - project lists
+- project authoring
+- project design editing
 - project detail views
 - validation and readiness state
 - module readiness
@@ -18,7 +20,7 @@ The operator-facing shell lives in `apps/web` and is served by `apps/api`. It no
 
 ### Backend and API layer
 
-`apps/api` is the internal HTTP boundary. It exposes health, configuration readiness, module metadata, project read models, validation state, readiness summaries, and execution history.
+`apps/api` is the internal HTTP boundary. It exposes health, configuration readiness, module metadata, template read models, project read models, project authoring routes, validation state, readiness summaries, and execution history.
 
 ### Job and execution layer
 
@@ -30,8 +32,8 @@ Each module contract defines:
 - input requirements
 - validation and readiness handlers
 - dry-run handler
-- apply placeholder
-- ordered execution step templates
+- guarded apply metadata and handler when enabled
+- ordered execution step templates per execution mode
 
 This keeps future modules explicit and typed without adding a heavy plugin framework.
 
@@ -40,9 +42,17 @@ Two live dry-run contracts now use the same pattern:
 - `properties`
 - `pipelines`
 
+The `properties` contract now also supports the first guarded apply path. Its apply capability is intentionally narrow:
+
+- contacts only
+- create-only operations for missing properties
+- explicit CLI flags required
+- environment guard required
+- no updates, deletes, renames, or option mutations
+
 ### Integration layer
 
-HubSpot and future external systems stay behind service packages with typed request and response shaping, auditability, and dry-run guardrails.
+HubSpot and future external systems stay behind service packages with typed request and response shaping, auditability, and dry-run-first guardrails.
 
 ## OnboardingProject as the central planning object
 
@@ -59,6 +69,45 @@ It represents:
 - execution context and stored validation state
 
 Projects are stored as validated JSON files in `data/projects/`.
+
+The same project file now supports three operator workflows:
+
+- create from blank or template
+- update metadata and scope
+- edit lifecycle, property, and pipeline design inputs
+
+## Template model
+
+Reusable starter templates are stored as validated JSON files in `data/templates/`.
+
+Each template carries:
+
+- template identity and type
+- default hubs and modules
+- lifecycle and lead-status defaults
+- optional pipeline starters
+- a standard property library
+- notes and assumptions
+
+Template creation remains file-backed and explicit. There is no database or dynamic template registry.
+
+## Standard property library
+
+The property library is the reusable baseline structure used by templates. It normalises standard Muloo fields into one shape that can be copied into projects during creation.
+
+That structure captures:
+
+- object type
+- group name
+- internal name
+- label
+- value type and field type
+- description
+- required flag
+- options
+- source tag
+
+Projects preserve `sourceTag` values after seeding so operators can see which baseline elements came from Muloo standards.
 
 ## Validation and readiness
 
@@ -84,9 +133,11 @@ Module-level validation includes:
 
 Project readiness summaries aggregate those signals for operator views.
 
+Design edits write back into the same blueprint and immediately recalculate validation and readiness. That keeps the authoring, design, and execution surfaces aligned on one source of truth.
+
 ## Execution job records
 
-Dry runs launched from project/module context now create file-backed execution records in `data/executions/`.
+Dry runs and guarded apply runs launched from project/module context now create file-backed execution records in `data/executions/`.
 
 These records capture:
 
@@ -96,6 +147,7 @@ These records capture:
 - summary metrics
 - warnings and errors
 - output references such as artifact paths and summary text
+- requested, executed, and blocked operations
 - normalized module execution results
 - ordered execution steps with timestamps, summaries, warnings, errors, and optional output references
 
@@ -113,19 +165,33 @@ Current properties dry-run step sequence:
 
 The pipelines module uses the same step sequence and differs only in its module-specific input resolution, validation, HubSpot state reader, and diff output.
 
+The properties guarded apply sequence extends the same pattern:
+
+1. load-project
+2. validate-project
+3. resolve-module-input
+4. load-existing-hubspot-state
+5. diff-desired-vs-existing
+6. evaluate-apply-guardrails
+7. execute-safe-creates
+8. write-artifact
+9. persist-execution-record
+
 ## Current flow
 
 1. `apps/api` loads projects, validations, readiness summaries, and execution records from file-backed helpers.
-2. The web shell renders those views for operators.
-3. The CLI still supports raw-spec execution.
-4. The CLI can resolve `--project <id> --module properties` through the properties module contract.
-5. The contract drives readiness, dry-run execution, result shaping, and execution step reporting.
-6. Project-linked dry runs create execution history records for later inspection through the API and web shell.
+2. The same file-backed layer loads starter templates and handles project creation and updates.
+3. The same file-backed layer handles design updates for lifecycle data, property planning, and pipelines.
+4. The web shell renders read, authoring, and design-editing views for operators.
+5. The CLI still supports raw-spec execution.
+6. The CLI can resolve `--project <id> --module ...` through module contracts.
+7. Contracts drive readiness, dry-run execution, guarded apply behavior, result shaping, and execution step reporting.
+8. Project-linked executions create history records for later inspection through the API and web shell.
 
 ## Principles
 
 - Modular: keep UI, API, validation, execution logic, and integrations clearly separated.
 - Typed: validate project inputs, readiness state, execution records, and environment boundaries with Zod and TypeScript.
 - Auditable: persist dry-run artifacts and execution records.
-- Secure: never hardcode secrets and keep destructive work explicitly gated.
+- Secure: never hardcode secrets and keep any write path explicitly gated and auditable.
 - Execution focused: optimise for reliable internal delivery workflows over broad product surface area.
