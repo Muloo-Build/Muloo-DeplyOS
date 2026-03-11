@@ -37,6 +37,9 @@ importers:
       "@muloo/config":
         specifier: workspace:*
         version: link:../../packages/config
+      "@muloo/executor":
+        specifier: workspace:*
+        version: link:../../packages/executor
       "@muloo/file-system":
         specifier: workspace:*
         version: link:../../packages/file-system
@@ -88,12 +91,18 @@ importers:
       "@muloo/diff-engine":
         specifier: workspace:*
         version: link:../diff-engine
+      "@muloo/shared":
+        specifier: workspace:*
+        version: link:../shared
 
   packages/file-system:
     dependencies:
       "@muloo/core":
         specifier: workspace:*
         version: link:../core
+      "@muloo/executor":
+        specifier: workspace:*
+        version: link:../executor
       "@muloo/shared":
         specifier: workspace:*
         version: link:../shared

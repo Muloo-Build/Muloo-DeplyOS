@@ -1,7 +1,10 @@
 import type {
+  ComparablePipelineDefinition,
+  ComparablePipelineStageDefinition,
   ComparablePropertyDefinition,
   HubSpotObjectType,
   Logger,
+  PipelineObjectType,
   PropertyOption
 } from "@muloo/core";
 
@@ -31,6 +34,26 @@ interface HubSpotPropertyOptionResponse {
   value: string;
   displayOrder?: number;
   hidden?: boolean;
+}
+
+interface HubSpotPipelinesResponse {
+  results: HubSpotPipelineResponse[];
+}
+
+interface HubSpotPipelineResponse {
+  id?: string;
+  label: string;
+  displayOrder?: number;
+  stages?: HubSpotPipelineStageResponse[];
+}
+
+interface HubSpotPipelineStageResponse {
+  id?: string;
+  label: string;
+  displayOrder?: number;
+  metadata?: {
+    probability?: string;
+  };
 }
 
 function normalizeOptions(
@@ -88,6 +111,40 @@ function normalizeProperty(
   return normalized;
 }
 
+function normalizePipelineStage(
+  pipelineInternalName: string,
+  stage: HubSpotPipelineStageResponse,
+  index: number
+): ComparablePipelineStageDefinition {
+  return {
+    ...(stage.id ? { id: stage.id } : {}),
+    internalName: stage.id ?? `${pipelineInternalName}_stage_${index}`,
+    label: stage.label,
+    order: stage.displayOrder ?? index,
+    ...(stage.metadata?.probability !== undefined
+      ? { probability: Number(stage.metadata.probability) }
+      : {})
+  };
+}
+
+function normalizePipeline(
+  objectType: PipelineObjectType,
+  pipeline: HubSpotPipelineResponse
+): ComparablePipelineDefinition {
+  const internalName =
+    pipeline.id ?? pipeline.label.toLowerCase().replace(/\s+/g, "_");
+
+  return {
+    ...(pipeline.id ? { id: pipeline.id } : {}),
+    objectType,
+    internalName,
+    label: pipeline.label,
+    stages: (pipeline.stages ?? []).map((stage, index) =>
+      normalizePipelineStage(internalName, stage, index)
+    )
+  };
+}
+
 export class HubSpotClient {
   private readonly accessToken: string;
   private readonly baseUrl: string;
@@ -122,5 +179,32 @@ export class HubSpotClient {
 
     const payload = (await response.json()) as HubSpotPropertiesResponse;
     return payload.results.map(normalizeProperty);
+  }
+
+  public async fetchPipelines(
+    objectType: PipelineObjectType
+  ): Promise<ComparablePipelineDefinition[]> {
+    const url = `${this.baseUrl}/crm/v3/pipelines/${objectType}`;
+    this.logger.info("Fetching HubSpot CRM pipelines.", { objectType, url });
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `HubSpot pipeline fetch failed with status ${response.status}: ${body}`
+      );
+    }
+
+    const payload = (await response.json()) as HubSpotPipelinesResponse;
+    return payload.results.map((pipeline) =>
+      normalizePipeline(objectType, pipeline)
+    );
   }
 }

@@ -142,7 +142,8 @@ body::before {
 
 .stats,
 .module-grid,
-.grid.two-col {
+.grid.two-col,
+.timeline {
   display: grid;
   gap: 18px;
 }
@@ -187,6 +188,21 @@ body::before {
 .list {
   margin: 0;
   padding-left: 18px;
+}
+
+.timeline {
+  grid-template-columns: 1fr;
+}
+
+.timeline-item {
+  background: rgba(255, 248, 239, 0.75);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.kv.compact .kv-item {
+  padding: 10px 0;
 }
 
 .section-header {

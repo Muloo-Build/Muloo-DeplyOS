@@ -224,15 +224,21 @@
       "notes": "Contact property design is ready for dry-run comparison in sandbox."
     },
     {
+      "moduleId": "pipelines",
+      "status": "ready",
+      "dependencies": ["crm-setup"],
+      "notes": "Deal and ticket pipeline plans are ready for sandbox dry-run comparison."
+    },
+    {
       "moduleId": "automation",
       "status": "planned",
-      "dependencies": ["properties"],
+      "dependencies": ["properties", "pipelines"],
       "notes": "Automation planning depends on field validation and naming review."
     },
     {
       "moduleId": "reporting",
       "status": "planned",
-      "dependencies": ["properties"],
+      "dependencies": ["properties", "pipelines"],
       "notes": "Reporting foundation follows attribution field finalisation."
     },
     {

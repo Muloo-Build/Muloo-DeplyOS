@@ -5,6 +5,7 @@ import type {
   DryRunExecutionResult,
   Logger,
   OnboardingSpec,
+  PropertyDryRunArtifact,
   SpecFile
 } from "@muloo/core";
 
@@ -25,11 +26,19 @@ interface ExecutePropertyDryRunOptions {
   logger: Logger;
   hubSpotClient: PropertyReader;
   writeArtifact: WriteArtifact;
+  onExistingStateLoaded?: (
+    existingProperties: ComparablePropertyDefinition[]
+  ) => Promise<void> | void;
+  onDiffComputed?: (diff: DryRunArtifact["diff"]) => Promise<void> | void;
+  onArtifactWritten?: (
+    artifactPath: string,
+    artifact: DryRunArtifact
+  ) => Promise<void> | void;
 }
 
 export async function executePropertyDryRun(
   options: ExecutePropertyDryRunOptions
-): Promise<DryRunExecutionResult> {
+): Promise<DryRunExecutionResult<PropertyDryRunArtifact>> {
   options.logger.info("Starting dry-run execution.", {
     client: options.spec.spec.client.slug,
     objectType: options.spec.spec.crm.objectType,
@@ -39,13 +48,15 @@ export async function executePropertyDryRun(
   const existingProperties = await options.hubSpotClient.fetchProperties(
     options.spec.spec.crm.objectType
   );
+  await options.onExistingStateLoaded?.(existingProperties);
   const diff = diffProperties({
     objectType: options.spec.spec.crm.objectType,
     desired: options.spec.spec.crm.properties,
     existing: existingProperties
   });
+  await options.onDiffComputed?.(diff);
 
-  const artifact: DryRunArtifact = {
+  const artifact: PropertyDryRunArtifact = {
     kind: "hubspot-property-dry-run",
     dryRun: true,
     generatedAt: new Date().toISOString(),
@@ -66,6 +77,7 @@ export async function executePropertyDryRun(
     artifactDir: options.artifactDir,
     artifact
   });
+  await options.onArtifactWritten?.(artifactPath, artifact);
 
   options.logger.info("Dry-run execution completed.", {
     artifactPath,

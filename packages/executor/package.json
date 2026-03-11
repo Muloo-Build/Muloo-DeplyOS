@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@muloo/core": "workspace:*",
-    "@muloo/diff-engine": "workspace:*"
+    "@muloo/diff-engine": "workspace:*",
+    "@muloo/shared": "workspace:*"
   }
 }

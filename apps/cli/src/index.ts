@@ -4,11 +4,22 @@ import path from "node:path";
 
 import { loadCliConfig } from "@muloo/config";
 import { createLogger, formatDryRunSummary } from "@muloo/core";
-import { executePropertyDryRun } from "@muloo/executor";
 import {
-  createPropertySpecFromProject,
+  executePropertyDryRun,
+  getModuleExecutionContract
+} from "@muloo/executor";
+import {
+  completeExecutionJobRecord,
+  createExecutionJobRecord,
+  createExecutionTimeline,
+  failExecutionJobRecord,
   loadProjectById,
   loadValidatedOnboardingSpec,
+  markExecutionStepFailed,
+  markExecutionStepRunning,
+  markExecutionStepSucceeded,
+  replaceExecutionSteps,
+  validateProjectById,
   writeJsonArtifact
 } from "@muloo/file-system";
 import { HubSpotClient } from "@muloo/hubspot-client";
@@ -74,13 +85,7 @@ async function main(): Promise<void> {
   const cwd = process.cwd();
   const logger = createLogger({ service: "muloo-cli" });
   const config = loadCliConfig({ cwd });
-
-  const spec = args.specPath
-    ? await loadValidatedOnboardingSpec(args.specPath)
-    : createPropertySpecFromProject({
-        project: await loadProjectById(args.projectId as string),
-        moduleId: args.moduleId as string
-      });
+  const projectMode = Boolean(args.projectId && args.moduleId);
 
   const hubSpotClientOptions: {
     accessToken: string;
@@ -97,23 +102,248 @@ async function main(): Promise<void> {
 
   const hubSpotClient = new HubSpotClient(hubSpotClientOptions);
 
-  const result = await executePropertyDryRun({
-    artifactDir: path.resolve(cwd, config.artifactDir),
-    hubSpotClient,
-    logger,
-    spec,
-    specPath: spec.absolutePath,
-    writeArtifact: writeJsonArtifact
-  });
+  if (!projectMode) {
+    const spec = await loadValidatedOnboardingSpec(args.specPath as string);
+    const result = await executePropertyDryRun({
+      artifactDir: path.resolve(cwd, config.artifactDir),
+      hubSpotClient,
+      logger,
+      spec,
+      specPath: spec.absolutePath,
+      writeArtifact: writeJsonArtifact
+    });
 
-  if (args.projectId && args.moduleId) {
-    process.stdout.write(
-      `Project: ${args.projectId}\nModule: ${args.moduleId}\n`
+    process.stdout.write(`${formatDryRunSummary(result)}\n`);
+    process.stdout.write(`Artifact: ${result.artifactPath}\n`);
+    return;
+  }
+
+  const contract = getModuleExecutionContract(args.moduleId as string);
+
+  if (!contract) {
+    throw new Error(
+      `Project module '${args.moduleId}' is not connected to an execution contract.`
     );
   }
 
-  process.stdout.write(`${formatDryRunSummary(result)}\n`);
-  process.stdout.write(`Artifact: ${result.artifactPath}\n`);
+  if (
+    !contract.dryRun ||
+    !contract.definition.supportedModes.includes("dry-run")
+  ) {
+    throw new Error(
+      `Project module '${args.moduleId}' does not support contract-based dry runs yet.`
+    );
+  }
+
+  const executionRecord = await createExecutionJobRecord({
+    projectId: args.projectId as string,
+    moduleKey: args.moduleId as string,
+    executionType: "project-module",
+    mode: "dry-run",
+    triggeredBy: process.env.USERNAME ?? process.env.USER ?? "operator",
+    environment: config.nodeEnv,
+    specPath: `project:${args.projectId}:${args.moduleId}`
+  });
+
+  let steps = createExecutionTimeline(executionRecord.id, contract.definition);
+  await replaceExecutionSteps({
+    executionId: executionRecord.id,
+    steps
+  });
+
+  async function persistStepState(): Promise<void> {
+    await replaceExecutionSteps({
+      executionId: executionRecord.id,
+      steps
+    });
+  }
+
+  async function startStep(stepKey: string, summary?: string): Promise<void> {
+    steps = markExecutionStepRunning(steps, stepKey, summary);
+    await persistStepState();
+  }
+
+  async function completeStep(
+    stepKey: string,
+    params?: {
+      summary?: string;
+      warnings?: string[];
+      output?: {
+        artifactPath?: string;
+        summaryText?: string;
+        specPath?: string;
+      };
+    }
+  ): Promise<void> {
+    steps = markExecutionStepSucceeded(steps, stepKey, params);
+    await persistStepState();
+  }
+
+  async function failStep(
+    stepKey: string,
+    error: string,
+    summary?: string
+  ): Promise<void> {
+    steps = markExecutionStepFailed(
+      steps,
+      stepKey,
+      summary
+        ? {
+            error,
+            summary
+          }
+        : {
+            error
+          }
+    );
+    await persistStepState();
+  }
+
+  let activeStepKey: string | undefined = "load-project";
+
+  try {
+    await startStep("load-project", "Loading project blueprint from disk.");
+    const project = await loadProjectById(args.projectId as string);
+    const modulePlan = project.modulePlanning.find(
+      (module) => module.moduleId === args.moduleId
+    );
+
+    if (!modulePlan) {
+      throw new Error(
+        `Project '${project.id}' does not include module '${args.moduleId}'.`
+      );
+    }
+
+    await completeStep("load-project", {
+      summary: `Loaded project '${project.name}'.`
+    });
+
+    activeStepKey = "validate-project";
+    await startStep(
+      "validate-project",
+      "Evaluating project and module readiness."
+    );
+    const projectValidation = await validateProjectById(
+      args.projectId as string
+    );
+    const moduleValidation = projectValidation.modules.find(
+      (module) => module.moduleId === args.moduleId
+    );
+
+    if (!moduleValidation) {
+      throw new Error(
+        `Project '${project.id}' does not include module '${args.moduleId}'.`
+      );
+    }
+
+    await completeStep("validate-project", {
+      summary: `Module readiness is '${moduleValidation.readiness}' with validation status '${moduleValidation.status}'.`
+    });
+
+    activeStepKey = "resolve-module-input";
+    await startStep(
+      "resolve-module-input",
+      "Resolving module-specific input from the project blueprint."
+    );
+
+    if (!contract.resolveInput) {
+      throw new Error(
+        `Project module '${args.moduleId}' does not define an input resolver.`
+      );
+    }
+
+    const resolvedInput = contract.resolveInput({
+      project,
+      modulePlan
+    });
+
+    const resolvedSpecPath =
+      typeof resolvedInput === "object" &&
+      resolvedInput !== null &&
+      "absolutePath" in resolvedInput
+        ? String(resolvedInput.absolutePath)
+        : undefined;
+
+    await completeStep(
+      "resolve-module-input",
+      resolvedSpecPath
+        ? {
+            summary: `Resolved module input from '${project.id}'.`,
+            output: {
+              specPath: resolvedSpecPath
+            }
+          }
+        : {
+            summary: `Resolved module input from '${project.id}'.`
+          }
+    );
+    activeStepKey = undefined;
+
+    const readinessWarnings = [
+      ...moduleValidation.blockers.map((blocker) => blocker.message),
+      ...moduleValidation.warnings.map((warning) => warning.message)
+    ];
+
+    const result = await contract.dryRun({
+      project,
+      modulePlan,
+      projectValidation,
+      moduleValidation,
+      logger,
+      artifactDir: path.resolve(cwd, config.artifactDir),
+      resolvedInput,
+      stepReporter: {
+        start: startStep,
+        complete: completeStep,
+        fail: (stepKey, params) =>
+          failStep(stepKey, params.error, params.summary)
+      },
+      hubSpotClient,
+      writeArtifact: writeJsonArtifact
+    });
+
+    activeStepKey = "persist-execution-record";
+    await startStep(
+      "persist-execution-record",
+      "Persisting execution record summary."
+    );
+    steps = markExecutionStepSucceeded(steps, "persist-execution-record", {
+      summary: "Execution record updated with module result.",
+      output: result.output
+    });
+
+    await completeExecutionJobRecord({
+      executionId: executionRecord.id,
+      summaryMetrics: result.metrics,
+      warnings: [...readinessWarnings, ...result.warnings],
+      output: result.output,
+      steps,
+      result
+    });
+    activeStepKey = undefined;
+
+    process.stdout.write(
+      `Project: ${args.projectId}\nModule: ${args.moduleId}\n`
+    );
+    process.stdout.write(`${result.summary}\n`);
+    if (result.output.artifactPath) {
+      process.stdout.write(`Artifact: ${result.output.artifactPath}\n`);
+    }
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Unknown execution failure";
+
+    if (activeStepKey) {
+      await failStep(activeStepKey, message, "Execution failed.");
+    }
+    await failExecutionJobRecord({
+      executionId: executionRecord.id,
+      errors: [message],
+      steps
+    });
+
+    throw error;
+  }
 }
 
 main().catch((error: unknown) => {

@@ -1,0 +1,162 @@
+{
+  "id": "0b802b07-b894-495e-a05e-54d254ecb510",
+  "projectId": "project-apex-revenue-ops",
+  "moduleKey": "pipelines",
+  "executionType": "project-module",
+  "status": "succeeded",
+  "mode": "dry-run",
+  "startedAt": "2026-03-11T07:19:55.429Z",
+  "completedAt": "2026-03-11T07:19:55.503Z",
+  "summaryMetrics": {
+    "desiredPipelineCount": 1,
+    "existingPipelineCount": 1,
+    "unchangedPipelineCount": 0,
+    "toCreatePipelineCount": 0,
+    "needsReviewPipelineCount": 1,
+    "desiredStageCount": 4,
+    "existingStageCount": 4
+  },
+  "warnings": ["Dry run completed with 1 pipelines requiring review."],
+  "errors": [],
+  "output": {
+    "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T07-19-55-498Z-apex-revenue-systems-pipelines-dry-run.json",
+    "summaryText": "Muloo Deploy pipeline dry run for Apex Revenue Systems\nDesired pipelines: 1\nExisting pipelines fetched: 1\nUnchanged: 0 [none]\nCreate: 0 [none]\nNeeds review: 1 [deals:apex_new_business]\nDesired stages: 4\nExisting stages fetched: 4",
+    "specPath": "project:project-apex-revenue-ops:pipelines"
+  },
+  "result": {
+    "moduleKey": "pipelines",
+    "moduleLabel": "Pipelines",
+    "mode": "dry-run",
+    "status": "succeeded",
+    "summary": "Muloo Deploy pipeline dry run for Apex Revenue Systems\nDesired pipelines: 1\nExisting pipelines fetched: 1\nUnchanged: 0 [none]\nCreate: 0 [none]\nNeeds review: 1 [deals:apex_new_business]\nDesired stages: 4\nExisting stages fetched: 4",
+    "metrics": {
+      "desiredPipelineCount": 1,
+      "existingPipelineCount": 1,
+      "unchangedPipelineCount": 0,
+      "toCreatePipelineCount": 0,
+      "needsReviewPipelineCount": 1,
+      "desiredStageCount": 4,
+      "existingStageCount": 4
+    },
+    "warnings": ["Dry run completed with 1 pipelines requiring review."],
+    "errors": [],
+    "output": {
+      "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T07-19-55-498Z-apex-revenue-systems-pipelines-dry-run.json",
+      "summaryText": "Muloo Deploy pipeline dry run for Apex Revenue Systems\nDesired pipelines: 1\nExisting pipelines fetched: 1\nUnchanged: 0 [none]\nCreate: 0 [none]\nNeeds review: 1 [deals:apex_new_business]\nDesired stages: 4\nExisting stages fetched: 4",
+      "specPath": "project:project-apex-revenue-ops:pipelines"
+    }
+  },
+  "steps": [
+    {
+      "id": "0b802b07-b894-495e-a05e-54d254ecb510:load-project",
+      "jobId": "0b802b07-b894-495e-a05e-54d254ecb510",
+      "key": "load-project",
+      "label": "Load project",
+      "type": "project",
+      "order": 0,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:19:55.435Z",
+      "completedAt": "2026-03-11T07:19:55.448Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Loaded project 'Apex Revenue Systems Sales Hub Foundation'."
+    },
+    {
+      "id": "0b802b07-b894-495e-a05e-54d254ecb510:validate-project",
+      "jobId": "0b802b07-b894-495e-a05e-54d254ecb510",
+      "key": "validate-project",
+      "label": "Validate project",
+      "type": "validation",
+      "order": 1,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:19:55.450Z",
+      "completedAt": "2026-03-11T07:19:55.454Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Module readiness is 'ready' with validation status 'valid'."
+    },
+    {
+      "id": "0b802b07-b894-495e-a05e-54d254ecb510:resolve-module-input",
+      "jobId": "0b802b07-b894-495e-a05e-54d254ecb510",
+      "key": "resolve-module-input",
+      "label": "Resolve module input",
+      "type": "input",
+      "order": 2,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:19:55.455Z",
+      "completedAt": "2026-03-11T07:19:55.457Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Resolved module input from 'project-apex-revenue-ops'.",
+      "output": {
+        "specPath": "project:project-apex-revenue-ops:pipelines"
+      }
+    },
+    {
+      "id": "0b802b07-b894-495e-a05e-54d254ecb510:load-existing-hubspot-state",
+      "jobId": "0b802b07-b894-495e-a05e-54d254ecb510",
+      "key": "load-existing-hubspot-state",
+      "label": "Load existing HubSpot state",
+      "type": "integration",
+      "order": 3,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:19:55.458Z",
+      "completedAt": "2026-03-11T07:19:55.494Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Fetched 1 existing HubSpot pipelines."
+    },
+    {
+      "id": "0b802b07-b894-495e-a05e-54d254ecb510:diff-desired-vs-existing",
+      "jobId": "0b802b07-b894-495e-a05e-54d254ecb510",
+      "key": "diff-desired-vs-existing",
+      "label": "Diff desired vs existing",
+      "type": "analysis",
+      "order": 4,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:19:55.494Z",
+      "completedAt": "2026-03-11T07:19:55.497Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "0 pipelines to create, 1 pipelines need review, 0 unchanged."
+    },
+    {
+      "id": "0b802b07-b894-495e-a05e-54d254ecb510:write-artifact",
+      "jobId": "0b802b07-b894-495e-a05e-54d254ecb510",
+      "key": "write-artifact",
+      "label": "Write artifact",
+      "type": "artifact",
+      "order": 5,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:19:55.497Z",
+      "completedAt": "2026-03-11T07:19:55.499Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Pipeline dry-run artifact written to disk.",
+      "output": {
+        "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T07-19-55-498Z-apex-revenue-systems-pipelines-dry-run.json"
+      }
+    },
+    {
+      "id": "0b802b07-b894-495e-a05e-54d254ecb510:persist-execution-record",
+      "jobId": "0b802b07-b894-495e-a05e-54d254ecb510",
+      "key": "persist-execution-record",
+      "label": "Persist execution record",
+      "type": "persistence",
+      "order": 6,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T07:19:55.501Z",
+      "completedAt": "2026-03-11T07:19:55.503Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Execution record updated with module result.",
+      "output": {
+        "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T07-19-55-498Z-apex-revenue-systems-pipelines-dry-run.json",
+        "summaryText": "Muloo Deploy pipeline dry run for Apex Revenue Systems\nDesired pipelines: 1\nExisting pipelines fetched: 1\nUnchanged: 0 [none]\nCreate: 0 [none]\nNeeds review: 1 [deals:apex_new_business]\nDesired stages: 4\nExisting stages fetched: 4",
+        "specPath": "project:project-apex-revenue-ops:pipelines"
+      }
+    }
+  ],
+  "triggeredBy": "jarrud",
+  "environment": "test"
+}

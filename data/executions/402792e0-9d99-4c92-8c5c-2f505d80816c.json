@@ -1,0 +1,158 @@
+{
+  "id": "402792e0-9d99-4c92-8c5c-2f505d80816c",
+  "projectId": "project-apex-revenue-ops",
+  "moduleKey": "properties",
+  "executionType": "project-module",
+  "status": "succeeded",
+  "mode": "dry-run",
+  "startedAt": "2026-03-11T06:55:58.003Z",
+  "completedAt": "2026-03-11T06:55:58.128Z",
+  "summaryMetrics": {
+    "desiredPropertyCount": 3,
+    "existingPropertyCount": 1,
+    "unchangedCount": 0,
+    "toCreateCount": 2,
+    "needsReviewCount": 1
+  },
+  "warnings": ["Dry run completed with 1 properties requiring review."],
+  "errors": [],
+  "output": {
+    "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T06-55-58-123Z-apex-revenue-systems-contact-properties-dry-run.json",
+    "summaryText": "Muloo Deploy dry run for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nUnchanged: 0 [none]\nCreate: 2 [apex_segment, apex_handover_ready]\nNeeds review: 1 [apex_sales_region]",
+    "specPath": "project:project-apex-revenue-ops:properties"
+  },
+  "result": {
+    "moduleKey": "properties",
+    "moduleLabel": "Properties",
+    "mode": "dry-run",
+    "status": "succeeded",
+    "summary": "Muloo Deploy dry run for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nUnchanged: 0 [none]\nCreate: 2 [apex_segment, apex_handover_ready]\nNeeds review: 1 [apex_sales_region]",
+    "metrics": {
+      "desiredPropertyCount": 3,
+      "existingPropertyCount": 1,
+      "unchangedCount": 0,
+      "toCreateCount": 2,
+      "needsReviewCount": 1
+    },
+    "warnings": ["Dry run completed with 1 properties requiring review."],
+    "errors": [],
+    "output": {
+      "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T06-55-58-123Z-apex-revenue-systems-contact-properties-dry-run.json",
+      "summaryText": "Muloo Deploy dry run for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nUnchanged: 0 [none]\nCreate: 2 [apex_segment, apex_handover_ready]\nNeeds review: 1 [apex_sales_region]",
+      "specPath": "project:project-apex-revenue-ops:properties"
+    }
+  },
+  "steps": [
+    {
+      "id": "402792e0-9d99-4c92-8c5c-2f505d80816c:load-project",
+      "jobId": "402792e0-9d99-4c92-8c5c-2f505d80816c",
+      "key": "load-project",
+      "label": "Load project",
+      "type": "project",
+      "order": 0,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T06:55:58.014Z",
+      "completedAt": "2026-03-11T06:55:58.028Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Loaded project 'Apex Revenue Systems Sales Hub Foundation'."
+    },
+    {
+      "id": "402792e0-9d99-4c92-8c5c-2f505d80816c:validate-project",
+      "jobId": "402792e0-9d99-4c92-8c5c-2f505d80816c",
+      "key": "validate-project",
+      "label": "Validate project",
+      "type": "validation",
+      "order": 1,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T06:55:58.031Z",
+      "completedAt": "2026-03-11T06:55:58.037Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Module readiness is 'ready' with validation status 'valid'."
+    },
+    {
+      "id": "402792e0-9d99-4c92-8c5c-2f505d80816c:resolve-module-input",
+      "jobId": "402792e0-9d99-4c92-8c5c-2f505d80816c",
+      "key": "resolve-module-input",
+      "label": "Resolve module input",
+      "type": "input",
+      "order": 2,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T06:55:58.039Z",
+      "completedAt": "2026-03-11T06:55:58.041Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Resolved module input from 'project-apex-revenue-ops'.",
+      "output": {
+        "specPath": "project:project-apex-revenue-ops:properties"
+      }
+    },
+    {
+      "id": "402792e0-9d99-4c92-8c5c-2f505d80816c:load-existing-hubspot-state",
+      "jobId": "402792e0-9d99-4c92-8c5c-2f505d80816c",
+      "key": "load-existing-hubspot-state",
+      "label": "Load existing HubSpot state",
+      "type": "integration",
+      "order": 3,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T06:55:58.043Z",
+      "completedAt": "2026-03-11T06:55:58.116Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Fetched 1 existing HubSpot properties."
+    },
+    {
+      "id": "402792e0-9d99-4c92-8c5c-2f505d80816c:diff-desired-vs-existing",
+      "jobId": "402792e0-9d99-4c92-8c5c-2f505d80816c",
+      "key": "diff-desired-vs-existing",
+      "label": "Diff desired vs existing",
+      "type": "analysis",
+      "order": 4,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T06:55:58.116Z",
+      "completedAt": "2026-03-11T06:55:58.121Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "2 properties to create, 1 properties need review, 0 unchanged."
+    },
+    {
+      "id": "402792e0-9d99-4c92-8c5c-2f505d80816c:write-artifact",
+      "jobId": "402792e0-9d99-4c92-8c5c-2f505d80816c",
+      "key": "write-artifact",
+      "label": "Write artifact",
+      "type": "artifact",
+      "order": 5,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T06:55:58.121Z",
+      "completedAt": "2026-03-11T06:55:58.124Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Dry-run artifact written to disk.",
+      "output": {
+        "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T06-55-58-123Z-apex-revenue-systems-contact-properties-dry-run.json"
+      }
+    },
+    {
+      "id": "402792e0-9d99-4c92-8c5c-2f505d80816c:persist-execution-record",
+      "jobId": "402792e0-9d99-4c92-8c5c-2f505d80816c",
+      "key": "persist-execution-record",
+      "label": "Persist execution record",
+      "type": "persistence",
+      "order": 6,
+      "status": "succeeded",
+      "startedAt": "2026-03-11T06:55:58.126Z",
+      "completedAt": "2026-03-11T06:55:58.128Z",
+      "warnings": [],
+      "errors": [],
+      "summary": "Execution record updated with module result.",
+      "output": {
+        "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-11T06-55-58-123Z-apex-revenue-systems-contact-properties-dry-run.json",
+        "summaryText": "Muloo Deploy dry run for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nUnchanged: 0 [none]\nCreate: 2 [apex_segment, apex_handover_ready]\nNeeds review: 1 [apex_sales_region]",
+        "specPath": "project:project-apex-revenue-ops:properties"
+      }
+    }
+  ],
+  "triggeredBy": "jarrud",
+  "environment": "test"
+}

@@ -3,17 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy OS Project Detail</title>
+    <title>Muloo Deploy OS Module Detail</title>
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
-  <body data-page="project-detail">
+  <body data-page="module-detail">
     <div class="shell">
       <aside class="sidebar">
         <div>
           <p class="eyebrow">Muloo Internal</p>
           <h1>Deploy OS</h1>
           <p class="sidebar-copy">
-            Project-level read view for modules, readiness, and dry-run history.
+            Contract, readiness, and execution detail for a single project
+            module.
           </p>
         </div>
         <nav class="nav">
@@ -24,40 +25,31 @@
         </nav>
       </aside>
       <main class="content">
-        <section class="hero compact" id="project-detail-hero">
+        <section class="hero compact" id="module-detail-hero">
           <div>
-            <p class="eyebrow">Project detail</p>
-            <h2>Loading project...</h2>
+            <p class="eyebrow">Module detail</p>
+            <h2>Loading module...</h2>
           </div>
         </section>
         <section class="grid two-col">
           <article class="panel">
-            <p class="panel-label">Summary</p>
-            <div id="project-detail-summary"></div>
+            <p class="panel-label">Contract</p>
+            <div id="module-detail-contract"></div>
           </article>
           <article class="panel">
             <p class="panel-label">Readiness</p>
-            <div id="project-detail-readiness"></div>
+            <div id="module-detail-readiness"></div>
           </article>
         </section>
         <section class="grid two-col">
           <article class="panel">
-            <p class="panel-label">Validation findings</p>
-            <div id="project-detail-validation"></div>
+            <p class="panel-label">Inputs</p>
+            <div id="module-detail-inputs"></div>
           </article>
           <article class="panel">
-            <p class="panel-label">Recent executions</p>
-            <div id="project-detail-executions"></div>
+            <p class="panel-label">Execution summary</p>
+            <div id="module-detail-execution"></div>
           </article>
-        </section>
-        <section class="panel">
-          <div class="section-header">
-            <div>
-              <p class="panel-label">Project modules</p>
-              <h3>Module status and readiness</h3>
-            </div>
-          </div>
-          <div class="module-grid" id="project-detail-modules"></div>
         </section>
       </main>
     </div>

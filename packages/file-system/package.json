@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@muloo/core": "workspace:*",
+    "@muloo/executor": "workspace:*",
     "@muloo/shared": "workspace:*"
   }
 }

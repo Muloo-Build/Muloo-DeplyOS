@@ -5,9 +5,16 @@ import path from "node:path";
 import { getIntegrationStatus, type BaseConfig } from "@muloo/config";
 import {
   loadAllProjectSummaries,
+  loadExecutionById,
+  loadExecutionSteps,
   loadProjectById,
+  loadProjectExecutions,
+  loadProjectModuleDetail,
+  loadProjectReadinessById,
   loadProjectSummaryById,
-  summarizeProjectModules
+  summarizeProjectModules,
+  validateAllProjects,
+  validateProjectById
 } from "@muloo/file-system";
 import { moduleCatalog } from "@muloo/shared";
 
@@ -20,6 +27,8 @@ const contentTypes: Record<string, string> = {
 
 const staticRoutes: Record<string, string> = {
   "/": "index.html",
+  "/execution": "execution.html",
+  "/module": "module.html",
   "/modules": "modules.html",
   "/projects": "projects.html",
   "/project": "project.html",
@@ -53,11 +62,12 @@ async function serveStaticAsset(
 
 function matchProjectRoute(pathname: string): {
   projectId: string;
-  resource?: "modules" | "summary";
+  resource?: "modules" | "summary" | "validation" | "readiness" | "executions";
 } | null {
-  const match = /^\/api\/projects\/([^/]+?)(?:\/(modules|summary))?$/.exec(
-    pathname
-  );
+  const match =
+    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions))?$/.exec(
+      pathname
+    );
 
   if (!match || !match[1]) {
     return null;
@@ -66,11 +76,53 @@ function matchProjectRoute(pathname: string): {
   const projectId = decodeURIComponent(match[1]);
   const resource = match[2];
   const normalizedResource =
-    resource === "modules" || resource === "summary" ? resource : undefined;
+    resource === "modules" ||
+    resource === "summary" ||
+    resource === "validation" ||
+    resource === "readiness" ||
+    resource === "executions"
+      ? resource
+      : undefined;
 
   return normalizedResource
     ? { projectId, resource: normalizedResource }
     : { projectId };
+}
+
+function matchProjectModuleRoute(pathname: string): {
+  projectId: string;
+  moduleKey: string;
+} | null {
+  const match = /^\/api\/projects\/([^/]+)\/modules\/([^/]+)$/.exec(pathname);
+
+  if (!match || !match[1] || !match[2]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1]),
+    moduleKey: decodeURIComponent(match[2])
+  };
+}
+
+function matchExecutionRoute(pathname: string): {
+  executionId: string;
+  resource?: "steps";
+} | null {
+  const match = /^\/api\/executions\/([^/]+?)(?:\/(steps))?$/.exec(pathname);
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  return match[2] === "steps"
+    ? {
+        executionId: decodeURIComponent(match[1]),
+        resource: "steps"
+      }
+    : {
+        executionId: decodeURIComponent(match[1])
+      };
 }
 
 export function createAppServer(config: BaseConfig): http.Server {
@@ -111,6 +163,36 @@ export function createAppServer(config: BaseConfig): http.Server {
         });
       }
 
+      if (url.pathname === "/api/projects/validation-summary") {
+        return sendJson(response, 200, {
+          validations: await validateAllProjects()
+        });
+      }
+
+      const projectModuleRoute = matchProjectModuleRoute(url.pathname);
+      if (projectModuleRoute) {
+        return sendJson(response, 200, {
+          module: await loadProjectModuleDetail(
+            projectModuleRoute.projectId,
+            projectModuleRoute.moduleKey
+          )
+        });
+      }
+
+      const executionRoute = matchExecutionRoute(url.pathname);
+      if (executionRoute) {
+        if (executionRoute.resource === "steps") {
+          return sendJson(response, 200, {
+            executionId: executionRoute.executionId,
+            steps: await loadExecutionSteps(executionRoute.executionId)
+          });
+        }
+
+        return sendJson(response, 200, {
+          execution: await loadExecutionById(executionRoute.executionId)
+        });
+      }
+
       const projectRoute = matchProjectRoute(url.pathname);
       if (projectRoute) {
         if (projectRoute.resource === "modules") {
@@ -124,6 +206,24 @@ export function createAppServer(config: BaseConfig): http.Server {
         if (projectRoute.resource === "summary") {
           return sendJson(response, 200, {
             summary: await loadProjectSummaryById(projectRoute.projectId)
+          });
+        }
+
+        if (projectRoute.resource === "validation") {
+          return sendJson(response, 200, {
+            validation: await validateProjectById(projectRoute.projectId)
+          });
+        }
+
+        if (projectRoute.resource === "readiness") {
+          return sendJson(response, 200, {
+            readiness: await loadProjectReadinessById(projectRoute.projectId)
+          });
+        }
+
+        if (projectRoute.resource === "executions") {
+          return sendJson(response, 200, {
+            executions: await loadProjectExecutions(projectRoute.projectId)
           });
         }
 
@@ -146,7 +246,13 @@ export function createAppServer(config: BaseConfig): http.Server {
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Unexpected server error";
-      const statusCode = message.includes("was not found") ? 404 : 500;
+      const statusCode =
+        (error instanceof Error &&
+          "code" in error &&
+          error.code === "ENOENT") ||
+        message.includes("was not found")
+          ? 404
+          : 500;
       sendJson(response, statusCode, { error: message });
     }
   });

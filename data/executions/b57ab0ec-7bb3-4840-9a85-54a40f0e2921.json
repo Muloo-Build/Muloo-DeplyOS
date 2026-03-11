@@ -1,0 +1,26 @@
+{
+  "id": "b57ab0ec-7bb3-4840-9a85-54a40f0e2921",
+  "projectId": "project-apex-revenue-ops",
+  "moduleKey": "properties",
+  "executionType": "project-module",
+  "status": "succeeded",
+  "mode": "dry-run",
+  "startedAt": "2026-03-10T11:41:02.130Z",
+  "completedAt": "2026-03-10T11:41:02.170Z",
+  "summaryMetrics": {
+    "desiredPropertyCount": 3,
+    "existingPropertyCount": 1,
+    "unchangedCount": 0,
+    "toCreateCount": 2,
+    "needsReviewCount": 1
+  },
+  "warnings": ["Dry run completed with 1 properties requiring review."],
+  "errors": [],
+  "output": {
+    "artifactPath": "C:\\Users\\jarru\\Documents\\Claud CoWork\\muloo-deploy\\artifacts\\2026-03-10T11-41-02-167Z-apex-revenue-systems-contact-properties-dry-run.json",
+    "summaryText": "Muloo Deploy dry run for Apex Revenue Systems (contacts)\nDesired properties: 3\nExisting properties fetched: 1\nUnchanged: 0 [none]\nCreate: 2 [apex_segment, apex_handover_ready]\nNeeds review: 1 [apex_sales_region]",
+    "specPath": "project:project-apex-revenue-ops:properties"
+  },
+  "triggeredBy": "jarrud",
+  "environment": "test"
+}

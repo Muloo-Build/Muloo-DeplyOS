@@ -200,9 +200,9 @@
     },
     {
       "moduleId": "pipelines",
-      "status": "planned",
+      "status": "ready",
       "dependencies": ["crm-setup"],
-      "notes": "Pipeline work follows property review sign-off."
+      "notes": "Deal pipeline plan is ready for dry-run comparison."
     },
     {
       "moduleId": "qa",

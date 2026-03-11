@@ -7,9 +7,9 @@
 
 ## Input modelling
 
-- Expand `OnboardingProject` into module-specific planning inputs where needed.
-- Add versioned schemas and migration guidance for project files.
-- Introduce richer validation and review tooling for project readiness.
+- Expand `OnboardingProject` into richer module-specific planning inputs where needed.
+- Add schema versioning and migration guidance for project files.
+- Improve validation coverage only where operator value is clear.
 
 ## HubSpot integration layer
 
@@ -19,13 +19,16 @@
 
 ## Execution engine
 
-- Model deterministic jobs, steps, and project-linked execution history.
-- Add idempotency, module execution context, and resumable dry-run/apply flows.
+- Extend module contracts to more execution areas beyond properties.
+- Keep pipeline dry-run scope intentionally narrow until write-path guardrails exist.
+- Add idempotent dry-run/apply planning for more modules.
+- Introduce project-linked execution summaries and review queues.
+- Keep step timelines readable and consistent across modules.
 
 ## QA and audit logs
 
 - Capture structured audit events for operator and system actions.
-- Surface execution summaries, warnings, and review items per project.
+- Surface execution summaries, warnings, readiness issues, and review items per project.
 
 ## Templates and playbooks
 
@@ -35,4 +38,5 @@
 ## Internal operator UI
 
 - Expand the project views into guided execution workflows.
-- Add review screens for project readiness, module dependencies, and execution outputs.
+- Add dedicated validation, readiness, module contract, and execution history views.
+- Surface last dry-run summaries and operator next actions per project.

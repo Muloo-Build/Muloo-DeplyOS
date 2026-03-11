@@ -12,6 +12,7 @@
     { "path": "../../packages/core" },
     { "path": "../../packages/executor" },
     { "path": "../../packages/file-system" },
-    { "path": "../../packages/hubspot-client" }
+    { "path": "../../packages/hubspot-client" },
+    { "path": "../../packages/shared" }
   ]
 }

@@ -1,4 +1,5 @@
 export type HubSpotObjectType = "contacts";
+export type PipelineObjectType = "deals" | "tickets";
 
 export interface PropertyOption {
   label: string;
@@ -50,7 +51,58 @@ export interface PropertyDiffResult {
   needsReview: ReviewPropertyResult[];
 }
 
-export interface DryRunArtifact {
+export interface ComparablePipelineStageDefinition {
+  id?: string;
+  internalName: string;
+  label: string;
+  order: number;
+  probability?: number;
+}
+
+export interface ComparablePipelineDefinition {
+  id?: string;
+  objectType: PipelineObjectType;
+  internalName: string;
+  label: string;
+  stages: ComparablePipelineStageDefinition[];
+}
+
+export interface PipelineDiffChange {
+  field: "label";
+  desired: string;
+  existing: string;
+}
+
+export interface PipelineStageReviewSummary {
+  missingInExisting: string[];
+  additionalInExisting: string[];
+  reordered: string[];
+  relabelled: string[];
+}
+
+export interface UnchangedPipelineResult {
+  objectType: PipelineObjectType;
+  internalName: string;
+}
+
+export interface CreatePipelineResult {
+  pipeline: ComparablePipelineDefinition;
+}
+
+export interface ReviewPipelineResult {
+  objectType: PipelineObjectType;
+  internalName: string;
+  changes: PipelineDiffChange[];
+  stageSummary: PipelineStageReviewSummary;
+}
+
+export interface PipelineDiffResult {
+  unchanged: UnchangedPipelineResult[];
+  toCreate: CreatePipelineResult[];
+  needsReview: ReviewPipelineResult[];
+}
+
+export interface PropertyDryRunArtifact {
   kind: "hubspot-property-dry-run";
   dryRun: true;
   generatedAt: string;
@@ -70,8 +122,33 @@ export interface DryRunArtifact {
   diff: PropertyDiffResult;
 }
 
-export interface DryRunExecutionResult {
-  artifact: DryRunArtifact;
+export interface PipelineDryRunArtifact {
+  kind: "hubspot-pipeline-dry-run";
+  dryRun: true;
+  generatedAt: string;
+  specPath: string;
+  client: {
+    name: string;
+    slug: string;
+  };
+  summary: {
+    desiredPipelineCount: number;
+    existingPipelineCount: number;
+    unchangedPipelineCount: number;
+    toCreatePipelineCount: number;
+    needsReviewPipelineCount: number;
+    desiredStageCount: number;
+    existingStageCount: number;
+  };
+  diff: PipelineDiffResult;
+}
+
+export type DryRunArtifact = PropertyDryRunArtifact | PipelineDryRunArtifact;
+
+export interface DryRunExecutionResult<
+  TArtifact extends DryRunArtifact = DryRunArtifact
+> {
+  artifact: TArtifact;
   artifactPath: string;
 }
 
