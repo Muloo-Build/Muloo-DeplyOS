@@ -1,4 +1,4 @@
-import AppShell from '../components/AppShell'
+import AppShell from "../components/AppShell";
 
 export default function SettingsPage() {
   return (
@@ -19,5 +19,5 @@ export default function SettingsPage() {
         </div>
       </div>
     </AppShell>
-  )
+  );
 }

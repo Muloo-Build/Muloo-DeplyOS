@@ -1,4 +1,4 @@
-import AppShell from '../components/AppShell'
+import AppShell from "../components/AppShell";
 
 export default function RunsPage() {
   return (
@@ -12,11 +12,12 @@ export default function RunsPage() {
             Execution History
           </h1>
           <p className="mt-3 max-w-2xl text-text-secondary">
-            Execution records still exist on the backend. This route now keeps the
-            sidebar flow intact while the dedicated runs interface is rebuilt.
+            Execution records still exist on the backend. This route now keeps
+            the sidebar flow intact while the dedicated runs interface is
+            rebuilt.
           </p>
         </div>
       </div>
     </AppShell>
-  )
+  );
 }

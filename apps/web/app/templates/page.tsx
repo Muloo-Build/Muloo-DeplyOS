@@ -1,4 +1,4 @@
-import AppShell from '../components/AppShell'
+import AppShell from "../components/AppShell";
 
 export default function TemplatesPage() {
   return (
@@ -19,5 +19,5 @@ export default function TemplatesPage() {
         </div>
       </div>
     </AppShell>
-  )
+  );
 }

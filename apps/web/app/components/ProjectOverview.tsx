@@ -1,116 +1,116 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
-import AppShell from './AppShell'
+import AppShell from "./AppShell";
 
 interface Project {
-  id: string
-  name: string
-  status: string
-  updatedAt: string
+  id: string;
+  name: string;
+  status: string;
+  updatedAt: string;
   owner: {
-    name: string
-    email: string
-  }
+    name: string;
+    email: string;
+  };
   clientContext: {
-    clientName: string
-    primaryRegion: string
-    implementationType: string
-    notes: string
-  }
+    clientName: string;
+    primaryRegion: string;
+    implementationType: string;
+    notes: string;
+  };
   hubspotScope: {
-    hubsInScope: string[]
-    environment: string
+    hubsInScope: string[];
+    environment: string;
     portal: {
-      portalId: string
-      displayName: string
-      region?: string
-      connected: boolean
-    }
-  }
+      portalId: string;
+      displayName: string;
+      region?: string;
+      connected: boolean;
+    };
+  };
   discovery?: {
-    completedSections: string[]
-  }
+    completedSections: string[];
+  };
 }
 
 interface ProjectSummary {
-  moduleCount: number
-  readyModuleCount: number
-  executionCount: number
-  validationStatus: string
-  readiness: string
+  moduleCount: number;
+  readyModuleCount: number;
+  executionCount: number;
+  validationStatus: string;
+  readiness: string;
 }
 
 interface ModuleSummary {
-  moduleId: string
-  name: string
-  status: string
-  readiness: string
-  blockerCount: number
-  warningCount: number
+  moduleId: string;
+  name: string;
+  status: string;
+  readiness: string;
+  blockerCount: number;
+  warningCount: number;
 }
 
 interface ExecutionRecord {
-  id: string
-  status: string
-  mode: string
-  startedAt: string
-  moduleKey: string
+  id: string;
+  status: string;
+  mode: string;
+  startedAt: string;
+  moduleKey: string;
 }
 
 interface DiscoveryPayload {
-  completedSections: string[]
+  completedSections: string[];
 }
 
 const discoverySections = [
-  'businessContext',
-  'platformContext',
-  'crmArchitecture',
-  'salesRequirements',
-  'marketingRequirements',
-  'serviceRequirements',
-  'integrationsAndData',
-  'governanceAndOps',
-  'risksAndAssumptions',
-]
+  "businessContext",
+  "platformContext",
+  "crmArchitecture",
+  "salesRequirements",
+  "marketingRequirements",
+  "serviceRequirements",
+  "integrationsAndData",
+  "governanceAndOps",
+  "risksAndAssumptions"
+];
 
 function formatLabel(value: string) {
   return value
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/-/g, ' ')
-    .replace(/^./, (character) => character.toUpperCase())
+    .replace(/([A-Z])/g, " $1")
+    .replace(/-/g, " ")
+    .replace(/^./, (character) => character.toUpperCase());
 }
 
 function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleString()
+  return new Date(dateString).toLocaleString();
 }
 
 function statusClass(status: string) {
   switch (status) {
-    case 'ready':
-    case 'ready-for-execution':
-      return 'status-ready'
-    case 'completed':
-    case 'succeeded':
-      return 'status-complete'
-    case 'failed':
-    case 'blocked':
-      return 'status-blocked'
+    case "ready":
+    case "ready-for-execution":
+      return "status-ready";
+    case "completed":
+    case "succeeded":
+      return "status-complete";
+    case "failed":
+    case "blocked":
+      return "status-blocked";
     default:
-      return 'status-in-progress'
+      return "status-in-progress";
   }
 }
 
 export default function ProjectOverview({ projectId }: { projectId: string }) {
-  const [project, setProject] = useState<Project | null>(null)
-  const [summary, setSummary] = useState<ProjectSummary | null>(null)
-  const [modules, setModules] = useState<ModuleSummary[]>([])
-  const [executions, setExecutions] = useState<ExecutionRecord[]>([])
-  const [discovery, setDiscovery] = useState<DiscoveryPayload | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [project, setProject] = useState<Project | null>(null);
+  const [summary, setSummary] = useState<ProjectSummary | null>(null);
+  const [modules, setModules] = useState<ModuleSummary[]>([]);
+  const [executions, setExecutions] = useState<ExecutionRecord[]>([]);
+  const [discovery, setDiscovery] = useState<DiscoveryPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadProject() {
@@ -120,14 +120,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           summaryResponse,
           modulesResponse,
           executionsResponse,
-          discoveryResponse,
+          discoveryResponse
         ] = await Promise.all([
           fetch(`/api/projects/${encodeURIComponent(projectId)}`),
           fetch(`/api/projects/${encodeURIComponent(projectId)}/summary`),
           fetch(`/api/projects/${encodeURIComponent(projectId)}/modules`),
           fetch(`/api/projects/${encodeURIComponent(projectId)}/executions`),
-          fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery`),
-        ])
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery`)
+        ]);
 
         if (
           !projectResponse.ok ||
@@ -136,36 +136,38 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           !executionsResponse.ok ||
           !discoveryResponse.ok
         ) {
-          throw new Error('Failed to load project')
+          throw new Error("Failed to load project");
         }
 
-        const projectBody = await projectResponse.json()
-        const summaryBody = await summaryResponse.json()
-        const modulesBody = await modulesResponse.json()
-        const executionsBody = await executionsResponse.json()
-        const discoveryBody = await discoveryResponse.json()
+        const projectBody = await projectResponse.json();
+        const summaryBody = await summaryResponse.json();
+        const modulesBody = await modulesResponse.json();
+        const executionsBody = await executionsResponse.json();
+        const discoveryBody = await discoveryResponse.json();
 
-        setProject(projectBody.project)
-        setSummary(summaryBody.summary)
-        setModules(modulesBody.modules ?? [])
-        setExecutions(executionsBody.executions ?? [])
-        setDiscovery(discoveryBody.discovery ?? null)
+        setProject(projectBody.project);
+        setSummary(summaryBody.summary);
+        setModules(modulesBody.modules ?? []);
+        setExecutions(executionsBody.executions ?? []);
+        setDiscovery(discoveryBody.discovery ?? null);
       } catch (loadError) {
         setError(
-          loadError instanceof Error ? loadError.message : 'Failed to load project',
-        )
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load project"
+        );
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    loadProject()
-  }, [projectId])
+    loadProject();
+  }, [projectId]);
 
   const completedDiscoverySections =
     discovery?.completedSections.length ??
     project?.discovery?.completedSections.length ??
-    0
+    0;
 
   return (
     <AppShell>
@@ -181,7 +183,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           </div>
         ) : error || !project || !summary ? (
           <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-8 text-white">
-            {error ?? 'Project not found'}
+            {error ?? "Project not found"}
           </div>
         ) : (
           <>
@@ -196,14 +198,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </h1>
                   <span
                     className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
-                      project.status,
+                      project.status
                     )}`}
                   >
-                    {project.status.replace(/-/g, ' ')}
+                    {project.status.replace(/-/g, " ")}
                   </span>
                 </div>
                 <p className="mt-3 text-text-secondary">
-                  {project.clientContext.clientName} · {project.clientContext.primaryRegion}
+                  {project.clientContext.clientName} ·{" "}
+                  {project.clientContext.primaryRegion}
                 </p>
               </div>
 
@@ -219,17 +222,31 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
             <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {[
-                ['Discovery', `${completedDiscoverySections}/9 sections`, 'text-white'],
-                ['Modules Ready', `${summary.readyModuleCount}/${summary.moduleCount}`, 'text-status-success'],
-                ['Executions', `${summary.executionCount}`, 'text-status-info'],
-                ['Readiness', formatLabel(summary.readiness), 'text-status-warning'],
+                [
+                  "Discovery",
+                  `${completedDiscoverySections}/9 sections`,
+                  "text-white"
+                ],
+                [
+                  "Modules Ready",
+                  `${summary.readyModuleCount}/${summary.moduleCount}`,
+                  "text-status-success"
+                ],
+                ["Executions", `${summary.executionCount}`, "text-status-info"],
+                [
+                  "Readiness",
+                  formatLabel(summary.readiness),
+                  "text-status-warning"
+                ]
               ].map(([label, value, valueClass]) => (
                 <div
                   key={label}
                   className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
                 >
                   <p className="text-sm text-text-muted">{label}</p>
-                  <p className={`mt-3 text-2xl font-semibold ${valueClass}`}>{value}</p>
+                  <p className={`mt-3 text-2xl font-semibold ${valueClass}`}>
+                    {value}
+                  </p>
                 </div>
               ))}
             </div>
@@ -237,17 +254,22 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
               <div className="space-y-6">
                 <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <h2 className="text-lg font-semibold text-white">Project Context</h2>
+                  <h2 className="text-lg font-semibold text-white">
+                    Project Context
+                  </h2>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     {[
-                      ['Client', project.clientContext.clientName],
-                      ['Portal', project.hubspotScope.portal.displayName],
-                      ['Portal ID', project.hubspotScope.portal.portalId],
-                      ['Environment', project.hubspotScope.environment],
-                      ['Owner', project.owner.name],
-                      ['Owner Email', project.owner.email],
-                      ['Implementation Type', formatLabel(project.clientContext.implementationType)],
-                      ['Last Updated', formatDate(project.updatedAt)],
+                      ["Client", project.clientContext.clientName],
+                      ["Portal", project.hubspotScope.portal.displayName],
+                      ["Portal ID", project.hubspotScope.portal.portalId],
+                      ["Environment", project.hubspotScope.environment],
+                      ["Owner", project.owner.name],
+                      ["Owner Email", project.owner.email],
+                      [
+                        "Implementation Type",
+                        formatLabel(project.clientContext.implementationType)
+                      ],
+                      ["Last Updated", formatDate(project.updatedAt)]
                     ].map(([label, value]) => (
                       <div key={label}>
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
@@ -277,7 +299,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
                 <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-white">Module Readiness</h2>
+                    <h2 className="text-lg font-semibold text-white">
+                      Module Readiness
+                    </h2>
                     <span className="text-sm text-text-secondary">
                       {summary.validationStatus}
                     </span>
@@ -291,7 +315,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       >
                         <div className="flex items-center justify-between gap-4">
                           <div>
-                            <p className="font-medium text-white">{module.name}</p>
+                            <p className="font-medium text-white">
+                              {module.name}
+                            </p>
                             <p className="mt-1 text-sm text-text-secondary">
                               {module.moduleId}
                             </p>
@@ -299,13 +325,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           <div className="text-right">
                             <span
                               className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
-                                module.readiness,
+                                module.readiness
                               )}`}
                             >
                               {module.readiness}
                             </span>
                             <p className="mt-2 text-xs text-text-muted">
-                              {module.blockerCount} blockers · {module.warningCount} warnings
+                              {module.blockerCount} blockers ·{" "}
+                              {module.warningCount} warnings
                             </p>
                           </div>
                         </div>
@@ -318,7 +345,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               <div className="space-y-6">
                 <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-white">Discovery Progress</h2>
+                    <h2 className="text-lg font-semibold text-white">
+                      Discovery Progress
+                    </h2>
                     <Link
                       href={`/projects/${project.id}/discovery`}
                       className="text-sm font-medium text-white"
@@ -331,8 +360,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     {discoverySections.map((section) => {
                       const complete =
                         discovery?.completedSections.includes(section) ??
-                        project.discovery?.completedSections.includes(section) ??
-                        false
+                        project.discovery?.completedSections.includes(
+                          section
+                        ) ??
+                        false;
 
                       return (
                         <div
@@ -344,17 +375,19 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           </span>
                           <span
                             className={`h-2.5 w-2.5 rounded-full ${
-                              complete ? 'bg-status-success' : 'bg-text-muted'
+                              complete ? "bg-status-success" : "bg-text-muted"
                             }`}
                           />
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 </section>
 
                 <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <h2 className="text-lg font-semibold text-white">Recent Runs</h2>
+                  <h2 className="text-lg font-semibold text-white">
+                    Recent Runs
+                  </h2>
                   <div className="mt-5 space-y-3">
                     {executions.length === 0 ? (
                       <p className="text-sm text-text-secondary">
@@ -372,7 +405,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             </p>
                             <span
                               className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
-                                execution.status,
+                                execution.status
                               )}`}
                             >
                               {execution.status}
@@ -392,5 +425,5 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         )}
       </div>
     </AppShell>
-  )
+  );
 }

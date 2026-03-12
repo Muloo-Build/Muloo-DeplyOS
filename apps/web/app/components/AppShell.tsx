@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import type { ReactNode } from 'react'
+import type { ReactNode } from "react";
 
-import Sidebar from './Sidebar'
+import Sidebar from "./Sidebar";
 
 export default function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -12,5 +12,5 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <div className="min-h-screen bg-background-primary">{children}</div>
       </main>
     </div>
-  )
+  );
 }

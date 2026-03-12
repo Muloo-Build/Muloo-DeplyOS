@@ -1,9 +1,9 @@
-import ProjectOverview from '../../components/ProjectOverview'
+import ProjectOverview from "../../components/ProjectOverview";
 
 export default function ProjectOverviewPage({
-  params,
+  params
 }: {
-  params: { id: string }
+  params: { id: string };
 }) {
-  return <ProjectOverview projectId={params.id} />
+  return <ProjectOverview projectId={params.id} />;
 }

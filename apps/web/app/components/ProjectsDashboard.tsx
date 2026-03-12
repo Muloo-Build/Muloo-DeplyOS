@@ -1,120 +1,120 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
-import AppShell from './AppShell'
+import AppShell from "./AppShell";
 
 interface Project {
-  id: string
-  name: string
-  clientName: string
-  status: string
-  hubsInScope: string[]
-  updatedAt: string
+  id: string;
+  name: string;
+  clientName: string;
+  status: string;
+  hubsInScope: string[];
+  updatedAt: string;
 }
 
 interface ProjectStats {
-  total: number
-  inExecution: number
-  awaitingApproval: number
-  completed: number
+  total: number;
+  inExecution: number;
+  awaitingApproval: number;
+  completed: number;
 }
 
 function getStatusColor(status: string) {
   switch (status) {
-    case 'completed':
-      return 'status-complete'
-    case 'ready-for-execution':
-      return 'status-ready'
-    case 'in-flight':
-    case 'scoping':
-    case 'designed':
-      return 'status-in-progress'
+    case "completed":
+      return "status-complete";
+    case "ready-for-execution":
+      return "status-ready";
+    case "in-flight":
+    case "scoping":
+    case "designed":
+      return "status-in-progress";
     default:
-      return 'status-draft'
+      return "status-draft";
   }
 }
 
 function getHubColor(hub: string) {
   switch (hub) {
-    case 'sales':
-      return 'hub-sales'
-    case 'marketing':
-      return 'hub-marketing'
-    case 'service':
-      return 'hub-service'
-    case 'cms':
-      return 'hub-cms'
+    case "sales":
+      return "hub-sales";
+    case "marketing":
+      return "hub-marketing";
+    case "service":
+      return "hub-service";
+    case "cms":
+      return "hub-cms";
     default:
-      return 'hub-ops'
+      return "hub-ops";
   }
 }
 
 function formatRelativeDate(dateString: string) {
-  const date = new Date(dateString)
-  const diffMs = Date.now() - date.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  const date = new Date(dateString);
+  const diffMs = Date.now() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays <= 0) return 'Today'
-  if (diffDays === 1) return 'Yesterday'
-  if (diffDays < 7) return `${diffDays} days ago`
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-  return `${Math.floor(diffDays / 30)} months ago`
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  return `${Math.floor(diffDays / 30)} months ago`;
 }
 
 export default function ProjectsDashboard() {
-  const [projects, setProjects] = useState<Project[]>([])
+  const [projects, setProjects] = useState<Project[]>([]);
   const [stats, setStats] = useState<ProjectStats>({
     total: 0,
     inExecution: 0,
     awaitingApproval: 0,
-    completed: 0,
-  })
-  const [loading, setLoading] = useState(true)
+    completed: 0
+  });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchProjects() {
       try {
-        const response = await fetch('/api/projects')
+        const response = await fetch("/api/projects");
         if (!response.ok) {
-          throw new Error('Failed to fetch projects')
+          throw new Error("Failed to fetch projects");
         }
 
-        const payload = await response.json()
+        const payload = await response.json();
         const items: Project[] = Array.isArray(payload)
           ? payload
-          : payload.projects ?? []
+          : (payload.projects ?? []);
 
-        setProjects(items)
+        setProjects(items);
         setStats(
           items.reduce(
             (acc, project) => {
-              acc.total += 1
-              if (project.status === 'in-flight') acc.inExecution += 1
-              if (project.status === 'ready-for-execution') {
-                acc.awaitingApproval += 1
+              acc.total += 1;
+              if (project.status === "in-flight") acc.inExecution += 1;
+              if (project.status === "ready-for-execution") {
+                acc.awaitingApproval += 1;
               }
-              if (project.status === 'completed') acc.completed += 1
-              return acc
+              if (project.status === "completed") acc.completed += 1;
+              return acc;
             },
             {
               total: 0,
               inExecution: 0,
               awaitingApproval: 0,
-              completed: 0,
-            },
-          ),
-        )
+              completed: 0
+            }
+          )
+        );
       } catch (error) {
-        console.error(error)
+        console.error(error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    fetchProjects()
-  }, [])
+    fetchProjects();
+  }, []);
 
   return (
     <AppShell>
@@ -141,14 +141,14 @@ export default function ProjectsDashboard() {
 
         <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[
-            ['Total Projects', `${stats.total}`, 'text-white'],
-            ['In Execution', `${stats.inExecution}`, 'text-status-info'],
+            ["Total Projects", `${stats.total}`, "text-white"],
+            ["In Execution", `${stats.inExecution}`, "text-status-info"],
             [
-              'Awaiting Approval',
+              "Awaiting Approval",
               `${stats.awaitingApproval}`,
-              'text-status-warning',
+              "text-status-warning"
             ],
-            ['Completed', `${stats.completed}`, 'text-status-success'],
+            ["Completed", `${stats.completed}`, "text-status-success"]
           ].map(([label, value, valueClass]) => (
             <div
               key={label}
@@ -208,10 +208,10 @@ export default function ProjectsDashboard() {
                     </h2>
                     <span
                       className={`rounded px-2 py-1 text-xs font-medium ${getStatusColor(
-                        project.status,
+                        project.status
                       )}`}
                     >
-                      {project.status.replace(/-/g, ' ')}
+                      {project.status.replace(/-/g, " ")}
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-text-secondary">
@@ -224,7 +224,7 @@ export default function ProjectsDashboard() {
                     <span
                       key={hub}
                       className={`rounded px-2 py-1 text-xs font-medium ${getHubColor(
-                        hub,
+                        hub
                       )}`}
                     >
                       {hub}
@@ -245,5 +245,5 @@ export default function ProjectsDashboard() {
         )}
       </div>
     </AppShell>
-  )
+  );
 }

@@ -267,7 +267,9 @@ function createEmptyProjectDiscovery(
     },
     crmArchitecture: {
       objectsInScope: project.crmDesign.objectsInScope,
-      dealPipelines: project.crmDesign.pipelines.map((pipeline) => pipeline.label),
+      dealPipelines: project.crmDesign.pipelines.map(
+        (pipeline) => pipeline.label
+      ),
       lifecycleStages: project.crmDesign.lifecycleStages,
       leadStatuses: project.crmDesign.leadStatuses
     }

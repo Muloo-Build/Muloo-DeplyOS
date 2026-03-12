@@ -1,25 +1,25 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const navItems = [
-  { href: '/', label: 'Projects', shortLabel: 'P' },
-  { href: '/templates', label: 'Templates', shortLabel: 'T' },
-  { href: '/runs', label: 'Runs', shortLabel: 'R' },
-  { href: '/settings', label: 'Settings', shortLabel: 'S' },
-]
+  { href: "/", label: "Projects", shortLabel: "P" },
+  { href: "/templates", label: "Templates", shortLabel: "T" },
+  { href: "/runs", label: "Runs", shortLabel: "R" },
+  { href: "/settings", label: "Settings", shortLabel: "S" }
+];
 
 function isProjectsRoute(pathname: string): boolean {
   return (
-    pathname === '/' ||
-    pathname.startsWith('/projects') ||
-    pathname.startsWith('/project')
-  )
+    pathname === "/" ||
+    pathname.startsWith("/projects") ||
+    pathname.startsWith("/project")
+  );
 }
 
 export default function Sidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   return (
     <aside className="fixed left-0 top-0 flex h-screen w-sidebar flex-col border-r border-[rgba(255,255,255,0.07)] bg-[#0a0f24]">
@@ -35,9 +35,9 @@ export default function Sidebar() {
       <nav className="flex-1 px-3 py-6">
         {navItems.map((item) => {
           const active =
-            item.href === '/'
+            item.href === "/"
               ? isProjectsRoute(pathname)
-              : pathname === item.href || pathname.startsWith(`${item.href}/`)
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
             <Link
@@ -45,8 +45,8 @@ export default function Sidebar() {
               href={item.href}
               className={`relative mb-2 flex h-12 items-center gap-3 rounded-xl px-3 transition-colors ${
                 active
-                  ? 'bg-[#141d3d] text-white'
-                  : 'text-text-secondary hover:bg-[#141d3d] hover:text-white'
+                  ? "bg-[#141d3d] text-white"
+                  : "text-text-secondary hover:bg-[#141d3d] hover:text-white"
               }`}
             >
               {active ? (
@@ -57,7 +57,7 @@ export default function Sidebar() {
               </span>
               <span className="font-medium">{item.label}</span>
             </Link>
-          )
+          );
         })}
       </nav>
 
@@ -67,5 +67,5 @@ export default function Sidebar() {
         </p>
       </div>
     </aside>
-  )
+  );
 }
