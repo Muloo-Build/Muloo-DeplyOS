@@ -114,7 +114,16 @@ async function serveStaticAsset(
   response: http.ServerResponse,
   assetPath: string
 ): Promise<void> {
-  const absolutePath = path.resolve(process.cwd(), "apps", "web", assetPath);
+  const absolutePath = path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "apps",
+    "web",
+    assetPath
+  );
+  console.log("[static] serving:", absolutePath);
   const extension = path.extname(absolutePath);
   const content = await readFile(absolutePath);
 
