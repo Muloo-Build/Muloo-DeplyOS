@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>New Project — Muloo DeployOS</title>
+    <title>New Project - Muloo DeployOS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <style>
@@ -35,7 +35,7 @@
       }
       html,
       body {
-        height: 100%;
+        min-height: 100%;
         background: var(--navy);
         color: var(--text);
         font-family: "DM Sans", sans-serif;
@@ -47,13 +47,13 @@
         min-height: 100vh;
       }
       .sidebar {
-        background: var(--navy-2);
-        border-right: 1px solid var(--border);
-        display: flex;
-        flex-direction: column;
         position: sticky;
         top: 0;
         height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--navy-2);
+        border-right: 1px solid var(--border);
       }
       .logo-link {
         display: block;
@@ -62,41 +62,40 @@
         border-bottom: 1px solid var(--border);
       }
       .sidebar-logo {
-        height: 28px;
-        width: auto;
         display: block;
+        width: auto;
+        height: 28px;
       }
       .logo-sub {
-        font-size: 11px;
+        margin-top: 6px;
         color: var(--text-3);
+        font-size: 11px;
         letter-spacing: 0.06em;
         text-transform: uppercase;
-        margin-top: 6px;
       }
       .nav {
-        padding: 12px;
         flex: 1;
+        padding: 12px;
       }
       .nav-section-label {
+        padding: 8px 8px 6px;
+        color: var(--text-3);
         font-size: 10px;
+        font-weight: 500;
         letter-spacing: 0.1em;
         text-transform: uppercase;
-        color: var(--text-3);
-        padding: 8px 8px 6px;
-        font-weight: 500;
       }
       .nav-item {
         display: flex;
         align-items: center;
         gap: 10px;
+        margin-bottom: 1px;
         padding: 8px 10px;
         border-radius: 8px;
         color: var(--text-2);
         text-decoration: none;
         font-size: 13.5px;
-        font-weight: 400;
         transition: all 0.15s;
-        margin-bottom: 1px;
       }
       .nav-item:hover {
         background: var(--navy-3);
@@ -120,100 +119,98 @@
         padding: 16px;
         border-top: 1px solid var(--border);
       }
-      .status-dot {
-        display: inline-block;
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--green);
-        margin-right: 6px;
-      }
       .system-status {
         display: flex;
         align-items: center;
-        font-size: 11.5px;
         color: var(--text-3);
+        font-size: 11.5px;
+      }
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        margin-right: 6px;
+        border-radius: 50%;
+        background: var(--green);
       }
       .main {
-        background: var(--navy);
         overflow-y: auto;
       }
       .page-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 16px;
         padding: 36px 40px 28px;
         border-bottom: 1px solid var(--border);
       }
       .page-title {
+        color: var(--white);
         font-size: 22px;
         font-weight: 600;
-        color: var(--white);
         letter-spacing: -0.02em;
       }
       .page-sub {
-        font-size: 13px;
-        color: var(--text-2);
         margin-top: 3px;
+        color: var(--text-2);
+        font-size: 13px;
       }
       .back-link {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        font-size: 13px;
         color: var(--text-2);
         text-decoration: none;
-        transition: color 0.15s;
+        font-size: 13px;
       }
       .back-link:hover {
         color: var(--teal);
       }
       .form-area {
         padding: 40px;
-        max-width: 600px;
+        max-width: 760px;
       }
       .form-card {
-        background: var(--navy-2);
         border: 1px solid var(--border);
         border-radius: 14px;
+        background: var(--navy-2);
         padding: 36px;
       }
       .form-section-title {
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+        color: var(--text-3);
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: var(--text-3);
-        margin-bottom: 20px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid var(--border);
       }
       .field {
         margin-bottom: 22px;
       }
       .field-label {
         display: block;
+        margin-bottom: 8px;
+        color: var(--text-3);
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: var(--text-3);
-        margin-bottom: 8px;
       }
       .field-hint {
-        font-size: 11.5px;
-        color: var(--text-3);
         margin-top: 5px;
+        color: var(--text-3);
+        font-size: 11.5px;
       }
       .field-input {
         width: 100%;
-        background: var(--navy);
+        padding: 11px 14px;
         border: 1px solid var(--border);
         border-radius: 8px;
-        padding: 11px 14px;
+        background: var(--navy);
+        color: var(--text);
         font-family: "DM Sans", sans-serif;
         font-size: 14px;
-        color: var(--text);
         outline: none;
         transition:
           border-color 0.15s,
@@ -230,116 +227,171 @@
         border-color: var(--red);
       }
       .field-error {
-        font-size: 12px;
-        color: var(--red);
-        margin-top: 5px;
         display: none;
+        margin-top: 5px;
+        color: var(--red);
+        font-size: 12px;
       }
       .field-error.visible {
         display: block;
       }
+      .selector-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .selector-card {
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--navy-3);
+        cursor: pointer;
+        transition:
+          border-color 0.15s,
+          background 0.15s,
+          transform 0.15s;
+      }
+      .selector-card:hover {
+        transform: translateY(-1px);
+        border-color: rgba(255, 255, 255, 0.14);
+      }
+      .selector-card.selected {
+        border-color: var(--teal);
+        background: var(--teal-dim);
+      }
+      .selector-title {
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .selector-description {
+        margin-top: 6px;
+        color: var(--text-3);
+        font-size: 12px;
+        line-height: 1.5;
+      }
       .hub-pills {
         display: flex;
-        gap: 8px;
         flex-wrap: wrap;
+        gap: 8px;
       }
       .hub-pill {
         padding: 9px 18px;
-        border-radius: 8px;
         border: 1px solid var(--border);
+        border-radius: 8px;
         background: var(--navy);
         color: var(--text-2);
+        font-family: "DM Sans", sans-serif;
         font-size: 13px;
         font-weight: 500;
         cursor: pointer;
         transition: all 0.15s;
-        user-select: none;
-        font-family: "DM Sans", sans-serif;
       }
       .hub-pill:hover {
         border-color: rgba(12, 201, 176, 0.3);
         color: var(--text);
       }
       .hub-pill.selected {
-        background: var(--teal-dim);
         border-color: rgba(12, 201, 176, 0.4);
+        background: var(--teal-dim);
         color: var(--teal);
       }
       .divider {
+        margin: 28px 0;
         border: none;
         border-top: 1px solid var(--border);
-        margin: 28px 0;
       }
       .btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 7px;
-        padding: 12px 24px;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        border: none;
-        transition: all 0.15s;
-        text-decoration: none;
-        font-family: "DM Sans", sans-serif;
         width: 100%;
-      }
-      .btn-primary {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
         background: var(--teal);
         color: #030d0c;
+        font-family: "DM Sans", sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
       }
-      .btn-primary:hover:not(:disabled) {
+      .btn:hover:not(:disabled) {
         background: #0de8cc;
         box-shadow: 0 4px 20px rgba(12, 201, 176, 0.3);
       }
-      .btn-primary:disabled {
+      .btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
       }
       .form-error {
+        display: none;
         margin-top: 16px;
-        font-size: 13px;
-        color: var(--red);
-        background: rgba(240, 78, 78, 0.08);
+        padding: 12px 16px;
         border: 1px solid rgba(240, 78, 78, 0.2);
         border-radius: 8px;
-        padding: 12px 16px;
-        display: none;
+        background: rgba(240, 78, 78, 0.08);
+        color: var(--red);
+        font-size: 13px;
       }
       .form-error.visible {
         display: block;
       }
       .success-overlay {
         display: none;
-        text-align: center;
         padding: 40px 20px;
+        text-align: center;
       }
       .success-overlay.visible {
         display: block;
       }
       .success-icon {
-        width: 48px;
-        height: 48px;
-        background: rgba(39, 196, 134, 0.12);
-        border: 1px solid rgba(39, 196, 134, 0.3);
-        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
+        width: 48px;
+        height: 48px;
         margin: 0 auto 16px;
+        border: 1px solid rgba(39, 196, 134, 0.3);
+        border-radius: 12px;
+        background: rgba(39, 196, 134, 0.12);
         color: var(--green);
       }
       .success-title {
+        margin-bottom: 6px;
+        color: var(--white);
         font-size: 18px;
         font-weight: 600;
-        color: var(--white);
-        margin-bottom: 6px;
       }
       .success-sub {
-        font-size: 13px;
         color: var(--text-2);
+        font-size: 13px;
+      }
+      @media (max-width: 980px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          position: relative;
+          height: auto;
+        }
+        .page-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .selector-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 720px) {
+        .form-area,
+        .page-header {
+          padding: 24px 20px;
+        }
+        .form-card {
+          padding: 24px;
+        }
       }
     </style>
   </head>
@@ -457,7 +509,7 @@
           </a>
         </div>
         <div class="form-area">
-          <div class="form-card" id="form-card">
+          <div class="form-card">
             <div id="form-content">
               <div class="form-section-title">Project details</div>
               <div class="field">
@@ -489,6 +541,66 @@
                 </div>
               </div>
               <div class="field">
+                <label class="field-label">Engagement Type</label>
+                <div class="selector-grid" id="engagement-selector">
+                  <button
+                    type="button"
+                    class="selector-card selected"
+                    data-value="IMPLEMENTATION"
+                  >
+                    <div class="selector-title">Implementation</div>
+                    <div class="selector-description">
+                      End-to-end HubSpot setup from scratch
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    class="selector-card"
+                    data-value="AUDIT"
+                  >
+                    <div class="selector-title">HubSpot Audit</div>
+                    <div class="selector-description">
+                      Rapid technical audit of an existing portal
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    class="selector-card"
+                    data-value="MIGRATION"
+                  >
+                    <div class="selector-title">Migration</div>
+                    <div class="selector-description">
+                      Migrate from legacy CRM to HubSpot
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    class="selector-card"
+                    data-value="OPTIMISATION"
+                  >
+                    <div class="selector-title">Optimisation</div>
+                    <div class="selector-description">
+                      Improve an existing HubSpot setup
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    class="selector-card"
+                    data-value="GUIDED_DEPLOYMENT"
+                    style="grid-column: 1 / -1"
+                  >
+                    <div class="selector-title">Guided Deployment</div>
+                    <div class="selector-description">
+                      Sprint-based delivery with governance
+                    </div>
+                  </button>
+                </div>
+                <div class="field-hint">
+                  Sets the discovery template and delivery blueprint for this
+                  project
+                </div>
+              </div>
+              <div class="field">
                 <label class="field-label" for="field-portal"
                   >HubSpot Portal ID</label
                 >
@@ -496,7 +608,7 @@
                   class="field-input"
                   id="field-portal"
                   type="text"
-                  placeholder="Optional — add later"
+                  placeholder="Optional - add later"
                   autocomplete="off"
                   style="font-family: &quot;DM Mono&quot;, monospace"
                 />
@@ -523,11 +635,7 @@
                 </div>
               </div>
               <hr class="divider" />
-              <button
-                class="btn btn-primary"
-                id="submit-btn"
-                onclick="submitProject()"
-              >
+              <button class="btn" id="submit-btn" type="button">
                 Create Project
               </button>
               <div class="form-error" id="form-error">
@@ -555,22 +663,36 @@
       </main>
     </div>
     <script>
+      let selectedEngagementType = "IMPLEMENTATION";
+
+      document.querySelectorAll(".selector-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          selectedEngagementType = card.dataset.value;
+          document.querySelectorAll(".selector-card").forEach((item) => {
+            item.classList.remove("selected");
+          });
+          card.classList.add("selected");
+        });
+      });
+
       document.querySelectorAll(".hub-pill").forEach((pill) => {
         pill.addEventListener("click", () => {
           pill.classList.toggle("selected");
           document.getElementById("err-hubs").classList.remove("visible");
         });
       });
+
       ["field-name", "field-client"].forEach((id) => {
         document.getElementById(id).addEventListener("input", () => {
-          const errId = {
+          const errorId = {
             "field-name": "err-name",
             "field-client": "err-client"
           }[id];
           document.getElementById(id).classList.remove("error");
-          document.getElementById(errId).classList.remove("visible");
+          document.getElementById(errorId).classList.remove("visible");
         });
       });
+
       async function submitProject() {
         const name = document.getElementById("field-name").value.trim();
         const clientName = document.getElementById("field-client").value.trim();
@@ -579,7 +701,8 @@
           .value.trim();
         const selectedHubs = [
           ...document.querySelectorAll(".hub-pill.selected")
-        ].map((p) => p.dataset.hub);
+        ].map((pill) => pill.dataset.hub);
+
         let valid = true;
         if (!name) {
           document.getElementById("field-name").classList.add("error");
@@ -596,33 +719,42 @@
           valid = false;
         }
         if (!valid) return;
-        const btn = document.getElementById("submit-btn");
-        btn.disabled = true;
-        btn.textContent = "Creating...";
+
+        const button = document.getElementById("submit-btn");
+        button.disabled = true;
+        button.textContent = "Creating...";
         document.getElementById("form-error").classList.remove("visible");
+
         try {
-          const res = await fetch("/api/projects", {
+          const response = await fetch("/api/projects", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               name,
               clientName,
               hubspotPortalId,
-              selectedHubs
+              selectedHubs,
+              engagementType: selectedEngagementType
             })
           });
-          if (!res.ok) throw new Error();
+
+          if (!response.ok) throw new Error("Request failed");
+
           document.getElementById("form-content").style.display = "none";
           document.getElementById("success-overlay").classList.add("visible");
-          setTimeout(() => {
+          window.setTimeout(() => {
             window.location.href = "/projects";
           }, 1200);
         } catch {
-          btn.disabled = false;
-          btn.textContent = "Create Project";
+          button.disabled = false;
+          button.textContent = "Create Project";
           document.getElementById("form-error").classList.add("visible");
         }
       }
+
+      document
+        .getElementById("submit-btn")
+        .addEventListener("click", submitProject);
     </script>
   </body>
 </html>

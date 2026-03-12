@@ -6,7 +6,7 @@
     <title>Project Detail - Muloo DeployOS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <style>
@@ -32,10 +32,12 @@
         --red: #f04e4e;
         --green: #27c486;
         --amber: #f5a623;
+        --purple: #a78bfa;
+        --blue: #60a5fa;
       }
       html,
       body {
-        height: 100%;
+        min-height: 100%;
         background: var(--navy);
         color: var(--text);
         font-family: "DM Sans", sans-serif;
@@ -47,13 +49,13 @@
         min-height: 100vh;
       }
       .sidebar {
-        background: var(--navy-2);
-        border-right: 1px solid var(--border);
-        display: flex;
-        flex-direction: column;
         position: sticky;
         top: 0;
         height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--navy-2);
+        border-right: 1px solid var(--border);
       }
       .logo-link {
         display: block;
@@ -62,41 +64,40 @@
         border-bottom: 1px solid var(--border);
       }
       .sidebar-logo {
-        height: 28px;
-        width: auto;
         display: block;
+        width: auto;
+        height: 28px;
       }
       .logo-sub {
-        font-size: 11px;
+        margin-top: 6px;
         color: var(--text-3);
+        font-size: 11px;
         letter-spacing: 0.06em;
         text-transform: uppercase;
-        margin-top: 6px;
       }
       .nav {
-        padding: 12px;
         flex: 1;
+        padding: 12px;
       }
       .nav-section-label {
+        padding: 8px 8px 6px;
+        color: var(--text-3);
         font-size: 10px;
+        font-weight: 500;
         letter-spacing: 0.1em;
         text-transform: uppercase;
-        color: var(--text-3);
-        padding: 8px 8px 6px;
-        font-weight: 500;
       }
       .nav-item {
         display: flex;
         align-items: center;
         gap: 10px;
+        margin-bottom: 1px;
         padding: 8px 10px;
         border-radius: 8px;
         color: var(--text-2);
         text-decoration: none;
         font-size: 13.5px;
-        font-weight: 400;
         transition: all 0.15s;
-        margin-bottom: 1px;
       }
       .nav-item:hover {
         background: var(--navy-3);
@@ -120,22 +121,20 @@
         padding: 16px;
         border-top: 1px solid var(--border);
       }
-      .status-dot {
-        display: inline-block;
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--green);
-        margin-right: 6px;
-      }
       .system-status {
         display: flex;
         align-items: center;
-        font-size: 11.5px;
         color: var(--text-3);
+        font-size: 11.5px;
+      }
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        margin-right: 6px;
+        border-radius: 50%;
+        background: var(--green);
       }
       .main {
-        background: var(--navy);
         overflow-y: auto;
       }
       .page-header {
@@ -150,51 +149,50 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        font-size: 13px;
+        margin-bottom: 10px;
         color: var(--text-2);
         text-decoration: none;
-        margin-bottom: 10px;
-        transition: color 0.15s;
+        font-size: 13px;
       }
       .back-link:hover {
         color: var(--teal);
       }
       .title-row {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 10px;
-        flex-wrap: wrap;
       }
       .page-title {
+        color: var(--white);
         font-size: 22px;
         font-weight: 600;
-        color: var(--white);
         letter-spacing: -0.02em;
       }
       .page-sub {
-        font-size: 13px;
-        color: var(--text-2);
         margin-top: 4px;
+        color: var(--text-2);
+        font-size: 13px;
       }
       .actions-row {
         display: flex;
-        gap: 8px;
         flex-wrap: wrap;
+        gap: 8px;
         justify-content: flex-end;
       }
       .action-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
         padding: 7px 14px;
         border-radius: 7px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-2);
+        font-family: "DM Sans", sans-serif;
         font-size: 13px;
         cursor: pointer;
-        background: transparent;
-        font-family: "DM Sans", sans-serif;
-        border: 1px solid var(--border);
-        color: var(--text-2);
-        transition: all 0.15s;
+        transition:
+          transform 0.15s,
+          background 0.15s,
+          border-color 0.15s;
       }
       .action-btn:hover:not(:disabled) {
         transform: translateY(-1px);
@@ -203,29 +201,119 @@
         opacity: 0.45;
         cursor: not-allowed;
       }
-      .btn-status-active {
+      .outline-teal {
         border-color: var(--teal);
         color: var(--teal);
       }
-      .btn-status-complete {
+      .outline-green {
         border-color: var(--green);
         color: var(--green);
       }
-      .btn-status-archive {
+      .outline-grey {
         border-color: var(--text-3);
         color: var(--text-3);
       }
-      .btn-delete {
+      .outline-red {
         border-color: var(--red);
         color: var(--red);
       }
-      .status-badge {
+      .info-bar {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        border-bottom: 1px solid var(--border);
+      }
+      .info-cell {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 88px;
+        padding: 18px 40px;
+        border-right: 1px solid var(--border);
+      }
+      .info-cell:last-child {
+        border-right: none;
+      }
+      .info-label {
+        margin-bottom: 8px;
+        color: var(--text-3);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .info-value {
+        color: var(--text);
+        font-size: 13px;
+      }
+      .muted {
+        color: var(--text-3);
+      }
+      .mono {
+        font-family: "DM Mono", monospace;
+      }
+      .content-grid {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        gap: 24px;
+        padding: 32px 40px;
+      }
+      .section-card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--navy-2);
+        padding: 24px;
+      }
+      .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+      .section-title {
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 500;
+      }
+      .chip {
         display: inline-flex;
         align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 500;
+      }
+      .chip-muted {
+        background: rgba(139, 150, 168, 0.12);
+        color: var(--text-2);
+      }
+      .chip-success {
+        background: rgba(39, 196, 134, 0.12);
+        color: var(--green);
+      }
+      .status-badge,
+      .engagement-badge,
+      .hub-tag {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
         font-size: 11.5px;
         font-weight: 500;
+      }
+      .status-badge,
+      .engagement-badge {
         padding: 4px 10px;
-        border-radius: 6px;
+      }
+      .hub-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .hub-tag {
+        padding: 3px 8px;
+        border: 1px solid rgba(12, 201, 176, 0.2);
+        background: var(--teal-dim);
+        color: var(--teal);
       }
       .status-draft {
         background: rgba(139, 150, 168, 0.12);
@@ -243,99 +331,31 @@
         background: rgba(245, 166, 35, 0.12);
         color: var(--amber);
       }
-      .info-bar {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        border-bottom: 1px solid var(--border);
+      .engagement-audit {
+        background: rgba(245, 166, 35, 0.15);
+        color: var(--amber);
       }
-      .info-cell {
-        padding: 18px 40px;
-        border-right: 1px solid var(--border);
-        min-height: 88px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-      }
-      .info-cell:last-child {
-        border-right: none;
-      }
-      .info-label {
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--text-3);
-        margin-bottom: 8px;
-      }
-      .info-value {
-        font-size: 13px;
-        color: var(--text);
-      }
-      .mono {
-        font-family: "DM Mono", monospace;
-      }
-      .muted {
-        color: var(--text-3);
-      }
-      .hub-tags {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-      }
-      .hub-tag {
-        font-size: 11px;
-        font-weight: 500;
-        padding: 3px 8px;
-        border-radius: 4px;
-        background: var(--teal-dim);
+      .engagement-implementation {
+        background: rgba(12, 201, 176, 0.12);
         color: var(--teal);
-        border: 1px solid rgba(12, 201, 176, 0.2);
       }
-      .content-grid {
-        display: grid;
-        grid-template-columns: 1fr 340px;
-        gap: 24px;
-        padding: 32px 40px;
+      .engagement-migration {
+        background: rgba(167, 139, 250, 0.15);
+        color: var(--purple);
       }
-      .section-card {
-        background: var(--navy-2);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 24px;
+      .engagement-optimisation {
+        background: rgba(96, 165, 250, 0.15);
+        color: var(--blue);
       }
-      .section-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        margin-bottom: 18px;
-      }
-      .section-title {
-        font-size: 15px;
-        font-weight: 500;
-        color: var(--text);
-      }
-      .section-chip {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 11px;
-        font-weight: 500;
-      }
-      .chip-muted {
-        background: rgba(139, 150, 168, 0.12);
-        color: var(--text-2);
-      }
-      .chip-success {
-        background: rgba(39, 196, 134, 0.12);
+      .engagement-guided {
+        background: rgba(39, 196, 134, 0.15);
         color: var(--green);
       }
       .empty-discovery {
-        background: var(--navy-2);
+        padding: 48px;
         border: 1px solid var(--border);
         border-radius: 12px;
-        padding: 48px;
+        background: var(--navy-2);
         text-align: center;
       }
       .empty-icon {
@@ -345,27 +365,31 @@
         color: var(--text-3);
       }
       .empty-title {
+        margin-bottom: 8px;
         color: var(--text);
         font-size: 15px;
         font-weight: 500;
-        margin-bottom: 8px;
       }
       .empty-sub {
+        margin-bottom: 18px;
         color: var(--text-3);
         font-size: 13px;
-        margin-bottom: 18px;
       }
-      .btn-primary {
+      .btn-primary,
+      .full-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 10px 20px;
         border-radius: 8px;
-        border: none;
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
         font-family: "DM Sans", sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.15s;
+      }
+      .btn-primary {
+        padding: 10px 20px;
+        border: none;
         background: var(--teal);
         color: #030d0c;
       }
@@ -400,12 +424,12 @@
         margin-top: 20px;
       }
       .subsection-title {
+        margin-bottom: 10px;
         color: var(--text-3);
         font-size: 10px;
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        margin-bottom: 10px;
       }
       .stacked-actions {
         display: flex;
@@ -414,59 +438,58 @@
       }
       .full-btn {
         width: 100%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
         padding: 10px;
-        border-radius: 8px;
-        text-decoration: none;
-        font-size: 13px;
-        font-weight: 500;
-        font-family: "DM Sans", sans-serif;
-        transition: all 0.15s;
+      }
+      .full-btn-teal {
+        border: none;
+        background: var(--teal);
+        color: #030d0c;
+      }
+      .full-btn-teal:hover {
+        background: #0de8cc;
       }
       .full-btn-outline-teal {
         border: 1px solid var(--teal);
-        color: var(--teal);
         background: transparent;
+        color: var(--teal);
       }
       .full-btn-outline-teal:hover {
         background: var(--teal-dim);
       }
       .full-btn-outline {
         border: 1px solid var(--border);
-        color: var(--text-2);
         background: transparent;
+        color: var(--text-2);
       }
       .full-btn-outline:hover {
         background: var(--navy-3);
         color: var(--text);
       }
       .center-state {
-        min-height: 72vh;
         display: flex;
         align-items: center;
         justify-content: center;
+        min-height: 72vh;
         padding: 24px;
       }
       .state-card {
         width: min(460px, 100%);
-        text-align: center;
-        background: var(--navy-2);
+        padding: 40px 28px;
         border: 1px solid var(--border);
         border-radius: 12px;
-        padding: 40px 28px;
+        background: var(--navy-2);
+        text-align: center;
       }
       .state-title {
+        margin-bottom: 8px;
         color: var(--white);
         font-size: 20px;
         font-weight: 600;
-        margin-bottom: 8px;
       }
       .state-sub {
+        margin-bottom: 18px;
         color: var(--text-3);
         font-size: 13px;
-        margin-bottom: 18px;
       }
       .loading {
         display: flex;
@@ -476,11 +499,6 @@
         color: var(--text-3);
         font-size: 13px;
       }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
       .spinner {
         width: 18px;
         height: 18px;
@@ -489,7 +507,12 @@
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
       }
-      @media (max-width: 1100px) {
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (max-width: 1150px) {
         .shell {
           grid-template-columns: 1fr;
         }
@@ -522,9 +545,6 @@
           padding: 18px 20px;
           border-right: none;
           border-bottom: 1px solid var(--border);
-        }
-        .info-cell:last-child {
-          border-bottom: none;
         }
         .content-grid {
           padding: 24px 20px 32px;
@@ -630,18 +650,13 @@
             <div>Loading project...</div>
           </div>
         </div>
-
         <div id="error-state" class="center-state" style="display: none">
           <div class="state-card">
             <div class="state-title">Project not found</div>
             <div class="state-sub">
               This project may have been deleted or the ID is invalid
             </div>
-            <a
-              href="/projects"
-              class="back-link"
-              style="justify-content: center; margin: 0"
-            >
+            <a href="/projects" class="back-link" style="margin: 0 auto 0">
               <svg
                 width="14"
                 height="14"
@@ -656,7 +671,6 @@
             </a>
           </div>
         </div>
-
         <div id="project-app" style="display: none">
           <div class="page-header">
             <div>
@@ -677,46 +691,47 @@
                 <div class="page-title" id="project-name">Project</div>
                 <div id="project-status"></div>
               </div>
-              <div class="page-sub">
-                HubSpot implementation engagement detail
-              </div>
+              <div class="page-sub">Project detail and discovery readiness</div>
             </div>
             <div class="actions-row">
               <button
-                class="action-btn btn-status-active project-action"
-                data-status="active"
                 type="button"
+                class="action-btn outline-teal project-action"
+                data-status="active"
               >
                 Set Active
               </button>
               <button
-                class="action-btn btn-status-complete project-action"
-                data-status="complete"
                 type="button"
+                class="action-btn outline-green project-action"
+                data-status="complete"
               >
                 Mark Complete
               </button>
               <button
-                class="action-btn btn-status-archive project-action"
-                data-status="archived"
                 type="button"
+                class="action-btn outline-grey project-action"
+                data-status="archived"
               >
                 Archive
               </button>
               <button
-                class="action-btn btn-delete"
-                id="delete-project"
                 type="button"
+                class="action-btn outline-red"
+                id="delete-project"
               >
                 Delete
               </button>
             </div>
           </div>
-
           <div class="info-bar">
             <div class="info-cell">
+              <div class="info-label">Type</div>
+              <div class="info-value" id="info-type"></div>
+            </div>
+            <div class="info-cell">
               <div class="info-label">Client</div>
-              <div class="info-value" id="info-client">—</div>
+              <div class="info-value" id="info-client">-</div>
             </div>
             <div class="info-cell">
               <div class="info-label">Portal ID</div>
@@ -728,10 +743,9 @@
             </div>
             <div class="info-cell">
               <div class="info-label">Created</div>
-              <div class="info-value mono" id="info-created">—</div>
+              <div class="info-value mono" id="info-created">-</div>
             </div>
           </div>
-
           <div class="content-grid">
             <section class="section-card">
               <div class="section-header">
@@ -740,37 +754,41 @@
               </div>
               <div id="discovery-content"></div>
             </section>
-
             <aside class="section-card">
               <div class="section-title" style="margin-bottom: 14px">
                 Project Info
               </div>
               <div class="info-row">
                 <div class="row-label">Project ID</div>
-                <div class="row-value mono" id="detail-project-id">—</div>
+                <div class="row-value mono" id="detail-project-id">-</div>
               </div>
               <div class="info-row">
                 <div class="row-label">Status</div>
-                <div class="row-value" id="detail-status">—</div>
+                <div class="row-value" id="detail-status"></div>
               </div>
               <div class="info-row">
                 <div class="row-label">Created</div>
-                <div class="row-value" id="detail-created">—</div>
+                <div class="row-value" id="detail-created">-</div>
               </div>
               <div class="info-row">
                 <div class="row-label">Updated</div>
-                <div class="row-value" id="detail-updated">—</div>
+                <div class="row-value" id="detail-updated">-</div>
               </div>
-
               <div class="subsection">
                 <div class="subsection-title">Hubs in Scope</div>
                 <div class="hub-tags" id="detail-hubs"></div>
               </div>
-
               <div class="subsection">
                 <div class="subsection-title">Quick Actions</div>
                 <div class="stacked-actions">
-                  <button class="full-btn full-btn-outline-teal" type="button">
+                  <a href="#" class="full-btn full-btn-teal" id="open-discovery"
+                    >Open Discovery</a
+                  >
+                  <button
+                    type="button"
+                    class="full-btn full-btn-outline-teal"
+                    id="generate-blueprint"
+                  >
                     Generate Blueprint
                   </button>
                   <a href="/runs" class="full-btn full-btn-outline"
@@ -795,8 +813,8 @@
         });
       }
 
-      function statusMeta(status) {
-        const map = {
+      function statusBadge(status) {
+        const statusMap = {
           draft: ["status-draft", "Draft"],
           active: ["status-active", "Active"],
           "in-progress": ["status-active", "Active"],
@@ -804,12 +822,26 @@
           completed: ["status-complete", "Complete"],
           archived: ["status-archived", "Archived"]
         };
-        return map[status] ?? ["status-draft", status || "Draft"];
+        const [className, label] = statusMap[status] ?? [
+          "status-draft",
+          status || "Draft"
+        ];
+        return `<span class="status-badge ${className}">${label}</span>`;
       }
 
-      function statusBadge(status) {
-        const [className, label] = statusMeta(status);
-        return `<span class="status-badge ${className}">${label}</span>`;
+      function engagementBadge(type) {
+        const typeMap = {
+          AUDIT: ["engagement-audit", "Audit"],
+          IMPLEMENTATION: ["engagement-implementation", "Implementation"],
+          MIGRATION: ["engagement-migration", "Migration"],
+          OPTIMISATION: ["engagement-optimisation", "Optimisation"],
+          GUIDED_DEPLOYMENT: ["engagement-guided", "Guided Deployment"]
+        };
+        const [className, label] = typeMap[type] ?? [
+          "engagement-implementation",
+          "Implementation"
+        ];
+        return `<span class="engagement-badge ${className}">${label}</span>`;
       }
 
       function hubLabel(hub) {
@@ -819,15 +851,19 @@
         );
       }
 
-      function renderHubTags(hubs) {
+      function renderHubs(hubs) {
         return (hubs ?? [])
           .map((hub) => `<span class="hub-tag">${hubLabel(hub)}</span>`)
           .join("");
       }
 
-      function truncateProjectId(id) {
-        if (!id) return "—";
+      function truncateId(id) {
+        if (!id) return "-";
         return id.length > 8 ? `${id.slice(0, 8)}...` : id;
+      }
+
+      function hasDiscovery(project) {
+        return Array.isArray(project.discovery) && project.discovery.length > 0;
       }
 
       function setActionState(disabled) {
@@ -863,16 +899,16 @@
 
       async function deleteProject() {
         if (actionBusy || !currentProjectId) return;
-        if (!window.confirm("Delete this project? This cannot be undone."))
+        if (!window.confirm("Delete this project? This cannot be undone.")) {
           return;
+        }
+
         setActionState(true);
 
         try {
           const response = await fetch(
             `/api/projects/${encodeURIComponent(currentProjectId)}`,
-            {
-              method: "DELETE"
-            }
+            { method: "DELETE" }
           );
 
           if (!response.ok) throw new Error("Request failed");
@@ -883,27 +919,67 @@
         }
       }
 
+      function renderDiscovery(projectId, project) {
+        const discoveryHref = `/discovery?id=${encodeURIComponent(projectId)}`;
+        document.getElementById("open-discovery").href = discoveryHref;
+
+        if (hasDiscovery(project)) {
+          document.getElementById("discovery-status").innerHTML =
+            '<span class="chip chip-success">Complete</span>';
+          document.getElementById("discovery-content").innerHTML = `
+            <div class="empty-discovery">
+              <div class="empty-title">Discovery data loaded</div>
+              <div class="empty-sub">This project already has discovery sessions saved.</div>
+              <a href="${discoveryHref}" class="btn-primary">Open Discovery</a>
+            </div>
+          `;
+          return;
+        }
+
+        document.getElementById("discovery-status").innerHTML =
+          '<span class="chip chip-muted">Not started</span>';
+        document.getElementById("discovery-content").innerHTML = `
+          <div class="empty-discovery">
+            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M7 3.75h7l4 4V20.25H7z"></path>
+              <path d="M14 3.75v4h4"></path>
+              <path d="M9 12h6"></path>
+              <path d="M9 15.5h6"></path>
+            </svg>
+            <div class="empty-title">No discovery data yet</div>
+            <div class="empty-sub">Run discovery to generate a structured project blueprint</div>
+            <a href="${discoveryHref}" class="btn-primary">Start Discovery</a>
+          </div>
+        `;
+      }
+
       function renderProject(project) {
         currentProjectId = project.id;
+
         document.getElementById("project-name").textContent = project.name;
         document.getElementById("project-status").innerHTML = statusBadge(
           project.status
         );
+        document.getElementById("info-type").innerHTML = engagementBadge(
+          project.engagementType
+        );
         document.getElementById("info-client").textContent =
-          project.client?.name ?? "—";
+          project.client?.name ?? "-";
         document.getElementById("info-portal").textContent =
-          project.portal?.portalId || "Not connected";
-        if (!project.portal?.portalId) {
-          document.getElementById("info-portal").classList.add("muted");
-        }
-        document.getElementById("info-hubs").innerHTML = renderHubTags(
+          project.portal?.portalId ?? "Not connected";
+        document
+          .getElementById("info-portal")
+          .classList.toggle("muted", !project.portal?.portalId);
+        document.getElementById("info-hubs").innerHTML = renderHubs(
           project.selectedHubs
         );
         document.getElementById("info-created").textContent = formatDate(
           project.createdAt
         );
-        document.getElementById("detail-project-id").textContent =
-          truncateProjectId(project.id);
+
+        document.getElementById("detail-project-id").textContent = truncateId(
+          project.id
+        );
         document.getElementById("detail-status").innerHTML = statusBadge(
           project.status
         );
@@ -913,37 +989,11 @@
         document.getElementById("detail-updated").textContent = formatDate(
           project.updatedAt
         );
-        document.getElementById("detail-hubs").innerHTML = renderHubTags(
+        document.getElementById("detail-hubs").innerHTML = renderHubs(
           project.selectedHubs
         );
 
-        if (project.discovery) {
-          document.getElementById("discovery-status").innerHTML =
-            '<span class="section-chip chip-success">Complete</span>';
-          document.getElementById("discovery-content").innerHTML = `
-        <div class="empty-discovery">
-          <div class="empty-title">Discovery data loaded</div>
-          <div class="empty-sub">This project already has discovery data attached.</div>
-        </div>
-      `;
-          return;
-        }
-
-        document.getElementById("discovery-status").innerHTML =
-          '<span class="section-chip chip-muted">Not started</span>';
-        document.getElementById("discovery-content").innerHTML = `
-      <div class="empty-discovery">
-        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M7 3.75h7l4 4V20.25H7z"></path>
-          <path d="M14 3.75v4h4"></path>
-          <path d="M9 12h6"></path>
-          <path d="M9 15.5h6"></path>
-        </svg>
-        <div class="empty-title">No discovery data yet</div>
-        <div class="empty-sub">Run discovery to generate a structured project blueprint</div>
-        <button class="btn-primary" type="button">Start Discovery</button>
-      </div>
-    `;
+        renderDiscovery(project.id, project);
       }
 
       async function loadProject() {
@@ -982,6 +1032,12 @@
       document
         .getElementById("delete-project")
         .addEventListener("click", deleteProject);
+
+      document
+        .getElementById("generate-blueprint")
+        .addEventListener("click", () => {
+          window.alert("Blueprint generation is not wired yet.");
+        });
 
       loadProject();
     </script>

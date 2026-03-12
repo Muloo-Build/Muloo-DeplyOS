@@ -54,6 +54,7 @@ const contentTypes: Record<string, string> = {
 
 const staticRoutes: Record<string, string> = {
   "/": "index.html",
+  "/discovery": "discovery.html",
   "/execution": "execution.html",
   "/module": "module.html",
   "/modules": "modules.html",
@@ -73,6 +74,50 @@ const staticRoutes: Record<string, string> = {
 };
 
 const pendingPortalPrefix = "pending-portal-";
+const validEngagementTypes = [
+  "AUDIT",
+  "IMPLEMENTATION",
+  "MIGRATION",
+  "OPTIMISATION",
+  "GUIDED_DEPLOYMENT"
+] as const;
+const sessionFieldLabels: Record<number, string[]> = {
+  1: [
+    "business_overview",
+    "primary_pain_challenge",
+    "goals_and_success_metrics",
+    "key_stakeholders",
+    "timeline_and_constraints"
+  ],
+  2: [
+    "current_tech_stack",
+    "current_hubspot_state",
+    "data_landscape",
+    "current_processes",
+    "what_has_been_tried_before"
+  ],
+  3: [
+    "hubs_and_features_required",
+    "pipeline_and_process_design",
+    "automation_requirements",
+    "integration_requirements",
+    "reporting_requirements"
+  ],
+  4: [
+    "confirmed_scope",
+    "out_of_scope",
+    "risks_and_blockers",
+    "client_responsibilities",
+    "agreed_next_steps"
+  ]
+};
+
+type EngagementType = (typeof validEngagementTypes)[number];
+type DiscoverySessionFields = Record<string, string>;
+
+function isValidEngagementType(value: string): value is EngagementType {
+  return validEngagementTypes.includes(value as EngagementType);
+}
 
 function createSlug(value: string): string {
   return value
@@ -142,7 +187,6 @@ async function serveStaticAsset(
     "web",
     assetPath
   );
-  console.log("[static] serving:", absolutePath);
   const extension = path.extname(absolutePath);
   const content = await readFile(absolutePath);
 
@@ -266,6 +310,112 @@ function matchExecutionRoute(pathname: string): {
       };
 }
 
+function matchDiscoveryRoute(pathname: string): { projectId: string } | null {
+  const match = /^\/api\/discovery\/([^/]+)\/sessions$/.exec(pathname);
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1])
+  };
+}
+
+function emptyDiscoverySessions(): Record<number, DiscoverySessionFields> {
+  return {
+    1: {},
+    2: {},
+    3: {},
+    4: {}
+  };
+}
+
+function normalizeDiscoveryFields(value: unknown): DiscoverySessionFields {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(
+      ([key, fieldValue]) => [
+        key,
+        typeof fieldValue === "string" ? fieldValue : ""
+      ]
+    )
+  );
+}
+
+function buildDiscoverySessions(
+  submissions: Array<{ version: number; sections: unknown }>
+): Record<number, DiscoverySessionFields> {
+  const sessions = emptyDiscoverySessions();
+
+  for (const submission of submissions) {
+    if (submission.version >= 1 && submission.version <= 4) {
+      sessions[submission.version] = normalizeDiscoveryFields(
+        submission.sections
+      );
+    }
+  }
+
+  return sessions;
+}
+
+async function extractDiscoveryFields(
+  text: string,
+  session: number
+): Promise<{ fields: DiscoverySessionFields; message?: string }> {
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!anthropicApiKey) {
+    return {
+      fields: {},
+      message: "ANTHROPIC_API_KEY not configured — extraction unavailable"
+    };
+  }
+
+  const fields = sessionFieldLabels[session] ?? sessionFieldLabels[1] ?? [];
+  const systemPrompt = `You are extracting structured discovery information from HubSpot implementation meeting notes.
+Extract values for the following fields: ${fields.join(", ")}.
+Return ONLY a valid JSON object with these exact keys and string values.
+If a field is not mentioned in the notes, return an empty string for that field.
+Do not include any text outside the JSON object.`;
+  const userPrompt = `Meeting notes:\n\n${text}\n\nExtract the fields now.`;
+
+  const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": anthropicApiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }]
+    })
+  });
+
+  if (!claudeResponse.ok) {
+    return { fields: {} };
+  }
+
+  const claudeData = (await claudeResponse.json()) as {
+    content?: Array<{ text?: string }>;
+  };
+  const rawText = claudeData?.content?.[0]?.text ?? "{}";
+
+  try {
+    return {
+      fields: normalizeDiscoveryFields(JSON.parse(rawText) as unknown)
+    };
+  } catch {
+    return { fields: {} };
+  }
+}
+
 export function createAppServer(config: BaseConfig): http.Server {
   return http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", config.appBaseUrl);
@@ -330,11 +480,21 @@ export function createAppServer(config: BaseConfig): http.Server {
             selectedHubs: string[];
             owner?: string;
             ownerEmail?: string;
+            engagementType?: string;
           };
 
           if (!body.name || !body.clientName || !body.selectedHubs?.length) {
             return sendJson(response, 400, {
               error: "name, clientName, and selectedHubs are required"
+            });
+          }
+
+          if (
+            body.engagementType &&
+            !isValidEngagementType(body.engagementType)
+          ) {
+            return sendJson(response, 400, {
+              error: "Invalid engagement type"
             });
           }
 
@@ -366,6 +526,8 @@ export function createAppServer(config: BaseConfig): http.Server {
             data: {
               name: body.name,
               status: "draft",
+              engagementType: (body.engagementType ??
+                "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
               owner: body.owner ?? "Jarrud",
               ownerEmail: body.ownerEmail ?? "jarrud@muloo.com",
               selectedHubs: body.selectedHubs,
@@ -390,6 +552,142 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 200, {
           projects: projects.map((project) => normalizeProject(project))
         });
+      }
+
+      const discoveryRoute = matchDiscoveryRoute(url.pathname);
+      if (request.method === "GET" && discoveryRoute) {
+        const submissions = await prisma.discoverySubmission.findMany({
+          where: { projectId: discoveryRoute.projectId },
+          orderBy: { version: "asc" },
+          select: { version: true, sections: true }
+        });
+
+        return sendJson(response, 200, {
+          sessions: buildDiscoverySessions(submissions)
+        });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/discovery/save") {
+        const body = (await readJsonBody(request)) as {
+          projectId?: string;
+          session?: number;
+          fields?: Record<string, unknown>;
+        };
+
+        if (
+          !body.projectId ||
+          !body.session ||
+          !sessionFieldLabels[body.session] ||
+          !body.fields ||
+          typeof body.fields !== "object" ||
+          Array.isArray(body.fields)
+        ) {
+          return sendJson(response, 400, {
+            error: "Invalid discovery payload"
+          });
+        }
+
+        const normalizedFields = normalizeDiscoveryFields(body.fields);
+        await prisma.discoverySubmission.upsert({
+          where: {
+            projectId_version: {
+              projectId: body.projectId,
+              version: body.session
+            }
+          },
+          update: {
+            sections: normalizedFields,
+            completedSections: Object.entries(normalizedFields)
+              .filter(([, value]) => value.trim().length > 0)
+              .map(([key]) => key),
+            status:
+              Object.values(normalizedFields).every(
+                (value) => value.trim().length > 0
+              ) && Object.keys(normalizedFields).length > 0
+                ? "complete"
+                : Object.values(normalizedFields).some(
+                      (value) => value.trim().length > 0
+                    )
+                  ? "in_progress"
+                  : "draft"
+          },
+          create: {
+            projectId: body.projectId,
+            version: body.session,
+            sections: normalizedFields,
+            completedSections: Object.entries(normalizedFields)
+              .filter(([, value]) => value.trim().length > 0)
+              .map(([key]) => key),
+            status:
+              Object.values(normalizedFields).every(
+                (value) => value.trim().length > 0
+              ) && Object.keys(normalizedFields).length > 0
+                ? "complete"
+                : Object.values(normalizedFields).some(
+                      (value) => value.trim().length > 0
+                    )
+                  ? "in_progress"
+                  : "draft"
+          }
+        });
+
+        return sendJson(response, 200, { success: true });
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/discovery/extract"
+      ) {
+        const body = (await readJsonBody(request)) as {
+          text?: string;
+          session?: number;
+        };
+
+        if (!body.text || !body.session || !sessionFieldLabels[body.session]) {
+          return sendJson(response, 400, {
+            error: "Invalid extraction payload"
+          });
+        }
+
+        const extraction = await extractDiscoveryFields(
+          body.text,
+          body.session
+        );
+        return sendJson(response, 200, extraction);
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/discovery/fetch-doc"
+      ) {
+        const body = (await readJsonBody(request)) as {
+          url?: string;
+          session?: number;
+        };
+
+        if (!body.url || !body.session || !sessionFieldLabels[body.session]) {
+          return sendJson(response, 400, { error: "Invalid document payload" });
+        }
+
+        const docIdMatch = body.url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+        if (!docIdMatch) {
+          return sendJson(response, 400, {
+            error: "Invalid Google Doc URL"
+          });
+        }
+
+        const exportUrl = `https://docs.google.com/document/d/${docIdMatch[1]}/export?format=txt`;
+        const docResponse = await fetch(exportUrl);
+        if (!docResponse.ok) {
+          return sendJson(response, 400, {
+            error:
+              "Could not fetch document. Make sure it is set to public access."
+          });
+        }
+
+        const docText = await docResponse.text();
+        const extraction = await extractDiscoveryFields(docText, body.session);
+        return sendJson(response, 200, extraction);
       }
 
       if (request.method === "POST" && url.pathname === "/api/clients") {

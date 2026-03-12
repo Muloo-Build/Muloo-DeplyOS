@@ -1,0 +1,1233 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Discovery Workspace - Muloo DeployOS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --navy: #080e1c;
+        --navy-2: #0d1628;
+        --navy-3: #111e36;
+        --navy-4: #16243f;
+        --border: rgba(255, 255, 255, 0.07);
+        --teal: #0cc9b0;
+        --teal-dim: rgba(12, 201, 176, 0.12);
+        --text: #e8edf5;
+        --text-2: #8b96a8;
+        --text-3: #4e5a6b;
+        --white: #fff;
+        --red: #f04e4e;
+        --green: #27c486;
+        --amber: #f5a623;
+        --purple: #a78bfa;
+        --blue: #60a5fa;
+      }
+      html,
+      body {
+        min-height: 100%;
+        background: var(--navy);
+        color: var(--text);
+        font:
+          14px "DM Sans",
+          sans-serif;
+      }
+      .shell {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        min-height: 100vh;
+      }
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--navy-2);
+        border-right: 1px solid var(--border);
+      }
+      .logo-link {
+        display: block;
+        text-decoration: none;
+        padding: 20px 20px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .sidebar-logo {
+        display: block;
+        height: 28px;
+        width: auto;
+      }
+      .logo-sub {
+        margin-top: 6px;
+        color: var(--text-3);
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .nav {
+        flex: 1;
+        padding: 12px;
+      }
+      .nav-section-label {
+        padding: 8px 8px 6px;
+        color: var(--text-3);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 1px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        color: var(--text-2);
+        text-decoration: none;
+        font-size: 13.5px;
+      }
+      .nav-item:hover {
+        background: var(--navy-3);
+        color: var(--text);
+      }
+      .nav-item.active {
+        background: var(--teal-dim);
+        color: var(--teal);
+        font-weight: 500;
+      }
+      .nav-icon {
+        width: 16px;
+        height: 16px;
+        opacity: 0.7;
+        flex-shrink: 0;
+      }
+      .nav-item.active .nav-icon {
+        opacity: 1;
+      }
+      .sidebar-bottom {
+        padding: 16px;
+        border-top: 1px solid var(--border);
+      }
+      .system-status {
+        display: flex;
+        align-items: center;
+        color: var(--text-3);
+        font-size: 11.5px;
+      }
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        margin-right: 6px;
+        border-radius: 50%;
+        background: var(--green);
+      }
+      .main {
+        overflow-y: auto;
+      }
+      .header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 32px 40px 24px;
+        border-bottom: 1px solid var(--border);
+      }
+      .back {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 10px;
+        color: var(--text-2);
+        text-decoration: none;
+        font-size: 13px;
+      }
+      .back:hover {
+        color: var(--teal);
+      }
+      .title {
+        color: var(--white);
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      .sub {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+        color: var(--text-2);
+        font-size: 13px;
+      }
+      .btn,
+      .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font:
+          600 13px "DM Sans",
+          sans-serif;
+        cursor: pointer;
+        text-decoration: none;
+        transition: 0.15s;
+      }
+      .btn {
+        border: none;
+        background: var(--teal);
+        color: #030d0c;
+      }
+      .btn:hover:not(:disabled) {
+        background: #0de8cc;
+      }
+      .btn:disabled,
+      .btn-secondary:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .btn-secondary {
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-2);
+      }
+      .btn-secondary:hover:not(:disabled) {
+        background: var(--navy-3);
+        color: var(--text);
+      }
+      .banner,
+      .panel,
+      .notes,
+      .empty-card,
+      .state-card {
+        background: var(--navy-2);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+      }
+      .banner {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 14px;
+        margin: 24px 40px 0;
+        padding: 20px 22px;
+      }
+      .banner-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: var(--navy-4);
+        color: var(--teal);
+      }
+      .banner-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        color: var(--white);
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .banner-sub {
+        margin-top: 6px;
+        color: var(--text-2);
+        font-size: 13px;
+      }
+      .badge,
+      .pill,
+      .hub {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 500;
+      }
+      .audit {
+        background: rgba(245, 166, 35, 0.15);
+        color: var(--amber);
+      }
+      .implementation {
+        background: rgba(12, 201, 176, 0.12);
+        color: var(--teal);
+      }
+      .migration {
+        background: rgba(167, 139, 250, 0.15);
+        color: var(--purple);
+      }
+      .optimisation {
+        background: rgba(96, 165, 250, 0.15);
+        color: var(--blue);
+      }
+      .guided {
+        background: rgba(39, 196, 134, 0.15);
+        color: var(--green);
+      }
+      .idle {
+        background: rgba(78, 90, 107, 0.3);
+        color: var(--text-3);
+      }
+      .fetching {
+        background: rgba(245, 166, 35, 0.15);
+        color: var(--amber);
+      }
+      .extracting {
+        background: var(--teal-dim);
+        color: var(--teal);
+      }
+      .done {
+        background: rgba(39, 196, 134, 0.15);
+        color: var(--green);
+      }
+      .tabs {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        margin-top: 24px;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        background: var(--navy-2);
+      }
+      .tab {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 14px 20px;
+        border: none;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: var(--text-2);
+        font:
+          500 13px "DM Sans",
+          sans-serif;
+        cursor: pointer;
+      }
+      .tab.active {
+        border-bottom-color: var(--teal);
+        color: var(--teal);
+      }
+      .tab-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .tab-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+      .dot-empty {
+        background: var(--text-3);
+      }
+      .dot-progress {
+        background: var(--amber);
+      }
+      .dot-complete {
+        background: var(--green);
+      }
+      .workspace {
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        gap: 24px;
+        padding: 24px 40px;
+      }
+      .panel,
+      .notes {
+        padding: 24px;
+      }
+      .panel-head,
+      .notes-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .panel-title {
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 500;
+      }
+      .panel-sub {
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .fields {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--text-2);
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .hint {
+        margin-bottom: 10px;
+        color: var(--text-3);
+        font-size: 12px;
+        font-style: italic;
+      }
+      .input,
+      .area {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--navy-3);
+        color: var(--text);
+        font:
+          14px "DM Sans",
+          sans-serif;
+        outline: none;
+        resize: vertical;
+      }
+      .area {
+        min-height: 96px;
+      }
+      .input:focus,
+      .area:focus {
+        border-color: var(--teal);
+        box-shadow: 0 0 0 3px rgba(12, 201, 176, 0.08);
+      }
+      .highlight {
+        border-color: var(--teal) !important;
+        box-shadow: 0 0 0 3px rgba(12, 201, 176, 0.08);
+      }
+      .copy {
+        color: var(--text-2);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .or {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--text-3);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .or::before,
+      .or::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+      .error {
+        color: var(--red);
+        font-size: 12px;
+      }
+      .result {
+        font-size: 12px;
+      }
+      .result-success {
+        color: var(--green);
+      }
+      .result-warn {
+        color: var(--amber);
+      }
+      .footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 0 40px 40px;
+      }
+      .footer-text {
+        color: var(--text-2);
+        font-size: 13px;
+      }
+      .footer-actions {
+        display: flex;
+        gap: 10px;
+      }
+      .loading,
+      .center {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .center {
+        min-height: 72vh;
+        padding: 24px;
+      }
+      .loading {
+        flex-direction: column;
+        gap: 12px;
+        color: var(--text-3);
+      }
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--border);
+        border-top-color: var(--teal);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      .state-card {
+        width: min(480px, 100%);
+        padding: 40px 28px;
+        text-align: center;
+      }
+      .state-title {
+        margin-bottom: 8px;
+        color: var(--white);
+        font-size: 20px;
+        font-weight: 600;
+      }
+      .state-sub {
+        margin-bottom: 18px;
+        color: var(--text-3);
+        font-size: 13px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (max-width: 1180px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          position: relative;
+          height: auto;
+        }
+        .header,
+        .footer {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .tabs,
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 760px) {
+        .header,
+        .banner,
+        .workspace,
+        .footer {
+          padding-left: 20px;
+          padding-right: 20px;
+        }
+        .tabs {
+          display: flex;
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="sidebar-top">
+          <a href="/" class="logo-link">
+            <img
+              src="/assets/muloo-logo.svg"
+              alt="Muloo"
+              class="sidebar-logo"
+            />
+            <div class="logo-sub">Deploy OS</div>
+          </a>
+        </div>
+        <nav class="nav">
+          <div class="nav-section-label">Workspace</div>
+          <a href="/" class="nav-item"
+            ><svg
+              class="nav-icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <rect x="1" y="1" width="6" height="6" rx="1.5" />
+              <rect x="9" y="1" width="6" height="6" rx="1.5" />
+              <rect x="1" y="9" width="6" height="6" rx="1.5" />
+              <rect x="9" y="9" width="6" height="6" rx="1.5" /></svg
+            >Overview</a
+          >
+          <a href="/projects" class="nav-item active"
+            ><svg
+              class="nav-icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <path d="M2 4h12M2 8h12M2 12h8" /></svg
+            >Projects</a
+          >
+          <a href="/templates" class="nav-item"
+            ><svg
+              class="nav-icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <rect x="1" y="1" width="14" height="14" rx="2" />
+              <path d="M1 5h14" /></svg
+            >Templates</a
+          >
+          <a href="/runs" class="nav-item"
+            ><svg
+              class="nav-icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <circle cx="8" cy="8" r="6" />
+              <path d="M8 5v3.5l2 2" /></svg
+            >Runs</a
+          >
+          <div class="nav-section-label" style="margin-top: 12px">System</div>
+          <a href="/settings" class="nav-item"
+            ><svg
+              class="nav-icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <circle cx="8" cy="8" r="2.5" />
+              <path
+                d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"
+              /></svg
+            >Settings</a
+          >
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="system-status">
+            <span class="status-dot"></span>System online &middot; dry-run
+          </div>
+        </div>
+      </aside>
+      <main class="main">
+        <div id="loading" class="center">
+          <div class="loading">
+            <div class="spinner"></div>
+            <div>Loading discovery workspace...</div>
+          </div>
+        </div>
+        <div id="error" class="center" style="display: none">
+          <div class="state-card">
+            <div class="state-title">Project not found</div>
+            <div class="state-sub">
+              This project may have been deleted or the ID is invalid
+            </div>
+            <a href="/projects" class="back" style="margin: 0 auto 0"
+              ><svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
+                <path d="M9 2L4 7l5 5" /></svg
+              >Back to Projects</a
+            >
+          </div>
+        </div>
+        <div id="app" style="display: none">
+          <div class="header">
+            <div>
+              <a id="project-link" href="/projects" class="back"
+                ><svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <path d="M9 2L4 7l5 5" /></svg
+                ><span id="project-link-label">Project</span></a
+              >
+              <div class="title">Discovery Workspace</div>
+              <div class="sub">
+                <span id="client-name">Client</span><span id="type-sub"></span>
+              </div>
+            </div>
+            <button id="save" type="button" class="btn">Save Progress</button>
+          </div>
+          <div class="banner">
+            <div class="banner-icon">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+              >
+                <path d="M4 6.5h16" />
+                <path d="M7 3.5h10v17H7z" />
+                <path d="M10 10.5h4" />
+                <path d="M10 14.5h4" />
+              </svg>
+            </div>
+            <div>
+              <div class="banner-title">
+                <span id="type-title">Implementation</span
+                ><span id="type-badge"></span>
+              </div>
+              <div id="type-description" class="banner-sub"></div>
+            </div>
+          </div>
+          <div id="tabs" class="tabs"></div>
+          <div class="workspace">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <div id="session-title" class="panel-title">Session 1</div>
+                  <div id="session-sub" class="panel-sub"></div>
+                </div>
+                <div id="session-status"></div>
+              </div>
+              <div id="fields" class="fields"></div>
+            </section>
+            <aside class="notes">
+              <div class="notes-head">
+                <div>
+                  <div class="panel-title">Gemini Notes</div>
+                  <div class="panel-sub">
+                    Intake notes and extract structured fields
+                  </div>
+                </div>
+                <div id="extract-status"></div>
+              </div>
+              <div class="copy">
+                Paste a Google Doc URL below. We will fetch the notes and
+                extract structured fields automatically.
+              </div>
+              <div style="height: 14px"></div>
+              <input
+                id="doc-url"
+                class="input"
+                type="url"
+                placeholder="https://docs.google.com/document/d/..."
+              />
+              <div style="height: 10px"></div>
+              <button
+                id="fetch-doc"
+                type="button"
+                class="btn"
+                style="width: 100%"
+              >
+                Fetch &amp; Extract
+              </button>
+              <div style="height: 14px"></div>
+              <div class="or">Or</div>
+              <div style="height: 14px"></div>
+              <textarea
+                id="note-text"
+                class="area"
+                placeholder="Paste notes directly here"
+                style="min-height: 160px"
+              ></textarea>
+              <div style="height: 10px"></div>
+              <button
+                id="extract-text"
+                type="button"
+                class="btn-secondary"
+                style="width: 100%"
+              >
+                Extract Fields
+              </button>
+              <div style="height: 12px"></div>
+              <div id="extract-error" class="error"></div>
+              <div id="extract-result" class="result"></div>
+            </aside>
+          </div>
+          <div class="footer">
+            <div id="footer-text" class="footer-text">Session 1 of 4</div>
+            <div class="footer-actions">
+              <button id="prev" type="button" class="btn-secondary">
+                &larr; Previous Session
+              </button>
+              <button id="next" type="button" class="btn-secondary">
+                Next Session &rarr;
+              </button>
+              <button id="blueprint" type="button" class="btn" disabled>
+                Generate Blueprint
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+    <script>
+      const SESSIONS = {
+        1: {
+          title: "Session 1 - Business & Goals",
+          sub: "Capture the commercial context and delivery outcomes.",
+          fields: [
+            [
+              "business_overview",
+              "Business Overview",
+              "Industry, team size, what the business does"
+            ],
+            [
+              "primary_pain_challenge",
+              "Primary Pain / Challenge",
+              "What problem is driving this engagement?"
+            ],
+            [
+              "goals_and_success_metrics",
+              "Goals & Success Metrics",
+              "What does success look like in 60-90 days?"
+            ],
+            [
+              "key_stakeholders",
+              "Key Stakeholders",
+              "Who are the decision makers and project owners?"
+            ],
+            [
+              "timeline_and_constraints",
+              "Timeline & Constraints",
+              "Target go-live, budget constraints, dependencies"
+            ]
+          ]
+        },
+        2: {
+          title: "Session 2 - Current State",
+          sub: "Audit the current systems, data and process footprint.",
+          fields: [
+            [
+              "current_tech_stack",
+              "Current Tech Stack",
+              "CRM, email tools, integrations, data sources"
+            ],
+            [
+              "current_hubspot_state",
+              "Current HubSpot State",
+              "What exists today? What is broken or missing?"
+            ],
+            [
+              "data_landscape",
+              "Data Landscape",
+              "Where does data live? Volume, quality, sources"
+            ],
+            [
+              "current_processes",
+              "Current Processes",
+              "Walk through the current sales or marketing process end to end"
+            ],
+            [
+              "what_has_been_tried_before",
+              "What Has Been Tried Before",
+              "Previous attempts, what worked, what did not"
+            ]
+          ]
+        },
+        3: {
+          title: "Session 3 - Future State Design",
+          sub: "Define the delivery target state and platform design.",
+          fields: [
+            [
+              "hubs_and_features_required",
+              "Hubs & Features Required",
+              "Which HubSpot hubs and specific features are in scope?"
+            ],
+            [
+              "pipeline_and_process_design",
+              "Pipeline & Process Design",
+              "Agreed future state - stages, owners, handoffs"
+            ],
+            [
+              "automation_requirements",
+              "Automation Requirements",
+              "What should be automated? Lead routing, sequences, notifications"
+            ],
+            [
+              "integration_requirements",
+              "Integration Requirements",
+              "What tools need to connect to HubSpot?"
+            ],
+            [
+              "reporting_requirements",
+              "Reporting Requirements",
+              "What dashboards and reports are needed at go-live?"
+            ]
+          ]
+        },
+        4: {
+          title: "Session 4 - Scope & Handover",
+          sub: "Lock scope, responsibilities, risks and immediate next steps.",
+          fields: [
+            [
+              "confirmed_scope",
+              "Confirmed Scope",
+              "What is definitively in scope for this engagement?"
+            ],
+            [
+              "out_of_scope",
+              "Out of Scope",
+              "What has been explicitly excluded?"
+            ],
+            [
+              "risks_and_blockers",
+              "Risks & Blockers",
+              "What could delay or derail this project?"
+            ],
+            [
+              "client_responsibilities",
+              "Client Responsibilities",
+              "What does the client need to provide or action?"
+            ],
+            [
+              "agreed_next_steps",
+              "Agreed Next Steps",
+              "Immediate actions after this session"
+            ]
+          ]
+        }
+      };
+      const TYPES = {
+        AUDIT: [
+          "Audit",
+          "audit",
+          "Rapid technical audit of an existing portal."
+        ],
+        IMPLEMENTATION: [
+          "Implementation",
+          "implementation",
+          "End-to-end HubSpot setup from scratch."
+        ],
+        MIGRATION: [
+          "Migration",
+          "migration",
+          "Map current-state data and move the business to HubSpot cleanly."
+        ],
+        OPTIMISATION: [
+          "Optimisation",
+          "optimisation",
+          "Improve an existing HubSpot setup with sharper process design."
+        ],
+        GUIDED_DEPLOYMENT: [
+          "Guided Deployment",
+          "guided",
+          "Sprint-based delivery with governance checkpoints and enablement."
+        ]
+      };
+      const STATUS = {
+        idle: ["idle", "Idle"],
+        fetching: ["fetching", "Fetching..."],
+        extracting: ["extracting", "Extracting..."],
+        done: ["done", "Fields extracted"]
+      };
+      let projectId = "",
+        project = null,
+        active = 1,
+        data = { 1: {}, 2: {}, 3: {}, 4: {} },
+        busy = false,
+        saveBusy = false;
+      const qp = new URLSearchParams(location.search);
+      projectId = qp.get("id") || "";
+      function typeBadge(type) {
+        const meta = TYPES[type] || TYPES.IMPLEMENTATION;
+        return `<span class="badge ${meta[1]}">${meta[0]}</span>`;
+      }
+      function setExtractStatus(key) {
+        const meta = STATUS[key];
+        document.getElementById("extract-status").innerHTML =
+          `<span class="pill ${meta[0]}">${meta[1]}</span>`;
+      }
+      function sessionState(n) {
+        const keys = SESSIONS[n].fields.map(([k]) => (data[n][k] || "").trim());
+        const filled = keys.filter(Boolean).length;
+        return filled === 0 ? "empty" : filled === 5 ? "complete" : "progress";
+      }
+      function sessionChip(n) {
+        const s = sessionState(n);
+        return `<span class="pill ${s === "complete" ? "done" : s === "progress" ? "fetching" : "idle"}">${s === "complete" ? "Complete" : s === "progress" ? "In progress" : "Not started"}</span>`;
+      }
+      function renderTabs() {
+        document.getElementById("tabs").innerHTML = [1, 2, 3, 4]
+          .map(
+            (n) =>
+              `<button type="button" class="tab ${n === active ? "active" : ""}" data-session="${n}"><span class="tab-label"><span class="tab-dot ${sessionState(n) === "complete" ? "dot-complete" : sessionState(n) === "progress" ? "dot-progress" : "dot-empty"}"></span>Session ${n}</span>${sessionChip(n)}</button>`
+          )
+          .join("");
+        document.querySelectorAll(".tab").forEach((tab) =>
+          tab.addEventListener("click", () => {
+            active = Number(tab.dataset.session);
+            render();
+          })
+        );
+      }
+      function placeholderFor(key) {
+        const t = project?.engagementType || "IMPLEMENTATION";
+        const map = {
+          current_tech_stack: {
+            AUDIT: "Current CRM, tools, integrations and reporting stack",
+            IMPLEMENTATION: "Planned CRM, website and integration landscape",
+            MIGRATION: "Legacy CRM, source systems and data export constraints",
+            OPTIMISATION: "Current HubSpot tools and operational gaps",
+            GUIDED_DEPLOYMENT:
+              "Delivery tools, governance tooling and current operating rhythm"
+          },
+          current_hubspot_state: {
+            AUDIT: "Describe the existing portal setup and issues",
+            IMPLEMENTATION:
+              "Note whether a portal exists and what is already configured",
+            MIGRATION: "Describe any current HubSpot usage and data to retain",
+            OPTIMISATION: "Summarise what is live today and what is failing",
+            GUIDED_DEPLOYMENT:
+              "Summarise current maturity and governance expectations"
+          }
+        };
+        return map[key]?.[t] || "";
+      }
+      function renderFields() {
+        const cfg = SESSIONS[active];
+        document.getElementById("session-title").textContent = cfg.title;
+        document.getElementById("session-sub").textContent = cfg.sub;
+        document.getElementById("session-status").innerHTML =
+          sessionChip(active);
+        document.getElementById("fields").innerHTML = cfg.fields
+          .map(
+            ([key, label, hint]) =>
+              `<div><label class="label" for="field-${key}">${label}</label><div class="hint">${hint}</div><textarea id="field-${key}" class="area" data-key="${key}" placeholder="${placeholderFor(key)}"></textarea></div>`
+          )
+          .join("");
+        cfg.fields.forEach(([key]) => {
+          const el = document.getElementById(`field-${key}`);
+          el.value = data[active][key] || "";
+          el.addEventListener("input", () => {
+            data[active][key] = el.value;
+            renderTabs();
+            renderFooter();
+          });
+        });
+      }
+      function renderFooter() {
+        document.getElementById("footer-text").textContent =
+          `Session ${active} of 4`;
+        document.getElementById("prev").disabled = active === 1;
+        document.getElementById("next").disabled = active === 4;
+        document.getElementById("blueprint").disabled = ![1, 2, 3, 4].every(
+          (n) => sessionState(n) === "complete"
+        );
+      }
+      function render() {
+        renderTabs();
+        renderFields();
+        renderFooter();
+        document.getElementById("extract-error").textContent = "";
+        document.getElementById("extract-result").textContent = "";
+      }
+      function populateHeader() {
+        const meta = TYPES[project.engagementType] || TYPES.IMPLEMENTATION;
+        document.getElementById("project-link").href =
+          `/project?id=${encodeURIComponent(project.id)}`;
+        document.getElementById("project-link-label").textContent =
+          project.name;
+        document.getElementById("client-name").textContent =
+          project.client?.name || "Unknown client";
+        document.getElementById("type-sub").innerHTML = typeBadge(
+          project.engagementType
+        );
+        document.getElementById("type-title").textContent = meta[0];
+        document.getElementById("type-badge").innerHTML = typeBadge(
+          project.engagementType
+        );
+        document.getElementById("type-description").textContent = meta[2];
+      }
+      async function loadSessions() {
+        const res = await fetch(
+          `/api/discovery/${encodeURIComponent(projectId)}/sessions`
+        );
+        if (!res.ok) throw new Error("Failed to load sessions");
+        const json = await res.json();
+        data = {
+          1: json.sessions?.[1] || {},
+          2: json.sessions?.[2] || {},
+          3: json.sessions?.[3] || {},
+          4: json.sessions?.[4] || {}
+        };
+      }
+      async function save() {
+        if (saveBusy) return;
+        saveBusy = true;
+        const btn = document.getElementById("save");
+        btn.textContent = "Saving...";
+        try {
+          const fields = { ...data[active] };
+          SESSIONS[active].fields.forEach(([k]) => {
+            fields[k] = fields[k] || "";
+          });
+          const res = await fetch("/api/discovery/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId, session: active, fields })
+          });
+          if (!res.ok) throw new Error("Save failed");
+          btn.textContent = "Saved ✓";
+          btn.style.background = "rgba(39,196,134,.15)";
+          btn.style.color = "#27c486";
+          renderTabs();
+          setTimeout(() => {
+            btn.textContent = "Save Progress";
+            btn.style.background = "";
+            btn.style.color = "";
+          }, 1400);
+        } catch {
+          btn.textContent = "Save failed";
+          btn.style.background = "rgba(240,78,78,.15)";
+          btn.style.color = "#f04e4e";
+          setTimeout(() => {
+            btn.textContent = "Save Progress";
+            btn.style.background = "";
+            btn.style.color = "";
+          }, 1800);
+        } finally {
+          saveBusy = false;
+        }
+      }
+      function applyFields(fields) {
+        const keys = SESSIONS[active].fields.map(([k]) => k);
+        const filled = [];
+        keys.forEach((key) => {
+          if (typeof fields[key] === "string" && fields[key].trim()) {
+            data[active][key] = fields[key];
+            const el = document.getElementById(`field-${key}`);
+            if (el) {
+              el.value = fields[key];
+              el.classList.add("highlight");
+              setTimeout(() => el.classList.remove("highlight"), 2000);
+            }
+            filled.push(key);
+          }
+        });
+        renderTabs();
+        renderFooter();
+        const result = document.getElementById("extract-result");
+        result.textContent = `${filled.length} of ${keys.length} fields populated`;
+        result.className = `result ${filled.length === keys.length ? "result-success" : "result-warn"}`;
+      }
+      async function extract(url, payload, invalid) {
+        if (busy) return;
+        document.getElementById("extract-error").textContent = "";
+        document.getElementById("extract-result").textContent = "";
+        if (invalid) {
+          document.getElementById("extract-error").textContent = invalid;
+          return;
+        }
+        busy = true;
+        try {
+          setExtractStatus(
+            url.includes("fetch-doc") ? "fetching" : "extracting"
+          );
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || "Extraction failed");
+          setExtractStatus("extracting");
+          applyFields(json.fields || {});
+          if (json.message) {
+            document.getElementById("extract-error").textContent = json.message;
+          }
+          setExtractStatus("done");
+        } catch (err) {
+          setExtractStatus("idle");
+          document.getElementById("extract-error").textContent =
+            err instanceof Error
+              ? err.message
+              : "Could not fetch document. Make sure it is publicly accessible.";
+        } finally {
+          busy = false;
+        }
+      }
+      async function init() {
+        if (!projectId) {
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("error").style.display = "flex";
+          return;
+        }
+        try {
+          const res = await fetch(
+            `/api/projects/${encodeURIComponent(projectId)}`
+          );
+          if (!res.ok) throw new Error("Project not found");
+          const json = await res.json();
+          if (!json.project) throw new Error("Project not found");
+          project = json.project;
+          populateHeader();
+          await loadSessions();
+          render();
+          setExtractStatus("idle");
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("app").style.display = "block";
+        } catch {
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("error").style.display = "flex";
+        }
+      }
+      document.getElementById("save").addEventListener("click", save);
+      document.getElementById("prev").addEventListener("click", () => {
+        if (active > 1) {
+          active -= 1;
+          render();
+        }
+      });
+      document.getElementById("next").addEventListener("click", () => {
+        if (active < 4) {
+          active += 1;
+          render();
+        }
+      });
+      document
+        .getElementById("blueprint")
+        .addEventListener("click", () =>
+          window.alert("Blueprint generation is not wired yet.")
+        );
+      document.getElementById("fetch-doc").addEventListener("click", () => {
+        const url = document.getElementById("doc-url").value.trim();
+        extract(
+          "/api/discovery/fetch-doc",
+          { url, projectId, session: active },
+          url.startsWith("https://docs.google.com/")
+            ? ""
+            : "Please enter a valid Google Docs URL."
+        );
+      });
+      document.getElementById("extract-text").addEventListener("click", () => {
+        const text = document.getElementById("note-text").value.trim();
+        extract(
+          "/api/discovery/extract",
+          { text, projectId, session: active },
+          text ? "" : "Paste notes before extracting fields."
+        );
+      });
+      init();
+    </script>
+  </body>
+</html>

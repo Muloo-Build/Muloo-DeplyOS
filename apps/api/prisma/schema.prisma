@@ -7,6 +7,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum EngagementType {
+  AUDIT
+  IMPLEMENTATION
+  MIGRATION
+  OPTIMISATION
+  GUIDED_DEPLOYMENT
+}
+
 model Client {
   id          String   @id @default(cuid())
   name        String
@@ -35,6 +43,7 @@ model Project {
   id               String   @id @default(cuid())
   name             String
   status           String   @default("draft")
+  engagementType   EngagementType @default(IMPLEMENTATION)
   owner            String
   ownerEmail       String
   scopeType        String?
@@ -57,6 +66,7 @@ model DiscoverySubmission {
   projectId       String
   version         Int      @default(1)
   status          String   @default("draft")
+  sections        Json?
   businessContext Json?
   platformContext Json?
   crmArchitecture Json?
@@ -70,6 +80,8 @@ model DiscoverySubmission {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   project         Project  @relation(fields: [projectId], references: [id])
+
+  @@unique([projectId, version])
 }
 
 model Blueprint {
