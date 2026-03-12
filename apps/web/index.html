@@ -21,6 +21,7 @@
         --navy: #080e1c;
         --navy-2: #0d1628;
         --navy-3: #111e36;
+        --navy-4: #16243f;
         --border: rgba(255, 255, 255, 0.07);
         --teal: #0cc9b0;
         --teal-dim: rgba(12, 201, 176, 0.12);
@@ -30,6 +31,7 @@
         --white: #ffffff;
         --red: #f04e4e;
         --green: #27c486;
+        --amber: #f5a623;
       }
       html,
       body {
@@ -53,41 +55,23 @@
         top: 0;
         height: 100vh;
       }
-      .sidebar-top {
-        padding: 24px 20px 20px;
+      .logo-link {
+        display: block;
+        text-decoration: none;
+        padding: 20px 20px 16px;
         border-bottom: 1px solid var(--border);
       }
-      .logo-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 4px;
-      }
-      .logo-mark {
-        width: 28px;
+      .sidebar-logo {
         height: 28px;
-        background: linear-gradient(135deg, #0cc9b0, #0b8fd4);
-        border-radius: 7px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 13px;
-        font-weight: 700;
-        color: white;
-        flex-shrink: 0;
-      }
-      .logo-name {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--white);
+        width: auto;
+        display: block;
       }
       .logo-sub {
         font-size: 11px;
         color: var(--text-3);
         letter-spacing: 0.06em;
         text-transform: uppercase;
-        margin-top: 2px;
-        padding-left: 38px;
+        margin-top: 6px;
       }
       .nav {
         padding: 12px;
@@ -372,11 +356,14 @@
     <div class="shell">
       <aside class="sidebar">
         <div class="sidebar-top">
-          <div class="logo-row">
-            <div class="logo-mark">M</div>
-            <span class="logo-name">Muloo</span>
-          </div>
-          <div class="logo-sub">Deploy OS</div>
+          <a href="/" class="logo-link">
+            <img
+              src="/assets/muloo-logo.svg"
+              alt="Muloo"
+              class="sidebar-logo"
+            />
+            <div class="logo-sub">Deploy OS</div>
+          </a>
         </div>
         <nav class="nav">
           <div class="nav-section-label">Workspace</div>

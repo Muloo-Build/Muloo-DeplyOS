@@ -48,7 +48,8 @@ const contentTypes: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
   ".js": "application/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8"
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml"
 };
 
 const staticRoutes: Record<string, string> = {
@@ -67,8 +68,11 @@ const staticRoutes: Record<string, string> = {
   "/project": "project.html",
   "/settings": "settings.html",
   "/assets/styles.css": path.join("assets", "styles.css"),
-  "/assets/app.js": path.join("assets", "app.js")
+  "/assets/app.js": path.join("assets", "app.js"),
+  "/assets/muloo-logo.svg": path.join("assets", "muloo-logo.svg")
 };
+
+const pendingPortalPrefix = "pending-portal-";
 
 function createSlug(value: string): string {
   return value
@@ -84,6 +88,21 @@ function isUniqueConstraintError(error: unknown): boolean {
     "code" in error &&
     error.code === "P2002"
   );
+}
+
+function createPendingPortalId(): string {
+  return `${pendingPortalPrefix}${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+}
+
+function normalizeProject<T extends { portal: { portalId: string } | null }>(
+  project: T
+): T {
+  return project.portal &&
+    project.portal.portalId.startsWith(pendingPortalPrefix)
+    ? ({ ...project, portal: null } as T)
+    : project;
 }
 
 function sendJson(
@@ -142,10 +161,11 @@ function matchProjectRoute(pathname: string): {
     | "readiness"
     | "executions"
     | "scope"
-    | "discovery";
+    | "discovery"
+    | "status";
 } | null {
   const match =
-    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions|scope|discovery))?$/.exec(
+    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions|scope|discovery|status))?$/.exec(
       pathname
     );
 
@@ -162,7 +182,8 @@ function matchProjectRoute(pathname: string): {
     resource === "readiness" ||
     resource === "executions" ||
     resource === "scope" ||
-    resource === "discovery"
+    resource === "discovery" ||
+    resource === "status"
       ? resource
       : undefined;
 
@@ -305,21 +326,15 @@ export function createAppServer(config: BaseConfig): http.Server {
           const body = (await readJsonBody(request)) as {
             name: string;
             clientName: string;
-            hubspotPortalId: string;
+            hubspotPortalId?: string;
             selectedHubs: string[];
             owner?: string;
             ownerEmail?: string;
           };
 
-          if (
-            !body.name ||
-            !body.clientName ||
-            !body.hubspotPortalId ||
-            !body.selectedHubs?.length
-          ) {
+          if (!body.name || !body.clientName || !body.selectedHubs?.length) {
             return sendJson(response, 400, {
-              error:
-                "name, clientName, hubspotPortalId, and selectedHubs are required"
+              error: "name, clientName, and selectedHubs are required"
             });
           }
 
@@ -330,14 +345,22 @@ export function createAppServer(config: BaseConfig): http.Server {
             create: { name: body.clientName, slug }
           });
 
-          const portal = await prisma.hubSpotPortal.upsert({
-            where: { portalId: body.hubspotPortalId },
-            update: {},
-            create: {
-              portalId: body.hubspotPortalId,
-              displayName: body.clientName
-            }
-          });
+          const requestedPortalId = body.hubspotPortalId?.trim() ?? "";
+          const portal = requestedPortalId
+            ? await prisma.hubSpotPortal.upsert({
+                where: { portalId: requestedPortalId },
+                update: {},
+                create: {
+                  portalId: requestedPortalId,
+                  displayName: body.clientName
+                }
+              })
+            : await prisma.hubSpotPortal.create({
+                data: {
+                  portalId: createPendingPortalId(),
+                  displayName: body.clientName
+                }
+              });
 
           const project = await prisma.project.create({
             data: {
@@ -355,7 +378,9 @@ export function createAppServer(config: BaseConfig): http.Server {
             }
           });
 
-          return sendJson(response, 201, { project });
+          return sendJson(response, 201, {
+            project: normalizeProject(project)
+          });
         }
 
         const projects = await prisma.project.findMany({
@@ -363,7 +388,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           orderBy: { updatedAt: "desc" }
         });
         return sendJson(response, 200, {
-          projects
+          projects: projects.map((project) => normalizeProject(project))
         });
       }
 
@@ -550,6 +575,80 @@ export function createAppServer(config: BaseConfig): http.Server {
 
       const projectRoute = matchProjectRoute(url.pathname);
       if (projectRoute) {
+        if (request.method === "PATCH" && projectRoute.resource === "status") {
+          const body = (await readJsonBody(request)) as { status?: string };
+          const allowedStatuses = ["active", "complete", "archived", "draft"];
+
+          if (!body.status || !allowedStatuses.includes(body.status)) {
+            return sendJson(response, 400, { error: "Invalid status" });
+          }
+
+          try {
+            const project = await prisma.project.update({
+              where: { id: projectRoute.projectId },
+              data: { status: body.status },
+              include: { client: true, portal: true, discovery: true }
+            });
+
+            return sendJson(response, 200, {
+              project: normalizeProject(project)
+            });
+          } catch (error: unknown) {
+            if (
+              typeof error === "object" &&
+              error !== null &&
+              "code" in error &&
+              error.code === "P2025"
+            ) {
+              return sendJson(response, 404, { error: "Project not found" });
+            }
+
+            throw error;
+          }
+        }
+
+        if (request.method === "DELETE" && !projectRoute.resource) {
+          const existingProject = await prisma.project.findUnique({
+            where: { id: projectRoute.projectId },
+            select: { id: true, portalId: true }
+          });
+
+          if (!existingProject) {
+            return sendJson(response, 404, { error: "Project not found" });
+          }
+
+          await prisma.executionJob.deleteMany({
+            where: { task: { projectId: projectRoute.projectId } }
+          });
+          await prisma.task.deleteMany({
+            where: { projectId: projectRoute.projectId }
+          });
+          await prisma.deliverable.deleteMany({
+            where: { blueprint: { projectId: projectRoute.projectId } }
+          });
+          await prisma.blueprint.deleteMany({
+            where: { projectId: projectRoute.projectId }
+          });
+          await prisma.discoverySubmission.deleteMany({
+            where: { projectId: projectRoute.projectId }
+          });
+          await prisma.project.delete({
+            where: { id: projectRoute.projectId }
+          });
+
+          const remainingProjects = await prisma.project.count({
+            where: { portalId: existingProject.portalId }
+          });
+
+          if (remainingProjects === 0) {
+            await prisma.hubSpotPortal.delete({
+              where: { id: existingProject.portalId }
+            });
+          }
+
+          return sendJson(response, 200, { success: true });
+        }
+
         if (request.method === "PUT" && !projectRoute.resource) {
           const payload = updateProjectMetadataRequestSchema.parse(
             await readJsonBody(request)
@@ -646,7 +745,9 @@ export function createAppServer(config: BaseConfig): http.Server {
         if (!project) {
           return sendJson(response, 404, { error: "Project not found" });
         }
-        return sendJson(response, 200, { project });
+        return sendJson(response, 200, {
+          project: normalizeProject(project)
+        });
       }
 
       const assetPath = staticRoutes[url.pathname];
