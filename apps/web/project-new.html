@@ -3,59 +3,327 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy Start Project</title>
+    <title>Muloo Deploy New Project</title>
     <link rel="stylesheet" href="/assets/styles.css" />
+    <style>
+      .form-shell {
+        display: grid;
+        gap: 20px;
+      }
+
+      .form-panel {
+        background: rgba(255, 250, 243, 0.94);
+      }
+
+      .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: rgba(246, 241, 232, 0.88);
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      .back-link:hover {
+        color: #ffffff;
+      }
+
+      .project-form {
+        display: grid;
+        gap: 18px;
+      }
+
+      .form-label {
+        margin: 0;
+        color: var(--text-soft);
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .field input[type="text"] {
+        width: 100%;
+        min-height: 48px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--surface-strong);
+        box-shadow: none;
+      }
+
+      .field input[type="text"]:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(13, 139, 139, 0.14);
+        outline: none;
+      }
+
+      .toggle-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .toggle-pill {
+        position: relative;
+      }
+
+      .toggle-pill input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .toggle-pill span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid var(--line-strong);
+        background: var(--surface-strong);
+        color: var(--text);
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .toggle-pill input:checked + span {
+        background: rgba(13, 139, 139, 0.12);
+        border-color: rgba(13, 139, 139, 0.36);
+        color: var(--accent-strong);
+      }
+
+      .error-text {
+        min-height: 18px;
+        margin: 0;
+        color: var(--danger);
+        font-size: 0.84rem;
+      }
+
+      .submit-button {
+        width: 100%;
+      }
+    </style>
   </head>
-  <body data-page="project-new">
+  <body>
     <div class="shell">
       <aside class="sidebar">
-        <div>
-          <p class="eyebrow">Muloo Internal</p>
-          <h1>Muloo Deploy</h1>
-          <p class="sidebar-copy">
-            Start a new onboarding workspace with the right starting point,
-            project details, and HubSpot scope.
-          </p>
+        <div class="sidebar-brand">
+          <div class="brand-lockup">
+            <div class="brand-topline">
+              <img
+                class="brand-wordmark"
+                src="/assets/brand/muloo-logo.svg"
+                alt="Muloo"
+              />
+            </div>
+            <div class="brand-context">
+              <span class="brand-product">DeployOS</span>
+              <p class="sidebar-copy">
+                Create a new implementation workspace and connect the right
+                client, portal, and hubs from the start.
+              </p>
+            </div>
+          </div>
+          <nav class="nav">
+            <a class="nav-link active" href="/projects">Projects</a>
+            <a class="nav-link" href="/templates">Templates</a>
+            <a class="nav-link" href="/runs">Runs</a>
+            <a class="nav-link" href="/settings">Settings</a>
+          </nav>
         </div>
-        <nav class="nav">
-          <a class="nav-link" href="/">Home</a>
-          <a class="nav-link" href="/projects">Projects</a>
-          <a class="nav-link" href="/templates">Templates</a>
-          <a class="nav-link" href="/runs">Runs</a>
-          <a class="nav-link" href="/guide">Guide</a>
-          <a class="nav-link" href="/settings">Settings</a>
-        </nav>
+        <div class="panel muted sidebar-note">
+          <p class="panel-label">New project</p>
+          <strong>Start with only the minimum fields Muloo needs.</strong>
+          <span class="small">
+            Client and portal records are created inline when the project is saved.
+          </span>
+        </div>
       </aside>
       <main class="content">
         <section class="workspace-header">
           <div>
-            <p class="eyebrow">Start project</p>
-            <h2>
-              Start a new client onboarding workspace with a clearer guided
-              setup flow.
-            </h2>
+            <a class="back-link" href="/projects">Back to Projects</a>
+            <p class="eyebrow">Project intake</p>
+            <h2>New Project</h2>
             <p class="hero-copy">
-              Choose how to start, confirm the client and portal context, then
-              seed the right scope before review and dry-run work begins.
+              Capture the project name, client, portal, and hubs in scope to
+              create a live onboarding record.
             </p>
           </div>
         </section>
-        <section class="grid two-col">
-          <article class="panel">
-            <p class="panel-label">Step-by-step setup</p>
-            <form class="form-grid" id="project-create-form"></form>
-          </article>
-          <article class="panel">
-            <p class="panel-label">Starting point preview</p>
-            <div id="project-create-template-detail"></div>
-          </article>
-        </section>
-        <section class="panel">
-          <p class="panel-label">Project created</p>
-          <div id="project-create-status"></div>
+
+        <section class="panel form-panel">
+          <div class="section-header">
+            <div>
+              <p class="panel-label">Create project</p>
+              <h3>Project details</h3>
+            </div>
+          </div>
+          <form class="project-form" id="project-form" novalidate>
+            <div class="field">
+              <label class="form-label" for="project-name">Project Name</label>
+              <input
+                id="project-name"
+                name="name"
+                type="text"
+                placeholder="e.g. EPIUSE HubSpot Onboarding"
+                required
+              />
+              <p class="error-text" id="name-error"></p>
+            </div>
+
+            <div class="field">
+              <label class="form-label" for="client-name">Client Name</label>
+              <input
+                id="client-name"
+                name="clientName"
+                type="text"
+                placeholder="e.g. EPIUSE"
+                required
+              />
+              <p class="error-text" id="client-error"></p>
+            </div>
+
+            <div class="field">
+              <label class="form-label" for="portal-id">HubSpot Portal ID</label>
+              <input
+                id="portal-id"
+                name="hubspotPortalId"
+                type="text"
+                placeholder="e.g. 12345678"
+                required
+              />
+              <p class="error-text" id="portal-error"></p>
+            </div>
+
+            <div class="field">
+              <p class="form-label">Hubs in Scope</p>
+              <div class="toggle-row">
+                <label class="toggle-pill">
+                  <input name="selectedHubs" type="checkbox" value="sales" />
+                  <span>Sales Hub</span>
+                </label>
+                <label class="toggle-pill">
+                  <input
+                    name="selectedHubs"
+                    type="checkbox"
+                    value="marketing"
+                  />
+                  <span>Marketing Hub</span>
+                </label>
+                <label class="toggle-pill">
+                  <input name="selectedHubs" type="checkbox" value="service" />
+                  <span>Service Hub</span>
+                </label>
+              </div>
+              <p class="error-text" id="hubs-error"></p>
+            </div>
+
+            <button class="button-link submit-button" id="submit-button" type="submit">
+              Create Project
+            </button>
+            <p class="error-text" id="submit-error"></p>
+          </form>
         </section>
       </main>
     </div>
-    <script src="/assets/app.js"></script>
+    <script>
+      const form = document.getElementById("project-form");
+      const submitButton = document.getElementById("submit-button");
+      const fieldErrors = {
+        name: document.getElementById("name-error"),
+        clientName: document.getElementById("client-error"),
+        hubspotPortalId: document.getElementById("portal-error"),
+        selectedHubs: document.getElementById("hubs-error"),
+        submit: document.getElementById("submit-error")
+      };
+
+      function setFieldError(key, message) {
+        fieldErrors[key].textContent = message;
+      }
+
+      function clearErrors() {
+        Object.values(fieldErrors).forEach((node) => {
+          node.textContent = "";
+        });
+      }
+
+      function getSelectedHubs() {
+        return Array.from(
+          form.querySelectorAll('input[name="selectedHubs"]:checked')
+        ).map((input) => input.value);
+      }
+
+      function validate(values) {
+        clearErrors();
+        let valid = true;
+
+        if (!values.name.trim()) {
+          setFieldError("name", "Project name is required.");
+          valid = false;
+        }
+
+        if (!values.clientName.trim()) {
+          setFieldError("clientName", "Client name is required.");
+          valid = false;
+        }
+
+        if (!values.hubspotPortalId.trim()) {
+          setFieldError("hubspotPortalId", "HubSpot portal ID is required.");
+          valid = false;
+        }
+
+        if (!values.selectedHubs.length) {
+          setFieldError("selectedHubs", "Select at least one hub.");
+          valid = false;
+        }
+
+        return valid;
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const values = {
+          name: form.elements.name.value,
+          clientName: form.elements.clientName.value,
+          hubspotPortalId: form.elements.hubspotPortalId.value,
+          selectedHubs: getSelectedHubs()
+        };
+
+        if (!validate(values)) {
+          return;
+        }
+
+        submitButton.disabled = true;
+        submitButton.textContent = "Creating...";
+        setFieldError("submit", "");
+
+        try {
+          const response = await fetch("/api/projects", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(values)
+          });
+
+          if (response.status === 201) {
+            window.location.href = "/projects";
+            return;
+          }
+
+          throw new Error("Request failed");
+        } catch (error) {
+          setFieldError(
+            "submit",
+            "Failed to create project. Please try again."
+          );
+        } finally {
+          submitButton.disabled = false;
+          submitButton.textContent = "Create Project";
+        }
+      });
+    </script>
   </body>
 </html>

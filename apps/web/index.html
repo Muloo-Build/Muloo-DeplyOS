@@ -3,109 +3,308 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy Home</title>
+    <title>Muloo Deploy Projects</title>
     <link rel="stylesheet" href="/assets/styles.css" />
+    <style>
+      .dashboard-shell {
+        display: grid;
+        gap: 20px;
+      }
+
+      .dashboard-panel {
+        background: rgba(255, 250, 243, 0.9);
+      }
+
+      .dashboard-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .project-row {
+        display: grid;
+        grid-template-columns: minmax(0, 2.3fr) minmax(160px, 1.1fr) minmax(0, 1.5fr) auto 140px;
+        gap: 16px;
+        align-items: center;
+        padding: 18px 20px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--surface-strong);
+        text-decoration: none;
+        color: inherit;
+        box-shadow: 0 10px 24px rgba(6, 14, 28, 0.06);
+      }
+
+      .project-row:hover {
+        transform: translateY(-2px);
+        border-color: rgba(13, 139, 139, 0.28);
+        box-shadow: 0 16px 30px rgba(6, 14, 28, 0.1);
+      }
+
+      .project-name {
+        margin: 0;
+        font-size: 1.02rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .project-client,
+      .project-date {
+        color: var(--text-soft);
+        font-size: 0.94rem;
+      }
+
+      .project-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .project-tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(13, 139, 139, 0.3);
+        color: var(--accent-strong);
+        background: rgba(13, 139, 139, 0.08);
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: 0 12px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        border: 1px solid transparent;
+      }
+
+      .status-pill.draft {
+        background: rgba(80, 96, 122, 0.12);
+        color: var(--text-soft);
+        border-color: rgba(80, 96, 122, 0.16);
+      }
+
+      .status-pill.active {
+        background: rgba(13, 139, 139, 0.12);
+        color: var(--accent-strong);
+        border-color: rgba(13, 139, 139, 0.2);
+      }
+
+      .status-pill.complete {
+        background: rgba(24, 121, 78, 0.12);
+        color: var(--success);
+        border-color: rgba(24, 121, 78, 0.18);
+      }
+
+      .project-date {
+        text-align: right;
+      }
+
+      .project-date strong {
+        display: block;
+        color: var(--text);
+        font-size: 0.84rem;
+        margin-bottom: 4px;
+      }
+
+      .dashboard-state {
+        padding: 28px;
+      }
+
+      @media (max-width: 1100px) {
+        .project-row {
+          grid-template-columns: 1fr;
+        }
+
+        .project-date {
+          text-align: left;
+        }
+      }
+    </style>
   </head>
-  <body data-page="home">
+  <body>
     <div class="shell">
       <aside class="sidebar">
-        <div>
-          <p class="eyebrow">Muloo Internal</p>
-          <h1>Muloo Deploy</h1>
-          <p class="sidebar-copy">
-            Internal HubSpot onboarding and optimisation workspace for taking
-            discovery into structured delivery.
-          </p>
+        <div class="sidebar-brand">
+          <div class="brand-lockup">
+            <div class="brand-topline">
+              <img
+                class="brand-wordmark"
+                src="/assets/brand/muloo-logo.svg"
+                alt="Muloo"
+              />
+            </div>
+            <div class="brand-context">
+              <span class="brand-product">DeployOS</span>
+              <p class="sidebar-copy">
+                Delivery workspace for live HubSpot implementations, templates,
+                runs, and operator oversight.
+              </p>
+            </div>
+          </div>
+          <nav class="nav">
+            <a class="nav-link active" href="/projects">Projects</a>
+            <a class="nav-link" href="/templates">Templates</a>
+            <a class="nav-link" href="/runs">Runs</a>
+            <a class="nav-link" href="/settings">Settings</a>
+          </nav>
         </div>
-        <nav class="nav">
-          <a class="nav-link active" href="/">Home</a>
-          <a class="nav-link" href="/projects">Projects</a>
-          <a class="nav-link" href="/templates">Templates</a>
-          <a class="nav-link" href="/runs">Runs</a>
-          <a class="nav-link" href="/guide">Guide</a>
-          <a class="nav-link" href="/settings">Settings</a>
-        </nav>
         <div class="panel muted sidebar-note">
-          <p class="panel-label">Operator focus</p>
-          <strong>Move projects from blueprint to safe run.</strong>
-          <span class="small"
-            >Dry run stays default. Guarded apply remains narrow and
-            explicit.</span
-          >
+          <p class="panel-label">Operator</p>
+          <strong>Muloo manages every onboarding engagement here.</strong>
+          <span class="small">
+            Projects, portals, and client records stay connected to the live API.
+          </span>
         </div>
       </aside>
       <main class="content">
         <section class="workspace-header">
           <div>
-            <p class="eyebrow">Home</p>
-            <h2>
-              Take discovery into a clear onboarding blueprint, review it, and
-              run safely.
-            </h2>
+            <p class="eyebrow">Projects</p>
+            <h2>Projects</h2>
             <p class="hero-copy">
-              Muloo Deploy helps one operator manage multiple HubSpot onboarding
-              projects from blueprint through dry run, safe apply, and delivery
-              history.
+              Track active implementation work, client context, and HubSpot scope
+              from one dashboard.
             </p>
           </div>
           <div class="action-row">
-            <a class="button-link" href="/projects/new"
-              >Start Onboarding Project</a
-            >
-            <a class="button-secondary" href="/templates">Browse Templates</a>
-            <a class="button-secondary" href="/runs">View Recent Runs</a>
+            <a class="button-link" href="/projects/new">New Project</a>
           </div>
         </section>
-        <section class="stats" id="home-priority-stats"></section>
-        <section class="grid two-col">
-          <article class="panel">
-            <div class="section-header">
-              <div>
-                <p class="panel-label">Needs attention</p>
-                <h3>Blocked or incomplete projects</h3>
-              </div>
-              <a class="button-secondary" href="/projects?filter=blocked"
-                >Open queue</a
-              >
+
+        <section class="panel dashboard-panel">
+          <div class="section-header">
+            <div>
+              <p class="panel-label">Live queue</p>
+              <h3>Current onboarding projects</h3>
             </div>
-            <div id="home-attention-list"></div>
-          </article>
-          <article class="panel">
-            <div class="section-header">
+          </div>
+          <div class="dashboard-shell">
+            <div class="small" id="projects-status">Loading projects...</div>
+            <div class="dashboard-list" id="projects-list" hidden></div>
+            <div class="empty-state dashboard-state" id="projects-empty" hidden>
+              <h3>No projects yet. Create your first one.</h3>
+              <p class="small">
+                Start with a client, a HubSpot portal, and the hubs in scope.
+              </p>
               <div>
-                <p class="panel-label">Ready next</p>
-                <h3>Projects ready for review or run</h3>
-              </div>
-              <a class="button-secondary" href="/projects?filter=ready-to-run"
-                >View ready work</a
-              >
-            </div>
-            <div id="home-ready-list"></div>
-          </article>
-        </section>
-        <section class="grid two-col">
-          <article class="panel">
-            <div class="section-header">
-              <div>
-                <p class="panel-label">Recent runs</p>
-                <h3>What happened most recently</h3>
-              </div>
-              <a class="button-secondary" href="/runs">Open runs</a>
-            </div>
-            <div id="home-recent-runs"></div>
-          </article>
-          <article class="panel">
-            <div class="section-header">
-              <div>
-                <p class="panel-label">Platform</p>
-                <h3>Workspace status and guidance</h3>
+                <a class="button-link" href="/projects/new">Create project</a>
               </div>
             </div>
-            <div id="home-health-panel"></div>
-          </article>
+          </div>
         </section>
       </main>
     </div>
-    <script src="/assets/app.js"></script>
+    <script>
+      const statusNode = document.getElementById("projects-status");
+      const listNode = document.getElementById("projects-list");
+      const emptyNode = document.getElementById("projects-empty");
+
+      function formatDate(value) {
+        if (!value) {
+          return "Unknown";
+        }
+
+        return new Date(value).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric"
+        });
+      }
+
+      function statusClass(status) {
+        const normalized = (status || "").toLowerCase();
+
+        if (normalized === "active" || normalized === "in-progress") {
+          return "active";
+        }
+
+        if (
+          normalized === "complete" ||
+          normalized === "completed" ||
+          normalized === "done"
+        ) {
+          return "complete";
+        }
+
+        return "draft";
+      }
+
+      function hubLabel(hub) {
+        return `${hub.replace(/-/g, " ")} hub`;
+      }
+
+      function renderProjects(projects) {
+        if (!projects.length) {
+          statusNode.hidden = true;
+          emptyNode.hidden = false;
+          listNode.hidden = true;
+          return;
+        }
+
+        const markup = projects
+          .map((project) => {
+            const tags = (project.selectedHubs || [])
+              .map(
+                (hub) =>
+                  `<span class="project-tag">${hubLabel(hub)}</span>`
+              )
+              .join("");
+
+            return `
+              <a class="project-row" href="/project?id=${encodeURIComponent(project.id)}">
+                <div>
+                  <p class="project-name">${project.name}</p>
+                </div>
+                <div class="project-client">${project.client?.name ?? "Unknown client"}</div>
+                <div class="project-tags">${tags}</div>
+                <div>
+                  <span class="status-pill ${statusClass(project.status)}">${project.status ?? "draft"}</span>
+                </div>
+                <div class="project-date">
+                  <strong>Created</strong>
+                  <span>${formatDate(project.createdAt)}</span>
+                </div>
+              </a>
+            `;
+          })
+          .join("");
+
+        listNode.innerHTML = markup;
+        statusNode.hidden = true;
+        emptyNode.hidden = true;
+        listNode.hidden = false;
+      }
+
+      async function loadProjects() {
+        try {
+          const response = await fetch("/api/projects");
+
+          if (!response.ok) {
+            throw new Error("Request failed");
+          }
+
+          const data = await response.json();
+          renderProjects(Array.isArray(data.projects) ? data.projects : []);
+        } catch (error) {
+          statusNode.textContent = "Failed to load projects.";
+          statusNode.hidden = false;
+          listNode.hidden = true;
+          emptyNode.hidden = true;
+        }
+      }
+
+      loadProjects();
+    </script>
   </body>
 </html>
