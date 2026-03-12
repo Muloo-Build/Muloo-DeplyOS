@@ -5,14 +5,16 @@
   "description": "Internal execution platform for Muloo delivery operations and HubSpot onboarding automation",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "build": "node node_modules/typescript/lib/tsc.js -b tsconfig.json",
+    "build": "node node_modules/typescript/lib/tsc.js -b tsconfig.json && cd apps/api && npx prisma generate",
     "typecheck": "node node_modules/typescript/lib/tsc.js -b tsconfig.json",
     "clean": "node node_modules/typescript/lib/tsc.js -b tsconfig.json --clean",
+    "db:generate": "cd apps/api && npx prisma generate",
+    "db:migrate": "cd apps/api && npx prisma migrate deploy",
     "lint": "node node_modules/eslint/bin/eslint.js . --ext .ts,.js,.mjs",
     "format": "node node_modules/prettier/bin/prettier.cjs --write .",
     "format:check": "node node_modules/prettier/bin/prettier.cjs --check .",
     "dev": "node apps/api/dist/index.js",
-    "start": "node apps/api/dist/index.js",
+    "start": "cd apps/api && npx prisma migrate deploy && node dist/index.js",
     "cli": "corepack pnpm --filter @muloo/cli cli"
   },
   "engines": {

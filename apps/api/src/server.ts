@@ -7,7 +7,6 @@ import {
   createProject,
   createProjectFromTemplate,
   loadAllExecutionRecords,
-  loadAllProjectSummaries,
   loadAllTemplates,
   loadExecutionById,
   loadExecutionSteps,
@@ -30,6 +29,7 @@ import {
   validateAllProjects,
   validateProjectById
 } from "@muloo/file-system";
+import { PrismaClient } from "@prisma/client";
 import { moduleCatalog } from "@muloo/shared";
 import {
   createProjectFromTemplateRequestSchema,
@@ -42,6 +42,8 @@ import {
   updateProjectScopeRequestSchema
 } from "@muloo/shared";
 import { ZodError } from "zod";
+
+const prisma = new PrismaClient();
 
 const contentTypes: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -238,11 +240,13 @@ export function createAppServer(config: BaseConfig): http.Server {
       }
 
       if (url.pathname === "/api/health") {
+        await prisma.$queryRaw`SELECT 1`;
         return sendJson(response, 200, {
           status: "ok",
           service: "muloo-deploy-os-api",
           timestamp: new Date().toISOString(),
           environment: config.nodeEnv,
+          database: "connected",
           executionMode: config.executionMode,
           applyEnabled: config.applyEnabled,
           moduleCount: moduleCatalog.length
@@ -284,8 +288,15 @@ export function createAppServer(config: BaseConfig): http.Server {
           });
         }
 
+        const projects = await prisma.project.findMany({
+          include: {
+            client: true,
+            portal: true
+          },
+          orderBy: { updatedAt: "desc" }
+        });
         return sendJson(response, 200, {
-          projects: await loadAllProjectSummaries()
+          projects
         });
       }
 
