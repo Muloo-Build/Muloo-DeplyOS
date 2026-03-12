@@ -5,7 +5,12 @@ import tsParser from "@typescript-eslint/parser";
 
 export default [
   {
-    ignores: ["**/dist/**", "node_modules/**", "artifacts/*.json"]
+    ignores: [
+      "**/dist/**",
+      "**/.next/**",
+      "node_modules/**",
+      "artifacts/*.json"
+    ]
   },
   {
     ...js.configs.recommended,
