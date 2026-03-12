@@ -376,11 +376,22 @@ async function extractDiscoveryFields(
   }
 
   const fields = sessionFieldLabels[session] ?? sessionFieldLabels[1] ?? [];
-  const systemPrompt = `You are extracting structured discovery information from HubSpot implementation meeting notes.
-Extract values for the following fields: ${fields.join(", ")}.
-Return ONLY a valid JSON object with these exact keys and string values.
-If a field is not mentioned in the notes, return an empty string for that field.
-Do not include any text outside the JSON object.`;
+  const systemPrompt = `You are extracting structured information from HubSpot discovery meeting notes.
+
+Extract values for EXACTLY these fields: ${fields.join(", ")}
+
+Rules:
+- Return ONLY a valid JSON object. No markdown, no backticks, no explanation.
+- Use the exact field names listed above as JSON keys.
+- Values should be concise summaries (2-4 sentences max per field).
+- If a field topic is not mentioned in the notes, return an empty string "" for that field.
+- Do not add any fields not listed above.
+
+Example format:
+{
+  "business_overview": "...",
+  "primary_pain_challenge": "..."
+}`;
   const userPrompt = `Meeting notes:\n\n${text}\n\nExtract the fields now.`;
 
   const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
@@ -406,12 +417,22 @@ Do not include any text outside the JSON object.`;
     content?: Array<{ text?: string }>;
   };
   const rawText = claudeData?.content?.[0]?.text ?? "{}";
+  console.log(
+    "[discovery/extract] Claude raw response:",
+    rawText.substring(0, 500)
+  );
 
   try {
-    return {
-      fields: normalizeDiscoveryFields(JSON.parse(rawText) as unknown)
-    };
+    const extractedFields = normalizeDiscoveryFields(
+      JSON.parse(rawText) as unknown
+    );
+    console.log(
+      "[discovery/extract] Parsed fields:",
+      JSON.stringify(extractedFields)
+    );
+    return { fields: extractedFields };
   } catch {
+    console.log("[discovery/extract] Parsed fields:", JSON.stringify({}));
     return { fields: {} };
   }
 }

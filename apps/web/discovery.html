@@ -760,7 +760,7 @@
               </button>
               <div style="height: 12px"></div>
               <div id="extract-error" class="error"></div>
-              <div id="extract-result" class="result"></div>
+              <div id="extraction-count" class="result"></div>
             </aside>
           </div>
           <div class="footer">
@@ -1012,14 +1012,13 @@
         document.getElementById("fields").innerHTML = cfg.fields
           .map(
             ([key, label, hint]) =>
-              `<div><label class="label" for="field-${key}">${label}</label><div class="hint">${hint}</div><textarea id="field-${key}" class="area" data-key="${key}" placeholder="${placeholderFor(key)}"></textarea></div>`
+              `<div><label class="label" for="field-${key}">${label}</label><div class="hint">${hint}</div><textarea id="field-${key}" class="area" data-field="${key}" placeholder="${placeholderFor(key)}"></textarea></div>`
           )
           .join("");
-        cfg.fields.forEach(([key]) => {
-          const el = document.getElementById(`field-${key}`);
-          el.value = data[active][key] || "";
-          el.addEventListener("input", () => {
-            data[active][key] = el.value;
+        loadSessionData(data[active]);
+        document.querySelectorAll("[data-field]").forEach((textarea) => {
+          textarea.addEventListener("input", () => {
+            data[active] = collectSessionFields();
             renderTabs();
             renderFooter();
           });
@@ -1039,7 +1038,26 @@
         renderFields();
         renderFooter();
         document.getElementById("extract-error").textContent = "";
-        document.getElementById("extract-result").textContent = "";
+        document.getElementById("extraction-count").textContent = "";
+      }
+      function collectSessionFields() {
+        const fields = {};
+        document.querySelectorAll("[data-field]").forEach((textarea) => {
+          const key = textarea.getAttribute("data-field");
+          if (key) {
+            fields[key] = textarea.value || "";
+          }
+        });
+        return fields;
+      }
+      function loadSessionData(sessionData) {
+        if (!sessionData) return;
+        Object.entries(sessionData).forEach(([key, value]) => {
+          const textarea = document.querySelector(`[data-field="${key}"]`);
+          if (textarea && typeof value === "string") {
+            textarea.value = value;
+          }
+        });
       }
       function populateHeader() {
         const meta = TYPES[project.engagementType] || TYPES.IMPLEMENTATION;
@@ -1077,9 +1095,10 @@
         const btn = document.getElementById("save");
         btn.textContent = "Saving...";
         try {
-          const fields = { ...data[active] };
-          SESSIONS[active].fields.forEach(([k]) => {
-            fields[k] = fields[k] || "";
+          const fields = collectSessionFields();
+          data[active] = fields;
+          SESSIONS[active].fields.forEach(([key]) => {
+            fields[key] = fields[key] || "";
           });
           const res = await fetch("/api/discovery/save", {
             method: "POST",
@@ -1109,31 +1128,42 @@
           saveBusy = false;
         }
       }
-      function applyFields(fields) {
-        const keys = SESSIONS[active].fields.map(([k]) => k);
-        const filled = [];
-        keys.forEach((key) => {
-          if (typeof fields[key] === "string" && fields[key].trim()) {
-            data[active][key] = fields[key];
-            const el = document.getElementById(`field-${key}`);
-            if (el) {
-              el.value = fields[key];
-              el.classList.add("highlight");
-              setTimeout(() => el.classList.remove("highlight"), 2000);
+      function populateFields(extractedFields) {
+        const textareas = document.querySelectorAll("[data-field]");
+        let populated = 0;
+        let total = 0;
+
+        textareas.forEach((textarea) => {
+          const fieldKey = textarea.getAttribute("data-field");
+          if (fieldKey && extractedFields[fieldKey] !== undefined) {
+            total++;
+            if (
+              extractedFields[fieldKey] &&
+              extractedFields[fieldKey].trim() !== ""
+            ) {
+              textarea.value = extractedFields[fieldKey];
+              data[active][fieldKey] = extractedFields[fieldKey];
+              populated++;
+              textarea.style.borderColor = "var(--teal)";
+              setTimeout(() => {
+                textarea.style.borderColor = "";
+              }, 2000);
             }
-            filled.push(key);
           }
         });
+
         renderTabs();
         renderFooter();
-        const result = document.getElementById("extract-result");
-        result.textContent = `${filled.length} of ${keys.length} fields populated`;
-        result.className = `result ${filled.length === keys.length ? "result-success" : "result-warn"}`;
+        const countEl = document.getElementById("extraction-count");
+        if (countEl) {
+          countEl.textContent = `${populated} of ${total} fields populated`;
+          countEl.className = `result ${populated === total ? "result-success" : "result-warn"}`;
+        }
       }
       async function extract(url, payload, invalid) {
         if (busy) return;
         document.getElementById("extract-error").textContent = "";
-        document.getElementById("extract-result").textContent = "";
+        document.getElementById("extraction-count").textContent = "";
         if (invalid) {
           document.getElementById("extract-error").textContent = invalid;
           return;
@@ -1151,7 +1181,7 @@
           const json = await res.json();
           if (!res.ok) throw new Error(json.error || "Extraction failed");
           setExtractStatus("extracting");
-          applyFields(json.fields || {});
+          populateFields(json.fields || {});
           if (json.message) {
             document.getElementById("extract-error").textContent = json.message;
           }
