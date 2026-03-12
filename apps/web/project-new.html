@@ -1,329 +1,208 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy New Project</title>
-    <link rel="stylesheet" href="/assets/styles.css" />
-    <style>
-      .form-shell {
-        display: grid;
-        gap: 20px;
-      }
-
-      .form-panel {
-        background: rgba(255, 250, 243, 0.94);
-      }
-
-      .back-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        color: rgba(246, 241, 232, 0.88);
-        text-decoration: none;
-        font-weight: 600;
-      }
-
-      .back-link:hover {
-        color: #ffffff;
-      }
-
-      .project-form {
-        display: grid;
-        gap: 18px;
-      }
-
-      .form-label {
-        margin: 0;
-        color: var(--text-soft);
-        font-size: 0.74rem;
-        font-weight: 700;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-      }
-
-      .field input[type="text"] {
-        width: 100%;
-        min-height: 48px;
-        padding: 10px 14px;
-        border-radius: 8px;
-        border: 1px solid var(--line);
-        background: var(--surface-strong);
-        box-shadow: none;
-      }
-
-      .field input[type="text"]:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(13, 139, 139, 0.14);
-        outline: none;
-      }
-
-      .toggle-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-      }
-
-      .toggle-pill {
-        position: relative;
-      }
-
-      .toggle-pill input {
-        position: absolute;
-        opacity: 0;
-        pointer-events: none;
-      }
-
-      .toggle-pill span {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 44px;
-        padding: 0 16px;
-        border-radius: 999px;
-        border: 1px solid var(--line-strong);
-        background: var(--surface-strong);
-        color: var(--text);
-        font-weight: 600;
-        cursor: pointer;
-      }
-
-      .toggle-pill input:checked + span {
-        background: rgba(13, 139, 139, 0.12);
-        border-color: rgba(13, 139, 139, 0.36);
-        color: var(--accent-strong);
-      }
-
-      .error-text {
-        min-height: 18px;
-        margin: 0;
-        color: var(--danger);
-        font-size: 0.84rem;
-      }
-
-      .submit-button {
-        width: 100%;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="shell">
-      <aside class="sidebar">
-        <div class="sidebar-brand">
-          <div class="brand-lockup">
-            <div class="brand-topline">
-              <img
-                class="brand-wordmark"
-                src="/assets/brand/muloo-logo.svg"
-                alt="Muloo"
-              />
-            </div>
-            <div class="brand-context">
-              <span class="brand-product">DeployOS</span>
-              <p class="sidebar-copy">
-                Create a new implementation workspace and connect the right
-                client, portal, and hubs from the start.
-              </p>
-            </div>
-          </div>
-          <nav class="nav">
-            <a class="nav-link active" href="/projects">Projects</a>
-            <a class="nav-link" href="/templates">Templates</a>
-            <a class="nav-link" href="/runs">Runs</a>
-            <a class="nav-link" href="/settings">Settings</a>
-          </nav>
-        </div>
-        <div class="panel muted sidebar-note">
-          <p class="panel-label">New project</p>
-          <strong>Start with only the minimum fields Muloo needs.</strong>
-          <span class="small">
-            Client and portal records are created inline when the project is saved.
-          </span>
-        </div>
-      </aside>
-      <main class="content">
-        <section class="workspace-header">
-          <div>
-            <a class="back-link" href="/projects">Back to Projects</a>
-            <p class="eyebrow">Project intake</p>
-            <h2>New Project</h2>
-            <p class="hero-copy">
-              Capture the project name, client, portal, and hubs in scope to
-              create a live onboarding record.
-            </p>
-          </div>
-        </section>
-
-        <section class="panel form-panel">
-          <div class="section-header">
-            <div>
-              <p class="panel-label">Create project</p>
-              <h3>Project details</h3>
-            </div>
-          </div>
-          <form class="project-form" id="project-form" novalidate>
-            <div class="field">
-              <label class="form-label" for="project-name">Project Name</label>
-              <input
-                id="project-name"
-                name="name"
-                type="text"
-                placeholder="e.g. EPIUSE HubSpot Onboarding"
-                required
-              />
-              <p class="error-text" id="name-error"></p>
-            </div>
-
-            <div class="field">
-              <label class="form-label" for="client-name">Client Name</label>
-              <input
-                id="client-name"
-                name="clientName"
-                type="text"
-                placeholder="e.g. EPIUSE"
-                required
-              />
-              <p class="error-text" id="client-error"></p>
-            </div>
-
-            <div class="field">
-              <label class="form-label" for="portal-id">HubSpot Portal ID</label>
-              <input
-                id="portal-id"
-                name="hubspotPortalId"
-                type="text"
-                placeholder="e.g. 12345678"
-                required
-              />
-              <p class="error-text" id="portal-error"></p>
-            </div>
-
-            <div class="field">
-              <p class="form-label">Hubs in Scope</p>
-              <div class="toggle-row">
-                <label class="toggle-pill">
-                  <input name="selectedHubs" type="checkbox" value="sales" />
-                  <span>Sales Hub</span>
-                </label>
-                <label class="toggle-pill">
-                  <input
-                    name="selectedHubs"
-                    type="checkbox"
-                    value="marketing"
-                  />
-                  <span>Marketing Hub</span>
-                </label>
-                <label class="toggle-pill">
-                  <input name="selectedHubs" type="checkbox" value="service" />
-                  <span>Service Hub</span>
-                </label>
-              </div>
-              <p class="error-text" id="hubs-error"></p>
-            </div>
-
-            <button class="button-link submit-button" id="submit-button" type="submit">
-              Create Project
-            </button>
-            <p class="error-text" id="submit-error"></p>
-          </form>
-        </section>
-      </main>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Project — Muloo DeployOS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #080e1c; --navy-2: #0d1628; --navy-3: #111e36;
+      --border: rgba(255,255,255,0.07);
+      --teal: #0cc9b0; --teal-dim: rgba(12,201,176,0.12);
+      --text: #e8edf5; --text-2: #8b96a8; --text-3: #4e5a6b;
+      --white: #ffffff; --red: #f04e4e; --green: #27c486;
+    }
+    html, body { height: 100%; background: var(--navy); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; }
+    .shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+    .sidebar { background: var(--navy-2); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+    .sidebar-top { padding: 24px 20px 20px; border-bottom: 1px solid var(--border); }
+    .logo-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .logo-mark { width: 28px; height: 28px; background: linear-gradient(135deg, #0cc9b0, #0b8fd4); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: white; flex-shrink: 0; }
+    .logo-name { font-size: 13px; font-weight: 600; color: var(--white); }
+    .logo-sub { font-size: 11px; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2px; padding-left: 38px; }
+    .nav { padding: 12px; flex: 1; }
+    .nav-section-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); padding: 8px 8px 6px; font-weight: 500; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--text-2); text-decoration: none; font-size: 13.5px; font-weight: 400; transition: all 0.15s; margin-bottom: 1px; }
+    .nav-item:hover { background: var(--navy-3); color: var(--text); }
+    .nav-item.active { background: var(--teal-dim); color: var(--teal); font-weight: 500; }
+    .nav-icon { width: 16px; height: 16px; opacity: 0.7; flex-shrink: 0; }
+    .nav-item.active .nav-icon { opacity: 1; }
+    .sidebar-bottom { padding: 16px; border-top: 1px solid var(--border); }
+    .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-right: 6px; }
+    .system-status { display: flex; align-items: center; font-size: 11.5px; color: var(--text-3); }
+    .main { background: var(--navy); overflow-y: auto; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; padding: 36px 40px 28px; border-bottom: 1px solid var(--border); }
+    .page-title { font-size: 22px; font-weight: 600; color: var(--white); letter-spacing: -0.02em; }
+    .page-sub { font-size: 13px; color: var(--text-2); margin-top: 3px; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); text-decoration: none; transition: color 0.15s; }
+    .back-link:hover { color: var(--teal); }
+    .form-area { padding: 40px; max-width: 600px; }
+    .form-card { background: var(--navy-2); border: 1px solid var(--border); border-radius: 14px; padding: 36px; }
+    .form-section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    .field { margin-bottom: 22px; }
+    .field-label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px; }
+    .field-hint { font-size: 11.5px; color: var(--text-3); margin-top: 5px; }
+    .field-input { width: 100%; background: var(--navy); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+    .field-input::placeholder { color: var(--text-3); }
+    .field-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(12,201,176,0.08); }
+    .field-input.error { border-color: var(--red); }
+    .field-error { font-size: 12px; color: var(--red); margin-top: 5px; display: none; }
+    .field-error.visible { display: block; }
+    .hub-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .hub-pill { padding: 9px 18px; border-radius: 8px; border: 1px solid var(--border); background: var(--navy); color: var(--text-2); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; user-select: none; font-family: 'DM Sans', sans-serif; }
+    .hub-pill:hover { border-color: rgba(12,201,176,0.3); color: var(--text); }
+    .hub-pill.selected { background: var(--teal-dim); border-color: rgba(12,201,176,0.4); color: var(--teal); }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; text-decoration: none; font-family: 'DM Sans', sans-serif; width: 100%; }
+    .btn-primary { background: var(--teal); color: #030d0c; }
+    .btn-primary:hover:not(:disabled) { background: #0de8cc; box-shadow: 0 4px 20px rgba(12,201,176,0.3); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .form-error { margin-top: 16px; font-size: 13px; color: var(--red); background: rgba(240,78,78,0.08); border: 1px solid rgba(240,78,78,0.2); border-radius: 8px; padding: 12px 16px; display: none; }
+    .form-error.visible { display: block; }
+    .success-overlay { display: none; text-align: center; padding: 40px 20px; }
+    .success-overlay.visible { display: block; }
+    .success-icon { width: 48px; height: 48px; background: rgba(39,196,134,0.12); border: 1px solid rgba(39,196,134,0.3); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: var(--green); }
+    .success-title { font-size: 18px; font-weight: 600; color: var(--white); margin-bottom: 6px; }
+    .success-sub { font-size: 13px; color: var(--text-2); }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="logo-row"><div class="logo-mark">M</div><span class="logo-name">Muloo</span></div>
+      <div class="logo-sub">Deploy OS</div>
     </div>
-    <script>
-      const form = document.getElementById("project-form");
-      const submitButton = document.getElementById("submit-button");
-      const fieldErrors = {
-        name: document.getElementById("name-error"),
-        clientName: document.getElementById("client-error"),
-        hubspotPortalId: document.getElementById("portal-error"),
-        selectedHubs: document.getElementById("hubs-error"),
-        submit: document.getElementById("submit-error")
-      };
-
-      function setFieldError(key, message) {
-        fieldErrors[key].textContent = message;
-      }
-
-      function clearErrors() {
-        Object.values(fieldErrors).forEach((node) => {
-          node.textContent = "";
-        });
-      }
-
-      function getSelectedHubs() {
-        return Array.from(
-          form.querySelectorAll('input[name="selectedHubs"]:checked')
-        ).map((input) => input.value);
-      }
-
-      function validate(values) {
-        clearErrors();
-        let valid = true;
-
-        if (!values.name.trim()) {
-          setFieldError("name", "Project name is required.");
-          valid = false;
-        }
-
-        if (!values.clientName.trim()) {
-          setFieldError("clientName", "Client name is required.");
-          valid = false;
-        }
-
-        if (!values.hubspotPortalId.trim()) {
-          setFieldError("hubspotPortalId", "HubSpot portal ID is required.");
-          valid = false;
-        }
-
-        if (!values.selectedHubs.length) {
-          setFieldError("selectedHubs", "Select at least one hub.");
-          valid = false;
-        }
-
-        return valid;
-      }
-
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-
-        const values = {
-          name: form.elements.name.value,
-          clientName: form.elements.clientName.value,
-          hubspotPortalId: form.elements.hubspotPortalId.value,
-          selectedHubs: getSelectedHubs()
-        };
-
-        if (!validate(values)) {
-          return;
-        }
-
-        submitButton.disabled = true;
-        submitButton.textContent = "Creating...";
-        setFieldError("submit", "");
-
-        try {
-          const response = await fetch("/api/projects", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(values)
-          });
-
-          if (response.status === 201) {
-            window.location.href = "/projects";
-            return;
-          }
-
-          throw new Error("Request failed");
-        } catch (error) {
-          setFieldError(
-            "submit",
-            "Failed to create project. Please try again."
-          );
-        } finally {
-          submitButton.disabled = false;
-          submitButton.textContent = "Create Project";
-        }
+    <nav class="nav">
+      <div class="nav-section-label">Workspace</div>
+      <a href="/" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>
+        Overview
+      </a>
+      <a href="/projects" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>
+        Projects
+      </a>
+      <a href="/templates" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="2"/><path d="M1 5h14"/></svg>
+        Templates
+      </a>
+      <a href="/runs" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 2"/></svg>
+        Runs
+      </a>
+      <div class="nav-section-label" style="margin-top:12px">System</div>
+      <a href="/settings" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
+        Settings
+      </a>
+    </nav>
+    <div class="sidebar-bottom"><div class="system-status"><span class="status-dot"></span>System online &middot; dry-run</div></div>
+  </aside>
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <div class="page-title">New Project</div>
+        <div class="page-sub">Set up a new HubSpot onboarding engagement</div>
+      </div>
+      <a href="/projects" class="back-link">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 2L4 7l5 5"/></svg>
+        Back to projects
+      </a>
+    </div>
+    <div class="form-area">
+      <div class="form-card" id="form-card">
+        <div id="form-content">
+          <div class="form-section-title">Project details</div>
+          <div class="field">
+            <label class="field-label" for="field-name">Project Name</label>
+            <input class="field-input" id="field-name" type="text" placeholder="e.g. EPIUSE HubSpot Onboarding" autocomplete="off" />
+            <div class="field-error" id="err-name">Project name is required</div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="field-client">Client Name</label>
+            <input class="field-input" id="field-client" type="text" placeholder="e.g. EPIUSE" autocomplete="off" />
+            <div class="field-error" id="err-client">Client name is required</div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="field-portal">HubSpot Portal ID</label>
+            <input class="field-input" id="field-portal" type="text" placeholder="e.g. 12345678" autocomplete="off" style="font-family:'DM Mono',monospace" />
+            <div class="field-hint">Find this in HubSpot → Settings → Account Setup</div>
+            <div class="field-error" id="err-portal">Portal ID is required</div>
+          </div>
+          <hr class="divider" />
+          <div class="form-section-title">Hubs in scope</div>
+          <div class="field">
+            <div class="hub-pills">
+              <button type="button" class="hub-pill" data-hub="sales">Sales Hub</button>
+              <button type="button" class="hub-pill" data-hub="marketing">Marketing Hub</button>
+              <button type="button" class="hub-pill" data-hub="service">Service Hub</button>
+            </div>
+            <div class="field-error" id="err-hubs">Select at least one hub</div>
+          </div>
+          <hr class="divider" />
+          <button class="btn btn-primary" id="submit-btn" onclick="submitProject()">Create Project</button>
+          <div class="form-error" id="form-error">Failed to create project. Please try again.</div>
+        </div>
+        <div class="success-overlay" id="success-overlay">
+          <div class="success-icon">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11l5 5 9-9"/></svg>
+          </div>
+          <div class="success-title">Project created</div>
+          <div class="success-sub">Redirecting to projects...</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+  document.querySelectorAll('.hub-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      pill.classList.toggle('selected');
+      document.getElementById('err-hubs').classList.remove('visible');
+    });
+  });
+  ['field-name','field-client','field-portal'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      const errId = {'field-name':'err-name','field-client':'err-client','field-portal':'err-portal'}[id];
+      document.getElementById(id).classList.remove('error');
+      document.getElementById(errId).classList.remove('visible');
+    });
+  });
+  async function submitProject() {
+    const name = document.getElementById('field-name').value.trim();
+    const clientName = document.getElementById('field-client').value.trim();
+    const hubspotPortalId = document.getElementById('field-portal').value.trim();
+    const selectedHubs = [...document.querySelectorAll('.hub-pill.selected')].map(p => p.dataset.hub);
+    let valid = true;
+    if (!name) { document.getElementById('field-name').classList.add('error'); document.getElementById('err-name').classList.add('visible'); valid = false; }
+    if (!clientName) { document.getElementById('field-client').classList.add('error'); document.getElementById('err-client').classList.add('visible'); valid = false; }
+    if (!hubspotPortalId) { document.getElementById('field-portal').classList.add('error'); document.getElementById('err-portal').classList.add('visible'); valid = false; }
+    if (selectedHubs.length === 0) { document.getElementById('err-hubs').classList.add('visible'); valid = false; }
+    if (!valid) return;
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+    document.getElementById('form-error').classList.remove('visible');
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, clientName, hubspotPortalId, selectedHubs })
       });
-    </script>
-  </body>
+      if (!res.ok) throw new Error();
+      document.getElementById('form-content').style.display = 'none';
+      document.getElementById('success-overlay').classList.add('visible');
+      setTimeout(() => { window.location.href = '/projects'; }, 1200);
+    } catch {
+      btn.disabled = false;
+      btn.textContent = 'Create Project';
+      document.getElementById('form-error').classList.add('visible');
+    }
+  }
+</script>
+</body>
 </html>

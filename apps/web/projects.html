@@ -1,310 +1,186 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Muloo Deploy Projects</title>
-    <link rel="stylesheet" href="/assets/styles.css" />
-    <style>
-      .dashboard-shell {
-        display: grid;
-        gap: 20px;
-      }
-
-      .dashboard-panel {
-        background: rgba(255, 250, 243, 0.9);
-      }
-
-      .dashboard-list {
-        display: grid;
-        gap: 14px;
-      }
-
-      .project-row {
-        display: grid;
-        grid-template-columns: minmax(0, 2.3fr) minmax(160px, 1.1fr) minmax(0, 1.5fr) auto 140px;
-        gap: 16px;
-        align-items: center;
-        padding: 18px 20px;
-        border: 1px solid var(--line);
-        border-radius: 18px;
-        background: var(--surface-strong);
-        text-decoration: none;
-        color: inherit;
-        box-shadow: 0 10px 24px rgba(6, 14, 28, 0.06);
-      }
-
-      .project-row:hover {
-        transform: translateY(-2px);
-        border-color: rgba(13, 139, 139, 0.28);
-        box-shadow: 0 16px 30px rgba(6, 14, 28, 0.1);
-      }
-
-      .project-name {
-        margin: 0;
-        font-size: 1.02rem;
-        font-weight: 700;
-        color: var(--text);
-      }
-
-      .project-client,
-      .project-date {
-        color: var(--text-soft);
-        font-size: 0.94rem;
-      }
-
-      .project-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .project-tag {
-        display: inline-flex;
-        align-items: center;
-        min-height: 28px;
-        padding: 0 10px;
-        border-radius: 999px;
-        border: 1px solid rgba(13, 139, 139, 0.3);
-        color: var(--accent-strong);
-        background: rgba(13, 139, 139, 0.08);
-        font-size: 0.78rem;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-      }
-
-      .status-pill {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 32px;
-        padding: 0 12px;
-        border-radius: 999px;
-        font-size: 0.78rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        border: 1px solid transparent;
-      }
-
-      .status-pill.draft {
-        background: rgba(80, 96, 122, 0.12);
-        color: var(--text-soft);
-        border-color: rgba(80, 96, 122, 0.16);
-      }
-
-      .status-pill.active {
-        background: rgba(13, 139, 139, 0.12);
-        color: var(--accent-strong);
-        border-color: rgba(13, 139, 139, 0.2);
-      }
-
-      .status-pill.complete {
-        background: rgba(24, 121, 78, 0.12);
-        color: var(--success);
-        border-color: rgba(24, 121, 78, 0.18);
-      }
-
-      .project-date {
-        text-align: right;
-      }
-
-      .project-date strong {
-        display: block;
-        color: var(--text);
-        font-size: 0.84rem;
-        margin-bottom: 4px;
-      }
-
-      .dashboard-state {
-        padding: 28px;
-      }
-
-      @media (max-width: 1100px) {
-        .project-row {
-          grid-template-columns: 1fr;
-        }
-
-        .project-date {
-          text-align: left;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="shell">
-      <aside class="sidebar">
-        <div class="sidebar-brand">
-          <div class="brand-lockup">
-            <div class="brand-topline">
-              <img
-                class="brand-wordmark"
-                src="/assets/brand/muloo-logo.svg"
-                alt="Muloo"
-              />
-            </div>
-            <div class="brand-context">
-              <span class="brand-product">DeployOS</span>
-              <p class="sidebar-copy">
-                Delivery workspace for live HubSpot implementations, templates,
-                runs, and operator oversight.
-              </p>
-            </div>
-          </div>
-          <nav class="nav">
-            <a class="nav-link active" href="/projects">Projects</a>
-            <a class="nav-link" href="/templates">Templates</a>
-            <a class="nav-link" href="/runs">Runs</a>
-            <a class="nav-link" href="/settings">Settings</a>
-          </nav>
-        </div>
-        <div class="panel muted sidebar-note">
-          <p class="panel-label">Operator</p>
-          <strong>Muloo manages every onboarding engagement here.</strong>
-          <span class="small">
-            Projects, portals, and client records stay connected to the live API.
-          </span>
-        </div>
-      </aside>
-      <main class="content">
-        <section class="workspace-header">
-          <div>
-            <p class="eyebrow">Projects</p>
-            <h2>Projects</h2>
-            <p class="hero-copy">
-              Track active implementation work, client context, and HubSpot scope
-              from one dashboard.
-            </p>
-          </div>
-          <div class="action-row">
-            <a class="button-link" href="/projects/new">New Project</a>
-          </div>
-        </section>
-
-        <section class="panel dashboard-panel">
-          <div class="section-header">
-            <div>
-              <p class="panel-label">Live queue</p>
-              <h3>Current onboarding projects</h3>
-            </div>
-          </div>
-          <div class="dashboard-shell">
-            <div class="small" id="projects-status">Loading projects...</div>
-            <div class="dashboard-list" id="projects-list" hidden></div>
-            <div class="empty-state dashboard-state" id="projects-empty" hidden>
-              <h3>No projects yet. Create your first one.</h3>
-              <p class="small">
-                Start with a client, a HubSpot portal, and the hubs in scope.
-              </p>
-              <div>
-                <a class="button-link" href="/projects/new">Create project</a>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Projects — Muloo DeployOS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #080e1c; --navy-2: #0d1628; --navy-3: #111e36;
+      --border: rgba(255,255,255,0.07);
+      --teal: #0cc9b0; --teal-dim: rgba(12,201,176,0.12);
+      --text: #e8edf5; --text-2: #8b96a8; --text-3: #4e5a6b;
+      --white: #ffffff; --red: #f04e4e; --green: #27c486;
+    }
+    html, body { height: 100%; background: var(--navy); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; }
+    .shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+    .sidebar { background: var(--navy-2); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+    .sidebar-top { padding: 24px 20px 20px; border-bottom: 1px solid var(--border); }
+    .logo-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .logo-mark { width: 28px; height: 28px; background: linear-gradient(135deg, #0cc9b0, #0b8fd4); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: white; flex-shrink: 0; }
+    .logo-name { font-size: 13px; font-weight: 600; color: var(--white); }
+    .logo-sub { font-size: 11px; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2px; padding-left: 38px; }
+    .nav { padding: 12px; flex: 1; }
+    .nav-section-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); padding: 8px 8px 6px; font-weight: 500; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--text-2); text-decoration: none; font-size: 13.5px; font-weight: 400; transition: all 0.15s; margin-bottom: 1px; }
+    .nav-item:hover { background: var(--navy-3); color: var(--text); }
+    .nav-item.active { background: var(--teal-dim); color: var(--teal); font-weight: 500; }
+    .nav-icon { width: 16px; height: 16px; opacity: 0.7; flex-shrink: 0; }
+    .nav-item.active .nav-icon { opacity: 1; }
+    .sidebar-bottom { padding: 16px; border-top: 1px solid var(--border); }
+    .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-right: 6px; }
+    .system-status { display: flex; align-items: center; font-size: 11.5px; color: var(--text-3); }
+    .main { background: var(--navy); overflow-y: auto; }
+    .page-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 36px 40px 28px; border-bottom: 1px solid var(--border); }
+    .page-title { font-size: 22px; font-weight: 600; color: var(--white); letter-spacing: -0.02em; }
+    .page-sub { font-size: 13px; color: var(--text-2); margin-top: 3px; }
+    .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; text-decoration: none; font-family: 'DM Sans', sans-serif; }
+    .btn-primary { background: var(--teal); color: #030d0c; }
+    .btn-primary:hover { background: #0de8cc; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(12,201,176,0.3); }
+    .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--border); }
+    .stat-cell { padding: 20px 40px; border-right: 1px solid var(--border); }
+    .stat-cell:last-child { border-right: none; }
+    .stat-val { font-size: 28px; font-weight: 600; color: var(--white); letter-spacing: -0.03em; font-family: 'DM Mono', monospace; line-height: 1; margin-bottom: 4px; }
+    .stat-label { font-size: 12px; color: var(--text-3); }
+    .content-area { padding: 32px 40px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-title { font-size: 13px; font-weight: 500; color: var(--text-2); letter-spacing: 0.04em; text-transform: uppercase; }
+    .project-list { display: flex; flex-direction: column; gap: 2px; }
+    .project-row { display: grid; grid-template-columns: 1fr 180px 180px 100px 120px; align-items: center; gap: 16px; padding: 16px 20px; background: var(--navy-2); border: 1px solid var(--border); border-radius: 10px; transition: all 0.15s; cursor: pointer; text-decoration: none; }
+    .project-row:hover { background: var(--navy-3); border-color: rgba(255,255,255,0.11); transform: translateY(-1px); }
+    .project-name { font-size: 14px; font-weight: 500; color: var(--white); }
+    .project-client { font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
+    .hub-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+    .hub-tag { font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 4px; background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(12,201,176,0.2); }
+    .portal-id { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-2); }
+    .status-badge { display: inline-flex; align-items: center; font-size: 11.5px; font-weight: 500; padding: 4px 10px; border-radius: 6px; }
+    .status-draft { background: rgba(139,150,168,0.12); color: var(--text-2); }
+    .status-active { background: rgba(12,201,176,0.12); color: var(--teal); }
+    .status-complete { background: rgba(39,196,134,0.12); color: var(--green); }
+    .project-date { font-size: 12px; color: var(--text-3); text-align: right; font-family: 'DM Mono', monospace; }
+    .table-header { display: grid; grid-template-columns: 1fr 180px 180px 100px 120px; gap: 16px; padding: 0 20px 10px; font-size: 11px; color: var(--text-3); letter-spacing: 0.07em; text-transform: uppercase; font-weight: 500; }
+    .table-header-right { text-align: right; }
+    .empty-state { text-align: center; padding: 80px 40px; background: var(--navy-2); border: 1px solid var(--border); border-radius: 12px; }
+    .empty-title { font-size: 16px; font-weight: 500; color: var(--text); margin-bottom: 8px; }
+    .empty-sub { font-size: 13px; color: var(--text-3); }
+    .loading { display: flex; align-items: center; gap: 10px; color: var(--text-3); font-size: 13px; padding: 40px 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--teal); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="logo-row">
+        <div class="logo-mark">M</div>
+        <span class="logo-name">Muloo</span>
+      </div>
+      <div class="logo-sub">Deploy OS</div>
     </div>
-    <script>
-      const statusNode = document.getElementById("projects-status");
-      const listNode = document.getElementById("projects-list");
-      const emptyNode = document.getElementById("projects-empty");
-
-      function formatDate(value) {
-        if (!value) {
-          return "Unknown";
-        }
-
-        return new Date(value).toLocaleDateString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric"
-        });
-      }
-
-      function statusClass(status) {
-        const normalized = (status || "").toLowerCase();
-
-        if (normalized === "active" || normalized === "in-progress") {
-          return "active";
-        }
-
-        if (
-          normalized === "complete" ||
-          normalized === "completed" ||
-          normalized === "done"
-        ) {
-          return "complete";
-        }
-
-        return "draft";
-      }
-
-      function hubLabel(hub) {
-        return `${hub.replace(/-/g, " ")} hub`;
-      }
-
-      function renderProjects(projects) {
-        if (!projects.length) {
-          statusNode.hidden = true;
-          emptyNode.hidden = false;
-          listNode.hidden = true;
-          return;
-        }
-
-        const markup = projects
-          .map((project) => {
-            const tags = (project.selectedHubs || [])
-              .map(
-                (hub) =>
-                  `<span class="project-tag">${hubLabel(hub)}</span>`
-              )
-              .join("");
-
-            return `
-              <a class="project-row" href="/project?id=${encodeURIComponent(project.id)}">
-                <div>
-                  <p class="project-name">${project.name}</p>
-                </div>
-                <div class="project-client">${project.client?.name ?? "Unknown client"}</div>
-                <div class="project-tags">${tags}</div>
-                <div>
-                  <span class="status-pill ${statusClass(project.status)}">${project.status ?? "draft"}</span>
-                </div>
-                <div class="project-date">
-                  <strong>Created</strong>
-                  <span>${formatDate(project.createdAt)}</span>
-                </div>
-              </a>
-            `;
-          })
-          .join("");
-
-        listNode.innerHTML = markup;
-        statusNode.hidden = true;
-        emptyNode.hidden = true;
-        listNode.hidden = false;
-      }
-
-      async function loadProjects() {
-        try {
-          const response = await fetch("/api/projects");
-
-          if (!response.ok) {
-            throw new Error("Request failed");
-          }
-
-          const data = await response.json();
-          renderProjects(Array.isArray(data.projects) ? data.projects : []);
-        } catch (error) {
-          statusNode.textContent = "Failed to load projects.";
-          statusNode.hidden = false;
-          listNode.hidden = true;
-          emptyNode.hidden = true;
-        }
-      }
-
-      loadProjects();
-    </script>
-  </body>
+    <nav class="nav">
+      <div class="nav-section-label">Workspace</div>
+      <a href="/" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>
+        Overview
+      </a>
+      <a href="/projects" class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>
+        Projects
+      </a>
+      <a href="/templates" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="2"/><path d="M1 5h14"/></svg>
+        Templates
+      </a>
+      <a href="/runs" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 2"/></svg>
+        Runs
+      </a>
+      <div class="nav-section-label" style="margin-top:12px">System</div>
+      <a href="/settings" class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
+        Settings
+      </a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="system-status"><span class="status-dot"></span>System online &middot; dry-run</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Projects</div>
+        <div class="page-sub">Active HubSpot onboarding engagements</div>
+      </div>
+      <a href="/projects/new" class="btn btn-primary">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 1v12M1 7h12"/></svg>
+        New Project
+      </a>
+    </div>
+    <div class="stats-bar">
+      <div class="stat-cell"><div class="stat-val" id="stat-total">—</div><div class="stat-label">Total projects</div></div>
+      <div class="stat-cell"><div class="stat-val" id="stat-active">—</div><div class="stat-label">Active</div></div>
+      <div class="stat-cell"><div class="stat-val" id="stat-draft">—</div><div class="stat-label">Draft</div></div>
+      <div class="stat-cell"><div class="stat-val" id="stat-complete">—</div><div class="stat-label">Complete</div></div>
+    </div>
+    <div class="content-area">
+      <div class="section-header"><div class="section-title">All Projects</div></div>
+      <div id="projects-loading" class="loading"><div class="spinner"></div>Loading projects...</div>
+      <div id="projects-list" style="display:none">
+        <div class="table-header">
+          <div>Project</div><div>Hubs</div><div>Portal ID</div><div>Status</div><div class="table-header-right">Created</div>
+        </div>
+        <div class="project-list" id="project-rows"></div>
+      </div>
+      <div id="projects-empty" style="display:none" class="empty-state">
+        <div class="empty-title">No projects yet</div>
+        <div class="empty-sub">Create your first project to get started</div>
+        <a href="/projects/new" class="btn btn-primary" style="margin-top:20px;display:inline-flex">New Project</a>
+      </div>
+      <div id="projects-error" style="display:none" class="empty-state">
+        <div class="empty-title" style="color:var(--red)">Failed to load projects</div>
+        <div class="empty-sub">Check the API connection and reload</div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+  function formatDate(iso) { return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }); }
+  function statusBadge(s) {
+    const m = { draft:['status-draft','Draft'], active:['status-active','Active'], 'in-progress':['status-active','Active'], complete:['status-complete','Complete'], completed:['status-complete','Complete'] };
+    const [cls, label] = m[s] ?? ['status-draft', s];
+    return `<span class="status-badge ${cls}">${label}</span>`;
+  }
+  function hubLabel(h) { return { sales:'Sales', marketing:'Marketing', service:'Service' }[h] ?? h; }
+  async function loadProjects() {
+    try {
+      const res = await fetch('/api/projects');
+      if (!res.ok) throw new Error();
+      const { projects } = await res.json();
+      document.getElementById('projects-loading').style.display = 'none';
+      document.getElementById('stat-total').textContent = projects.length;
+      document.getElementById('stat-active').textContent = projects.filter(p => ['active','in-progress'].includes(p.status)).length;
+      document.getElementById('stat-draft').textContent = projects.filter(p => p.status === 'draft').length;
+      document.getElementById('stat-complete').textContent = projects.filter(p => ['complete','completed'].includes(p.status)).length;
+      if (projects.length === 0) { document.getElementById('projects-empty').style.display = 'block'; return; }
+      document.getElementById('projects-list').style.display = 'block';
+      document.getElementById('project-rows').innerHTML = projects.map(p => `
+        <a href="/project?id=${p.id}" class="project-row">
+          <div><div class="project-name">${p.name}</div><div class="project-client">${p.client?.name ?? '—'}</div></div>
+          <div class="hub-tags">${(p.selectedHubs ?? []).map(h => `<span class="hub-tag">${hubLabel(h)}</span>`).join('')}</div>
+          <div class="portal-id">${p.portal?.portalId ?? '—'}</div>
+          <div>${statusBadge(p.status)}</div>
+          <div class="project-date">${formatDate(p.createdAt)}</div>
+        </a>`).join('');
+    } catch {
+      document.getElementById('projects-loading').style.display = 'none';
+      document.getElementById('projects-error').style.display = 'block';
+    }
+  }
+  loadProjects();
+</script>
+</body>
 </html>
