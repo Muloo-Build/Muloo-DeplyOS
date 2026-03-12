@@ -5,4 +5,5 @@ dist/
 .next/
 apps/api/data/
 artifacts/*.json
+artifacts/*.log
 !artifacts/.gitkeep
