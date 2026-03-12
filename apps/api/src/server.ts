@@ -29,7 +29,7 @@ import {
   validateAllProjects,
   validateProjectById
 } from "@muloo/file-system";
-import { PrismaClient } from "@prisma/client";
+import Prisma from "@prisma/client";
 import { moduleCatalog } from "@muloo/shared";
 import {
   createProjectFromTemplateRequestSchema,
@@ -43,6 +43,7 @@ import {
 } from "@muloo/shared";
 import { ZodError } from "zod";
 
+const { PrismaClient } = Prisma;
 const prisma = new PrismaClient();
 
 const contentTypes: Record<string, string> = {
