@@ -4,7 +4,6 @@ import path from "node:path";
 
 import { getIntegrationStatus, type BaseConfig } from "@muloo/config";
 import {
-  createProject,
   createProjectFromTemplate,
   loadAllExecutionRecords,
   loadAllTemplates,
@@ -33,7 +32,6 @@ import Prisma from "@prisma/client";
 import { moduleCatalog } from "@muloo/shared";
 import {
   createProjectFromTemplateRequestSchema,
-  createProjectRequestSchema,
   updateProjectDiscoverySectionRequestSchema,
   updateProjectLifecycleDesignRequestSchema,
   updateProjectMetadataRequestSchema,
@@ -71,6 +69,22 @@ const staticRoutes: Record<string, string> = {
   "/assets/styles.css": path.join("assets", "styles.css"),
   "/assets/app.js": path.join("assets", "app.js")
 };
+
+function createSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2002"
+  );
+}
 
 function sendJson(
   response: http.ServerResponse,
@@ -279,26 +293,128 @@ export function createAppServer(config: BaseConfig): http.Server {
 
       if (url.pathname === "/api/projects") {
         if (request.method === "POST") {
-          const payload = createProjectRequestSchema.parse(
-            await readJsonBody(request)
-          );
-          const project = await createProject(payload);
-          return sendJson(response, 201, {
-            project,
-            summary: await summarizeProject(project)
+          const body = (await readJsonBody(request)) as {
+            name: string;
+            clientName: string;
+            hubspotPortalId: string;
+            selectedHubs: string[];
+            owner?: string;
+            ownerEmail?: string;
+          };
+
+          if (
+            !body.name ||
+            !body.clientName ||
+            !body.hubspotPortalId ||
+            !body.selectedHubs?.length
+          ) {
+            return sendJson(response, 400, {
+              error:
+                "name, clientName, hubspotPortalId, and selectedHubs are required"
+            });
+          }
+
+          const slug = createSlug(body.clientName);
+          const client = await prisma.client.upsert({
+            where: { slug },
+            update: {},
+            create: { name: body.clientName, slug }
           });
+
+          const portal = await prisma.hubSpotPortal.upsert({
+            where: { portalId: body.hubspotPortalId },
+            update: {},
+            create: {
+              portalId: body.hubspotPortalId,
+              displayName: body.clientName
+            }
+          });
+
+          const project = await prisma.project.create({
+            data: {
+              name: body.name,
+              status: "draft",
+              owner: body.owner ?? "Jarrud",
+              ownerEmail: body.ownerEmail ?? "jarrud@muloo.com",
+              selectedHubs: body.selectedHubs,
+              clientId: client.id,
+              portalId: portal.id
+            },
+            include: {
+              client: true,
+              portal: true
+            }
+          });
+
+          return sendJson(response, 201, { project });
         }
 
         const projects = await prisma.project.findMany({
-          include: {
-            client: true,
-            portal: true
-          },
+          include: { client: true, portal: true },
           orderBy: { updatedAt: "desc" }
         });
         return sendJson(response, 200, {
           projects
         });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/clients") {
+        const body = (await readJsonBody(request)) as {
+          name: string;
+          website?: string;
+          industry?: string;
+          region?: string;
+        };
+
+        try {
+          const client = await prisma.client.create({
+            data: {
+              name: body.name,
+              slug: createSlug(body.name),
+              website: body.website ?? null,
+              industry: body.industry ?? null,
+              region: body.region ?? null
+            }
+          });
+
+          return sendJson(response, 201, { client });
+        } catch (error: unknown) {
+          if (isUniqueConstraintError(error)) {
+            return sendJson(response, 409, {
+              error: "A client with that name already exists"
+            });
+          }
+
+          throw error;
+        }
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/portals") {
+        const body = (await readJsonBody(request)) as {
+          portalId: string;
+          displayName: string;
+          region?: string;
+        };
+
+        try {
+          const portal = await prisma.hubSpotPortal.create({
+            data: {
+              portalId: body.portalId,
+              displayName: body.displayName,
+              region: body.region ?? null
+            }
+          });
+
+          return sendJson(response, 201, { portal });
+        } catch (error: unknown) {
+          if (isUniqueConstraintError(error)) {
+            return sendJson(response, 409, {
+              error: "A portal with that ID already exists"
+            });
+          }
+
+          throw error;
+        }
       }
 
       if (
@@ -514,9 +630,14 @@ export function createAppServer(config: BaseConfig): http.Server {
           });
         }
 
-        return sendJson(response, 200, {
-          project: await loadProjectById(projectRoute.projectId)
+        const project = await prisma.project.findUnique({
+          where: { id: projectRoute.projectId },
+          include: { client: true, portal: true, discovery: true }
         });
+        if (!project) {
+          return sendJson(response, 404, { error: "Project not found" });
+        }
+        return sendJson(response, 200, { project });
       }
 
       const assetPath = staticRoutes[url.pathname];
