@@ -37,8 +37,8 @@ module.exports = {
         }
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        heading: ["Sora", "system-ui", "sans-serif"]
+        sans: ["system-ui", "sans-serif"],
+        heading: ["system-ui", "sans-serif"]
       },
       backgroundImage: {
         "muloo-gradient":
