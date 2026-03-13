@@ -184,13 +184,17 @@ export default function DiscoveryWorkspace({
                   <div className="mt-3 space-y-2 text-sm">
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-white">Session 1</span>
-                      <span className={statusClass(sessions[0]?.status ?? "draft")}>
+                      <span
+                        className={statusClass(sessions[0]?.status ?? "draft")}
+                      >
                         {statusLabel(sessions[0]?.status ?? "draft")}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-white">Session 3</span>
-                      <span className={statusClass(sessions[2]?.status ?? "draft")}>
+                      <span
+                        className={statusClass(sessions[2]?.status ?? "draft")}
+                      >
                         {statusLabel(sessions[2]?.status ?? "draft")}
                       </span>
                     </div>
@@ -201,9 +205,9 @@ export default function DiscoveryWorkspace({
 
             <div className="grid gap-6 md:grid-cols-2">
               {sessions.map((session) => {
-                const completedFieldCount = Object.values(session.fields).filter(
-                  (value) => value.trim().length > 0
-                ).length;
+                const completedFieldCount = Object.values(
+                  session.fields
+                ).filter((value) => value.trim().length > 0).length;
 
                 return (
                   <section

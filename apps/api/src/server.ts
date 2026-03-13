@@ -356,8 +356,9 @@ function matchProjectBlueprintRoute(pathname: string): {
   projectId: string;
   action?: "generate";
 } | null {
-  const match =
-    /^\/api\/projects\/([^/]+?)\/blueprint(?:\/(generate))?$/.exec(pathname);
+  const match = /^\/api\/projects\/([^/]+?)\/blueprint(?:\/(generate))?$/.exec(
+    pathname
+  );
 
   if (!match || !match[1]) {
     return null;
@@ -444,32 +445,34 @@ function buildDiscoverySessionsWithStatus(
   });
 }
 
-function serializeProject<T extends {
-  id: string;
-  name: string;
-  status: string;
-  owner: string;
-  ownerEmail: string;
-  selectedHubs: string[];
-  engagementType: Prisma.$Enums.EngagementType;
-  createdAt: Date;
-  updatedAt: Date;
-  client: {
+function serializeProject<
+  T extends {
     id: string;
     name: string;
-    slug: string;
-    industry: string | null;
-    region: string | null;
-    website: string | null;
-  };
-  portal: {
-    id: string;
-    portalId: string;
-    displayName: string;
-    region: string | null;
-    connected: boolean;
-  } | null;
-}>(project: T) {
+    status: string;
+    owner: string;
+    ownerEmail: string;
+    selectedHubs: string[];
+    engagementType: Prisma.$Enums.EngagementType;
+    createdAt: Date;
+    updatedAt: Date;
+    client: {
+      id: string;
+      name: string;
+      slug: string;
+      industry: string | null;
+      region: string | null;
+      website: string | null;
+    };
+    portal: {
+      id: string;
+      portalId: string;
+      displayName: string;
+      region: string | null;
+      connected: boolean;
+    } | null;
+  }
+>(project: T) {
   const normalizedProject = normalizeProject(project);
 
   return {
@@ -502,7 +505,9 @@ async function callClaude(system: string, user: string): Promise<string> {
   });
 
   if (!claudeResponse.ok) {
-    throw new Error(`Claude request failed with status ${claudeResponse.status}`);
+    throw new Error(
+      `Claude request failed with status ${claudeResponse.status}`
+    );
   }
 
   const claudeData = (await claudeResponse.json()) as {
@@ -916,11 +921,10 @@ export function createAppServer(config: BaseConfig): http.Server {
           }
         }
 
-        if (
-          request.method === "GET" &&
-          !projectBlueprintRoute.action
-        ) {
-          const blueprint = await loadBlueprint(projectBlueprintRoute.projectId);
+        if (request.method === "GET" && !projectBlueprintRoute.action) {
+          const blueprint = await loadBlueprint(
+            projectBlueprintRoute.projectId
+          );
 
           if (!blueprint) {
             return sendJson(response, 404, { error: "Blueprint not found" });

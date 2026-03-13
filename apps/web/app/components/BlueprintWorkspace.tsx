@@ -477,7 +477,8 @@ export default function BlueprintWorkspace({
                           >
                             <div className="flex items-center justify-between gap-4">
                               <span className="text-sm text-white">
-                                Phase {phaseGroup.phase} - {phaseGroup.phaseName}
+                                Phase {phaseGroup.phase} -{" "}
+                                {phaseGroup.phaseName}
                               </span>
                               <span className="text-sm text-text-secondary">
                                 {formatHours(phaseHumanHours)} hrs

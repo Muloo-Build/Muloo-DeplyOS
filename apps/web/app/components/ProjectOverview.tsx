@@ -200,11 +200,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
             <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {[
-                [
-                  "Discovery",
-                  `${completedSessions}/4 sessions`,
-                  "text-white"
-                ],
+                ["Discovery", `${completedSessions}/4 sessions`, "text-white"],
                 [
                   "Blueprint",
                   blueprint ? "Generated" : "Not generated",
