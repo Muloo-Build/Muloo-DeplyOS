@@ -45,6 +45,11 @@ interface LoadConfigOptions {
   cwd: string;
 }
 
+const apiEnvironmentSchema = environmentSchema.extend({
+  API_PORT: z.coerce.number().int().positive().optional(),
+  API_BASE_URL: z.string().url().optional()
+});
+
 function parseDotEnv(content: string): Record<string, string> {
   return content
     .split(/\r?\n/)
@@ -77,11 +82,15 @@ function readEnvironmentFile(cwd: string): Record<string, string> {
     : {};
 }
 
-export function loadBaseConfig(options: LoadConfigOptions): BaseConfig {
-  const parsed = environmentSchema.parse({
-    ...readEnvironmentFile(options.cwd),
+function readResolvedEnvironment(cwd: string): Record<string, string> {
+  return {
+    ...readEnvironmentFile(cwd),
     ...process.env
-  });
+  };
+}
+
+export function loadBaseConfig(options: LoadConfigOptions): BaseConfig {
+  const parsed = environmentSchema.parse(readResolvedEnvironment(options.cwd));
 
   const hubspotAccessToken =
     parsed.HUBSPOT_ACCESS_TOKEN ?? parsed.HUBSPOT_PRIVATE_APP_TOKEN;
@@ -120,7 +129,15 @@ export function loadBaseConfig(options: LoadConfigOptions): BaseConfig {
 }
 
 export function loadApiConfig(options: LoadConfigOptions): BaseConfig {
-  return loadBaseConfig(options);
+  const config = loadBaseConfig(options);
+  const parsed = apiEnvironmentSchema.parse(readResolvedEnvironment(options.cwd));
+  const port = parsed.API_PORT ?? 3001;
+
+  return {
+    ...config,
+    port,
+    appBaseUrl: parsed.API_BASE_URL ?? `http://localhost:${port}`
+  };
 }
 
 export function loadCliConfig(options: LoadConfigOptions): CliConfig {
