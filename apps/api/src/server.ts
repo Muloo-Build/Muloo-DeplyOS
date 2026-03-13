@@ -1,7 +1,4 @@
 import http from "node:http";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
 import { getIntegrationStatus, type BaseConfig } from "@muloo/config";
 import {
   createProjectFromTemplate,
@@ -45,32 +42,7 @@ const { PrismaClient } = Prisma;
 const prisma = new PrismaClient();
 
 const contentTypes: Record<string, string> = {
-  ".css": "text/css; charset=utf-8",
-  ".html": "text/html; charset=utf-8",
-  ".js": "application/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".svg": "image/svg+xml"
-};
-
-const staticRoutes: Record<string, string> = {
-  "/": "index.html",
-  "/discovery": "discovery.html",
-  "/execution": "execution.html",
-  "/module": "module.html",
-  "/modules": "modules.html",
-  "/guide": "guide.html",
-  "/runs": "runs.html",
-  "/project/design/lifecycle": "project-design-lifecycle.html",
-  "/project/design/pipelines": "project-design-pipelines.html",
-  "/project/design/properties": "project-design-properties.html",
-  "/projects/new": "project-new.html",
-  "/projects": "projects.html",
-  "/templates": "templates.html",
-  "/project": "project.html",
-  "/settings": "settings.html",
-  "/assets/styles.css": path.join("assets", "styles.css"),
-  "/assets/app.js": path.join("assets", "app.js"),
-  "/assets/muloo-logo.svg": path.join("assets", "muloo-logo.svg")
+  ".json": "application/json; charset=utf-8"
 };
 
 const pendingPortalPrefix = "pending-portal-";
@@ -214,28 +186,6 @@ async function readJsonBody(request: http.IncomingMessage): Promise<unknown> {
 
   const content = Buffer.concat(chunks).toString("utf8").trim();
   return content.length > 0 ? (JSON.parse(content) as unknown) : {};
-}
-
-async function serveStaticAsset(
-  response: http.ServerResponse,
-  assetPath: string
-): Promise<void> {
-  const absolutePath = path.resolve(
-    __dirname,
-    "..",
-    "..",
-    "..",
-    "apps",
-    "web",
-    assetPath
-  );
-  const extension = path.extname(absolutePath);
-  const content = await readFile(absolutePath);
-
-  response.writeHead(200, {
-    "Content-Type": contentTypes[extension] ?? "application/octet-stream"
-  });
-  response.end(content);
 }
 
 function matchProjectRoute(pathname: string): {
@@ -1679,17 +1629,11 @@ export function createAppServer(config: BaseConfig): http.Server {
         });
       }
 
-      const assetPath = staticRoutes[url.pathname];
-      if (assetPath) {
-        await serveStaticAsset(response, assetPath);
-        return;
-      }
-
       if (url.pathname.startsWith("/api/")) {
         return sendJson(response, 404, { error: "Not Found" });
       }
 
-      await serveStaticAsset(response, "index.html");
+      return sendJson(response, 404, { error: "Not Found" });
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Unexpected server error";
