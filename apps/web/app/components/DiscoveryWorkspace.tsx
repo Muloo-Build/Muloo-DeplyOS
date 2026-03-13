@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import AppShell from "./AppShell";
@@ -22,11 +23,143 @@ interface SessionDetail {
   fields: Record<string, string>;
 }
 
-const sessionDescriptions: Record<number, string> = {
-  1: "Capture the business context, commercial drivers, success metrics, and timeline constraints.",
-  2: "Audit the current systems, data landscape, and the way the team operates today.",
-  3: "Define the target HubSpot design, future-state process, automation, integrations, and reporting.",
-  4: "Lock delivery boundaries, client responsibilities, risks, and agreed next steps."
+interface SessionFieldDefinition {
+  key: string;
+  label: string;
+  hint: string;
+}
+
+const sessionDefinitions: Record<
+  number,
+  {
+    description: string;
+    fields: SessionFieldDefinition[];
+  }
+> = {
+  1: {
+    description:
+      "Capture the business context, commercial drivers, success metrics, and timeline constraints.",
+    fields: [
+      {
+        key: "business_overview",
+        label: "Business Overview",
+        hint: "Industry, team size, what the business does"
+      },
+      {
+        key: "primary_pain_challenge",
+        label: "Primary Pain / Challenge",
+        hint: "What problem is driving this engagement?"
+      },
+      {
+        key: "goals_and_success_metrics",
+        label: "Goals & Success Metrics",
+        hint: "What does success look like in 60-90 days?"
+      },
+      {
+        key: "key_stakeholders",
+        label: "Key Stakeholders",
+        hint: "Who are the decision makers and project owners?"
+      },
+      {
+        key: "timeline_and_constraints",
+        label: "Timeline & Constraints",
+        hint: "Target go-live, budget constraints, dependencies"
+      }
+    ]
+  },
+  2: {
+    description:
+      "Audit the current systems, data landscape, and the way the team operates today.",
+    fields: [
+      {
+        key: "current_tech_stack",
+        label: "Current Tech Stack",
+        hint: "CRM, email tools, integrations, data sources"
+      },
+      {
+        key: "current_hubspot_state",
+        label: "Current HubSpot State",
+        hint: "What exists today? What is broken or missing?"
+      },
+      {
+        key: "data_landscape",
+        label: "Data Landscape",
+        hint: "Where does data live? Volume, quality, sources"
+      },
+      {
+        key: "current_processes",
+        label: "Current Processes",
+        hint: "Walk through the current sales or marketing process end to end"
+      },
+      {
+        key: "what_has_been_tried_before",
+        label: "What Has Been Tried Before",
+        hint: "Previous attempts, what worked, what did not"
+      }
+    ]
+  },
+  3: {
+    description:
+      "Define the target HubSpot design, future-state process, automation, integrations, and reporting.",
+    fields: [
+      {
+        key: "hubs_and_features_required",
+        label: "Hubs & Features Required",
+        hint: "Which HubSpot hubs and specific features are in scope?"
+      },
+      {
+        key: "pipeline_and_process_design",
+        label: "Pipeline & Process Design",
+        hint: "Agreed future state - stages, owners, handoffs"
+      },
+      {
+        key: "automation_requirements",
+        label: "Automation Requirements",
+        hint: "What should be automated? Lead routing, sequences, notifications"
+      },
+      {
+        key: "integration_requirements",
+        label: "Integration Requirements",
+        hint: "What tools need to connect to HubSpot?"
+      },
+      {
+        key: "reporting_requirements",
+        label: "Reporting Requirements",
+        hint: "What dashboards and reports are needed at go-live?"
+      }
+    ]
+  },
+  4: {
+    description:
+      "Lock delivery boundaries, client responsibilities, risks, and agreed next steps.",
+    fields: [
+      {
+        key: "confirmed_scope",
+        label: "Confirmed Scope",
+        hint: "What is definitively in scope for this engagement?"
+      },
+      {
+        key: "out_of_scope",
+        label: "Out of Scope",
+        hint: "What has been explicitly excluded?"
+      },
+      {
+        key: "risks_and_blockers",
+        label: "Risks & Blockers",
+        hint: "What could delay or derail this project?"
+      },
+      {
+        key: "client_responsibilities",
+        label: "Client Responsibilities",
+        hint: "What does the client need to provide or action?"
+      },
+      {
+        key: "agreed_next_steps",
+        label: "Agreed Next Steps",
+        hint: "Immediate actions after this session"
+      }
+    ]
+  }
 };
 
 function statusLabel(status: SessionDetail["status"]) {
@@ -51,14 +184,61 @@ function statusClass(status: SessionDetail["status"]) {
   }
 }
 
+function createSessionDrafts(
+  sessionDetails: SessionDetail[]
+): Record<number, Record<string, string>> {
+  return [1, 2, 3, 4].reduce<Record<number, Record<string, string>>>(
+    (drafts, sessionNumber) => {
+      const session =
+        sessionDetails.find(
+          (candidate) => candidate.session === sessionNumber
+        ) ?? null;
+      const fieldDefinitions = sessionDefinitions[sessionNumber]?.fields ?? [];
+
+      drafts[sessionNumber] = Object.fromEntries(
+        fieldDefinitions.map(({ key }) => [key, session?.fields[key] ?? ""])
+      );
+
+      return drafts;
+    },
+    { 1: {}, 2: {}, 3: {}, 4: {} }
+  );
+}
+
+function createSessionFlags(defaultValue: boolean) {
+  return { 1: defaultValue, 2: defaultValue, 3: defaultValue, 4: defaultValue };
+}
+
+function createSessionErrors() {
+  return { 1: null, 2: null, 3: null, 4: null } as Record<
+    number,
+    string | null
+  >;
+}
+
 export default function DiscoveryWorkspace({
   projectId
 }: {
   projectId: string;
 }) {
+  const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
+  const [sessionDrafts, setSessionDrafts] = useState<
+    Record<number, Record<string, string>>
+  >({
+    1: {},
+    2: {},
+    3: {},
+    4: {}
+  });
+  const [savingSessions, setSavingSessions] = useState(
+    createSessionFlags(false)
+  );
+  const [sessionErrors, setSessionErrors] = useState(createSessionErrors());
   const [loading, setLoading] = useState(true);
+  const [generatingBlueprint, setGeneratingBlueprint] = useState(false);
+  const [blueprintError, setBlueprintError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -75,9 +255,11 @@ export default function DiscoveryWorkspace({
 
         const projectBody = await projectResponse.json();
         const sessionsBody = await sessionsResponse.json();
+        const nextSessions = sessionsBody.sessionDetails ?? [];
 
         setProject(projectBody.project);
-        setSessions(sessionsBody.sessionDetails ?? []);
+        setSessions(nextSessions);
+        setSessionDrafts(createSessionDrafts(nextSessions));
       } catch (loadError) {
         setError(
           loadError instanceof Error
@@ -89,7 +271,7 @@ export default function DiscoveryWorkspace({
       }
     }
 
-    loadWorkspace();
+    void loadWorkspace();
   }, [projectId]);
 
   const session1Complete =
@@ -100,6 +282,107 @@ export default function DiscoveryWorkspace({
   const completedSessions = sessions.filter(
     (session) => session.status === "complete"
   ).length;
+
+  function updateSessionDraft(
+    sessionNumber: number,
+    fieldKey: string,
+    value: string
+  ) {
+    setSessionDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [sessionNumber]: {
+        ...currentDrafts[sessionNumber],
+        [fieldKey]: value
+      }
+    }));
+  }
+
+  async function saveSession(sessionNumber: number) {
+    setSavingSessions((currentFlags) => ({
+      ...currentFlags,
+      [sessionNumber]: true
+    }));
+    setSessionErrors((currentErrors) => ({
+      ...currentErrors,
+      [sessionNumber]: null
+    }));
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/sessions/${sessionNumber}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            fields: sessionDrafts[sessionNumber]
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to save session");
+      }
+
+      const body = await response.json();
+      const nextSession = body.sessionDetail as SessionDetail;
+
+      setSessions((currentSessions) =>
+        currentSessions.map((session) =>
+          session.session === sessionNumber ? nextSession : session
+        )
+      );
+      setSessionDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        [sessionNumber]: nextSession.fields
+      }));
+    } catch (saveError) {
+      setSessionErrors((currentErrors) => ({
+        ...currentErrors,
+        [sessionNumber]:
+          saveError instanceof Error
+            ? saveError.message
+            : "Failed to save session"
+      }));
+    } finally {
+      setSavingSessions((currentFlags) => ({
+        ...currentFlags,
+        [sessionNumber]: false
+      }));
+    }
+  }
+
+  async function generateBlueprint() {
+    setGeneratingBlueprint(true);
+    setBlueprintError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/blueprint/generate`,
+        {
+          method: "POST"
+        }
+      );
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to generate blueprint");
+      }
+
+      await response.json();
+      router.push(`/blueprint/${projectId}`);
+    } catch (generationError) {
+      setBlueprintError(
+        generationError instanceof Error
+          ? generationError.message
+          : "Failed to generate blueprint"
+      );
+    } finally {
+      setGeneratingBlueprint(false);
+    }
+  }
 
   return (
     <AppShell>
@@ -135,7 +418,7 @@ export default function DiscoveryWorkspace({
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-col items-end gap-3">
                 <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-5 py-4 text-right">
                   <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                     Sessions complete
@@ -145,17 +428,23 @@ export default function DiscoveryWorkspace({
                   </p>
                 </div>
 
-                <Link
-                  href={`/blueprint/${projectId}?generate=1`}
-                  aria-disabled={!canGenerateBlueprint}
+                <button
+                  type="button"
+                  onClick={generateBlueprint}
+                  disabled={!canGenerateBlueprint || generatingBlueprint}
                   className={`rounded-xl px-5 py-3 text-sm font-semibold text-white ${
-                    canGenerateBlueprint
+                    canGenerateBlueprint && !generatingBlueprint
                       ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]"
-                      : "cursor-not-allowed border border-[rgba(255,255,255,0.08)] bg-background-card text-text-muted pointer-events-none"
+                      : "cursor-not-allowed border border-[rgba(255,255,255,0.08)] bg-background-card text-text-muted"
                   }`}
                 >
-                  Generate Blueprint
-                </Link>
+                  {generatingBlueprint ? "Generating..." : "Generate Blueprint"}
+                </button>
+                {blueprintError ? (
+                  <p className="max-w-sm text-right text-sm text-[#ff8f9c]">
+                    {blueprintError}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -203,18 +492,22 @@ export default function DiscoveryWorkspace({
               </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6">
               {sessions.map((session) => {
-                const completedFieldCount = Object.values(
-                  session.fields
-                ).filter((value) => value.trim().length > 0).length;
+                const sessionDefinition = sessionDefinitions[session.session];
+                const currentDraft = sessionDrafts[session.session] ?? {};
+                const completedFieldCount = (
+                  sessionDefinition?.fields ?? []
+                ).filter(
+                  ({ key }) => currentDraft[key]?.trim().length > 0
+                ).length;
 
                 return (
                   <section
                     key={session.session}
                     className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                           Session {session.session}
@@ -234,7 +527,7 @@ export default function DiscoveryWorkspace({
                     </div>
 
                     <p className="mt-3 text-sm text-text-secondary">
-                      {sessionDescriptions[session.session]}
+                      {sessionDefinition?.description}
                     </p>
 
                     <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -257,6 +550,46 @@ export default function DiscoveryWorkspace({
                             : "Supports scoping detail"}
                         </p>
                       </div>
+                    </div>
+
+                    <div className="mt-6 grid gap-5 lg:grid-cols-2">
+                      {(sessionDefinition?.fields ?? []).map((field) => (
+                        <label key={field.key} className="block">
+                          <span className="text-sm font-medium text-white">
+                            {field.label}
+                          </span>
+                          <span className="mt-1 block text-xs text-text-muted">
+                            {field.hint}
+                          </span>
+                          <textarea
+                            value={currentDraft[field.key] ?? ""}
+                            onChange={(event) =>
+                              updateSessionDraft(
+                                session.session,
+                                field.key,
+                                event.target.value
+                              )
+                            }
+                            className="mt-3 min-h-[150px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                          />
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-sm text-[#ff8f9c]">
+                        {sessionErrors[session.session] ?? ""}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => saveSession(session.session)}
+                        disabled={savingSessions[session.session]}
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                      >
+                        {savingSessions[session.session]
+                          ? "Saving..."
+                          : "Save Session"}
+                      </button>
                     </div>
                   </section>
                 );

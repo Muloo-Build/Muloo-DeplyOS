@@ -81,6 +81,13 @@ const validEngagementTypes = [
   "OPTIMISATION",
   "GUIDED_DEPLOYMENT"
 ] as const;
+const validProjectHubValues = [
+  "sales",
+  "marketing",
+  "service",
+  "ops",
+  "cms"
+] as const;
 const sessionFieldLabels: Record<number, string[]> = {
   1: [
     "business_overview",
@@ -113,6 +120,7 @@ const sessionFieldLabels: Record<number, string[]> = {
 };
 
 type EngagementType = (typeof validEngagementTypes)[number];
+type ProjectHub = (typeof validProjectHubValues)[number];
 type DiscoverySessionFields = Record<string, string>;
 type DiscoverySessionStatus = "draft" | "in_progress" | "complete";
 
@@ -147,6 +155,10 @@ const blueprintGenerationSchema = z.object({
 
 function isValidEngagementType(value: string): value is EngagementType {
   return validEngagementTypes.includes(value as EngagementType);
+}
+
+function isValidProjectHub(value: string): value is ProjectHub {
+  return validProjectHubValues.includes(value as ProjectHub);
 }
 
 function createSlug(value: string): string {
@@ -370,6 +382,22 @@ function matchProjectBlueprintRoute(pathname: string): {
   };
 }
 
+function matchProjectSessionRoute(pathname: string): {
+  projectId: string;
+  sessionId: number;
+} | null {
+  const match = /^\/api\/projects\/([^/]+?)\/sessions\/([1-4])$/.exec(pathname);
+
+  if (!match || !match[1] || !match[2]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1]),
+    sessionId: Number(match[2])
+  };
+}
+
 function emptyDiscoverySessions(): Record<number, DiscoverySessionFields> {
   return {
     1: {},
@@ -391,6 +419,22 @@ function normalizeDiscoveryFields(value: unknown): DiscoverySessionFields {
         typeof fieldValue === "string" ? fieldValue : ""
       ]
     )
+  );
+}
+
+function normalizeDiscoverySessionFields(
+  sessionNumber: number,
+  value: unknown
+): DiscoverySessionFields {
+  const normalizedFields = normalizeDiscoveryFields(value);
+  const allowedFields =
+    sessionFieldLabels[sessionNumber] ?? sessionFieldLabels[1] ?? [];
+
+  return Object.fromEntries(
+    allowedFields.map((fieldName) => [
+      fieldName,
+      normalizedFields[fieldName] ?? ""
+    ])
   );
 }
 
@@ -420,6 +464,14 @@ function getDiscoverySessionStatus(
   }
 
   return values.every((value) => value.length > 0) ? "complete" : "in_progress";
+}
+
+function getCompletedDiscoverySections(
+  fields: DiscoverySessionFields
+): string[] {
+  return Object.entries(fields)
+    .filter(([, value]) => value.trim().length > 0)
+    .map(([key]) => key);
 }
 
 function buildDiscoverySessionsWithStatus(
@@ -668,6 +720,47 @@ async function loadBlueprint(projectId: string) {
   });
 }
 
+async function saveDiscoverySession(
+  projectId: string,
+  sessionNumber: number,
+  fields: unknown
+) {
+  const normalizedFields = normalizeDiscoverySessionFields(
+    sessionNumber,
+    fields
+  );
+  const completedSections = getCompletedDiscoverySections(normalizedFields);
+  const status = getDiscoverySessionStatus(normalizedFields);
+
+  await prisma.discoverySubmission.upsert({
+    where: {
+      projectId_version: {
+        projectId,
+        version: sessionNumber
+      }
+    },
+    update: {
+      sections: normalizedFields,
+      completedSections,
+      status
+    },
+    create: {
+      projectId,
+      version: sessionNumber,
+      sections: normalizedFields,
+      completedSections,
+      status
+    }
+  });
+
+  return {
+    session: sessionNumber,
+    title: sessionTitles[sessionNumber] ?? `Session ${sessionNumber}`,
+    status,
+    fields: normalizedFields
+  };
+}
+
 async function extractDiscoveryFields(
   text: string,
   session: number
@@ -878,6 +971,27 @@ export function createAppServer(config: BaseConfig): http.Server {
         });
       }
 
+      const projectSessionRoute = matchProjectSessionRoute(url.pathname);
+      if (request.method === "PATCH" && projectSessionRoute) {
+        const project = await prisma.project.findUnique({
+          where: { id: projectSessionRoute.projectId },
+          select: { id: true }
+        });
+
+        if (!project) {
+          return sendJson(response, 404, { error: "Project not found" });
+        }
+
+        const body = (await readJsonBody(request)) as { fields?: unknown };
+        const sessionDetail = await saveDiscoverySession(
+          projectSessionRoute.projectId,
+          projectSessionRoute.sessionId,
+          body.fields ?? body
+        );
+
+        return sendJson(response, 200, { sessionDetail });
+      }
+
       const projectBlueprintRoute = matchProjectBlueprintRoute(url.pathname);
       if (projectBlueprintRoute) {
         if (
@@ -956,49 +1070,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           });
         }
 
-        const normalizedFields = normalizeDiscoveryFields(body.fields);
-        await prisma.discoverySubmission.upsert({
-          where: {
-            projectId_version: {
-              projectId: body.projectId,
-              version: body.session
-            }
-          },
-          update: {
-            sections: normalizedFields,
-            completedSections: Object.entries(normalizedFields)
-              .filter(([, value]) => value.trim().length > 0)
-              .map(([key]) => key),
-            status:
-              Object.values(normalizedFields).every(
-                (value) => value.trim().length > 0
-              ) && Object.keys(normalizedFields).length > 0
-                ? "complete"
-                : Object.values(normalizedFields).some(
-                      (value) => value.trim().length > 0
-                    )
-                  ? "in_progress"
-                  : "draft"
-          },
-          create: {
-            projectId: body.projectId,
-            version: body.session,
-            sections: normalizedFields,
-            completedSections: Object.entries(normalizedFields)
-              .filter(([, value]) => value.trim().length > 0)
-              .map(([key]) => key),
-            status:
-              Object.values(normalizedFields).every(
-                (value) => value.trim().length > 0
-              ) && Object.keys(normalizedFields).length > 0
-                ? "complete"
-                : Object.values(normalizedFields).some(
-                      (value) => value.trim().length > 0
-                    )
-                  ? "in_progress"
-                  : "draft"
-          }
-        });
+        await saveDiscoverySession(body.projectId, body.session, body.fields);
 
         return sendJson(response, 200, { success: true });
       }
@@ -1242,6 +1314,196 @@ export function createAppServer(config: BaseConfig): http.Server {
 
       const projectRoute = matchProjectRoute(url.pathname);
       if (projectRoute) {
+        if (request.method === "PATCH" && !projectRoute.resource) {
+          const body = (await readJsonBody(request)) as {
+            clientName?: unknown;
+            type?: unknown;
+            portalId?: unknown;
+            hubs?: unknown;
+          };
+
+          const normalizedPayload: {
+            clientName?: string;
+            type?: EngagementType;
+            portalId?: string;
+            hubs?: ProjectHub[];
+          } = {};
+
+          if (body.clientName !== undefined) {
+            if (
+              typeof body.clientName !== "string" ||
+              body.clientName.trim().length === 0
+            ) {
+              return sendJson(response, 400, {
+                error: "clientName must be a non-empty string"
+              });
+            }
+
+            normalizedPayload.clientName = body.clientName.trim();
+          }
+
+          if (body.type !== undefined) {
+            if (
+              typeof body.type !== "string" ||
+              !isValidEngagementType(body.type)
+            ) {
+              return sendJson(response, 400, {
+                error: "Invalid engagement type"
+              });
+            }
+
+            normalizedPayload.type = body.type;
+          }
+
+          if (body.portalId !== undefined) {
+            if (typeof body.portalId !== "string") {
+              return sendJson(response, 400, {
+                error: "portalId must be a string"
+              });
+            }
+
+            normalizedPayload.portalId = body.portalId.trim();
+          }
+
+          if (body.hubs !== undefined) {
+            if (
+              !Array.isArray(body.hubs) ||
+              body.hubs.length === 0 ||
+              body.hubs.some((hub) => typeof hub !== "string")
+            ) {
+              return sendJson(response, 400, {
+                error: "hubs must be a non-empty array of hub keys"
+              });
+            }
+
+            const normalizedHubs = Array.from(
+              new Set(body.hubs.map((hub) => hub.trim().toLowerCase()))
+            );
+
+            if (normalizedHubs.some((hub) => !isValidProjectHub(hub))) {
+              return sendJson(response, 400, {
+                error: "Invalid hubs selection"
+              });
+            }
+
+            normalizedPayload.hubs = normalizedHubs;
+          }
+
+          if (
+            normalizedPayload.clientName === undefined &&
+            normalizedPayload.type === undefined &&
+            normalizedPayload.portalId === undefined &&
+            normalizedPayload.hubs === undefined
+          ) {
+            return sendJson(response, 400, {
+              error: "At least one editable field is required"
+            });
+          }
+
+          const existingProject = await prisma.project.findUnique({
+            where: { id: projectRoute.projectId },
+            include: { client: true, portal: true }
+          });
+
+          if (!existingProject) {
+            return sendJson(response, 404, { error: "Project not found" });
+          }
+
+          const nextClientName =
+            normalizedPayload.clientName ?? existingProject.client.name;
+
+          const project = await prisma.$transaction(async (transaction) => {
+            let nextClientId = existingProject.clientId;
+            let nextPortalId = existingProject.portalId;
+
+            if (normalizedPayload.clientName) {
+              const clientSlug = createSlug(normalizedPayload.clientName);
+              const client = await transaction.client.upsert({
+                where: { slug: clientSlug },
+                update: { name: normalizedPayload.clientName },
+                create: {
+                  name: normalizedPayload.clientName,
+                  slug: clientSlug
+                }
+              });
+
+              nextClientId = client.id;
+            }
+
+            if (normalizedPayload.portalId !== undefined) {
+              const portal = normalizedPayload.portalId
+                ? await transaction.hubSpotPortal.upsert({
+                    where: { portalId: normalizedPayload.portalId },
+                    update: {},
+                    create: {
+                      portalId: normalizedPayload.portalId,
+                      displayName: nextClientName
+                    }
+                  })
+                : await transaction.hubSpotPortal.create({
+                    data: {
+                      portalId: createPendingPortalId(),
+                      displayName: nextClientName
+                    }
+                  });
+
+              nextPortalId = portal.id;
+            }
+
+            const updatedProject = await transaction.project.update({
+              where: { id: projectRoute.projectId },
+              data: {
+                ...(normalizedPayload.type
+                  ? {
+                      engagementType:
+                        normalizedPayload.type as Prisma.$Enums.EngagementType
+                    }
+                  : {}),
+                ...(normalizedPayload.hubs
+                  ? { selectedHubs: normalizedPayload.hubs }
+                  : {}),
+                ...(nextClientId !== existingProject.clientId
+                  ? { clientId: nextClientId }
+                  : {}),
+                ...(nextPortalId !== existingProject.portalId
+                  ? { portalId: nextPortalId }
+                  : {})
+              },
+              include: { client: true, portal: true, discovery: true }
+            });
+
+            if (nextClientId !== existingProject.clientId) {
+              const remainingClientProjects = await transaction.project.count({
+                where: { clientId: existingProject.clientId }
+              });
+
+              if (remainingClientProjects === 0) {
+                await transaction.client.delete({
+                  where: { id: existingProject.clientId }
+                });
+              }
+            }
+
+            if (nextPortalId !== existingProject.portalId) {
+              const remainingPortalProjects = await transaction.project.count({
+                where: { portalId: existingProject.portalId }
+              });
+
+              if (remainingPortalProjects === 0) {
+                await transaction.hubSpotPortal.delete({
+                  where: { id: existingProject.portalId }
+                });
+              }
+            }
+
+            return updatedProject;
+          });
+
+          return sendJson(response, 200, {
+            project: serializeProject(project)
+          });
+        }
+
         if (request.method === "PATCH" && projectRoute.resource === "status") {
           const body = (await readJsonBody(request)) as { status?: string };
           const allowedStatuses = ["active", "complete", "archived", "draft"];

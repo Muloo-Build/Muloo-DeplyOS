@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import AppShell from "./AppShell";
@@ -44,11 +45,49 @@ interface Blueprint {
   }>;
 }
 
+type EditableField = "clientName" | "type" | "portalId" | "hubs" | null;
+
+const engagementOptions = [
+  { value: "IMPLEMENTATION", label: "Implementation" },
+  { value: "MIGRATION", label: "Migration" },
+  { value: "AUDIT", label: "Audit" },
+  { value: "OPTIMISATION", label: "Optimisation" },
+  { value: "GUIDED_DEPLOYMENT", label: "Guided Deployment" }
+] as const;
+
+const hubOptions = [
+  { value: "sales", label: "Sales" },
+  { value: "marketing", label: "Marketing" },
+  { value: "service", label: "Service" },
+  { value: "ops", label: "Operations" },
+  { value: "cms", label: "CMS/Content" }
+] as const;
+
+function createProjectDraft(project: Project) {
+  return {
+    clientName: project.client.name,
+    type: project.engagementType,
+    portalId: project.portal?.portalId ?? "",
+    hubs: project.selectedHubs
+  };
+}
+
 function formatLabel(value: string) {
   return value
     .toLowerCase()
     .replace(/_/g, " ")
     .replace(/^./, (character) => character.toUpperCase());
+}
+
+function formatEngagementType(value: string) {
+  return (
+    engagementOptions.find((option) => option.value === value)?.label ??
+    formatLabel(value)
+  );
+}
+
+function formatHubLabel(value: string) {
+  return hubOptions.find((option) => option.value === value)?.label ?? value;
 }
 
 function formatDate(dateString: string) {
@@ -71,11 +110,55 @@ function statusClass(status: string) {
   }
 }
 
+function EditButton({
+  onClick,
+  label
+}: {
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="rounded-full border border-[rgba(255,255,255,0.08)] p-2 text-text-muted opacity-0 transition hover:text-white group-hover:opacity-100"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        className="h-4 w-4"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M16.862 4.487a2.1 2.1 0 1 1 2.97 2.97L8.5 18.79 4 20l1.21-4.5 11.652-11.013Z"
+        />
+      </svg>
+    </button>
+  );
+}
+
 export default function ProjectOverview({ projectId }: { projectId: string }) {
+  const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
+  const [projectDraft, setProjectDraft] = useState({
+    clientName: "",
+    type: "IMPLEMENTATION",
+    portalId: "",
+    hubs: [] as string[]
+  });
+  const [editingField, setEditingField] = useState<EditableField>(null);
+  const [savingField, setSavingField] = useState<EditableField>(null);
+  const [projectEditError, setProjectEditError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [blueprintBusy, setBlueprintBusy] = useState(false);
+  const [blueprintError, setBlueprintError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -96,6 +179,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         const sessionsBody = await sessionsResponse.json();
 
         setProject(projectBody.project);
+        setProjectDraft(createProjectDraft(projectBody.project));
         setSessions(sessionsBody.sessionDetails ?? []);
 
         if (blueprintResponse.ok) {
@@ -115,7 +199,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       }
     }
 
-    loadProject();
+    void loadProject();
   }, [projectId]);
 
   const completedSessions = sessions.filter(
@@ -130,6 +214,150 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     blueprint?.tasks
       .filter((task) => task.type === "Human")
       .reduce((total, task) => total + task.effortHours, 0) ?? 0;
+
+  function startEditing(field: Exclude<EditableField, null>) {
+    if (!project) {
+      return;
+    }
+
+    setProjectDraft(createProjectDraft(project));
+    setProjectEditError(null);
+    setEditingField(field);
+  }
+
+  function cancelEditing() {
+    if (!project) {
+      return;
+    }
+
+    setProjectDraft(createProjectDraft(project));
+    setProjectEditError(null);
+    setEditingField(null);
+  }
+
+  function toggleHubSelection(hub: string) {
+    setProjectDraft((currentDraft) => ({
+      ...currentDraft,
+      hubs: currentDraft.hubs.includes(hub)
+        ? currentDraft.hubs.filter((currentHub) => currentHub !== hub)
+        : [...currentDraft.hubs, hub]
+    }));
+  }
+
+  async function saveField(field: Exclude<EditableField, null>) {
+    if (!project) {
+      return;
+    }
+
+    const payload =
+      field === "clientName"
+        ? { clientName: projectDraft.clientName }
+        : field === "type"
+          ? { type: projectDraft.type }
+          : field === "portalId"
+            ? { portalId: projectDraft.portalId }
+            : { hubs: projectDraft.hubs };
+
+    setSavingField(field);
+    setProjectEditError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to update project");
+      }
+
+      const body = await response.json();
+      setProject(body.project);
+      setProjectDraft(createProjectDraft(body.project));
+      setEditingField(null);
+    } catch (saveError) {
+      setProjectEditError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to update project"
+      );
+    } finally {
+      setSavingField(null);
+    }
+  }
+
+  async function handleBlueprintAction() {
+    if (!project) {
+      return;
+    }
+
+    if (blueprint) {
+      router.push(`/blueprint/${project.id}`);
+      return;
+    }
+
+    setBlueprintBusy(true);
+    setBlueprintError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/blueprint/generate`,
+        {
+          method: "POST"
+        }
+      );
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to generate blueprint");
+      }
+
+      const body = await response.json();
+      setBlueprint(body.blueprint);
+      router.push(`/blueprint/${project.id}`);
+    } catch (generationError) {
+      setBlueprintError(
+        generationError instanceof Error
+          ? generationError.message
+          : "Failed to generate blueprint"
+      );
+    } finally {
+      setBlueprintBusy(false);
+    }
+  }
+
+  function renderActions(field: Exclude<EditableField, null>) {
+    return (
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => saveField(field)}
+          disabled={savingField === field}
+          className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-[#081120] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {savingField === field ? "Saving..." : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={cancelEditing}
+          className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-semibold text-white"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  function renderError(field: Exclude<EditableField, null>) {
+    return editingField === field && projectEditError ? (
+      <p className="mt-3 text-sm text-[#ff8f9c]">{projectEditError}</p>
+    ) : null;
+  }
 
   return (
     <AppShell>
@@ -172,29 +400,40 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href={`/projects/${project.id}/discovery`}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
-                >
-                  Open Discovery
-                </Link>
-                <Link
-                  href={
-                    blueprint
-                      ? `/blueprint/${project.id}`
-                      : canGenerateBlueprint
-                        ? `/blueprint/${project.id}?generate=1`
-                        : `/blueprint/${project.id}`
-                  }
-                  className={`rounded-xl px-4 py-3 text-sm font-medium text-white ${
-                    canGenerateBlueprint
-                      ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]"
-                      : "border border-[rgba(255,255,255,0.08)] bg-background-card text-text-muted"
-                  }`}
-                >
-                  {blueprint ? "Open Blueprint" : "Generate Blueprint"}
-                </Link>
+              <div className="flex flex-col items-end gap-3">
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    href={`/projects/${project.id}/discovery`}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                  >
+                    Open Discovery
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleBlueprintAction}
+                    disabled={
+                      blueprintBusy || (!blueprint && !canGenerateBlueprint)
+                    }
+                    className={`rounded-xl px-4 py-3 text-sm font-medium text-white ${
+                      blueprint
+                        ? "border border-[rgba(255,255,255,0.08)] bg-background-card"
+                        : canGenerateBlueprint && !blueprintBusy
+                          ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]"
+                          : "cursor-not-allowed border border-[rgba(255,255,255,0.08)] bg-background-card text-text-muted"
+                    }`}
+                  >
+                    {blueprintBusy
+                      ? "Generating..."
+                      : blueprint
+                        ? "Open Blueprint"
+                        : "Generate Blueprint"}
+                  </button>
+                </div>
+                {blueprintError ? (
+                  <p className="max-w-sm text-right text-sm text-[#ff8f9c]">
+                    {blueprintError}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -236,17 +475,131 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 </h2>
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Client Name
+                        </p>
+                        {editingField === "clientName" ? (
+                          <>
+                            <input
+                              value={projectDraft.clientName}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  clientName: event.target.value
+                                }))
+                              }
+                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                            {renderActions("clientName")}
+                          </>
+                        ) : (
+                          <p className="mt-2 text-sm text-white">
+                            {project.client.name}
+                          </p>
+                        )}
+                      </div>
+                      {editingField !== "clientName" ? (
+                        <EditButton
+                          label="Edit client name"
+                          onClick={() => startEditing("clientName")}
+                        />
+                      ) : null}
+                    </div>
+                    {renderError("clientName")}
+                  </div>
+
+                  <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Project Type
+                        </p>
+                        {editingField === "type" ? (
+                          <>
+                            <select
+                              value={projectDraft.type}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  type: event.target.value
+                                }))
+                              }
+                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            >
+                              {engagementOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            {renderActions("type")}
+                          </>
+                        ) : (
+                          <p className="mt-2 text-sm text-white">
+                            {formatEngagementType(project.engagementType)}
+                          </p>
+                        )}
+                      </div>
+                      {editingField !== "type" ? (
+                        <EditButton
+                          label="Edit project type"
+                          onClick={() => startEditing("type")}
+                        />
+                      ) : null}
+                    </div>
+                    {renderError("type")}
+                  </div>
+
+                  <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Portal ID
+                        </p>
+                        {editingField === "portalId" ? (
+                          <>
+                            <input
+                              value={projectDraft.portalId}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  portalId: event.target.value
+                                }))
+                              }
+                              placeholder="Pending"
+                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                            {renderActions("portalId")}
+                          </>
+                        ) : (
+                          <p className="mt-2 text-sm text-white">
+                            {project.portal?.portalId ?? "Pending"}
+                          </p>
+                        )}
+                      </div>
+                      {editingField !== "portalId" ? (
+                        <EditButton
+                          label="Edit portal ID"
+                          onClick={() => startEditing("portalId")}
+                        />
+                      ) : null}
+                    </div>
+                    {renderError("portalId")}
+                  </div>
                   {[
-                    ["Client", project.client.name],
                     ["Portal", project.portal?.displayName ?? "Pending"],
-                    ["Portal ID", project.portal?.portalId ?? "Pending"],
                     ["Owner", project.owner],
                     ["Owner Email", project.ownerEmail],
-                    ["Engagement Type", formatLabel(project.engagementType)],
                     ["Industry", project.client.industry ?? "Not set"],
                     ["Blueprint Generated", blueprint ? "Yes" : "No"]
                   ].map(([label, value]) => (
-                    <div key={label}>
+                    <div
+                      key={label}
+                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                    >
                       <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                         {label}
                       </p>
@@ -255,20 +608,59 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   ))}
                 </div>
 
-                <div className="mt-5">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                    Hubs In Scope
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {project.selectedHubs.map((hub) => (
-                      <span
-                        key={hub}
-                        className="rounded bg-[rgba(255,255,255,0.06)] px-2 py-1 text-xs font-medium text-white"
-                      >
-                        {hub}
-                      </span>
-                    ))}
+                <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Hubs In Scope
+                      </p>
+                      {editingField === "hubs" ? (
+                        <>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {hubOptions.map((hub) => {
+                              const selected = projectDraft.hubs.includes(
+                                hub.value
+                              );
+
+                              return (
+                                <button
+                                  key={hub.value}
+                                  type="button"
+                                  onClick={() => toggleHubSelection(hub.value)}
+                                  className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                                    selected
+                                      ? "border-[rgba(240,130,74,0.55)] bg-[rgba(240,130,74,0.18)] text-white"
+                                      : "border-[rgba(255,255,255,0.08)] text-text-secondary hover:text-white"
+                                  }`}
+                                >
+                                  {hub.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {renderActions("hubs")}
+                        </>
+                      ) : (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {project.selectedHubs.map((hub) => (
+                            <span
+                              key={hub}
+                              className="rounded bg-[rgba(255,255,255,0.06)] px-2 py-1 text-xs font-medium text-white"
+                            >
+                              {formatHubLabel(hub)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {editingField !== "hubs" ? (
+                      <EditButton
+                        label="Edit hubs in scope"
+                        onClick={() => startEditing("hubs")}
+                      />
+                    ) : null}
                   </div>
+                  {renderError("hubs")}
                 </div>
               </section>
 
