@@ -82,7 +82,9 @@ function readEnvironmentFile(cwd: string): Record<string, string> {
     : {};
 }
 
-function readResolvedEnvironment(cwd: string): Record<string, string> {
+function readResolvedEnvironment(
+  cwd: string
+): Record<string, string | undefined> {
   return {
     ...readEnvironmentFile(cwd),
     ...process.env
