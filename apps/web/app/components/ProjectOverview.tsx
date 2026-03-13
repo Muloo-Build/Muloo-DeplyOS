@@ -9,147 +9,101 @@ interface Project {
   id: string;
   name: string;
   status: string;
+  owner: string;
+  ownerEmail: string;
+  engagementType: string;
+  selectedHubs: string[];
   updatedAt: string;
-  owner: {
+  client: {
     name: string;
-    email: string;
+    industry?: string | null;
+    region?: string | null;
+    website?: string | null;
   };
-  clientContext: {
-    clientName: string;
-    primaryRegion: string;
-    implementationType: string;
-    notes: string;
-  };
-  hubspotScope: {
-    hubsInScope: string[];
-    environment: string;
-    portal: {
-      portalId: string;
-      displayName: string;
-      region?: string;
-      connected: boolean;
-    };
-  };
-  discovery?: {
-    completedSections: string[];
-  };
+  portal: {
+    portalId: string;
+    displayName: string;
+    region?: string | null;
+    connected: boolean;
+  } | null;
 }
 
-interface ProjectSummary {
-  moduleCount: number;
-  readyModuleCount: number;
-  executionCount: number;
-  validationStatus: string;
-  readiness: string;
+interface SessionDetail {
+  session: number;
+  title: string;
+  status: "draft" | "in_progress" | "complete";
+  fields: Record<string, string>;
 }
 
-interface ModuleSummary {
-  moduleId: string;
-  name: string;
-  status: string;
-  readiness: string;
-  blockerCount: number;
-  warningCount: number;
-}
-
-interface ExecutionRecord {
+interface Blueprint {
   id: string;
-  status: string;
-  mode: string;
-  startedAt: string;
-  moduleKey: string;
+  generatedAt: string;
+  tasks: Array<{
+    type: "Agent" | "Human" | "Client";
+    effortHours: number;
+  }>;
 }
-
-interface DiscoveryPayload {
-  completedSections: string[];
-}
-
-const discoverySections = [
-  "businessContext",
-  "platformContext",
-  "crmArchitecture",
-  "salesRequirements",
-  "marketingRequirements",
-  "serviceRequirements",
-  "integrationsAndData",
-  "governanceAndOps",
-  "risksAndAssumptions"
-];
 
 function formatLabel(value: string) {
   return value
-    .replace(/([A-Z])/g, " $1")
-    .replace(/-/g, " ")
+    .toLowerCase()
+    .replace(/_/g, " ")
     .replace(/^./, (character) => character.toUpperCase());
 }
 
 function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleString();
+  return new Date(dateString).toLocaleString("en-ZA", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  });
 }
 
 function statusClass(status: string) {
   switch (status) {
-    case "ready":
-    case "ready-for-execution":
-      return "status-ready";
+    case "complete":
     case "completed":
-    case "succeeded":
-      return "status-complete";
-    case "failed":
-    case "blocked":
-      return "status-blocked";
-    default:
+      return "status-ready";
+    case "in_progress":
+    case "active":
       return "status-in-progress";
+    default:
+      return "status-draft";
   }
 }
 
 export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<Project | null>(null);
-  const [summary, setSummary] = useState<ProjectSummary | null>(null);
-  const [modules, setModules] = useState<ModuleSummary[]>([]);
-  const [executions, setExecutions] = useState<ExecutionRecord[]>([]);
-  const [discovery, setDiscovery] = useState<DiscoveryPayload | null>(null);
+  const [sessions, setSessions] = useState<SessionDetail[]>([]);
+  const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadProject() {
       try {
-        const [
-          projectResponse,
-          summaryResponse,
-          modulesResponse,
-          executionsResponse,
-          discoveryResponse
-        ] = await Promise.all([
-          fetch(`/api/projects/${encodeURIComponent(projectId)}`),
-          fetch(`/api/projects/${encodeURIComponent(projectId)}/summary`),
-          fetch(`/api/projects/${encodeURIComponent(projectId)}/modules`),
-          fetch(`/api/projects/${encodeURIComponent(projectId)}/executions`),
-          fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery`)
-        ]);
+        const [projectResponse, sessionsResponse, blueprintResponse] =
+          await Promise.all([
+            fetch(`/api/projects/${encodeURIComponent(projectId)}`),
+            fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
+            fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`)
+          ]);
 
-        if (
-          !projectResponse.ok ||
-          !summaryResponse.ok ||
-          !modulesResponse.ok ||
-          !executionsResponse.ok ||
-          !discoveryResponse.ok
-        ) {
+        if (!projectResponse.ok || !sessionsResponse.ok) {
           throw new Error("Failed to load project");
         }
 
         const projectBody = await projectResponse.json();
-        const summaryBody = await summaryResponse.json();
-        const modulesBody = await modulesResponse.json();
-        const executionsBody = await executionsResponse.json();
-        const discoveryBody = await discoveryResponse.json();
+        const sessionsBody = await sessionsResponse.json();
 
         setProject(projectBody.project);
-        setSummary(summaryBody.summary);
-        setModules(modulesBody.modules ?? []);
-        setExecutions(executionsBody.executions ?? []);
-        setDiscovery(discoveryBody.discovery ?? null);
+        setSessions(sessionsBody.sessionDetails ?? []);
+
+        if (blueprintResponse.ok) {
+          const blueprintBody = await blueprintResponse.json();
+          setBlueprint(blueprintBody.blueprint);
+        } else if (blueprintResponse.status !== 404) {
+          throw new Error("Failed to load blueprint status");
+        }
       } catch (loadError) {
         setError(
           loadError instanceof Error
@@ -164,10 +118,18 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     loadProject();
   }, [projectId]);
 
-  const completedDiscoverySections =
-    discovery?.completedSections.length ??
-    project?.discovery?.completedSections.length ??
-    0;
+  const completedSessions = sessions.filter(
+    (session) => session.status === "complete"
+  ).length;
+  const session1Complete =
+    sessions.find((session) => session.session === 1)?.status === "complete";
+  const session3Complete =
+    sessions.find((session) => session.session === 3)?.status === "complete";
+  const canGenerateBlueprint = session1Complete && session3Complete;
+  const totalHumanHours =
+    blueprint?.tasks
+      .filter((task) => task.type === "Human")
+      .reduce((total, task) => total + task.effortHours, 0) ?? 0;
 
   return (
     <AppShell>
@@ -181,7 +143,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               />
             ))}
           </div>
-        ) : error || !project || !summary ? (
+        ) : error || !project ? (
           <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-8 text-white">
             {error ?? "Project not found"}
           </div>
@@ -201,21 +163,37 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       project.status
                     )}`}
                   >
-                    {project.status.replace(/-/g, " ")}
+                    {formatLabel(project.status)}
                   </span>
                 </div>
                 <p className="mt-3 text-text-secondary">
-                  {project.clientContext.clientName} ·{" "}
-                  {project.clientContext.primaryRegion}
+                  {project.client.name}
+                  {project.client.region ? ` - ${project.client.region}` : ""}
                 </p>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <Link
                   href={`/projects/${project.id}/discovery`}
                   className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
                 >
                   Open Discovery
+                </Link>
+                <Link
+                  href={
+                    blueprint
+                      ? `/blueprint/${project.id}`
+                      : canGenerateBlueprint
+                        ? `/blueprint/${project.id}?generate=1`
+                        : `/blueprint/${project.id}`
+                  }
+                  className={`rounded-xl px-4 py-3 text-sm font-medium text-white ${
+                    canGenerateBlueprint
+                      ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]"
+                      : "border border-[rgba(255,255,255,0.08)] bg-background-card text-text-muted"
+                  }`}
+                >
+                  {blueprint ? "Open Blueprint" : "Generate Blueprint"}
                 </Link>
               </div>
             </div>
@@ -224,19 +202,23 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               {[
                 [
                   "Discovery",
-                  `${completedDiscoverySections}/9 sections`,
+                  `${completedSessions}/4 sessions`,
                   "text-white"
                 ],
                 [
-                  "Modules Ready",
-                  `${summary.readyModuleCount}/${summary.moduleCount}`,
-                  "text-status-success"
+                  "Blueprint",
+                  blueprint ? "Generated" : "Not generated",
+                  blueprint ? "text-status-success" : "text-text-secondary"
                 ],
-                ["Executions", `${summary.executionCount}`, "text-status-info"],
                 [
-                  "Readiness",
-                  formatLabel(summary.readiness),
+                  "Human Hours",
+                  blueprint ? `${totalHumanHours} hrs` : "-",
                   "text-status-warning"
+                ],
+                [
+                  "Last Updated",
+                  formatDate(project.updatedAt),
+                  "text-status-info"
                 ]
               ].map(([label, value, valueClass]) => (
                 <div
@@ -251,175 +233,105 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               ))}
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-              <div className="space-y-6">
-                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <h2 className="text-lg font-semibold text-white">
-                    Project Context
-                  </h2>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    {[
-                      ["Client", project.clientContext.clientName],
-                      ["Portal", project.hubspotScope.portal.displayName],
-                      ["Portal ID", project.hubspotScope.portal.portalId],
-                      ["Environment", project.hubspotScope.environment],
-                      ["Owner", project.owner.name],
-                      ["Owner Email", project.owner.email],
-                      [
-                        "Implementation Type",
-                        formatLabel(project.clientContext.implementationType)
-                      ],
-                      ["Last Updated", formatDate(project.updatedAt)]
-                    ].map(([label, value]) => (
-                      <div key={label}>
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          {label}
-                        </p>
-                        <p className="mt-2 text-sm text-white">{value}</p>
-                      </div>
-                    ))}
-                  </div>
+            <div className="grid gap-6 xl:grid-cols-[1fr_0.95fr]">
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <h2 className="text-lg font-semibold text-white">
+                  Project Context
+                </h2>
 
-                  <div className="mt-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                      Hubs In Scope
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {project.hubspotScope.hubsInScope.map((hub) => (
-                        <span
-                          key={hub}
-                          className="rounded bg-[rgba(255,255,255,0.06)] px-2 py-1 text-xs font-medium text-white"
-                        >
-                          {hub}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-
-                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-white">
-                      Module Readiness
-                    </h2>
-                    <span className="text-sm text-text-secondary">
-                      {summary.validationStatus}
-                    </span>
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    {modules.map((module) => (
-                      <div
-                        key={module.moduleId}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#0b1126] p-4"
-                      >
-                        <div className="flex items-center justify-between gap-4">
-                          <div>
-                            <p className="font-medium text-white">
-                              {module.name}
-                            </p>
-                            <p className="mt-1 text-sm text-text-secondary">
-                              {module.moduleId}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <span
-                              className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
-                                module.readiness
-                              )}`}
-                            >
-                              {module.readiness}
-                            </span>
-                            <p className="mt-2 text-xs text-text-muted">
-                              {module.blockerCount} blockers ·{" "}
-                              {module.warningCount} warnings
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              </div>
-
-              <div className="space-y-6">
-                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-white">
-                      Discovery Progress
-                    </h2>
-                    <Link
-                      href={`/projects/${project.id}/discovery`}
-                      className="text-sm font-medium text-white"
-                    >
-                      Continue
-                    </Link>
-                  </div>
-
-                  <div className="mt-5 space-y-2">
-                    {discoverySections.map((section) => {
-                      const complete =
-                        discovery?.completedSections.includes(section) ??
-                        project.discovery?.completedSections.includes(
-                          section
-                        ) ??
-                        false;
-
-                      return (
-                        <div
-                          key={section}
-                          className="flex items-center justify-between rounded-xl bg-[#0b1126] px-4 py-3"
-                        >
-                          <span className="text-sm text-white">
-                            {formatLabel(section)}
-                          </span>
-                          <span
-                            className={`h-2.5 w-2.5 rounded-full ${
-                              complete ? "bg-status-success" : "bg-text-muted"
-                            }`}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-
-                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <h2 className="text-lg font-semibold text-white">
-                    Recent Runs
-                  </h2>
-                  <div className="mt-5 space-y-3">
-                    {executions.length === 0 ? (
-                      <p className="text-sm text-text-secondary">
-                        No executions recorded yet.
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  {[
+                    ["Client", project.client.name],
+                    ["Portal", project.portal?.displayName ?? "Pending"],
+                    ["Portal ID", project.portal?.portalId ?? "Pending"],
+                    ["Owner", project.owner],
+                    ["Owner Email", project.ownerEmail],
+                    ["Engagement Type", formatLabel(project.engagementType)],
+                    ["Industry", project.client.industry ?? "Not set"],
+                    ["Blueprint Generated", blueprint ? "Yes" : "No"]
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        {label}
                       </p>
-                    ) : (
-                      executions.slice(0, 5).map((execution) => (
-                        <div
-                          key={execution.id}
-                          className="rounded-xl bg-[#0b1126] px-4 py-3"
-                        >
-                          <div className="flex items-center justify-between gap-4">
-                            <p className="text-sm font-medium text-white">
-                              {execution.moduleKey}
-                            </p>
-                            <span
-                              className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
-                                execution.status
-                              )}`}
-                            >
-                              {execution.status}
-                            </span>
-                          </div>
-                          <p className="mt-2 text-xs text-text-muted">
-                            {execution.mode} · {formatDate(execution.startedAt)}
+                      <p className="mt-2 text-sm text-white">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-5">
+                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                    Hubs In Scope
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {project.selectedHubs.map((hub) => (
+                      <span
+                        key={hub}
+                        className="rounded bg-[rgba(255,255,255,0.06)] px-2 py-1 text-xs font-medium text-white"
+                      >
+                        {hub}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="text-lg font-semibold text-white">
+                    Discovery Progress
+                  </h2>
+                  <Link
+                    href={`/projects/${project.id}/discovery`}
+                    className="text-sm font-medium text-white"
+                  >
+                    Review
+                  </Link>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {sessions.map((session) => (
+                    <div
+                      key={session.session}
+                      className="rounded-xl bg-[#0b1126] px-4 py-4"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-white">
+                            Session {session.session} - {session.title}
+                          </p>
+                          <p className="mt-1 text-xs text-text-secondary">
+                            {
+                              Object.values(session.fields).filter(
+                                (value) => value.trim().length > 0
+                              ).length
+                            }
+                            /5 fields completed
                           </p>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </section>
-              </div>
+                        <span
+                          className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
+                            session.status
+                          )}`}
+                        >
+                          {formatLabel(session.status)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                    Blueprint gate
+                  </p>
+                  <p className="mt-2 text-sm text-white">
+                    {canGenerateBlueprint
+                      ? "Session 1 and Session 3 are complete. Blueprint generation is unlocked."
+                      : "Finish Session 1 and Session 3 to unlock blueprint generation."}
+                  </p>
+                </div>
+              </section>
             </div>
           </>
         )}

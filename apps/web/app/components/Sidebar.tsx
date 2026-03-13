@@ -13,6 +13,7 @@ const navItems = [
 function isProjectsRoute(pathname: string): boolean {
   return (
     pathname === "/" ||
+    pathname.startsWith("/blueprint") ||
     pathname.startsWith("/projects") ||
     pathname.startsWith("/project")
   );

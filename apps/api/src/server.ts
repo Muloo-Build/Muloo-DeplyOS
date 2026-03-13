@@ -39,7 +39,7 @@ import {
   updateProjectPropertiesDesignRequestSchema,
   updateProjectScopeRequestSchema
 } from "@muloo/shared";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 
 const { PrismaClient } = Prisma;
 const prisma = new PrismaClient();
@@ -114,6 +114,36 @@ const sessionFieldLabels: Record<number, string[]> = {
 
 type EngagementType = (typeof validEngagementTypes)[number];
 type DiscoverySessionFields = Record<string, string>;
+type DiscoverySessionStatus = "draft" | "in_progress" | "complete";
+
+const sessionTitles: Record<number, string> = {
+  1: "Business & Goals",
+  2: "Current State",
+  3: "Future State Design",
+  4: "Scope & Handover"
+};
+const blueprintTaskTypeValues = ["Agent", "Human", "Client"] as const;
+const blueprintGenerationSchema = z.object({
+  phases: z
+    .array(
+      z.object({
+        phase: z.number().int().positive(),
+        phaseName: z.string().trim().min(1),
+        tasks: z
+          .array(
+            z.object({
+              name: z.string().trim().min(1),
+              type: z.enum(blueprintTaskTypeValues),
+              effortHours: z.number().positive(),
+              order: z.number().int().positive()
+            })
+          )
+          .min(1)
+      })
+    )
+    .min(1)
+    .max(5)
+});
 
 function isValidEngagementType(value: string): value is EngagementType {
   return validEngagementTypes.includes(value as EngagementType);
@@ -322,6 +352,23 @@ function matchDiscoveryRoute(pathname: string): { projectId: string } | null {
   };
 }
 
+function matchProjectBlueprintRoute(pathname: string): {
+  projectId: string;
+  action?: "generate";
+} | null {
+  const match =
+    /^\/api\/projects\/([^/]+?)\/blueprint(?:\/(generate))?$/.exec(pathname);
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1]),
+    ...(match[2] === "generate" ? { action: "generate" } : {})
+  };
+}
+
 function emptyDiscoverySessions(): Record<number, DiscoverySessionFields> {
   return {
     1: {},
@@ -362,6 +409,260 @@ function buildDiscoverySessions(
   return sessions;
 }
 
+function getDiscoverySessionStatus(
+  fields: DiscoverySessionFields
+): DiscoverySessionStatus {
+  const values = Object.values(fields).map((value) => value.trim());
+
+  if (values.length === 0 || values.every((value) => value.length === 0)) {
+    return "draft";
+  }
+
+  return values.every((value) => value.length > 0) ? "complete" : "in_progress";
+}
+
+function buildDiscoverySessionsWithStatus(
+  submissions: Array<{ version: number; status: string; sections: unknown }>
+) {
+  return [1, 2, 3, 4].map((sessionNumber) => {
+    const submission = submissions.find(
+      (candidate) => candidate.version === sessionNumber
+    );
+    const fields = normalizeDiscoveryFields(submission?.sections);
+
+    return {
+      session: sessionNumber,
+      title: sessionTitles[sessionNumber] ?? `Session ${sessionNumber}`,
+      status:
+        submission?.status === "complete" ||
+        submission?.status === "in_progress" ||
+        submission?.status === "draft"
+          ? submission.status
+          : getDiscoverySessionStatus(fields),
+      fields
+    };
+  });
+}
+
+function serializeProject<T extends {
+  id: string;
+  name: string;
+  status: string;
+  owner: string;
+  ownerEmail: string;
+  selectedHubs: string[];
+  engagementType: Prisma.$Enums.EngagementType;
+  createdAt: Date;
+  updatedAt: Date;
+  client: {
+    id: string;
+    name: string;
+    slug: string;
+    industry: string | null;
+    region: string | null;
+    website: string | null;
+  };
+  portal: {
+    id: string;
+    portalId: string;
+    displayName: string;
+    region: string | null;
+    connected: boolean;
+  } | null;
+}>(project: T) {
+  const normalizedProject = normalizeProject(project);
+
+  return {
+    ...normalizedProject,
+    clientName: normalizedProject.client.name,
+    hubsInScope: normalizedProject.selectedHubs
+  };
+}
+
+async function callClaude(system: string, user: string): Promise<string> {
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!anthropicApiKey) {
+    throw new Error("ANTHROPIC_API_KEY not configured");
+  }
+
+  const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": anthropicApiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000,
+      system,
+      messages: [{ role: "user", content: user }]
+    })
+  });
+
+  if (!claudeResponse.ok) {
+    throw new Error(`Claude request failed with status ${claudeResponse.status}`);
+  }
+
+  const claudeData = (await claudeResponse.json()) as {
+    content?: Array<{ text?: string }>;
+  };
+
+  return claudeData?.content?.[0]?.text?.trim() ?? "";
+}
+
+async function loadProjectDiscoveryForBlueprint(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      client: true,
+      portal: true,
+      discovery: {
+        orderBy: { version: "asc" },
+        select: {
+          version: true,
+          status: true,
+          sections: true,
+          completedSections: true,
+          updatedAt: true
+        }
+      }
+    }
+  });
+
+  if (!project) {
+    return null;
+  }
+
+  const sessions = buildDiscoverySessionsWithStatus(project.discovery).map(
+    (session) => ({
+      session: session.session,
+      title: session.title,
+      status: session.status,
+      completedFieldCount: Object.values(session.fields).filter(
+        (value) => value.trim().length > 0
+      ).length,
+      fields: session.fields
+    })
+  );
+
+  return {
+    project,
+    discovery: {
+      projectId: project.id,
+      projectName: project.name,
+      engagementType: project.engagementType,
+      selectedHubs: project.selectedHubs,
+      client: {
+        name: project.client.name,
+        industry: project.client.industry,
+        region: project.client.region,
+        website: project.client.website
+      },
+      portal: project.portal
+        ? {
+            portalId: project.portal.portalId,
+            displayName: project.portal.displayName,
+            region: project.portal.region,
+            connected: project.portal.connected
+          }
+        : null,
+      sessions
+    }
+  };
+}
+
+async function generateBlueprintFromDiscovery(projectId: string) {
+  const discoveryPayload = await loadProjectDiscoveryForBlueprint(projectId);
+
+  if (!discoveryPayload) {
+    throw new Error("Project not found");
+  }
+
+  const session1 = discoveryPayload.discovery.sessions.find(
+    (session) => session.session === 1
+  );
+  const session3 = discoveryPayload.discovery.sessions.find(
+    (session) => session.session === 3
+  );
+
+  if (session1?.status !== "complete" || session3?.status !== "complete") {
+    throw new Error(
+      "Session 1 (Business & Goals) and Session 3 (Future State Design) must be complete before generating a blueprint"
+    );
+  }
+
+  const rawBlueprint = await callClaude(
+    `You are a HubSpot implementation planning assistant for Muloo, a technical HubSpot delivery company.
+Given structured discovery data from a client project, generate a phased implementation blueprint.
+Rules:
+
+Return ONLY valid JSON. No explanation, no markdown, no preamble.
+Organise tasks into 3–5 phases (Foundation, Pipeline & Process, Automation, Reporting, Handover — adjust based on scope).
+Each task must have: name, type (Agent/Human/Client), effortHours (realistic estimate), order (within phase).
+Agent = automated by DeplyOS tooling. Human = Muloo consultant time. Client = client must action.
+Human task hours must be realistic for a senior HubSpot consultant.
+Base the blueprint on the hubs enabled, use cases, goals, and complexity indicated in the discovery data.`,
+    JSON.stringify(discoveryPayload.discovery, null, 2)
+  );
+
+  const parsedBlueprint = blueprintGenerationSchema.parse(
+    JSON.parse(rawBlueprint) as unknown
+  );
+
+  return prisma.blueprint.upsert({
+    where: { projectId },
+    update: {
+      generatedAt: new Date(),
+      tasks: {
+        deleteMany: {},
+        create: parsedBlueprint.phases.flatMap((phase) =>
+          phase.tasks.map((task) => ({
+            phase: phase.phase,
+            phaseName: phase.phaseName,
+            name: task.name,
+            type: task.type,
+            effortHours: task.effortHours,
+            order: task.order
+          }))
+        )
+      }
+    },
+    create: {
+      projectId,
+      tasks: {
+        create: parsedBlueprint.phases.flatMap((phase) =>
+          phase.tasks.map((task) => ({
+            phase: phase.phase,
+            phaseName: phase.phaseName,
+            name: task.name,
+            type: task.type,
+            effortHours: task.effortHours,
+            order: task.order
+          }))
+        )
+      }
+    },
+    include: {
+      tasks: {
+        orderBy: [{ phase: "asc" }, { order: "asc" }]
+      }
+    }
+  });
+}
+
+async function loadBlueprint(projectId: string) {
+  return prisma.blueprint.findUnique({
+    where: { projectId },
+    include: {
+      tasks: {
+        orderBy: [{ phase: "asc" }, { order: "asc" }]
+      }
+    }
+  });
+}
+
 async function extractDiscoveryFields(
   text: string,
   session: number
@@ -394,29 +695,7 @@ Example format:
 }`;
   const userPrompt = `Meeting notes:\n\n${text}\n\nExtract the fields now.`;
 
-  const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": anthropicApiKey,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }]
-    })
-  });
-
-  if (!claudeResponse.ok) {
-    return { fields: {} };
-  }
-
-  const claudeData = (await claudeResponse.json()) as {
-    content?: Array<{ text?: string }>;
-  };
-  const rawText = claudeData?.content?.[0]?.text ?? "{}";
+  const rawText = await callClaude(systemPrompt, userPrompt).catch(() => "{}");
   console.log(
     "[discovery/extract] Claude raw response:",
     rawText.substring(0, 500)
@@ -562,7 +841,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           });
 
           return sendJson(response, 201, {
-            project: normalizeProject(project)
+            project: serializeProject(project)
           });
         }
 
@@ -571,7 +850,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           orderBy: { updatedAt: "desc" }
         });
         return sendJson(response, 200, {
-          projects: projects.map((project) => normalizeProject(project))
+          projects: projects.map((project) => serializeProject(project))
         });
       }
 
@@ -580,12 +859,77 @@ export function createAppServer(config: BaseConfig): http.Server {
         const submissions = await prisma.discoverySubmission.findMany({
           where: { projectId: discoveryRoute.projectId },
           orderBy: { version: "asc" },
-          select: { version: true, sections: true }
+          select: { version: true, status: true, sections: true }
         });
 
         return sendJson(response, 200, {
-          sessions: buildDiscoverySessions(submissions)
+          sessions: buildDiscoverySessions(
+            submissions.map((submission) => ({
+              version: submission.version,
+              sections: submission.sections
+            }))
+          ),
+          sessionDetails: buildDiscoverySessionsWithStatus(submissions)
         });
+      }
+
+      const projectBlueprintRoute = matchProjectBlueprintRoute(url.pathname);
+      if (projectBlueprintRoute) {
+        if (
+          request.method === "POST" &&
+          projectBlueprintRoute.action === "generate"
+        ) {
+          try {
+            const blueprint = await generateBlueprintFromDiscovery(
+              projectBlueprintRoute.projectId
+            );
+            return sendJson(response, 200, { blueprint });
+          } catch (error: unknown) {
+            if (
+              error instanceof Error &&
+              error.message === "Project not found"
+            ) {
+              return sendJson(response, 404, { error: error.message });
+            }
+
+            if (
+              error instanceof Error &&
+              error.message.includes("must be complete before generating")
+            ) {
+              return sendJson(response, 400, { error: error.message });
+            }
+
+            if (error instanceof ZodError) {
+              return sendJson(response, 502, {
+                error: "Blueprint generation returned invalid JSON",
+                details: error.flatten()
+              });
+            }
+
+            if (error instanceof SyntaxError) {
+              return sendJson(response, 502, {
+                error: "Blueprint generation returned invalid JSON"
+              });
+            }
+
+            throw error;
+          }
+        }
+
+        if (
+          request.method === "GET" &&
+          !projectBlueprintRoute.action
+        ) {
+          const blueprint = await loadBlueprint(projectBlueprintRoute.projectId);
+
+          if (!blueprint) {
+            return sendJson(response, 404, { error: "Blueprint not found" });
+          }
+
+          return sendJson(response, 200, { blueprint });
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
       if (request.method === "POST" && url.pathname === "/api/discovery/save") {
@@ -910,7 +1254,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             });
 
             return sendJson(response, 200, {
-              project: normalizeProject(project)
+              project: serializeProject(project)
             });
           } catch (error: unknown) {
             if (
@@ -937,12 +1281,12 @@ export function createAppServer(config: BaseConfig): http.Server {
           }
 
           await prisma.executionJob.deleteMany({
-            where: { task: { projectId: projectRoute.projectId } }
+            where: { projectId: projectRoute.projectId }
           });
           await prisma.task.deleteMany({
             where: { projectId: projectRoute.projectId }
           });
-          await prisma.deliverable.deleteMany({
+          await prisma.blueprintTask.deleteMany({
             where: { blueprint: { projectId: projectRoute.projectId } }
           });
           await prisma.blueprint.deleteMany({
@@ -1065,7 +1409,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           return sendJson(response, 404, { error: "Project not found" });
         }
         return sendJson(response, 200, {
-          project: normalizeProject(project)
+          project: serializeProject(project)
         });
       }
 

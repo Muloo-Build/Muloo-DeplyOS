@@ -16,141 +16,130 @@ enum EngagementType {
 }
 
 model Client {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  industry    String?
-  region      String?
-  website     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  projects    Project[]
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  industry  String?
+  region    String?
+  website   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
 }
 
 model HubSpotPortal {
-  id           String   @id @default(cuid())
-  portalId     String   @unique
-  displayName  String
-  region       String?
-  connected    Boolean  @default(false)
-  accessToken  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  projects     Project[]
+  id          String    @id @default(cuid())
+  portalId    String    @unique
+  displayName String
+  region      String?
+  connected   Boolean   @default(false)
+  accessToken String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  projects    Project[]
 }
 
 model Project {
-  id               String   @id @default(cuid())
-  name             String
-  status           String   @default("draft")
-  engagementType   EngagementType @default(IMPLEMENTATION)
-  owner            String
-  ownerEmail       String
-  scopeType        String?
-  selectedHubs     String[]
-  currentPhase     String?
-  clientId         String
-  portalId         String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  client           Client        @relation(fields: [clientId], references: [id])
-  portal           HubSpotPortal @relation(fields: [portalId], references: [id])
-  discovery        DiscoverySubmission[]
-  blueprints       Blueprint[]
-  tasks            Task[]
-  executionJobs    ExecutionJob[]
+  id             String                @id @default(cuid())
+  name           String
+  status         String                @default("draft")
+  engagementType EngagementType        @default(IMPLEMENTATION)
+  owner          String
+  ownerEmail     String
+  scopeType      String?
+  selectedHubs   String[]
+  currentPhase   String?
+  clientId       String
+  portalId       String
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  client         Client                @relation(fields: [clientId], references: [id])
+  portal         HubSpotPortal         @relation(fields: [portalId], references: [id])
+  discovery      DiscoverySubmission[]
+  blueprint      Blueprint?
+  tasks          Task[]
+  executionJobs  ExecutionJob[]
 }
 
 model DiscoverySubmission {
-  id              String   @id @default(cuid())
-  projectId       String
-  version         Int      @default(1)
-  status          String   @default("draft")
-  sections        Json?
-  businessContext Json?
-  platformContext Json?
-  crmArchitecture Json?
-  salesRequirements Json?
+  id                    String   @id @default(cuid())
+  projectId             String
+  version               Int      @default(1)
+  status                String   @default("draft")
+  sections              Json?
+  businessContext       Json?
+  platformContext       Json?
+  crmArchitecture       Json?
+  salesRequirements     Json?
   marketingRequirements Json?
-  serviceRequirements Json?
-  integrationsData Json?
-  governanceOps   Json?
-  risksAssumptions Json?
-  completedSections String[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  project         Project  @relation(fields: [projectId], references: [id])
+  serviceRequirements   Json?
+  integrationsData      Json?
+  governanceOps         Json?
+  risksAssumptions      Json?
+  completedSections     String[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  project               Project  @relation(fields: [projectId], references: [id])
 
   @@unique([projectId, version])
 }
 
 model Blueprint {
-  id                 String   @id @default(cuid())
-  projectId          String
-  discoveryVersion   Int
-  architectureSummary String?
-  deliverablesJson   Json?
-  riskFlags          String[]
-  appliedModules     String[]
-  approvalStatus     String   @default("pending")
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  project            Project  @relation(fields: [projectId], references: [id])
-  deliverables       Deliverable[]
+  id          String          @id @default(cuid())
+  projectId   String          @unique
+  project     Project         @relation(fields: [projectId], references: [id])
+  generatedAt DateTime        @default(now())
+  tasks       BlueprintTask[]
 }
 
-model Deliverable {
-  id          String   @id @default(cuid())
+model BlueprintTask {
+  id          String    @id @default(cuid())
   blueprintId String
+  blueprint   Blueprint @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
+  phase       Int
+  phaseName   String
   name        String
-  category    String?
-  phase       String?
-  priority    String   @default("medium")
-  description String?
-  status      String   @default("pending")
-  dependencies String[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  blueprint   Blueprint @relation(fields: [blueprintId], references: [id])
-  tasks       Task[]
+  type        String
+  effortHours Float
+  order       Int
+
+  @@index([blueprintId, phase, order])
 }
 
 model Task {
-  id             String   @id @default(cuid())
-  projectId      String
-  deliverableId  String?
-  title          String
-  description    String?
-  category       String?
-  executionType  String   @default("manual")
-  priority       String   @default("medium")
-  status         String   @default("draft")
-  qaRequired     Boolean  @default(false)
-  approvalRequired Boolean @default(false)
-  dependencyIds  String[]
-  assigneeType   String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  project        Project     @relation(fields: [projectId], references: [id])
-  deliverable    Deliverable? @relation(fields: [deliverableId], references: [id])
-  executionJobs  ExecutionJob[]
+  id               String         @id @default(cuid())
+  projectId        String
+  title            String
+  description      String?
+  category         String?
+  executionType    String         @default("manual")
+  priority         String         @default("medium")
+  status           String         @default("draft")
+  qaRequired       Boolean        @default(false)
+  approvalRequired Boolean        @default(false)
+  dependencyIds    String[]
+  assigneeType     String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  project          Project        @relation(fields: [projectId], references: [id])
+  executionJobs    ExecutionJob[]
 }
 
 model ExecutionJob {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   projectId       String
   taskId          String?
   moduleKey       String
-  executionMethod String   @default("manual")
-  mode            String   @default("dry-run")
-  status          String   @default("queued")
+  executionMethod String    @default("manual")
+  mode            String    @default("dry-run")
+  status          String    @default("queued")
   payload         Json?
   resultStatus    String?
   outputLog       String?
   errorLog        String?
   startedAt       DateTime?
   completedAt     DateTime?
-  createdAt       DateTime @default(now())
-  project         Project @relation(fields: [projectId], references: [id])
-  task            Task?   @relation(fields: [taskId], references: [id])
+  createdAt       DateTime  @default(now())
+  project         Project   @relation(fields: [projectId], references: [id])
+  task            Task?     @relation(fields: [taskId], references: [id])
 }
