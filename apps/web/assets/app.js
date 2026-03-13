@@ -461,7 +461,7 @@ function renderProjectCard(project) {
         <div><span>Next step</span><strong>${deriveProjectNextAction(project)}</strong></div>
       </div>
       <div class="action-row">
-        <a class="button-link" href="/project?id=${encodeURIComponent(project.id)}">Open workspace</a>
+        <a class="button-link" href="/projects/${encodeURIComponent(project.id)}">Open workspace</a>
       </div>
     </article>
   `;
@@ -755,7 +755,7 @@ function renderProjectWorkflowNav(projectId, activeKey) {
     {
       key: "overview",
       label: "Overview",
-      href: `/project?id=${encodeURIComponent(projectId)}`
+      href: `/projects/${encodeURIComponent(projectId)}`
     },
     {
       key: "blueprint",
@@ -765,22 +765,22 @@ function renderProjectWorkflowNav(projectId, activeKey) {
     {
       key: "review",
       label: "Review",
-      href: `/project?id=${encodeURIComponent(projectId)}#project-section-review`
+      href: `/projects/${encodeURIComponent(projectId)}#project-section-review`
     },
     {
       key: "run",
       label: "Run",
-      href: `/project?id=${encodeURIComponent(projectId)}#project-section-run`
+      href: `/projects/${encodeURIComponent(projectId)}#project-section-run`
     },
     {
       key: "history",
       label: "History",
-      href: `/project?id=${encodeURIComponent(projectId)}#project-section-history`
+      href: `/projects/${encodeURIComponent(projectId)}#project-section-history`
     },
     {
       key: "guide",
       label: "Guide",
-      href: `/project?id=${encodeURIComponent(projectId)}#project-section-guide`
+      href: `/projects/${encodeURIComponent(projectId)}#project-section-guide`
     }
   ];
 
@@ -1375,7 +1375,7 @@ async function initProjectNewPage() {
             <div class="kv-item"><span>Project started</span><strong>${response.project.name}</strong></div>
             <div class="kv-item"><span>Project id</span><strong>${response.project.id}</strong></div>
           </div>
-          <a class="button-link" href="/project?id=${encodeURIComponent(response.project.id)}">Open workspace</a>
+          <a class="button-link" href="/projects/${encodeURIComponent(response.project.id)}">Open workspace</a>
         `;
       }
     } catch (error) {

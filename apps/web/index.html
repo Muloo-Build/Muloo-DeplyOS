@@ -569,7 +569,7 @@
           document.getElementById("project-rows").innerHTML = projects
             .map(
               (p) => `
-        <a href="/project?id=${p.id}" class="project-row">
+        <a href="/projects/${p.id}" class="project-row">
           <div><div class="project-name">${p.name}</div><div class="project-client">${p.client?.name ?? "—"}</div></div>
           <div class="hub-tags">${(p.selectedHubs ?? []).map((h) => `<span class="hub-tag">${hubLabel(h)}</span>`).join("")}</div>
           <div class="portal-id">${p.portal?.portalId ?? "—"}</div>
