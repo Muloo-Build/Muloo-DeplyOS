@@ -56,18 +56,13 @@ function shutdown(signal) {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-launch(
-  "web",
-  process.execPath,
-  [nextCli, mode, "-p", publicPort],
-  {
-    cwd: "apps/web",
-    env: {
-      ...process.env,
-      PORT: publicPort
-    }
+launch("web", process.execPath, [nextCli, mode, "-p", publicPort], {
+  cwd: "apps/web",
+  env: {
+    ...process.env,
+    PORT: publicPort
   }
-);
+});
 
 function runCommand(name, command, args, options = {}) {
   return new Promise((resolve, reject) => {

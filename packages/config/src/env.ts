@@ -130,7 +130,9 @@ export function loadBaseConfig(options: LoadConfigOptions): BaseConfig {
 
 export function loadApiConfig(options: LoadConfigOptions): BaseConfig {
   const config = loadBaseConfig(options);
-  const parsed = apiEnvironmentSchema.parse(readResolvedEnvironment(options.cwd));
+  const parsed = apiEnvironmentSchema.parse(
+    readResolvedEnvironment(options.cwd)
+  );
   const port = parsed.API_PORT ?? 3001;
 
   return {
