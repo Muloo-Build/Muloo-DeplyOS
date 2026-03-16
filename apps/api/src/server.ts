@@ -1633,7 +1633,8 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 404, { error: "Not Found" });
       }
 
-      return sendJson(response, 404, { error: "Not Found" });
+      response.writeHead(404, { "Content-Type": "text/plain" });
+      response.end("Not Found");
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Unexpected server error";
