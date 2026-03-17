@@ -719,6 +719,61 @@ async function callClaude(system: string, user: string): Promise<string> {
   return claudeData?.content?.[0]?.text?.trim() ?? "";
 }
 
+function extractJsonBlock(rawText: string): string {
+  const trimmed = rawText.trim();
+
+  if (!trimmed) {
+    throw new SyntaxError("Model returned empty content");
+  }
+
+  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fencedMatch?.[1]) {
+    return fencedMatch[1].trim();
+  }
+
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return trimmed.slice(firstBrace, lastBrace + 1);
+  }
+
+  return trimmed;
+}
+
+async function parseModelJson<T>(
+  rawText: string,
+  schema: z.ZodSchema<T>,
+  repairLabel: string
+): Promise<T> {
+  const normalizedJson = extractJsonBlock(rawText);
+
+  try {
+    return schema.parse(JSON.parse(normalizedJson) as unknown);
+  } catch (initialError) {
+    const repairedText = await callClaude(
+      `You repair malformed JSON for Muloo Deploy OS.
+
+Rules:
+- Return ONLY valid JSON.
+- Do not add markdown fences or commentary.
+- Preserve the original intended structure and values as closely as possible.
+`,
+      JSON.stringify(
+        {
+          label: repairLabel,
+          malformedJson: normalizedJson
+        },
+        null,
+        2
+      )
+    );
+
+    const repairedJson = extractJsonBlock(repairedText);
+    return schema.parse(JSON.parse(repairedJson) as unknown);
+  }
+}
+
 async function loadProjectDiscoveryForBlueprint(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -835,16 +890,24 @@ Rules:
     )
   );
 
-  const parsedSummary = discoverySummarySchema.parse(
-    JSON.parse(rawSummary) as unknown
+  const parsedSummary = await parseModelJson(
+    rawSummary,
+    discoverySummarySchema,
+    "discovery-summary"
   );
+  const normalizedSummary = {
+    ...parsedSummary,
+    missingInformation: parsedSummary.missingInformation ?? [],
+    keyRisks: parsedSummary.keyRisks ?? [],
+    recommendedNextQuestions: parsedSummary.recommendedNextQuestions ?? []
+  };
 
   const savedSummary = await prisma.discoverySummary.upsert({
     where: { projectId },
-    update: parsedSummary,
+    update: normalizedSummary,
     create: {
       projectId,
-      ...parsedSummary
+      ...normalizedSummary
     }
   });
 
@@ -893,8 +956,10 @@ Base the blueprint on the hubs enabled, use cases, goals, and complexity indicat
     JSON.stringify(discoveryPayload.discovery, null, 2)
   );
 
-  const parsedBlueprint = blueprintGenerationSchema.parse(
-    JSON.parse(rawBlueprint) as unknown
+  const parsedBlueprint = await parseModelJson(
+    rawBlueprint,
+    blueprintGenerationSchema,
+    "blueprint"
   );
 
   return prisma.blueprint.upsert({
