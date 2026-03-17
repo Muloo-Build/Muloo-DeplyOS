@@ -60,6 +60,20 @@ const validProjectHubValues = [
   "ops",
   "cms"
 ] as const;
+const projectOwnerOptions = [
+  {
+    id: "jarrud-vander-merwe",
+    name: "Jarrud van der Merwe",
+    email: "jarrud@muloo.com",
+    role: "HubSpot Architect"
+  },
+  {
+    id: "muloo-operator",
+    name: "Muloo Operator",
+    email: "operator@muloo.com",
+    role: "Operations"
+  }
+] as const;
 const sessionFieldLabels: Record<number, string[]> = {
   1: [
     "business_overview",
@@ -173,6 +187,28 @@ function isValidEngagementType(value: string): value is EngagementType {
 
 function isValidProjectHub(value: string): value is ProjectHub {
   return validProjectHubValues.includes(value as ProjectHub);
+}
+
+function resolveProjectOwner(ownerName?: string, ownerEmail?: string) {
+  const normalizedName = ownerName?.trim().toLowerCase() ?? "";
+  const normalizedEmail = ownerEmail?.trim().toLowerCase() ?? "";
+  const matchedOwner = projectOwnerOptions.find(
+    (candidate) =>
+      candidate.name.toLowerCase() === normalizedName ||
+      candidate.email.toLowerCase() === normalizedEmail
+  );
+
+  if (matchedOwner) {
+    return {
+      owner: matchedOwner.name,
+      ownerEmail: matchedOwner.email
+    };
+  }
+
+  return {
+    owner: ownerName?.trim() || projectOwnerOptions[0].name,
+    ownerEmail: ownerEmail?.trim() || projectOwnerOptions[0].email
+  };
 }
 
 function createSlug(value: string): string {
@@ -945,6 +981,12 @@ export function createAppServer(config: BaseConfig): http.Server {
         });
       }
 
+      if (url.pathname === "/api/users") {
+        return sendJson(response, 200, {
+          users: projectOwnerOptions
+        });
+      }
+
       if (url.pathname === "/api/runs") {
         return sendJson(response, 200, {
           runs: await loadAllExecutionRecords()
@@ -1011,8 +1053,7 @@ export function createAppServer(config: BaseConfig): http.Server {
               status: "draft",
               engagementType: (body.engagementType ??
                 "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
-              owner: body.owner ?? "Jarrud",
-              ownerEmail: body.ownerEmail ?? "jarrud@muloo.com",
+              ...resolveProjectOwner(body.owner, body.ownerEmail),
               clientChampionFirstName:
                 body.clientChampionFirstName?.trim() || null,
               clientChampionLastName:
@@ -1464,6 +1505,8 @@ export function createAppServer(config: BaseConfig): http.Server {
             clientName?: unknown;
             type?: unknown;
             portalId?: unknown;
+            owner?: unknown;
+            ownerEmail?: unknown;
             hubs?: unknown;
             clientChampionFirstName?: unknown;
             clientChampionLastName?: unknown;
@@ -1474,6 +1517,8 @@ export function createAppServer(config: BaseConfig): http.Server {
             clientName?: string;
             type?: EngagementType;
             portalId?: string;
+            owner?: string;
+            ownerEmail?: string;
             hubs?: ProjectHub[];
             clientChampionFirstName?: string;
             clientChampionLastName?: string;
@@ -1514,6 +1559,26 @@ export function createAppServer(config: BaseConfig): http.Server {
             }
 
             normalizedPayload.portalId = body.portalId.trim();
+          }
+
+          if (body.owner !== undefined) {
+            if (typeof body.owner !== "string") {
+              return sendJson(response, 400, {
+                error: "owner must be a string"
+              });
+            }
+
+            normalizedPayload.owner = body.owner.trim();
+          }
+
+          if (body.ownerEmail !== undefined) {
+            if (typeof body.ownerEmail !== "string") {
+              return sendJson(response, 400, {
+                error: "ownerEmail must be a string"
+              });
+            }
+
+            normalizedPayload.ownerEmail = body.ownerEmail.trim();
           }
 
           if (body.hubs !== undefined) {
@@ -1577,6 +1642,8 @@ export function createAppServer(config: BaseConfig): http.Server {
             normalizedPayload.clientName === undefined &&
             normalizedPayload.type === undefined &&
             normalizedPayload.portalId === undefined &&
+            normalizedPayload.owner === undefined &&
+            normalizedPayload.ownerEmail === undefined &&
             normalizedPayload.hubs === undefined &&
             normalizedPayload.clientChampionFirstName === undefined &&
             normalizedPayload.clientChampionLastName === undefined &&
@@ -1598,6 +1665,14 @@ export function createAppServer(config: BaseConfig): http.Server {
 
           const nextClientName =
             normalizedPayload.clientName ?? existingProject.client.name;
+          const nextOwnerDetails =
+            normalizedPayload.owner !== undefined ||
+            normalizedPayload.ownerEmail !== undefined
+              ? resolveProjectOwner(
+                  normalizedPayload.owner ?? existingProject.owner,
+                  normalizedPayload.ownerEmail ?? existingProject.ownerEmail
+                )
+              : null;
 
           const project = await prisma.$transaction(async (transaction) => {
             let nextClientId = existingProject.clientId;
@@ -1649,6 +1724,7 @@ export function createAppServer(config: BaseConfig): http.Server {
                 ...(normalizedPayload.hubs
                   ? { selectedHubs: normalizedPayload.hubs }
                   : {}),
+                ...(nextOwnerDetails ? nextOwnerDetails : {}),
                 ...(nextClientId !== existingProject.clientId
                   ? { clientId: nextClientId }
                   : {}),

@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import AppShell from "../../components/AppShell";
 
 interface FormData {
   projectName: string;
   clientName: string;
+  owner: string;
+  ownerEmail: string;
   clientChampionFirstName: string;
   clientChampionLastName: string;
   clientChampionEmail: string;
@@ -15,6 +17,13 @@ interface FormData {
   hubsInScope: string[];
   useTemplate: boolean;
   templateId: string;
+}
+
+interface TeamUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
 }
 
 const engagementTypes = [
@@ -87,9 +96,12 @@ export default function NewProjectPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [formData, setFormData] = useState<FormData>({
     projectName: "",
     clientName: "",
+    owner: "",
+    ownerEmail: "",
     clientChampionFirstName: "",
     clientChampionLastName: "",
     clientChampionEmail: "",
@@ -98,6 +110,32 @@ export default function NewProjectPage() {
     useTemplate: false,
     templateId: ""
   });
+
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        const response = await fetch("/api/users");
+
+        if (!response.ok) {
+          throw new Error("Failed to load users");
+        }
+
+        const body = await response.json();
+        const users = body.users ?? [];
+
+        setTeamUsers(users);
+        setFormData((current) => ({
+          ...current,
+          owner: current.owner || users[0]?.name || "",
+          ownerEmail: current.ownerEmail || users[0]?.email || ""
+        }));
+      } catch {
+        // Keep project creation usable even if the team list is unavailable.
+      }
+    }
+
+    void loadUsers();
+  }, []);
 
   function updateField(
     field: keyof FormData,
@@ -112,6 +150,16 @@ export default function NewProjectPage() {
       hubsInScope: current.hubsInScope.includes(hubId)
         ? current.hubsInScope.filter((hub) => hub !== hubId)
         : [...current.hubsInScope, hubId]
+    }));
+  }
+
+  function selectOwner(ownerName: string) {
+    const selectedOwner = teamUsers.find((user) => user.name === ownerName);
+
+    setFormData((current) => ({
+      ...current,
+      owner: ownerName,
+      ownerEmail: selectedOwner?.email ?? current.ownerEmail
     }));
   }
 
@@ -133,8 +181,8 @@ export default function NewProjectPage() {
       clientName: formData.clientName.trim(),
       selectedHubs: formData.hubsInScope,
       engagementType: formData.engagementType,
-      owner: "Muloo Operator",
-      ownerEmail: "operator@muloo.com",
+      owner: formData.owner,
+      ownerEmail: formData.ownerEmail,
       clientChampionFirstName: formData.clientChampionFirstName.trim(),
       clientChampionLastName: formData.clientChampionLastName.trim(),
       clientChampionEmail: formData.clientChampionEmail.trim(),
@@ -247,6 +295,34 @@ export default function NewProjectPage() {
                       updateField("clientName", event.target.value)
                     }
                     className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm text-text-secondary">
+                    Project owner
+                  </span>
+                  <select
+                    value={formData.owner}
+                    onChange={(event) => selectOwner(event.target.value)}
+                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  >
+                    {teamUsers.map((user) => (
+                      <option key={user.id} value={user.name}>
+                        {user.name} - {user.role}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm text-text-secondary">
+                    Owner email
+                  </span>
+                  <input
+                    value={formData.ownerEmail}
+                    readOnly
+                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-3 text-white outline-none"
                   />
                 </label>
 

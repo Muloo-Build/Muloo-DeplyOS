@@ -60,10 +60,18 @@ interface DiscoverySummary {
   recommendedNextQuestions: string[];
 }
 
+interface TeamUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 type EditableField =
   | "clientName"
   | "type"
   | "portalId"
+  | "owner"
   | "hubs"
   | "clientChampion"
   | null;
@@ -90,6 +98,8 @@ function createProjectDraft(project: Project) {
     type: project.engagementType,
     portalId: project.portal?.portalId ?? "",
     hubs: project.selectedHubs,
+    owner: project.owner,
+    ownerEmail: project.ownerEmail,
     clientChampionFirstName: project.clientChampionFirstName ?? "",
     clientChampionLastName: project.clientChampionLastName ?? "",
     clientChampionEmail: project.clientChampionEmail ?? ""
@@ -177,11 +187,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     clientName: "",
     type: "IMPLEMENTATION",
     portalId: "",
+    owner: "",
+    ownerEmail: "",
     hubs: [] as string[],
     clientChampionFirstName: "",
     clientChampionLastName: "",
     clientChampionEmail: ""
   });
+  const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [savingField, setSavingField] = useState<EditableField>(null);
   const [projectEditError, setProjectEditError] = useState<string | null>(null);
@@ -199,21 +212,22 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           projectResponse,
           sessionsResponse,
           blueprintResponse,
-          summaryResponse
+          summaryResponse,
+          usersResponse
         ] =
           await Promise.all([
             fetch(`/api/projects/${encodeURIComponent(projectId)}`),
             fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
             fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
-            fetch(
-              `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
-            )
+            fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery-summary`),
+            fetch("/api/users")
           ]);
 
         if (
           !projectResponse.ok ||
           !sessionsResponse.ok ||
-          !summaryResponse.ok
+          !summaryResponse.ok ||
+          !usersResponse.ok
         ) {
           throw new Error("Failed to load project");
         }
@@ -221,11 +235,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         const projectBody = await projectResponse.json();
         const sessionsBody = await sessionsResponse.json();
         const summaryBody = await summaryResponse.json();
+        const usersBody = await usersResponse.json();
 
         setProject(projectBody.project);
         setProjectDraft(createProjectDraft(projectBody.project));
         setSessions(sessionsBody.sessionDetails ?? []);
         setDiscoverySummary(summaryBody.summary ?? null);
+        setTeamUsers(usersBody.users ?? []);
 
         if (blueprintResponse.ok) {
           const blueprintBody = await blueprintResponse.json();
@@ -289,6 +305,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }));
   }
 
+  function selectOwner(ownerName: string) {
+    const selectedOwner = teamUsers.find((user) => user.name === ownerName);
+
+    setProjectDraft((currentDraft) => ({
+      ...currentDraft,
+      owner: ownerName,
+      ownerEmail: selectedOwner?.email ?? currentDraft.ownerEmail
+    }));
+  }
+
   async function saveField(field: Exclude<EditableField, null>) {
     if (!project) {
       return;
@@ -301,6 +327,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           ? { type: projectDraft.type }
           : field === "portalId"
             ? { portalId: projectDraft.portalId }
+            : field === "owner"
+              ? {
+                  owner: projectDraft.owner,
+                  ownerEmail: projectDraft.ownerEmail
+                }
             : field === "clientChampion"
               ? {
                   clientChampionFirstName: projectDraft.clientChampionFirstName,
@@ -691,10 +722,52 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     </div>
                     {renderError("portalId")}
                   </div>
+                  <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Owner
+                        </p>
+                        {editingField === "owner" ? (
+                          <>
+                            <select
+                              value={projectDraft.owner}
+                              onChange={(event) => selectOwner(event.target.value)}
+                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            >
+                              {teamUsers.map((user) => (
+                                <option key={user.id} value={user.name}>
+                                  {user.name} - {user.role}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="mt-3 text-sm text-text-secondary">
+                              {projectDraft.ownerEmail}
+                            </p>
+                            {renderActions("owner")}
+                          </>
+                        ) : (
+                          <>
+                            <p className="mt-2 text-sm text-white">
+                              {project.owner}
+                            </p>
+                            <p className="mt-1 text-sm text-text-secondary">
+                              {project.ownerEmail}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                      {editingField !== "owner" ? (
+                        <EditButton
+                          label="Edit owner"
+                          onClick={() => startEditing("owner")}
+                        />
+                      ) : null}
+                    </div>
+                    {renderError("owner")}
+                  </div>
                   {[
                     ["Portal", project.portal?.displayName ?? "Pending"],
-                    ["Owner", project.owner],
-                    ["Owner Email", project.ownerEmail],
                     ["Industry", project.client.industry ?? "Not set"],
                     ["Blueprint Generated", blueprint ? "Yes" : "No"]
                   ].map(([label, value]) => (
