@@ -615,8 +615,37 @@ function getCompletedDiscoverySections(
     .map(([key]) => key);
 }
 
+function getDiscoverySessionStatusFromSubmission(
+  submission?: {
+    status?: string;
+    completedSections?: string[];
+    sections?: unknown;
+  } | null
+): DiscoverySessionStatus {
+  const fields = normalizeDiscoveryFields(submission?.sections);
+  const derivedStatus = getDiscoverySessionStatus(fields);
+
+  if (derivedStatus === "complete") {
+    return "complete";
+  }
+
+  if (
+    derivedStatus === "in_progress" ||
+    (submission?.completedSections?.length ?? 0) > 0
+  ) {
+    return "in_progress";
+  }
+
+  return "draft";
+}
+
 function buildDiscoverySessionsWithStatus(
-  submissions: Array<{ version: number; status: string; sections: unknown }>
+  submissions: Array<{
+    version: number;
+    status: string;
+    sections: unknown;
+    completedSections?: string[];
+  }>
 ) {
   return [1, 2, 3, 4].map((sessionNumber) => {
     const submission = submissions.find(
@@ -627,12 +656,7 @@ function buildDiscoverySessionsWithStatus(
     return {
       session: sessionNumber,
       title: sessionTitles[sessionNumber] ?? `Session ${sessionNumber}`,
-      status:
-        submission?.status === "complete" ||
-        submission?.status === "in_progress" ||
-        submission?.status === "draft"
-          ? submission.status
-          : getDiscoverySessionStatus(fields),
+      status: getDiscoverySessionStatusFromSubmission(submission),
       fields
     };
   });
@@ -684,7 +708,11 @@ function serializeProject<
   };
 }
 
-async function callClaude(system: string, user: string): Promise<string> {
+async function callClaude(
+  system: string,
+  user: string,
+  options?: { maxTokens?: number }
+): Promise<string> {
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!anthropicApiKey) {
@@ -700,7 +728,7 @@ async function callClaude(system: string, user: string): Promise<string> {
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
+      max_tokens: options?.maxTokens ?? 2000,
       system,
       messages: [{ role: "user", content: user }]
     })
@@ -751,27 +779,224 @@ async function parseModelJson<T>(
   try {
     return schema.parse(JSON.parse(normalizedJson) as unknown);
   } catch (initialError) {
-    const repairedText = await callClaude(
-      `You repair malformed JSON for Muloo Deploy OS.
+    try {
+      const repairedText = await callClaude(
+        `You repair malformed JSON for Muloo Deploy OS.
 
 Rules:
 - Return ONLY valid JSON.
 - Do not add markdown fences or commentary.
 - Preserve the original intended structure and values as closely as possible.
 `,
-      JSON.stringify(
-        {
-          label: repairLabel,
-          malformedJson: normalizedJson
-        },
-        null,
-        2
-      )
-    );
+        JSON.stringify(
+          {
+            label: repairLabel,
+            malformedJson: normalizedJson
+          },
+          null,
+          2
+        ),
+        { maxTokens: 4000 }
+      );
 
-    const repairedJson = extractJsonBlock(repairedText);
-    return schema.parse(JSON.parse(repairedJson) as unknown);
+      const repairedJson = extractJsonBlock(repairedText);
+      return schema.parse(JSON.parse(repairedJson) as unknown);
+    } catch (repairError) {
+      if (
+        initialError instanceof SyntaxError ||
+        initialError instanceof ZodError
+      ) {
+        throw initialError;
+      }
+
+      if (repairError instanceof SyntaxError || repairError instanceof ZodError) {
+        throw repairError;
+      }
+
+      throw new SyntaxError(
+        `Failed to parse ${repairLabel} JSON from model output`
+      );
+    }
   }
+}
+
+function createBlueprintTask(
+  name: string,
+  type: (typeof blueprintTaskTypeValues)[number],
+  effortHours: number,
+  order: number
+) {
+  return {
+    name,
+    type,
+    effortHours,
+    order
+  };
+}
+
+function buildFallbackBlueprint(
+  discoveryPayload: NonNullable<
+    Awaited<ReturnType<typeof loadProjectDiscoveryForBlueprint>>
+  >
+) {
+  const { discovery } = discoveryPayload;
+  const session1 =
+    discovery.sessions.find((session) => session.session === 1)?.fields ?? {};
+  const session2 =
+    discovery.sessions.find((session) => session.session === 2)?.fields ?? {};
+  const session3 =
+    discovery.sessions.find((session) => session.session === 3)?.fields ?? {};
+  const session4 =
+    discovery.sessions.find((session) => session.session === 4)?.fields ?? {};
+
+  const phases: Array<{
+    phase: number;
+    phaseName: string;
+    tasks: Array<{
+      name: string;
+      type: (typeof blueprintTaskTypeValues)[number];
+      effortHours: number;
+      order: number;
+    }>;
+  }> = [
+    {
+      phase: 1,
+      phaseName: "Foundation & Alignment",
+      tasks: [
+        createBlueprintTask("Validate discovery findings and confirm scope", "Human", 3, 1),
+        createBlueprintTask("Confirm client stakeholders, owners, and approvals", "Client", 1, 2),
+        createBlueprintTask("Set up project workspace, documentation, and governance", "Human", 2, 3)
+      ]
+    },
+    {
+      phase: 2,
+      phaseName: "Data & Process Design",
+      tasks: [
+        createBlueprintTask("Map current data sources and migration requirements", "Human", 4, 1),
+        createBlueprintTask("Prepare data cleanup list and import strategy", "Agent", 3, 2),
+        createBlueprintTask("Approve target lifecycle, pipeline, and process design", "Client", 1, 3)
+      ]
+    }
+  ];
+
+  const buildTasks: Array<{
+    name: string;
+    type: (typeof blueprintTaskTypeValues)[number];
+    effortHours: number;
+    order: number;
+  }> = [];
+
+  if (discovery.selectedHubs.includes("sales")) {
+    buildTasks.push(
+      createBlueprintTask("Configure Sales Hub properties, pipelines, and handoff stages", "Human", 5, buildTasks.length + 1),
+      createBlueprintTask("Generate sales object and field checklist", "Agent", 2, buildTasks.length + 1)
+    );
+  }
+
+  if (discovery.selectedHubs.includes("marketing")) {
+    buildTasks.push(
+      createBlueprintTask("Configure marketing lifecycle, campaign, and lead routing setup", "Human", 4, buildTasks.length + 1),
+      createBlueprintTask("Draft marketing automation and nurture recommendations", "Agent", 2, buildTasks.length + 1)
+    );
+  }
+
+  if (discovery.selectedHubs.includes("service")) {
+    buildTasks.push(
+      createBlueprintTask("Configure service pipelines, inbox, and support process foundations", "Human", 4, buildTasks.length + 1)
+    );
+  }
+
+  if (discovery.selectedHubs.includes("cms")) {
+    buildTasks.push(
+      createBlueprintTask("Align CMS/content requirements with website rebuild dependencies", "Human", 3, buildTasks.length + 1)
+    );
+  }
+
+  if (discovery.selectedHubs.includes("ops")) {
+    buildTasks.push(
+      createBlueprintTask("Define RevOps governance, custom objects, and operational controls", "Human", 4, buildTasks.length + 1)
+    );
+  }
+
+  if ((session3.integration_requirements ?? "").trim().length > 0) {
+    buildTasks.push(
+      createBlueprintTask("Assess and sequence required integrations", "Human", 3, buildTasks.length + 1)
+    );
+  }
+
+  phases.push({
+    phase: 3,
+    phaseName: "Hub Configuration & Automation",
+    tasks:
+      buildTasks.length > 0
+        ? buildTasks
+        : [
+            createBlueprintTask("Configure core HubSpot setup based on approved future-state design", "Human", 6, 1),
+            createBlueprintTask("Prepare automation implementation checklist", "Agent", 2, 2)
+          ]
+  });
+
+  phases.push({
+    phase: 4,
+    phaseName: "Testing, Enablement & Launch",
+    tasks: [
+      createBlueprintTask("Run QA on records, workflows, and reporting outputs", "Human", 3, 1),
+      createBlueprintTask("Support user acceptance testing and change readiness", "Client", 2, 2),
+      createBlueprintTask("Prepare handover, adoption, and next-step recommendations", "Human", 3, 3)
+    ]
+  });
+
+  const needsExtraPhase =
+    discovery.engagementType === "MIGRATION" ||
+    (session2.data_landscape ?? "").trim().length > 0 ||
+    discovery.discoveryProfile.dataReadinessRating.toLowerCase() === "low";
+
+  if (needsExtraPhase) {
+    phases.splice(2, 0, {
+      phase: 3,
+      phaseName: "Migration Readiness",
+      tasks: [
+        createBlueprintTask("Audit legacy data structure and migration constraints", "Human", 4, 1),
+        createBlueprintTask("Prepare migration mapping and issue log", "Agent", 3, 2),
+        createBlueprintTask("Approve data owners and cutover responsibilities", "Client", 1, 3)
+      ]
+    });
+
+    for (const [index, phase] of phases.entries()) {
+      phase.phase = index + 1;
+      phase.tasks = phase.tasks.map((task, taskIndex) => ({
+        ...task,
+        order: taskIndex + 1
+      }));
+    }
+  }
+
+  const scopeText = [session1.primary_pain_challenge, session4.confirmed_scope]
+    .filter(Boolean)
+    .join(" ");
+
+  if (/report/i.test(scopeText) || (session3.reporting_requirements ?? "").trim().length > 0) {
+    const finalPhase = phases[phases.length - 1];
+
+    if (finalPhase) {
+      finalPhase.tasks.splice(
+        Math.max(finalPhase.tasks.length - 1, 0),
+        0,
+        createBlueprintTask(
+          "Configure reporting views and success dashboards",
+          "Human",
+          3,
+          0
+        )
+      );
+      finalPhase.tasks = finalPhase.tasks.map((task, index) => ({
+        ...task,
+        order: index + 1
+      }));
+    }
+  }
+
+  return blueprintGenerationSchema.parse({ phases });
 }
 
 async function loadProjectDiscoveryForBlueprint(projectId: string) {
@@ -942,25 +1167,45 @@ async function generateBlueprintFromDiscovery(projectId: string) {
     );
   }
 
-  const rawBlueprint = await callClaude(
-    `You are a HubSpot implementation planning assistant for Muloo, a technical HubSpot delivery company.
+  let parsedBlueprint: z.infer<typeof blueprintGenerationSchema>;
+
+  try {
+    const discoverySummary = await loadDiscoverySummary(projectId);
+    const rawBlueprint = await callClaude(
+      `You are a HubSpot implementation planning assistant for Muloo, a technical HubSpot delivery company.
 Given structured discovery data from a client project, generate a phased implementation blueprint.
+
 Rules:
+- Return ONLY valid JSON. No explanation, no markdown, no preamble.
+- Use exactly this structure: {"phases":[{"phase":1,"phaseName":"Foundation & Alignment","tasks":[{"name":"Task name","type":"Human","effortHours":3,"order":1}]}]}
+- Organise work into 3 to 5 phases.
+- Each phase must contain at least 1 task.
+- Each task must have: name, type (Agent/Human/Client), effortHours (realistic estimate), order (within phase).
+- Agent = automated by DeployOS tooling. Human = Muloo consultant time. Client = client must action.
+- Human task hours must be realistic for a senior HubSpot consultant.
+- Prefer concise, implementation-ready task names.
+- Base the blueprint on enabled hubs, use cases, risks, data readiness, and complexity in the discovery.
+`,
+      JSON.stringify(
+        {
+          ...discoveryPayload.discovery,
+          discoverySummary
+        },
+        null,
+        2
+      ),
+      { maxTokens: 4000 }
+    );
 
-Return ONLY valid JSON. No explanation, no markdown, no preamble.
-Organise tasks into 3–5 phases (Foundation, Pipeline & Process, Automation, Reporting, Handover — adjust based on scope).
-Each task must have: name, type (Agent/Human/Client), effortHours (realistic estimate), order (within phase).
-Agent = automated by DeplyOS tooling. Human = Muloo consultant time. Client = client must action.
-Human task hours must be realistic for a senior HubSpot consultant.
-Base the blueprint on the hubs enabled, use cases, goals, and complexity indicated in the discovery data.`,
-    JSON.stringify(discoveryPayload.discovery, null, 2)
-  );
-
-  const parsedBlueprint = await parseModelJson(
-    rawBlueprint,
-    blueprintGenerationSchema,
-    "blueprint"
-  );
+    parsedBlueprint = await parseModelJson(
+      rawBlueprint,
+      blueprintGenerationSchema,
+      "blueprint"
+    );
+  } catch (error) {
+    console.error("Falling back to heuristic blueprint generation", error);
+    parsedBlueprint = buildFallbackBlueprint(discoveryPayload);
+  }
 
   return prisma.blueprint.upsert({
     where: { projectId },

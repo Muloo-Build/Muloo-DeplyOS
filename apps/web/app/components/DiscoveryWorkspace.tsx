@@ -46,6 +46,20 @@ interface DiscoverySummary {
   recommendedNextQuestions: string[];
 }
 
+function isSessionComplete(session: SessionDetail | undefined) {
+  if (!session) {
+    return false;
+  }
+
+  const fieldValues = Object.values(session.fields);
+
+  if (fieldValues.length === 0) {
+    return false;
+  }
+
+  return fieldValues.every((value) => value.trim().length > 0);
+}
+
 const sessionDefinitions: Record<
   number,
   {
@@ -381,13 +395,15 @@ export default function DiscoveryWorkspace({
     void loadWorkspace();
   }, [projectId]);
 
-  const session1Complete =
-    sessions.find((session) => session.session === 1)?.status === "complete";
-  const session3Complete =
-    sessions.find((session) => session.session === 3)?.status === "complete";
+  const session1Complete = isSessionComplete(
+    sessions.find((session) => session.session === 1)
+  );
+  const session3Complete = isSessionComplete(
+    sessions.find((session) => session.session === 3)
+  );
   const canGenerateBlueprint = session1Complete && session3Complete;
-  const completedSessions = sessions.filter(
-    (session) => session.status === "complete"
+  const completedSessions = sessions.filter((session) =>
+    isSessionComplete(session)
   ).length;
 
   function updateSessionDraft(
@@ -867,17 +883,33 @@ export default function DiscoveryWorkspace({
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-white">Session 1</span>
                       <span
-                        className={statusClass(sessions[0]?.status ?? "draft")}
+                        className={statusClass(
+                          isSessionComplete(sessions[0])
+                            ? "complete"
+                            : sessions[0]?.status ?? "draft"
+                        )}
                       >
-                        {statusLabel(sessions[0]?.status ?? "draft")}
+                        {statusLabel(
+                          isSessionComplete(sessions[0])
+                            ? "complete"
+                            : sessions[0]?.status ?? "draft"
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-white">Session 3</span>
                       <span
-                        className={statusClass(sessions[2]?.status ?? "draft")}
+                        className={statusClass(
+                          isSessionComplete(sessions[2])
+                            ? "complete"
+                            : sessions[2]?.status ?? "draft"
+                        )}
                       >
-                        {statusLabel(sessions[2]?.status ?? "draft")}
+                        {statusLabel(
+                          isSessionComplete(sessions[2])
+                            ? "complete"
+                            : sessions[2]?.status ?? "draft"
+                        )}
                       </span>
                     </div>
                   </div>
@@ -914,10 +946,12 @@ export default function DiscoveryWorkspace({
 
                       <span
                         className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
-                          session.status
+                          isSessionComplete(session) ? "complete" : session.status
                         )}`}
                       >
-                        {statusLabel(session.status)}
+                        {statusLabel(
+                          isSessionComplete(session) ? "complete" : session.status
+                        )}
                       </span>
                     </div>
 

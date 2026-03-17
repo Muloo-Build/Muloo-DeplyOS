@@ -73,6 +73,20 @@ interface TeamUser {
   role: string;
 }
 
+function isSessionComplete(session: SessionDetail | undefined) {
+  if (!session) {
+    return false;
+  }
+
+  const fieldValues = Object.values(session.fields);
+
+  if (fieldValues.length === 0) {
+    return false;
+  }
+
+  return fieldValues.every((value) => value.trim().length > 0);
+}
+
 const industryOptions = [
   "Accounting & Advisory",
   "Agency & Professional Services",
@@ -304,13 +318,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     void loadProject();
   }, [projectId]);
 
-  const completedSessions = sessions.filter(
-    (session) => session.status === "complete"
+  const completedSessions = sessions.filter((session) =>
+    isSessionComplete(session)
   ).length;
-  const session1Complete =
-    sessions.find((session) => session.session === 1)?.status === "complete";
-  const session3Complete =
-    sessions.find((session) => session.session === 3)?.status === "complete";
+  const session1Complete = isSessionComplete(
+    sessions.find((session) => session.session === 1)
+  );
+  const session3Complete = isSessionComplete(
+    sessions.find((session) => session.session === 3)
+  );
   const canGenerateBlueprint = session1Complete && session3Complete;
   const totalHumanHours =
     blueprint?.tasks
@@ -1152,10 +1168,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           </div>
                           <span
                             className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
-                              session.status
+                              isSessionComplete(session)
+                                ? "complete"
+                                : session.status
                             )}`}
                           >
-                            {formatLabel(session.status)}
+                            {formatLabel(
+                              isSessionComplete(session)
+                                ? "complete"
+                                : session.status
+                            )}
                           </span>
                         </div>
                       </div>
