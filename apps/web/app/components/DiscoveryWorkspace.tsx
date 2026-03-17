@@ -282,6 +282,10 @@ function createSessionErrors() {
   >;
 }
 
+function createSessionTextState() {
+  return { 1: "", 2: "", 3: "", 4: "" } as Record<number, string>;
+}
+
 export default function DiscoveryWorkspace({
   projectId
 }: {
@@ -302,6 +306,17 @@ export default function DiscoveryWorkspace({
     createSessionFlags(false)
   );
   const [sessionErrors, setSessionErrors] = useState(createSessionErrors());
+  const [assistantNotes, setAssistantNotes] = useState(createSessionTextState());
+  const [assistantDocUrls, setAssistantDocUrls] = useState(
+    createSessionTextState()
+  );
+  const [extractingSessions, setExtractingSessions] = useState(
+    createSessionFlags(false)
+  );
+  const [fetchingDocs, setFetchingDocs] = useState(createSessionFlags(false));
+  const [assistantMessages, setAssistantMessages] = useState(
+    createSessionErrors()
+  );
   const [loading, setLoading] = useState(true);
   const [generatingBlueprint, setGeneratingBlueprint] = useState(false);
   const [blueprintError, setBlueprintError] = useState<string | null>(null);
@@ -361,6 +376,156 @@ export default function DiscoveryWorkspace({
         [fieldKey]: value
       }
     }));
+  }
+
+  function updateAssistantNotes(sessionNumber: number, value: string) {
+    setAssistantNotes((currentState) => ({
+      ...currentState,
+      [sessionNumber]: value
+    }));
+  }
+
+  function updateAssistantDocUrl(sessionNumber: number, value: string) {
+    setAssistantDocUrls((currentState) => ({
+      ...currentState,
+      [sessionNumber]: value
+    }));
+  }
+
+  async function extractSessionFromNotes(sessionNumber: number) {
+    const noteText = assistantNotes[sessionNumber]?.trim() ?? "";
+
+    if (!noteText) {
+      setAssistantMessages((currentMessages) => ({
+        ...currentMessages,
+        [sessionNumber]: "Paste meeting notes or a Gemini summary first."
+      }));
+      return;
+    }
+
+    setExtractingSessions((currentFlags) => ({
+      ...currentFlags,
+      [sessionNumber]: true
+    }));
+    setAssistantMessages((currentMessages) => ({
+      ...currentMessages,
+      [sessionNumber]: null
+    }));
+
+    try {
+      const response = await fetch("/api/discovery/extract", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          session: sessionNumber,
+          text: noteText
+        })
+      });
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to extract session notes");
+      }
+
+      const extractedFields = body?.fields ?? {};
+      setSessionDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        [sessionNumber]: {
+          ...currentDrafts[sessionNumber],
+          ...extractedFields
+        }
+      }));
+      setAssistantMessages((currentMessages) => ({
+        ...currentMessages,
+        [sessionNumber]:
+          body?.message ??
+          "Draft fields updated from AI extraction. Review and save when ready."
+      }));
+    } catch (extractError) {
+      setAssistantMessages((currentMessages) => ({
+        ...currentMessages,
+        [sessionNumber]:
+          extractError instanceof Error
+            ? extractError.message
+            : "Failed to extract session notes"
+      }));
+    } finally {
+      setExtractingSessions((currentFlags) => ({
+        ...currentFlags,
+        [sessionNumber]: false
+      }));
+    }
+  }
+
+  async function extractSessionFromDoc(sessionNumber: number) {
+    const docUrl = assistantDocUrls[sessionNumber]?.trim() ?? "";
+
+    if (!docUrl) {
+      setAssistantMessages((currentMessages) => ({
+        ...currentMessages,
+        [sessionNumber]: "Add a public Google Doc URL first."
+      }));
+      return;
+    }
+
+    setFetchingDocs((currentFlags) => ({
+      ...currentFlags,
+      [sessionNumber]: true
+    }));
+    setAssistantMessages((currentMessages) => ({
+      ...currentMessages,
+      [sessionNumber]: null
+    }));
+
+    try {
+      const response = await fetch("/api/discovery/fetch-doc", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          session: sessionNumber,
+          url: docUrl
+        })
+      });
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to fetch and extract document");
+      }
+
+      const extractedFields = body?.fields ?? {};
+      setSessionDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        [sessionNumber]: {
+          ...currentDrafts[sessionNumber],
+          ...extractedFields
+        }
+      }));
+      setAssistantMessages((currentMessages) => ({
+        ...currentMessages,
+        [sessionNumber]:
+          body?.message ??
+          "Draft fields updated from the Google Doc. Review and save when ready."
+      }));
+    } catch (extractError) {
+      setAssistantMessages((currentMessages) => ({
+        ...currentMessages,
+        [sessionNumber]:
+          extractError instanceof Error
+            ? extractError.message
+            : "Failed to fetch and extract document"
+      }));
+    } finally {
+      setFetchingDocs((currentFlags) => ({
+        ...currentFlags,
+        [sessionNumber]: false
+      }));
+    }
   }
 
   async function saveSession(sessionNumber: number) {
@@ -619,6 +784,91 @@ export default function DiscoveryWorkspace({
                     </div>
 
                     <div className="mt-6 grid gap-5 lg:grid-cols-2">
+                      <div className="lg:col-span-2 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              AI Assist
+                            </p>
+                            <h3 className="mt-2 text-lg font-semibold text-white">
+                              Draft this session from notes or a public Google Doc
+                            </h3>
+                            <p className="mt-2 max-w-3xl text-sm text-text-secondary">
+                              Paste your Gemini summary or meeting notes, or point
+                              DeployOS at a public Google Doc, and it will prefill
+                              the fields below for review.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                          <label className="block">
+                            <span className="text-sm font-medium text-white">
+                              Notes or Gemini summary
+                            </span>
+                            <textarea
+                              value={assistantNotes[session.session] ?? ""}
+                              onChange={(event) =>
+                                updateAssistantNotes(
+                                  session.session,
+                                  event.target.value
+                                )
+                              }
+                              className="mt-3 min-h-[150px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void extractSessionFromNotes(session.session)
+                              }
+                              disabled={extractingSessions[session.session]}
+                              className="mt-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                            >
+                              {extractingSessions[session.session]
+                                ? "Extracting..."
+                                : "Extract from Notes"}
+                            </button>
+                          </label>
+
+                          <label className="block">
+                            <span className="text-sm font-medium text-white">
+                              Public Google Doc URL
+                            </span>
+                            <input
+                              value={assistantDocUrls[session.session] ?? ""}
+                              onChange={(event) =>
+                                updateAssistantDocUrl(
+                                  session.session,
+                                  event.target.value
+                                )
+                              }
+                              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                            <p className="mt-2 text-xs text-text-muted">
+                              The document must be accessible for export to work.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void extractSessionFromDoc(session.session)
+                              }
+                              disabled={fetchingDocs[session.session]}
+                              className="mt-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                            >
+                              {fetchingDocs[session.session]
+                                ? "Fetching..."
+                                : "Extract from Google Doc"}
+                            </button>
+                          </label>
+                        </div>
+
+                        {assistantMessages[session.session] ? (
+                          <p className="mt-4 text-sm text-text-secondary">
+                            {assistantMessages[session.session]}
+                          </p>
+                        ) : null}
+                      </div>
+
                       {(sessionDefinition?.fields ?? []).map((field) => (
                         <label key={field.key} className="block">
                           <span className="text-sm font-medium text-white">
