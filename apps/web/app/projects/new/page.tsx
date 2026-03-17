@@ -10,6 +10,14 @@ interface FormData {
   clientName: string;
   owner: string;
   ownerEmail: string;
+  industry: string;
+  website: string;
+  additionalWebsitesText: string;
+  linkedinUrl: string;
+  facebookUrl: string;
+  instagramUrl: string;
+  xUrl: string;
+  youtubeUrl: string;
   clientChampionFirstName: string;
   clientChampionLastName: string;
   clientChampionEmail: string;
@@ -68,6 +76,22 @@ const templates = [
   { id: "muloo-service-foundation", label: "Service Foundation" }
 ];
 
+const industryOptions = [
+  "Accounting & Advisory",
+  "Agency & Professional Services",
+  "Construction & Property",
+  "Education & Training",
+  "Financial Services",
+  "Healthcare",
+  "Legal",
+  "Manufacturing",
+  "Nonprofit",
+  "Retail & Ecommerce",
+  "SaaS & Technology",
+  "Travel & Hospitality",
+  "Other"
+];
+
 function buildModuleSelection(hubsInScope: string[]) {
   const modules = ["crm-setup", "qa"];
 
@@ -102,6 +126,14 @@ export default function NewProjectPage() {
     clientName: "",
     owner: "",
     ownerEmail: "",
+    industry: "",
+    website: "",
+    additionalWebsitesText: "",
+    linkedinUrl: "",
+    facebookUrl: "",
+    instagramUrl: "",
+    xUrl: "",
+    youtubeUrl: "",
     clientChampionFirstName: "",
     clientChampionLastName: "",
     clientChampionEmail: "",
@@ -183,6 +215,17 @@ export default function NewProjectPage() {
       engagementType: formData.engagementType,
       owner: formData.owner,
       ownerEmail: formData.ownerEmail,
+      industry: formData.industry,
+      website: formData.website.trim(),
+      additionalWebsites: formData.additionalWebsitesText
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean),
+      linkedinUrl: formData.linkedinUrl.trim(),
+      facebookUrl: formData.facebookUrl.trim(),
+      instagramUrl: formData.instagramUrl.trim(),
+      xUrl: formData.xUrl.trim(),
+      youtubeUrl: formData.youtubeUrl.trim(),
       clientChampionFirstName: formData.clientChampionFirstName.trim(),
       clientChampionLastName: formData.clientChampionLastName.trim(),
       clientChampionEmail: formData.clientChampionEmail.trim(),
@@ -326,6 +369,117 @@ export default function NewProjectPage() {
                   />
                 </label>
 
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-sm text-text-secondary">
+                    Industry
+                  </span>
+                  <select
+                    value={formData.industry}
+                    onChange={(event) =>
+                      updateField("industry", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  >
+                    <option value="">Select industry</option>
+                    {industryOptions.map((industry) => (
+                      <option key={industry} value={industry}>
+                        {industry}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-sm text-text-secondary">
+                    Primary website
+                  </span>
+                  <input
+                    value={formData.website}
+                    onChange={(event) =>
+                      updateField("website", event.target.value)
+                    }
+                    placeholder="https://example.com"
+                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-sm text-text-secondary">
+                    Additional websites
+                  </span>
+                  <textarea
+                    value={formData.additionalWebsitesText}
+                    onChange={(event) =>
+                      updateField("additionalWebsitesText", event.target.value)
+                    }
+                    placeholder={"One URL per line"}
+                    className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm text-text-secondary">
+                    LinkedIn
+                  </span>
+                  <input
+                    value={formData.linkedinUrl}
+                    onChange={(event) =>
+                      updateField("linkedinUrl", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm text-text-secondary">
+                    Facebook
+                  </span>
+                  <input
+                    value={formData.facebookUrl}
+                    onChange={(event) =>
+                      updateField("facebookUrl", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm text-text-secondary">
+                    Instagram
+                  </span>
+                  <input
+                    value={formData.instagramUrl}
+                    onChange={(event) =>
+                      updateField("instagramUrl", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm text-text-secondary">
+                    X / Twitter
+                  </span>
+                  <input
+                    value={formData.xUrl}
+                    onChange={(event) => updateField("xUrl", event.target.value)}
+                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-sm text-text-secondary">
+                    YouTube
+                  </span>
+                  <input
+                    value={formData.youtubeUrl}
+                    onChange={(event) =>
+                      updateField("youtubeUrl", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  />
+                </label>
+
                 <label className="block">
                   <span className="mb-2 block text-sm text-text-secondary">
                     Client champion first name
@@ -464,6 +618,8 @@ export default function NewProjectPage() {
                 {[
                   ["Project", formData.projectName],
                   ["Client", formData.clientName],
+                  ["Industry", formData.industry],
+                  ["Website", formData.website],
                   ["Champion first name", formData.clientChampionFirstName],
                   ["Champion last name", formData.clientChampionLastName],
                   ["Champion email", formData.clientChampionEmail],

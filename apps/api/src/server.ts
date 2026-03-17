@@ -77,6 +77,21 @@ const projectOwnerOptions = [
     role: "Operations"
   }
 ] as const;
+const industryOptions = [
+  "Accounting & Advisory",
+  "Agency & Professional Services",
+  "Construction & Property",
+  "Education & Training",
+  "Financial Services",
+  "Healthcare",
+  "Legal",
+  "Manufacturing",
+  "Nonprofit",
+  "Retail & Ecommerce",
+  "SaaS & Technology",
+  "Travel & Hospitality",
+  "Other"
+] as const;
 const sessionFieldLabels: Record<number, string[]> = {
   1: [
     "business_overview",
@@ -212,6 +227,21 @@ function resolveProjectOwner(ownerName?: string, ownerEmail?: string) {
     owner: ownerName?.trim() || projectOwnerOptions[0].name,
     ownerEmail: ownerEmail?.trim() || projectOwnerOptions[0].email
   };
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+    )
+  );
 }
 
 function createSlug(value: string): string {
@@ -629,6 +659,12 @@ function serializeProject<
       industry: string | null;
       region: string | null;
       website: string | null;
+      additionalWebsites: string[];
+      linkedinUrl: string | null;
+      facebookUrl: string | null;
+      instagramUrl: string | null;
+      xUrl: string | null;
+      youtubeUrl: string | null;
     };
     portal: {
       id: string;
@@ -740,7 +776,13 @@ async function loadProjectDiscoveryForBlueprint(projectId: string) {
         name: project.client.name,
         industry: project.client.industry,
         region: project.client.region,
-        website: project.client.website
+        website: project.client.website,
+        additionalWebsites: project.client.additionalWebsites,
+        linkedinUrl: project.client.linkedinUrl,
+        facebookUrl: project.client.facebookUrl,
+        instagramUrl: project.client.instagramUrl,
+        xUrl: project.client.xUrl,
+        youtubeUrl: project.client.youtubeUrl
       },
       portal: project.portal
         ? {
@@ -1097,6 +1139,12 @@ export function createAppServer(config: BaseConfig): http.Server {
         });
       }
 
+      if (url.pathname === "/api/industries") {
+        return sendJson(response, 200, {
+          industries: industryOptions
+        });
+      }
+
       if (url.pathname === "/api/runs") {
         return sendJson(response, 200, {
           runs: await loadAllExecutionRecords()
@@ -1113,6 +1161,14 @@ export function createAppServer(config: BaseConfig): http.Server {
             owner?: string;
             ownerEmail?: string;
             engagementType?: string;
+            industry?: string;
+            website?: string;
+            additionalWebsites?: string[];
+            linkedinUrl?: string;
+            facebookUrl?: string;
+            instagramUrl?: string;
+            xUrl?: string;
+            youtubeUrl?: string;
             clientChampionFirstName?: string;
             clientChampionLastName?: string;
             clientChampionEmail?: string;
@@ -1136,8 +1192,29 @@ export function createAppServer(config: BaseConfig): http.Server {
           const slug = createSlug(body.clientName);
           const client = await prisma.client.upsert({
             where: { slug },
-            update: {},
-            create: { name: body.clientName, slug }
+            update: {
+              name: body.clientName,
+              industry: body.industry?.trim() || null,
+              website: body.website?.trim() || null,
+              additionalWebsites: normalizeStringArray(body.additionalWebsites),
+              linkedinUrl: body.linkedinUrl?.trim() || null,
+              facebookUrl: body.facebookUrl?.trim() || null,
+              instagramUrl: body.instagramUrl?.trim() || null,
+              xUrl: body.xUrl?.trim() || null,
+              youtubeUrl: body.youtubeUrl?.trim() || null
+            },
+            create: {
+              name: body.clientName,
+              slug,
+              industry: body.industry?.trim() || null,
+              website: body.website?.trim() || null,
+              additionalWebsites: normalizeStringArray(body.additionalWebsites),
+              linkedinUrl: body.linkedinUrl?.trim() || null,
+              facebookUrl: body.facebookUrl?.trim() || null,
+              instagramUrl: body.instagramUrl?.trim() || null,
+              xUrl: body.xUrl?.trim() || null,
+              youtubeUrl: body.youtubeUrl?.trim() || null
+            }
           });
 
           const requestedPortalId = body.hubspotPortalId?.trim() ?? "";
@@ -1618,6 +1695,14 @@ export function createAppServer(config: BaseConfig): http.Server {
             owner?: unknown;
             ownerEmail?: unknown;
             hubs?: unknown;
+            clientIndustry?: unknown;
+            clientWebsite?: unknown;
+            clientAdditionalWebsites?: unknown;
+            clientLinkedinUrl?: unknown;
+            clientFacebookUrl?: unknown;
+            clientInstagramUrl?: unknown;
+            clientXUrl?: unknown;
+            clientYoutubeUrl?: unknown;
             clientChampionFirstName?: unknown;
             clientChampionLastName?: unknown;
             clientChampionEmail?: unknown;
@@ -1630,6 +1715,14 @@ export function createAppServer(config: BaseConfig): http.Server {
             owner?: string;
             ownerEmail?: string;
             hubs?: ProjectHub[];
+            clientIndustry?: string;
+            clientWebsite?: string;
+            clientAdditionalWebsites?: string[];
+            clientLinkedinUrl?: string;
+            clientFacebookUrl?: string;
+            clientInstagramUrl?: string;
+            clientXUrl?: string;
+            clientYoutubeUrl?: string;
             clientChampionFirstName?: string;
             clientChampionLastName?: string;
             clientChampionEmail?: string;
@@ -1689,6 +1782,83 @@ export function createAppServer(config: BaseConfig): http.Server {
             }
 
             normalizedPayload.ownerEmail = body.ownerEmail.trim();
+          }
+
+          if (body.clientIndustry !== undefined) {
+            if (typeof body.clientIndustry !== "string") {
+              return sendJson(response, 400, {
+                error: "clientIndustry must be a string"
+              });
+            }
+
+            normalizedPayload.clientIndustry = body.clientIndustry.trim();
+          }
+
+          if (body.clientWebsite !== undefined) {
+            if (typeof body.clientWebsite !== "string") {
+              return sendJson(response, 400, {
+                error: "clientWebsite must be a string"
+              });
+            }
+
+            normalizedPayload.clientWebsite = body.clientWebsite.trim();
+          }
+
+          if (body.clientAdditionalWebsites !== undefined) {
+            normalizedPayload.clientAdditionalWebsites = normalizeStringArray(
+              body.clientAdditionalWebsites
+            );
+          }
+
+          if (body.clientLinkedinUrl !== undefined) {
+            if (typeof body.clientLinkedinUrl !== "string") {
+              return sendJson(response, 400, {
+                error: "clientLinkedinUrl must be a string"
+              });
+            }
+
+            normalizedPayload.clientLinkedinUrl = body.clientLinkedinUrl.trim();
+          }
+
+          if (body.clientFacebookUrl !== undefined) {
+            if (typeof body.clientFacebookUrl !== "string") {
+              return sendJson(response, 400, {
+                error: "clientFacebookUrl must be a string"
+              });
+            }
+
+            normalizedPayload.clientFacebookUrl = body.clientFacebookUrl.trim();
+          }
+
+          if (body.clientInstagramUrl !== undefined) {
+            if (typeof body.clientInstagramUrl !== "string") {
+              return sendJson(response, 400, {
+                error: "clientInstagramUrl must be a string"
+              });
+            }
+
+            normalizedPayload.clientInstagramUrl =
+              body.clientInstagramUrl.trim();
+          }
+
+          if (body.clientXUrl !== undefined) {
+            if (typeof body.clientXUrl !== "string") {
+              return sendJson(response, 400, {
+                error: "clientXUrl must be a string"
+              });
+            }
+
+            normalizedPayload.clientXUrl = body.clientXUrl.trim();
+          }
+
+          if (body.clientYoutubeUrl !== undefined) {
+            if (typeof body.clientYoutubeUrl !== "string") {
+              return sendJson(response, 400, {
+                error: "clientYoutubeUrl must be a string"
+              });
+            }
+
+            normalizedPayload.clientYoutubeUrl = body.clientYoutubeUrl.trim();
           }
 
           if (body.hubs !== undefined) {
@@ -1755,6 +1925,14 @@ export function createAppServer(config: BaseConfig): http.Server {
             normalizedPayload.owner === undefined &&
             normalizedPayload.ownerEmail === undefined &&
             normalizedPayload.hubs === undefined &&
+            normalizedPayload.clientIndustry === undefined &&
+            normalizedPayload.clientWebsite === undefined &&
+            normalizedPayload.clientAdditionalWebsites === undefined &&
+            normalizedPayload.clientLinkedinUrl === undefined &&
+            normalizedPayload.clientFacebookUrl === undefined &&
+            normalizedPayload.clientInstagramUrl === undefined &&
+            normalizedPayload.clientXUrl === undefined &&
+            normalizedPayload.clientYoutubeUrl === undefined &&
             normalizedPayload.clientChampionFirstName === undefined &&
             normalizedPayload.clientChampionLastName === undefined &&
             normalizedPayload.clientChampionEmail === undefined
@@ -1800,6 +1978,68 @@ export function createAppServer(config: BaseConfig): http.Server {
               });
 
               nextClientId = client.id;
+            }
+
+            if (
+              normalizedPayload.clientIndustry !== undefined ||
+              normalizedPayload.clientWebsite !== undefined ||
+              normalizedPayload.clientAdditionalWebsites !== undefined ||
+              normalizedPayload.clientLinkedinUrl !== undefined ||
+              normalizedPayload.clientFacebookUrl !== undefined ||
+              normalizedPayload.clientInstagramUrl !== undefined ||
+              normalizedPayload.clientXUrl !== undefined ||
+              normalizedPayload.clientYoutubeUrl !== undefined
+            ) {
+              await transaction.client.update({
+                where: { id: nextClientId },
+                data: {
+                  ...(normalizedPayload.clientIndustry !== undefined
+                    ? {
+                        industry: normalizedPayload.clientIndustry || null
+                      }
+                    : {}),
+                  ...(normalizedPayload.clientWebsite !== undefined
+                    ? {
+                        website: normalizedPayload.clientWebsite || null
+                      }
+                    : {}),
+                  ...(normalizedPayload.clientAdditionalWebsites !== undefined
+                    ? {
+                        additionalWebsites:
+                          normalizedPayload.clientAdditionalWebsites
+                      }
+                    : {}),
+                  ...(normalizedPayload.clientLinkedinUrl !== undefined
+                    ? {
+                        linkedinUrl:
+                          normalizedPayload.clientLinkedinUrl || null
+                      }
+                    : {}),
+                  ...(normalizedPayload.clientFacebookUrl !== undefined
+                    ? {
+                        facebookUrl:
+                          normalizedPayload.clientFacebookUrl || null
+                      }
+                    : {}),
+                  ...(normalizedPayload.clientInstagramUrl !== undefined
+                    ? {
+                        instagramUrl:
+                          normalizedPayload.clientInstagramUrl || null
+                      }
+                    : {}),
+                  ...(normalizedPayload.clientXUrl !== undefined
+                    ? {
+                        xUrl: normalizedPayload.clientXUrl || null
+                      }
+                    : {}),
+                  ...(normalizedPayload.clientYoutubeUrl !== undefined
+                    ? {
+                        youtubeUrl:
+                          normalizedPayload.clientYoutubeUrl || null
+                      }
+                    : {})
+                }
+              });
             }
 
             if (normalizedPayload.portalId !== undefined) {

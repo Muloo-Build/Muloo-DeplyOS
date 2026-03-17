@@ -16,15 +16,21 @@ enum EngagementType {
 }
 
 model Client {
-  id        String    @id @default(cuid())
-  name      String
-  slug      String    @unique
-  industry  String?
-  region    String?
-  website   String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  projects  Project[]
+  id                 String    @id @default(cuid())
+  name               String
+  slug               String    @unique
+  industry           String?
+  region             String?
+  website            String?
+  additionalWebsites String[]
+  linkedinUrl        String?
+  facebookUrl        String?
+  instagramUrl       String?
+  xUrl               String?
+  youtubeUrl         String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  projects           Project[]
 }
 
 model HubSpotPortal {

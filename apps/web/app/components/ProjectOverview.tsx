@@ -23,6 +23,12 @@ interface Project {
     industry?: string | null;
     region?: string | null;
     website?: string | null;
+    additionalWebsites?: string[];
+    linkedinUrl?: string | null;
+    facebookUrl?: string | null;
+    instagramUrl?: string | null;
+    xUrl?: string | null;
+    youtubeUrl?: string | null;
   };
   portal: {
     portalId: string;
@@ -67,11 +73,28 @@ interface TeamUser {
   role: string;
 }
 
+const industryOptions = [
+  "Accounting & Advisory",
+  "Agency & Professional Services",
+  "Construction & Property",
+  "Education & Training",
+  "Financial Services",
+  "Healthcare",
+  "Legal",
+  "Manufacturing",
+  "Nonprofit",
+  "Retail & Ecommerce",
+  "SaaS & Technology",
+  "Travel & Hospitality",
+  "Other"
+];
+
 type EditableField =
   | "clientName"
   | "type"
   | "portalId"
   | "owner"
+  | "clientProfile"
   | "hubs"
   | "clientChampion"
   | null;
@@ -100,6 +123,16 @@ function createProjectDraft(project: Project) {
     hubs: project.selectedHubs,
     owner: project.owner,
     ownerEmail: project.ownerEmail,
+    clientIndustry: project.client.industry ?? "",
+    clientWebsite: project.client.website ?? "",
+    clientAdditionalWebsitesText: (project.client.additionalWebsites ?? []).join(
+      "\n"
+    ),
+    clientLinkedinUrl: project.client.linkedinUrl ?? "",
+    clientFacebookUrl: project.client.facebookUrl ?? "",
+    clientInstagramUrl: project.client.instagramUrl ?? "",
+    clientXUrl: project.client.xUrl ?? "",
+    clientYoutubeUrl: project.client.youtubeUrl ?? "",
     clientChampionFirstName: project.clientChampionFirstName ?? "",
     clientChampionLastName: project.clientChampionLastName ?? "",
     clientChampionEmail: project.clientChampionEmail ?? ""
@@ -189,6 +222,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     portalId: "",
     owner: "",
     ownerEmail: "",
+    clientIndustry: "",
+    clientWebsite: "",
+    clientAdditionalWebsitesText: "",
+    clientLinkedinUrl: "",
+    clientFacebookUrl: "",
+    clientInstagramUrl: "",
+    clientXUrl: "",
+    clientYoutubeUrl: "",
     hubs: [] as string[],
     clientChampionFirstName: "",
     clientChampionLastName: "",
@@ -331,6 +372,20 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               ? {
                   owner: projectDraft.owner,
                   ownerEmail: projectDraft.ownerEmail
+                }
+            : field === "clientProfile"
+              ? {
+                  clientIndustry: projectDraft.clientIndustry,
+                  clientWebsite: projectDraft.clientWebsite,
+                  clientAdditionalWebsites: projectDraft.clientAdditionalWebsitesText
+                    .split("\n")
+                    .map((item) => item.trim())
+                    .filter(Boolean),
+                  clientLinkedinUrl: projectDraft.clientLinkedinUrl,
+                  clientFacebookUrl: projectDraft.clientFacebookUrl,
+                  clientInstagramUrl: projectDraft.clientInstagramUrl,
+                  clientXUrl: projectDraft.clientXUrl,
+                  clientYoutubeUrl: projectDraft.clientYoutubeUrl
                 }
             : field === "clientChampion"
               ? {
@@ -768,7 +823,6 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </div>
                   {[
                     ["Portal", project.portal?.displayName ?? "Pending"],
-                    ["Industry", project.client.industry ?? "Not set"],
                     ["Blueprint Generated", blueprint ? "Yes" : "No"]
                   ].map(([label, value]) => (
                     <div
@@ -781,6 +835,157 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       <p className="mt-2 text-sm text-white">{value}</p>
                     </div>
                   ))}
+                </div>
+
+                <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Client Profile
+                      </p>
+                      {editingField === "clientProfile" ? (
+                        <>
+                          <div className="mt-3 grid gap-3 md:grid-cols-2">
+                            <select
+                              value={projectDraft.clientIndustry}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  clientIndustry: event.target.value
+                                }))
+                              }
+                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            >
+                              <option value="">Select industry</option>
+                              {industryOptions.map((industry) => (
+                                <option key={industry} value={industry}>
+                                  {industry}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              value={projectDraft.clientWebsite}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  clientWebsite: event.target.value
+                                }))
+                              }
+                              placeholder="Primary website"
+                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                          </div>
+                          <textarea
+                            value={projectDraft.clientAdditionalWebsitesText}
+                            onChange={(event) =>
+                              setProjectDraft((currentDraft) => ({
+                                ...currentDraft,
+                                clientAdditionalWebsitesText: event.target.value
+                              }))
+                            }
+                            placeholder="Additional websites, one per line"
+                            className="mt-3 min-h-[110px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                          />
+                          <div className="mt-3 grid gap-3 md:grid-cols-2">
+                            <input
+                              value={projectDraft.clientLinkedinUrl}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  clientLinkedinUrl: event.target.value
+                                }))
+                              }
+                              placeholder="LinkedIn URL"
+                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                            <input
+                              value={projectDraft.clientFacebookUrl}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  clientFacebookUrl: event.target.value
+                                }))
+                              }
+                              placeholder="Facebook URL"
+                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                            <input
+                              value={projectDraft.clientInstagramUrl}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  clientInstagramUrl: event.target.value
+                                }))
+                              }
+                              placeholder="Instagram URL"
+                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                            <input
+                              value={projectDraft.clientXUrl}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  clientXUrl: event.target.value
+                                }))
+                              }
+                              placeholder="X / Twitter URL"
+                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                            <input
+                              value={projectDraft.clientYoutubeUrl}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  clientYoutubeUrl: event.target.value
+                                }))
+                              }
+                              placeholder="YouTube URL"
+                              className="md:col-span-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                          </div>
+                          {renderActions("clientProfile")}
+                        </>
+                      ) : (
+                        <>
+                          <div className="mt-2 grid gap-3 md:grid-cols-2">
+                            <div>
+                              <p className="text-sm text-white">
+                                {project.client.industry ?? "Industry not set"}
+                              </p>
+                              <p className="mt-1 text-sm text-text-secondary">
+                                {project.client.website ?? "No primary website"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-text-secondary">
+                                {(project.client.additionalWebsites ?? []).length > 0
+                                  ? `${project.client.additionalWebsites?.length} additional website(s)`
+                                  : "No additional websites"}
+                              </p>
+                              <p className="mt-1 text-sm text-text-secondary">
+                                {[
+                                  project.client.linkedinUrl && "LinkedIn",
+                                  project.client.facebookUrl && "Facebook",
+                                  project.client.instagramUrl && "Instagram",
+                                  project.client.xUrl && "X",
+                                  project.client.youtubeUrl && "YouTube"
+                                ]
+                                  .filter(Boolean)
+                                  .join(", ") || "No social profiles"}
+                              </p>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {editingField !== "clientProfile" ? (
+                      <EditButton
+                        label="Edit client profile"
+                        onClick={() => startEditing("clientProfile")}
+                      />
+                    ) : null}
+                  </div>
+                  {renderError("clientProfile")}
                 </div>
 
                 <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
