@@ -341,22 +341,32 @@ export default function DiscoveryWorkspace({
   useEffect(() => {
     async function loadWorkspace() {
       try {
-        const [projectResponse, sessionsResponse] = await Promise.all([
+        const [projectResponse, sessionsResponse, summaryResponse] =
+          await Promise.all([
           fetch(`/api/projects/${encodeURIComponent(projectId)}`),
-          fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`)
+          fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
+          fetch(
+            `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
+          )
         ]);
 
-        if (!projectResponse.ok || !sessionsResponse.ok) {
+        if (
+          !projectResponse.ok ||
+          !sessionsResponse.ok ||
+          !summaryResponse.ok
+        ) {
           throw new Error("Failed to load discovery workspace");
         }
 
         const projectBody = await projectResponse.json();
         const sessionsBody = await sessionsResponse.json();
+        const summaryBody = await summaryResponse.json();
         const nextSessions = sessionsBody.sessionDetails ?? [];
 
         setProject(projectBody.project);
         setSessions(nextSessions);
         setSessionDrafts(createSessionDrafts(nextSessions));
+        setDiscoverySummary(summaryBody.summary ?? null);
       } catch (loadError) {
         setError(
           loadError instanceof Error

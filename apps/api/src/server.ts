@@ -141,6 +141,32 @@ const discoverySummarySchema = z.object({
   recommendedNextQuestions: z.array(z.string().trim().min(1)).default([])
 });
 
+function serializeDiscoverySummary<
+  T extends {
+    executiveSummary: string;
+    engagementTrack: string;
+    platformFit: string;
+    changeManagementRating: string;
+    dataReadinessRating: string;
+    scopeVolatilityRating: string;
+    missingInformation: string[];
+    keyRisks: string[];
+    recommendedNextQuestions: string[];
+  }
+>(summary: T) {
+  return {
+    executiveSummary: summary.executiveSummary,
+    engagementTrack: summary.engagementTrack,
+    platformFit: summary.platformFit,
+    changeManagementRating: summary.changeManagementRating,
+    dataReadinessRating: summary.dataReadinessRating,
+    scopeVolatilityRating: summary.scopeVolatilityRating,
+    missingInformation: summary.missingInformation,
+    keyRisks: summary.keyRisks,
+    recommendedNextQuestions: summary.recommendedNextQuestions
+  };
+}
+
 function isValidEngagementType(value: string): value is EngagementType {
   return validEngagementTypes.includes(value as EngagementType);
 }
@@ -662,7 +688,28 @@ Rules:
     )
   );
 
-  return discoverySummarySchema.parse(JSON.parse(rawSummary) as unknown);
+  const parsedSummary = discoverySummarySchema.parse(
+    JSON.parse(rawSummary) as unknown
+  );
+
+  const savedSummary = await prisma.discoverySummary.upsert({
+    where: { projectId },
+    update: parsedSummary,
+    create: {
+      projectId,
+      ...parsedSummary
+    }
+  });
+
+  return serializeDiscoverySummary(savedSummary);
+}
+
+async function loadDiscoverySummary(projectId: string) {
+  const summary = await prisma.discoverySummary.findUnique({
+    where: { projectId }
+  });
+
+  return summary ? serializeDiscoverySummary(summary) : null;
 }
 
 async function generateBlueprintFromDiscovery(projectId: string) {
@@ -1039,35 +1086,55 @@ export function createAppServer(config: BaseConfig): http.Server {
       const projectDiscoverySummaryRoute = matchProjectDiscoverySummaryRoute(
         url.pathname
       );
-      if (request.method === "POST" && projectDiscoverySummaryRoute) {
-        try {
-          const summary = await generateDiscoverySummary(
+      if (projectDiscoverySummaryRoute) {
+        if (request.method === "GET") {
+          const project = await prisma.project.findUnique({
+            where: { id: projectDiscoverySummaryRoute.projectId },
+            select: { id: true }
+          });
+
+          if (!project) {
+            return sendJson(response, 404, { error: "Project not found" });
+          }
+
+          const summary = await loadDiscoverySummary(
             projectDiscoverySummaryRoute.projectId
           );
           return sendJson(response, 200, { summary });
-        } catch (error: unknown) {
-          if (
-            error instanceof Error &&
-            error.message === "Project not found"
-          ) {
-            return sendJson(response, 404, { error: error.message });
-          }
-
-          if (error instanceof ZodError) {
-            return sendJson(response, 502, {
-              error: "Discovery summary returned invalid JSON",
-              details: error.flatten()
-            });
-          }
-
-          if (error instanceof SyntaxError) {
-            return sendJson(response, 502, {
-              error: "Discovery summary returned invalid JSON"
-            });
-          }
-
-          throw error;
         }
+
+        if (request.method === "POST") {
+          try {
+            const summary = await generateDiscoverySummary(
+              projectDiscoverySummaryRoute.projectId
+            );
+            return sendJson(response, 200, { summary });
+          } catch (error: unknown) {
+            if (
+              error instanceof Error &&
+              error.message === "Project not found"
+            ) {
+              return sendJson(response, 404, { error: error.message });
+            }
+
+            if (error instanceof ZodError) {
+              return sendJson(response, 502, {
+                error: "Discovery summary returned invalid JSON",
+                details: error.flatten()
+              });
+            }
+
+            if (error instanceof SyntaxError) {
+              return sendJson(response, 502, {
+                error: "Discovery summary returned invalid JSON"
+              });
+            }
+
+            throw error;
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
       const projectBlueprintRoute = matchProjectBlueprintRoute(url.pathname);
