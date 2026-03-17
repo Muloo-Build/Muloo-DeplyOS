@@ -224,7 +224,21 @@ export default function BlueprintWorkspace({
   const humanTasks = (blueprint?.tasks ?? []).filter(
     (task) => task.type === "Human"
   );
+  const agentTasks = (blueprint?.tasks ?? []).filter(
+    (task) => task.type === "Agent"
+  );
+  const clientTasks = (blueprint?.tasks ?? []).filter(
+    (task) => task.type === "Client"
+  );
   const totalHumanHours = humanTasks.reduce(
+    (total, task) => total + task.effortHours,
+    0
+  );
+  const totalAgentHours = agentTasks.reduce(
+    (total, task) => total + task.effortHours,
+    0
+  );
+  const totalClientHours = clientTasks.reduce(
     (total, task) => total + task.effortHours,
     0
   );
@@ -307,7 +321,50 @@ export default function BlueprintWorkspace({
                 </button>
               </div>
             ) : blueprint ? (
-              <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+              <div className="space-y-6">
+                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  {[
+                    [
+                      "Human delivery",
+                      `${humanTasks.length} tasks`,
+                      `${formatHours(totalHumanHours)} hrs`,
+                      "text-status-warning"
+                    ],
+                    [
+                      "Agent work",
+                      `${agentTasks.length} tasks`,
+                      `${formatHours(totalAgentHours)} hrs`,
+                      "text-status-info"
+                    ],
+                    [
+                      "Client actions",
+                      `${clientTasks.length} tasks`,
+                      `${formatHours(totalClientHours)} hrs`,
+                      "text-status-success"
+                    ],
+                    [
+                      "Implementation fee",
+                      formatCurrency(totalFeeZar, currency),
+                      rateTiers[rateTier].label,
+                      "text-white"
+                    ]
+                  ].map(([label, value, supporting, valueClass]) => (
+                    <div
+                      key={label}
+                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+                    >
+                      <p className="text-sm text-text-muted">{label}</p>
+                      <p className={`mt-3 text-2xl font-semibold ${valueClass}`}>
+                        {value}
+                      </p>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        {supporting}
+                      </p>
+                    </div>
+                  ))}
+                </section>
+
+                <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
                 <section className="space-y-6">
                   {groupedPhases.map((phaseGroup) => {
                     const phaseTotalHours = phaseGroup.tasks.reduce(
@@ -493,6 +550,90 @@ export default function BlueprintWorkspace({
                     </div>
                   </div>
                 </aside>
+                </div>
+
+                <section className="grid gap-6 xl:grid-cols-3">
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                      Human delivery queue
+                    </p>
+                    <div className="mt-5 space-y-3">
+                      {humanTasks.length > 0 ? (
+                        humanTasks.map((task) => (
+                          <div
+                            key={task.id}
+                            className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
+                          >
+                            <p className="text-sm font-medium text-white">
+                              {task.name}
+                            </p>
+                            <p className="mt-1 text-xs text-text-secondary">
+                              Phase {task.phase} - {task.phaseName}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-text-secondary">
+                          No human-led tasks in this blueprint.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                      Agent execution queue
+                    </p>
+                    <div className="mt-5 space-y-3">
+                      {agentTasks.length > 0 ? (
+                        agentTasks.map((task) => (
+                          <div
+                            key={task.id}
+                            className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
+                          >
+                            <p className="text-sm font-medium text-white">
+                              {task.name}
+                            </p>
+                            <p className="mt-1 text-xs text-text-secondary">
+                              Phase {task.phase} - {task.phaseName}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-text-secondary">
+                          No agent-owned tasks in this blueprint yet.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                      Client dependency list
+                    </p>
+                    <div className="mt-5 space-y-3">
+                      {clientTasks.length > 0 ? (
+                        clientTasks.map((task) => (
+                          <div
+                            key={task.id}
+                            className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
+                          >
+                            <p className="text-sm font-medium text-white">
+                              {task.name}
+                            </p>
+                            <p className="mt-1 text-xs text-text-secondary">
+                              Phase {task.phase} - {task.phaseName}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-text-secondary">
+                          No client-owned dependencies were identified.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </section>
               </div>
             ) : null}
           </>
