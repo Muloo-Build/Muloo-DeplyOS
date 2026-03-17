@@ -48,6 +48,18 @@ interface Blueprint {
   }>;
 }
 
+interface DiscoverySummary {
+  executiveSummary: string;
+  engagementTrack: string;
+  platformFit: string;
+  changeManagementRating: string;
+  dataReadinessRating: string;
+  scopeVolatilityRating: string;
+  missingInformation: string[];
+  keyRisks: string[];
+  recommendedNextQuestions: string[];
+}
+
 type EditableField = "clientName" | "type" | "portalId" | "hubs" | null;
 
 const engagementOptions = [
@@ -150,6 +162,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<Project | null>(null);
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
+  const [discoverySummary, setDiscoverySummary] =
+    useState<DiscoverySummary | null>(null);
   const [projectDraft, setProjectDraft] = useState({
     clientName: "",
     type: "IMPLEMENTATION",
@@ -160,6 +174,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [savingField, setSavingField] = useState<EditableField>(null);
   const [projectEditError, setProjectEditError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [summaryBusy, setSummaryBusy] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [blueprintBusy, setBlueprintBusy] = useState(false);
   const [blueprintError, setBlueprintError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -167,23 +183,37 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   useEffect(() => {
     async function loadProject() {
       try {
-        const [projectResponse, sessionsResponse, blueprintResponse] =
+        const [
+          projectResponse,
+          sessionsResponse,
+          blueprintResponse,
+          summaryResponse
+        ] =
           await Promise.all([
             fetch(`/api/projects/${encodeURIComponent(projectId)}`),
             fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
-            fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`)
+            fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
+            fetch(
+              `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
+            )
           ]);
 
-        if (!projectResponse.ok || !sessionsResponse.ok) {
+        if (
+          !projectResponse.ok ||
+          !sessionsResponse.ok ||
+          !summaryResponse.ok
+        ) {
           throw new Error("Failed to load project");
         }
 
         const projectBody = await projectResponse.json();
         const sessionsBody = await sessionsResponse.json();
+        const summaryBody = await summaryResponse.json();
 
         setProject(projectBody.project);
         setProjectDraft(createProjectDraft(projectBody.project));
         setSessions(sessionsBody.sessionDetails ?? []);
+        setDiscoverySummary(summaryBody.summary ?? null);
 
         if (blueprintResponse.ok) {
           const blueprintBody = await blueprintResponse.json();
@@ -291,6 +321,40 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       );
     } finally {
       setSavingField(null);
+    }
+  }
+
+  async function generateDiscoverySummary() {
+    if (!project) {
+      return;
+    }
+
+    setSummaryBusy(true);
+    setSummaryError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/discovery-summary`,
+        {
+          method: "POST"
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to generate discovery summary");
+      }
+
+      setDiscoverySummary(body?.summary ?? null);
+    } catch (generationError) {
+      setSummaryError(
+        generationError instanceof Error
+          ? generationError.message
+          : "Failed to generate discovery summary"
+      );
+    } finally {
+      setSummaryBusy(false);
     }
   }
 
@@ -405,6 +469,18 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
               <div className="flex flex-col items-end gap-3">
                 <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={generateDiscoverySummary}
+                    disabled={summaryBusy}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                  >
+                    {summaryBusy
+                      ? "Generating Summary..."
+                      : discoverySummary
+                        ? "Refresh Agent Summary"
+                        : "Generate Agent Summary"}
+                  </button>
                   <Link
                     href={`/projects/${project.id}/discovery`}
                     className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
@@ -435,6 +511,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 {blueprintError ? (
                   <p className="max-w-sm text-right text-sm text-[#ff8f9c]">
                     {blueprintError}
+                  </p>
+                ) : null}
+                {summaryError ? (
+                  <p className="max-w-sm text-right text-sm text-[#ff8f9c]">
+                    {summaryError}
                   </p>
                 ) : null}
               </div>
@@ -680,62 +761,171 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <div className="flex items-center justify-between gap-4">
-                  <h2 className="text-lg font-semibold text-white">
-                    Discovery Progress
-                  </h2>
-                  <Link
-                    href={`/projects/${project.id}/discovery`}
-                    className="text-sm font-medium text-white"
-                  >
-                    Review
-                  </Link>
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  {sessions.map((session) => (
-                    <div
-                      key={session.session}
-                      className="rounded-xl bg-[#0b1126] px-4 py-4"
+              <div className="grid gap-6">
+                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <h2 className="text-lg font-semibold text-white">
+                      Discovery Progress
+                    </h2>
+                    <Link
+                      href={`/projects/${project.id}/discovery`}
+                      className="text-sm font-medium text-white"
                     >
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="text-sm font-medium text-white">
-                            Session {session.session} - {session.title}
-                          </p>
-                          <p className="mt-1 text-xs text-text-secondary">
-                            {
-                              Object.values(session.fields).filter(
-                                (value) => value.trim().length > 0
-                              ).length
-                            }
-                            /5 fields completed
-                          </p>
-                        </div>
-                        <span
-                          className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
-                            session.status
-                          )}`}
-                        >
-                          {formatLabel(session.status)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                      Review
+                    </Link>
+                  </div>
 
-                <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                    Blueprint gate
-                  </p>
-                  <p className="mt-2 text-sm text-white">
-                    {canGenerateBlueprint
-                      ? "Session 1 and Session 3 are complete. Blueprint generation is unlocked."
-                      : "Finish Session 1 and Session 3 to unlock blueprint generation."}
-                  </p>
-                </div>
-              </section>
+                  <div className="mt-5 space-y-3">
+                    {sessions.map((session) => (
+                      <div
+                        key={session.session}
+                        className="rounded-xl bg-[#0b1126] px-4 py-4"
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-white">
+                              Session {session.session} - {session.title}
+                            </p>
+                            <p className="mt-1 text-xs text-text-secondary">
+                              {
+                                Object.values(session.fields).filter(
+                                  (value) => value.trim().length > 0
+                                ).length
+                              }
+                              /5 fields completed
+                            </p>
+                          </div>
+                          <span
+                            className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
+                              session.status
+                            )}`}
+                          >
+                            {formatLabel(session.status)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      Blueprint gate
+                    </p>
+                    <p className="mt-2 text-sm text-white">
+                      {canGenerateBlueprint
+                        ? "Session 1 and Session 3 are complete. Blueprint generation is unlocked."
+                        : "Finish Session 1 and Session 3 to unlock blueprint generation."}
+                    </p>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-semibold text-white">
+                        Agent Handoff Summary
+                      </h2>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        Project-level discovery output for scoping, delivery
+                        planning, and future agent delegation.
+                      </p>
+                    </div>
+                  </div>
+
+                  {discoverySummary ? (
+                    <>
+                      <p className="mt-5 text-sm text-text-secondary">
+                        {discoverySummary.executiveSummary}
+                      </p>
+
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        {[
+                          ["Engagement Track", discoverySummary.engagementTrack],
+                          ["Platform Fit", discoverySummary.platformFit],
+                          [
+                            "Change Management",
+                            discoverySummary.changeManagementRating
+                          ],
+                          [
+                            "Data Readiness",
+                            discoverySummary.dataReadinessRating
+                          ],
+                          [
+                            "Scope Volatility",
+                            discoverySummary.scopeVolatilityRating
+                          ]
+                        ].map(([label, value]) => (
+                          <div
+                            key={label}
+                            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                          >
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              {label}
+                            </p>
+                            <p className="mt-2 text-sm text-white">{value}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-5 grid gap-5 lg:grid-cols-3">
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Missing Information
+                          </p>
+                          <ul className="mt-4 space-y-3 text-sm text-text-secondary">
+                            {discoverySummary.missingInformation.length > 0 ? (
+                              discoverySummary.missingInformation.map((item) => (
+                                <li key={item}>{item}</li>
+                              ))
+                            ) : (
+                              <li>No major gaps flagged.</li>
+                            )}
+                          </ul>
+                        </div>
+
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Key Risks
+                          </p>
+                          <ul className="mt-4 space-y-3 text-sm text-text-secondary">
+                            {discoverySummary.keyRisks.length > 0 ? (
+                              discoverySummary.keyRisks.map((item) => (
+                                <li key={item}>{item}</li>
+                              ))
+                            ) : (
+                              <li>No major risks flagged.</li>
+                            )}
+                          </ul>
+                        </div>
+
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Recommended Next Questions
+                          </p>
+                          <ul className="mt-4 space-y-3 text-sm text-text-secondary">
+                            {discoverySummary.recommendedNextQuestions.length >
+                            0 ? (
+                              discoverySummary.recommendedNextQuestions.map(
+                                (item) => <li key={item}>{item}</li>
+                              )
+                            ) : (
+                              <li>No follow-up questions suggested yet.</li>
+                            )}
+                          </ul>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                      <p className="text-sm text-text-secondary">
+                        No saved handoff summary yet. Generate the agent summary
+                        once there is enough discovery captured to produce a
+                        useful project-level view.
+                      </p>
+                    </div>
+                  )}
+                </section>
+              </div>
             </div>
           </>
         )}
