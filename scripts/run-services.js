@@ -3,6 +3,10 @@ const { spawn } = require("node:child_process");
 const mode = process.argv[2] === "dev" ? "dev" : "start";
 const nextCli = require.resolve("next/dist/bin/next");
 const publicPort = process.env.PORT || "3000";
+const publicHost =
+  process.env.HOST ||
+  process.env.HOSTNAME ||
+  (mode === "start" ? "0.0.0.0" : "localhost");
 
 const children = [];
 let shuttingDown = false;
@@ -56,11 +60,13 @@ function shutdown(signal) {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-launch("web", process.execPath, [nextCli, mode, "-p", publicPort], {
+launch("web", process.execPath, [nextCli, mode, "-H", publicHost, "-p", publicPort], {
   cwd: "apps/web",
   env: {
     ...process.env,
-    PORT: publicPort
+    PORT: publicPort,
+    HOST: publicHost,
+    HOSTNAME: publicHost
   }
 });
 
@@ -95,9 +101,30 @@ async function startApi() {
     API_PORT: apiPort,
     API_BASE_URL: process.env.API_BASE_URL || `http://localhost:${apiPort}`
   };
+  const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
+
+  if (mode === "dev") {
+    await runCommand(
+      "prisma generate",
+      npxCommand,
+      ["prisma", "generate"],
+      {
+        cwd: "apps/api",
+        env: apiEnv
+      }
+    );
+
+    await runCommand(
+      "typescript build",
+      process.execPath,
+      ["node_modules/typescript/lib/tsc.js", "-b", "tsconfig.json"],
+      {
+        env: apiEnv
+      }
+    );
+  }
 
   if (mode === "start") {
-    const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
     await runCommand(
       "prisma migrate deploy",
       npxCommand,
