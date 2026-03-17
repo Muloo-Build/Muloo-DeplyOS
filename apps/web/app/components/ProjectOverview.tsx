@@ -941,7 +941,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                   (value) => value.trim().length > 0
                                 ).length
                               }
-                              /5 fields completed
+                              /
+                              {Object.keys(session.fields).length} fields completed
                             </p>
                           </div>
                           <span

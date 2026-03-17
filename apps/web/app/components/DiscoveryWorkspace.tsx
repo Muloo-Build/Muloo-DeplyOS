@@ -889,6 +889,8 @@ export default function DiscoveryWorkspace({
               {sessions.map((session) => {
                 const sessionDefinition = sessionDefinitions[session.session];
                 const currentDraft = sessionDrafts[session.session] ?? {};
+                const totalFieldCount =
+                  sessionDefinition?.fields?.length ?? 0;
                 const completedFieldCount = (
                   sessionDefinition?.fields ?? []
                 ).filter(
@@ -929,7 +931,7 @@ export default function DiscoveryWorkspace({
                           Fields completed
                         </p>
                         <p className="mt-2 text-2xl font-semibold text-white">
-                          {completedFieldCount}/5
+                          {completedFieldCount}/{totalFieldCount}
                         </p>
                       </div>
 

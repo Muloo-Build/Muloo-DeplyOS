@@ -64,7 +64,7 @@ const projectOwnerOptions = [
   {
     id: "jarrud-vander-merwe",
     name: "Jarrud van der Merwe",
-    email: "jarrud@muloo.com",
+    email: "jarrud@muloo.co",
     role: "HubSpot Architect"
   },
   {
