@@ -87,7 +87,12 @@ const sessionFieldLabels: Record<number, string[]> = {
     "out_of_scope",
     "risks_and_blockers",
     "client_responsibilities",
-    "agreed_next_steps"
+    "agreed_next_steps",
+    "engagement_track",
+    "platform_fit",
+    "change_management_rating",
+    "data_readiness_rating",
+    "scope_volatility_rating"
   ]
 };
 
@@ -553,6 +558,17 @@ async function loadProjectDiscoveryForBlueprint(projectId: string) {
       fields: session.fields
     })
   );
+  const session4 = sessions.find((session) => session.session === 4);
+  const discoveryProfile = {
+    engagementTrack: session4?.fields.engagement_track?.trim() ?? "",
+    platformFit: session4?.fields.platform_fit?.trim() ?? "",
+    changeManagementRating:
+      session4?.fields.change_management_rating?.trim() ?? "",
+    dataReadinessRating:
+      session4?.fields.data_readiness_rating?.trim() ?? "",
+    scopeVolatilityRating:
+      session4?.fields.scope_volatility_rating?.trim() ?? ""
+  };
 
   return {
     project,
@@ -575,7 +591,8 @@ async function loadProjectDiscoveryForBlueprint(projectId: string) {
             connected: project.portal.connected
           }
         : null,
-      sessions
+      sessions,
+      discoveryProfile
     }
   };
 }

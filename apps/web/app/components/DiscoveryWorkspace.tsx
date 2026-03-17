@@ -27,6 +27,11 @@ interface SessionFieldDefinition {
   key: string;
   label: string;
   hint: string;
+  input?: "textarea" | "select";
+  options?: Array<{
+    value: string;
+    label: string;
+  }>;
 }
 
 const sessionDefinitions: Record<
@@ -157,6 +162,67 @@ const sessionDefinitions: Record<
         key: "agreed_next_steps",
         label: "Agreed Next Steps",
         hint: "Immediate actions after this session"
+      },
+      {
+        key: "engagement_track",
+        label: "Engagement Track",
+        hint: "Classify the project as greenfield, onboarding, optimisation, or migration.",
+        input: "select",
+        options: [
+          { value: "", label: "Select track" },
+          { value: "new-crm-greenfield", label: "New CRM / Greenfield" },
+          { value: "hubspot-onboarding-new-build", label: "HubSpot Onboarding / New Build" },
+          { value: "hubspot-optimisation-revamp", label: "HubSpot Optimisation / Revamp" },
+          { value: "migration-to-hubspot", label: "Migration to HubSpot" }
+        ]
+      },
+      {
+        key: "platform_fit",
+        label: "Platform Fit",
+        hint: "Record whether HubSpot is clearly right, possible with caveats, or not recommended.",
+        input: "select",
+        options: [
+          { value: "", label: "Select platform fit" },
+          { value: "fit-confirmed", label: "Fit confirmed" },
+          { value: "fit-possible-with-caveats", label: "Fit possible with caveats" },
+          { value: "fit-not-recommended", label: "Fit not recommended" }
+        ]
+      },
+      {
+        key: "change_management_rating",
+        label: "Change Management Rating",
+        hint: "Assess expected adoption and change resistance.",
+        input: "select",
+        options: [
+          { value: "", label: "Select rating" },
+          { value: "low", label: "Low" },
+          { value: "medium", label: "Medium" },
+          { value: "high", label: "High" }
+        ]
+      },
+      {
+        key: "data_readiness_rating",
+        label: "Data Readiness Rating",
+        hint: "Assess current data quality, ownership, and migration readiness.",
+        input: "select",
+        options: [
+          { value: "", label: "Select rating" },
+          { value: "low", label: "Low" },
+          { value: "medium", label: "Medium" },
+          { value: "high", label: "High" }
+        ]
+      },
+      {
+        key: "scope_volatility_rating",
+        label: "Scope Volatility Rating",
+        hint: "Estimate how likely the scope is to shift during onboarding.",
+        input: "select",
+        options: [
+          { value: "", label: "Select rating" },
+          { value: "low", label: "Low" },
+          { value: "medium", label: "Medium" },
+          { value: "high", label: "High" }
+        ]
       }
     ]
   }
@@ -561,17 +627,40 @@ export default function DiscoveryWorkspace({
                           <span className="mt-1 block text-xs text-text-muted">
                             {field.hint}
                           </span>
-                          <textarea
-                            value={currentDraft[field.key] ?? ""}
-                            onChange={(event) =>
-                              updateSessionDraft(
-                                session.session,
-                                field.key,
-                                event.target.value
-                              )
-                            }
-                            className="mt-3 min-h-[150px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                          />
+                          {field.input === "select" ? (
+                            <select
+                              value={currentDraft[field.key] ?? ""}
+                              onChange={(event) =>
+                                updateSessionDraft(
+                                  session.session,
+                                  field.key,
+                                  event.target.value
+                                )
+                              }
+                              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            >
+                              {(field.options ?? []).map((option) => (
+                                <option
+                                  key={option.value || "__empty"}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <textarea
+                              value={currentDraft[field.key] ?? ""}
+                              onChange={(event) =>
+                                updateSessionDraft(
+                                  session.session,
+                                  field.key,
+                                  event.target.value
+                                )
+                              }
+                              className="mt-3 min-h-[150px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                          )}
                         </label>
                       ))}
                     </div>
