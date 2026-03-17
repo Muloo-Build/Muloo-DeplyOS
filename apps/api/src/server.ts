@@ -459,6 +459,9 @@ function serializeProject<
     status: string;
     owner: string;
     ownerEmail: string;
+    clientChampionFirstName?: string | null;
+    clientChampionLastName?: string | null;
+    clientChampionEmail?: string | null;
     selectedHubs: string[];
     engagementType: Prisma.$Enums.EngagementType;
     createdAt: Date;
@@ -846,6 +849,9 @@ export function createAppServer(config: BaseConfig): http.Server {
             owner?: string;
             ownerEmail?: string;
             engagementType?: string;
+            clientChampionFirstName?: string;
+            clientChampionLastName?: string;
+            clientChampionEmail?: string;
           };
 
           if (!body.name || !body.clientName || !body.selectedHubs?.length) {
@@ -895,6 +901,12 @@ export function createAppServer(config: BaseConfig): http.Server {
                 "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
               owner: body.owner ?? "Jarrud",
               ownerEmail: body.ownerEmail ?? "jarrud@muloo.com",
+              clientChampionFirstName:
+                body.clientChampionFirstName?.trim() || null,
+              clientChampionLastName:
+                body.clientChampionLastName?.trim() || null,
+              clientChampionEmail:
+                body.clientChampionEmail?.trim() || null,
               selectedHubs: body.selectedHubs,
               clientId: client.id,
               portalId: portal.id

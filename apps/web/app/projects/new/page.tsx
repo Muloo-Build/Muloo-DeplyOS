@@ -6,37 +6,42 @@ import { useState } from "react";
 import AppShell from "../../components/AppShell";
 
 interface FormData {
+  projectName: string;
   clientName: string;
-  industry: string;
-  region: string;
-  portalId: string;
-  environment: string;
-  implementationType: string;
+  clientChampionFirstName: string;
+  clientChampionLastName: string;
+  clientChampionEmail: string;
+  engagementType: string;
   hubsInScope: string[];
   useTemplate: boolean;
   templateId: string;
 }
 
-const implementationTypes = [
+const engagementTypes = [
   {
-    id: "sales-hub-foundation",
-    label: "Sales Hub Foundation",
-    description: "Core sales CRM setup"
+    id: "IMPLEMENTATION",
+    label: "Implementation",
+    description: "New HubSpot build or onboarding delivery"
   },
   {
-    id: "marketing-ops-rollout",
-    label: "Marketing Ops Rollout",
-    description: "Campaign and lifecycle operations setup"
+    id: "MIGRATION",
+    label: "Migration",
+    description: "Move from another CRM into HubSpot"
   },
   {
-    id: "service-hub-enablement",
-    label: "Service Hub Enablement",
-    description: "Customer support setup"
+    id: "OPTIMISATION",
+    label: "Optimisation",
+    description: "Improve an existing HubSpot setup"
   },
   {
-    id: "multi-hub-implementation",
-    label: "Multi-Hub Implementation",
-    description: "Cross-hub implementation"
+    id: "AUDIT",
+    label: "Audit",
+    description: "Assess current setup and recommend next steps"
+  },
+  {
+    id: "GUIDED_DEPLOYMENT",
+    label: "Guided Deployment",
+    description: "Partnered rollout with close client involvement"
   }
 ];
 
@@ -83,12 +88,12 @@ export default function NewProjectPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
+    projectName: "",
     clientName: "",
-    industry: "",
-    region: "",
-    portalId: "",
-    environment: "sandbox",
-    implementationType: "multi-hub-implementation",
+    clientChampionFirstName: "",
+    clientChampionLastName: "",
+    clientChampionEmail: "",
+    engagementType: "IMPLEMENTATION",
     hubsInScope: [],
     useTemplate: false,
     templateId: ""
@@ -110,34 +115,30 @@ export default function NewProjectPage() {
     }));
   }
 
+  const canContinueFromStep1 =
+    formData.projectName.trim().length > 0 &&
+    formData.clientName.trim().length > 0 &&
+    formData.clientChampionFirstName.trim().length > 0 &&
+    formData.clientChampionLastName.trim().length > 0 &&
+    formData.clientChampionEmail.trim().length > 0;
+  const canContinueFromStep2 = formData.hubsInScope.length > 0;
+
   async function handleSubmit() {
     setSaving(true);
     setError(null);
 
-    const projectId = `project-${Date.now()}`;
-    const clientId = `client-${Date.now()}`;
     const moduleSelection = buildModuleSelection(formData.hubsInScope);
     const payload = {
-      id: projectId,
-      name: `${formData.clientName} Implementation`,
-      clientId,
-      portalId: formData.portalId,
-      owner: {
-        name: "Muloo Operator",
-        email: "operator@muloo.com"
-      },
-      clientContext: {
-        clientName: formData.clientName,
-        primaryRegion: formData.region,
-        implementationType: formData.implementationType,
-        notes: `${formData.industry || "General"} implementation`
-      },
-      hubspotScope: {
-        hubsInScope: formData.hubsInScope,
-        environment: formData.environment
-      },
-      moduleSelection,
-      status: "draft"
+      name: formData.projectName.trim(),
+      clientName: formData.clientName.trim(),
+      selectedHubs: formData.hubsInScope,
+      engagementType: formData.engagementType,
+      owner: "Muloo Operator",
+      ownerEmail: "operator@muloo.com",
+      clientChampionFirstName: formData.clientChampionFirstName.trim(),
+      clientChampionLastName: formData.clientChampionLastName.trim(),
+      clientChampionEmail: formData.clientChampionEmail.trim(),
+      moduleSelection
     };
 
     try {
@@ -219,11 +220,24 @@ export default function NewProjectPage() {
           {currentStep === 1 ? (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-white">
-                Client + Portal
+                Project + Client
               </h2>
 
               <div className="grid gap-6 md:grid-cols-2">
-                <label className="block">
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-sm text-text-secondary">
+                    Project name
+                  </span>
+                  <input
+                    value={formData.projectName}
+                    onChange={(event) =>
+                      updateField("projectName", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
                   <span className="mb-2 block text-sm text-text-secondary">
                     Client name
                   </span>
@@ -238,12 +252,12 @@ export default function NewProjectPage() {
 
                 <label className="block">
                   <span className="mb-2 block text-sm text-text-secondary">
-                    Region
+                    Client champion first name
                   </span>
                   <input
-                    value={formData.region}
+                    value={formData.clientChampionFirstName}
                     onChange={(event) =>
-                      updateField("region", event.target.value)
+                      updateField("clientChampionFirstName", event.target.value)
                     }
                     className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
                   />
@@ -251,63 +265,52 @@ export default function NewProjectPage() {
 
                 <label className="block">
                   <span className="mb-2 block text-sm text-text-secondary">
-                    Industry
+                    Client champion last name
                   </span>
                   <input
-                    value={formData.industry}
+                    value={formData.clientChampionLastName}
                     onChange={(event) =>
-                      updateField("industry", event.target.value)
+                      updateField("clientChampionLastName", event.target.value)
                     }
                     className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
                   />
                 </label>
 
-                <label className="block">
+                <label className="block md:col-span-2">
                   <span className="mb-2 block text-sm text-text-secondary">
-                    HubSpot portal ID
+                    Client champion email
                   </span>
                   <input
-                    value={formData.portalId}
+                    type="email"
+                    value={formData.clientChampionEmail}
                     onChange={(event) =>
-                      updateField("portalId", event.target.value)
+                      updateField("clientChampionEmail", event.target.value)
                     }
                     className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
                   />
                 </label>
               </div>
+            </div>
+          ) : null}
 
-              <div>
-                <p className="mb-3 text-sm text-text-secondary">Environment</p>
-                <div className="flex gap-3">
-                  {["sandbox", "production"].map((environment) => (
-                    <button
-                      key={environment}
-                      type="button"
-                      onClick={() => updateField("environment", environment)}
-                      className={`rounded-xl px-4 py-3 text-sm font-medium capitalize ${
-                        formData.environment === environment
-                          ? "bg-background-elevated text-white"
-                          : "border border-[rgba(255,255,255,0.08)] bg-[#0b1126] text-text-secondary"
-                      }`}
-                    >
-                      {environment}
-                    </button>
-                  ))}
-                </div>
-              </div>
+          {currentStep === 2 ? (
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-white">
+                Engagement + Scope
+              </h2>
 
               <div>
                 <p className="mb-3 text-sm text-text-secondary">
-                  Implementation type
+                  Engagement type
                 </p>
                 <div className="grid gap-4 md:grid-cols-2">
-                  {implementationTypes.map((type) => (
+                  {engagementTypes.map((type) => (
                     <button
                       key={type.id}
                       type="button"
-                      onClick={() => updateField("implementationType", type.id)}
+                      onClick={() => updateField("engagementType", type.id)}
                       className={`rounded-2xl border p-4 text-left transition-colors ${
-                        formData.implementationType === type.id
+                        formData.engagementType === type.id
                           ? "border-accent-solid bg-background-elevated"
                           : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
                       }`}
@@ -320,29 +323,26 @@ export default function NewProjectPage() {
                   ))}
                 </div>
               </div>
-            </div>
-          ) : null}
 
-          {currentStep === 2 ? (
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-white">Scope</h2>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                {hubOptions.map((hub) => (
-                  <button
-                    key={hub.id}
-                    type="button"
-                    onClick={() => toggleHub(hub.id)}
-                    className={`rounded-2xl border p-4 text-left transition-colors ${
-                      formData.hubsInScope.includes(hub.id)
-                        ? "border-accent-solid bg-background-elevated"
-                        : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
-                    }`}
-                  >
-                    <p className="font-semibold text-white">{hub.label}</p>
-                    <p className="mt-1 text-sm text-text-secondary">{hub.id}</p>
-                  </button>
-                ))}
+              <div>
+                <p className="mb-3 text-sm text-text-secondary">Hubs in scope</p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {hubOptions.map((hub) => (
+                    <button
+                      key={hub.id}
+                      type="button"
+                      onClick={() => toggleHub(hub.id)}
+                      className={`rounded-2xl border p-4 text-left transition-colors ${
+                        formData.hubsInScope.includes(hub.id)
+                          ? "border-accent-solid bg-background-elevated"
+                          : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                      }`}
+                    >
+                      <p className="font-semibold text-white">{hub.label}</p>
+                      <p className="mt-1 text-sm text-text-secondary">{hub.id}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
@@ -386,15 +386,15 @@ export default function NewProjectPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 {[
+                  ["Project", formData.projectName],
                   ["Client", formData.clientName],
-                  ["Region", formData.region],
-                  ["Industry", formData.industry],
-                  ["Portal ID", formData.portalId],
-                  ["Environment", formData.environment],
+                  ["Champion first name", formData.clientChampionFirstName],
+                  ["Champion last name", formData.clientChampionLastName],
+                  ["Champion email", formData.clientChampionEmail],
                   [
-                    "Implementation type",
-                    implementationTypes.find(
-                      (item) => item.id === formData.implementationType
+                    "Engagement type",
+                    engagementTypes.find(
+                      (item) => item.id === formData.engagementType
                     )?.label ?? ""
                   ]
                 ].map(([label, value]) => (
@@ -448,7 +448,11 @@ export default function NewProjectPage() {
             <button
               type="button"
               onClick={() => setCurrentStep((step) => Math.min(3, step + 1))}
-              className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white"
+              disabled={
+                (currentStep === 1 && !canContinueFromStep1) ||
+                (currentStep === 2 && !canContinueFromStep2)
+              }
+              className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               Next
             </button>

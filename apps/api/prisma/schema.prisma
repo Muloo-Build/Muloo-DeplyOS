@@ -46,6 +46,9 @@ model Project {
   engagementType EngagementType        @default(IMPLEMENTATION)
   owner          String
   ownerEmail     String
+  clientChampionFirstName String?
+  clientChampionLastName  String?
+  clientChampionEmail     String?
   scopeType      String?
   selectedHubs   String[]
   currentPhase   String?

@@ -12,6 +12,9 @@ interface Project {
   status: string;
   owner: string;
   ownerEmail: string;
+  clientChampionFirstName?: string | null;
+  clientChampionLastName?: string | null;
+  clientChampionEmail?: string | null;
   engagementType: string;
   selectedHubs: string[];
   updatedAt: string;
@@ -593,6 +596,19 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     ["Portal", project.portal?.displayName ?? "Pending"],
                     ["Owner", project.owner],
                     ["Owner Email", project.ownerEmail],
+                    [
+                      "Client Champion",
+                      [
+                        project.clientChampionFirstName,
+                        project.clientChampionLastName
+                      ]
+                        .filter(Boolean)
+                        .join(" ") || "Not set"
+                    ],
+                    [
+                      "Champion Email",
+                      project.clientChampionEmail ?? "Not set"
+                    ],
                     ["Industry", project.client.industry ?? "Not set"],
                     ["Blueprint Generated", blueprint ? "Yes" : "No"]
                   ].map(([label, value]) => (
