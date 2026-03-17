@@ -1465,6 +1465,9 @@ export function createAppServer(config: BaseConfig): http.Server {
             type?: unknown;
             portalId?: unknown;
             hubs?: unknown;
+            clientChampionFirstName?: unknown;
+            clientChampionLastName?: unknown;
+            clientChampionEmail?: unknown;
           };
 
           const normalizedPayload: {
@@ -1472,6 +1475,9 @@ export function createAppServer(config: BaseConfig): http.Server {
             type?: EngagementType;
             portalId?: string;
             hubs?: ProjectHub[];
+            clientChampionFirstName?: string;
+            clientChampionLastName?: string;
+            clientChampionEmail?: string;
           } = {};
 
           if (body.clientName !== undefined) {
@@ -1534,11 +1540,47 @@ export function createAppServer(config: BaseConfig): http.Server {
             normalizedPayload.hubs = normalizedHubs;
           }
 
+          if (body.clientChampionFirstName !== undefined) {
+            if (typeof body.clientChampionFirstName !== "string") {
+              return sendJson(response, 400, {
+                error: "clientChampionFirstName must be a string"
+              });
+            }
+
+            normalizedPayload.clientChampionFirstName =
+              body.clientChampionFirstName.trim();
+          }
+
+          if (body.clientChampionLastName !== undefined) {
+            if (typeof body.clientChampionLastName !== "string") {
+              return sendJson(response, 400, {
+                error: "clientChampionLastName must be a string"
+              });
+            }
+
+            normalizedPayload.clientChampionLastName =
+              body.clientChampionLastName.trim();
+          }
+
+          if (body.clientChampionEmail !== undefined) {
+            if (typeof body.clientChampionEmail !== "string") {
+              return sendJson(response, 400, {
+                error: "clientChampionEmail must be a string"
+              });
+            }
+
+            normalizedPayload.clientChampionEmail =
+              body.clientChampionEmail.trim();
+          }
+
           if (
             normalizedPayload.clientName === undefined &&
             normalizedPayload.type === undefined &&
             normalizedPayload.portalId === undefined &&
-            normalizedPayload.hubs === undefined
+            normalizedPayload.hubs === undefined &&
+            normalizedPayload.clientChampionFirstName === undefined &&
+            normalizedPayload.clientChampionLastName === undefined &&
+            normalizedPayload.clientChampionEmail === undefined
           ) {
             return sendJson(response, 400, {
               error: "At least one editable field is required"
@@ -1612,6 +1654,24 @@ export function createAppServer(config: BaseConfig): http.Server {
                   : {}),
                 ...(nextPortalId !== existingProject.portalId
                   ? { portalId: nextPortalId }
+                  : {}),
+                ...(normalizedPayload.clientChampionFirstName !== undefined
+                  ? {
+                      clientChampionFirstName:
+                        normalizedPayload.clientChampionFirstName || null
+                    }
+                  : {}),
+                ...(normalizedPayload.clientChampionLastName !== undefined
+                  ? {
+                      clientChampionLastName:
+                        normalizedPayload.clientChampionLastName || null
+                    }
+                  : {}),
+                ...(normalizedPayload.clientChampionEmail !== undefined
+                  ? {
+                      clientChampionEmail:
+                        normalizedPayload.clientChampionEmail || null
+                    }
                   : {})
               },
               include: { client: true, portal: true, discovery: true }

@@ -60,7 +60,13 @@ interface DiscoverySummary {
   recommendedNextQuestions: string[];
 }
 
-type EditableField = "clientName" | "type" | "portalId" | "hubs" | null;
+type EditableField =
+  | "clientName"
+  | "type"
+  | "portalId"
+  | "hubs"
+  | "clientChampion"
+  | null;
 
 const engagementOptions = [
   { value: "IMPLEMENTATION", label: "Implementation" },
@@ -83,7 +89,10 @@ function createProjectDraft(project: Project) {
     clientName: project.client.name,
     type: project.engagementType,
     portalId: project.portal?.portalId ?? "",
-    hubs: project.selectedHubs
+    hubs: project.selectedHubs,
+    clientChampionFirstName: project.clientChampionFirstName ?? "",
+    clientChampionLastName: project.clientChampionLastName ?? "",
+    clientChampionEmail: project.clientChampionEmail ?? ""
   };
 }
 
@@ -168,7 +177,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     clientName: "",
     type: "IMPLEMENTATION",
     portalId: "",
-    hubs: [] as string[]
+    hubs: [] as string[],
+    clientChampionFirstName: "",
+    clientChampionLastName: "",
+    clientChampionEmail: ""
   });
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [savingField, setSavingField] = useState<EditableField>(null);
@@ -289,7 +301,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           ? { type: projectDraft.type }
           : field === "portalId"
             ? { portalId: projectDraft.portalId }
-            : { hubs: projectDraft.hubs };
+            : field === "clientChampion"
+              ? {
+                  clientChampionFirstName: projectDraft.clientChampionFirstName,
+                  clientChampionLastName: projectDraft.clientChampionLastName,
+                  clientChampionEmail: projectDraft.clientChampionEmail
+                }
+              : { hubs: projectDraft.hubs };
 
     setSavingField(field);
     setProjectEditError(null);
@@ -677,19 +695,6 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     ["Portal", project.portal?.displayName ?? "Pending"],
                     ["Owner", project.owner],
                     ["Owner Email", project.ownerEmail],
-                    [
-                      "Client Champion",
-                      [
-                        project.clientChampionFirstName,
-                        project.clientChampionLastName
-                      ]
-                        .filter(Boolean)
-                        .join(" ") || "Not set"
-                    ],
-                    [
-                      "Champion Email",
-                      project.clientChampionEmail ?? "Not set"
-                    ],
                     ["Industry", project.client.industry ?? "Not set"],
                     ["Blueprint Generated", blueprint ? "Yes" : "No"]
                   ].map(([label, value]) => (
@@ -703,6 +708,77 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       <p className="mt-2 text-sm text-white">{value}</p>
                     </div>
                   ))}
+                </div>
+
+                <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Client Champion
+                      </p>
+                      {editingField === "clientChampion" ? (
+                        <>
+                          <div className="mt-3 grid gap-3 md:grid-cols-2">
+                            <input
+                              value={projectDraft.clientChampionFirstName}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  clientChampionFirstName: event.target.value
+                                }))
+                              }
+                              placeholder="First name"
+                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                            <input
+                              value={projectDraft.clientChampionLastName}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  clientChampionLastName: event.target.value
+                                }))
+                              }
+                              placeholder="Last name"
+                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                          </div>
+                          <input
+                            value={projectDraft.clientChampionEmail}
+                            onChange={(event) =>
+                              setProjectDraft((currentDraft) => ({
+                                ...currentDraft,
+                                clientChampionEmail: event.target.value
+                              }))
+                            }
+                            placeholder="Email"
+                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                          />
+                          {renderActions("clientChampion")}
+                        </>
+                      ) : (
+                        <>
+                          <p className="mt-2 text-sm text-white">
+                            {[
+                              project.clientChampionFirstName,
+                              project.clientChampionLastName
+                            ]
+                              .filter(Boolean)
+                              .join(" ") || "Not set"}
+                          </p>
+                          <p className="mt-1 text-sm text-text-secondary">
+                            {project.clientChampionEmail ?? "No email recorded"}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    {editingField !== "clientChampion" ? (
+                      <EditButton
+                        label="Edit client champion"
+                        onClick={() => startEditing("clientChampion")}
+                      />
+                    ) : null}
+                  </div>
+                  {renderError("clientChampion")}
                 </div>
 
                 <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
