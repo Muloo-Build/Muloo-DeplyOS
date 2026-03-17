@@ -34,6 +34,18 @@ interface SessionFieldDefinition {
   }>;
 }
 
+interface DiscoverySummary {
+  executiveSummary: string;
+  engagementTrack: string;
+  platformFit: string;
+  changeManagementRating: string;
+  dataReadinessRating: string;
+  scopeVolatilityRating: string;
+  missingInformation: string[];
+  keyRisks: string[];
+  recommendedNextQuestions: string[];
+}
+
 const sessionDefinitions: Record<
   number,
   {
@@ -317,6 +329,10 @@ export default function DiscoveryWorkspace({
   const [assistantMessages, setAssistantMessages] = useState(
     createSessionErrors()
   );
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [discoverySummary, setDiscoverySummary] =
+    useState<DiscoverySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [generatingBlueprint, setGeneratingBlueprint] = useState(false);
   const [blueprintError, setBlueprintError] = useState<string | null>(null);
@@ -585,6 +601,36 @@ export default function DiscoveryWorkspace({
     }
   }
 
+  async function generateDiscoverySummary() {
+    setSummaryLoading(true);
+    setSummaryError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`,
+        {
+          method: "POST"
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to generate discovery summary");
+      }
+
+      setDiscoverySummary(body?.summary ?? null);
+    } catch (summaryGenerationError) {
+      setSummaryError(
+        summaryGenerationError instanceof Error
+          ? summaryGenerationError.message
+          : "Failed to generate discovery summary"
+      );
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
   async function generateBlueprint() {
     setGeneratingBlueprint(true);
     setBlueprintError(null);
@@ -661,6 +707,16 @@ export default function DiscoveryWorkspace({
 
                 <button
                   type="button"
+                  onClick={generateDiscoverySummary}
+                  disabled={summaryLoading}
+                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                >
+                  {summaryLoading
+                    ? "Generating Agent Summary..."
+                    : "Generate Agent Summary"}
+                </button>
+                <button
+                  type="button"
                   onClick={generateBlueprint}
                   disabled={!canGenerateBlueprint || generatingBlueprint}
                   className={`rounded-xl px-5 py-3 text-sm font-semibold text-white ${
@@ -676,8 +732,104 @@ export default function DiscoveryWorkspace({
                     {blueprintError}
                   </p>
                 ) : null}
+                {summaryError ? (
+                  <p className="max-w-sm text-right text-sm text-[#ff8f9c]">
+                    {summaryError}
+                  </p>
+                ) : null}
               </div>
             </div>
+
+            {discoverySummary ? (
+              <div className="mb-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                      Discovery Structuring Agent
+                    </p>
+                    <h2 className="mt-2 text-xl font-semibold text-white">
+                      Project-level summary across all four sessions
+                    </h2>
+                  </div>
+                </div>
+
+                <p className="mt-4 max-w-4xl text-sm text-text-secondary">
+                  {discoverySummary.executiveSummary}
+                </p>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                  {[
+                    ["Engagement track", discoverySummary.engagementTrack],
+                    ["Platform fit", discoverySummary.platformFit],
+                    [
+                      "Change management",
+                      discoverySummary.changeManagementRating
+                    ],
+                    ["Data readiness", discoverySummary.dataReadinessRating],
+                    ["Scope volatility", discoverySummary.scopeVolatilityRating]
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                    >
+                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        {label}
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-white">
+                        {value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-5 grid gap-5 lg:grid-cols-3">
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      Missing information
+                    </p>
+                    <ul className="mt-4 space-y-3 text-sm text-text-secondary">
+                      {discoverySummary.missingInformation.length > 0 ? (
+                        discoverySummary.missingInformation.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))
+                      ) : (
+                        <li>No major gaps flagged.</li>
+                      )}
+                    </ul>
+                  </div>
+
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      Key risks
+                    </p>
+                    <ul className="mt-4 space-y-3 text-sm text-text-secondary">
+                      {discoverySummary.keyRisks.length > 0 ? (
+                        discoverySummary.keyRisks.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))
+                      ) : (
+                        <li>No major risks flagged.</li>
+                      )}
+                    </ul>
+                  </div>
+
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      Recommended next questions
+                    </p>
+                    <ul className="mt-4 space-y-3 text-sm text-text-secondary">
+                      {discoverySummary.recommendedNextQuestions.length > 0 ? (
+                        discoverySummary.recommendedNextQuestions.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))
+                      ) : (
+                        <li>No immediate follow-up questions suggested.</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div className="mb-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">

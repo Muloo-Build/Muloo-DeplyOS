@@ -129,6 +129,17 @@ const blueprintGenerationSchema = z.object({
     .min(1)
     .max(5)
 });
+const discoverySummarySchema = z.object({
+  executiveSummary: z.string().trim().min(1),
+  engagementTrack: z.string().trim().min(1),
+  platformFit: z.string().trim().min(1),
+  changeManagementRating: z.string().trim().min(1),
+  dataReadinessRating: z.string().trim().min(1),
+  scopeVolatilityRating: z.string().trim().min(1),
+  missingInformation: z.array(z.string().trim().min(1)).default([]),
+  keyRisks: z.array(z.string().trim().min(1)).default([]),
+  recommendedNextQuestions: z.array(z.string().trim().min(1)).default([])
+});
 
 function isValidEngagementType(value: string): value is EngagementType {
   return validEngagementTypes.includes(value as EngagementType);
@@ -334,6 +345,20 @@ function matchProjectBlueprintRoute(pathname: string): {
   return {
     projectId: decodeURIComponent(match[1]),
     ...(match[2] === "generate" ? { action: "generate" } : {})
+  };
+}
+
+function matchProjectDiscoverySummaryRoute(
+  pathname: string
+): { projectId: string } | null {
+  const match = /^\/api\/projects\/([^/]+?)\/discovery-summary$/.exec(pathname);
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1])
   };
 }
 
@@ -598,6 +623,46 @@ async function loadProjectDiscoveryForBlueprint(projectId: string) {
       discoveryProfile
     }
   };
+}
+
+async function generateDiscoverySummary(projectId: string) {
+  const discoveryPayload = await loadProjectDiscoveryForBlueprint(projectId);
+
+  if (!discoveryPayload) {
+    throw new Error("Project not found");
+  }
+
+  const missingInformation = discoveryPayload.discovery.sessions.flatMap(
+    (session) =>
+      Object.entries(session.fields)
+        .filter(([, value]) => value.trim().length === 0)
+        .map(([key]) => `Session ${session.session}: ${key}`)
+  );
+
+  const rawSummary = await callClaude(
+    `You are Muloo Deploy OS's Discovery Structuring Agent.
+Given a structured HubSpot discovery project, create a concise project-level discovery summary.
+
+Rules:
+- Return ONLY valid JSON. No markdown or explanation.
+- Use exactly these keys: executiveSummary, engagementTrack, platformFit, changeManagementRating, dataReadinessRating, scopeVolatilityRating, missingInformation, keyRisks, recommendedNextQuestions
+- Keep executiveSummary to one short paragraph.
+- missingInformation should contain only the most important information gaps.
+- keyRisks should focus on delivery, adoption, data, and scope risk.
+- recommendedNextQuestions should be practical and operator-friendly.
+- If discoveryProfile already contains a value for engagementTrack, platformFit, changeManagementRating, dataReadinessRating, or scopeVolatilityRating, preserve that meaning in the output.
+`,
+    JSON.stringify(
+      {
+        ...discoveryPayload.discovery,
+        heuristicMissingInformation: missingInformation
+      },
+      null,
+      2
+    )
+  );
+
+  return discoverySummarySchema.parse(JSON.parse(rawSummary) as unknown);
 }
 
 async function generateBlueprintFromDiscovery(projectId: string) {
@@ -969,6 +1034,40 @@ export function createAppServer(config: BaseConfig): http.Server {
         );
 
         return sendJson(response, 200, { sessionDetail });
+      }
+
+      const projectDiscoverySummaryRoute = matchProjectDiscoverySummaryRoute(
+        url.pathname
+      );
+      if (request.method === "POST" && projectDiscoverySummaryRoute) {
+        try {
+          const summary = await generateDiscoverySummary(
+            projectDiscoverySummaryRoute.projectId
+          );
+          return sendJson(response, 200, { summary });
+        } catch (error: unknown) {
+          if (
+            error instanceof Error &&
+            error.message === "Project not found"
+          ) {
+            return sendJson(response, 404, { error: error.message });
+          }
+
+          if (error instanceof ZodError) {
+            return sendJson(response, 502, {
+              error: "Discovery summary returned invalid JSON",
+              details: error.flatten()
+            });
+          }
+
+          if (error instanceof SyntaxError) {
+            return sendJson(response, 502, {
+              error: "Discovery summary returned invalid JSON"
+            });
+          }
+
+          throw error;
+        }
       }
 
       const projectBlueprintRoute = matchProjectBlueprintRoute(url.pathname);
