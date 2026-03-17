@@ -21,6 +21,26 @@ interface ProjectStats {
   completed: number;
 }
 
+function calculateStats(items: Project[]): ProjectStats {
+  return items.reduce(
+    (acc, project) => {
+      acc.total += 1;
+      if (project.status === "in-flight") acc.inExecution += 1;
+      if (project.status === "ready-for-execution") {
+        acc.awaitingApproval += 1;
+      }
+      if (project.status === "completed") acc.completed += 1;
+      return acc;
+    },
+    {
+      total: 0,
+      inExecution: 0,
+      awaitingApproval: 0,
+      completed: 0
+    }
+  );
+}
+
 function getStatusColor(status: string) {
   switch (status) {
     case "completed":
@@ -72,6 +92,10 @@ export default function ProjectsDashboard() {
     completed: 0
   });
   const [loading, setLoading] = useState(true);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     async function fetchProjects() {
@@ -87,25 +111,7 @@ export default function ProjectsDashboard() {
           : (payload.projects ?? []);
 
         setProjects(items);
-        setStats(
-          items.reduce(
-            (acc, project) => {
-              acc.total += 1;
-              if (project.status === "in-flight") acc.inExecution += 1;
-              if (project.status === "ready-for-execution") {
-                acc.awaitingApproval += 1;
-              }
-              if (project.status === "completed") acc.completed += 1;
-              return acc;
-            },
-            {
-              total: 0,
-              inExecution: 0,
-              awaitingApproval: 0,
-              completed: 0
-            }
-          )
-        );
+        setStats(calculateStats(items));
       } catch (error) {
         console.error(error);
       } finally {
@@ -115,6 +121,44 @@ export default function ProjectsDashboard() {
 
     fetchProjects();
   }, []);
+
+  async function deleteProject(project: Project) {
+    const confirmed = window.confirm(
+      `Delete "${project.name}"? This will remove the project, its discovery sessions, and its blueprint.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleteError(null);
+    setDeletingProjectId(project.id);
+
+    try {
+      const response = await fetch(`/api/projects/${encodeURIComponent(project.id)}`, {
+        method: "DELETE"
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to delete project");
+      }
+
+      setProjects((currentProjects) => {
+        const nextProjects = currentProjects.filter(
+          (currentProject) => currentProject.id !== project.id
+        );
+        setStats(calculateStats(nextProjects));
+        return nextProjects;
+      });
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : "Failed to delete project"
+      );
+    } finally {
+      setDeletingProjectId(null);
+    }
+  }
 
   return (
     <AppShell>
@@ -162,6 +206,12 @@ export default function ProjectsDashboard() {
           ))}
         </div>
 
+        {deleteError ? (
+          <div className="mb-6 rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card px-5 py-4 text-sm text-white">
+            {deleteError}
+          </div>
+        ) : null}
+
         {loading ? (
           <div className="grid gap-3">
             {[0, 1, 2].map((row) => (
@@ -188,18 +238,17 @@ export default function ProjectsDashboard() {
           </div>
         ) : (
           <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card">
-            <div className="grid grid-cols-[2fr_1fr_1fr_120px] gap-4 border-b border-[rgba(255,255,255,0.07)] px-6 py-4 text-xs uppercase tracking-[0.2em] text-text-muted">
+            <div className="grid grid-cols-[2fr_1fr_1fr_180px] gap-4 border-b border-[rgba(255,255,255,0.07)] px-6 py-4 text-xs uppercase tracking-[0.2em] text-text-muted">
               <span>Project</span>
               <span>Hubs</span>
               <span>Updated</span>
-              <span className="text-right">Open</span>
+              <span className="text-right">Actions</span>
             </div>
 
             {projects.map((project) => (
-              <Link
+              <div
                 key={project.id}
-                href={`/projects/${project.id}`}
-                className="grid grid-cols-[2fr_1fr_1fr_120px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-6 py-5 transition-colors hover:bg-background-elevated last:border-b-0"
+                className="grid grid-cols-[2fr_1fr_1fr_180px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-6 py-5 transition-colors hover:bg-background-elevated last:border-b-0"
               >
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -236,10 +285,23 @@ export default function ProjectsDashboard() {
                   {formatRelativeDate(project.updatedAt)}
                 </div>
 
-                <div className="text-right text-sm font-medium text-white">
-                  View
+                <div className="flex items-start justify-end gap-3 text-sm font-medium">
+                  <Link
+                    href={`/projects/${project.id}`}
+                    className="text-white"
+                  >
+                    View
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => void deleteProject(project)}
+                    disabled={deletingProjectId === project.id}
+                    className="text-[#ff8b8b] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {deletingProjectId === project.id ? "Deleting..." : "Delete"}
+                  </button>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}
