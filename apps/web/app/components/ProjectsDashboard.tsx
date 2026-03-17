@@ -93,7 +93,11 @@ export default function ProjectsDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(
+    null
+  );
+  const [updatingProjectId, setUpdatingProjectId] = useState<string | null>(
     null
   );
 
@@ -132,6 +136,7 @@ export default function ProjectsDashboard() {
     }
 
     setDeleteError(null);
+    setStatusError(null);
     setDeletingProjectId(project.id);
 
     try {
@@ -158,6 +163,143 @@ export default function ProjectsDashboard() {
     } finally {
       setDeletingProjectId(null);
     }
+  }
+
+  async function updateProjectStatus(
+    project: Project,
+    status: "archived" | "active"
+  ) {
+    setDeleteError(null);
+    setStatusError(null);
+    setUpdatingProjectId(project.id);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/status`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status })
+        }
+      );
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? `Failed to mark project as ${status}`);
+      }
+
+      setProjects((currentProjects) =>
+        currentProjects.map((currentProject) =>
+          currentProject.id === project.id
+            ? { ...currentProject, status }
+            : currentProject
+        )
+      );
+    } catch (error) {
+      setStatusError(
+        error instanceof Error ? error.message : "Failed to update project"
+      );
+    } finally {
+      setUpdatingProjectId(null);
+    }
+  }
+
+  const activeProjects = projects.filter((project) => project.status !== "archived");
+  const archivedProjects = projects.filter(
+    (project) => project.status === "archived"
+  );
+
+  function renderProjectTable(
+    items: Project[],
+    options?: { archived?: boolean }
+  ) {
+    const archived = options?.archived ?? false;
+
+    return (
+      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card">
+        <div className="grid grid-cols-[2fr_1fr_1fr_220px] gap-4 border-b border-[rgba(255,255,255,0.07)] px-6 py-4 text-xs uppercase tracking-[0.2em] text-text-muted">
+          <span>Project</span>
+          <span>Hubs</span>
+          <span>Updated</span>
+          <span className="text-right">Actions</span>
+        </div>
+
+        {items.map((project) => (
+          <div
+            key={project.id}
+            className="grid grid-cols-[2fr_1fr_1fr_220px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-6 py-5 transition-colors hover:bg-background-elevated last:border-b-0"
+          >
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-lg font-semibold text-white">
+                  {project.name}
+                </h2>
+                <span
+                  className={`rounded px-2 py-1 text-xs font-medium ${getStatusColor(
+                    project.status
+                  )}`}
+                >
+                  {project.status.replace(/-/g, " ")}
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-text-secondary">
+                {project.clientName}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {project.hubsInScope.map((hub) => (
+                <span
+                  key={hub}
+                  className={`rounded px-2 py-1 text-xs font-medium ${getHubColor(
+                    hub
+                  )}`}
+                >
+                  {hub}
+                </span>
+              ))}
+            </div>
+
+            <div className="text-sm text-text-secondary">
+              {formatRelativeDate(project.updatedAt)}
+            </div>
+
+            <div className="flex items-start justify-end gap-3 text-sm font-medium">
+              <Link href={`/projects/${project.id}`} className="text-white">
+                View
+              </Link>
+              {archived ? (
+                <button
+                  type="button"
+                  onClick={() => void updateProjectStatus(project, "active")}
+                  disabled={updatingProjectId === project.id}
+                  className="text-[#8bd5ff] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {updatingProjectId === project.id ? "Restoring..." : "Restore"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void updateProjectStatus(project, "archived")}
+                  disabled={updatingProjectId === project.id}
+                  className="text-[#ffd38b] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {updatingProjectId === project.id ? "Archiving..." : "Archive"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void deleteProject(project)}
+                disabled={deletingProjectId === project.id}
+                className="text-[#ff8b8b] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deletingProjectId === project.id ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -212,6 +354,12 @@ export default function ProjectsDashboard() {
           </div>
         ) : null}
 
+        {statusError ? (
+          <div className="mb-6 rounded-2xl border border-[rgba(240,160,80,0.35)] bg-background-card px-5 py-4 text-sm text-white">
+            {statusError}
+          </div>
+        ) : null}
+
         {loading ? (
           <div className="grid gap-3">
             {[0, 1, 2].map((row) => (
@@ -221,7 +369,7 @@ export default function ProjectsDashboard() {
               />
             ))}
           </div>
-        ) : projects.length === 0 ? (
+        ) : activeProjects.length === 0 && archivedProjects.length === 0 ? (
           <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-12 text-center">
             <h2 className="text-xl font-semibold text-white">
               No projects yet
@@ -237,72 +385,38 @@ export default function ProjectsDashboard() {
             </Link>
           </div>
         ) : (
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card">
-            <div className="grid grid-cols-[2fr_1fr_1fr_180px] gap-4 border-b border-[rgba(255,255,255,0.07)] px-6 py-4 text-xs uppercase tracking-[0.2em] text-text-muted">
-              <span>Project</span>
-              <span>Hubs</span>
-              <span>Updated</span>
-              <span className="text-right">Actions</span>
+          <div className="space-y-8">
+            <div>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white">Active Projects</h2>
+                <p className="text-sm text-text-secondary">
+                  {activeProjects.length} on the main board
+                </p>
+              </div>
+              {activeProjects.length === 0 ? (
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8 text-sm text-text-secondary">
+                  No active projects right now.
+                </div>
+              ) : (
+                renderProjectTable(activeProjects)
+              )}
             </div>
 
-            {projects.map((project) => (
-              <div
-                key={project.id}
-                className="grid grid-cols-[2fr_1fr_1fr_180px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-6 py-5 transition-colors hover:bg-background-elevated last:border-b-0"
-              >
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="text-lg font-semibold text-white">
-                      {project.name}
-                    </h2>
-                    <span
-                      className={`rounded px-2 py-1 text-xs font-medium ${getStatusColor(
-                        project.status
-                      )}`}
-                    >
-                      {project.status.replace(/-/g, " ")}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm text-text-secondary">
-                    {project.clientName}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {project.hubsInScope.map((hub) => (
-                    <span
-                      key={hub}
-                      className={`rounded px-2 py-1 text-xs font-medium ${getHubColor(
-                        hub
-                      )}`}
-                    >
-                      {hub}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="text-sm text-text-secondary">
-                  {formatRelativeDate(project.updatedAt)}
-                </div>
-
-                <div className="flex items-start justify-end gap-3 text-sm font-medium">
-                  <Link
-                    href={`/projects/${project.id}`}
-                    className="text-white"
-                  >
-                    View
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => void deleteProject(project)}
-                    disabled={deletingProjectId === project.id}
-                    className="text-[#ff8b8b] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {deletingProjectId === project.id ? "Deleting..." : "Delete"}
-                  </button>
-                </div>
+            <div>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white">Archived Projects</h2>
+                <p className="text-sm text-text-secondary">
+                  {archivedProjects.length} tucked away
+                </p>
               </div>
-            ))}
+              {archivedProjects.length === 0 ? (
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8 text-sm text-text-secondary">
+                  No archived projects yet.
+                </div>
+              ) : (
+                renderProjectTable(archivedProjects, { archived: true })
+              )}
+            </div>
           </div>
         )}
       </div>
