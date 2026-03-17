@@ -7,6 +7,7 @@ const navItems = [
   { href: "/", label: "Projects", shortLabel: "P" },
   { href: "/templates", label: "Templates", shortLabel: "T" },
   { href: "/runs", label: "Runs", shortLabel: "R" },
+  { href: "/agents", label: "Agents", shortLabel: "A" },
   { href: "/settings", label: "Settings", shortLabel: "S" }
 ];
 

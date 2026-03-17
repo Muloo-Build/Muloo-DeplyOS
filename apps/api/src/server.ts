@@ -46,6 +46,9 @@ const contentTypes: Record<string, string> = {
 };
 
 const pendingPortalPrefix = "pending-portal-";
+const authCookieName = "muloo_deploy_os_auth";
+const defaultSimpleAuthUsername = "jarrud";
+const defaultSimpleAuthPassword = "deployos";
 const validEngagementTypes = [
   "AUDIT",
   "IMPLEMENTATION",
@@ -249,6 +252,72 @@ function sendJson(
 ): void {
   response.writeHead(statusCode, { "Content-Type": contentTypes[".json"] });
   response.end(`${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function parseCookies(request: http.IncomingMessage): Record<string, string> {
+  const cookieHeader = request.headers.cookie;
+
+  if (!cookieHeader) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    cookieHeader
+      .split(";")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const separatorIndex = part.indexOf("=");
+        if (separatorIndex === -1) {
+          return [part, ""];
+        }
+
+        return [
+          decodeURIComponent(part.slice(0, separatorIndex)),
+          decodeURIComponent(part.slice(separatorIndex + 1))
+        ];
+      })
+  );
+}
+
+function setCookie(
+  response: http.ServerResponse,
+  value: string,
+  options?: { maxAge?: number }
+) {
+  const cookieParts = [
+    `${authCookieName}=${encodeURIComponent(value)}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax"
+  ];
+
+  if (options?.maxAge !== undefined) {
+    cookieParts.push(`Max-Age=${options.maxAge}`);
+  }
+
+  response.setHeader("Set-Cookie", cookieParts.join("; "));
+}
+
+function resolveSimpleAuthCredentials() {
+  return {
+    username: process.env.SIMPLE_AUTH_USERNAME ?? defaultSimpleAuthUsername,
+    password: process.env.SIMPLE_AUTH_PASSWORD ?? defaultSimpleAuthPassword
+  };
+}
+
+function createSimpleAuthToken(username: string) {
+  const secret =
+    process.env.SIMPLE_AUTH_SECRET ?? "muloo-deploy-os-internal-auth";
+
+  return Buffer.from(`${username}:${secret}`).toString("base64url");
+}
+
+function isAuthenticated(request: http.IncomingMessage) {
+  const cookies = parseCookies(request);
+  const { username } = resolveSimpleAuthCredentials();
+
+  return cookies[authCookieName] === createSimpleAuthToken(username);
 }
 
 async function readJsonBody(request: http.IncomingMessage): Promise<unknown> {
@@ -937,6 +1006,47 @@ export function createAppServer(config: BaseConfig): http.Server {
     const url = new URL(request.url ?? "/", config.appBaseUrl);
 
     try {
+      if (url.pathname === "/api/auth/session") {
+        return sendJson(response, 200, {
+          authenticated: isAuthenticated(request)
+        });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/auth/login") {
+        const body = (await readJsonBody(request)) as {
+          username?: string;
+          password?: string;
+        };
+        const credentials = resolveSimpleAuthCredentials();
+
+        if (
+          body.username?.trim() !== credentials.username ||
+          body.password !== credentials.password
+        ) {
+          return sendJson(response, 401, { error: "Invalid credentials" });
+        }
+
+        setCookie(response, createSimpleAuthToken(credentials.username), {
+          maxAge: 60 * 60 * 12
+        });
+        return sendJson(response, 200, { authenticated: true });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/auth/logout") {
+        setCookie(response, "", { maxAge: 0 });
+        return sendJson(response, 200, { authenticated: false });
+      }
+
+      if (
+        url.pathname.startsWith("/api/") &&
+        !url.pathname.startsWith("/api/auth/") &&
+        url.pathname !== "/api/health"
+      ) {
+        if (!isAuthenticated(request)) {
+          return sendJson(response, 401, { error: "Unauthorized" });
+        }
+      }
+
       if (request.method === "GET" && url.pathname === "/api/templates") {
         return sendJson(response, 200, {
           templates: await loadAllTemplates()
