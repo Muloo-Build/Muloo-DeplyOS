@@ -3,10 +3,7 @@ const { spawn } = require("node:child_process");
 const mode = process.argv[2] === "dev" ? "dev" : "start";
 const nextCli = require.resolve("next/dist/bin/next");
 const publicPort = process.env.PORT || "3000";
-const publicHost =
-  process.env.HOST ||
-  process.env.HOSTNAME ||
-  (mode === "start" ? "0.0.0.0" : "localhost");
+const publicHost = process.env.HOST || (mode === "start" ? "0.0.0.0" : "localhost");
 
 const children = [];
 let shuttingDown = false;
@@ -65,8 +62,7 @@ launch("web", process.execPath, [nextCli, mode, "-H", publicHost, "-p", publicPo
   env: {
     ...process.env,
     PORT: publicPort,
-    HOST: publicHost,
-    HOSTNAME: publicHost
+    HOST: publicHost
   }
 });
 
