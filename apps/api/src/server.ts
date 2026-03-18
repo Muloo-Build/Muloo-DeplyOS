@@ -999,6 +999,288 @@ function buildFallbackBlueprint(
   return blueprintGenerationSchema.parse({ phases });
 }
 
+function includesAny(value: string, patterns: string[]) {
+  const normalizedValue = value.toLowerCase();
+  return patterns.some((pattern) => normalizedValue.includes(pattern));
+}
+
+function getDiscoveryEvidenceText(
+  discoveryPayload: NonNullable<
+    Awaited<ReturnType<typeof loadProjectDiscoveryForBlueprint>>
+  >
+) {
+  return [
+    discoveryPayload.discovery.projectName,
+    discoveryPayload.discovery.engagementType,
+    discoveryPayload.discovery.client.industry ?? "",
+    ...discoveryPayload.discovery.sessions.flatMap((session) =>
+      Object.values(session.fields)
+    )
+  ]
+    .join(" \n")
+    .toLowerCase();
+}
+
+function deriveBlueprintGuidance(
+  discoveryPayload: NonNullable<
+    Awaited<ReturnType<typeof loadProjectDiscoveryForBlueprint>>
+  >
+) {
+  const evidenceText = getDiscoveryEvidenceText(discoveryPayload);
+  const selectedHubs = new Set(discoveryPayload.discovery.selectedHubs);
+  const engagementType = discoveryPayload.discovery.engagementType;
+
+  const hasMigrationScope =
+    engagementType === "MIGRATION" ||
+    includesAny(evidenceText, [
+      "migration",
+      "migrate",
+      "import",
+      "legacy crm",
+      "salesforce",
+      "freshworks",
+      "historical data",
+      "excel",
+      "outlook"
+    ]);
+  const hasWebsiteScope =
+    selectedHubs.has("cms") ||
+    includesAny(evidenceText, [
+      "website",
+      "cms",
+      "site",
+      "landing page",
+      "brand refresh",
+      "rebuild",
+      "template",
+      "seo"
+    ]);
+  const hasReportingScope = includesAny(evidenceText, [
+    "report",
+    "dashboard",
+    "kpi",
+    "attribution"
+  ]);
+  const hasMarketingScope =
+    selectedHubs.has("marketing") ||
+    includesAny(evidenceText, [
+      "campaign",
+      "form",
+      "lead",
+      "lifecycle",
+      "email nurture",
+      "segmentation"
+    ]);
+  const hasSalesScope =
+    selectedHubs.has("sales") ||
+    includesAny(evidenceText, [
+      "pipeline",
+      "deal",
+      "sales",
+      "mql",
+      "sql",
+      "qualification"
+    ]);
+  const hasServiceScope =
+    selectedHubs.has("service") ||
+    includesAny(evidenceText, [
+      "service",
+      "ticket",
+      "support",
+      "help desk",
+      "customer portal"
+    ]);
+  const recommendedModules = [
+    "CRM Core Foundation",
+    hasSalesScope ? "Sales Hub Core" : null,
+    hasMarketingScope ? "Marketing Hub Foundation" : null,
+    hasServiceScope ? "Service Hub Core" : null,
+    hasWebsiteScope ? "CMS / Website Foundation" : null,
+    hasMigrationScope ? "Data Migration Foundation" : null,
+    hasReportingScope ? "Reporting Foundation" : null
+  ].filter((module): module is string => Boolean(module));
+
+  return {
+    hasMigrationScope,
+    hasWebsiteScope,
+    hasReportingScope,
+    hasMarketingScope,
+    hasSalesScope,
+    hasServiceScope,
+    recommendedModules
+  };
+}
+
+function classifyBlueprintTaskType(
+  taskName: string
+): (typeof blueprintTaskTypeValues)[number] {
+  const normalizedName = taskName.toLowerCase();
+  const clientKeywords = [
+    "approve",
+    "confirm",
+    "provide",
+    "share",
+    "grant",
+    "review",
+    "sign off",
+    "finalize",
+    "complete",
+    "billing",
+    "license",
+    "seat",
+    "stakeholder",
+    "owner"
+  ];
+  const agentKeywords = [
+    "generate",
+    "prepare",
+    "draft",
+    "compile",
+    "inventory",
+    "checklist",
+    "mapping",
+    "issue log",
+    "validate",
+    "qa",
+    "preflight",
+    "audit"
+  ];
+  const manualOnlyKeywords = [
+    "configure",
+    "build",
+    "design",
+    "implement",
+    "conduct",
+    "train",
+    "perform",
+    "execute",
+    "establish",
+    "align",
+    "set up",
+    "create dashboard",
+    "reporting views"
+  ];
+
+  if (includesAny(normalizedName, clientKeywords)) {
+    return "Client";
+  }
+
+  if (
+    includesAny(normalizedName, agentKeywords) &&
+    !includesAny(normalizedName, manualOnlyKeywords)
+  ) {
+    return "Agent";
+  }
+
+  return "Human";
+}
+
+function normalizeBlueprintEffort(
+  taskType: (typeof blueprintTaskTypeValues)[number],
+  effortHours: number
+) {
+  const roundedHours = Math.max(1, Math.round(effortHours));
+
+  switch (taskType) {
+    case "Agent":
+      return Math.min(Math.max(roundedHours, 1), 4);
+    case "Client":
+      return Math.min(Math.max(roundedHours, 1), 6);
+    case "Human":
+      return Math.min(Math.max(roundedHours, 2), 12);
+  }
+}
+
+function taskMatchesScope(
+  taskName: string,
+  guidance: ReturnType<typeof deriveBlueprintGuidance>
+) {
+  const normalizedName = taskName.toLowerCase();
+
+  if (
+    !guidance.hasWebsiteScope &&
+    includesAny(normalizedName, [
+      "website",
+      "cms",
+      "page",
+      "template",
+      "seo",
+      "theme",
+      "landing page"
+    ])
+  ) {
+    return false;
+  }
+
+  if (
+    !guidance.hasMigrationScope &&
+    includesAny(normalizedName, [
+      "migration",
+      "import",
+      "legacy",
+      "dedupe",
+      "cutover",
+      "historical data"
+    ])
+  ) {
+    return false;
+  }
+
+  if (
+    !guidance.hasServiceScope &&
+    includesAny(normalizedName, ["service", "ticket", "support", "help desk"])
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function normalizeGeneratedBlueprint(
+  blueprint: z.infer<typeof blueprintGenerationSchema>,
+  discoveryPayload: NonNullable<
+    Awaited<ReturnType<typeof loadProjectDiscoveryForBlueprint>>
+  >
+) {
+  const guidance = deriveBlueprintGuidance(discoveryPayload);
+
+  const normalizedPhases = blueprint.phases
+    .map((phase, phaseIndex) => {
+      const dedupedTasks = Array.from(
+        new Map(
+          phase.tasks.map((task) => [task.name.trim().toLowerCase(), task])
+        ).values()
+      );
+
+      const scopedTasks = dedupedTasks
+        .filter((task) => taskMatchesScope(task.name, guidance))
+        .map((task, taskIndex) => {
+          const taskType = classifyBlueprintTaskType(task.name);
+
+          return {
+            ...task,
+            type: taskType,
+            effortHours: normalizeBlueprintEffort(taskType, task.effortHours),
+            order: taskIndex + 1
+          };
+        });
+
+      return {
+        phase: phaseIndex + 1,
+        phaseName: phase.phaseName,
+        tasks: scopedTasks
+      };
+    })
+    .filter((phase) => phase.tasks.length > 0);
+
+  return blueprintGenerationSchema.parse({
+    phases:
+      normalizedPhases.length > 0
+        ? normalizedPhases
+        : buildFallbackBlueprint(discoveryPayload).phases
+  });
+}
+
 async function loadProjectDiscoveryForBlueprint(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -1168,6 +1450,7 @@ async function generateBlueprintFromDiscovery(projectId: string) {
   }
 
   let parsedBlueprint: z.infer<typeof blueprintGenerationSchema>;
+  const guidance = deriveBlueprintGuidance(discoveryPayload);
 
   try {
     const discoverySummary = await loadDiscoverySummary(projectId);
@@ -1185,11 +1468,20 @@ Rules:
 - Human task hours must be realistic for a senior HubSpot consultant.
 - Prefer concise, implementation-ready task names.
 - Base the blueprint on enabled hubs, use cases, risks, data readiness, and complexity in the discovery.
+- Do not invent scope that is not evidenced in discovery.
+- Only include website or CMS implementation tasks if website/CMS scope is explicitly present.
+- Only include migration tasks if migration/import/data-cutover work is explicitly present.
+- Use Muloo standards modules where relevant: ${guidance.recommendedModules.join(", ")}.
+- Agent tasks must be low-ambiguity operational support only, such as inventories, checklists, validation, or draft artefacts.
+- Do not classify configuration, architecture, training, reporting design, stakeholder workshops, or content strategy as Agent work.
+- Client tasks should be approvals, access, data provision, licensing, or sign-off items only.
+- Default to Human when a task needs consultant judgment.
 `,
       JSON.stringify(
         {
           ...discoveryPayload.discovery,
-          discoverySummary
+          discoverySummary,
+          blueprintGuidance: guidance
         },
         null,
         2
@@ -1206,6 +1498,11 @@ Rules:
     console.error("Falling back to heuristic blueprint generation", error);
     parsedBlueprint = buildFallbackBlueprint(discoveryPayload);
   }
+
+  parsedBlueprint = normalizeGeneratedBlueprint(
+    parsedBlueprint,
+    discoveryPayload
+  );
 
   return prisma.blueprint.upsert({
     where: { projectId },
