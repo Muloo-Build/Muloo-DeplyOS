@@ -143,6 +143,50 @@ const defaultProductCatalog = [
     sortOrder: 40
   }
 ] as const;
+const defaultAgentCatalog = [
+  {
+    slug: "discovery-structuring-agent",
+    name: "Discovery Structuring Agent",
+    purpose:
+      "Turn meeting notes, uploaded docs, and client inputs into structured discovery records.",
+    provider: "anthropic",
+    model: "claude-sonnet",
+    triggerType: "manual",
+    approvalMode: "review_required",
+    allowedActions: ["summarise", "draft-discovery", "identify-gaps"],
+    systemPrompt:
+      "Structure discovery inputs into Muloo's operating model. Highlight gaps, risks, and assumptions without inventing requirements.",
+    sortOrder: 10
+  },
+  {
+    slug: "delivery-planner-agent",
+    name: "Delivery Planner Agent",
+    purpose:
+      "Convert approved discovery into phased delivery plans, rollout sequences, and implementation checklists.",
+    provider: "anthropic",
+    model: "claude-sonnet",
+    triggerType: "manual",
+    approvalMode: "review_required",
+    allowedActions: ["draft-plan", "sequence-work", "suggest-dependencies"],
+    systemPrompt:
+      "Break approved scope into practical phases, dependencies, and client-ready implementation steps.",
+    sortOrder: 20
+  },
+  {
+    slug: "scope-commercial-agent",
+    name: "Scope & Commercial Agent",
+    purpose:
+      "Support phase pricing, product bundling, and optional retainer/add-on suggestions.",
+    provider: "openai",
+    model: "gpt-5.4",
+    triggerType: "manual",
+    approvalMode: "review_required",
+    allowedActions: ["draft-quote", "bundle-products", "summarise-scope"],
+    systemPrompt:
+      "Translate approved scope into clean commercial options without overpromising delivery or changing the agreed recommendation.",
+    sortOrder: 30
+  }
+] as const;
 const sessionFieldLabels: Record<number, string[]> = {
   1: [
     "business_overview",
@@ -553,6 +597,16 @@ function matchProductRoute(pathname: string): { productId?: string } | null {
   return match[1] ? { productId: decodeURIComponent(match[1]) } : {};
 }
 
+function matchAgentRoute(pathname: string): { agentId?: string } | null {
+  const match = /^\/api\/agents(?:\/([^/]+))?$/.exec(pathname);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1] ? { agentId: decodeURIComponent(match[1]) } : {};
+}
+
 function matchClientProjectRoute(pathname: string): {
   projectId?: string;
   resource?: "submissions";
@@ -840,6 +894,8 @@ function serializeProject<
     status: string;
     owner: string;
     ownerEmail: string;
+    scopeType?: string | null;
+    commercialBrief?: string | null;
     clientChampionFirstName?: string | null;
     clientChampionLastName?: string | null;
     clientChampionEmail?: string | null;
@@ -884,6 +940,8 @@ function serializeClientProject<
     id: string;
     name: string;
     status: string;
+    scopeType?: string | null;
+    commercialBrief?: string | null;
     engagementType: Prisma.$Enums.EngagementType;
     selectedHubs: string[];
     updatedAt: Date;
@@ -897,6 +955,8 @@ function serializeClientProject<
     id: project.id,
     name: project.name,
     status: project.status,
+    scopeType: project.scopeType ?? "discovery",
+    commercialBrief: project.commercialBrief ?? null,
     engagementType: project.engagementType,
     selectedHubs: project.selectedHubs,
     updatedAt: project.updatedAt.toISOString(),
@@ -1832,6 +1892,42 @@ function serializeProductCatalogItem<
   };
 }
 
+function serializeAgentDefinition<
+  T extends {
+    id: string;
+    slug: string;
+    name: string;
+    purpose: string;
+    provider: string;
+    model: string;
+    triggerType: string;
+    approvalMode: string;
+    allowedActions: string[];
+    systemPrompt: string | null;
+    isActive: boolean;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(agent: T) {
+  return {
+    id: agent.id,
+    slug: agent.slug,
+    name: agent.name,
+    purpose: agent.purpose,
+    provider: agent.provider,
+    model: agent.model,
+    triggerType: agent.triggerType,
+    approvalMode: agent.approvalMode,
+    allowedActions: agent.allowedActions,
+    systemPrompt: agent.systemPrompt,
+    isActive: agent.isActive,
+    sortOrder: agent.sortOrder,
+    createdAt: agent.createdAt.toISOString(),
+    updatedAt: agent.updatedAt.toISOString()
+  };
+}
+
 async function ensureProductCatalogSeeded() {
   const existingCount = await prisma.productCatalogItem.count();
 
@@ -1846,6 +1942,21 @@ async function ensureProductCatalogSeeded() {
   });
 }
 
+async function ensureAgentCatalogSeeded() {
+  const existingCount = await prisma.agentDefinition.count();
+
+  if (existingCount > 0) {
+    return;
+  }
+
+  await prisma.agentDefinition.createMany({
+    data: defaultAgentCatalog.map((agent) => ({
+      ...agent,
+      allowedActions: [...agent.allowedActions]
+    }))
+  });
+}
+
 async function loadProductCatalog() {
   await ensureProductCatalogSeeded();
 
@@ -1854,6 +1965,16 @@ async function loadProductCatalog() {
   });
 
   return products.map((product) => serializeProductCatalogItem(product));
+}
+
+async function loadAgentCatalog() {
+  await ensureAgentCatalogSeeded();
+
+  const agents = await prisma.agentDefinition.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
+  });
+
+  return agents.map((agent) => serializeAgentDefinition(agent));
 }
 
 async function createProductCatalogItem(value: {
@@ -1913,6 +2034,64 @@ async function createProductCatalogItem(value: {
   });
 
   return serializeProductCatalogItem(product);
+}
+
+async function createAgentDefinition(value: {
+  name?: unknown;
+  purpose?: unknown;
+  provider?: unknown;
+  model?: unknown;
+  triggerType?: unknown;
+  approvalMode?: unknown;
+  allowedActions?: unknown;
+  systemPrompt?: unknown;
+  isActive?: unknown;
+  sortOrder?: unknown;
+}) {
+  const name = typeof value.name === "string" ? value.name.trim() : "";
+  const purpose = typeof value.purpose === "string" ? value.purpose.trim() : "";
+  const provider = typeof value.provider === "string" ? value.provider.trim() : "";
+  const model = typeof value.model === "string" ? value.model.trim() : "";
+  const triggerType =
+    typeof value.triggerType === "string" ? value.triggerType.trim() : "manual";
+  const approvalMode =
+    typeof value.approvalMode === "string"
+      ? value.approvalMode.trim()
+      : "review_required";
+  const systemPrompt =
+    typeof value.systemPrompt === "string" ? value.systemPrompt.trim() : "";
+  const allowedActions = Array.isArray(value.allowedActions)
+    ? value.allowedActions
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+  const sortOrder =
+    typeof value.sortOrder === "number"
+      ? value.sortOrder
+      : Number(value.sortOrder);
+
+  if (!name || !purpose || !provider || !model) {
+    throw new Error("name, purpose, provider, and model are required");
+  }
+
+  const agent = await prisma.agentDefinition.create({
+    data: {
+      slug: createSlug(name),
+      name,
+      purpose,
+      provider,
+      model,
+      triggerType,
+      approvalMode,
+      allowedActions,
+      systemPrompt: systemPrompt || null,
+      isActive: value.isActive === false ? false : true,
+      sortOrder: Number.isFinite(sortOrder) ? Math.round(sortOrder) : 999
+    }
+  });
+
+  return serializeAgentDefinition(agent);
 }
 
 async function createClientPortalUserForProject(
@@ -2203,6 +2382,122 @@ async function updateProductCatalogItem(
   });
 
   return serializeProductCatalogItem(product);
+}
+
+async function updateAgentDefinition(
+  agentId: string,
+  value: {
+    name?: unknown;
+    purpose?: unknown;
+    provider?: unknown;
+    model?: unknown;
+    triggerType?: unknown;
+    approvalMode?: unknown;
+    allowedActions?: unknown;
+    systemPrompt?: unknown;
+    isActive?: unknown;
+    sortOrder?: unknown;
+  }
+) {
+  const updateData: Prisma.Prisma.AgentDefinitionUpdateInput = {};
+
+  if (value.name !== undefined) {
+    if (typeof value.name !== "string" || value.name.trim().length === 0) {
+      throw new Error("name must be a non-empty string");
+    }
+
+    updateData.name = value.name.trim();
+    updateData.slug = createSlug(value.name.trim());
+  }
+
+  if (value.purpose !== undefined) {
+    if (typeof value.purpose !== "string" || value.purpose.trim().length === 0) {
+      throw new Error("purpose must be a non-empty string");
+    }
+
+    updateData.purpose = value.purpose.trim();
+  }
+
+  if (value.provider !== undefined) {
+    if (typeof value.provider !== "string" || value.provider.trim().length === 0) {
+      throw new Error("provider must be a non-empty string");
+    }
+
+    updateData.provider = value.provider.trim();
+  }
+
+  if (value.model !== undefined) {
+    if (typeof value.model !== "string" || value.model.trim().length === 0) {
+      throw new Error("model must be a non-empty string");
+    }
+
+    updateData.model = value.model.trim();
+  }
+
+  if (value.triggerType !== undefined) {
+    if (
+      typeof value.triggerType !== "string" ||
+      value.triggerType.trim().length === 0
+    ) {
+      throw new Error("triggerType must be a non-empty string");
+    }
+
+    updateData.triggerType = value.triggerType.trim();
+  }
+
+  if (value.approvalMode !== undefined) {
+    if (
+      typeof value.approvalMode !== "string" ||
+      value.approvalMode.trim().length === 0
+    ) {
+      throw new Error("approvalMode must be a non-empty string");
+    }
+
+    updateData.approvalMode = value.approvalMode.trim();
+  }
+
+  if (value.allowedActions !== undefined) {
+    if (!Array.isArray(value.allowedActions)) {
+      throw new Error("allowedActions must be an array of strings");
+    }
+
+    updateData.allowedActions = value.allowedActions
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  if (value.systemPrompt !== undefined) {
+    if (typeof value.systemPrompt !== "string") {
+      throw new Error("systemPrompt must be a string");
+    }
+
+    updateData.systemPrompt = value.systemPrompt.trim() || null;
+  }
+
+  if (value.isActive !== undefined) {
+    updateData.isActive = Boolean(value.isActive);
+  }
+
+  if (value.sortOrder !== undefined) {
+    const sortOrder =
+      typeof value.sortOrder === "number"
+        ? value.sortOrder
+        : Number(value.sortOrder);
+
+    if (!Number.isFinite(sortOrder)) {
+      throw new Error("sortOrder must be a valid number");
+    }
+
+    updateData.sortOrder = Math.round(sortOrder);
+  }
+
+  const agent = await prisma.agentDefinition.update({
+    where: { id: agentId },
+    data: updateData
+  });
+
+  return serializeAgentDefinition(agent);
 }
 
 function serializeDiscoveryEvidence<
@@ -2662,6 +2957,69 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
+      const agentRoute = matchAgentRoute(url.pathname);
+      if (agentRoute) {
+        if (request.method === "GET" && !agentRoute.agentId) {
+          return sendJson(response, 200, {
+            agents: await loadAgentCatalog()
+          });
+        }
+
+        if (request.method === "POST" && !agentRoute.agentId) {
+          try {
+            const body = (await readJsonBody(request)) as {
+              name?: unknown;
+              purpose?: unknown;
+              provider?: unknown;
+              model?: unknown;
+              triggerType?: unknown;
+              approvalMode?: unknown;
+              allowedActions?: unknown;
+              systemPrompt?: unknown;
+              isActive?: unknown;
+              sortOrder?: unknown;
+            };
+
+            const agent = await createAgentDefinition(body);
+            return sendJson(response, 201, { agent });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to create agent"
+            });
+          }
+        }
+
+        if (request.method === "PATCH" && agentRoute.agentId) {
+          try {
+            const body = (await readJsonBody(request)) as {
+              name?: unknown;
+              purpose?: unknown;
+              provider?: unknown;
+              model?: unknown;
+              triggerType?: unknown;
+              approvalMode?: unknown;
+              allowedActions?: unknown;
+              systemPrompt?: unknown;
+              isActive?: unknown;
+              sortOrder?: unknown;
+            };
+
+            const agent = await updateAgentDefinition(agentRoute.agentId, body);
+            return sendJson(response, 200, { agent });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error ? error.message : "Failed to update agent"
+            });
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
       if (url.pathname === "/api/industries") {
         return sendJson(response, 200, {
           industries: industryOptions
@@ -2683,6 +3041,8 @@ export function createAppServer(config: BaseConfig): http.Server {
             selectedHubs: string[];
             owner?: string;
             ownerEmail?: string;
+            scopeType?: string;
+            commercialBrief?: string;
             engagementType?: string;
             industry?: string;
             website?: string;
@@ -2697,9 +3057,21 @@ export function createAppServer(config: BaseConfig): http.Server {
             clientChampionEmail?: string;
           };
 
-          if (!body.name || !body.clientName || !body.selectedHubs?.length) {
+          const scopeType =
+            typeof body.scopeType === "string" && body.scopeType.trim().length > 0
+              ? body.scopeType.trim()
+              : "discovery";
+
+          if (
+            !body.name ||
+            !body.clientName ||
+            (scopeType !== "standalone_quote" && !body.selectedHubs?.length)
+          ) {
             return sendJson(response, 400, {
-              error: "name, clientName, and selectedHubs are required"
+              error:
+                scopeType === "standalone_quote"
+                  ? "name and clientName are required"
+                  : "name, clientName, and selectedHubs are required"
             });
           }
 
@@ -2770,7 +3142,11 @@ export function createAppServer(config: BaseConfig): http.Server {
                 body.clientChampionLastName?.trim() || null,
               clientChampionEmail:
                 body.clientChampionEmail?.trim() || null,
-              selectedHubs: body.selectedHubs,
+              scopeType,
+              commercialBrief: body.commercialBrief?.trim() || null,
+              selectedHubs: Array.isArray(body.selectedHubs)
+                ? body.selectedHubs
+                : [],
               clientId: client.id,
               portalId: portal.id
             },
@@ -3318,6 +3694,8 @@ export function createAppServer(config: BaseConfig): http.Server {
           const body = (await readJsonBody(request)) as {
             clientName?: unknown;
             type?: unknown;
+            scopeType?: unknown;
+            commercialBrief?: unknown;
             portalId?: unknown;
             owner?: unknown;
             ownerEmail?: unknown;
@@ -3338,6 +3716,8 @@ export function createAppServer(config: BaseConfig): http.Server {
           const normalizedPayload: {
             clientName?: string;
             type?: EngagementType;
+            scopeType?: string;
+            commercialBrief?: string;
             portalId?: string;
             owner?: string;
             ownerEmail?: string;
@@ -3379,6 +3759,26 @@ export function createAppServer(config: BaseConfig): http.Server {
             }
 
             normalizedPayload.type = body.type;
+          }
+
+          if (body.scopeType !== undefined) {
+            if (typeof body.scopeType !== "string") {
+              return sendJson(response, 400, {
+                error: "scopeType must be a string"
+              });
+            }
+
+            normalizedPayload.scopeType = body.scopeType.trim();
+          }
+
+          if (body.commercialBrief !== undefined) {
+            if (typeof body.commercialBrief !== "string") {
+              return sendJson(response, 400, {
+                error: "commercialBrief must be a string"
+              });
+            }
+
+            normalizedPayload.commercialBrief = body.commercialBrief.trim();
           }
 
           if (body.portalId !== undefined) {
@@ -3548,6 +3948,8 @@ export function createAppServer(config: BaseConfig): http.Server {
           if (
             normalizedPayload.clientName === undefined &&
             normalizedPayload.type === undefined &&
+            normalizedPayload.scopeType === undefined &&
+            normalizedPayload.commercialBrief === undefined &&
             normalizedPayload.portalId === undefined &&
             normalizedPayload.owner === undefined &&
             normalizedPayload.ownerEmail === undefined &&
@@ -3696,6 +4098,15 @@ export function createAppServer(config: BaseConfig): http.Server {
                   ? {
                       engagementType:
                         normalizedPayload.type as Prisma.$Enums.EngagementType
+                    }
+                  : {}),
+                ...(normalizedPayload.scopeType !== undefined
+                  ? { scopeType: normalizedPayload.scopeType || "discovery" }
+                  : {}),
+                ...(normalizedPayload.commercialBrief !== undefined
+                  ? {
+                      commercialBrief:
+                        normalizedPayload.commercialBrief || null
                     }
                   : {}),
                 ...(normalizedPayload.hubs

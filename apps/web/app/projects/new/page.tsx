@@ -10,6 +10,8 @@ interface FormData {
   clientName: string;
   owner: string;
   ownerEmail: string;
+  scopeType: string;
+  commercialBrief: string;
   industry: string;
   website: string;
   additionalWebsitesText: string;
@@ -126,6 +128,8 @@ export default function NewProjectPage() {
     clientName: "",
     owner: "",
     ownerEmail: "",
+    scopeType: "discovery",
+    commercialBrief: "",
     industry: "",
     website: "",
     additionalWebsitesText: "",
@@ -201,7 +205,10 @@ export default function NewProjectPage() {
     formData.clientChampionFirstName.trim().length > 0 &&
     formData.clientChampionLastName.trim().length > 0 &&
     formData.clientChampionEmail.trim().length > 0;
-  const canContinueFromStep2 = formData.hubsInScope.length > 0;
+  const canContinueFromStep2 =
+    formData.scopeType === "standalone_quote"
+      ? formData.commercialBrief.trim().length > 0
+      : formData.hubsInScope.length > 0;
 
   async function handleSubmit() {
     setSaving(true);
@@ -215,6 +222,8 @@ export default function NewProjectPage() {
       engagementType: formData.engagementType,
       owner: formData.owner,
       ownerEmail: formData.ownerEmail,
+      scopeType: formData.scopeType,
+      commercialBrief: formData.commercialBrief.trim(),
       industry: formData.industry,
       website: formData.website.trim(),
       additionalWebsites: formData.additionalWebsitesText
@@ -315,6 +324,42 @@ export default function NewProjectPage() {
               </h2>
 
               <div className="grid gap-6 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <p className="mb-3 text-sm text-text-secondary">
+                    Engagement container
+                  </p>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {[
+                      [
+                        "discovery",
+                        "Discovery-led implementation",
+                        "Use Muloo discovery, scoped recommendations, and a phased quote."
+                      ],
+                      [
+                        "standalone_quote",
+                        "Standalone quote job",
+                        "Capture a specific job brief and quote it without a full discovery cycle."
+                      ]
+                    ].map(([value, label, description]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => updateField("scopeType", value)}
+                        className={`rounded-2xl border p-4 text-left transition-colors ${
+                          formData.scopeType === value
+                            ? "border-accent-solid bg-background-elevated"
+                            : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                        }`}
+                      >
+                        <p className="font-semibold text-white">{label}</p>
+                        <p className="mt-1 text-sm text-text-secondary">
+                          {description}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <label className="block md:col-span-2">
                   <span className="mb-2 block text-sm text-text-secondary">
                     Project name
@@ -340,6 +385,22 @@ export default function NewProjectPage() {
                     className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
                   />
                 </label>
+
+                {formData.scopeType === "standalone_quote" ? (
+                  <label className="block md:col-span-2">
+                    <span className="mb-2 block text-sm text-text-secondary">
+                      Job / scope brief
+                    </span>
+                    <textarea
+                      value={formData.commercialBrief}
+                      onChange={(event) =>
+                        updateField("commercialBrief", event.target.value)
+                      }
+                      placeholder="Describe the standalone job, deliverables, desired outcomes, and any pricing context."
+                      className="min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                    />
+                  </label>
+                ) : null}
 
                 <label className="block">
                   <span className="mb-2 block text-sm text-text-secondary">
@@ -556,6 +617,11 @@ export default function NewProjectPage() {
 
               <div>
                 <p className="mb-3 text-sm text-text-secondary">Hubs in scope</p>
+                <p className="mb-3 text-sm text-text-muted">
+                  {formData.scopeType === "standalone_quote"
+                    ? "Optional for standalone quotes. Use hubs only if they help frame the quoted work."
+                    : "Select the hubs or work areas expected in scope."}
+                </p>
                 <div className="grid gap-4 md:grid-cols-2">
                   {hubOptions.map((hub) => (
                     <button
@@ -575,18 +641,20 @@ export default function NewProjectPage() {
                 </div>
               </div>
 
-              <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-                <input
-                  type="checkbox"
-                  checked={formData.useTemplate}
-                  onChange={(event) =>
-                    updateField("useTemplate", event.target.checked)
-                  }
-                />
-                <span className="text-white">Start from a Muloo template</span>
-              </label>
+              {formData.scopeType !== "standalone_quote" ? (
+                <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+                  <input
+                    type="checkbox"
+                    checked={formData.useTemplate}
+                    onChange={(event) =>
+                      updateField("useTemplate", event.target.checked)
+                    }
+                  />
+                  <span className="text-white">Start from a Muloo template</span>
+                </label>
+              ) : null}
 
-              {formData.useTemplate ? (
+              {formData.useTemplate && formData.scopeType !== "standalone_quote" ? (
                 <label className="block">
                   <span className="mb-2 block text-sm text-text-secondary">
                     Template
@@ -618,6 +686,12 @@ export default function NewProjectPage() {
                 {[
                   ["Project", formData.projectName],
                   ["Client", formData.clientName],
+                  [
+                    "Container",
+                    formData.scopeType === "standalone_quote"
+                      ? "Standalone quote"
+                      : "Discovery-led implementation"
+                  ],
                   ["Industry", formData.industry],
                   ["Website", formData.website],
                   ["Champion first name", formData.clientChampionFirstName],
@@ -642,19 +716,30 @@ export default function NewProjectPage() {
                 ))}
               </div>
 
+              {formData.commercialBrief ? (
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                    Job / scope brief
+                  </p>
+                  <p className="mt-3 whitespace-pre-wrap text-white">
+                    {formData.commercialBrief}
+                  </p>
+                </div>
+              ) : null}
+
               <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                   Hubs in scope
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {formData.hubsInScope.map((hub) => (
+                  {formData.hubsInScope.length > 0 ? formData.hubsInScope.map((hub) => (
                     <span
                       key={hub}
                       className="rounded bg-[rgba(224,82,156,0.15)] px-2 py-1 text-xs font-medium text-accent-solid"
                     >
                       {hub}
                     </span>
-                  ))}
+                  )) : <span className="text-text-secondary">No hubs selected</span>}
                 </div>
               </div>
 

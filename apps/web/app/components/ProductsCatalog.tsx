@@ -44,7 +44,7 @@ function createEmptyDraft(): ProductDraft {
   };
 }
 
-export default function ProductsCatalog() {
+function ProductsCatalogContent() {
   const [products, setProducts] = useState<ProductCatalogItem[]>([]);
   const [newDraft, setNewDraft] = useState<ProductDraft>(createEmptyDraft());
   const [saving, setSaving] = useState<string | null>(null);
@@ -177,7 +177,6 @@ export default function ProductsCatalog() {
   }
 
   return (
-    <AppShell>
       <div className="p-8">
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -361,6 +360,17 @@ export default function ProductsCatalog() {
           )}
         </div>
       </div>
+  );
+}
+
+export function EmbeddedProductsCatalog() {
+  return <ProductsCatalogContent />;
+}
+
+export default function ProductsCatalog() {
+  return (
+    <AppShell>
+      <ProductsCatalogContent />
     </AppShell>
   );
 }

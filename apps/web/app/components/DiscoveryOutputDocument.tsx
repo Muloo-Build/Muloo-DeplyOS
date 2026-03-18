@@ -102,9 +102,9 @@ function formatDiscoveryOutcome(
 
   if (label === "engagementTrack") {
     const engagementTrackLabels: Record<string, string> = {
-      "new-crm-greenfield": "New CRM / greenfield implementation",
-      "hubspot-onboarding-new-build": "HubSpot onboarding / new build",
-      "hubspot-optimisation-revamp": "HubSpot optimisation / revamp",
+      "new-crm-greenfield": "New CRM implementation",
+      "hubspot-onboarding-new-build": "HubSpot onboarding",
+      "hubspot-optimisation-revamp": "HubSpot optimisation",
       "migration-to-hubspot": "Migration to HubSpot"
     };
 
@@ -436,20 +436,17 @@ export default function DiscoveryOutputDocument({
                 </div>
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <SectionEyebrow>Discovery Outcomes</SectionEyebrow>
-                  <SectionTitle>Recommended direction</SectionTitle>
+                  <SectionEyebrow>Recommended Path</SectionEyebrow>
+                  <SectionTitle>What Muloo recommends</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     {[
-                      ["Engagement track", summary?.engagementTrack ?? "Not set"],
-                      ["Platform fit", summary?.platformFit ?? "Not set"],
                       [
-                        "Change management",
-                        summary?.changeManagementRating ?? "Not set"
+                        "Recommended engagement model",
+                        summary?.engagementTrack ?? "Not set"
                       ],
-                      [
-                        "Data readiness",
-                        summary?.dataReadinessRating ?? "Not set"
-                      ]
+                      ["Platform recommendation", summary?.platformFit ?? "Not set"],
+                      ["Change readiness", summary?.changeManagementRating ?? "Not set"],
+                      ["Data readiness", summary?.dataReadinessRating ?? "Not set"]
                     ].map(([label, value]) => (
                       <div
                         key={label}
@@ -460,11 +457,11 @@ export default function DiscoveryOutputDocument({
                         </p>
                         <p className="mt-2 text-sm font-medium text-white">
                           {formatDiscoveryOutcome(
-                            label === "Engagement track"
+                            label === "Recommended engagement model"
                               ? "engagementTrack"
-                              : label === "Platform fit"
+                              : label === "Platform recommendation"
                                 ? "platformFit"
-                                : label === "Change management"
+                                : label === "Change readiness"
                                   ? "changeManagementRating"
                                   : "dataReadinessRating",
                             value

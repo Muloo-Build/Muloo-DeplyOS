@@ -1,4 +1,5 @@
 import AppShell from "../components/AppShell";
+import { EmbeddedProductsCatalog } from "../components/ProductsCatalog";
 
 export default function SettingsPage() {
   return (
@@ -159,6 +160,34 @@ export default function SettingsPage() {
               </p>
             </section>
           </div>
+
+          <section
+            id="products"
+            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  Commercial Catalog
+                </p>
+                <h2 className="mt-2 text-xl font-semibold text-white">
+                  Products, retainers, and add-ons
+                </h2>
+                <p className="mt-2 max-w-3xl text-text-secondary">
+                  Keep one-off services, recurring retainers, and bundled add-on
+                  products here so quotes can be built from approved discovery
+                  scope or quoted as standalone jobs.
+                </p>
+              </div>
+              <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs font-medium text-text-secondary">
+                Live
+              </span>
+            </div>
+
+            <div className="-mx-8 mt-6">
+              <EmbeddedProductsCatalog />
+            </div>
+          </section>
         </div>
       </div>
     </AppShell>

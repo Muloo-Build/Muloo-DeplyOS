@@ -1,5 +1,5 @@
-import ProductsCatalog from "../components/ProductsCatalog";
+import { redirect } from "next/navigation";
 
 export default function ProductsPage() {
-  return <ProductsCatalog />;
+  redirect("/settings#products");
 }

@@ -12,6 +12,8 @@ interface Project {
   name: string;
   owner: string;
   ownerEmail: string;
+  scopeType?: string | null;
+  commercialBrief?: string | null;
   engagementType: string;
   clientChampionFirstName?: string | null;
   clientChampionLastName?: string | null;
@@ -238,44 +240,60 @@ export default function QuoteDocument({
       setError(null);
 
       try {
+        const projectResponse = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}`
+        );
+
+        if (!projectResponse.ok) {
+          throw new Error("Failed to load quote document");
+        }
+
+        const projectBody = await projectResponse.json();
+        const nextProject = projectBody.project;
+        const isStandaloneQuote = nextProject?.scopeType === "standalone_quote";
+
         const [
-          projectResponse,
           sessionsResponse,
           summaryResponse,
           blueprintResponse,
           productsResponse
         ] = await Promise.all([
-          fetch(`/api/projects/${encodeURIComponent(projectId)}`),
           fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
-          fetch(
-            `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
-          ),
-          fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
+          isStandaloneQuote
+            ? Promise.resolve(null)
+            : fetch(
+                `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
+              ),
+          isStandaloneQuote
+            ? Promise.resolve(null)
+            : fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
           fetch("/api/products")
         ]);
 
         if (
-          !projectResponse.ok ||
           !sessionsResponse.ok ||
-          !summaryResponse.ok ||
-          !blueprintResponse.ok ||
-          !productsResponse.ok
+          !productsResponse.ok ||
+          (!isStandaloneQuote && !summaryResponse?.ok) ||
+          (!isStandaloneQuote && !blueprintResponse?.ok)
         ) {
           throw new Error(
-            "Generate the discovery summary and blueprint before opening the quote."
+            isStandaloneQuote
+              ? "Complete the standalone quote setup before opening the commercial document."
+              : "Generate the discovery summary and blueprint before opening the quote."
           );
         }
 
-        const projectBody = await projectResponse.json();
         const sessionsBody = await sessionsResponse.json();
-        const summaryBody = await summaryResponse.json();
-        const blueprintBody = await blueprintResponse.json();
+        const summaryBody = summaryResponse ? await summaryResponse.json() : null;
+        const blueprintBody = blueprintResponse
+          ? await blueprintResponse.json()
+          : null;
         const productsBody = await productsResponse.json();
 
-        setProject(projectBody.project);
+        setProject(nextProject);
         setSessions(sessionsBody.sessionDetails ?? []);
-        setSummary(summaryBody.summary ?? null);
-        setBlueprint(blueprintBody.blueprint ?? null);
+        setSummary(summaryBody?.summary ?? null);
+        setBlueprint(blueprintBody?.blueprint ?? null);
         setProducts(productsBody.products ?? []);
       } catch (loadError) {
         setError(
@@ -468,7 +486,7 @@ export default function QuoteDocument({
               />
             ))}
           </div>
-        ) : error || !project || !blueprint ? (
+        ) : error || !project ? (
           <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-8 text-white">
             {error ?? "Document unavailable"}
           </div>
@@ -483,11 +501,14 @@ export default function QuoteDocument({
                   Back to overview
                 </Link>
                 <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-                  Implementation Quote & Approval
+                  {project.scopeType === "standalone_quote"
+                    ? "Standalone Quote & Approval"
+                    : "Implementation Quote & Approval"}
                 </h1>
                 <p className="mt-2 text-text-secondary">
-                  Commercial proposal generated from the approved discovery
-                  scope and phased implementation estimate.
+                  {project.scopeType === "standalone_quote"
+                    ? "Commercial proposal generated from a scoped standalone brief and selected products."
+                    : "Commercial proposal generated from the approved discovery scope and phased implementation estimate."}
                 </p>
               </div>
               <div className="document-toolbar flex flex-wrap items-center gap-3">
@@ -525,11 +546,17 @@ export default function QuoteDocument({
                     </p>
                   </div>
                   <h2 className="mt-10 max-w-3xl text-5xl font-bold font-heading leading-tight text-white">
-                    {project.client.name.toUpperCase()} - Implementation Quote
+                    {project.client.name.toUpperCase()} -{" "}
+                    {project.scopeType === "standalone_quote"
+                      ? "Standalone Quote"
+                      : "Implementation Quote"}
                   </h2>
                   <p className="mt-6 text-lg text-text-secondary">
-                    {formatEngagementType(project.engagementType)} phased quote
-                    generated from structured discovery and blueprinted scope.
+                    {project.scopeType === "standalone_quote"
+                      ? "Commercial quote generated from a standalone scoped brief and optional service products."
+                      : `${formatEngagementType(
+                          project.engagementType
+                        )} phased quote generated from structured discovery and blueprinted scope.`}
                   </p>
 
                   <div className="mt-10 grid gap-8 md:grid-cols-2">
@@ -632,9 +659,13 @@ export default function QuoteDocument({
               <SectionTitle>Quoted scope and approval pack</SectionTitle>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
                 {[
-                  "This document turns the approved discovery recommendation into a commercial quote with phase-level pricing.",
+                  project.scopeType === "standalone_quote"
+                    ? "This document turns a scoped standalone job brief into a commercial quote with optional products, retainers, and add-on services."
+                    : "This document turns the approved discovery recommendation into a commercial quote with phase-level pricing.",
                   "It is designed to support review, approval, and selective commercial sign-off if the client wants to proceed with only part of the recommended scope.",
-                  "Once approved, the accepted phases become the commercial baseline for planning and delivery."
+                  project.scopeType === "standalone_quote"
+                    ? "Once approved, the accepted line items become the commercial baseline for delivery or a separate implementation plan."
+                    : "Once approved, the accepted phases become the commercial baseline for planning and delivery."
                 ].map((item) => (
                   <div
                     key={item}
@@ -652,12 +683,17 @@ export default function QuoteDocument({
                   <SectionEyebrow>Quote Context</SectionEyebrow>
                   <SectionTitle>What this quote is based on</SectionTitle>
                   <p className="mt-4 text-sm leading-7 text-text-secondary">
-                    {summary?.executiveSummary ??
-                      session1.business_overview ??
-                      "No executive summary generated yet."}
+                    {project.scopeType === "standalone_quote"
+                      ? project.commercialBrief ||
+                        "This standalone quote is based on the scoped job brief captured for the client."
+                      : summary?.executiveSummary ??
+                        session1.business_overview ??
+                        "No executive summary generated yet."}
                   </p>
                 </div>
 
+                {project.scopeType !== "standalone_quote" ? (
+                <>
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <SectionEyebrow>Commercial Framing</SectionEyebrow>
                   <SectionTitle>Why this implementation is being quoted</SectionTitle>
@@ -811,6 +847,41 @@ export default function QuoteDocument({
                     ))}
                   </div>
                 </div>
+                </>
+                ) : (
+                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <SectionEyebrow>Commercial Framing</SectionEyebrow>
+                  <SectionTitle>How this standalone quote should be used</SectionTitle>
+                  <div className="mt-5 grid gap-4 md:grid-cols-3">
+                    {[
+                      [
+                        "What is being quoted",
+                        "The line items and optional products below describe the commercial offer for this standalone job."
+                      ],
+                      [
+                        "How scope is controlled",
+                        "The accepted products and any agreed notes become the commercial baseline. Changes should be added as new line items or a revised quote."
+                      ],
+                      [
+                        "What happens next",
+                        "If approved, this quote can move straight into delivery or be converted into a more detailed implementation plan."
+                      ]
+                    ].map(([label, value]) => (
+                      <div
+                        key={label}
+                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      >
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          {label}
+                        </p>
+                        <p className="mt-3 text-sm leading-7 text-text-secondary">
+                          {value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                )}
               </div>
 
               <div className="space-y-6">
@@ -841,6 +912,7 @@ export default function QuoteDocument({
                   </div>
                 </div>
 
+                {project.scopeType !== "standalone_quote" ? (
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <SectionEyebrow>Risks & Dependencies</SectionEyebrow>
                   <SectionTitle>What could affect commercials or timing</SectionTitle>
@@ -877,9 +949,11 @@ export default function QuoteDocument({
                     ) : null}
                   </div>
                 </div>
+                ) : null}
               </div>
             </section>
 
+            {phaseCommercials.length > 0 ? (
             <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
@@ -979,6 +1053,7 @@ export default function QuoteDocument({
                 ))}
               </div>
             </section>
+            ) : null}
 
             <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <SectionEyebrow>Additional Products</SectionEyebrow>
