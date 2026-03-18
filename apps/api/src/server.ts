@@ -1,4 +1,5 @@
 import http from "node:http";
+import crypto from "node:crypto";
 import { getIntegrationStatus, type BaseConfig } from "@muloo/config";
 import {
   createProjectFromTemplate,
@@ -657,6 +658,27 @@ function matchProjectClientUsersRoute(pathname: string): {
   };
 }
 
+function matchProjectClientUserActionRoute(pathname: string): {
+  projectId: string;
+  userId: string;
+  action: "invite-link" | "reset-link";
+} | null {
+  const match =
+    /^\/api\/projects\/([^/]+?)\/client-users\/([^/]+?)\/(invite-link|reset-link)$/.exec(
+      pathname
+    );
+
+  if (!match || !match[1] || !match[2] || !match[3]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1]),
+    userId: decodeURIComponent(match[2]),
+    action: match[3] as "invite-link" | "reset-link"
+  };
+}
+
 function matchProjectModuleRoute(pathname: string): {
   projectId: string;
   moduleKey: string;
@@ -1012,13 +1034,15 @@ function serializeClientPortalUser<
     firstName: string;
     lastName: string;
     email: string;
+    inviteAcceptedAt?: Date | null;
   }
 >(user: T) {
   return {
     id: user.id,
     firstName: user.firstName,
     lastName: user.lastName,
-    email: user.email
+    email: user.email,
+    authStatus: user.inviteAcceptedAt ? "active" : "invite_pending"
   };
 }
 
@@ -2743,7 +2767,6 @@ async function createClientPortalUserForProject(
     firstName?: unknown;
     lastName?: unknown;
     email?: unknown;
-    password?: unknown;
     role?: unknown;
   }
 ) {
@@ -2752,26 +2775,37 @@ async function createClientPortalUserForProject(
   const lastName =
     typeof value.lastName === "string" ? value.lastName.trim() : "";
   const email = typeof value.email === "string" ? value.email.trim().toLowerCase() : "";
-  const password =
-    typeof value.password === "string" ? value.password.trim() : "";
   const role = typeof value.role === "string" ? value.role.trim() : "contributor";
 
-  if (!firstName || !lastName || !email || !password) {
-    throw new Error("firstName, lastName, email, and password are required");
+  if (!firstName || !lastName || !email) {
+    throw new Error("firstName, lastName, and email are required");
   }
+
+  const inviteToken = crypto.randomBytes(24).toString("hex");
+  const inviteTokenExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14);
+  const existingUser = await prisma.clientPortalUser.findUnique({
+    where: { email }
+  });
 
   const user = await prisma.clientPortalUser.upsert({
     where: { email },
     update: {
       firstName,
       lastName,
-      password
+      ...(existingUser?.inviteAcceptedAt
+        ? {}
+        : {
+            inviteToken,
+            inviteTokenExpiresAt
+          })
     },
     create: {
       firstName,
       lastName,
       email,
-      password
+      password: "",
+      inviteToken,
+      inviteTokenExpiresAt
     }
   });
 
@@ -2792,7 +2826,53 @@ async function createClientPortalUserForProject(
     }
   });
 
-  return serializeClientPortalUser(user);
+  return {
+    ...serializeClientPortalUser(user),
+    inviteLink: buildClientAccessUrl("/client/activate", inviteToken)
+  };
+}
+
+function buildClientAccessUrl(pathname: string, token: string) {
+  const baseUrl =
+    process.env.APP_BASE_URL ??
+    process.env.NEXT_PUBLIC_APP_BASE_URL ??
+    "https://deploy.wearemuloo.com";
+
+  return `${baseUrl}${pathname}?token=${encodeURIComponent(token)}`;
+}
+
+async function createClientResetLink(userId: string, projectId: string) {
+  const access = await prisma.clientProjectAccess.findUnique({
+    where: {
+      userId_projectId: {
+        userId,
+        projectId
+      }
+    },
+    include: {
+      user: true
+    }
+  });
+
+  if (!access) {
+    throw new Error("Client user not found for this project");
+  }
+
+  const resetToken = crypto.randomBytes(24).toString("hex");
+  const resetExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+  await prisma.clientPortalUser.update({
+    where: { id: userId },
+    data: {
+      passwordResetToken: resetToken,
+      passwordResetTokenExpiresAt: resetExpiresAt
+    }
+  });
+
+  return {
+    user: serializeClientPortalUser(access.user),
+    resetLink: buildClientAccessUrl("/client/activate", resetToken)
+  };
 }
 
 async function loadClientUsersForProject(projectId: string) {
@@ -3401,6 +3481,70 @@ export function createAppServer(config: BaseConfig): http.Server {
         });
       }
 
+      if (request.method === "POST" && url.pathname === "/api/client-auth/set-password") {
+        const body = (await readJsonBody(request)) as {
+          token?: string;
+          password?: string;
+        };
+        const token = body.token?.trim() ?? "";
+        const password = body.password?.trim() ?? "";
+
+        if (!token || password.length < 8) {
+          return sendJson(response, 400, {
+            error: "A valid token and password of at least 8 characters are required"
+          });
+        }
+
+        const now = new Date();
+        const user =
+          (await prisma.clientPortalUser.findFirst({
+            where: {
+              OR: [
+                {
+                  inviteToken: token,
+                  inviteTokenExpiresAt: {
+                    gt: now
+                  }
+                },
+                {
+                  passwordResetToken: token,
+                  passwordResetTokenExpiresAt: {
+                    gt: now
+                  }
+                }
+              ]
+            }
+          })) ?? null;
+
+        if (!user) {
+          return sendJson(response, 400, {
+            error: "This access link is invalid or has expired"
+          });
+        }
+
+        const updatedUser = await prisma.clientPortalUser.update({
+          where: { id: user.id },
+          data: {
+            password,
+            inviteToken: null,
+            inviteTokenExpiresAt: null,
+            passwordResetToken: null,
+            passwordResetTokenExpiresAt: null,
+            inviteAcceptedAt: user.inviteAcceptedAt ?? now
+          }
+        });
+
+        setCookie(response, createClientAuthToken(updatedUser.id), {
+          name: clientAuthCookieName,
+          maxAge: 60 * 60 * 24 * 14
+        });
+
+        return sendJson(response, 200, {
+          authenticated: true,
+          user: serializeClientPortalUser(updatedUser)
+        });
+      }
+
       if (
         request.method === "POST" &&
         url.pathname === "/api/client-auth/logout"
@@ -3914,6 +4058,68 @@ export function createAppServer(config: BaseConfig): http.Server {
             );
 
             return sendJson(response, 201, { clientUser });
+          } catch (error) {
+            if (error instanceof Error) {
+              return sendJson(response, 400, { error: error.message });
+            }
+
+            throw error;
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      const projectClientUserActionRoute = matchProjectClientUserActionRoute(
+        url.pathname
+      );
+      if (projectClientUserActionRoute) {
+        if (request.method === "POST") {
+          try {
+            if (projectClientUserActionRoute.action === "reset-link") {
+              const result = await createClientResetLink(
+                projectClientUserActionRoute.userId,
+                projectClientUserActionRoute.projectId
+              );
+
+              return sendJson(response, 200, result);
+            }
+
+            const access = await prisma.clientProjectAccess.findUnique({
+              where: {
+                userId_projectId: {
+                  userId: projectClientUserActionRoute.userId,
+                  projectId: projectClientUserActionRoute.projectId
+                }
+              },
+              include: {
+                user: true
+              }
+            });
+
+            if (!access) {
+              return sendJson(response, 404, {
+                error: "Client user not found for this project"
+              });
+            }
+
+            const inviteToken = crypto.randomBytes(24).toString("hex");
+            const inviteTokenExpiresAt = new Date(
+              Date.now() + 1000 * 60 * 60 * 24 * 14
+            );
+
+            await prisma.clientPortalUser.update({
+              where: { id: access.user.id },
+              data: {
+                inviteToken,
+                inviteTokenExpiresAt
+              }
+            });
+
+            return sendJson(response, 200, {
+              user: serializeClientPortalUser(access.user),
+              inviteLink: buildClientAccessUrl("/client/activate", inviteToken)
+            });
           } catch (error) {
             if (error instanceof Error) {
               return sendJson(response, 400, { error: error.message });

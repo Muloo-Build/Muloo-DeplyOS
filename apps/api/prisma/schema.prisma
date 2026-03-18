@@ -109,15 +109,20 @@ model AgentDefinition {
 }
 
 model ClientPortalUser {
-  id          String   @id @default(cuid())
-  firstName   String
-  lastName    String
-  email       String   @unique
-  password    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  access      ClientProjectAccess[]
-  submissions ClientInputSubmission[]
+  id                       String   @id @default(cuid())
+  firstName                String
+  lastName                 String
+  email                    String   @unique
+  password                 String
+  inviteToken              String?  @unique
+  inviteTokenExpiresAt     DateTime?
+  inviteAcceptedAt         DateTime?
+  passwordResetToken       String?  @unique
+  passwordResetTokenExpiresAt DateTime?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  access                   ClientProjectAccess[]
+  submissions              ClientInputSubmission[]
 }
 
 model ClientProjectAccess {

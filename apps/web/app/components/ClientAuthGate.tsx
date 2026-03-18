@@ -9,12 +9,16 @@ export default function ClientAuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [checked, setChecked] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const isPublicClientRoute =
+    pathname === "/client/login" ||
+    pathname === "/client/activate" ||
+    pathname === "/client/forgot-password";
 
   useEffect(() => {
     let cancelled = false;
 
     async function checkSession() {
-      if (pathname === "/client/login") {
+      if (isPublicClientRoute) {
         if (!cancelled) {
           setAuthenticated(true);
           setChecked(true);
@@ -60,9 +64,9 @@ export default function ClientAuthGate({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [pathname, router]);
+  }, [isPublicClientRoute, pathname, router]);
 
-  if (pathname === "/client/login") {
+  if (isPublicClientRoute) {
     return <>{children}</>;
   }
 

@@ -101,6 +101,7 @@ interface ClientPortalUser {
   lastName: string;
   email: string;
   role: string;
+  authStatus?: "active" | "invite_pending";
 }
 
 function isSessionComplete(session: SessionDetail | undefined) {
@@ -320,10 +321,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     firstName: "",
     lastName: "",
     email: "",
-    password: "",
     role: "contributor"
   });
   const [clientAccessSaving, setClientAccessSaving] = useState(false);
+  const [clientAccessFeedback, setClientAccessFeedback] = useState<string | null>(
+    null
+  );
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [savingField, setSavingField] = useState<EditableField>(null);
   const [projectEditError, setProjectEditError] = useState<string | null>(null);
@@ -592,6 +595,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
     setClientAccessSaving(true);
     setProjectEditError(null);
+    setClientAccessFeedback(null);
 
     try {
       const response = await fetch(
@@ -612,11 +616,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       }
 
       setClientUsers((currentUsers) => [...currentUsers, body.clientUser]);
+      if (body.inviteLink && typeof navigator !== "undefined") {
+        await navigator.clipboard.writeText(body.inviteLink);
+        setClientAccessFeedback("Invite link copied to clipboard.");
+      } else {
+        setClientAccessFeedback("Client user created.");
+      }
       setClientAccessDraft({
         firstName: "",
         lastName: "",
         email: "",
-        password: "",
         role: "contributor"
       });
     } catch (saveError) {
@@ -627,6 +636,49 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       );
     } finally {
       setClientAccessSaving(false);
+    }
+  }
+
+  async function copyClientAccessLink(
+    userId: string,
+    action: "invite-link" | "reset-link"
+  ) {
+    if (!project) {
+      return;
+    }
+
+    setProjectEditError(null);
+    setClientAccessFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/client-users/${encodeURIComponent(userId)}/${action}`,
+        {
+          method: "POST"
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to generate access link");
+      }
+
+      const copiedValue = body.inviteLink ?? body.resetLink;
+      if (copiedValue && typeof navigator !== "undefined") {
+        await navigator.clipboard.writeText(copiedValue);
+        setClientAccessFeedback(
+          action === "invite-link"
+            ? "Invite link copied to clipboard."
+            : "Reset link copied to clipboard."
+        );
+      }
+    } catch (linkError) {
+      setProjectEditError(
+        linkError instanceof Error
+          ? linkError.message
+          : "Failed to generate access link"
+      );
     }
   }
 
@@ -1632,22 +1684,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
-                    <label className="block">
-                      <span className="text-sm font-medium text-white">
-                        Password
-                      </span>
-                      <input
-                        type="password"
-                        value={clientAccessDraft.password}
-                        onChange={(event) =>
-                          setClientAccessDraft((currentDraft) => ({
-                            ...currentDraft,
-                            password: event.target.value
-                          }))
-                        }
-                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                      />
-                    </label>
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-4">
+                      <p className="text-sm font-medium text-white">
+                        Access setup
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-text-secondary">
+                        Muloo will create an invite link so the client can set
+                        their own password securely.
+                      </p>
+                    </div>
                   </div>
 
                   <div className="mt-5 flex items-center justify-between gap-4">
@@ -1664,6 +1709,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     </button>
                   </div>
 
+                  {clientAccessFeedback ? (
+                    <p className="mt-4 text-sm text-status-success">
+                      {clientAccessFeedback}
+                    </p>
+                  ) : null}
+
                   <div className="mt-5 space-y-3">
                     {clientUsers.length > 0 ? (
                       clientUsers.map((clientUser) => (
@@ -1671,12 +1722,45 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           key={clientUser.id}
                           className="rounded-xl bg-[#0b1126] px-4 py-4"
                         >
-                          <p className="text-sm font-medium text-white">
-                            {clientUser.firstName} {clientUser.lastName}
-                          </p>
-                          <p className="mt-1 text-xs text-text-secondary">
-                            {clientUser.email} · {clientUser.role}
-                          </p>
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-medium text-white">
+                                {clientUser.firstName} {clientUser.lastName}
+                              </p>
+                              <p className="mt-1 text-xs text-text-secondary">
+                                {clientUser.email} · {clientUser.role} ·{" "}
+                                {clientUser.authStatus === "active"
+                                  ? "Access active"
+                                  : "Invite pending"}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void copyClientAccessLink(
+                                    clientUser.id,
+                                    "invite-link"
+                                  )
+                                }
+                                className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                              >
+                                Copy invite link
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void copyClientAccessLink(
+                                    clientUser.id,
+                                    "reset-link"
+                                  )
+                                }
+                                className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                              >
+                                Copy reset link
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       ))
                     ) : (
