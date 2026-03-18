@@ -12,6 +12,8 @@ interface Project {
   status: string;
   owner: string;
   ownerEmail: string;
+  scopeType?: string | null;
+  commercialBrief?: string | null;
   clientChampionFirstName?: string | null;
   clientChampionLastName?: string | null;
   clientChampionEmail?: string | null;
@@ -114,6 +116,7 @@ const industryOptions = [
 type EditableField =
   | "clientName"
   | "type"
+  | "brief"
   | "portalId"
   | "owner"
   | "clientProfile"
@@ -141,6 +144,8 @@ function createProjectDraft(project: Project) {
   return {
     clientName: project.client.name,
     type: project.engagementType,
+    scopeType: project.scopeType ?? "discovery",
+    commercialBrief: project.commercialBrief ?? "",
     portalId: project.portal?.portalId ?? "",
     hubs: project.selectedHubs,
     owner: project.owner,
@@ -241,6 +246,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [projectDraft, setProjectDraft] = useState({
     clientName: "",
     type: "IMPLEMENTATION",
+    scopeType: "discovery",
+    commercialBrief: "",
     portalId: "",
     owner: "",
     ownerEmail: "",
@@ -342,6 +349,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const completedSessions = sessions.filter((session) =>
     isSessionComplete(session)
   ).length;
+  const isStandaloneQuote = project?.scopeType === "standalone_quote";
   const session1Complete = isSessionComplete(
     sessions.find((session) => session.session === 1)
   );
@@ -398,39 +406,57 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       return;
     }
 
-    const payload =
-      field === "clientName"
-        ? { clientName: projectDraft.clientName }
-        : field === "type"
-          ? { type: projectDraft.type }
-          : field === "portalId"
-            ? { portalId: projectDraft.portalId }
-            : field === "owner"
-              ? {
-                  owner: projectDraft.owner,
-                  ownerEmail: projectDraft.ownerEmail
-                }
-            : field === "clientProfile"
-              ? {
-                  clientIndustry: projectDraft.clientIndustry,
-                  clientWebsite: projectDraft.clientWebsite,
-                  clientAdditionalWebsites: projectDraft.clientAdditionalWebsitesText
-                    .split("\n")
-                    .map((item) => item.trim())
-                    .filter(Boolean),
-                  clientLinkedinUrl: projectDraft.clientLinkedinUrl,
-                  clientFacebookUrl: projectDraft.clientFacebookUrl,
-                  clientInstagramUrl: projectDraft.clientInstagramUrl,
-                  clientXUrl: projectDraft.clientXUrl,
-                  clientYoutubeUrl: projectDraft.clientYoutubeUrl
-                }
-            : field === "clientChampion"
-              ? {
-                  clientChampionFirstName: projectDraft.clientChampionFirstName,
-                  clientChampionLastName: projectDraft.clientChampionLastName,
-                  clientChampionEmail: projectDraft.clientChampionEmail
-                }
-              : { hubs: projectDraft.hubs };
+    let payload: Record<string, unknown>;
+
+    switch (field) {
+      case "clientName":
+        payload = { clientName: projectDraft.clientName };
+        break;
+      case "type":
+        payload = { type: projectDraft.type };
+        break;
+      case "brief":
+        payload = {
+          scopeType: projectDraft.scopeType,
+          commercialBrief: projectDraft.commercialBrief
+        };
+        break;
+      case "portalId":
+        payload = { portalId: projectDraft.portalId };
+        break;
+      case "owner":
+        payload = {
+          owner: projectDraft.owner,
+          ownerEmail: projectDraft.ownerEmail
+        };
+        break;
+      case "clientProfile":
+        payload = {
+          clientIndustry: projectDraft.clientIndustry,
+          clientWebsite: projectDraft.clientWebsite,
+          clientAdditionalWebsites: projectDraft.clientAdditionalWebsitesText
+            .split("\n")
+            .map((item) => item.trim())
+            .filter(Boolean),
+          clientLinkedinUrl: projectDraft.clientLinkedinUrl,
+          clientFacebookUrl: projectDraft.clientFacebookUrl,
+          clientInstagramUrl: projectDraft.clientInstagramUrl,
+          clientXUrl: projectDraft.clientXUrl,
+          clientYoutubeUrl: projectDraft.clientYoutubeUrl
+        };
+        break;
+      case "clientChampion":
+        payload = {
+          clientChampionFirstName: projectDraft.clientChampionFirstName,
+          clientChampionLastName: projectDraft.clientChampionLastName,
+          clientChampionEmail: projectDraft.clientChampionEmail
+        };
+        break;
+      case "hubs":
+      default:
+        payload = { hubs: projectDraft.hubs };
+        break;
+    }
 
     setSavingField(field);
     setProjectEditError(null);
@@ -664,47 +690,57 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     {summaryBusy
                       ? "Generating Summary..."
                       : discoverySummary
-                        ? "Refresh Agent Summary"
-                        : "Generate Agent Summary"}
+                        ? isStandaloneQuote
+                          ? "Refresh Job Summary"
+                          : "Refresh Agent Summary"
+                        : isStandaloneQuote
+                          ? "Generate Job Summary"
+                          : "Generate Agent Summary"}
                   </button>
-                  <Link
-                    href={`/projects/${project.id}/discovery`}
-                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
-                  >
-                    Open Discovery
-                  </Link>
-                  <Link
-                    href={`/projects/${project.id}/proposal`}
-                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
-                  >
-                    Open Discovery Doc
-                  </Link>
+                  {!isStandaloneQuote ? (
+                    <>
+                      <Link
+                        href={`/projects/${project.id}/discovery`}
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                      >
+                        Open Discovery
+                      </Link>
+                      <Link
+                        href={`/projects/${project.id}/proposal`}
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                      >
+                        Open Discovery Doc
+                      </Link>
+                    </>
+                  ) : null}
                   <Link
                     href={`/projects/${project.id}/quote`}
                     className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
                   >
                     Open Quote
                   </Link>
-                  <button
-                    type="button"
-                    onClick={handleBlueprintAction}
-                    disabled={
-                      blueprintBusy || (!blueprint && !canGenerateBlueprint)
-                    }
-                    className={`rounded-xl px-4 py-3 text-sm font-medium text-white ${
-                      blueprint
-                        ? "border border-[rgba(255,255,255,0.08)] bg-background-card"
-                        : canGenerateBlueprint && !blueprintBusy
-                          ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]"
-                          : "cursor-not-allowed border border-[rgba(255,255,255,0.08)] bg-background-card text-text-muted"
-                    }`}
-                  >
-                    {blueprintBusy
-                      ? "Generating..."
-                      : blueprint
-                        ? "Open Blueprint"
-                        : "Generate Blueprint"}
-                  </button>
+                  {!isStandaloneQuote ? (
+                    <button
+                      type="button"
+                      onClick={handleBlueprintAction}
+                      disabled={
+                        blueprintBusy || (!blueprint && !canGenerateBlueprint)
+                      }
+                      className={`rounded-xl px-4 py-3 text-sm font-medium text-white ${
+                        blueprint
+                          ? "border border-[rgba(255,255,255,0.08)] bg-background-card"
+                          : canGenerateBlueprint && !blueprintBusy
+                            ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]"
+                            : "cursor-not-allowed border border-[rgba(255,255,255,0.08)] bg-background-card text-text-muted"
+                      }`}
+                    >
+                      {blueprintBusy
+                        ? "Generating..."
+                        : blueprint
+                          ? "Open Blueprint"
+                          : "Generate Blueprint"}
+                    </button>
+                  ) : null}
                 </div>
                 {blueprintError ? (
                   <p className="max-w-sm text-right text-sm text-[#ff8f9c]">
@@ -721,10 +757,20 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
             <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {[
-                ["Discovery", `${completedSessions}/4 sessions`, "text-white"],
+                [
+                  isStandaloneQuote ? "Scope Mode" : "Discovery",
+                  isStandaloneQuote
+                    ? "Standalone quote"
+                    : `${completedSessions}/4 sessions`,
+                  "text-white"
+                ],
                 [
                   "Blueprint",
-                  blueprint ? "Generated" : "Not generated",
+                  isStandaloneQuote
+                    ? "Not used yet"
+                    : blueprint
+                      ? "Generated"
+                      : "Not generated",
                   blueprint ? "text-status-success" : "text-text-secondary"
                 ],
                 [
@@ -820,9 +866,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             {renderActions("type")}
                           </>
                         ) : (
-                          <p className="mt-2 text-sm text-white">
-                            {formatEngagementType(project.engagementType)}
-                          </p>
+                          <>
+                            <p className="mt-2 text-sm text-white">
+                              {formatEngagementType(project.engagementType)}
+                            </p>
+                            <p className="mt-1 text-xs text-text-secondary">
+                              {isStandaloneQuote
+                                ? "Standalone quote workflow"
+                                : "Discovery-led implementation workflow"}
+                            </p>
+                          </>
                         )}
                       </div>
                       {editingField !== "type" ? (
@@ -1207,6 +1260,45 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </div>
                   {renderError("hubs")}
                 </div>
+
+                {isStandaloneQuote ? (
+                  <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Job Brief
+                        </p>
+                        {editingField === "brief" ? (
+                          <>
+                            <textarea
+                              value={projectDraft.commercialBrief}
+                              onChange={(event) =>
+                                setProjectDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  commercialBrief: event.target.value
+                                }))
+                              }
+                              placeholder="Describe the scoped technical work, requirements, complexity, and any supporting context."
+                              className="mt-3 min-h-[160px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            />
+                            {renderActions("brief")}
+                          </>
+                        ) : (
+                          <p className="mt-2 whitespace-pre-wrap text-sm text-white">
+                            {project.commercialBrief || "No scoped brief captured yet."}
+                          </p>
+                        )}
+                      </div>
+                      {editingField !== "brief" ? (
+                        <EditButton
+                          label="Edit job brief"
+                          onClick={() => startEditing("brief")}
+                        />
+                      ) : null}
+                    </div>
+                    {renderError("brief")}
+                  </div>
+                ) : null}
               </section>
 
               <div className="grid gap-6">
@@ -1324,79 +1416,130 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <div className="flex items-center justify-between gap-4">
-                    <h2 className="text-lg font-semibold text-white">
-                      Discovery Progress
-                    </h2>
-                    <Link
-                      href={`/projects/${project.id}/discovery`}
-                      className="text-sm font-medium text-white"
-                    >
-                      Review
-                    </Link>
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    {sessions.map((session) => (
-                      <div
-                        key={session.session}
-                        className="rounded-xl bg-[#0b1126] px-4 py-4"
+                {!isStandaloneQuote ? (
+                  <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <h2 className="text-lg font-semibold text-white">
+                        Discovery Progress
+                      </h2>
+                      <Link
+                        href={`/projects/${project.id}/discovery`}
+                        className="text-sm font-medium text-white"
                       >
-                        <div className="flex items-center justify-between gap-4">
-                          <div>
-                            <p className="text-sm font-medium text-white">
-                              Session {session.session} - {session.title}
-                            </p>
-                            <p className="mt-1 text-xs text-text-secondary">
-                              {
-                                Object.values(session.fields).filter(
-                                  (value) => value.trim().length > 0
-                                ).length
-                              }
-                              /
-                              {Object.keys(session.fields).length} fields completed
-                            </p>
-                          </div>
-                          <span
-                            className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
-                              isSessionComplete(session)
-                                ? "complete"
-                                : session.status
-                            )}`}
-                          >
-                            {formatLabel(
-                              isSessionComplete(session)
-                                ? "complete"
-                                : session.status
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                        Review
+                      </Link>
+                    </div>
 
-                  <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                      Blueprint gate
-                    </p>
-                    <p className="mt-2 text-sm text-white">
-                      {canGenerateBlueprint
-                        ? "Session 1 and Session 3 are complete. Blueprint generation is unlocked."
-                        : "Finish Session 1 and Session 3 to unlock blueprint generation."}
-                    </p>
-                  </div>
-                </section>
+                    <div className="mt-5 space-y-3">
+                      {sessions.map((session) => (
+                        <div
+                          key={session.session}
+                          className="rounded-xl bg-[#0b1126] px-4 py-4"
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-medium text-white">
+                                Session {session.session} - {session.title}
+                              </p>
+                              <p className="mt-1 text-xs text-text-secondary">
+                                {
+                                  Object.values(session.fields).filter(
+                                    (value) => value.trim().length > 0
+                                  ).length
+                                }
+                                /
+                                {Object.keys(session.fields).length} fields completed
+                              </p>
+                            </div>
+                            <span
+                              className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
+                                isSessionComplete(session)
+                                  ? "complete"
+                                  : session.status
+                              )}`}
+                            >
+                              {formatLabel(
+                                isSessionComplete(session)
+                                  ? "complete"
+                                  : session.status
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Blueprint gate
+                      </p>
+                      <p className="mt-2 text-sm text-white">
+                        {canGenerateBlueprint
+                          ? "Session 1 and Session 3 are complete. Blueprint generation is unlocked."
+                          : "Finish Session 1 and Session 3 to unlock blueprint generation."}
+                      </p>
+                    </div>
+                  </section>
+                ) : (
+                  <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h2 className="text-lg font-semibold text-white">
+                          Scoped Job Summary
+                        </h2>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          Standalone jobs skip the four-session discovery flow and
+                          rely on the captured brief, supporting documentation,
+                          and commercial shaping.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-4">
+                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Workflow
+                        </p>
+                        <p className="mt-2 text-sm text-white">
+                          Capture the technical brief, gather supporting docs and
+                          URLs, generate a scoped summary, then shape the quote.
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Current brief
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">
+                          {project.commercialBrief ||
+                            "No scoped brief captured yet."}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Next step
+                        </p>
+                        <p className="mt-2 text-sm text-white">
+                          Use the quote and future supporting-doc workflow to turn
+                          this brief into a clean technical scope and commercial
+                          pack.
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+                )}
 
                 <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h2 className="text-lg font-semibold text-white">
-                        Agent Handoff Summary
+                        {isStandaloneQuote
+                          ? "Scoped Work Summary"
+                          : "Agent Handoff Summary"}
                       </h2>
                       <p className="mt-2 text-sm text-text-secondary">
-                        Project-level discovery output for scoping, delivery
-                        planning, and future agent delegation.
+                        {isStandaloneQuote
+                          ? "Use this area to hold the scoped summary for quoting, implementation planning, and later execution."
+                          : "Project-level discovery output for scoping, delivery planning, and future agent delegation."}
                       </p>
                     </div>
                   </div>
