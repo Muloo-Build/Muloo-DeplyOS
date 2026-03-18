@@ -143,7 +143,10 @@ export default function DiscoveryOutputDocument({
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [currency, setCurrency] = useState<CurrencyCode>("ZAR");
   const [defaultRate, setDefaultRate] = useState("1500");
-  const [phaseDrafts, setPhaseDrafts] = useState<Record<number, PhaseCommercialDraft>>({});
+  const [phaseDrafts, setPhaseDrafts] = useState<
+    Record<number, PhaseCommercialDraft>
+  >({});
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -281,6 +284,21 @@ export default function DiscoveryOutputDocument({
     (total, phase) => total + phase.feeZar,
     0
   );
+  const paymentAmountZar = totalFeeZar / 4;
+  const paymentSchedule = [
+    "Upon scope approval",
+    "At start of Phase 2",
+    "At start of Phase 4",
+    "Before final handover"
+  ];
+  const clientResponsibilities = splitIntoList(session4.client_responsibilities);
+  const inScopeItems = splitIntoList(session4.confirmed_scope);
+  const outOfScopeItems = splitIntoList(session4.out_of_scope);
+  const keyRisks =
+    summary?.keyRisks.length && summary.keyRisks.length > 0
+      ? summary.keyRisks
+      : splitIntoList(session4.risks_and_blockers);
+  const nextQuestions = summary?.recommendedNextQuestions ?? [];
 
   const clientChampionName = [
     project?.clientChampionFirstName,
@@ -289,9 +307,24 @@ export default function DiscoveryOutputDocument({
     .filter(Boolean)
     .join(" ");
 
+  async function copyShareLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setShareMessage("Client link copied");
+      window.setTimeout(() => setShareMessage(null), 2500);
+    } catch {
+      setShareMessage("Unable to copy link");
+      window.setTimeout(() => setShareMessage(null), 2500);
+    }
+  }
+
+  function saveAsPdf() {
+    window.print();
+  }
+
   return (
     <AppShell>
-      <div className="p-8">
+      <div className="document-shell p-8">
         {loading ? (
           <div className="grid gap-4">
             {[0, 1, 2].map((row) => (
@@ -306,7 +339,7 @@ export default function DiscoveryOutputDocument({
             {error ?? "Document unavailable"}
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="document-content space-y-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <Link
@@ -323,14 +356,38 @@ export default function DiscoveryOutputDocument({
                   discovery record and phased implementation estimate.
                 </p>
               </div>
+              <div className="document-toolbar flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={copyShareLink}
+                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                >
+                  Copy Share Link
+                </button>
+                <button
+                  type="button"
+                  onClick={saveAsPdf}
+                  className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white"
+                >
+                  Save PDF
+                </button>
+                {shareMessage ? (
+                  <p className="text-sm text-text-secondary">{shareMessage}</p>
+                ) : null}
+              </div>
             </div>
 
-            <section className="overflow-hidden rounded-[32px] border border-[rgba(255,255,255,0.07)] bg-background-card">
+            <section className="document-card overflow-hidden rounded-[32px] border border-[rgba(255,255,255,0.07)] bg-background-card">
               <div className="grid gap-0 lg:grid-cols-[0.72fr_0.28fr]">
                 <div className="bg-[#0c1329] p-10">
-                  <p className="text-sm uppercase tracking-[0.35em] text-text-muted">
-                    Muloo
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-[rgba(73,205,225,0.12)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-[#49cde1]">
+                      Muloo
+                    </div>
+                    <p className="text-xs uppercase tracking-[0.35em] text-text-muted">
+                      Discovery Review
+                    </p>
+                  </div>
                   <h2 className="mt-10 max-w-3xl text-5xl font-bold font-heading leading-tight text-white">
                     {project.client.name.toUpperCase()} - Discovery Review &
                     Implementation Scope
@@ -437,7 +494,7 @@ export default function DiscoveryOutputDocument({
 
             <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-6">
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
                     Executive Summary
                   </p>
@@ -448,7 +505,35 @@ export default function DiscoveryOutputDocument({
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                    Why This Project Matters
+                  </p>
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Primary challenge
+                      </p>
+                      <p className="mt-3 text-sm leading-7 text-text-secondary">
+                        {session1.primary_pain_challenge || "To be confirmed"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Success outcomes
+                      </p>
+                      <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                        {splitIntoLines(
+                          session1.goals_and_success_metrics
+                        ).map((line) => (
+                          <p key={line}>{line}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
                     Discovery Outcomes
                   </p>
@@ -480,7 +565,7 @@ export default function DiscoveryOutputDocument({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
                     Current State
                   </p>
@@ -508,7 +593,7 @@ export default function DiscoveryOutputDocument({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
                     Recommended Future State
                   </p>
@@ -535,10 +620,44 @@ export default function DiscoveryOutputDocument({
                     ))}
                   </div>
                 </div>
+
+                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                    Delivery Approach
+                  </p>
+                  <div className="mt-5 grid gap-4 md:grid-cols-3">
+                    {[
+                      [
+                        "How we will work",
+                        "We will deliver the implementation in phased onboarding blocks, each with a clear output, review point, and commercial boundary."
+                      ],
+                      [
+                        "How scope is controlled",
+                        "The approved phases below become the working implementation scope. Any material changes after approval should move through change control."
+                      ],
+                      [
+                        "How the client participates",
+                        "The client team provides access, confirms process decisions, reviews milestones, and signs off the agreed outputs."
+                      ]
+                    ].map(([label, value]) => (
+                      <div
+                        key={label}
+                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      >
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          {label}
+                        </p>
+                        <p className="mt-3 text-sm leading-7 text-text-secondary">
+                          {value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-6">
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
                     Scope
                   </p>
@@ -548,7 +667,7 @@ export default function DiscoveryOutputDocument({
                         In Scope
                       </p>
                       <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-                        {splitIntoList(session4.confirmed_scope).map((item) => (
+                        {inScopeItems.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
                       </ul>
@@ -558,7 +677,7 @@ export default function DiscoveryOutputDocument({
                         Out of Scope
                       </p>
                       <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-                        {splitIntoList(session4.out_of_scope).map((item) => (
+                        {outOfScopeItems.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
                       </ul>
@@ -566,7 +685,7 @@ export default function DiscoveryOutputDocument({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
                     Risks & Dependencies
                   </p>
@@ -574,11 +693,9 @@ export default function DiscoveryOutputDocument({
                     <div>
                       <p className="text-sm font-medium text-white">Key risks</p>
                       <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                        {(summary?.keyRisks ?? splitIntoList(session4.risks_and_blockers)).map(
-                          (item) => (
-                            <li key={item}>{item}</li>
-                          )
-                        )}
+                        {keyRisks.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
                       </ul>
                     </div>
                     <div>
@@ -586,19 +703,29 @@ export default function DiscoveryOutputDocument({
                         Client responsibilities
                       </p>
                       <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                        {splitIntoList(session4.client_responsibilities).map(
-                          (item) => (
-                            <li key={item}>{item}</li>
-                          )
-                        )}
+                        {clientResponsibilities.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
                       </ul>
                     </div>
+                    {nextQuestions.length > 0 ? (
+                      <div>
+                        <p className="text-sm font-medium text-white">
+                          Open questions to resolve during approval
+                        </p>
+                        <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                          {nextQuestions.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+            <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
@@ -701,7 +828,7 @@ export default function DiscoveryOutputDocument({
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[0.72fr_0.28fr]">
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                 <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
                   Commercial Summary
                 </p>
@@ -740,7 +867,7 @@ export default function DiscoveryOutputDocument({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                 <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
                   Approval
                 </p>
@@ -760,9 +887,107 @@ export default function DiscoveryOutputDocument({
                 </div>
               </div>
             </section>
+
+            <section className="grid gap-6 xl:grid-cols-[0.58fr_0.42fr]">
+              <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                  Payment Schedule
+                </p>
+                <div className="mt-5 overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.07)]">
+                  <div className="grid grid-cols-[120px_1fr_160px] gap-4 border-b border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
+                    <span>Payment</span>
+                    <span>Due</span>
+                    <span className="text-right">Amount</span>
+                  </div>
+                  {paymentSchedule.map((due, index) => (
+                    <div
+                      key={due}
+                      className="grid grid-cols-[120px_1fr_160px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-5 py-4 text-sm text-white last:border-b-0"
+                    >
+                      <span>Payment {index + 1}</span>
+                      <span>{due}</span>
+                      <span className="text-right">
+                        {formatCurrency(paymentAmountZar, currency)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                  Terms & Working Scope
+                </p>
+                <div className="mt-4 space-y-4 text-sm leading-7 text-text-secondary">
+                  <p>
+                    This document is intended to replace the traditional
+                    discovery handover document and commercial quote by combining
+                    the recommended scope, phased delivery plan, and commercial
+                    breakdown in one reviewable package.
+                  </p>
+                  <p>
+                    Once approved, this becomes the working implementation scope
+                    baseline for planning and delivery. Future work outside the
+                    approved phases should be treated as a separate scope or
+                    formal change request.
+                  </p>
+                  <p>
+                    Delivery sequencing, detailed task allocation, and agent or
+                    human execution routing are finalized during planning after
+                    client approval.
+                  </p>
+                </div>
+              </div>
+            </section>
           </div>
         )}
       </div>
+      <style jsx global>{`
+        @media print {
+          .document-shell {
+            padding: 0 !important;
+          }
+
+          .document-toolbar,
+          .sidebar,
+          nav,
+          aside,
+          button,
+          a[href^="/projects/"] {
+            display: none !important;
+          }
+
+          main {
+            padding-left: 0 !important;
+          }
+
+          body,
+          html {
+            background: #ffffff !important;
+          }
+
+          .document-content {
+            color: #111827 !important;
+          }
+
+          .document-card {
+            break-inside: avoid;
+            border-color: #d1d5db !important;
+            background: #ffffff !important;
+            box-shadow: none !important;
+          }
+
+          .document-card *,
+          .document-content h1,
+          .document-content h2,
+          .document-content h3,
+          .document-content p,
+          .document-content li,
+          .document-content span {
+            color: #111827 !important;
+          }
+        }
+      `}</style>
     </AppShell>
   );
 }
