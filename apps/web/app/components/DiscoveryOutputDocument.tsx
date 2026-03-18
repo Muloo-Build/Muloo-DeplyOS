@@ -132,6 +132,18 @@ function parseNumber(value: string, fallbackValue: number) {
     : fallbackValue;
 }
 
+function SectionEyebrow({ children }: { children: string }) {
+  return (
+    <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#49cde1]">
+      {children}
+    </p>
+  );
+}
+
+function SectionTitle({ children }: { children: string }) {
+  return <h2 className="mt-3 text-2xl font-semibold text-white">{children}</h2>;
+}
+
 export default function DiscoveryOutputDocument({
   projectId
 }: {
@@ -352,8 +364,9 @@ export default function DiscoveryOutputDocument({
                   Discovery Review & Implementation Scope
                 </h1>
                 <p className="mt-2 text-text-secondary">
-                  Client-facing review document generated from the approved
-                  discovery record and phased implementation estimate.
+                  Client-facing review document that combines discovery insight,
+                  recommended scope, and a phased implementation plan the client
+                  can deliver with Muloo or another partner.
                 </p>
               </div>
               <div className="document-toolbar flex flex-wrap items-center gap-3">
@@ -393,8 +406,8 @@ export default function DiscoveryOutputDocument({
                     Implementation Scope
                   </h2>
                   <p className="mt-6 text-lg text-text-secondary">
-                    {formatEngagementType(project.engagementType)} proposal
-                    generated from structured discovery.
+                    {formatEngagementType(project.engagementType)} discovery-led
+                    implementation plan generated from structured discovery.
                   </p>
 
                   <div className="mt-10 grid gap-8 md:grid-cols-2">
@@ -492,12 +505,30 @@ export default function DiscoveryOutputDocument({
               </div>
             </section>
 
+            <section className="document-card rounded-2xl border border-[rgba(73,205,225,0.18)] bg-[linear-gradient(135deg,rgba(73,205,225,0.08)_0%,rgba(224,82,156,0.06)_100%)] p-6">
+              <SectionEyebrow>Document Purpose</SectionEyebrow>
+              <SectionTitle>Portable implementation plan</SectionTitle>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                {[
+                  "This document is designed to give the client a clear take-away plan they can understand, review, and act on after discovery.",
+                  "It translates discovery into recommended scope, phased delivery, dependencies, and commercials in one structured pack.",
+                  "The approved version should work as the baseline implementation scope whether delivery happens with Muloo or another partner."
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(11,17,38,0.65)] p-4 text-sm leading-7 text-text-secondary"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </section>
+
             <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-6">
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    Executive Summary
-                  </p>
+                  <SectionEyebrow>Executive Summary</SectionEyebrow>
+                  <SectionTitle>What discovery confirmed</SectionTitle>
                   <p className="mt-4 text-sm leading-7 text-text-secondary">
                     {summary?.executiveSummary ??
                       session1.business_overview ??
@@ -506,9 +537,8 @@ export default function DiscoveryOutputDocument({
                 </div>
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    Why This Project Matters
-                  </p>
+                  <SectionEyebrow>Why This Project Matters</SectionEyebrow>
+                  <SectionTitle>Why action is needed now</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
                       <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
@@ -534,9 +564,8 @@ export default function DiscoveryOutputDocument({
                 </div>
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    Discovery Outcomes
-                  </p>
+                  <SectionEyebrow>Discovery Outcomes</SectionEyebrow>
+                  <SectionTitle>Recommended direction</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     {[
                       ["Engagement track", summary?.engagementTrack ?? "Not set"],
@@ -566,9 +595,8 @@ export default function DiscoveryOutputDocument({
                 </div>
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    Current State
-                  </p>
+                  <SectionEyebrow>Current State</SectionEyebrow>
+                  <SectionTitle>How the business operates today</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     {[
                       ["Current stack", session2.current_tech_stack],
@@ -594,9 +622,8 @@ export default function DiscoveryOutputDocument({
                 </div>
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    Recommended Future State
-                  </p>
+                  <SectionEyebrow>Recommended Future State</SectionEyebrow>
+                  <SectionTitle>What the target solution should look like</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     {[
                       ["Hubs & features", session3.hubs_and_features_required],
@@ -622,9 +649,8 @@ export default function DiscoveryOutputDocument({
                 </div>
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    Delivery Approach
-                  </p>
+                  <SectionEyebrow>Delivery Approach</SectionEyebrow>
+                  <SectionTitle>How this should be delivered</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-3">
                     {[
                       [
@@ -658,9 +684,8 @@ export default function DiscoveryOutputDocument({
 
               <div className="space-y-6">
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    Scope
-                  </p>
+                  <SectionEyebrow>Scope</SectionEyebrow>
+                  <SectionTitle>What is included and excluded</SectionTitle>
                   <div className="mt-5 grid gap-4">
                     <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
                       <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
@@ -686,9 +711,8 @@ export default function DiscoveryOutputDocument({
                 </div>
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    Risks & Dependencies
-                  </p>
+                  <SectionEyebrow>Risks & Dependencies</SectionEyebrow>
+                  <SectionTitle>What could affect delivery</SectionTitle>
                   <div className="mt-4 space-y-4">
                     <div>
                       <p className="text-sm font-medium text-white">Key risks</p>
@@ -728,12 +752,10 @@ export default function DiscoveryOutputDocument({
             <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    Phased Implementation Scope
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">
+                  <SectionEyebrow>Phased Implementation Scope</SectionEyebrow>
+                  <SectionTitle>
                     Proposed onboarding phases and commercial split
-                  </h2>
+                  </SectionTitle>
                 </div>
                 <p className="text-sm text-text-secondary">
                   Generated {formatDate(blueprint.generatedAt)}
@@ -829,9 +851,8 @@ export default function DiscoveryOutputDocument({
 
             <section className="grid gap-6 xl:grid-cols-[0.72fr_0.28fr]">
               <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                  Commercial Summary
-                </p>
+                <SectionEyebrow>Commercial Summary</SectionEyebrow>
+                <SectionTitle>Phase-by-phase investment</SectionTitle>
                 <div className="mt-5 overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.07)]">
                   <div className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-b border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
                     <span>Phase</span>
@@ -868,14 +889,14 @@ export default function DiscoveryOutputDocument({
               </div>
 
               <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                  Approval
-                </p>
+                <SectionEyebrow>Approval</SectionEyebrow>
+                <SectionTitle>Client review and sign-off</SectionTitle>
                 <p className="mt-4 text-sm leading-7 text-text-secondary">
                   This document is intended to act as the working discovery
                   recommendation and implementation scope reference for client
                   review. Once approved, the phased scope and commercial split
-                  will move into planning and deployment inside DeployOS.
+                  should become the baseline project plan for planning and
+                  delivery.
                 </p>
                 <div className="mt-6 space-y-4 text-sm text-text-secondary">
                   <p>Approval status: Pending client review</p>
@@ -890,9 +911,8 @@ export default function DiscoveryOutputDocument({
 
             <section className="grid gap-6 xl:grid-cols-[0.58fr_0.42fr]">
               <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                  Payment Schedule
-                </p>
+                <SectionEyebrow>Payment Schedule</SectionEyebrow>
+                <SectionTitle>Suggested payment milestones</SectionTitle>
                 <div className="mt-5 overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.07)]">
                   <div className="grid grid-cols-[120px_1fr_160px] gap-4 border-b border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
                     <span>Payment</span>
@@ -915,9 +935,8 @@ export default function DiscoveryOutputDocument({
               </div>
 
               <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                  Terms & Working Scope
-                </p>
+                <SectionEyebrow>Terms & Working Scope</SectionEyebrow>
+                <SectionTitle>How this document should be used</SectionTitle>
                 <div className="mt-4 space-y-4 text-sm leading-7 text-text-secondary">
                   <p>
                     This document is intended to replace the traditional
@@ -935,6 +954,11 @@ export default function DiscoveryOutputDocument({
                     Delivery sequencing, detailed task allocation, and agent or
                     human execution routing are finalized during planning after
                     client approval.
+                  </p>
+                  <p>
+                    In other words, this is meant to be a workable project plan:
+                    clear enough to review, approve, and implement, even if the
+                    implementation team changes after discovery.
                   </p>
                 </div>
               </div>
