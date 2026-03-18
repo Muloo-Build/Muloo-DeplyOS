@@ -2031,6 +2031,107 @@ async function generateStandaloneProjectPlan(projectId: string) {
   return updatedTasks;
 }
 
+async function generateBlueprintProjectPlan(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      blueprint: {
+        include: {
+          tasks: {
+            orderBy: [{ phase: "asc" }, { order: "asc" }]
+          }
+        }
+      }
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (!project.blueprint || project.blueprint.tasks.length === 0) {
+    throw new Error(
+      "Generate a blueprint first before creating the delivery board for this project"
+    );
+  }
+
+  await prisma.executionJob.deleteMany({
+    where: {
+      projectId,
+      taskId: {
+        not: null
+      }
+    }
+  });
+  await prisma.task.deleteMany({
+    where: { projectId }
+  });
+
+  const createdTasks = [] as Array<Awaited<ReturnType<typeof prisma.task.create>>>;
+
+  for (const blueprintTask of project.blueprint.tasks) {
+    const status =
+      blueprintTask.type === "Client" ? "waiting_on_client" : "todo";
+    const priority =
+      blueprintTask.effortHours >= 8
+        ? "high"
+        : blueprintTask.effortHours >= 4
+          ? "medium"
+          : "low";
+    const executionType =
+      blueprintTask.type === "Agent"
+        ? "agent_ready"
+        : blueprintTask.type === "Client"
+          ? "client_dependency"
+          : "manual";
+
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        title: blueprintTask.name,
+        description: `Generated from blueprint phase ${blueprintTask.phase}: ${blueprintTask.phaseName}. Planned effort: ${blueprintTask.effortHours} hour${
+          blueprintTask.effortHours === 1 ? "" : "s"
+        }.`,
+        category: `Phase ${blueprintTask.phase} - ${blueprintTask.phaseName}`,
+        executionType,
+        priority,
+        status,
+        qaRequired:
+          /qa|test|validation|launch/i.test(blueprintTask.name) ||
+          /qa|launch/i.test(blueprintTask.phaseName),
+        approvalRequired:
+          blueprintTask.type === "Client" ||
+          /approve|confirm|sign off|review/i.test(blueprintTask.name),
+        assigneeType: blueprintTask.type
+      }
+    });
+
+    createdTasks.push(task);
+  }
+
+  return createdTasks;
+}
+
+async function generateProjectPlan(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      scopeType: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (project.scopeType === "standalone_quote") {
+    return generateStandaloneProjectPlan(projectId);
+  }
+
+  return generateBlueprintProjectPlan(projectId);
+}
+
 async function loadProjectDiscoveryForBlueprint(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -4385,9 +4486,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           request.method === "POST" &&
           projectTasksRoute.action === "generate-plan"
         ) {
-          const tasks = await generateStandaloneProjectPlan(
-            projectTasksRoute.projectId
-          );
+          const tasks = await generateProjectPlan(projectTasksRoute.projectId);
 
           return sendJson(response, 200, {
             tasks: tasks.map((task) => serializeTask(task))
