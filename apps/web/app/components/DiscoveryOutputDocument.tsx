@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import AppShell from "./AppShell";
-
-type CurrencyCode = "ZAR" | "GBP" | "EUR" | "USD" | "AUD";
 
 interface Project {
   id: string;
@@ -58,42 +56,11 @@ interface DiscoverySummary {
   recommendedNextQuestions: string[];
 }
 
-interface PhaseCommercialDraft {
-  humanHours: string;
-  rate: string;
-}
-
-const exchangeRatesToZar: Record<CurrencyCode, number> = {
-  ZAR: 1,
-  GBP: 23,
-  EUR: 19,
-  USD: 18.5,
-  AUD: 12
-};
-
-const currencySymbols: Record<CurrencyCode, string> = {
-  ZAR: "ZAR",
-  GBP: "GBP",
-  EUR: "EUR",
-  USD: "USD",
-  AUD: "AUD"
-};
-
 function formatDate(value: string) {
   return new Date(value).toLocaleString("en-ZA", {
     dateStyle: "medium",
     timeStyle: "short"
   });
-}
-
-function formatCurrency(amountInZar: number, currency: CurrencyCode) {
-  const convertedAmount = amountInZar / exchangeRatesToZar[currency];
-
-  return new Intl.NumberFormat("en", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: currency === "ZAR" ? 0 : 2
-  }).format(convertedAmount);
 }
 
 function formatEngagementType(value: string) {
@@ -125,13 +92,6 @@ function splitIntoList(value: string | undefined) {
     .filter(Boolean);
 }
 
-function parseNumber(value: string, fallbackValue: number) {
-  const parsedValue = Number(value);
-  return Number.isFinite(parsedValue) && parsedValue > 0
-    ? parsedValue
-    : fallbackValue;
-}
-
 function SectionEyebrow({ children }: { children: string }) {
   return (
     <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#49cde1]">
@@ -153,11 +113,6 @@ export default function DiscoveryOutputDocument({
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
   const [summary, setSummary] = useState<DiscoverySummary | null>(null);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
-  const [currency, setCurrency] = useState<CurrencyCode>("ZAR");
-  const [defaultRate, setDefaultRate] = useState("1500");
-  const [phaseDrafts, setPhaseDrafts] = useState<
-    Record<number, PhaseCommercialDraft>
-  >({});
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -216,8 +171,7 @@ export default function DiscoveryOutputDocument({
     void loadDocument();
   }, [projectId]);
 
-  const groupedPhases = useMemo(() => {
-    return (blueprint?.tasks ?? []).reduce<
+  const groupedPhases = (blueprint?.tasks ?? []).reduce<
       Array<{ phase: number; phaseName: string; tasks: BlueprintTask[] }>
     >((groups, task) => {
       const existingGroup = groups.find((group) => group.phase === task.phase);
@@ -234,75 +188,11 @@ export default function DiscoveryOutputDocument({
       });
       return groups;
     }, []);
-  }, [blueprint]);
-
-  useEffect(() => {
-    if (groupedPhases.length === 0) {
-      return;
-    }
-
-    setPhaseDrafts((currentDrafts) => {
-      const nextDrafts = { ...currentDrafts };
-
-      for (const phase of groupedPhases) {
-        if (!nextDrafts[phase.phase]) {
-          const phaseHumanHours = phase.tasks
-            .filter((task) => task.type === "Human")
-            .reduce((total, task) => total + task.effortHours, 0);
-
-          nextDrafts[phase.phase] = {
-            humanHours: String(phaseHumanHours),
-            rate: defaultRate
-          };
-        }
-      }
-
-      return nextDrafts;
-    });
-  }, [defaultRate, groupedPhases]);
 
   const session1 = sessions.find((session) => session.session === 1)?.fields ?? {};
   const session2 = sessions.find((session) => session.session === 2)?.fields ?? {};
   const session3 = sessions.find((session) => session.session === 3)?.fields ?? {};
   const session4 = sessions.find((session) => session.session === 4)?.fields ?? {};
-
-  const phaseCommercials = groupedPhases.map((phase) => {
-    const phaseHumanHoursFromBlueprint = phase.tasks
-      .filter((task) => task.type === "Human")
-      .reduce((total, task) => total + task.effortHours, 0);
-    const draft = phaseDrafts[phase.phase];
-    const humanHours = parseNumber(
-      draft?.humanHours ?? String(phaseHumanHoursFromBlueprint),
-      phaseHumanHoursFromBlueprint
-    );
-    const rate = parseNumber(draft?.rate ?? defaultRate, parseNumber(defaultRate, 1500));
-    const feeZar = humanHours * rate;
-
-    return {
-      phase: phase.phase,
-      phaseName: phase.phaseName,
-      humanHours,
-      rate,
-      feeZar,
-      tasks: phase.tasks
-    };
-  });
-
-  const totalHumanHours = phaseCommercials.reduce(
-    (total, phase) => total + phase.humanHours,
-    0
-  );
-  const totalFeeZar = phaseCommercials.reduce(
-    (total, phase) => total + phase.feeZar,
-    0
-  );
-  const paymentAmountZar = totalFeeZar / 4;
-  const paymentSchedule = [
-    "Upon scope approval",
-    "At start of Phase 2",
-    "At start of Phase 4",
-    "Before final handover"
-  ];
   const clientResponsibilities = splitIntoList(session4.client_responsibilities);
   const inScopeItems = splitIntoList(session4.confirmed_scope);
   const outOfScopeItems = splitIntoList(session4.out_of_scope);
@@ -398,8 +288,7 @@ export default function DiscoveryOutputDocument({
             </div>
 
             <section className="document-card overflow-hidden rounded-[32px] border border-[rgba(255,255,255,0.07)] bg-background-card">
-              <div className="grid gap-0 lg:grid-cols-[0.72fr_0.28fr]">
-                <div className="bg-[#0c1329] p-10">
+              <div className="bg-[#0c1329] p-10">
                   <div className="flex items-center gap-3">
                     <div className="rounded-full bg-[rgba(73,205,225,0.12)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-[#49cde1]">
                       Muloo
@@ -445,70 +334,6 @@ export default function DiscoveryOutputDocument({
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="border-l border-[rgba(255,255,255,0.07)] bg-[#10172f] p-8">
-                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    Commercial Controls
-                  </p>
-
-                  <div className="mt-6 grid gap-4">
-                    <label className="block">
-                      <span className="mb-2 block text-sm text-text-secondary">
-                        Currency
-                      </span>
-                      <select
-                        value={currency}
-                        onChange={(event) =>
-                          setCurrency(event.target.value as CurrencyCode)
-                        }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                      >
-                        {Object.keys(exchangeRatesToZar).map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-2 block text-sm text-text-secondary">
-                        Default Hourly Rate
-                      </span>
-                      <div className="flex items-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3">
-                        <span className="mr-3 text-sm text-text-secondary">
-                          {currencySymbols[currency]}
-                        </span>
-                        <input
-                          value={defaultRate}
-                          onChange={(event) => setDefaultRate(event.target.value)}
-                          className="w-full bg-transparent text-white outline-none"
-                        />
-                      </div>
-                    </label>
-                  </div>
-
-                  <div className="mt-8 grid gap-4">
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-sm text-text-secondary">
-                        Total Human Hours
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold text-white">
-                        {totalHumanHours} hrs
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-sm text-text-secondary">
-                        Estimated Investment
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold text-white">
-                        {formatCurrency(totalFeeZar, currency)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </div>
             </section>
 
@@ -662,11 +487,11 @@ export default function DiscoveryOutputDocument({
                     {[
                       [
                         "How we will work",
-                        "We will deliver the implementation in phased onboarding blocks, each with a clear output, review point, and commercial boundary."
+                        "We will deliver the implementation in phased onboarding blocks, each with a clear output, review point, and delivery boundary."
                       ],
                       [
                         "How scope is controlled",
-                        "The approved phases below become the working implementation scope. Any material changes after approval should move through change control."
+                        "The agreed phases below become the working implementation scope. Any material changes should move through change control."
                       ],
                       [
                         "How the client participates",
@@ -761,7 +586,7 @@ export default function DiscoveryOutputDocument({
                 <div>
                   <SectionEyebrow>Phased Implementation Scope</SectionEyebrow>
                   <SectionTitle>
-                    Proposed onboarding phases and commercial split
+                    Proposed onboarding phases and delivery plan
                   </SectionTitle>
                 </div>
                 <p className="text-sm text-text-secondary">
@@ -770,12 +595,23 @@ export default function DiscoveryOutputDocument({
               </div>
 
               <div className="mt-6 space-y-5">
-                {phaseCommercials.map((phase) => (
+                {groupedPhases.map((phase) => {
+                  const humanHours = phase.tasks
+                    .filter((task) => task.type === "Human")
+                    .reduce((total, task) => total + task.effortHours, 0);
+                  const agentTasks = phase.tasks.filter(
+                    (task) => task.type === "Agent"
+                  ).length;
+                  const clientTasks = phase.tasks.filter(
+                    (task) => task.type === "Client"
+                  ).length;
+
+                  return (
                   <div
                     key={phase.phase}
                     className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
                   >
-                    <div className="grid gap-4 lg:grid-cols-[1fr_140px_160px_180px]">
+                    <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
                       <div>
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                           Phase {phase.phase}
@@ -791,183 +627,65 @@ export default function DiscoveryOutputDocument({
                             ))}
                         </ul>
                       </div>
-
-                      <label className="block">
-                        <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Human Hours
-                        </span>
-                        <input
-                          value={phaseDrafts[phase.phase]?.humanHours ?? String(phase.humanHours)}
-                          onChange={(event) =>
-                            setPhaseDrafts((currentDrafts) => ({
-                              ...currentDrafts,
-                              [phase.phase]: {
-                                humanHours: event.target.value,
-                                rate:
-                                  currentDrafts[phase.phase]?.rate ?? defaultRate
-                              }
-                            }))
-                          }
-                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none focus:border-accent-solid"
-                        />
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Hourly Rate
-                        </span>
-                        <div className="flex items-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2">
-                          <span className="mr-2 text-xs text-text-secondary">
-                            {currencySymbols[currency]}
-                          </span>
-                          <input
-                            value={phaseDrafts[phase.phase]?.rate ?? defaultRate}
-                            onChange={(event) =>
-                              setPhaseDrafts((currentDrafts) => ({
-                                ...currentDrafts,
-                                [phase.phase]: {
-                                  humanHours:
-                                    currentDrafts[phase.phase]?.humanHours ??
-                                    String(phase.humanHours),
-                                  rate: event.target.value
-                                }
-                              }))
-                            }
-                            className="w-full bg-transparent text-sm text-white outline-none"
-                          />
-                        </div>
-                      </label>
-
                       <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Phase Fee
-                        </p>
-                        <p className="mt-2 text-xl font-semibold text-white">
-                          {formatCurrency(phase.feeZar, currency)}
-                        </p>
-                        <p className="mt-2 text-xs text-text-secondary">
-                          Client dependencies:{" "}
-                          {phase.tasks.filter((task) => task.type === "Client").length}
-                        </p>
+                        <div className="grid gap-3 text-sm">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Human effort
+                            </p>
+                            <p className="mt-2 text-xl font-semibold text-white">
+                              {humanHours} hrs
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Agent support tasks
+                            </p>
+                            <p className="mt-2 text-sm text-white">
+                              {agentTasks}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Client dependencies
+                            </p>
+                            <p className="mt-2 text-sm text-white">
+                              {clientTasks}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
 
-            <section className="grid gap-6 xl:grid-cols-[0.72fr_0.28fr]">
-              <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <SectionEyebrow>Commercial Summary</SectionEyebrow>
-                <SectionTitle>Phase-by-phase investment</SectionTitle>
-                <div className="mt-5 overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.07)]">
-                  <div className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-b border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
-                    <span>Phase</span>
-                    <span>Hours</span>
-                    <span>Rate</span>
-                    <span className="text-right">Fee</span>
-                  </div>
-                  {phaseCommercials.map((phase) => (
-                    <div
-                      key={phase.phase}
-                      className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-5 py-4 text-sm text-white last:border-b-0"
-                    >
-                      <span>
-                        Phase {phase.phase} - {phase.phaseName}
-                      </span>
-                      <span>{phase.humanHours} hrs</span>
-                      <span>
-                        {currencySymbols[currency]} {phase.rate}
-                      </span>
-                      <span className="text-right">
-                        {formatCurrency(phase.feeZar, currency)}
-                      </span>
-                    </div>
-                  ))}
-                  <div className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-t border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-4 text-sm font-semibold text-white">
-                    <span>Total</span>
-                    <span>{totalHumanHours} hrs</span>
-                    <span />
-                    <span className="text-right">
-                      {formatCurrency(totalFeeZar, currency)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <SectionEyebrow>Approval</SectionEyebrow>
-                <SectionTitle>Client review and sign-off</SectionTitle>
-                <p className="mt-4 text-sm leading-7 text-text-secondary">
+            <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <SectionEyebrow>How To Use This Document</SectionEyebrow>
+              <SectionTitle>Working implementation reference</SectionTitle>
+              <div className="mt-4 space-y-4 text-sm leading-7 text-text-secondary">
+                <p>
                   This document is intended to act as the working discovery
-                  recommendation and implementation scope reference for client
-                  review. Once approved, the phased scope and commercial split
-                  should become the baseline project plan for planning and
-                  delivery.
+                  recommendation and implementation plan for client review.
                 </p>
-                <div className="mt-6 space-y-4 text-sm text-text-secondary">
-                  <p>Approval status: Pending client review</p>
-                  <p>Prepared from structured discovery and phased estimate</p>
-                  <p>
-                    Scope changes after approval should be captured as formal
-                    change requests
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <section className="grid gap-6 xl:grid-cols-[0.58fr_0.42fr]">
-              <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <SectionEyebrow>Payment Schedule</SectionEyebrow>
-                <SectionTitle>Suggested payment milestones</SectionTitle>
-                <div className="mt-5 overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.07)]">
-                  <div className="grid grid-cols-[120px_1fr_160px] gap-4 border-b border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
-                    <span>Payment</span>
-                    <span>Due</span>
-                    <span className="text-right">Amount</span>
-                  </div>
-                  {paymentSchedule.map((due, index) => (
-                    <div
-                      key={due}
-                      className="grid grid-cols-[120px_1fr_160px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-5 py-4 text-sm text-white last:border-b-0"
-                    >
-                      <span>Payment {index + 1}</span>
-                      <span>{due}</span>
-                      <span className="text-right">
-                        {formatCurrency(paymentAmountZar, currency)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <SectionEyebrow>Terms & Working Scope</SectionEyebrow>
-                <SectionTitle>How this document should be used</SectionTitle>
-                <div className="mt-4 space-y-4 text-sm leading-7 text-text-secondary">
-                  <p>
-                    This document is intended to replace the traditional
-                    discovery handover document and commercial quote by combining
-                    the recommended scope, phased delivery plan, and commercial
-                    breakdown in one reviewable package.
-                  </p>
-                  <p>
-                    Once approved, this becomes the working implementation scope
-                    baseline for planning and delivery. Future work outside the
-                    approved phases should be treated as a separate scope or
-                    formal change request.
-                  </p>
-                  <p>
-                    Delivery sequencing, detailed task allocation, and agent or
-                    human execution routing are finalized during planning after
-                    client approval.
-                  </p>
-                  <p>
-                    In other words, this is meant to be a workable project plan:
-                    clear enough to review, approve, and implement, even if the
-                    implementation team changes after discovery.
-                  </p>
-                </div>
+                <p>
+                  It explains what was learned, what is recommended, what is in
+                  scope, what is out of scope, and how the work can be phased in
+                  a practical way.
+                </p>
+                <p>
+                  Commercial pricing, approvals, and payment structure are
+                  intentionally handled in the separate quote so the client can
+                  review the plan on its own merits first.
+                </p>
+                <p>
+                  If the client decides to implement only part of the
+                  recommendation, this document still remains the planning
+                  reference, while the quote can be narrowed to the approved
+                  phases.
+                </p>
               </div>
             </section>
           </div>
