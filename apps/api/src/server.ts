@@ -719,6 +719,39 @@ function matchProjectBlueprintRoute(pathname: string): {
   };
 }
 
+function matchProjectTasksRoute(pathname: string): {
+  projectId: string;
+  action?: "generate-plan";
+  taskId?: string;
+} | null {
+  const match =
+    /^\/api\/projects\/([^/]+?)\/tasks(?:\/(generate-plan|[^/]+))?$/.exec(
+      pathname
+    );
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  if (!match[2]) {
+    return {
+      projectId: decodeURIComponent(match[1])
+    };
+  }
+
+  if (match[2] === "generate-plan") {
+    return {
+      projectId: decodeURIComponent(match[1]),
+      action: "generate-plan"
+    };
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1]),
+    taskId: decodeURIComponent(match[2])
+  };
+}
+
 function matchProjectDiscoverySummaryRoute(
   pathname: string
 ): { projectId: string } | null {
@@ -1009,6 +1042,42 @@ function serializeClientInputSubmission<
         : {},
     createdAt: submission.createdAt.toISOString(),
     updatedAt: submission.updatedAt.toISOString()
+  };
+}
+
+function serializeTask<
+  T extends {
+    id: string;
+    projectId: string;
+    title: string;
+    description: string | null;
+    category: string | null;
+    executionType: string;
+    priority: string;
+    status: string;
+    qaRequired: boolean;
+    approvalRequired: boolean;
+    dependencyIds: string[];
+    assigneeType: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(task: T) {
+  return {
+    id: task.id,
+    projectId: task.projectId,
+    title: task.title,
+    description: task.description,
+    category: task.category,
+    executionType: task.executionType,
+    priority: task.priority,
+    status: task.status,
+    qaRequired: task.qaRequired,
+    approvalRequired: task.approvalRequired,
+    dependencyIds: task.dependencyIds,
+    assigneeType: task.assigneeType,
+    createdAt: task.createdAt.toISOString(),
+    updatedAt: task.updatedAt.toISOString()
   };
 }
 
@@ -1590,6 +1659,334 @@ function normalizeGeneratedBlueprint(
         ? normalizedPhases
         : buildFallbackBlueprint(discoveryPayload).phases
   });
+}
+
+type StandalonePlanSeedTask = {
+  title: string;
+  description: string;
+  category: string;
+  executionType: string;
+  assigneeType: string;
+  priority: string;
+  status: string;
+  qaRequired?: boolean;
+  approvalRequired?: boolean;
+  dependsOn?: string[];
+};
+
+function buildStandalonePlanSeed(
+  project: {
+    name: string;
+    commercialBrief: string | null;
+  },
+  evidenceItems: Array<{
+    sourceLabel: string;
+    sourceUrl: string | null;
+    content: string | null;
+  }>
+) {
+  const scopeText = [
+    project.name,
+    project.commercialBrief ?? "",
+    ...evidenceItems.flatMap((item) => [
+      item.sourceLabel,
+      item.sourceUrl ?? "",
+      item.content ?? ""
+    ])
+  ]
+    .join(" \n")
+    .toLowerCase();
+
+  const hasLocalization = includesAny(scopeText, [
+    "local",
+    "localized",
+    "localised",
+    "region",
+    "regional",
+    "uk",
+    "usa",
+    "canada",
+    "aus",
+    "australia",
+    "smart content",
+    "multi-region"
+  ]);
+  const hasBlog = includesAny(scopeText, ["blog", "article", "post"]);
+  const hasMigration = includesAny(scopeText, [
+    "replace",
+    "webflow",
+    "migration",
+    "migrate",
+    "existing site"
+  ]);
+  const hasSystemPages = includesAny(scopeText, [
+    "system pages",
+    "404",
+    "500",
+    "search",
+    "subscription",
+    "preferences",
+    "password"
+  ]);
+
+  const tasks: StandalonePlanSeedTask[] = [
+    {
+      title: "Confirm scope, assumptions, and delivery boundaries",
+      description:
+        "Lock the exact technical delivery scope, handoff points with the design/content partner, and what Muloo is explicitly not responsible for.",
+      category: "01 Scope & Theme Approval",
+      executionType: "manual",
+      assigneeType: "Human",
+      priority: "high",
+      status: "todo",
+      approvalRequired: true
+    },
+    {
+      title: "Select and approve the marketplace theme",
+      description:
+        "Shortlist the theme, confirm fit against the required page types and localization needs, and obtain final approval before installation work starts.",
+      category: "01 Scope & Theme Approval",
+      executionType: "client_approval",
+      assigneeType: "Client",
+      priority: "high",
+      status: "waiting_on_client",
+      approvalRequired: true,
+      dependsOn: ["Confirm scope, assumptions, and delivery boundaries"]
+    },
+    {
+      title: "Install approved theme and configure CMS foundation",
+      description:
+        "Install the selected marketplace theme in HubSpot, create a safe working baseline, and confirm portal-level CMS configuration is ready for build work.",
+      category: "02 CMS Foundation",
+      executionType: "agent_ready",
+      assigneeType: "Agent",
+      priority: "high",
+      status: "todo",
+      dependsOn: ["Select and approve the marketplace theme"]
+    },
+    {
+      title: "Create child theme and technical customization layer",
+      description:
+        "Prepare the child theme or equivalent safe customization layer so implementation work stays upgrade-friendly and isolated from the base theme.",
+      category: "02 CMS Foundation",
+      executionType: "manual",
+      assigneeType: "Human",
+      priority: "high",
+      status: "todo",
+      dependsOn: ["Install approved theme and configure CMS foundation"]
+    }
+  ];
+
+  if (hasSystemPages) {
+    tasks.push({
+      title: "Configure required HubSpot system pages",
+      description:
+        "Set up the system page set required for this site, including error, search, password, subscription, and preferences experiences as needed.",
+      category: "03 Core Site Structure",
+      executionType: "agent_ready",
+      assigneeType: "Agent",
+      priority: "medium",
+      status: "todo",
+      dependsOn: ["Create child theme and technical customization layer"]
+    });
+  }
+
+  if (hasBlog) {
+    tasks.push({
+      title: "Configure blog structure and publishing settings",
+      description:
+        "Set up the blog foundation, templates, listing/detail behavior, and any region-specific publishing considerations required for launch.",
+      category: "03 Core Site Structure",
+      executionType: "manual",
+      assigneeType: "Human",
+      priority: "medium",
+      status: "todo",
+      dependsOn: ["Create child theme and technical customization layer"]
+    });
+  }
+
+  tasks.push({
+    title: "Define localization approach and content-routing rules",
+    description:
+      "Confirm whether localization will use smart content, regional page variants, or another supported model, and document the routing logic before build begins.",
+    category: "04 Localization Design",
+    executionType: "manual",
+    assigneeType: "Human",
+    priority: "high",
+    status: "todo",
+    dependsOn: ["Create child theme and technical customization layer"]
+  });
+
+  if (hasLocalization) {
+    tasks.push({
+      title: "Build regional site framework for required geographies",
+      description:
+        "Create the page structure, shared components, and localization scaffolding for the required regional variants in the portal.",
+      category: "04 Localization Design",
+      executionType: "agent_ready",
+      assigneeType: "Agent",
+      priority: "high",
+      status: "todo",
+      dependsOn: ["Define localization approach and content-routing rules"]
+    });
+  }
+
+  tasks.push(
+    {
+      title: "Receive approved content and design assets from partner",
+      description:
+        "Collect Figma, copy, asset packs, and any regional content or page-mapping guidance needed for implementation.",
+      category: "05 Partner Handoff",
+      executionType: "client_dependency",
+      assigneeType: "Client",
+      priority: "high",
+      status: "waiting_on_client",
+      dependsOn: ["Define localization approach and content-routing rules"]
+    },
+    {
+      title: "Implement page templates, linking, and technical configuration",
+      description:
+        "Apply the approved design/content handoff to the HubSpot build, wire templates and navigation, and complete the core technical implementation.",
+      category: "06 Build & Linking",
+      executionType: "manual",
+      assigneeType: "Human",
+      priority: "high",
+      status: "todo",
+      dependsOn: ["Receive approved content and design assets from partner"]
+    }
+  );
+
+  if (hasMigration) {
+    tasks.push({
+      title: "Migrate agreed website content from the existing site",
+      description:
+        "Move the agreed content set from the legacy site into the new HubSpot structure, preserving the approved content hierarchy and page intent.",
+      category: "06 Build & Linking",
+      executionType: "manual",
+      assigneeType: "Human",
+      priority: "medium",
+      status: "todo",
+      dependsOn: ["Receive approved content and design assets from partner"]
+    });
+  }
+
+  tasks.push(
+    {
+      title: "Run QA across templates, links, and regional variants",
+      description:
+        "Check page behavior, links, localization logic, responsive rendering, and technical quality before launch sign-off.",
+      category: "07 QA & Launch",
+      executionType: "agent_ready",
+      assigneeType: "Agent",
+      priority: "high",
+      status: "todo",
+      qaRequired: true,
+      dependsOn: ["Implement page templates, linking, and technical configuration"]
+    },
+    {
+      title: "Prepare launch checklist and go-live plan",
+      description:
+        "Confirm launch dependencies, domain steps, partner approvals, and the sequence for go-live so cutover happens in a controlled way.",
+      category: "07 QA & Launch",
+      executionType: "manual",
+      assigneeType: "Human",
+      priority: "high",
+      status: "todo",
+      dependsOn: ["Run QA across templates, links, and regional variants"]
+    },
+    {
+      title: "Complete go-live and handover support",
+      description:
+        "Execute launch, monitor the deployment, tidy defects, and close the project with a clean technical handover and support notes.",
+      category: "08 Go-Live & Handover",
+      executionType: "manual",
+      assigneeType: "Human",
+      priority: "high",
+      status: "todo",
+      qaRequired: true,
+      dependsOn: ["Prepare launch checklist and go-live plan"]
+    }
+  );
+
+  return tasks;
+}
+
+async function generateStandaloneProjectPlan(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      name: true,
+      scopeType: true,
+      commercialBrief: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (project.scopeType !== "standalone_quote") {
+    throw new Error("Generated project plans are currently only available for standalone scoped jobs");
+  }
+
+  const evidenceItems = await loadDiscoveryEvidence(projectId, 0);
+  const taskSeed = buildStandalonePlanSeed(project, evidenceItems);
+
+  await prisma.executionJob.deleteMany({
+    where: {
+      projectId,
+      taskId: {
+        not: null
+      }
+    }
+  });
+  await prisma.task.deleteMany({
+    where: { projectId }
+  });
+
+  const createdTasks = [] as Array<Awaited<ReturnType<typeof prisma.task.create>>>;
+
+  for (const task of taskSeed) {
+    const createdTask = await prisma.task.create({
+      data: {
+        projectId,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        executionType: task.executionType,
+        priority: task.priority,
+        status: task.status,
+        qaRequired: task.qaRequired ?? false,
+        approvalRequired: task.approvalRequired ?? false,
+        assigneeType: task.assigneeType
+      }
+    });
+
+    createdTasks.push(createdTask);
+  }
+
+  const taskIdMap = new Map(createdTasks.map((task) => [task.title, task.id]));
+
+  const updatedTasks = [] as typeof createdTasks;
+
+  for (const createdTask of createdTasks) {
+    const seed = taskSeed.find((task) => task.title === createdTask.title);
+    const dependencyIds = (seed?.dependsOn ?? [])
+      .map((dependencyTitle) => taskIdMap.get(dependencyTitle))
+      .filter((dependencyId): dependencyId is string => Boolean(dependencyId));
+
+    const updatedTask = await prisma.task.update({
+      where: { id: createdTask.id },
+      data: {
+        dependencyIds
+      }
+    });
+
+    updatedTasks.push(updatedTask);
+  }
+
+  return updatedTasks;
 }
 
 async function loadProjectDiscoveryForBlueprint(projectId: string) {
@@ -2547,7 +2944,7 @@ async function loadDiscoveryEvidence(
   const evidenceItems = await prisma.discoveryEvidence.findMany({
     where: {
       projectId,
-      ...(sessionNumber ? { sessionNumber } : {})
+      ...(sessionNumber !== undefined ? { sessionNumber } : {})
     },
     orderBy: [{ sessionNumber: "asc" }, { createdAt: "desc" }]
   });
@@ -3435,6 +3832,78 @@ export function createAppServer(config: BaseConfig): http.Server {
           }
 
           return sendJson(response, 200, { blueprint });
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      const projectTasksRoute = matchProjectTasksRoute(url.pathname);
+      if (projectTasksRoute) {
+        if (
+          request.method === "GET" &&
+          !projectTasksRoute.action &&
+          !projectTasksRoute.taskId
+        ) {
+          const tasks = await prisma.task.findMany({
+            where: { projectId: projectTasksRoute.projectId },
+            orderBy: [{ createdAt: "asc" }]
+          });
+
+          return sendJson(response, 200, {
+            tasks: tasks.map((task) => serializeTask(task))
+          });
+        }
+
+        if (
+          request.method === "POST" &&
+          projectTasksRoute.action === "generate-plan"
+        ) {
+          const tasks = await generateStandaloneProjectPlan(
+            projectTasksRoute.projectId
+          );
+
+          return sendJson(response, 200, {
+            tasks: tasks.map((task) => serializeTask(task))
+          });
+        }
+
+        if (request.method === "PATCH" && projectTasksRoute.taskId) {
+          const body = (await readJsonBody(request)) as {
+            status?: unknown;
+          };
+          const nextStatus =
+            typeof body.status === "string" ? body.status.trim() : "";
+          const validStatuses = [
+            "todo",
+            "waiting_on_client",
+            "in_progress",
+            "blocked",
+            "done"
+          ];
+
+          if (!validStatuses.includes(nextStatus)) {
+            return sendJson(response, 400, { error: "Invalid task status" });
+          }
+
+          const existingTask = await prisma.task.findFirst({
+            where: {
+              id: projectTasksRoute.taskId,
+              projectId: projectTasksRoute.projectId
+            }
+          });
+
+          if (!existingTask) {
+            return sendJson(response, 404, { error: "Task not found" });
+          }
+
+          const task = await prisma.task.update({
+            where: { id: projectTasksRoute.taskId },
+            data: { status: nextStatus }
+          });
+
+          return sendJson(response, 200, {
+            task: serializeTask(task)
+          });
         }
 
         return sendJson(response, 405, { error: "Method Not Allowed" });

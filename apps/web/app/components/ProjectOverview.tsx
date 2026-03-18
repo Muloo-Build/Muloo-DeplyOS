@@ -88,6 +88,23 @@ interface DiscoverySummary {
   recommendedNextQuestions: string[];
 }
 
+interface ProjectTask {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  executionType: string;
+  priority: string;
+  status: string;
+  qaRequired: boolean;
+  approvalRequired: boolean;
+  dependencyIds: string[];
+  assigneeType: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface TeamUser {
   id: string;
   name: string;
@@ -211,6 +228,32 @@ function formatDate(dateString: string) {
   });
 }
 
+function formatAssigneeType(value: string | null) {
+  if (!value) {
+    return "Unassigned";
+  }
+
+  switch (value.toLowerCase()) {
+    case "agent":
+      return "Agent";
+    case "client":
+      return "Client";
+    default:
+      return "Human";
+  }
+}
+
+function assigneeTypeClass(value: string | null) {
+  switch (value?.toLowerCase()) {
+    case "agent":
+      return "bg-[rgba(79,142,247,0.18)] text-[#4f8ef7]";
+    case "client":
+      return "bg-[rgba(45,212,160,0.18)] text-[#2dd4a0]";
+    default:
+      return "bg-[rgba(240,160,80,0.18)] text-[#f0a050]";
+  }
+}
+
 function statusClass(status: string) {
   switch (status) {
     case "complete":
@@ -307,6 +350,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   });
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [clientUsers, setClientUsers] = useState<ClientPortalUser[]>([]);
+  const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
   const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
   const [contextDraft, setContextDraft] = useState({
     evidenceType: "uploaded-doc" as EvidenceItem["evidenceType"],
@@ -332,6 +376,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [blueprintBusy, setBlueprintBusy] = useState(false);
   const [blueprintError, setBlueprintError] = useState<string | null>(null);
+  const [planBusy, setPlanBusy] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -344,7 +391,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           summaryResponse,
           usersResponse,
           clientUsersResponse,
-          supportingContextResponse
+          supportingContextResponse,
+          tasksResponse
         ] =
           await Promise.all([
             fetch(`/api/projects/${encodeURIComponent(projectId)}`),
@@ -353,14 +401,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery-summary`),
             fetch("/api/users"),
             fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`),
-            fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`)
+            fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`),
+            fetch(`/api/projects/${encodeURIComponent(projectId)}/tasks`)
           ]);
 
         if (
           !projectResponse.ok ||
           !sessionsResponse.ok ||
           !summaryResponse.ok ||
-          !usersResponse.ok
+          !usersResponse.ok ||
+          !tasksResponse.ok
         ) {
           throw new Error("Failed to load project");
         }
@@ -371,6 +421,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         const usersBody = await usersResponse.json();
         const clientUsersBody = await clientUsersResponse.json();
         const supportingContextBody = await supportingContextResponse.json();
+        const tasksBody = await tasksResponse.json();
 
         setProject(projectBody.project);
         setProjectDraft(createProjectDraft(projectBody.project));
@@ -379,6 +430,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         setTeamUsers(usersBody.users ?? []);
         setClientUsers(clientUsersBody.clientUsers ?? []);
         setSupportingContext(supportingContextBody.evidenceItems ?? []);
+        setProjectTasks(tasksBody.tasks ?? []);
 
         if (blueprintResponse.ok) {
           const blueprintBody = await blueprintResponse.json();
@@ -415,6 +467,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     blueprint?.tasks
       .filter((task) => task.type === "Human")
       .reduce((total, task) => total + task.effortHours, 0) ?? 0;
+  const boardColumns = [
+    { key: "todo", label: "To Do" },
+    { key: "waiting_on_client", label: "Waiting on Client" },
+    { key: "in_progress", label: "In Progress" },
+    { key: "blocked", label: "Blocked" },
+    { key: "done", label: "Done" }
+  ] as const;
 
   function startEditing(field: Exclude<EditableField, null>) {
     if (!project) {
@@ -671,6 +730,82 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }
   }
 
+  async function generateProjectPlan() {
+    if (!project) {
+      return;
+    }
+
+    setPlanBusy(true);
+    setPlanError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/tasks/generate-plan`,
+        {
+          method: "POST"
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to generate project plan");
+      }
+
+      setProjectTasks(body?.tasks ?? []);
+    } catch (generationError) {
+      setPlanError(
+        generationError instanceof Error
+          ? generationError.message
+          : "Failed to generate project plan"
+      );
+    } finally {
+      setPlanBusy(false);
+    }
+  }
+
+  async function updateTaskStatus(taskId: string, status: string) {
+    if (!project) {
+      return;
+    }
+
+    setUpdatingTaskId(taskId);
+    setPlanError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/tasks/${encodeURIComponent(taskId)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ status })
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to update task");
+      }
+
+      setProjectTasks((currentTasks) =>
+        currentTasks.map((task) =>
+          task.id === taskId ? body.task : task
+        )
+      );
+    } catch (updateError) {
+      setPlanError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Failed to update task"
+      );
+    } finally {
+      setUpdatingTaskId(null);
+    }
+  }
+
   async function handleBlueprintAction() {
     if (!project) {
       return;
@@ -798,6 +933,20 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           ? "Generate Job Summary"
                           : "Generate Agent Summary"}
                   </button>
+                  {isStandaloneQuote ? (
+                    <button
+                      type="button"
+                      onClick={() => void generateProjectPlan()}
+                      disabled={planBusy}
+                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                    >
+                      {planBusy
+                        ? "Generating Plan..."
+                        : projectTasks.length > 0
+                          ? "Refresh Project Plan"
+                          : "Generate Project Plan"}
+                    </button>
+                  ) : null}
                   {!isStandaloneQuote ? (
                     <>
                       <Link
@@ -851,6 +1000,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 {summaryError ? (
                   <p className="max-w-sm text-right text-sm text-[#ff8f9c]">
                     {summaryError}
+                  </p>
+                ) : null}
+                {planError ? (
+                  <p className="max-w-sm text-right text-sm text-[#ff8f9c]">
+                    {planError}
                   </p>
                 ) : null}
               </div>
@@ -1897,6 +2051,122 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 </section>
               </div>
             </div>
+
+            {isStandaloneQuote ? (
+              <section className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">
+                      Delivery Board
+                    </h2>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      Generate a repeatable project plan for this scoped job, then move work between columns as delivery progresses.
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+                    {projectTasks.length > 0
+                      ? `${projectTasks.length} planned items`
+                      : "No plan generated yet"}
+                  </div>
+                </div>
+
+                {projectTasks.length > 0 ? (
+                  <div className="mt-6 grid gap-4 xl:grid-cols-5">
+                    {boardColumns.map((column) => {
+                      const columnTasks = projectTasks.filter(
+                        (task) => task.status === column.key
+                      );
+
+                      return (
+                        <div
+                          key={column.key}
+                          className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold text-white">
+                              {column.label}
+                            </p>
+                            <span className="rounded bg-[rgba(255,255,255,0.06)] px-2 py-1 text-xs font-medium text-text-secondary">
+                              {columnTasks.length}
+                            </span>
+                          </div>
+
+                          <div className="mt-4 space-y-3">
+                            {columnTasks.length > 0 ? (
+                              columnTasks.map((task) => (
+                                <div
+                                  key={task.id}
+                                  className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4"
+                                >
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                      className={`rounded px-2 py-1 text-xs font-medium ${assigneeTypeClass(
+                                        task.assigneeType
+                                      )}`}
+                                    >
+                                      {formatAssigneeType(task.assigneeType)}
+                                    </span>
+                                    {task.category ? (
+                                      <span className="text-xs text-text-muted">
+                                        {task.category}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <p className="mt-3 text-sm font-medium text-white">
+                                    {task.title}
+                                  </p>
+                                  {task.description ? (
+                                    <p className="mt-2 text-sm text-text-secondary">
+                                      {task.description}
+                                    </p>
+                                  ) : null}
+                                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-text-muted">
+                                    <span>Execution: {formatLabel(task.executionType)}</span>
+                                    <span>Priority: {formatLabel(task.priority)}</span>
+                                    {task.qaRequired ? <span>QA required</span> : null}
+                                    {task.approvalRequired ? <span>Approval required</span> : null}
+                                  </div>
+                                  <label className="mt-4 block">
+                                    <span className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                      Move task
+                                    </span>
+                                    <select
+                                      value={task.status}
+                                      onChange={(event) =>
+                                        void updateTaskStatus(task.id, event.target.value)
+                                      }
+                                      disabled={updatingTaskId === task.id}
+                                      className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed"
+                                    >
+                                      {boardColumns.map((statusOption) => (
+                                        <option
+                                          key={statusOption.key}
+                                          value={statusOption.key}
+                                        >
+                                          {statusOption.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-4 text-sm text-text-secondary">
+                                No tasks in this column yet.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-6 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary">
+                    Generate the project plan to create a repeatable delivery board for this standalone job.
+                  </div>
+                )}
+              </section>
+            ) : null}
           </>
         )}
       </div>
