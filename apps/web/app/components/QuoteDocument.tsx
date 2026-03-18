@@ -144,7 +144,7 @@ function SectionTitle({ children }: { children: string }) {
   return <h2 className="mt-3 text-2xl font-semibold text-white">{children}</h2>;
 }
 
-export default function DiscoveryOutputDocument({
+export default function QuoteDocument({
   projectId
 }: {
   projectId: string;
@@ -189,7 +189,7 @@ export default function DiscoveryOutputDocument({
           !blueprintResponse.ok
         ) {
           throw new Error(
-            "Generate the discovery summary and blueprint before opening the client document."
+            "Generate the discovery summary and blueprint before opening the quote."
           );
         }
 
@@ -206,7 +206,7 @@ export default function DiscoveryOutputDocument({
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Failed to load discovery output document"
+            : "Failed to load quote document"
         );
       } finally {
         setLoading(false);
@@ -361,22 +361,14 @@ export default function DiscoveryOutputDocument({
                   Back to overview
                 </Link>
                 <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-                  Discovery Document & Implementation Plan
+                  Implementation Quote & Approval
                 </h1>
                 <p className="mt-2 text-text-secondary">
-                  Client-facing discovery document that explains the
-                  recommendation, scope, and phased implementation approach in a
-                  portable format the client can deliver with Muloo or another
-                  partner.
+                  Commercial proposal generated from the approved discovery
+                  scope and phased implementation estimate.
                 </p>
               </div>
               <div className="document-toolbar flex flex-wrap items-center gap-3">
-                <Link
-                  href={`/projects/${project.id}/quote`}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
-                >
-                  Open Quote
-                </Link>
                 <button
                   type="button"
                   onClick={copyShareLink}
@@ -405,16 +397,15 @@ export default function DiscoveryOutputDocument({
                       Muloo
                     </div>
                     <p className="text-xs uppercase tracking-[0.35em] text-text-muted">
-                      Discovery Document
+                      Quote & Approval
                     </p>
                   </div>
                   <h2 className="mt-10 max-w-3xl text-5xl font-bold font-heading leading-tight text-white">
-                    {project.client.name.toUpperCase()} - Discovery Document &
-                    Implementation Plan
+                    {project.client.name.toUpperCase()} - Implementation Quote
                   </h2>
                   <p className="mt-6 text-lg text-text-secondary">
-                    {formatEngagementType(project.engagementType)} discovery-led
-                    implementation plan generated from structured discovery.
+                    {formatEngagementType(project.engagementType)} phased quote
+                    generated from structured discovery and blueprinted scope.
                   </p>
 
                   <div className="mt-10 grid gap-8 md:grid-cols-2">
@@ -513,13 +504,13 @@ export default function DiscoveryOutputDocument({
             </section>
 
             <section className="document-card rounded-2xl border border-[rgba(73,205,225,0.18)] bg-[linear-gradient(135deg,rgba(73,205,225,0.08)_0%,rgba(224,82,156,0.06)_100%)] p-6">
-              <SectionEyebrow>Document Purpose</SectionEyebrow>
-              <SectionTitle>Portable implementation plan</SectionTitle>
+              <SectionEyebrow>Commercial Purpose</SectionEyebrow>
+              <SectionTitle>Quoted scope and approval pack</SectionTitle>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
                 {[
-                  "This document is designed to give the client a clear take-away plan they can understand, review, and act on after discovery.",
-                  "It translates discovery into recommended scope, phased delivery, dependencies, and an implementation approach in one structured pack.",
-                  "Commercial pricing and approval are managed separately in the quote so the client can approve all or only part of the recommended scope."
+                  "This document turns the approved discovery recommendation into a commercial quote with phase-level pricing.",
+                  "It is designed to support review, approval, and selective commercial sign-off if the client wants to proceed with only part of the recommended scope.",
+                  "Once approved, the accepted phases become the commercial baseline for planning and delivery."
                 ].map((item) => (
                   <div
                     key={item}
@@ -534,8 +525,8 @@ export default function DiscoveryOutputDocument({
             <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-6">
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <SectionEyebrow>Executive Summary</SectionEyebrow>
-                  <SectionTitle>What discovery confirmed</SectionTitle>
+                  <SectionEyebrow>Quote Context</SectionEyebrow>
+                  <SectionTitle>What this quote is based on</SectionTitle>
                   <p className="mt-4 text-sm leading-7 text-text-secondary">
                     {summary?.executiveSummary ??
                       session1.business_overview ??
@@ -544,8 +535,8 @@ export default function DiscoveryOutputDocument({
                 </div>
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <SectionEyebrow>Why This Project Matters</SectionEyebrow>
-                  <SectionTitle>Why action is needed now</SectionTitle>
+                  <SectionEyebrow>Commercial Framing</SectionEyebrow>
+                  <SectionTitle>Why this implementation is being quoted</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
                       <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
@@ -572,7 +563,7 @@ export default function DiscoveryOutputDocument({
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <SectionEyebrow>Discovery Outcomes</SectionEyebrow>
-                  <SectionTitle>Recommended direction</SectionTitle>
+                  <SectionTitle>Commercial assumptions from discovery</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     {[
                       ["Engagement track", summary?.engagementTrack ?? "Not set"],
@@ -603,7 +594,7 @@ export default function DiscoveryOutputDocument({
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <SectionEyebrow>Current State</SectionEyebrow>
-                  <SectionTitle>How the business operates today</SectionTitle>
+                  <SectionTitle>Commercially relevant current-state notes</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     {[
                       ["Current stack", session2.current_tech_stack],
@@ -630,7 +621,7 @@ export default function DiscoveryOutputDocument({
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <SectionEyebrow>Recommended Future State</SectionEyebrow>
-                  <SectionTitle>What the target solution should look like</SectionTitle>
+                  <SectionTitle>What this quote is intended to deliver</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     {[
                       ["Hubs & features", session3.hubs_and_features_required],
@@ -657,7 +648,7 @@ export default function DiscoveryOutputDocument({
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <SectionEyebrow>Delivery Approach</SectionEyebrow>
-                  <SectionTitle>How this should be delivered</SectionTitle>
+                  <SectionTitle>How the quoted work is expected to run</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-3">
                     {[
                       [
@@ -692,7 +683,7 @@ export default function DiscoveryOutputDocument({
               <div className="space-y-6">
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <SectionEyebrow>Scope</SectionEyebrow>
-                  <SectionTitle>What is included and excluded</SectionTitle>
+                  <SectionTitle>Quoted inclusions and exclusions</SectionTitle>
                   <div className="mt-5 grid gap-4">
                     <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
                       <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
@@ -719,7 +710,7 @@ export default function DiscoveryOutputDocument({
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <SectionEyebrow>Risks & Dependencies</SectionEyebrow>
-                  <SectionTitle>What could affect delivery</SectionTitle>
+                  <SectionTitle>What could affect commercials or timing</SectionTitle>
                   <div className="mt-4 space-y-4">
                     <div>
                       <p className="text-sm font-medium text-white">Key risks</p>
@@ -899,15 +890,14 @@ export default function DiscoveryOutputDocument({
                 <SectionEyebrow>Approval</SectionEyebrow>
                 <SectionTitle>Client review and sign-off</SectionTitle>
                 <p className="mt-4 text-sm leading-7 text-text-secondary">
-                  This document is intended to act as the working discovery
-                  recommendation and implementation scope reference for client
-                  review. Once approved, the phased scope and commercial split
-                  should become the baseline project plan for planning and
-                  delivery.
+                  This quote is intended to act as the commercial approval pack
+                  for the recommended implementation scope. Once approved, the
+                  accepted phases and commercial split should become the
+                  contractual baseline for planning and delivery.
                 </p>
                 <div className="mt-6 space-y-4 text-sm text-text-secondary">
                   <p>Approval status: Pending client review</p>
-                  <p>Prepared from structured discovery and phased estimate</p>
+                  <p>Prepared from structured discovery, blueprint, and phased estimate</p>
                   <p>
                     Scope changes after approval should be captured as formal
                     change requests
@@ -943,29 +933,28 @@ export default function DiscoveryOutputDocument({
 
               <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                 <SectionEyebrow>Terms & Working Scope</SectionEyebrow>
-                <SectionTitle>How this document should be used</SectionTitle>
+                <SectionTitle>How this quote should be used</SectionTitle>
                 <div className="mt-4 space-y-4 text-sm leading-7 text-text-secondary">
                   <p>
-                    This document is intended to replace the traditional
-                    discovery handover document and commercial quote by combining
-                    the recommended scope, phased delivery plan, and commercial
-                    breakdown in one reviewable package.
+                    This document is the commercial quote generated from the
+                    discovery process. The separate discovery document remains
+                    the narrative recommendation and project planning reference.
                   </p>
                   <p>
-                    Once approved, this becomes the working implementation scope
-                    baseline for planning and delivery. Future work outside the
-                    approved phases should be treated as a separate scope or
-                    formal change request.
+                    Once approved, this quote becomes the working commercial
+                    scope baseline for planning and delivery. Future work
+                    outside the approved phases should be treated as a separate
+                    scope or formal change request.
                   </p>
                   <p>
-                    Delivery sequencing, detailed task allocation, and agent or
-                    human execution routing are finalized during planning after
-                    client approval.
+                    Delivery sequencing, detailed task allocation, and execution
+                    routing are finalized during planning after client approval.
                   </p>
                   <p>
-                    In other words, this is meant to be a workable project plan:
-                    clear enough to review, approve, and implement, even if the
-                    implementation team changes after discovery.
+                    Commercials can be refined before approval, including
+                    currency, hours, and per-phase rates. The discovery document
+                    and quote intentionally remain separate so the client can
+                    approve all or only part of the recommended scope.
                   </p>
                 </div>
               </div>

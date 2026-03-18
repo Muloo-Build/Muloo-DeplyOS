@@ -611,7 +611,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     href={`/projects/${project.id}/proposal`}
                     className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
                   >
-                    Open Review Doc
+                    Open Discovery Doc
+                  </Link>
+                  <Link
+                    href={`/projects/${project.id}/quote`}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                  >
+                    Open Quote
                   </Link>
                   <button
                     type="button"

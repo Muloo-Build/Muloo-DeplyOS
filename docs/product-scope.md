@@ -101,6 +101,7 @@ Before more product code is built, these artifacts are the required baseline:
 
 - [Domain Model](./domain-model.md)
 - [Discovery Operating Model](./discovery-operating-model.md)
+- [Client Workspace And Approval Model](./client-workspace-and-approval-model.md)
 - [Discovery Schema](./discovery-schema.md)
 - [Standards Matrix](./standards-matrix.md)
 - [Execution Matrix](./execution-matrix.md)
