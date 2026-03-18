@@ -73,6 +73,14 @@ interface TeamUser {
   role: string;
 }
 
+interface ClientPortalUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+}
+
 function isSessionComplete(session: SessionDetail | undefined) {
   if (!session) {
     return false;
@@ -250,6 +258,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     clientChampionEmail: ""
   });
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
+  const [clientUsers, setClientUsers] = useState<ClientPortalUser[]>([]);
+  const [clientAccessDraft, setClientAccessDraft] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    role: "contributor"
+  });
+  const [clientAccessSaving, setClientAccessSaving] = useState(false);
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [savingField, setSavingField] = useState<EditableField>(null);
   const [projectEditError, setProjectEditError] = useState<string | null>(null);
@@ -268,14 +285,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           sessionsResponse,
           blueprintResponse,
           summaryResponse,
-          usersResponse
+          usersResponse,
+          clientUsersResponse
         ] =
           await Promise.all([
             fetch(`/api/projects/${encodeURIComponent(projectId)}`),
             fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
             fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
             fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery-summary`),
-            fetch("/api/users")
+            fetch("/api/users"),
+            fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`)
           ]);
 
         if (
@@ -291,12 +310,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         const sessionsBody = await sessionsResponse.json();
         const summaryBody = await summaryResponse.json();
         const usersBody = await usersResponse.json();
+        const clientUsersBody = await clientUsersResponse.json();
 
         setProject(projectBody.project);
         setProjectDraft(createProjectDraft(projectBody.project));
         setSessions(sessionsBody.sessionDetails ?? []);
         setDiscoverySummary(summaryBody.summary ?? null);
         setTeamUsers(usersBody.users ?? []);
+        setClientUsers(clientUsersBody.clientUsers ?? []);
 
         if (blueprintResponse.ok) {
           const blueprintBody = await blueprintResponse.json();
@@ -475,6 +496,51 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       );
     } finally {
       setSummaryBusy(false);
+    }
+  }
+
+  async function addClientPortalUser() {
+    if (!project) {
+      return;
+    }
+
+    setClientAccessSaving(true);
+    setProjectEditError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/client-users`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(clientAccessDraft)
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to add client user");
+      }
+
+      setClientUsers((currentUsers) => [...currentUsers, body.clientUser]);
+      setClientAccessDraft({
+        firstName: "",
+        lastName: "",
+        email: "",
+        password: "",
+        role: "contributor"
+      });
+    } catch (saveError) {
+      setProjectEditError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to add client user"
+      );
+    } finally {
+      setClientAccessSaving(false);
     }
   }
 
@@ -1144,6 +1210,120 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               </section>
 
               <div className="grid gap-6">
+                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-semibold text-white">
+                        Client Portal Access
+                      </h2>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        Create client logins for discovery forms, document
+                        review, and later approvals.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <label className="block">
+                      <span className="text-sm font-medium text-white">
+                        First name
+                      </span>
+                      <input
+                        value={clientAccessDraft.firstName}
+                        onChange={(event) =>
+                          setClientAccessDraft((currentDraft) => ({
+                            ...currentDraft,
+                            firstName: event.target.value
+                          }))
+                        }
+                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-medium text-white">
+                        Last name
+                      </span>
+                      <input
+                        value={clientAccessDraft.lastName}
+                        onChange={(event) =>
+                          setClientAccessDraft((currentDraft) => ({
+                            ...currentDraft,
+                            lastName: event.target.value
+                          }))
+                        }
+                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-medium text-white">
+                        Email
+                      </span>
+                      <input
+                        value={clientAccessDraft.email}
+                        onChange={(event) =>
+                          setClientAccessDraft((currentDraft) => ({
+                            ...currentDraft,
+                            email: event.target.value
+                          }))
+                        }
+                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-medium text-white">
+                        Password
+                      </span>
+                      <input
+                        type="password"
+                        value={clientAccessDraft.password}
+                        onChange={(event) =>
+                          setClientAccessDraft((currentDraft) => ({
+                            ...currentDraft,
+                            password: event.target.value
+                          }))
+                        }
+                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between gap-4">
+                    <p className="text-sm text-text-secondary">
+                      Client portal login route: `/client/login`
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void addClientPortalUser()}
+                      disabled={clientAccessSaving}
+                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                    >
+                      {clientAccessSaving ? "Creating..." : "Add Client User"}
+                    </button>
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    {clientUsers.length > 0 ? (
+                      clientUsers.map((clientUser) => (
+                        <div
+                          key={clientUser.id}
+                          className="rounded-xl bg-[#0b1126] px-4 py-4"
+                        >
+                          <p className="text-sm font-medium text-white">
+                            {clientUser.firstName} {clientUser.lastName}
+                          </p>
+                          <p className="mt-1 text-xs text-text-secondary">
+                            {clientUser.email} · {clientUser.role}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-4 py-4 text-sm text-text-secondary">
+                        No client users added yet for this project.
+                      </div>
+                    )}
+                  </div>
+                </section>
+
                 <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <div className="flex items-center justify-between gap-4">
                     <h2 className="text-lg font-semibold text-white">

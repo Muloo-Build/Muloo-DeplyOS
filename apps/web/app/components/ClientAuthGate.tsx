@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
-export default function AuthGate({ children }: { children: ReactNode }) {
+export default function ClientAuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [checked, setChecked] = useState(false);
@@ -14,7 +14,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function checkSession() {
-      if (pathname === "/login" || pathname.startsWith("/client")) {
+      if (pathname === "/client/login") {
         if (!cancelled) {
           setAuthenticated(true);
           setChecked(true);
@@ -23,12 +23,12 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       }
 
       try {
-        const response = await fetch("/api/auth/session", {
+        const response = await fetch("/api/client-auth/session", {
           credentials: "include"
         });
 
         if (!response.ok) {
-          throw new Error("Failed to verify session");
+          throw new Error("Failed to verify client session");
         }
 
         const body = await response.json();
@@ -42,7 +42,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         setChecked(true);
 
         if (!nextAuthenticated) {
-          router.replace("/login");
+          router.replace("/client/login");
         }
       } catch {
         if (cancelled) {
@@ -51,7 +51,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
         setAuthenticated(false);
         setChecked(true);
-        router.replace("/login");
+        router.replace("/client/login");
       }
     }
 
@@ -62,7 +62,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     };
   }, [pathname, router]);
 
-  if (pathname === "/login" || pathname.startsWith("/client")) {
+  if (pathname === "/client/login") {
     return <>{children}</>;
   }
 
@@ -70,7 +70,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background-primary text-white">
         <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-5 text-sm text-text-secondary">
-          Checking workspace access...
+          Checking client access...
         </div>
       </div>
     );

@@ -47,6 +47,7 @@ const contentTypes: Record<string, string> = {
 
 const pendingPortalPrefix = "pending-portal-";
 const authCookieName = "muloo_deploy_os_auth";
+const clientAuthCookieName = "muloo_deploy_os_client_auth";
 const defaultSimpleAuthUsername = "jarrud";
 const defaultSimpleAuthPassword = "deployos";
 const validEngagementTypes = [
@@ -378,10 +379,10 @@ function parseCookies(request: http.IncomingMessage): Record<string, string> {
 function setCookie(
   response: http.ServerResponse,
   value: string,
-  options?: { maxAge?: number }
+  options?: { maxAge?: number; name?: string }
 ) {
   const cookieParts = [
-    `${authCookieName}=${encodeURIComponent(value)}`,
+    `${options?.name ?? authCookieName}=${encodeURIComponent(value)}`,
     "Path=/",
     "HttpOnly",
     "SameSite=Lax"
@@ -408,11 +409,45 @@ function createSimpleAuthToken(username: string) {
   return Buffer.from(`${username}:${secret}`).toString("base64url");
 }
 
+function createClientAuthToken(userId: string) {
+  const secret =
+    process.env.CLIENT_AUTH_SECRET ?? "muloo-deploy-os-client-auth";
+
+  return Buffer.from(`${userId}:${secret}`).toString("base64url");
+}
+
 function isAuthenticated(request: http.IncomingMessage) {
   const cookies = parseCookies(request);
   const { username } = resolveSimpleAuthCredentials();
 
   return cookies[authCookieName] === createSimpleAuthToken(username);
+}
+
+function getAuthenticatedClientUserId(request: http.IncomingMessage) {
+  const cookies = parseCookies(request);
+  const token = cookies[clientAuthCookieName];
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const [userId, secret] = Buffer.from(token, "base64url")
+      .toString("utf8")
+      .split(":");
+
+    if (
+      !userId ||
+      secret !==
+        (process.env.CLIENT_AUTH_SECRET ?? "muloo-deploy-os-client-auth")
+    ) {
+      return null;
+    }
+
+    return userId;
+  } catch {
+    return null;
+  }
 }
 
 async function readJsonBody(request: http.IncomingMessage): Promise<unknown> {
@@ -516,6 +551,50 @@ function matchProductRoute(pathname: string): { productId?: string } | null {
   }
 
   return match[1] ? { productId: decodeURIComponent(match[1]) } : {};
+}
+
+function matchClientProjectRoute(pathname: string): {
+  projectId?: string;
+  resource?: "submissions";
+  sessionId?: number;
+} | null {
+  const listMatch = /^\/api\/client\/projects$/.exec(pathname);
+
+  if (listMatch) {
+    return {};
+  }
+
+  const projectMatch = /^\/api\/client\/projects\/([^/]+?)(?:\/submissions\/([1-4]))?$/.exec(
+    pathname
+  );
+
+  if (!projectMatch || !projectMatch[1]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(projectMatch[1]),
+    ...(projectMatch[2]
+      ? {
+          resource: "submissions" as const,
+          sessionId: Number(projectMatch[2])
+        }
+      : {})
+  };
+}
+
+function matchProjectClientUsersRoute(pathname: string): {
+  projectId: string;
+} | null {
+  const match = /^\/api\/projects\/([^/]+?)\/client-users$/.exec(pathname);
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1])
+  };
 }
 
 function matchProjectModuleRoute(pathname: string): {
@@ -797,6 +876,77 @@ function serializeProject<
     ...normalizedProject,
     clientName: normalizedProject.client.name,
     hubsInScope: normalizedProject.selectedHubs
+  };
+}
+
+function serializeClientProject<
+  T extends {
+    id: string;
+    name: string;
+    status: string;
+    engagementType: Prisma.$Enums.EngagementType;
+    selectedHubs: string[];
+    updatedAt: Date;
+    client: {
+      name: string;
+      website: string | null;
+    };
+  }
+>(project: T) {
+  return {
+    id: project.id,
+    name: project.name,
+    status: project.status,
+    engagementType: project.engagementType,
+    selectedHubs: project.selectedHubs,
+    updatedAt: project.updatedAt.toISOString(),
+    client: {
+      name: project.client.name,
+      website: project.client.website
+    }
+  };
+}
+
+function serializeClientPortalUser<
+  T extends {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  }
+>(user: T) {
+  return {
+    id: user.id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email
+  };
+}
+
+function serializeClientInputSubmission<
+  T extends {
+    id: string;
+    projectId: string;
+    userId: string;
+    sessionNumber: number;
+    status: string;
+    answers: unknown;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(submission: T) {
+  return {
+    id: submission.id,
+    projectId: submission.projectId,
+    userId: submission.userId,
+    sessionNumber: submission.sessionNumber,
+    status: submission.status,
+    answers:
+      submission.answers && typeof submission.answers === "object"
+        ? submission.answers
+        : {},
+    createdAt: submission.createdAt.toISOString(),
+    updatedAt: submission.updatedAt.toISOString()
   };
 }
 
@@ -1765,6 +1915,185 @@ async function createProductCatalogItem(value: {
   return serializeProductCatalogItem(product);
 }
 
+async function createClientPortalUserForProject(
+  projectId: string,
+  value: {
+    firstName?: unknown;
+    lastName?: unknown;
+    email?: unknown;
+    password?: unknown;
+    role?: unknown;
+  }
+) {
+  const firstName =
+    typeof value.firstName === "string" ? value.firstName.trim() : "";
+  const lastName =
+    typeof value.lastName === "string" ? value.lastName.trim() : "";
+  const email = typeof value.email === "string" ? value.email.trim().toLowerCase() : "";
+  const password =
+    typeof value.password === "string" ? value.password.trim() : "";
+  const role = typeof value.role === "string" ? value.role.trim() : "contributor";
+
+  if (!firstName || !lastName || !email || !password) {
+    throw new Error("firstName, lastName, email, and password are required");
+  }
+
+  const user = await prisma.clientPortalUser.upsert({
+    where: { email },
+    update: {
+      firstName,
+      lastName,
+      password
+    },
+    create: {
+      firstName,
+      lastName,
+      email,
+      password
+    }
+  });
+
+  await prisma.clientProjectAccess.upsert({
+    where: {
+      userId_projectId: {
+        userId: user.id,
+        projectId
+      }
+    },
+    update: {
+      role
+    },
+    create: {
+      userId: user.id,
+      projectId,
+      role
+    }
+  });
+
+  return serializeClientPortalUser(user);
+}
+
+async function loadClientUsersForProject(projectId: string) {
+  const accessRecords = await prisma.clientProjectAccess.findMany({
+    where: { projectId },
+    include: { user: true },
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  return accessRecords.map((record) => ({
+    ...serializeClientPortalUser(record.user),
+    role: record.role
+  }));
+}
+
+async function loadClientProjectsForUser(userId: string) {
+  const accessRecords = await prisma.clientProjectAccess.findMany({
+    where: { userId },
+    include: {
+      project: {
+        include: {
+          client: true
+        }
+      }
+    },
+    orderBy: {
+      project: {
+        updatedAt: "desc"
+      }
+    }
+  });
+
+  return accessRecords.map((record) => ({
+    role: record.role,
+    project: serializeClientProject(record.project)
+  }));
+}
+
+async function loadClientProjectDetail(projectId: string, userId: string) {
+  const access = await prisma.clientProjectAccess.findUnique({
+    where: {
+      userId_projectId: {
+        userId,
+        projectId
+      }
+    },
+    include: {
+      project: {
+        include: {
+          client: true
+        }
+      },
+      user: true
+    }
+  });
+
+  if (!access) {
+    return null;
+  }
+
+  const submissions = await prisma.clientInputSubmission.findMany({
+    where: {
+      projectId,
+      userId
+    },
+    orderBy: [{ sessionNumber: "asc" }]
+  });
+
+  return {
+    user: serializeClientPortalUser(access.user),
+    role: access.role,
+    project: serializeClientProject(access.project),
+    submissions: submissions.map((submission) =>
+      serializeClientInputSubmission(submission)
+    )
+  };
+}
+
+async function saveClientInputSubmission(
+  projectId: string,
+  userId: string,
+  sessionNumber: number,
+  answers: unknown
+) {
+  if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
+    throw new Error("answers must be an object");
+  }
+
+  const normalizedAnswers = Object.fromEntries(
+    Object.entries(answers as Record<string, unknown>).map(([key, value]) => [
+      key,
+      typeof value === "string" ? value.trim() : ""
+    ])
+  );
+  const completedCount = Object.values(normalizedAnswers).filter(
+    (value) => typeof value === "string" && value.trim().length > 0
+  ).length;
+  const status = completedCount > 0 ? "submitted" : "draft";
+
+  const submission = await prisma.clientInputSubmission.upsert({
+    where: {
+      projectId_userId_sessionNumber: {
+        projectId,
+        userId,
+        sessionNumber
+      }
+    },
+    update: {
+      answers: normalizedAnswers,
+      status
+    },
+    create: {
+      projectId,
+      userId,
+      sessionNumber,
+      answers: normalizedAnswers,
+      status
+    }
+  });
+
+  return serializeClientInputSubmission(submission);
+}
+
 async function updateProductCatalogItem(
   productId: string,
   value: {
@@ -2088,14 +2417,135 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 200, { authenticated: false });
       }
 
+      if (url.pathname === "/api/client-auth/session") {
+        const clientUserId = getAuthenticatedClientUserId(request);
+
+        if (!clientUserId) {
+          return sendJson(response, 200, { authenticated: false });
+        }
+
+        const user = await prisma.clientPortalUser.findUnique({
+          where: { id: clientUserId }
+        });
+
+        return sendJson(response, 200, {
+          authenticated: Boolean(user),
+          user: user ? serializeClientPortalUser(user) : null
+        });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/client-auth/login") {
+        const body = (await readJsonBody(request)) as {
+          email?: string;
+          password?: string;
+        };
+        const email = body.email?.trim().toLowerCase() ?? "";
+        const password = body.password ?? "";
+
+        const user = email
+          ? await prisma.clientPortalUser.findUnique({
+              where: { email }
+            })
+          : null;
+
+        if (!user || user.password !== password) {
+          return sendJson(response, 401, { error: "Invalid client credentials" });
+        }
+
+        setCookie(response, createClientAuthToken(user.id), {
+          name: clientAuthCookieName,
+          maxAge: 60 * 60 * 24 * 14
+        });
+
+        return sendJson(response, 200, {
+          authenticated: true,
+          user: serializeClientPortalUser(user)
+        });
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/client-auth/logout"
+      ) {
+        setCookie(response, "", {
+          name: clientAuthCookieName,
+          maxAge: 0
+        });
+        return sendJson(response, 200, { authenticated: false });
+      }
+
       if (
         url.pathname.startsWith("/api/") &&
+        !url.pathname.startsWith("/api/client-auth/") &&
         !url.pathname.startsWith("/api/auth/") &&
+        !url.pathname.startsWith("/api/client/") &&
         url.pathname !== "/api/health"
       ) {
         if (!isAuthenticated(request)) {
           return sendJson(response, 401, { error: "Unauthorized" });
         }
+      }
+
+      if (url.pathname.startsWith("/api/client/")) {
+        const clientUserId = getAuthenticatedClientUserId(request);
+
+        if (!clientUserId) {
+          return sendJson(response, 401, { error: "Client unauthorized" });
+        }
+
+        const clientProjectRoute = matchClientProjectRoute(url.pathname);
+
+        if (clientProjectRoute) {
+          if (request.method === "GET" && !clientProjectRoute.projectId) {
+            return sendJson(response, 200, {
+              projects: await loadClientProjectsForUser(clientUserId)
+            });
+          }
+
+          if (
+            request.method === "GET" &&
+            clientProjectRoute.projectId &&
+            !clientProjectRoute.resource
+          ) {
+            const detail = await loadClientProjectDetail(
+              clientProjectRoute.projectId,
+              clientUserId
+            );
+
+            if (!detail) {
+              return sendJson(response, 404, { error: "Project not found" });
+            }
+
+            return sendJson(response, 200, detail);
+          }
+
+          if (
+            request.method === "PATCH" &&
+            clientProjectRoute.projectId &&
+            clientProjectRoute.resource === "submissions" &&
+            clientProjectRoute.sessionId
+          ) {
+            try {
+              const body = (await readJsonBody(request)) as { answers?: unknown };
+              const submission = await saveClientInputSubmission(
+                clientProjectRoute.projectId,
+                clientUserId,
+                clientProjectRoute.sessionId,
+                body.answers ?? {}
+              );
+
+              return sendJson(response, 200, { submission });
+            } catch (error) {
+              if (error instanceof Error) {
+                return sendJson(response, 400, { error: error.message });
+              }
+
+              throw error;
+            }
+          }
+        }
+
+        return sendJson(response, 404, { error: "Client route not found" });
       }
 
       if (request.method === "GET" && url.pathname === "/api/templates") {
@@ -2391,6 +2841,44 @@ export function createAppServer(config: BaseConfig): http.Server {
         );
 
         return sendJson(response, 200, { sessionDetail });
+      }
+
+      const projectClientUsersRoute = matchProjectClientUsersRoute(url.pathname);
+      if (projectClientUsersRoute) {
+        if (request.method === "GET") {
+          return sendJson(response, 200, {
+            clientUsers: await loadClientUsersForProject(
+              projectClientUsersRoute.projectId
+            )
+          });
+        }
+
+        if (request.method === "POST") {
+          try {
+            const body = (await readJsonBody(request)) as {
+              firstName?: unknown;
+              lastName?: unknown;
+              email?: unknown;
+              password?: unknown;
+              role?: unknown;
+            };
+
+            const clientUser = await createClientPortalUserForProject(
+              projectClientUsersRoute.projectId,
+              body
+            );
+
+            return sendJson(response, 201, { clientUser });
+          } catch (error) {
+            if (error instanceof Error) {
+              return sendJson(response, 400, { error: error.message });
+            }
+
+            throw error;
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
       const projectSessionEvidenceRoute = matchProjectSessionEvidenceRoute(
