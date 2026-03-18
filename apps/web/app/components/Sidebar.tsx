@@ -26,12 +26,14 @@ export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 flex h-screen w-sidebar flex-col border-r border-[rgba(255,255,255,0.07)] bg-[#0a0f24]">
       <div className="border-b border-[rgba(255,255,255,0.07)] px-6 py-5">
-        <p className="text-xs uppercase tracking-[0.35em] text-text-muted">
-          Muloo
-        </p>
-        <h1 className="mt-2 text-2xl font-bold font-heading gradient-text">
+        <img
+          src="/muloo-logo.svg"
+          alt="Muloo"
+          className="h-10 w-auto"
+        />
+        <p className="mt-3 text-sm font-medium text-text-secondary">
           Deploy OS
-        </h1>
+        </p>
       </div>
 
       <nav className="flex-1 px-3 py-6">
