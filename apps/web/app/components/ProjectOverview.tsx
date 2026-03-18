@@ -410,7 +410,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const session3Complete = isSessionComplete(
     sessions.find((session) => session.session === 3)
   );
-  const canGenerateBlueprint = session1Complete && session3Complete;
+  const canGenerateBlueprint = isStandaloneQuote
+    ? Boolean(
+        project?.commercialBrief?.trim().length ||
+          supportingContext.length ||
+          discoverySummary
+      )
+    : session1Complete && session3Complete;
   const totalHumanHours =
     blueprint?.tasks
       .filter((task) => task.type === "Human")
@@ -826,28 +832,28 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   >
                     Open Quote
                   </Link>
-                  {!isStandaloneQuote ? (
-                    <button
-                      type="button"
-                      onClick={handleBlueprintAction}
-                      disabled={
-                        blueprintBusy || (!blueprint && !canGenerateBlueprint)
-                      }
-                      className={`rounded-xl px-4 py-3 text-sm font-medium text-white ${
-                        blueprint
-                          ? "border border-[rgba(255,255,255,0.08)] bg-background-card"
-                          : canGenerateBlueprint && !blueprintBusy
-                            ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]"
-                            : "cursor-not-allowed border border-[rgba(255,255,255,0.08)] bg-background-card text-text-muted"
-                      }`}
-                    >
-                      {blueprintBusy
-                        ? "Generating..."
-                        : blueprint
-                          ? "Open Blueprint"
+                  <button
+                    type="button"
+                    onClick={handleBlueprintAction}
+                    disabled={
+                      blueprintBusy || (!blueprint && !canGenerateBlueprint)
+                    }
+                    className={`rounded-xl px-4 py-3 text-sm font-medium text-white ${
+                      blueprint
+                        ? "border border-[rgba(255,255,255,0.08)] bg-background-card"
+                        : canGenerateBlueprint && !blueprintBusy
+                          ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]"
+                          : "cursor-not-allowed border border-[rgba(255,255,255,0.08)] bg-background-card text-text-muted"
+                    }`}
+                  >
+                    {blueprintBusy
+                      ? "Generating..."
+                      : blueprint
+                        ? "Open Blueprint"
+                        : isStandaloneQuote
+                          ? "Generate Technical Blueprint"
                           : "Generate Blueprint"}
-                    </button>
-                  ) : null}
+                  </button>
                 </div>
                 {blueprintError ? (
                   <p className="max-w-sm text-right text-sm text-[#ff8f9c]">
@@ -872,16 +878,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   "text-white"
                 ],
                 [
-                  "Blueprint",
-                  isStandaloneQuote
-                    ? "Not used yet"
-                    : blueprint
-                      ? "Generated"
-                      : "Not generated",
+                  isStandaloneQuote ? "Technical Blueprint" : "Blueprint",
+                  blueprint ? "Generated" : "Not generated",
                   blueprint ? "text-status-success" : "text-text-secondary"
                 ],
                 [
-                  "Human Hours",
+                  isStandaloneQuote ? "Planned Hours" : "Human Hours",
                   blueprint ? `${totalHumanHours} hrs` : "-",
                   "text-status-warning"
                 ],
@@ -1077,7 +1079,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </div>
                   {[
                     ["Portal", project.portal?.displayName ?? "Pending"],
-                    ["Blueprint Generated", blueprint ? "Yes" : "No"]
+                    [
+                      isStandaloneQuote
+                        ? "Technical Blueprint Generated"
+                        : "Blueprint Generated",
+                      blueprint ? "Yes" : "No"
+                    ]
                   ].map(([label, value]) => (
                     <div
                       key={label}
@@ -1783,9 +1790,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           Next step
                         </p>
                         <p className="mt-2 text-sm text-white">
-                          Use the quote and future supporting-doc workflow to turn
-                          this brief into a clean technical scope and commercial
-                          pack.
+                          Generate a technical blueprint from this scoped brief
+                          and supporting context, then use the quote to shape
+                          commercials and approvals.
                         </p>
                       </div>
                     </div>

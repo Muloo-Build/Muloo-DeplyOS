@@ -15,6 +15,7 @@ interface Project {
   name: string;
   status: string;
   engagementType: string;
+  scopeType?: string | null;
   client: {
     name: string;
   };
@@ -243,6 +244,7 @@ export default function BlueprintWorkspace({
     0
   );
   const totalFeeZar = totalHumanHours * rateTiers[rateTier].hourlyRateZar;
+  const isStandaloneQuote = project?.scopeType === "standalone_quote";
 
   return (
     <AppShell>
@@ -271,12 +273,15 @@ export default function BlueprintWorkspace({
                   Back to overview
                 </Link>
                 <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-                  Blueprint - {project?.name}
+                  {isStandaloneQuote ? "Technical Blueprint" : "Blueprint"} -{" "}
+                  {project?.name}
                 </h1>
                 <p className="mt-2 text-text-secondary">
                   {blueprint
                     ? `Generated ${formatDate(blueprint.generatedAt)}`
-                    : "No blueprint generated yet"}
+                    : isStandaloneQuote
+                      ? "No technical blueprint generated yet"
+                      : "No blueprint generated yet"}
                 </p>
               </div>
 
@@ -291,7 +296,9 @@ export default function BlueprintWorkspace({
                     ? "Generating..."
                     : blueprint
                       ? "Regenerate"
-                      : "Generate Blueprint"}
+                      : isStandaloneQuote
+                        ? "Generate Technical Blueprint"
+                        : "Generate Blueprint"}
                 </button>
               </div>
             </div>
@@ -305,11 +312,14 @@ export default function BlueprintWorkspace({
             {missingBlueprint && !blueprint ? (
               <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-10 text-center">
                 <h2 className="text-2xl font-semibold text-white">
-                  No blueprint yet
+                  {isStandaloneQuote
+                    ? "No technical blueprint yet"
+                    : "No blueprint yet"}
                 </h2>
                 <p className="mt-3 text-text-secondary">
-                  Generate a phased implementation plan from the completed
-                  discovery sessions.
+                  {isStandaloneQuote
+                    ? "Generate a phased technical implementation plan from the scoped brief and supporting context."
+                    : "Generate a phased implementation plan from the completed discovery sessions."}
                 </p>
                 <button
                   type="button"
@@ -317,7 +327,11 @@ export default function BlueprintWorkspace({
                   disabled={generating}
                   className="mt-6 rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
                 >
-                  {generating ? "Generating..." : "Generate Blueprint"}
+                  {generating
+                    ? "Generating..."
+                    : isStandaloneQuote
+                      ? "Generate Technical Blueprint"
+                      : "Generate Blueprint"}
                 </button>
               </div>
             ) : blueprint ? (

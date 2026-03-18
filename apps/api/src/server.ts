@@ -2276,6 +2276,220 @@ Rules:
   });
 }
 
+function buildStandaloneFallbackBlueprint(
+  project: {
+    name: string;
+    commercialBrief: string | null;
+  },
+  evidenceItems: Array<{
+    sourceLabel: string;
+    sourceUrl: string | null;
+    content: string | null;
+  }>
+) {
+  const planSeed = buildStandalonePlanSeed(project, evidenceItems);
+  const phaseMap = new Map<
+    string,
+    {
+      phase: number;
+      phaseName: string;
+      tasks: Array<{
+        name: string;
+        type: (typeof blueprintTaskTypeValues)[number];
+        effortHours: number;
+        order: number;
+      }>;
+    }
+  >();
+
+  for (const task of planSeed) {
+    const existingPhase = phaseMap.get(task.category);
+    const taskType =
+      task.assigneeType === "Agent"
+        ? "Agent"
+        : task.assigneeType === "Client"
+          ? "Client"
+          : "Human";
+    const effortHours =
+      taskType === "Client"
+        ? 2
+        : taskType === "Agent"
+          ? 3
+          : task.priority === "high"
+            ? 6
+            : task.priority === "medium"
+              ? 4
+              : 3;
+
+    if (existingPhase) {
+      existingPhase.tasks.push({
+        name: task.title,
+        type: taskType,
+        effortHours,
+        order: existingPhase.tasks.length + 1
+      });
+      continue;
+    }
+
+    phaseMap.set(task.category, {
+      phase: phaseMap.size + 1,
+      phaseName: task.category.replace(/^\d+\s+/, ""),
+      tasks: [
+        {
+          name: task.title,
+          type: taskType,
+          effortHours,
+          order: 1
+        }
+      ]
+    });
+  }
+
+  return blueprintGenerationSchema.parse({
+    phases: Array.from(phaseMap.values())
+  });
+}
+
+async function generateBlueprintFromScope(projectId: string) {
+  const discoveryPayload = await loadProjectDiscoveryForBlueprint(projectId);
+
+  if (!discoveryPayload) {
+    throw new Error("Project not found");
+  }
+
+  let parsedBlueprint: z.infer<typeof blueprintGenerationSchema>;
+  const guidance = deriveBlueprintGuidance(discoveryPayload);
+  const discoverySummary = await loadDiscoverySummary(projectId);
+
+  try {
+    const rawBlueprint = await callClaude(
+      `You are a HubSpot technical scoping assistant for Muloo, a HubSpot delivery company.
+Given a standalone scoped job brief, supporting documentation, and project context, generate a phased technical implementation blueprint.
+
+Rules:
+- Return ONLY valid JSON. No explanation, no markdown, no preamble.
+- Use exactly this structure: {"phases":[{"phase":1,"phaseName":"Foundation & Alignment","tasks":[{"name":"Task name","type":"Human","effortHours":3,"order":1}]}]}
+- Organise work into 3 to 5 phases.
+- Each phase must contain at least 1 task.
+- Each task must have: name, type (Agent/Human/Client), effortHours (realistic anticipated estimate), order (within phase).
+- Agent = repeatable operational work that can be automated or agent-assisted. Human = consultant/implementer time. Client = approvals, assets, access, or sign-off.
+- Base the blueprint on the scoped brief, supporting context, site/platform constraints, and handoff boundaries.
+- Treat repeatable jobs as templated implementation patterns where appropriate.
+- Do not require discovery-only steps unless explicitly evidenced.
+- Only include tasks that are relevant to the scoped job.
+- Prefer concise, implementation-ready task names.
+- Use Muloo standards modules where relevant: ${guidance.recommendedModules.join(", ")}.
+- If the job is website/CMS heavy, include theme setup, templates, localization, QA, launch, and handover when evidenced.
+- Agent tasks may include inventories, environment preflight, validation, setup checklists, QA passes, and repeatable configuration support.
+- Do not classify stakeholder alignment, architecture decisions, custom implementation judgment, or launch ownership as Agent work.
+`,
+      JSON.stringify(
+        {
+          project: {
+            id: discoveryPayload.project.id,
+            name: discoveryPayload.project.name,
+            engagementType: discoveryPayload.project.engagementType,
+            selectedHubs: discoveryPayload.project.selectedHubs,
+            scopeType: discoveryPayload.project.scopeType,
+            commercialBrief: discoveryPayload.project.commercialBrief
+          },
+          client: discoveryPayload.discovery.client,
+          portal: discoveryPayload.discovery.portal,
+          supportingContext: discoveryPayload.discovery.evidenceItems,
+          scopedSummary: discoverySummary,
+          blueprintGuidance: guidance
+        },
+        null,
+        2
+      ),
+      { maxTokens: 4000 }
+    );
+
+    parsedBlueprint = await parseModelJson(
+      rawBlueprint,
+      blueprintGenerationSchema,
+      "blueprint"
+    );
+  } catch (error) {
+    console.error(
+      "Falling back to heuristic standalone blueprint generation",
+      error
+    );
+    parsedBlueprint = buildStandaloneFallbackBlueprint(
+      {
+        name: discoveryPayload.project.name,
+        commercialBrief: discoveryPayload.project.commercialBrief
+      },
+      discoveryPayload.discovery.evidenceItems
+    );
+  }
+
+  parsedBlueprint = normalizeGeneratedBlueprint(
+    parsedBlueprint,
+    discoveryPayload
+  );
+
+  return prisma.blueprint.upsert({
+    where: { projectId },
+    update: {
+      generatedAt: new Date(),
+      tasks: {
+        deleteMany: {},
+        create: parsedBlueprint.phases.flatMap((phase) =>
+          phase.tasks.map((task) => ({
+            phase: phase.phase,
+            phaseName: phase.phaseName,
+            name: task.name,
+            type: task.type,
+            effortHours: task.effortHours,
+            order: task.order
+          }))
+        )
+      }
+    },
+    create: {
+      projectId,
+      tasks: {
+        create: parsedBlueprint.phases.flatMap((phase) =>
+          phase.tasks.map((task) => ({
+            phase: phase.phase,
+            phaseName: phase.phaseName,
+            name: task.name,
+            type: task.type,
+            effortHours: task.effortHours,
+            order: task.order
+          }))
+        )
+      }
+    },
+    include: {
+      tasks: {
+        orderBy: [{ phase: "asc" }, { order: "asc" }]
+      }
+    }
+  });
+}
+
+async function generateBlueprintForProject(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      scopeType: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (project.scopeType === "standalone_quote") {
+    return generateBlueprintFromScope(projectId);
+  }
+
+  return generateBlueprintFromDiscovery(projectId);
+}
+
 async function loadBlueprint(projectId: string) {
   return prisma.blueprint.findUnique({
     where: { projectId },
@@ -3830,7 +4044,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           projectBlueprintRoute.action === "generate"
         ) {
           try {
-            const blueprint = await generateBlueprintFromDiscovery(
+            const blueprint = await generateBlueprintForProject(
               projectBlueprintRoute.projectId
             );
             return sendJson(response, 200, { blueprint });
