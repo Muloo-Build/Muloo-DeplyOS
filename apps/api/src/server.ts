@@ -1085,6 +1085,20 @@ function serializeTask<
   };
 }
 
+function normalizeOptionalTaskString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function normalizeRequiredTaskString(value: unknown, fieldName: string) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`${fieldName} is required`);
+  }
+
+  return value.trim();
+}
+
 async function callClaude(
   system: string,
   user: string,
@@ -3886,6 +3900,69 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (
           request.method === "POST" &&
+          !projectTasksRoute.action &&
+          !projectTasksRoute.taskId
+        ) {
+          const body = (await readJsonBody(request)) as {
+            title?: unknown;
+            description?: unknown;
+            category?: unknown;
+            executionType?: unknown;
+            priority?: unknown;
+            status?: unknown;
+            qaRequired?: unknown;
+            approvalRequired?: unknown;
+            assigneeType?: unknown;
+          };
+
+          const validStatuses = [
+            "todo",
+            "waiting_on_client",
+            "in_progress",
+            "blocked",
+            "done"
+          ];
+          const validAssigneeTypes = ["Human", "Agent", "Client"];
+          const validPriorities = ["low", "medium", "high"];
+
+          const status =
+            typeof body.status === "string" && validStatuses.includes(body.status)
+              ? body.status
+              : "todo";
+          const assigneeType =
+            typeof body.assigneeType === "string" &&
+            validAssigneeTypes.includes(body.assigneeType)
+              ? body.assigneeType
+              : "Human";
+          const priority =
+            typeof body.priority === "string" &&
+            validPriorities.includes(body.priority.toLowerCase())
+              ? body.priority.toLowerCase()
+              : "medium";
+
+          const task = await prisma.task.create({
+            data: {
+              projectId: projectTasksRoute.projectId,
+              title: normalizeRequiredTaskString(body.title, "title"),
+              description: normalizeOptionalTaskString(body.description),
+              category: normalizeOptionalTaskString(body.category),
+              executionType:
+                normalizeOptionalTaskString(body.executionType) ?? "manual",
+              priority,
+              status,
+              qaRequired: Boolean(body.qaRequired),
+              approvalRequired: Boolean(body.approvalRequired),
+              assigneeType
+            }
+          });
+
+          return sendJson(response, 201, {
+            task: serializeTask(task)
+          });
+        }
+
+        if (
+          request.method === "POST" &&
           projectTasksRoute.action === "generate-plan"
         ) {
           const tasks = await generateStandaloneProjectPlan(
@@ -3900,9 +3977,15 @@ export function createAppServer(config: BaseConfig): http.Server {
         if (request.method === "PATCH" && projectTasksRoute.taskId) {
           const body = (await readJsonBody(request)) as {
             status?: unknown;
+            title?: unknown;
+            description?: unknown;
+            category?: unknown;
+            executionType?: unknown;
+            priority?: unknown;
+            qaRequired?: unknown;
+            approvalRequired?: unknown;
+            assigneeType?: unknown;
           };
-          const nextStatus =
-            typeof body.status === "string" ? body.status.trim() : "";
           const validStatuses = [
             "todo",
             "waiting_on_client",
@@ -3910,10 +3993,8 @@ export function createAppServer(config: BaseConfig): http.Server {
             "blocked",
             "done"
           ];
-
-          if (!validStatuses.includes(nextStatus)) {
-            return sendJson(response, 400, { error: "Invalid task status" });
-          }
+          const validAssigneeTypes = ["Human", "Agent", "Client"];
+          const validPriorities = ["low", "medium", "high"];
 
           const existingTask = await prisma.task.findFirst({
             where: {
@@ -3926,14 +4007,98 @@ export function createAppServer(config: BaseConfig): http.Server {
             return sendJson(response, 404, { error: "Task not found" });
           }
 
+          const data: Record<string, unknown> = {};
+
+          if (body.status !== undefined) {
+            const nextStatus =
+              typeof body.status === "string" ? body.status.trim() : "";
+
+            if (!validStatuses.includes(nextStatus)) {
+              return sendJson(response, 400, { error: "Invalid task status" });
+            }
+
+            data.status = nextStatus;
+          }
+
+          if (body.title !== undefined) {
+            data.title = normalizeRequiredTaskString(body.title, "title");
+          }
+
+          if (body.description !== undefined) {
+            data.description = normalizeOptionalTaskString(body.description);
+          }
+
+          if (body.category !== undefined) {
+            data.category = normalizeOptionalTaskString(body.category);
+          }
+
+          if (body.executionType !== undefined) {
+            data.executionType =
+              normalizeOptionalTaskString(body.executionType) ?? "manual";
+          }
+
+          if (body.priority !== undefined) {
+            if (
+              typeof body.priority !== "string" ||
+              !validPriorities.includes(body.priority.toLowerCase())
+            ) {
+              return sendJson(response, 400, { error: "Invalid task priority" });
+            }
+
+            data.priority = body.priority.toLowerCase();
+          }
+
+          if (body.assigneeType !== undefined) {
+            if (
+              typeof body.assigneeType !== "string" ||
+              !validAssigneeTypes.includes(body.assigneeType)
+            ) {
+              return sendJson(response, 400, {
+                error: "Invalid assignee type"
+              });
+            }
+
+            data.assigneeType = body.assigneeType;
+          }
+
+          if (body.qaRequired !== undefined) {
+            data.qaRequired = Boolean(body.qaRequired);
+          }
+
+          if (body.approvalRequired !== undefined) {
+            data.approvalRequired = Boolean(body.approvalRequired);
+          }
+
           const task = await prisma.task.update({
             where: { id: projectTasksRoute.taskId },
-            data: { status: nextStatus }
+            data
           });
 
           return sendJson(response, 200, {
             task: serializeTask(task)
           });
+        }
+
+        if (request.method === "DELETE" && projectTasksRoute.taskId) {
+          const existingTask = await prisma.task.findFirst({
+            where: {
+              id: projectTasksRoute.taskId,
+              projectId: projectTasksRoute.projectId
+            }
+          });
+
+          if (!existingTask) {
+            return sendJson(response, 404, { error: "Task not found" });
+          }
+
+          await prisma.executionJob.deleteMany({
+            where: { taskId: projectTasksRoute.taskId }
+          });
+          await prisma.task.delete({
+            where: { id: projectTasksRoute.taskId }
+          });
+
+          return sendJson(response, 200, { success: true });
         }
 
         return sendJson(response, 405, { error: "Method Not Allowed" });

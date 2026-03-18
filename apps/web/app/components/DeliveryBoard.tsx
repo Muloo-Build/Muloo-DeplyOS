@@ -71,6 +71,20 @@ export default function DeliveryBoard({
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [savingTask, setSavingTask] = useState(false);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [taskDraft, setTaskDraft] = useState({
+    title: "",
+    description: "",
+    category: "",
+    executionType: "manual",
+    priority: "medium",
+    status: "todo",
+    qaRequired: false,
+    approvalRequired: false,
+    assigneeType: "Human"
+  });
   const [error, setError] = useState<string | null>(null);
 
   const baseUrl =
@@ -108,6 +122,20 @@ export default function DeliveryBoard({
   useEffect(() => {
     void loadTasks();
   }, [projectId, mode]);
+
+  function resetTaskDraft() {
+    setTaskDraft({
+      title: "",
+      description: "",
+      category: "",
+      executionType: "manual",
+      priority: "medium",
+      status: "todo",
+      qaRequired: false,
+      approvalRequired: false,
+      assigneeType: "Human"
+    });
+  }
 
   async function generatePlan() {
     setGenerating(true);
@@ -175,6 +203,110 @@ export default function DeliveryBoard({
     }
   }
 
+  function startEditingTask(task: ProjectTask) {
+    setEditingTaskId(task.id);
+    setTaskDraft({
+      title: task.title,
+      description: task.description ?? "",
+      category: task.category ?? "",
+      executionType: task.executionType,
+      priority: task.priority,
+      status: task.status,
+      qaRequired: task.qaRequired,
+      approvalRequired: task.approvalRequired,
+      assigneeType: task.assigneeType ?? "Human"
+    });
+  }
+
+  function cancelEditingTask() {
+    setEditingTaskId(null);
+    resetTaskDraft();
+  }
+
+  async function saveTask(taskId?: string) {
+    setSavingTask(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        taskId
+          ? `/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`
+          : `/api/projects/${encodeURIComponent(projectId)}/tasks`,
+        {
+          method: taskId ? "PATCH" : "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(taskDraft)
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to save task");
+      }
+
+      if (taskId) {
+        setTasks((currentTasks) =>
+          currentTasks.map((task) => (task.id === taskId ? body.task : task))
+        );
+      } else {
+        setTasks((currentTasks) => [...currentTasks, body.task]);
+      }
+
+      cancelEditingTask();
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error ? saveError.message : "Failed to save task"
+      );
+    } finally {
+      setSavingTask(false);
+    }
+  }
+
+  async function deleteTask(taskId: string) {
+    const confirmed = window.confirm("Delete this task from the delivery board?");
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingTaskId(taskId);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`,
+        {
+          method: "DELETE"
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to delete task");
+      }
+
+      setTasks((currentTasks) =>
+        currentTasks.filter((task) => task.id !== taskId)
+      );
+
+      if (editingTaskId === taskId) {
+        cancelEditingTask();
+      }
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Failed to delete task"
+      );
+    } finally {
+      setDeletingTaskId(null);
+    }
+  }
+
   const totalCount = useMemo(() => tasks.length, [tasks]);
 
   return (
@@ -193,23 +325,184 @@ export default function DeliveryBoard({
             {totalCount > 0 ? `${totalCount} planned items` : "No plan yet"}
           </div>
           {mode === "internal" ? (
-            <button
-              type="button"
-              onClick={() => void generatePlan()}
-              disabled={generating}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-            >
-              {generating
-                ? "Generating Plan..."
-                : totalCount > 0
-                  ? "Refresh Project Plan"
-                  : "Generate Project Plan"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingTaskId("new");
+                  resetTaskDraft();
+                }}
+                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white"
+              >
+                Add Task
+              </button>
+              <button
+                type="button"
+                onClick={() => void generatePlan()}
+                disabled={generating}
+                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+              >
+                {generating
+                  ? "Generating Plan..."
+                  : totalCount > 0
+                    ? "Refresh Project Plan"
+                    : "Generate Project Plan"}
+              </button>
+            </>
           ) : null}
         </div>
       </div>
 
       {error ? <p className="mt-4 text-sm text-[#ff8f9c]">{error}</p> : null}
+
+      {mode === "internal" && editingTaskId === "new" ? (
+        <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+          <p className="text-sm font-semibold text-white">Add task</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="block">
+              <span className="text-sm text-white">Title</span>
+              <input
+                value={taskDraft.title}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({ ...current, title: event.target.value }))
+                }
+                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm text-white">Category</span>
+              <input
+                value={taskDraft.category}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({ ...current, category: event.target.value }))
+                }
+                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              />
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm text-white">Description</span>
+              <textarea
+                value={taskDraft.description}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({
+                    ...current,
+                    description: event.target.value
+                  }))
+                }
+                className="mt-2 min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm text-white">Assignee</span>
+              <select
+                value={taskDraft.assigneeType}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({
+                    ...current,
+                    assigneeType: event.target.value
+                  }))
+                }
+                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              >
+                <option value="Human">Human</option>
+                <option value="Agent">Agent</option>
+                <option value="Client">Client</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-sm text-white">Status</span>
+              <select
+                value={taskDraft.status}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({ ...current, status: event.target.value }))
+                }
+                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              >
+                {boardColumns.map((statusOption) => (
+                  <option key={statusOption.key} value={statusOption.key}>
+                    {statusOption.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-sm text-white">Execution Type</span>
+              <input
+                value={taskDraft.executionType}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({
+                    ...current,
+                    executionType: event.target.value
+                  }))
+                }
+                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm text-white">Priority</span>
+              <select
+                value={taskDraft.priority}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({
+                    ...current,
+                    priority: event.target.value
+                  }))
+                }
+                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm text-white">
+              <input
+                type="checkbox"
+                checked={taskDraft.qaRequired}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({
+                    ...current,
+                    qaRequired: event.target.checked
+                  }))
+                }
+              />
+              QA required
+            </label>
+            <label className="flex items-center gap-2 text-sm text-white">
+              <input
+                type="checkbox"
+                checked={taskDraft.approvalRequired}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({
+                    ...current,
+                    approvalRequired: event.target.checked
+                  }))
+                }
+              />
+              Approval required
+            </label>
+          </div>
+          <div className="mt-5 flex gap-3">
+            <button
+              type="button"
+              onClick={() => void saveTask()}
+              disabled={savingTask}
+              className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#081120] disabled:opacity-60"
+            >
+              {savingTask ? "Saving..." : "Save Task"}
+            </button>
+            <button
+              type="button"
+              onClick={cancelEditingTask}
+              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="mt-6 grid gap-4 xl:grid-cols-5">
@@ -277,25 +570,184 @@ export default function DeliveryBoard({
                           ) : null}
                         </div>
                         {mode === "internal" ? (
-                          <label className="mt-4 block">
-                            <span className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                              Move task
-                            </span>
-                            <select
-                              value={task.status}
-                              onChange={(event) =>
-                                void updateTaskStatus(task.id, event.target.value)
-                              }
-                              disabled={updatingTaskId === task.id}
-                              className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed"
-                            >
-                              {boardColumns.map((statusOption) => (
-                                <option key={statusOption.key} value={statusOption.key}>
-                                  {statusOption.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
+                          <>
+                            {editingTaskId === task.id ? (
+                              <div className="mt-4 space-y-3">
+                                <input
+                                  value={taskDraft.title}
+                                  onChange={(event) =>
+                                    setTaskDraft((current) => ({
+                                      ...current,
+                                      title: event.target.value
+                                    }))
+                                  }
+                                  className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                />
+                                <textarea
+                                  value={taskDraft.description}
+                                  onChange={(event) =>
+                                    setTaskDraft((current) => ({
+                                      ...current,
+                                      description: event.target.value
+                                    }))
+                                  }
+                                  className="min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                />
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <input
+                                    value={taskDraft.category}
+                                    onChange={(event) =>
+                                      setTaskDraft((current) => ({
+                                        ...current,
+                                        category: event.target.value
+                                      }))
+                                    }
+                                    placeholder="Category"
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                  />
+                                  <input
+                                    value={taskDraft.executionType}
+                                    onChange={(event) =>
+                                      setTaskDraft((current) => ({
+                                        ...current,
+                                        executionType: event.target.value
+                                      }))
+                                    }
+                                    placeholder="Execution type"
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                  />
+                                  <select
+                                    value={taskDraft.assigneeType}
+                                    onChange={(event) =>
+                                      setTaskDraft((current) => ({
+                                        ...current,
+                                        assigneeType: event.target.value
+                                      }))
+                                    }
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                  >
+                                    <option value="Human">Human</option>
+                                    <option value="Agent">Agent</option>
+                                    <option value="Client">Client</option>
+                                  </select>
+                                  <select
+                                    value={taskDraft.priority}
+                                    onChange={(event) =>
+                                      setTaskDraft((current) => ({
+                                        ...current,
+                                        priority: event.target.value
+                                      }))
+                                    }
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                  >
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                  </select>
+                                  <select
+                                    value={taskDraft.status}
+                                    onChange={(event) =>
+                                      setTaskDraft((current) => ({
+                                        ...current,
+                                        status: event.target.value
+                                      }))
+                                    }
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                  >
+                                    {boardColumns.map((statusOption) => (
+                                      <option key={statusOption.key} value={statusOption.key}>
+                                        {statusOption.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="flex flex-wrap gap-4">
+                                  <label className="flex items-center gap-2 text-sm text-white">
+                                    <input
+                                      type="checkbox"
+                                      checked={taskDraft.qaRequired}
+                                      onChange={(event) =>
+                                        setTaskDraft((current) => ({
+                                          ...current,
+                                          qaRequired: event.target.checked
+                                        }))
+                                      }
+                                    />
+                                    QA required
+                                  </label>
+                                  <label className="flex items-center gap-2 text-sm text-white">
+                                    <input
+                                      type="checkbox"
+                                      checked={taskDraft.approvalRequired}
+                                      onChange={(event) =>
+                                        setTaskDraft((current) => ({
+                                          ...current,
+                                          approvalRequired: event.target.checked
+                                        }))
+                                      }
+                                    />
+                                    Approval required
+                                  </label>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => void saveTask(task.id)}
+                                    disabled={savingTask}
+                                    className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-[#081120] disabled:opacity-60"
+                                  >
+                                    {savingTask ? "Saving..." : "Save"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditingTask}
+                                    className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm font-medium text-white"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditingTask(task)}
+                                    className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void deleteTask(task.id)}
+                                    disabled={deletingTaskId === task.id}
+                                    className="rounded-xl border border-[rgba(224,80,96,0.35)] px-3 py-2 text-xs font-medium text-[#ff8f9c] disabled:opacity-60"
+                                  >
+                                    {deletingTaskId === task.id ? "Deleting..." : "Delete"}
+                                  </button>
+                                </div>
+                                <label className="mt-4 block">
+                                  <span className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                    Move task
+                                  </span>
+                                  <select
+                                    value={task.status}
+                                    onChange={(event) =>
+                                      void updateTaskStatus(task.id, event.target.value)
+                                    }
+                                    disabled={updatingTaskId === task.id}
+                                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed"
+                                  >
+                                    {boardColumns.map((statusOption) => (
+                                      <option key={statusOption.key} value={statusOption.key}>
+                                        {statusOption.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              </>
+                            )}
+                          </>
                         ) : (
                           <div className="mt-4 rounded-lg bg-[#0b1126] px-3 py-2 text-xs text-text-secondary">
                             Current status: {column.label}
