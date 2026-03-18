@@ -92,6 +92,44 @@ function splitIntoList(value: string | undefined) {
     .filter(Boolean);
 }
 
+function formatDiscoveryOutcome(
+  label: "engagementTrack" | "platformFit" | "changeManagementRating" | "dataReadinessRating",
+  value: string | undefined
+) {
+  if (!value) {
+    return "Not yet assessed";
+  }
+
+  if (label === "engagementTrack") {
+    const engagementTrackLabels: Record<string, string> = {
+      "new-crm-greenfield": "New CRM / greenfield implementation",
+      "hubspot-onboarding-new-build": "HubSpot onboarding / new build",
+      "hubspot-optimisation-revamp": "HubSpot optimisation / revamp",
+      "migration-to-hubspot": "Migration to HubSpot"
+    };
+
+    return engagementTrackLabels[value] ?? value;
+  }
+
+  if (label === "platformFit") {
+    const platformFitLabels: Record<string, string> = {
+      "fit-confirmed": "HubSpot is the recommended fit",
+      "fit-possible-with-caveats": "HubSpot could fit with caveats",
+      "fit-not-recommended": "HubSpot is not the recommended fit"
+    };
+
+    return platformFitLabels[value] ?? value;
+  }
+
+  const simpleLabels: Record<string, string> = {
+    low: "Low",
+    medium: "Medium",
+    high: "High"
+  };
+
+  return simpleLabels[value] ?? value;
+}
+
 function SectionEyebrow({ children }: { children: string }) {
   return (
     <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#49cde1]">
@@ -289,10 +327,12 @@ export default function DiscoveryOutputDocument({
 
             <section className="document-card overflow-hidden rounded-[32px] border border-[rgba(255,255,255,0.07)] bg-background-card">
               <div className="bg-[#0c1329] p-10">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-full bg-[rgba(73,205,225,0.12)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-[#49cde1]">
-                      Muloo
-                    </div>
+                  <div className="flex items-center gap-4">
+                    <img
+                      src="/muloo-logo.svg"
+                      alt="Muloo"
+                      className="h-8 w-auto"
+                    />
                     <p className="text-xs uppercase tracking-[0.35em] text-text-muted">
                       Discovery Document
                     </p>
@@ -419,7 +459,16 @@ export default function DiscoveryOutputDocument({
                           {label}
                         </p>
                         <p className="mt-2 text-sm font-medium text-white">
-                          {value}
+                          {formatDiscoveryOutcome(
+                            label === "Engagement track"
+                              ? "engagementTrack"
+                              : label === "Platform fit"
+                                ? "platformFit"
+                                : label === "Change management"
+                                  ? "changeManagementRating"
+                                  : "dataReadinessRating",
+                            value
+                          )}
                         </p>
                       </div>
                     ))}
@@ -596,15 +645,9 @@ export default function DiscoveryOutputDocument({
 
               <div className="mt-6 space-y-5">
                 {groupedPhases.map((phase) => {
-                  const humanHours = phase.tasks
-                    .filter((task) => task.type === "Human")
-                    .reduce((total, task) => total + task.effortHours, 0);
-                  const agentTasks = phase.tasks.filter(
-                    (task) => task.type === "Agent"
-                  ).length;
-                  const clientTasks = phase.tasks.filter(
-                    (task) => task.type === "Client"
-                  ).length;
+                  const clientDependencies = phase.tasks
+                    .filter((task) => task.type === "Client")
+                    .map((task) => task.name);
 
                   return (
                   <div
@@ -631,27 +674,27 @@ export default function DiscoveryOutputDocument({
                         <div className="grid gap-3 text-sm">
                           <div>
                             <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                              Human effort
+                              Phase purpose
                             </p>
-                            <p className="mt-2 text-xl font-semibold text-white">
-                              {humanHours} hrs
+                            <p className="mt-2 text-sm text-white">
+                              {phase.tasks[0]?.name ?? "Implementation phase"}
                             </p>
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                              Agent support tasks
+                              Client inputs needed
                             </p>
-                            <p className="mt-2 text-sm text-white">
-                              {agentTasks}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                              Client dependencies
-                            </p>
-                            <p className="mt-2 text-sm text-white">
-                              {clientTasks}
-                            </p>
+                            {clientDependencies.length > 0 ? (
+                              <ul className="mt-2 space-y-2 text-sm text-white">
+                                {clientDependencies.map((dependency) => (
+                                  <li key={dependency}>{dependency}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="mt-2 text-sm text-white">
+                                No major client dependencies flagged for this phase.
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>

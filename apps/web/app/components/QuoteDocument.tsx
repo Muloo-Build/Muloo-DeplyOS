@@ -63,6 +63,20 @@ interface PhaseCommercialDraft {
   rate: string;
 }
 
+interface ProductCatalogItem {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  billingModel: string;
+  description?: string | null;
+  unitPrice: number;
+  defaultQuantity: number;
+  unitLabel: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
 const exchangeRatesToZar: Record<CurrencyCode, number> = {
   ZAR: 1,
   GBP: 23,
@@ -132,6 +146,58 @@ function parseNumber(value: string, fallbackValue: number) {
     : fallbackValue;
 }
 
+function formatDiscoveryOutcome(
+  label: "engagementTrack" | "platformFit" | "changeManagementRating" | "dataReadinessRating",
+  value: string | undefined
+) {
+  if (!value) {
+    return "Not yet assessed";
+  }
+
+  if (label === "engagementTrack") {
+    const engagementTrackLabels: Record<string, string> = {
+      "new-crm-greenfield": "New CRM / greenfield implementation",
+      "hubspot-onboarding-new-build": "HubSpot onboarding / new build",
+      "hubspot-optimisation-revamp": "HubSpot optimisation / revamp",
+      "migration-to-hubspot": "Migration to HubSpot"
+    };
+
+    return engagementTrackLabels[value] ?? value;
+  }
+
+  if (label === "platformFit") {
+    const platformFitLabels: Record<string, string> = {
+      "fit-confirmed": "HubSpot is the recommended fit",
+      "fit-possible-with-caveats": "HubSpot could fit with caveats",
+      "fit-not-recommended": "HubSpot is not the recommended fit"
+    };
+
+    return platformFitLabels[value] ?? value;
+  }
+
+  return { low: "Low", medium: "Medium", high: "High" }[value] ?? value;
+}
+
+function formatProductCategory(value: string) {
+  return (
+    {
+      one_time: "One-time",
+      retainer: "Retainer",
+      add_on: "Add-on"
+    }[value] ?? value
+  );
+}
+
+function formatBillingModel(value: string) {
+  return (
+    {
+      fixed: "Fixed fee",
+      monthly: "Monthly recurring",
+      hourly: "Hourly"
+    }[value] ?? value
+  );
+}
+
 function SectionEyebrow({ children }: { children: string }) {
   return (
     <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#49cde1]">
@@ -158,6 +224,10 @@ export default function QuoteDocument({
   const [phaseDrafts, setPhaseDrafts] = useState<
     Record<number, PhaseCommercialDraft>
   >({});
+  const [products, setProducts] = useState<ProductCatalogItem[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<
+    Record<string, { included: boolean; quantity: string; unitPrice: string }>
+  >({});
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,21 +242,24 @@ export default function QuoteDocument({
           projectResponse,
           sessionsResponse,
           summaryResponse,
-          blueprintResponse
+          blueprintResponse,
+          productsResponse
         ] = await Promise.all([
           fetch(`/api/projects/${encodeURIComponent(projectId)}`),
           fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
           fetch(
             `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
           ),
-          fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`)
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
+          fetch("/api/products")
         ]);
 
         if (
           !projectResponse.ok ||
           !sessionsResponse.ok ||
           !summaryResponse.ok ||
-          !blueprintResponse.ok
+          !blueprintResponse.ok ||
+          !productsResponse.ok
         ) {
           throw new Error(
             "Generate the discovery summary and blueprint before opening the quote."
@@ -197,11 +270,13 @@ export default function QuoteDocument({
         const sessionsBody = await sessionsResponse.json();
         const summaryBody = await summaryResponse.json();
         const blueprintBody = await blueprintResponse.json();
+        const productsBody = await productsResponse.json();
 
         setProject(projectBody.project);
         setSessions(sessionsBody.sessionDetails ?? []);
         setSummary(summaryBody.summary ?? null);
         setBlueprint(blueprintBody.blueprint ?? null);
+        setProducts(productsBody.products ?? []);
       } catch (loadError) {
         setError(
           loadError instanceof Error
@@ -215,6 +290,28 @@ export default function QuoteDocument({
 
     void loadDocument();
   }, [projectId]);
+
+  useEffect(() => {
+    if (products.length === 0) {
+      return;
+    }
+
+    setSelectedProducts((currentProducts) => {
+      const nextProducts = { ...currentProducts };
+
+      for (const product of products.filter((item) => item.isActive)) {
+        if (!nextProducts[product.id]) {
+          nextProducts[product.id] = {
+            included: false,
+            quantity: String(product.defaultQuantity),
+            unitPrice: String(product.unitPrice)
+          };
+        }
+      }
+
+      return nextProducts;
+    });
+  }, [products]);
 
   const groupedPhases = useMemo(() => {
     return (blueprint?.tasks ?? []).reduce<
@@ -296,7 +393,32 @@ export default function QuoteDocument({
     (total, phase) => total + phase.feeZar,
     0
   );
-  const paymentAmountZar = totalFeeZar / 4;
+  const selectedProductLines = products
+    .filter((product) => selectedProducts[product.id]?.included)
+    .map((product) => {
+      const selection = selectedProducts[product.id];
+      const quantity = parseNumber(
+        selection?.quantity ?? String(product.defaultQuantity),
+        product.defaultQuantity
+      );
+      const unitPrice = parseNumber(
+        selection?.unitPrice ?? String(product.unitPrice),
+        product.unitPrice
+      );
+
+      return {
+        ...product,
+        quantity,
+        unitPrice,
+        lineTotalZar: quantity * unitPrice
+      };
+    });
+  const additionalProductsTotalZar = selectedProductLines.reduce(
+    (total, product) => total + product.lineTotalZar,
+    0
+  );
+  const grandTotalZar = totalFeeZar + additionalProductsTotalZar;
+  const paymentAmountZar = grandTotalZar / 4;
   const paymentSchedule = [
     "Upon scope approval",
     "At start of Phase 2",
@@ -392,10 +514,12 @@ export default function QuoteDocument({
             <section className="document-card overflow-hidden rounded-[32px] border border-[rgba(255,255,255,0.07)] bg-background-card">
               <div className="grid gap-0 lg:grid-cols-[0.72fr_0.28fr]">
                 <div className="bg-[#0c1329] p-10">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-full bg-[rgba(73,205,225,0.12)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-[#49cde1]">
-                      Muloo
-                    </div>
+                  <div className="flex items-center gap-4">
+                    <img
+                      src="/muloo-logo.svg"
+                      alt="Muloo"
+                      className="h-8 w-auto"
+                    />
                     <p className="text-xs uppercase tracking-[0.35em] text-text-muted">
                       Quote & Approval
                     </p>
@@ -495,7 +619,7 @@ export default function QuoteDocument({
                         Estimated Investment
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-white">
-                        {formatCurrency(totalFeeZar, currency)}
+                        {formatCurrency(grandTotalZar, currency)}
                       </p>
                     </div>
                   </div>
@@ -585,7 +709,16 @@ export default function QuoteDocument({
                           {label}
                         </p>
                         <p className="mt-2 text-sm font-medium text-white">
-                          {value}
+                          {formatDiscoveryOutcome(
+                            label === "Engagement track"
+                              ? "engagementTrack"
+                              : label === "Platform fit"
+                                ? "platformFit"
+                                : label === "Change management"
+                                  ? "changeManagementRating"
+                                  : "dataReadinessRating",
+                            value
+                          )}
                         </p>
                       </div>
                     ))}
@@ -847,6 +980,118 @@ export default function QuoteDocument({
               </div>
             </section>
 
+            <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <SectionEyebrow>Additional Products</SectionEyebrow>
+              <SectionTitle>Retainers and add-on services</SectionTitle>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-text-secondary">
+                Optional products can be added to the commercial quote without
+                changing the discovery document, which keeps the implementation
+                recommendation separate from the buying decision.
+              </p>
+
+              <div className="mt-6 space-y-4">
+                {products
+                  .filter((product) => product.isActive)
+                  .map((product) => {
+                    const selection = selectedProducts[product.id] ?? {
+                      included: false,
+                      quantity: String(product.defaultQuantity),
+                      unitPrice: String(product.unitPrice)
+                    };
+
+                    return (
+                      <div
+                        key={product.id}
+                        className="grid gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 lg:grid-cols-[1fr_140px_140px_180px]"
+                      >
+                        <div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <p className="text-lg font-semibold text-white">
+                              {product.name}
+                            </p>
+                            <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                              {formatProductCategory(product.category)}
+                            </span>
+                            <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                              {formatBillingModel(product.billingModel)}
+                            </span>
+                          </div>
+                          {product.description ? (
+                            <p className="mt-3 text-sm leading-7 text-text-secondary">
+                              {product.description}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <label className="block">
+                          <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Quantity
+                          </span>
+                          <input
+                            value={selection.quantity}
+                            onChange={(event) =>
+                              setSelectedProducts((currentProducts) => ({
+                                ...currentProducts,
+                                [product.id]: {
+                                  ...selection,
+                                  quantity: event.target.value
+                                }
+                              }))
+                            }
+                            className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Unit Price
+                          </span>
+                          <input
+                            value={selection.unitPrice}
+                            onChange={(event) =>
+                              setSelectedProducts((currentProducts) => ({
+                                ...currentProducts,
+                                [product.id]: {
+                                  ...selection,
+                                  unitPrice: event.target.value
+                                }
+                              }))
+                            }
+                            className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                          />
+                        </label>
+
+                        <div className="flex flex-col justify-between rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+                          <label className="flex items-center gap-3 text-sm text-white">
+                            <input
+                              type="checkbox"
+                              checked={selection.included}
+                              onChange={(event) =>
+                                setSelectedProducts((currentProducts) => ({
+                                  ...currentProducts,
+                                  [product.id]: {
+                                    ...selection,
+                                    included: event.target.checked
+                                  }
+                                }))
+                              }
+                            />
+                            Include in quote
+                          </label>
+                          <p className="mt-4 text-sm text-text-secondary">
+                            {formatCurrency(
+                              parseNumber(selection.quantity, product.defaultQuantity) *
+                                parseNumber(selection.unitPrice, product.unitPrice),
+                              currency
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </section>
+
             <section className="grid gap-6 xl:grid-cols-[0.72fr_0.28fr]">
               <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                 <SectionEyebrow>Commercial Summary</SectionEyebrow>
@@ -875,12 +1120,30 @@ export default function QuoteDocument({
                       </span>
                     </div>
                   ))}
+                  {selectedProductLines.map((product) => (
+                    <div
+                      key={product.id}
+                      className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-5 py-4 text-sm text-white last:border-b-0"
+                    >
+                      <span>{product.name}</span>
+                      <span>
+                        {product.quantity} {product.unitLabel}
+                        {product.quantity > 1 ? "s" : ""}
+                      </span>
+                      <span>
+                        {currencySymbols[currency]} {product.unitPrice}
+                      </span>
+                      <span className="text-right">
+                        {formatCurrency(product.lineTotalZar, currency)}
+                      </span>
+                    </div>
+                  ))}
                   <div className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-t border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-4 text-sm font-semibold text-white">
                     <span>Total</span>
-                    <span>{totalHumanHours} hrs</span>
+                    <span>{totalHumanHours} hrs + extras</span>
                     <span />
                     <span className="text-right">
-                      {formatCurrency(totalFeeZar, currency)}
+                      {formatCurrency(grandTotalZar, currency)}
                     </span>
                   </div>
                 </div>

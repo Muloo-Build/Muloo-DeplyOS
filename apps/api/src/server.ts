@@ -92,6 +92,56 @@ const industryOptions = [
   "Travel & Hospitality",
   "Other"
 ] as const;
+const defaultProductCatalog = [
+  {
+    slug: "hubspot-implementation-phase",
+    name: "Implementation Phase",
+    category: "one_time",
+    billingModel: "fixed",
+    description:
+      "One-off implementation phase delivered from approved discovery scope.",
+    unitPrice: 15000,
+    defaultQuantity: 1,
+    unitLabel: "phase",
+    sortOrder: 10
+  },
+  {
+    slug: "monthly-support-retainer",
+    name: "Monthly Support Retainer",
+    category: "retainer",
+    billingModel: "monthly",
+    description:
+      "Ongoing monthly HubSpot support, optimisation, and advisory cover.",
+    unitPrice: 18000,
+    defaultQuantity: 1,
+    unitLabel: "month",
+    sortOrder: 20
+  },
+  {
+    slug: "additional-implementation-hours",
+    name: "Additional Implementation Hours",
+    category: "add_on",
+    billingModel: "hourly",
+    description:
+      "Additional scoped implementation hours outside the base approved scope.",
+    unitPrice: 1500,
+    defaultQuantity: 10,
+    unitLabel: "hour",
+    sortOrder: 30
+  },
+  {
+    slug: "training-workshop",
+    name: "Training Workshop",
+    category: "add_on",
+    billingModel: "fixed",
+    description:
+      "Dedicated enablement or training workshop for client stakeholders.",
+    unitPrice: 7500,
+    defaultQuantity: 1,
+    unitLabel: "workshop",
+    sortOrder: 40
+  }
+] as const;
 const sessionFieldLabels: Record<number, string[]> = {
   1: [
     "business_overview",
@@ -456,6 +506,16 @@ function matchTemplateRoute(pathname: string): { templateId: string } | null {
   return {
     templateId: decodeURIComponent(match[1])
   };
+}
+
+function matchProductRoute(pathname: string): { productId?: string } | null {
+  const match = /^\/api\/products(?:\/([^/]+))?$/.exec(pathname);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1] ? { productId: decodeURIComponent(match[1]) } : {};
 }
 
 function matchProjectModuleRoute(pathname: string): {
@@ -1588,6 +1648,234 @@ async function loadBlueprint(projectId: string) {
   });
 }
 
+function serializeProductCatalogItem<
+  T extends {
+    id: string;
+    slug: string;
+    name: string;
+    category: string;
+    billingModel: string;
+    description: string | null;
+    unitPrice: number;
+    defaultQuantity: number;
+    unitLabel: string;
+    isActive: boolean;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(product: T) {
+  return {
+    id: product.id,
+    slug: product.slug,
+    name: product.name,
+    category: product.category,
+    billingModel: product.billingModel,
+    description: product.description,
+    unitPrice: product.unitPrice,
+    defaultQuantity: product.defaultQuantity,
+    unitLabel: product.unitLabel,
+    isActive: product.isActive,
+    sortOrder: product.sortOrder,
+    createdAt: product.createdAt.toISOString(),
+    updatedAt: product.updatedAt.toISOString()
+  };
+}
+
+async function ensureProductCatalogSeeded() {
+  const existingCount = await prisma.productCatalogItem.count();
+
+  if (existingCount > 0) {
+    return;
+  }
+
+  await prisma.productCatalogItem.createMany({
+    data: defaultProductCatalog.map((product) => ({
+      ...product
+    }))
+  });
+}
+
+async function loadProductCatalog() {
+  await ensureProductCatalogSeeded();
+
+  const products = await prisma.productCatalogItem.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
+  });
+
+  return products.map((product) => serializeProductCatalogItem(product));
+}
+
+async function createProductCatalogItem(value: {
+  name?: unknown;
+  category?: unknown;
+  billingModel?: unknown;
+  description?: unknown;
+  unitPrice?: unknown;
+  defaultQuantity?: unknown;
+  unitLabel?: unknown;
+  isActive?: unknown;
+  sortOrder?: unknown;
+}) {
+  const name = typeof value.name === "string" ? value.name.trim() : "";
+  const category = typeof value.category === "string" ? value.category.trim() : "";
+  const billingModel =
+    typeof value.billingModel === "string" ? value.billingModel.trim() : "";
+  const description =
+    typeof value.description === "string" ? value.description.trim() : "";
+  const unitLabel =
+    typeof value.unitLabel === "string" ? value.unitLabel.trim() : "";
+  const unitPrice =
+    typeof value.unitPrice === "number"
+      ? value.unitPrice
+      : Number(value.unitPrice);
+  const defaultQuantity =
+    typeof value.defaultQuantity === "number"
+      ? value.defaultQuantity
+      : Number(value.defaultQuantity);
+  const sortOrder =
+    typeof value.sortOrder === "number"
+      ? value.sortOrder
+      : Number(value.sortOrder);
+
+  if (!name || !category || !billingModel || !Number.isFinite(unitPrice)) {
+    throw new Error(
+      "name, category, billingModel, and a valid unitPrice are required"
+    );
+  }
+
+  const product = await prisma.productCatalogItem.create({
+    data: {
+      slug: createSlug(name),
+      name,
+      category,
+      billingModel,
+      description: description || null,
+      unitPrice,
+      defaultQuantity:
+        Number.isFinite(defaultQuantity) && defaultQuantity > 0
+          ? Math.round(defaultQuantity)
+          : 1,
+      unitLabel: unitLabel || "item",
+      isActive: value.isActive === false ? false : true,
+      sortOrder: Number.isFinite(sortOrder) ? Math.round(sortOrder) : 999
+    }
+  });
+
+  return serializeProductCatalogItem(product);
+}
+
+async function updateProductCatalogItem(
+  productId: string,
+  value: {
+    name?: unknown;
+    category?: unknown;
+    billingModel?: unknown;
+    description?: unknown;
+    unitPrice?: unknown;
+    defaultQuantity?: unknown;
+    unitLabel?: unknown;
+    isActive?: unknown;
+    sortOrder?: unknown;
+  }
+) {
+  const updateData: Prisma.Prisma.ProductCatalogItemUpdateInput = {};
+
+  if (value.name !== undefined) {
+    if (typeof value.name !== "string" || value.name.trim().length === 0) {
+      throw new Error("name must be a non-empty string");
+    }
+
+    updateData.name = value.name.trim();
+    updateData.slug = createSlug(value.name.trim());
+  }
+
+  if (value.category !== undefined) {
+    if (typeof value.category !== "string" || value.category.trim().length === 0) {
+      throw new Error("category must be a non-empty string");
+    }
+
+    updateData.category = value.category.trim();
+  }
+
+  if (value.billingModel !== undefined) {
+    if (
+      typeof value.billingModel !== "string" ||
+      value.billingModel.trim().length === 0
+    ) {
+      throw new Error("billingModel must be a non-empty string");
+    }
+
+    updateData.billingModel = value.billingModel.trim();
+  }
+
+  if (value.description !== undefined) {
+    if (typeof value.description !== "string") {
+      throw new Error("description must be a string");
+    }
+
+    updateData.description = value.description.trim() || null;
+  }
+
+  if (value.unitPrice !== undefined) {
+    const unitPrice =
+      typeof value.unitPrice === "number"
+        ? value.unitPrice
+        : Number(value.unitPrice);
+
+    if (!Number.isFinite(unitPrice)) {
+      throw new Error("unitPrice must be a valid number");
+    }
+
+    updateData.unitPrice = unitPrice;
+  }
+
+  if (value.defaultQuantity !== undefined) {
+    const defaultQuantity =
+      typeof value.defaultQuantity === "number"
+        ? value.defaultQuantity
+        : Number(value.defaultQuantity);
+
+    if (!Number.isFinite(defaultQuantity) || defaultQuantity <= 0) {
+      throw new Error("defaultQuantity must be a positive number");
+    }
+
+    updateData.defaultQuantity = Math.round(defaultQuantity);
+  }
+
+  if (value.unitLabel !== undefined) {
+    if (typeof value.unitLabel !== "string" || value.unitLabel.trim().length === 0) {
+      throw new Error("unitLabel must be a non-empty string");
+    }
+
+    updateData.unitLabel = value.unitLabel.trim();
+  }
+
+  if (value.isActive !== undefined) {
+    updateData.isActive = Boolean(value.isActive);
+  }
+
+  if (value.sortOrder !== undefined) {
+    const sortOrder =
+      typeof value.sortOrder === "number"
+        ? value.sortOrder
+        : Number(value.sortOrder);
+
+    if (!Number.isFinite(sortOrder)) {
+      throw new Error("sortOrder must be a valid number");
+    }
+
+    updateData.sortOrder = Math.round(sortOrder);
+  }
+
+  const product = await prisma.productCatalogItem.update({
+    where: { id: productId },
+    data: updateData
+  });
+
+  return serializeProductCatalogItem(product);
+}
+
 function serializeDiscoveryEvidence<
   T extends {
     id: string;
@@ -1858,6 +2146,70 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 200, {
           users: projectOwnerOptions
         });
+      }
+
+      const productRoute = matchProductRoute(url.pathname);
+      if (productRoute) {
+        if (request.method === "GET" && !productRoute.productId) {
+          return sendJson(response, 200, {
+            products: await loadProductCatalog()
+          });
+        }
+
+        if (request.method === "POST" && !productRoute.productId) {
+          try {
+            const body = (await readJsonBody(request)) as {
+              name?: unknown;
+              category?: unknown;
+              billingModel?: unknown;
+              description?: unknown;
+              unitPrice?: unknown;
+              defaultQuantity?: unknown;
+              unitLabel?: unknown;
+              isActive?: unknown;
+              sortOrder?: unknown;
+            };
+
+            const product = await createProductCatalogItem(body);
+            return sendJson(response, 201, { product });
+          } catch (error) {
+            if (error instanceof Error) {
+              return sendJson(response, 400, { error: error.message });
+            }
+
+            throw error;
+          }
+        }
+
+        if (request.method === "PATCH" && productRoute.productId) {
+          try {
+            const body = (await readJsonBody(request)) as {
+              name?: unknown;
+              category?: unknown;
+              billingModel?: unknown;
+              description?: unknown;
+              unitPrice?: unknown;
+              defaultQuantity?: unknown;
+              unitLabel?: unknown;
+              isActive?: unknown;
+              sortOrder?: unknown;
+            };
+
+            const product = await updateProductCatalogItem(
+              productRoute.productId,
+              body
+            );
+            return sendJson(response, 200, { product });
+          } catch (error) {
+            if (error instanceof Error) {
+              return sendJson(response, 400, { error: error.message });
+            }
+
+            throw error;
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
       if (url.pathname === "/api/industries") {
