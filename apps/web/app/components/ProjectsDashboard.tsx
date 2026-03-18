@@ -231,9 +231,12 @@ export default function ProjectsDashboard() {
           >
             <div>
               <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-lg font-semibold text-white">
+                <Link
+                  href={`/projects/${project.id}`}
+                  className="text-lg font-semibold text-white transition-opacity hover:opacity-80"
+                >
                   {project.name}
-                </h2>
+                </Link>
                 <span
                   className={`rounded px-2 py-1 text-xs font-medium ${getStatusColor(
                     project.status

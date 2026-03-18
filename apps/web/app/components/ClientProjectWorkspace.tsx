@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import ClientShell from "./ClientShell";
@@ -16,6 +17,8 @@ interface ClientProjectDetail {
     id: string;
     name: string;
     status: string;
+    scopeType?: string | null;
+    commercialBrief?: string | null;
     engagementType: string;
     selectedHubs: string[];
     updatedAt: string;
@@ -318,6 +321,15 @@ export default function ClientProjectWorkspace({
         </div>
       ) : (
         <div className="space-y-6">
+          <div className="flex flex-wrap justify-end gap-3">
+            <Link
+              href={`/client/projects/${detail.project.id}/delivery`}
+              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+            >
+              Open Delivery Board
+            </Link>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
@@ -329,10 +341,14 @@ export default function ClientProjectWorkspace({
             </div>
             <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                Discovery Sessions Complete
+                {detail.project.scopeType === "standalone_quote"
+                  ? "Scope Mode"
+                  : "Discovery Sessions Complete"}
               </p>
               <p className="mt-3 text-xl font-semibold text-white">
-                {completedCount}/4
+                {detail.project.scopeType === "standalone_quote"
+                  ? "Standalone quote"
+                  : `${completedCount}/4`}
               </p>
             </div>
             <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">

@@ -611,7 +611,7 @@ function matchAgentRoute(pathname: string): { agentId?: string } | null {
 
 function matchClientProjectRoute(pathname: string): {
   projectId?: string;
-  resource?: "submissions";
+  resource?: "submissions" | "tasks";
   sessionId?: number;
 } | null {
   const listMatch = /^\/api\/client\/projects$/.exec(pathname);
@@ -620,7 +620,7 @@ function matchClientProjectRoute(pathname: string): {
     return {};
   }
 
-  const projectMatch = /^\/api\/client\/projects\/([^/]+?)(?:\/submissions\/([1-4]))?$/.exec(
+  const projectMatch = /^\/api\/client\/projects\/([^/]+?)(?:\/(tasks)|\/submissions\/([1-4]))?$/.exec(
     pathname
   );
 
@@ -630,10 +630,14 @@ function matchClientProjectRoute(pathname: string): {
 
   return {
     projectId: decodeURIComponent(projectMatch[1]),
-    ...(projectMatch[2]
+    ...(projectMatch[2] === "tasks"
+      ? {
+          resource: "tasks" as const
+        }
+      : projectMatch[3]
       ? {
           resource: "submissions" as const,
-          sessionId: Number(projectMatch[2])
+          sessionId: Number(projectMatch[3])
         }
       : {})
   };
@@ -3248,6 +3252,32 @@ export function createAppServer(config: BaseConfig): http.Server {
 
               throw error;
             }
+          }
+
+          if (
+            request.method === "GET" &&
+            clientProjectRoute.projectId &&
+            clientProjectRoute.resource === "tasks"
+          ) {
+            const access = await prisma.clientProjectAccess.findFirst({
+              where: {
+                projectId: clientProjectRoute.projectId,
+                userId: clientUserId
+              }
+            });
+
+            if (!access) {
+              return sendJson(response, 404, { error: "Project not found" });
+            }
+
+            const tasks = await prisma.task.findMany({
+              where: { projectId: clientProjectRoute.projectId },
+              orderBy: [{ createdAt: "asc" }]
+            });
+
+            return sendJson(response, 200, {
+              tasks: tasks.map((task) => serializeTask(task))
+            });
           }
         }
 
