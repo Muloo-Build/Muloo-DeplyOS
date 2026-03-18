@@ -132,6 +132,7 @@ type EngagementType = (typeof validEngagementTypes)[number];
 type ProjectHub = (typeof validProjectHubValues)[number];
 type DiscoverySessionFields = Record<string, string>;
 type DiscoverySessionStatus = "draft" | "in_progress" | "complete";
+type DiscoveryEvidenceType = (typeof discoveryEvidenceTypeValues)[number];
 
 const sessionTitles: Record<number, string> = {
   1: "Business & Goals",
@@ -140,6 +141,14 @@ const sessionTitles: Record<number, string> = {
   4: "Scope & Handover"
 };
 const blueprintTaskTypeValues = ["Agent", "Human", "Client"] as const;
+const discoveryEvidenceTypeValues = [
+  "transcript",
+  "summary",
+  "uploaded-doc",
+  "miro-note",
+  "operator-note",
+  "client-input"
+] as const;
 const blueprintGenerationSchema = z.object({
   phases: z
     .array(
@@ -205,6 +214,12 @@ function isValidEngagementType(value: string): value is EngagementType {
 
 function isValidProjectHub(value: string): value is ProjectHub {
   return validProjectHubValues.includes(value as ProjectHub);
+}
+
+function isValidDiscoveryEvidenceType(
+  value: string
+): value is DiscoveryEvidenceType {
+  return discoveryEvidenceTypeValues.includes(value as DiscoveryEvidenceType);
 }
 
 function resolveProjectOwner(ownerName?: string, ownerEmail?: string) {
@@ -528,6 +543,23 @@ function matchProjectSessionRoute(pathname: string): {
   sessionId: number;
 } | null {
   const match = /^\/api\/projects\/([^/]+?)\/sessions\/([1-4])$/.exec(pathname);
+
+  if (!match || !match[1] || !match[2]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1]),
+    sessionId: Number(match[2])
+  };
+}
+
+function matchProjectSessionEvidenceRoute(pathname: string): {
+  projectId: string;
+  sessionId: number;
+} | null {
+  const match =
+    /^\/api\/projects\/([^/]+?)\/sessions\/([1-4])\/evidence$/.exec(pathname);
 
   if (!match || !match[1] || !match[2]) {
     return null;
@@ -1556,6 +1588,88 @@ async function loadBlueprint(projectId: string) {
   });
 }
 
+function serializeDiscoveryEvidence<
+  T extends {
+    id: string;
+    projectId: string;
+    sessionNumber: number;
+    evidenceType: string;
+    sourceLabel: string;
+    sourceUrl: string | null;
+    content: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(evidence: T) {
+  return {
+    id: evidence.id,
+    projectId: evidence.projectId,
+    sessionNumber: evidence.sessionNumber,
+    evidenceType: evidence.evidenceType,
+    sourceLabel: evidence.sourceLabel,
+    sourceUrl: evidence.sourceUrl,
+    content: evidence.content,
+    createdAt: evidence.createdAt.toISOString(),
+    updatedAt: evidence.updatedAt.toISOString()
+  };
+}
+
+async function loadDiscoveryEvidence(
+  projectId: string,
+  sessionNumber?: number
+) {
+  const evidenceItems = await prisma.discoveryEvidence.findMany({
+    where: {
+      projectId,
+      ...(sessionNumber ? { sessionNumber } : {})
+    },
+    orderBy: [{ sessionNumber: "asc" }, { createdAt: "desc" }]
+  });
+
+  return evidenceItems.map((item) => serializeDiscoveryEvidence(item));
+}
+
+async function createDiscoveryEvidence(
+  projectId: string,
+  sessionNumber: number,
+  value: {
+    evidenceType?: unknown;
+    sourceLabel?: unknown;
+    sourceUrl?: unknown;
+    content?: unknown;
+  }
+) {
+  const evidenceType =
+    typeof value.evidenceType === "string" &&
+    isValidDiscoveryEvidenceType(value.evidenceType)
+      ? value.evidenceType
+      : null;
+  const sourceLabel =
+    typeof value.sourceLabel === "string" ? value.sourceLabel.trim() : "";
+  const sourceUrl =
+    typeof value.sourceUrl === "string" ? value.sourceUrl.trim() : "";
+  const content = typeof value.content === "string" ? value.content.trim() : "";
+
+  if (!evidenceType || !sourceLabel || (!content && !sourceUrl)) {
+    throw new Error(
+      "evidenceType, sourceLabel, and either content or sourceUrl are required"
+    );
+  }
+
+  const evidenceItem = await prisma.discoveryEvidence.create({
+    data: {
+      projectId,
+      sessionNumber,
+      evidenceType,
+      sourceLabel,
+      sourceUrl: sourceUrl || null,
+      content: content || null
+    }
+  });
+
+  return serializeDiscoveryEvidence(evidenceItem);
+}
+
 async function saveDiscoverySession(
   projectId: string,
   sessionNumber: number,
@@ -1880,11 +1994,19 @@ export function createAppServer(config: BaseConfig): http.Server {
 
       const discoveryRoute = matchDiscoveryRoute(url.pathname);
       if (request.method === "GET" && discoveryRoute) {
-        const submissions = await prisma.discoverySubmission.findMany({
-          where: { projectId: discoveryRoute.projectId },
-          orderBy: { version: "asc" },
-          select: { version: true, status: true, sections: true }
-        });
+        const [submissions, evidenceItems] = await Promise.all([
+          prisma.discoverySubmission.findMany({
+            where: { projectId: discoveryRoute.projectId },
+            orderBy: { version: "asc" },
+            select: {
+              version: true,
+              status: true,
+              sections: true,
+              completedSections: true
+            }
+          }),
+          loadDiscoveryEvidence(discoveryRoute.projectId)
+        ]);
 
         return sendJson(response, 200, {
           sessions: buildDiscoverySessions(
@@ -1893,7 +2015,8 @@ export function createAppServer(config: BaseConfig): http.Server {
               sections: submission.sections
             }))
           ),
-          sessionDetails: buildDiscoverySessionsWithStatus(submissions)
+          sessionDetails: buildDiscoverySessionsWithStatus(submissions),
+          evidenceItems
         });
       }
 
@@ -1916,6 +2039,63 @@ export function createAppServer(config: BaseConfig): http.Server {
         );
 
         return sendJson(response, 200, { sessionDetail });
+      }
+
+      const projectSessionEvidenceRoute = matchProjectSessionEvidenceRoute(
+        url.pathname
+      );
+      if (projectSessionEvidenceRoute) {
+        if (request.method === "GET") {
+          const project = await prisma.project.findUnique({
+            where: { id: projectSessionEvidenceRoute.projectId },
+            select: { id: true }
+          });
+
+          if (!project) {
+            return sendJson(response, 404, { error: "Project not found" });
+          }
+
+          const evidenceItems = await loadDiscoveryEvidence(
+            projectSessionEvidenceRoute.projectId,
+            projectSessionEvidenceRoute.sessionId
+          );
+          return sendJson(response, 200, { evidenceItems });
+        }
+
+        if (request.method === "POST") {
+          const project = await prisma.project.findUnique({
+            where: { id: projectSessionEvidenceRoute.projectId },
+            select: { id: true }
+          });
+
+          if (!project) {
+            return sendJson(response, 404, { error: "Project not found" });
+          }
+
+          try {
+            const body = (await readJsonBody(request)) as {
+              evidenceType?: unknown;
+              sourceLabel?: unknown;
+              sourceUrl?: unknown;
+              content?: unknown;
+            };
+            const evidenceItem = await createDiscoveryEvidence(
+              projectSessionEvidenceRoute.projectId,
+              projectSessionEvidenceRoute.sessionId,
+              body
+            );
+
+            return sendJson(response, 201, { evidenceItem });
+          } catch (error) {
+            if (error instanceof Error) {
+              return sendJson(response, 400, { error: error.message });
+            }
+
+            throw error;
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
       const projectDiscoverySummaryRoute = matchProjectDiscoverySummaryRoute(

@@ -65,6 +65,7 @@ model Project {
   client         Client                @relation(fields: [clientId], references: [id])
   portal         HubSpotPortal         @relation(fields: [portalId], references: [id])
   discovery      DiscoverySubmission[]
+  discoveryEvidence DiscoveryEvidence[]
   discoverySummary DiscoverySummary?
   blueprint      Blueprint?
   tasks          Task[]
@@ -92,6 +93,21 @@ model DiscoverySubmission {
   project               Project  @relation(fields: [projectId], references: [id])
 
   @@unique([projectId, version])
+}
+
+model DiscoveryEvidence {
+  id           String   @id @default(cuid())
+  projectId     String
+  sessionNumber Int
+  evidenceType  String
+  sourceLabel   String
+  sourceUrl     String?
+  content       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, sessionNumber, createdAt])
 }
 
 model Blueprint {

@@ -34,6 +34,24 @@ interface SessionFieldDefinition {
   }>;
 }
 
+interface EvidenceItem {
+  id: string;
+  projectId: string;
+  sessionNumber: number;
+  evidenceType:
+    | "transcript"
+    | "summary"
+    | "uploaded-doc"
+    | "miro-note"
+    | "operator-note"
+    | "client-input";
+  sourceLabel: string;
+  sourceUrl: string | null;
+  content: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface DiscoverySummary {
   executiveSummary: string;
   engagementTrack: string;
@@ -312,6 +330,65 @@ function createSessionTextState() {
   return { 1: "", 2: "", 3: "", 4: "" } as Record<number, string>;
 }
 
+function createEvidenceDrafts() {
+  return {
+    1: {
+      evidenceType: "summary",
+      sourceLabel: "",
+      sourceUrl: "",
+      content: ""
+    },
+    2: {
+      evidenceType: "summary",
+      sourceLabel: "",
+      sourceUrl: "",
+      content: ""
+    },
+    3: {
+      evidenceType: "summary",
+      sourceLabel: "",
+      sourceUrl: "",
+      content: ""
+    },
+    4: {
+      evidenceType: "summary",
+      sourceLabel: "",
+      sourceUrl: "",
+      content: ""
+    }
+  } as Record<
+    number,
+    {
+      evidenceType: EvidenceItem["evidenceType"];
+      sourceLabel: string;
+      sourceUrl: string;
+      content: string;
+    }
+  >;
+}
+
+function formatEvidenceTypeLabel(type: EvidenceItem["evidenceType"]) {
+  switch (type) {
+    case "uploaded-doc":
+      return "Uploaded doc";
+    case "miro-note":
+      return "Miro note";
+    case "operator-note":
+      return "Operator note";
+    case "client-input":
+      return "Client input";
+    default:
+      return type.charAt(0).toUpperCase() + type.slice(1);
+  }
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-ZA", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(value));
+}
+
 export default function DiscoveryWorkspace({
   projectId
 }: {
@@ -320,6 +397,7 @@ export default function DiscoveryWorkspace({
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
+  const [evidenceItems, setEvidenceItems] = useState<EvidenceItem[]>([]);
   const [sessionDrafts, setSessionDrafts] = useState<
     Record<number, Record<string, string>>
   >({
@@ -343,6 +421,11 @@ export default function DiscoveryWorkspace({
   const [assistantMessages, setAssistantMessages] = useState(
     createSessionErrors()
   );
+  const [evidenceDrafts, setEvidenceDrafts] = useState(createEvidenceDrafts());
+  const [savingEvidence, setSavingEvidence] = useState(
+    createSessionFlags(false)
+  );
+  const [evidenceErrors, setEvidenceErrors] = useState(createSessionErrors());
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [discoverySummary, setDiscoverySummary] =
@@ -379,6 +462,7 @@ export default function DiscoveryWorkspace({
 
         setProject(projectBody.project);
         setSessions(nextSessions);
+        setEvidenceItems(sessionsBody.evidenceItems ?? []);
         setSessionDrafts(createSessionDrafts(nextSessions));
         setDiscoverySummary(summaryBody.summary ?? null);
       } catch (loadError) {
@@ -431,6 +515,24 @@ export default function DiscoveryWorkspace({
     setAssistantDocUrls((currentState) => ({
       ...currentState,
       [sessionNumber]: value
+    }));
+  }
+
+  function updateEvidenceDraft(
+    sessionNumber: number,
+    field:
+      | "evidenceType"
+      | "sourceLabel"
+      | "sourceUrl"
+      | "content",
+    value: string
+  ) {
+    setEvidenceDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [sessionNumber]: {
+        ...currentDrafts[sessionNumber],
+        [field]: value
+      }
     }));
   }
 
@@ -621,6 +723,74 @@ export default function DiscoveryWorkspace({
       }));
     } finally {
       setSavingSessions((currentFlags) => ({
+        ...currentFlags,
+        [sessionNumber]: false
+      }));
+    }
+  }
+
+  async function addEvidenceItem(sessionNumber: number) {
+    const draft = evidenceDrafts[sessionNumber];
+
+    setSavingEvidence((currentFlags) => ({
+      ...currentFlags,
+      [sessionNumber]: true
+    }));
+    setEvidenceErrors((currentErrors) => ({
+      ...currentErrors,
+      [sessionNumber]: null
+    }));
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/sessions/${sessionNumber}/evidence`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(draft)
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to add evidence item");
+      }
+
+      const nextEvidenceItem = body?.evidenceItem as EvidenceItem;
+      setEvidenceItems((currentItems) =>
+        [nextEvidenceItem, ...currentItems].sort((left, right) => {
+          if (left.sessionNumber !== right.sessionNumber) {
+            return left.sessionNumber - right.sessionNumber;
+          }
+
+          return (
+            new Date(right.createdAt).getTime() -
+            new Date(left.createdAt).getTime()
+          );
+        })
+      );
+      setEvidenceDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        [sessionNumber]: {
+          evidenceType: currentDrafts[sessionNumber].evidenceType,
+          sourceLabel: "",
+          sourceUrl: "",
+          content: ""
+        }
+      }));
+    } catch (saveError) {
+      setEvidenceErrors((currentErrors) => ({
+        ...currentErrors,
+        [sessionNumber]:
+          saveError instanceof Error
+            ? saveError.message
+            : "Failed to add evidence item"
+      }));
+    } finally {
+      setSavingEvidence((currentFlags) => ({
         ...currentFlags,
         [sessionNumber]: false
       }));
@@ -875,7 +1045,7 @@ export default function DiscoveryWorkspace({
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-5 py-4">
+              <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-5 py-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                     Required sessions
                   </p>
@@ -884,15 +1054,17 @@ export default function DiscoveryWorkspace({
                       <span className="text-white">Session 1</span>
                       <span
                         className={statusClass(
-                          isSessionComplete(sessions[0])
+                          session1Complete
                             ? "complete"
-                            : sessions[0]?.status ?? "draft"
+                            : sessions.find((session) => session.session === 1)
+                                ?.status ?? "draft"
                         )}
                       >
                         {statusLabel(
-                          isSessionComplete(sessions[0])
+                          session1Complete
                             ? "complete"
-                            : sessions[0]?.status ?? "draft"
+                            : sessions.find((session) => session.session === 1)
+                                ?.status ?? "draft"
                         )}
                       </span>
                     </div>
@@ -900,15 +1072,17 @@ export default function DiscoveryWorkspace({
                       <span className="text-white">Session 3</span>
                       <span
                         className={statusClass(
-                          isSessionComplete(sessions[2])
+                          session3Complete
                             ? "complete"
-                            : sessions[2]?.status ?? "draft"
+                            : sessions.find((session) => session.session === 3)
+                                ?.status ?? "draft"
                         )}
                       >
                         {statusLabel(
-                          isSessionComplete(sessions[2])
+                          session3Complete
                             ? "complete"
-                            : sessions[2]?.status ?? "draft"
+                            : sessions.find((session) => session.session === 3)
+                                ?.status ?? "draft"
                         )}
                       </span>
                     </div>
@@ -921,6 +1095,11 @@ export default function DiscoveryWorkspace({
               {sessions.map((session) => {
                 const sessionDefinition = sessionDefinitions[session.session];
                 const currentDraft = sessionDrafts[session.session] ?? {};
+                const currentEvidenceDraft =
+                  evidenceDrafts[session.session] ?? createEvidenceDrafts()[1];
+                const sessionEvidenceItems = evidenceItems.filter(
+                  (item) => item.sessionNumber === session.session
+                );
                 const totalFieldCount =
                   sessionDefinition?.fields?.length ?? 0;
                 const completedFieldCount = (
@@ -978,6 +1157,170 @@ export default function DiscoveryWorkspace({
                             ? "Required for generation"
                             : "Supports scoping detail"}
                         </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Session Evidence
+                          </p>
+                          <h3 className="mt-2 text-lg font-semibold text-white">
+                            Add multiple notes, transcripts, docs, or client inputs
+                          </h3>
+                          <p className="mt-2 max-w-3xl text-sm text-text-secondary">
+                            Keep the four discovery sessions, but support as many
+                            meetings and supporting artifacts as needed under each
+                            one.
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Evidence items
+                          </p>
+                          <p className="mt-2 text-lg font-semibold text-white">
+                            {sessionEvidenceItems.length}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Evidence type
+                          </span>
+                          <select
+                            value={currentEvidenceDraft.evidenceType}
+                            onChange={(event) =>
+                              updateEvidenceDraft(
+                                session.session,
+                                "evidenceType",
+                                event.target.value
+                              )
+                            }
+                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                          >
+                            <option value="summary">Summary</option>
+                            <option value="transcript">Transcript</option>
+                            <option value="uploaded-doc">Uploaded doc</option>
+                            <option value="miro-note">Miro note</option>
+                            <option value="operator-note">Operator note</option>
+                            <option value="client-input">Client input</option>
+                          </select>
+                        </label>
+
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Source label
+                          </span>
+                          <input
+                            value={currentEvidenceDraft.sourceLabel}
+                            onChange={(event) =>
+                              updateEvidenceDraft(
+                                session.session,
+                                "sourceLabel",
+                                event.target.value
+                              )
+                            }
+                            placeholder="Call 2 Gemini summary"
+                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                          />
+                        </label>
+
+                        <label className="block lg:col-span-2">
+                          <span className="text-sm font-medium text-white">
+                            Source URL
+                          </span>
+                          <input
+                            value={currentEvidenceDraft.sourceUrl}
+                            onChange={(event) =>
+                              updateEvidenceDraft(
+                                session.session,
+                                "sourceUrl",
+                                event.target.value
+                              )
+                            }
+                            placeholder="Optional Google Doc, Drive, or Miro link"
+                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                          />
+                        </label>
+
+                        <label className="block lg:col-span-2">
+                          <span className="text-sm font-medium text-white">
+                            Evidence content
+                          </span>
+                          <textarea
+                            value={currentEvidenceDraft.content}
+                            onChange={(event) =>
+                              updateEvidenceDraft(
+                                session.session,
+                                "content",
+                                event.target.value
+                              )
+                            }
+                            placeholder="Paste notes, transcript excerpts, or a summary here"
+                            className="mt-3 min-h-[140px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-sm text-[#ff8f9c]">
+                          {evidenceErrors[session.session] ?? ""}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void addEvidenceItem(session.session)}
+                          disabled={savingEvidence[session.session]}
+                          className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                        >
+                          {savingEvidence[session.session]
+                            ? "Adding evidence..."
+                            : "Add Evidence Item"}
+                        </button>
+                      </div>
+
+                      <div className="mt-5 space-y-3">
+                        {sessionEvidenceItems.length > 0 ? (
+                          sessionEvidenceItems.map((item) => (
+                            <article
+                              key={item.id}
+                              className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-white">
+                                    {item.sourceLabel}
+                                  </p>
+                                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-text-muted">
+                                    {formatEvidenceTypeLabel(item.evidenceType)} ·{" "}
+                                    {formatDateTime(item.createdAt)}
+                                  </p>
+                                </div>
+                                {item.sourceUrl ? (
+                                  <a
+                                    href={item.sourceUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-sm font-medium text-[#9cc0ff]"
+                                  >
+                                    Open source
+                                  </a>
+                                ) : null}
+                              </div>
+                              {item.content ? (
+                                <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
+                                  {item.content}
+                                </p>
+                              ) : null}
+                            </article>
+                          ))
+                        ) : (
+                          <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-background-card p-4 text-sm text-text-muted">
+                            No evidence added yet for this session.
+                          </div>
+                        )}
                       </div>
                     </div>
 
