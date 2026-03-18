@@ -40,6 +40,26 @@ interface Project {
   } | null;
 }
 
+interface EvidenceItem {
+  id: string;
+  projectId: string;
+  sessionNumber: number;
+  evidenceType:
+    | "transcript"
+    | "summary"
+    | "uploaded-doc"
+    | "website-link"
+    | "screen-grab"
+    | "miro-note"
+    | "operator-note"
+    | "client-input";
+  sourceLabel: string;
+  sourceUrl: string | null;
+  content: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface SessionDetail {
   session: number;
   title: string;
@@ -204,6 +224,27 @@ function statusClass(status: string) {
   }
 }
 
+function formatEvidenceTypeLabel(type: EvidenceItem["evidenceType"]) {
+  switch (type) {
+    case "uploaded-doc":
+      return "Document";
+    case "website-link":
+      return "Website";
+    case "screen-grab":
+      return "Screen grab";
+    case "miro-note":
+      return "Miro note";
+    case "operator-note":
+      return "Operator note";
+    case "client-input":
+      return "Client input";
+    case "transcript":
+      return "Transcript";
+    default:
+      return "Summary";
+  }
+}
+
 function EditButton({
   onClick,
   label
@@ -266,6 +307,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   });
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [clientUsers, setClientUsers] = useState<ClientPortalUser[]>([]);
+  const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
+  const [contextDraft, setContextDraft] = useState({
+    evidenceType: "uploaded-doc" as EvidenceItem["evidenceType"],
+    sourceLabel: "",
+    sourceUrl: "",
+    content: ""
+  });
+  const [savingContext, setSavingContext] = useState(false);
+  const [contextError, setContextError] = useState<string | null>(null);
   const [clientAccessDraft, setClientAccessDraft] = useState({
     firstName: "",
     lastName: "",
@@ -293,7 +343,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           blueprintResponse,
           summaryResponse,
           usersResponse,
-          clientUsersResponse
+          clientUsersResponse,
+          supportingContextResponse
         ] =
           await Promise.all([
             fetch(`/api/projects/${encodeURIComponent(projectId)}`),
@@ -301,7 +352,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
             fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery-summary`),
             fetch("/api/users"),
-            fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`)
+            fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`),
+            fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`)
           ]);
 
         if (
@@ -318,6 +370,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         const summaryBody = await summaryResponse.json();
         const usersBody = await usersResponse.json();
         const clientUsersBody = await clientUsersResponse.json();
+        const supportingContextBody = await supportingContextResponse.json();
 
         setProject(projectBody.project);
         setProjectDraft(createProjectDraft(projectBody.project));
@@ -325,6 +378,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         setDiscoverySummary(summaryBody.summary ?? null);
         setTeamUsers(usersBody.users ?? []);
         setClientUsers(clientUsersBody.clientUsers ?? []);
+        setSupportingContext(supportingContextBody.evidenceItems ?? []);
 
         if (blueprintResponse.ok) {
           const blueprintBody = await blueprintResponse.json();
@@ -567,6 +621,53 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       );
     } finally {
       setClientAccessSaving(false);
+    }
+  }
+
+  async function addSupportingContext() {
+    if (!project) {
+      return;
+    }
+
+    setSavingContext(true);
+    setContextError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/sessions/0/evidence`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(contextDraft)
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to add supporting context");
+      }
+
+      setSupportingContext((currentItems) => [
+        body.evidenceItem,
+        ...currentItems
+      ]);
+      setContextDraft({
+        evidenceType: "uploaded-doc",
+        sourceLabel: "",
+        sourceUrl: "",
+        content: ""
+      });
+    } catch (saveError) {
+      setContextError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to add supporting context"
+      );
+    } finally {
+      setSavingContext(false);
     }
   }
 
@@ -1297,6 +1398,163 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       ) : null}
                     </div>
                     {renderError("brief")}
+                  </div>
+                ) : null}
+
+                {isStandaloneQuote ? (
+                  <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Supporting Context
+                        </p>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          Add Google Meet notes, PDF references, screenshots,
+                          website links, and technical notes that should inform
+                          the scoped summary and quote.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 md:grid-cols-2">
+                      <label className="block">
+                        <span className="text-sm font-medium text-white">
+                          Context type
+                        </span>
+                        <select
+                          value={contextDraft.evidenceType}
+                          onChange={(event) =>
+                            setContextDraft((currentDraft) => ({
+                              ...currentDraft,
+                              evidenceType:
+                                event.target.value as EvidenceItem["evidenceType"]
+                            }))
+                          }
+                          className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                        >
+                          <option value="uploaded-doc">Document / PDF</option>
+                          <option value="website-link">Website link</option>
+                          <option value="screen-grab">Screen grab reference</option>
+                          <option value="transcript">Meeting transcript</option>
+                          <option value="summary">Meeting summary</option>
+                          <option value="operator-note">Operator note</option>
+                          <option value="miro-note">Miro note</option>
+                        </select>
+                      </label>
+
+                      <label className="block">
+                        <span className="text-sm font-medium text-white">
+                          Label
+                        </span>
+                        <input
+                          value={contextDraft.sourceLabel}
+                          onChange={(event) =>
+                            setContextDraft((currentDraft) => ({
+                              ...currentDraft,
+                              sourceLabel: event.target.value
+                            }))
+                          }
+                          placeholder="Example: Google Meet summary 18 Mar"
+                          className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                        />
+                      </label>
+
+                      <label className="block md:col-span-2">
+                        <span className="text-sm font-medium text-white">
+                          Link or file reference
+                        </span>
+                        <input
+                          value={contextDraft.sourceUrl}
+                          onChange={(event) =>
+                            setContextDraft((currentDraft) => ({
+                              ...currentDraft,
+                              sourceUrl: event.target.value
+                            }))
+                          }
+                          placeholder="Paste a URL, Google Doc link, Drive file link, or file reference"
+                          className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                        />
+                      </label>
+
+                      <label className="block md:col-span-2">
+                        <span className="text-sm font-medium text-white">
+                          Notes or extracted content
+                        </span>
+                        <textarea
+                          value={contextDraft.content}
+                          onChange={(event) =>
+                            setContextDraft((currentDraft) => ({
+                              ...currentDraft,
+                              content: event.target.value
+                            }))
+                          }
+                          placeholder="Paste notes, transcript excerpts, PDF takeaways, technical requirements, or implementation constraints here."
+                          className="mt-3 min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-4">
+                      {contextError ? (
+                        <p className="text-sm text-[#ff8f9c]">{contextError}</p>
+                      ) : (
+                        <p className="text-sm text-text-secondary">
+                          Tip: use the link field for websites, Google Docs, Drive
+                          files, or screenshot references, and the notes field for
+                          pasted content.
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void addSupportingContext()}
+                        disabled={savingContext}
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                      >
+                        {savingContext ? "Adding..." : "Add Context"}
+                      </button>
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                      {supportingContext.length > 0 ? (
+                        supportingContext.map((item) => (
+                          <div
+                            key={item.id}
+                            className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card px-4 py-4"
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-white">
+                                  {item.sourceLabel}
+                                </p>
+                                <p className="mt-1 text-xs text-text-secondary">
+                                  {formatEvidenceTypeLabel(item.evidenceType)} ·{" "}
+                                  {new Intl.DateTimeFormat("en-ZA", {
+                                    dateStyle: "medium",
+                                    timeStyle: "short"
+                                  }).format(new Date(item.createdAt))}
+                                </p>
+                                {item.sourceUrl ? (
+                                  <p className="mt-3 break-all text-sm text-[#49cde1]">
+                                    {item.sourceUrl}
+                                  </p>
+                                ) : null}
+                                {item.content ? (
+                                  <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
+                                    {item.content}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] bg-background-card px-4 py-4 text-sm text-text-secondary">
+                          No supporting context added yet. Add links, notes, or
+                          references so the summary and quote can work from better
+                          source material.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : null}
               </section>

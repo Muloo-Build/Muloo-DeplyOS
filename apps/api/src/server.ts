@@ -240,6 +240,8 @@ const discoveryEvidenceTypeValues = [
   "transcript",
   "summary",
   "uploaded-doc",
+  "website-link",
+  "screen-grab",
   "miro-note",
   "operator-note",
   "client-input"
@@ -752,7 +754,7 @@ function matchProjectSessionEvidenceRoute(pathname: string): {
   sessionId: number;
 } | null {
   const match =
-    /^\/api\/projects\/([^/]+?)\/sessions\/([1-4])\/evidence$/.exec(pathname);
+    /^\/api\/projects\/([^/]+?)\/sessions\/([0-4])\/evidence$/.exec(pathname);
 
   if (!match || !match[1] || !match[2]) {
     return null;
@@ -1314,10 +1316,17 @@ function getDiscoveryEvidenceText(
   return [
     discoveryPayload.discovery.projectName,
     discoveryPayload.discovery.engagementType,
+    discoveryPayload.discovery.scopeType ?? "",
+    discoveryPayload.discovery.commercialBrief ?? "",
     discoveryPayload.discovery.client.industry ?? "",
     ...discoveryPayload.discovery.sessions.flatMap((session) =>
       Object.values(session.fields)
-    )
+    ),
+    ...discoveryPayload.discovery.evidenceItems.flatMap((item) => [
+      item.sourceLabel,
+      item.sourceUrl ?? "",
+      item.content ?? ""
+    ])
   ]
     .join(" \n")
     .toLowerCase();
@@ -1606,6 +1615,8 @@ async function loadProjectDiscoveryForBlueprint(projectId: string) {
     return null;
   }
 
+  const evidenceItems = await loadDiscoveryEvidence(projectId);
+
   const sessions = buildDiscoverySessionsWithStatus(project.discovery).map(
     (session) => ({
       session: session.session,
@@ -1657,6 +1668,9 @@ async function loadProjectDiscoveryForBlueprint(projectId: string) {
           }
         : null,
       sessions,
+      evidenceItems,
+      commercialBrief: project.commercialBrief,
+      scopeType: project.scopeType ?? "discovery",
       discoveryProfile
     }
   };
