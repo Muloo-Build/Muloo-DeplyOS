@@ -188,6 +188,219 @@ const defaultAgentCatalog = [
     sortOrder: 30
   }
 ] as const;
+const defaultDeliveryTemplates = [
+  {
+    slug: "theme-install-localization",
+    name: "Theme Install + Localization",
+    description:
+      "Repeatable CMS/theme implementation flow for marketplace theme installs, regional variants, QA, and launch.",
+    category: "website",
+    scopeType: "standalone_quote",
+    recommendedHubs: ["cms"],
+    defaultPlannedHours: 42,
+    sortOrder: 10,
+    tasks: [
+      {
+        title: "Confirm scope, assumptions, and delivery boundaries",
+        description:
+          "Lock the exact technical delivery scope, design/content handoff points, and what Muloo is not responsible for.",
+        category: "01 Scope & Theme Approval",
+        executionType: "manual",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 2,
+        approvalRequired: true,
+        sortOrder: 10
+      },
+      {
+        title: "Select and approve the marketplace theme",
+        description:
+          "Shortlist the theme, confirm fit against required page types and localization needs, and obtain final approval.",
+        category: "01 Scope & Theme Approval",
+        executionType: "client_approval",
+        priority: "high",
+        status: "waiting_on_client",
+        assigneeType: "Client",
+        plannedHours: 1,
+        approvalRequired: true,
+        sortOrder: 20
+      },
+      {
+        title: "Install approved theme and configure CMS foundation",
+        description:
+          "Install the selected marketplace theme, prepare a safe baseline, and confirm portal-level CMS configuration.",
+        category: "02 CMS Foundation",
+        executionType: "agent_ready",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Agent",
+        plannedHours: 3,
+        sortOrder: 30
+      },
+      {
+        title: "Create child theme and technical customization layer",
+        description:
+          "Prepare the child theme or safe customization layer so implementation work stays upgrade-friendly.",
+        category: "02 CMS Foundation",
+        executionType: "manual",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 4,
+        sortOrder: 40
+      },
+      {
+        title: "Configure required HubSpot system pages",
+        description:
+          "Set up the system page set required for the site, including search, password, preferences, and error experiences.",
+        category: "03 Core Site Structure",
+        executionType: "agent_ready",
+        priority: "medium",
+        status: "todo",
+        assigneeType: "Agent",
+        plannedHours: 3,
+        sortOrder: 50
+      },
+      {
+        title: "Configure blog structure and publishing settings",
+        description:
+          "Set up blog templates, listing/detail behavior, and publishing settings required for launch.",
+        category: "03 Core Site Structure",
+        executionType: "manual",
+        priority: "medium",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 3,
+        sortOrder: 60
+      },
+      {
+        title: "Define localization approach and content-routing rules",
+        description:
+          "Confirm whether localization will use smart content, regional page variants, or another supported model.",
+        category: "04 Localization Design",
+        executionType: "manual",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 2,
+        sortOrder: 70
+      },
+      {
+        title: "Build regional site framework for required geographies",
+        description:
+          "Create the page structure, shared components, and localization scaffolding for regional variants.",
+        category: "04 Localization Design",
+        executionType: "agent_ready",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Agent",
+        plannedHours: 6,
+        sortOrder: 80
+      },
+      {
+        title: "Receive approved content and design assets from partner",
+        description:
+          "Collect Figma, copy, assets, and regional content guidance needed for implementation.",
+        category: "05 Partner Handoff",
+        executionType: "client_dependency",
+        priority: "high",
+        status: "waiting_on_client",
+        assigneeType: "Client",
+        plannedHours: 1,
+        sortOrder: 90
+      },
+      {
+        title: "Implement page templates, linking, and technical configuration",
+        description:
+          "Apply the approved design/content handoff to the HubSpot build and complete the core technical implementation.",
+        category: "06 Build & Linking",
+        executionType: "manual",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 8,
+        sortOrder: 100
+      },
+      {
+        title: "Run QA across templates, links, and regional variants",
+        description:
+          "Check page behavior, localization logic, responsive rendering, and technical quality before sign-off.",
+        category: "07 QA & Launch",
+        executionType: "agent_ready",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Agent",
+        plannedHours: 4,
+        qaRequired: true,
+        sortOrder: 110
+      },
+      {
+        title: "Prepare launch checklist and go-live plan",
+        description:
+          "Confirm launch dependencies, domain steps, partner approvals, and the sequence for go-live.",
+        category: "07 QA & Launch",
+        executionType: "manual",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 2,
+        sortOrder: 120
+      },
+      {
+        title: "Complete go-live and handover support",
+        description:
+          "Execute launch, monitor the deployment, tidy defects, and close with technical handover notes.",
+        category: "08 Go-Live & Handover",
+        executionType: "manual",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 3,
+        qaRequired: true,
+        sortOrder: 130
+      }
+    ]
+  },
+  {
+    slug: "hubspot-onboarding-foundation",
+    name: "HubSpot Onboarding Foundation",
+    description:
+      "Baseline onboarding delivery template for implementation projects moving from approved scope into execution.",
+    category: "hubspot",
+    scopeType: "discovery",
+    recommendedHubs: ["sales", "marketing", "service"],
+    defaultPlannedHours: 60,
+    sortOrder: 20,
+    tasks: [
+      {
+        title: "Confirm approved scope, stakeholders, and delivery sequence",
+        description:
+          "Turn the approved scope into a working delivery plan with named owners, dependencies, and sign-off points.",
+        category: "01 Project Kickoff",
+        executionType: "manual",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 3,
+        approvalRequired: true,
+        sortOrder: 10
+      },
+      {
+        title: "Prepare implementation checklist from approved blueprint",
+        description:
+          "Convert the approved blueprint into a practical delivery checklist and rollout sequence.",
+        category: "01 Project Kickoff",
+        executionType: "agent_ready",
+        priority: "medium",
+        status: "todo",
+        assigneeType: "Agent",
+        plannedHours: 2,
+        sortOrder: 20
+      }
+    ]
+  }
+] as const;
 const sessionFieldLabels: Record<number, string[]> = {
   1: [
     "business_overview",
@@ -223,6 +436,12 @@ const sessionFieldLabels: Record<number, string[]> = {
     "scope_volatility_rating"
   ]
 };
+const workRequestTypeOptions = [
+  "quote_request",
+  "job_spec",
+  "project_brief",
+  "change_request"
+] as const;
 
 type EngagementType = (typeof validEngagementTypes)[number];
 type ProjectHub = (typeof validProjectHubValues)[number];
@@ -610,6 +829,30 @@ function matchAgentRoute(pathname: string): { agentId?: string } | null {
   return match[1] ? { agentId: decodeURIComponent(match[1]) } : {};
 }
 
+function matchDeliveryTemplateRoute(pathname: string): {
+  templateId?: string;
+} | null {
+  const match = /^\/api\/delivery-templates(?:\/([^/]+))?$/.exec(pathname);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1] ? { templateId: decodeURIComponent(match[1]) } : {};
+}
+
+function matchWorkRequestRoute(pathname: string): {
+  requestId?: string;
+} | null {
+  const match = /^\/api\/work-requests(?:\/([^/]+))?$/.exec(pathname);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1] ? { requestId: decodeURIComponent(match[1]) } : {};
+}
+
 function matchClientProjectRoute(pathname: string): {
   projectId?: string;
   resource?: "submissions" | "tasks";
@@ -642,6 +885,10 @@ function matchClientProjectRoute(pathname: string): {
         }
       : {})
   };
+}
+
+function matchClientWorkRequestRoute(pathname: string): null | {} {
+  return /^\/api\/client\/work-requests$/.test(pathname) ? {} : null;
 }
 
 function matchProjectClientUsersRoute(pathname: string): {
@@ -956,6 +1203,7 @@ function serializeProject<
     owner: string;
     ownerEmail: string;
     scopeType?: string | null;
+    deliveryTemplateId?: string | null;
     commercialBrief?: string | null;
     clientChampionFirstName?: string | null;
     clientChampionLastName?: string | null;
@@ -1002,6 +1250,7 @@ function serializeClientProject<
     name: string;
     status: string;
     scopeType?: string | null;
+    deliveryTemplateId?: string | null;
     commercialBrief?: string | null;
     engagementType: Prisma.$Enums.EngagementType;
     selectedHubs: string[];
@@ -1017,6 +1266,7 @@ function serializeClientProject<
     name: project.name,
     status: project.status,
     scopeType: project.scopeType ?? "discovery",
+    deliveryTemplateId: project.deliveryTemplateId ?? null,
     commercialBrief: project.commercialBrief ?? null,
     engagementType: project.engagementType,
     selectedHubs: project.selectedHubs,
@@ -1083,6 +1333,8 @@ function serializeTask<
     executionType: string;
     priority: string;
     status: string;
+    plannedHours: number | null;
+    actualHours: number | null;
     qaRequired: boolean;
     approvalRequired: boolean;
     dependencyIds: string[];
@@ -1100,12 +1352,126 @@ function serializeTask<
     executionType: task.executionType,
     priority: task.priority,
     status: task.status,
+    plannedHours: task.plannedHours,
+    actualHours: task.actualHours,
     qaRequired: task.qaRequired,
     approvalRequired: task.approvalRequired,
     dependencyIds: task.dependencyIds,
     assigneeType: task.assigneeType,
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString()
+  };
+}
+
+function serializeDeliveryTemplate<
+  T extends {
+    id: string;
+    slug: string;
+    name: string;
+    description: string | null;
+    category: string;
+    scopeType: string;
+    recommendedHubs: string[];
+    defaultPlannedHours: number | null;
+    isActive: boolean;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+    tasks?: Array<{
+      id: string;
+      title: string;
+      description: string | null;
+      category: string | null;
+      executionType: string;
+      priority: string;
+      status: string;
+      qaRequired: boolean;
+      approvalRequired: boolean;
+      assigneeType: string | null;
+      plannedHours: number | null;
+      sortOrder: number;
+      createdAt: Date;
+      updatedAt: Date;
+    }>;
+  }
+>(template: T) {
+  return {
+    id: template.id,
+    slug: template.slug,
+    name: template.name,
+    description: template.description,
+    category: template.category,
+    scopeType: template.scopeType,
+    recommendedHubs: template.recommendedHubs,
+    defaultPlannedHours: template.defaultPlannedHours,
+    isActive: template.isActive,
+    sortOrder: template.sortOrder,
+    createdAt: template.createdAt.toISOString(),
+    updatedAt: template.updatedAt.toISOString(),
+    tasks:
+      template.tasks?.map((task) => ({
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        executionType: task.executionType,
+        priority: task.priority,
+        status: task.status,
+        qaRequired: task.qaRequired,
+        approvalRequired: task.approvalRequired,
+        assigneeType: task.assigneeType,
+        plannedHours: task.plannedHours,
+        sortOrder: task.sortOrder,
+        createdAt: task.createdAt.toISOString(),
+        updatedAt: task.updatedAt.toISOString()
+      })) ?? []
+  };
+}
+
+function serializeWorkRequest<
+  T extends {
+    id: string;
+    projectId: string | null;
+    title: string;
+    requestType: string;
+    companyName: string | null;
+    contactName: string;
+    contactEmail: string;
+    summary: string;
+    details: string | null;
+    urgency: string | null;
+    budgetRange: string | null;
+    portalOrWebsite: string | null;
+    links: string[];
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+    project?: { id: string; name: string } | null;
+  }
+>(request: T) {
+  return {
+    id: request.id,
+    projectId: request.projectId,
+    title: request.title,
+    requestType: request.requestType,
+    companyName: request.companyName,
+    contactName: request.contactName,
+    contactEmail: request.contactEmail,
+    summary: request.summary,
+    details: request.details,
+    urgency: request.urgency,
+    budgetRange: request.budgetRange,
+    portalOrWebsite: request.portalOrWebsite,
+    links: request.links,
+    status: request.status,
+    createdAt: request.createdAt.toISOString(),
+    updatedAt: request.updatedAt.toISOString(),
+    project: request.project
+      ? {
+          id: request.project.id,
+          name: request.project.name
+        }
+      : null
   };
 }
 
@@ -1714,7 +2080,38 @@ type StandalonePlanSeedTask = {
   qaRequired?: boolean;
   approvalRequired?: boolean;
   dependsOn?: string[];
+  plannedHours?: number | null;
 };
+
+function buildPlanSeedFromTemplate(
+  template: {
+    tasks: Array<{
+      title: string;
+      description: string | null;
+      category: string | null;
+      executionType: string;
+      assigneeType: string | null;
+      priority: string;
+      status: string;
+      qaRequired: boolean;
+      approvalRequired: boolean;
+      plannedHours: number | null;
+    }>;
+  }
+): StandalonePlanSeedTask[] {
+  return template.tasks.map((task) => ({
+    title: task.title,
+    description: task.description ?? "",
+    category: task.category ?? "Planned Delivery",
+    executionType: task.executionType,
+    assigneeType: task.assigneeType ?? "Human",
+    priority: task.priority,
+    status: task.status,
+    qaRequired: task.qaRequired,
+    approvalRequired: task.approvalRequired,
+    plannedHours: task.plannedHours ?? null
+  }));
+}
 
 function buildStandalonePlanSeed(
   project: {
@@ -1960,7 +2357,14 @@ async function generateStandaloneProjectPlan(projectId: string) {
       id: true,
       name: true,
       scopeType: true,
-      commercialBrief: true
+      commercialBrief: true,
+      deliveryTemplate: {
+        include: {
+          tasks: {
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+          }
+        }
+      }
     }
   });
 
@@ -1973,7 +2377,10 @@ async function generateStandaloneProjectPlan(projectId: string) {
   }
 
   const evidenceItems = await loadDiscoveryEvidence(projectId, 0);
-  const taskSeed = buildStandalonePlanSeed(project, evidenceItems);
+  const taskSeed =
+    project.deliveryTemplate && project.deliveryTemplate.tasks.length > 0
+      ? buildPlanSeedFromTemplate(project.deliveryTemplate)
+      : buildStandalonePlanSeed(project, evidenceItems);
 
   await prisma.executionJob.deleteMany({
     where: {
@@ -1999,6 +2406,7 @@ async function generateStandaloneProjectPlan(projectId: string) {
         executionType: task.executionType,
         priority: task.priority,
         status: task.status,
+        plannedHours: task.plannedHours ?? null,
         qaRequired: task.qaRequired ?? false,
         approvalRequired: task.approvalRequired ?? false,
         assigneeType: task.assigneeType
@@ -2015,8 +2423,10 @@ async function generateStandaloneProjectPlan(projectId: string) {
   for (const createdTask of createdTasks) {
     const seed = taskSeed.find((task) => task.title === createdTask.title);
     const dependencyIds = (seed?.dependsOn ?? [])
-      .map((dependencyTitle) => taskIdMap.get(dependencyTitle))
-      .filter((dependencyId): dependencyId is string => Boolean(dependencyId));
+      .map((dependencyTitle: string) => taskIdMap.get(dependencyTitle))
+      .filter((dependencyId: string | undefined): dependencyId is string =>
+        Boolean(dependencyId)
+      );
 
     const updatedTask = await prisma.task.update({
       where: { id: createdTask.id },
@@ -2096,6 +2506,7 @@ async function generateBlueprintProjectPlan(projectId: string) {
         executionType,
         priority,
         status,
+        plannedHours: blueprintTask.effortHours,
         qaRequired:
           /qa|test|validation|launch/i.test(blueprintTask.name) ||
           /qa|launch/i.test(blueprintTask.phaseName),
@@ -2725,6 +3136,46 @@ async function ensureAgentCatalogSeeded() {
   });
 }
 
+async function ensureDeliveryTemplatesSeeded() {
+  const existingCount = await prisma.deliveryTemplate.count();
+
+  if (existingCount > 0) {
+    return;
+  }
+
+  for (const template of defaultDeliveryTemplates) {
+    await prisma.deliveryTemplate.create({
+      data: {
+        slug: template.slug,
+        name: template.name,
+        description: template.description,
+        category: template.category,
+        scopeType: template.scopeType,
+        recommendedHubs: [...template.recommendedHubs],
+        defaultPlannedHours: template.defaultPlannedHours,
+        isActive: true,
+        sortOrder: template.sortOrder,
+        tasks: {
+          create: template.tasks.map((task) => ({
+            title: task.title,
+            description: task.description,
+            category: task.category,
+            executionType: task.executionType,
+            priority: task.priority,
+            status: task.status,
+            qaRequired: "qaRequired" in task ? task.qaRequired : false,
+            approvalRequired:
+              "approvalRequired" in task ? task.approvalRequired : false,
+            assigneeType: task.assigneeType,
+            plannedHours: task.plannedHours ?? null,
+            sortOrder: task.sortOrder
+          }))
+        }
+      }
+    });
+  }
+}
+
 async function loadProductCatalog() {
   await ensureProductCatalogSeeded();
 
@@ -2743,6 +3194,54 @@ async function loadAgentCatalog() {
   });
 
   return agents.map((agent) => serializeAgentDefinition(agent));
+}
+
+async function loadDeliveryTemplates() {
+  await ensureDeliveryTemplatesSeeded();
+
+  const templates = await prisma.deliveryTemplate.findMany({
+    include: {
+      tasks: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+      }
+    },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
+  });
+
+  return templates.map((template) => serializeDeliveryTemplate(template));
+}
+
+async function loadWorkRequests(filters?: {
+  projectIds?: string[];
+  contactEmail?: string;
+}) {
+  const requests = await prisma.workRequest.findMany({
+    where: {
+      ...(filters?.projectIds?.length
+        ? {
+            OR: [
+              { projectId: { in: filters.projectIds } },
+              ...(filters.contactEmail
+                ? [{ contactEmail: filters.contactEmail }]
+                : [])
+            ]
+          }
+        : filters?.contactEmail
+          ? { contactEmail: filters.contactEmail }
+          : {})
+    },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    },
+    orderBy: [{ createdAt: "desc" }]
+  });
+
+  return requests.map((request) => serializeWorkRequest(request));
 }
 
 async function createProductCatalogItem(value: {
@@ -2860,6 +3359,364 @@ async function createAgentDefinition(value: {
   });
 
   return serializeAgentDefinition(agent);
+}
+
+async function createDeliveryTemplate(value: {
+  name?: unknown;
+  description?: unknown;
+  category?: unknown;
+  scopeType?: unknown;
+  recommendedHubs?: unknown;
+  defaultPlannedHours?: unknown;
+  isActive?: unknown;
+  sortOrder?: unknown;
+  tasks?: unknown;
+}) {
+  const name = typeof value.name === "string" ? value.name.trim() : "";
+  const description =
+    typeof value.description === "string" ? value.description.trim() : "";
+  const category = typeof value.category === "string" ? value.category.trim() : "";
+  const scopeType =
+    typeof value.scopeType === "string" ? value.scopeType.trim() : "";
+  const defaultPlannedHours =
+    typeof value.defaultPlannedHours === "number"
+      ? value.defaultPlannedHours
+      : Number(value.defaultPlannedHours);
+  const sortOrder =
+    typeof value.sortOrder === "number"
+      ? value.sortOrder
+      : Number(value.sortOrder);
+  const recommendedHubs = normalizeStringArray(value.recommendedHubs);
+  const tasks = Array.isArray(value.tasks) ? value.tasks : [];
+
+  if (!name || !category || !scopeType) {
+    throw new Error("name, category, and scopeType are required");
+  }
+
+  const template = await prisma.deliveryTemplate.create({
+    data: {
+      slug: createSlug(name),
+      name,
+      description: description || null,
+      category,
+      scopeType,
+      recommendedHubs,
+      defaultPlannedHours: Number.isFinite(defaultPlannedHours)
+        ? defaultPlannedHours
+        : null,
+      isActive: value.isActive === false ? false : true,
+      sortOrder: Number.isFinite(sortOrder) ? Math.round(sortOrder) : 999,
+      tasks: {
+        create: tasks
+          .filter((task): task is Record<string, unknown> => Boolean(task) && typeof task === "object")
+          .map((task, index) => ({
+            title: normalizeRequiredTaskString(task.title, "task title"),
+            description: normalizeOptionalTaskString(task.description),
+            category: normalizeOptionalTaskString(task.category),
+            executionType:
+              normalizeOptionalTaskString(task.executionType) ?? "manual",
+            priority:
+              typeof task.priority === "string" && task.priority.trim()
+                ? task.priority.trim().toLowerCase()
+                : "medium",
+            status:
+              typeof task.status === "string" && task.status.trim()
+                ? task.status.trim()
+                : "todo",
+            qaRequired: Boolean(task.qaRequired),
+            approvalRequired: Boolean(task.approvalRequired),
+            assigneeType: normalizeOptionalTaskString(task.assigneeType),
+            plannedHours:
+              typeof task.plannedHours === "number"
+                ? task.plannedHours
+                : Number(task.plannedHours),
+            sortOrder:
+              typeof task.sortOrder === "number"
+                ? Math.round(task.sortOrder)
+                : index + 1
+          }))
+      }
+    },
+    include: {
+      tasks: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+      }
+    }
+  });
+
+  return serializeDeliveryTemplate(template);
+}
+
+async function updateDeliveryTemplate(
+  templateId: string,
+  value: {
+    name?: unknown;
+    description?: unknown;
+    category?: unknown;
+    scopeType?: unknown;
+    recommendedHubs?: unknown;
+    defaultPlannedHours?: unknown;
+    isActive?: unknown;
+    sortOrder?: unknown;
+    tasks?: unknown;
+  }
+) {
+  const updateData: Prisma.Prisma.DeliveryTemplateUpdateInput = {};
+
+  if (value.name !== undefined) {
+    if (typeof value.name !== "string" || value.name.trim().length === 0) {
+      throw new Error("name must be a non-empty string");
+    }
+
+    updateData.name = value.name.trim();
+    updateData.slug = createSlug(value.name.trim());
+  }
+
+  if (value.description !== undefined) {
+    if (typeof value.description !== "string") {
+      throw new Error("description must be a string");
+    }
+
+    updateData.description = value.description.trim() || null;
+  }
+
+  if (value.category !== undefined) {
+    if (typeof value.category !== "string" || value.category.trim().length === 0) {
+      throw new Error("category must be a non-empty string");
+    }
+
+    updateData.category = value.category.trim();
+  }
+
+  if (value.scopeType !== undefined) {
+    if (typeof value.scopeType !== "string" || value.scopeType.trim().length === 0) {
+      throw new Error("scopeType must be a non-empty string");
+    }
+
+    updateData.scopeType = value.scopeType.trim();
+  }
+
+  if (value.recommendedHubs !== undefined) {
+    updateData.recommendedHubs = normalizeStringArray(value.recommendedHubs);
+  }
+
+  if (value.defaultPlannedHours !== undefined) {
+    const defaultPlannedHours =
+      typeof value.defaultPlannedHours === "number"
+        ? value.defaultPlannedHours
+        : Number(value.defaultPlannedHours);
+    updateData.defaultPlannedHours = Number.isFinite(defaultPlannedHours)
+      ? defaultPlannedHours
+      : null;
+  }
+
+  if (value.isActive !== undefined) {
+    updateData.isActive = Boolean(value.isActive);
+  }
+
+  if (value.sortOrder !== undefined) {
+    const sortOrder =
+      typeof value.sortOrder === "number"
+        ? value.sortOrder
+        : Number(value.sortOrder);
+
+    if (!Number.isFinite(sortOrder)) {
+      throw new Error("sortOrder must be a valid number");
+    }
+
+    updateData.sortOrder = Math.round(sortOrder);
+  }
+
+  await prisma.deliveryTemplate.update({
+    where: { id: templateId },
+    data: updateData
+  });
+
+  if (value.tasks !== undefined) {
+    if (!Array.isArray(value.tasks)) {
+      throw new Error("tasks must be an array");
+    }
+
+    await prisma.deliveryTemplateTask.deleteMany({
+      where: { templateId }
+    });
+
+    if (value.tasks.length > 0) {
+      await prisma.deliveryTemplateTask.createMany({
+        data: value.tasks
+          .filter((task): task is Record<string, unknown> => Boolean(task) && typeof task === "object")
+          .map((task, index) => ({
+            templateId,
+            title: normalizeRequiredTaskString(task.title, "task title"),
+            description: normalizeOptionalTaskString(task.description),
+            category: normalizeOptionalTaskString(task.category),
+            executionType:
+              normalizeOptionalTaskString(task.executionType) ?? "manual",
+            priority:
+              typeof task.priority === "string" && task.priority.trim()
+                ? task.priority.trim().toLowerCase()
+                : "medium",
+            status:
+              typeof task.status === "string" && task.status.trim()
+                ? task.status.trim()
+                : "todo",
+            qaRequired: Boolean(task.qaRequired),
+            approvalRequired: Boolean(task.approvalRequired),
+            assigneeType: normalizeOptionalTaskString(task.assigneeType),
+            plannedHours:
+              typeof task.plannedHours === "number"
+                ? task.plannedHours
+                : Number(task.plannedHours),
+            sortOrder:
+              typeof task.sortOrder === "number"
+                ? Math.round(task.sortOrder)
+                : index + 1
+          }))
+      });
+    }
+  }
+
+  const template = await prisma.deliveryTemplate.findUniqueOrThrow({
+    where: { id: templateId },
+    include: {
+      tasks: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+      }
+    }
+  });
+
+  return serializeDeliveryTemplate(template);
+}
+
+async function createWorkRequest(value: {
+  projectId?: unknown;
+  title?: unknown;
+  requestType?: unknown;
+  companyName?: unknown;
+  contactName?: unknown;
+  contactEmail?: unknown;
+  summary?: unknown;
+  details?: unknown;
+  urgency?: unknown;
+  budgetRange?: unknown;
+  portalOrWebsite?: unknown;
+  links?: unknown;
+}) {
+  const title = typeof value.title === "string" ? value.title.trim() : "";
+  const requestType =
+    typeof value.requestType === "string" ? value.requestType.trim() : "";
+  const companyName =
+    typeof value.companyName === "string" ? value.companyName.trim() : "";
+  const contactName =
+    typeof value.contactName === "string" ? value.contactName.trim() : "";
+  const contactEmail =
+    typeof value.contactEmail === "string"
+      ? value.contactEmail.trim().toLowerCase()
+      : "";
+  const summary = typeof value.summary === "string" ? value.summary.trim() : "";
+  const details = typeof value.details === "string" ? value.details.trim() : "";
+  const urgency = typeof value.urgency === "string" ? value.urgency.trim() : "";
+  const budgetRange =
+    typeof value.budgetRange === "string" ? value.budgetRange.trim() : "";
+  const portalOrWebsite =
+    typeof value.portalOrWebsite === "string"
+      ? value.portalOrWebsite.trim()
+      : "";
+  const links = normalizeStringArray(value.links);
+
+  if (!title || !contactName || !contactEmail || !summary) {
+    throw new Error("title, contactName, contactEmail, and summary are required");
+  }
+
+  if (
+    requestType &&
+    !workRequestTypeOptions.includes(
+      requestType as (typeof workRequestTypeOptions)[number]
+    )
+  ) {
+    throw new Error("Invalid requestType");
+  }
+
+  const request = await prisma.workRequest.create({
+    data: {
+      projectId:
+        typeof value.projectId === "string" && value.projectId.trim()
+          ? value.projectId.trim()
+          : null,
+      title,
+      requestType: requestType || "job_spec",
+      companyName: companyName || null,
+      contactName,
+      contactEmail,
+      summary,
+      details: details || null,
+      urgency: urgency || null,
+      budgetRange: budgetRange || null,
+      portalOrWebsite: portalOrWebsite || null,
+      links,
+      status: "new"
+    },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
+  });
+
+  return serializeWorkRequest(request);
+}
+
+async function updateWorkRequest(
+  requestId: string,
+  value: {
+    status?: unknown;
+    title?: unknown;
+    summary?: unknown;
+  }
+) {
+  const updateData: Prisma.Prisma.WorkRequestUpdateInput = {};
+
+  if (value.status !== undefined) {
+    if (typeof value.status !== "string" || value.status.trim().length === 0) {
+      throw new Error("status must be a non-empty string");
+    }
+
+    updateData.status = value.status.trim();
+  }
+
+  if (value.title !== undefined) {
+    if (typeof value.title !== "string" || value.title.trim().length === 0) {
+      throw new Error("title must be a non-empty string");
+    }
+
+    updateData.title = value.title.trim();
+  }
+
+  if (value.summary !== undefined) {
+    if (typeof value.summary !== "string" || value.summary.trim().length === 0) {
+      throw new Error("summary must be a non-empty string");
+    }
+
+    updateData.summary = value.summary.trim();
+  }
+
+  const request = await prisma.workRequest.update({
+    where: { id: requestId },
+    data: updateData,
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
+  });
+
+  return serializeWorkRequest(request);
 }
 
 async function createClientPortalUserForProject(
@@ -3676,6 +4533,55 @@ export function createAppServer(config: BaseConfig): http.Server {
           return sendJson(response, 401, { error: "Client unauthorized" });
         }
 
+        const clientWorkRequestRoute = matchClientWorkRequestRoute(url.pathname);
+
+        if (clientWorkRequestRoute) {
+          const clientUser = await prisma.clientPortalUser.findUnique({
+            where: { id: clientUserId }
+          });
+
+          if (!clientUser) {
+            return sendJson(response, 401, { error: "Client unauthorized" });
+          }
+
+          if (request.method === "GET") {
+            const accessRecords = await prisma.clientProjectAccess.findMany({
+              where: { userId: clientUserId },
+              select: { projectId: true }
+            });
+
+            return sendJson(response, 200, {
+              workRequests: await loadWorkRequests({
+                projectIds: accessRecords.map((record) => record.projectId),
+                contactEmail: clientUser.email
+              })
+            });
+          }
+
+          if (request.method === "POST") {
+            try {
+              const body = (await readJsonBody(request)) as Record<string, unknown>;
+              const workRequest = await createWorkRequest({
+                ...body,
+                contactName:
+                  body.contactName ??
+                  `${clientUser.firstName} ${clientUser.lastName}`.trim(),
+                contactEmail: body.contactEmail ?? clientUser.email
+              });
+              return sendJson(response, 201, { workRequest });
+            } catch (error) {
+              return sendJson(response, 400, {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to create work request"
+              });
+            }
+          }
+
+          return sendJson(response, 405, { error: "Method Not Allowed" });
+        }
+
         const clientProjectRoute = matchClientProjectRoute(url.pathname);
 
         if (clientProjectRoute) {
@@ -3934,6 +4840,94 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
+      const deliveryTemplateRoute = matchDeliveryTemplateRoute(url.pathname);
+      if (deliveryTemplateRoute) {
+        if (request.method === "GET" && !deliveryTemplateRoute.templateId) {
+          return sendJson(response, 200, {
+            templates: await loadDeliveryTemplates()
+          });
+        }
+
+        if (request.method === "POST" && !deliveryTemplateRoute.templateId) {
+          try {
+            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const template = await createDeliveryTemplate(body);
+            return sendJson(response, 201, { template });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to create delivery template"
+            });
+          }
+        }
+
+        if (request.method === "PATCH" && deliveryTemplateRoute.templateId) {
+          try {
+            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const template = await updateDeliveryTemplate(
+              deliveryTemplateRoute.templateId,
+              body
+            );
+            return sendJson(response, 200, { template });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update delivery template"
+            });
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      const workRequestRoute = matchWorkRequestRoute(url.pathname);
+      if (workRequestRoute) {
+        if (request.method === "GET" && !workRequestRoute.requestId) {
+          return sendJson(response, 200, {
+            workRequests: await loadWorkRequests()
+          });
+        }
+
+        if (request.method === "POST" && !workRequestRoute.requestId) {
+          try {
+            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const workRequest = await createWorkRequest(body);
+            return sendJson(response, 201, { workRequest });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to create work request"
+            });
+          }
+        }
+
+        if (request.method === "PATCH" && workRequestRoute.requestId) {
+          try {
+            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const workRequest = await updateWorkRequest(
+              workRequestRoute.requestId,
+              body
+            );
+            return sendJson(response, 200, { workRequest });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update work request"
+            });
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
       if (url.pathname === "/api/industries") {
         return sendJson(response, 200, {
           industries: industryOptions
@@ -3956,6 +4950,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             owner?: string;
             ownerEmail?: string;
             scopeType?: string;
+            deliveryTemplateId?: string;
             commercialBrief?: string;
             engagementType?: string;
             industry?: string;
@@ -4057,6 +5052,7 @@ export function createAppServer(config: BaseConfig): http.Server {
               clientChampionEmail:
                 body.clientChampionEmail?.trim() || null,
               scopeType,
+              deliveryTemplateId: body.deliveryTemplateId?.trim() || null,
               commercialBrief: body.commercialBrief?.trim() || null,
               selectedHubs: Array.isArray(body.selectedHubs)
                 ? body.selectedHubs
@@ -4431,6 +5427,8 @@ export function createAppServer(config: BaseConfig): http.Server {
             executionType?: unknown;
             priority?: unknown;
             status?: unknown;
+            plannedHours?: unknown;
+            actualHours?: unknown;
             qaRequired?: unknown;
             approvalRequired?: unknown;
             assigneeType?: unknown;
@@ -4471,6 +5469,18 @@ export function createAppServer(config: BaseConfig): http.Server {
                 normalizeOptionalTaskString(body.executionType) ?? "manual",
               priority,
               status,
+              plannedHours:
+                typeof body.plannedHours === "number"
+                  ? body.plannedHours
+                  : Number.isFinite(Number(body.plannedHours))
+                    ? Number(body.plannedHours)
+                    : null,
+              actualHours:
+                typeof body.actualHours === "number"
+                  ? body.actualHours
+                  : Number.isFinite(Number(body.actualHours))
+                    ? Number(body.actualHours)
+                    : null,
               qaRequired: Boolean(body.qaRequired),
               approvalRequired: Boolean(body.approvalRequired),
               assigneeType
@@ -4504,6 +5514,8 @@ export function createAppServer(config: BaseConfig): http.Server {
             qaRequired?: unknown;
             approvalRequired?: unknown;
             assigneeType?: unknown;
+            plannedHours?: unknown;
+            actualHours?: unknown;
           };
           const validStatuses = [
             "todo",
@@ -4578,6 +5590,36 @@ export function createAppServer(config: BaseConfig): http.Server {
             }
 
             data.assigneeType = body.assigneeType;
+          }
+
+          if (body.plannedHours !== undefined) {
+            const plannedHours =
+              typeof body.plannedHours === "number"
+                ? body.plannedHours
+                : Number(body.plannedHours);
+
+            if (!Number.isFinite(plannedHours) || plannedHours < 0) {
+              return sendJson(response, 400, {
+                error: "Invalid planned hours"
+              });
+            }
+
+            data.plannedHours = plannedHours;
+          }
+
+          if (body.actualHours !== undefined) {
+            const actualHours =
+              typeof body.actualHours === "number"
+                ? body.actualHours
+                : Number(body.actualHours);
+
+            if (!Number.isFinite(actualHours) || actualHours < 0) {
+              return sendJson(response, 400, {
+                error: "Invalid actual hours"
+              });
+            }
+
+            data.actualHours = actualHours;
           }
 
           if (body.qaRequired !== undefined) {
@@ -4892,6 +5934,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             clientName?: unknown;
             type?: unknown;
             scopeType?: unknown;
+            deliveryTemplateId?: unknown;
             commercialBrief?: unknown;
             portalId?: unknown;
             owner?: unknown;
@@ -4914,6 +5957,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             clientName?: string;
             type?: EngagementType;
             scopeType?: string;
+            deliveryTemplateId?: string;
             commercialBrief?: string;
             portalId?: string;
             owner?: string;
@@ -4966,6 +6010,22 @@ export function createAppServer(config: BaseConfig): http.Server {
             }
 
             normalizedPayload.scopeType = body.scopeType.trim();
+          }
+
+          if (body.deliveryTemplateId !== undefined) {
+            if (
+              typeof body.deliveryTemplateId !== "string" &&
+              body.deliveryTemplateId !== null
+            ) {
+              return sendJson(response, 400, {
+                error: "deliveryTemplateId must be a string or null"
+              });
+            }
+
+            normalizedPayload.deliveryTemplateId =
+              typeof body.deliveryTemplateId === "string"
+                ? body.deliveryTemplateId.trim()
+                : "";
           }
 
           if (body.commercialBrief !== undefined) {
@@ -5146,6 +6206,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             normalizedPayload.clientName === undefined &&
             normalizedPayload.type === undefined &&
             normalizedPayload.scopeType === undefined &&
+            normalizedPayload.deliveryTemplateId === undefined &&
             normalizedPayload.commercialBrief === undefined &&
             normalizedPayload.portalId === undefined &&
             normalizedPayload.owner === undefined &&
@@ -5299,6 +6360,12 @@ export function createAppServer(config: BaseConfig): http.Server {
                   : {}),
                 ...(normalizedPayload.scopeType !== undefined
                   ? { scopeType: normalizedPayload.scopeType || "discovery" }
+                  : {}),
+                ...(normalizedPayload.deliveryTemplateId !== undefined
+                  ? {
+                      deliveryTemplateId:
+                        normalizedPayload.deliveryTemplateId || null
+                    }
                   : {}),
                 ...(normalizedPayload.commercialBrief !== undefined
                   ? {

@@ -11,6 +11,8 @@ interface ProjectTask {
   executionType: string;
   priority: string;
   status: string;
+  plannedHours: number | null;
+  actualHours: number | null;
   qaRequired: boolean;
   approvalRequired: boolean;
   dependencyIds: string[];
@@ -81,6 +83,8 @@ export default function DeliveryBoard({
     executionType: "manual",
     priority: "medium",
     status: "todo",
+    plannedHours: "",
+    actualHours: "",
     qaRequired: false,
     approvalRequired: false,
     assigneeType: "Human"
@@ -131,6 +135,8 @@ export default function DeliveryBoard({
       executionType: "manual",
       priority: "medium",
       status: "todo",
+      plannedHours: "",
+      actualHours: "",
       qaRequired: false,
       approvalRequired: false,
       assigneeType: "Human"
@@ -212,6 +218,8 @@ export default function DeliveryBoard({
       executionType: task.executionType,
       priority: task.priority,
       status: task.status,
+      plannedHours: task.plannedHours?.toString() ?? "",
+      actualHours: task.actualHours?.toString() ?? "",
       qaRequired: task.qaRequired,
       approvalRequired: task.approvalRequired,
       assigneeType: task.assigneeType ?? "Human"
@@ -455,6 +463,34 @@ export default function DeliveryBoard({
                 <option value="high">High</option>
               </select>
             </label>
+            <label className="block">
+              <span className="text-sm text-white">Planned hours</span>
+              <input
+                type="number"
+                value={taskDraft.plannedHours}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({
+                    ...current,
+                    plannedHours: event.target.value
+                  }))
+                }
+                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm text-white">Actual hours</span>
+              <input
+                type="number"
+                value={taskDraft.actualHours}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({
+                    ...current,
+                    actualHours: event.target.value
+                  }))
+                }
+                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              />
+            </label>
           </div>
           <div className="mt-4 flex flex-wrap gap-4">
             <label className="flex items-center gap-2 text-sm text-white">
@@ -505,36 +541,39 @@ export default function DeliveryBoard({
       ) : null}
 
       {loading ? (
-        <div className="mt-6 grid gap-4 xl:grid-cols-5">
-          {boardColumns.map((column) => (
-            <div
-              key={column.key}
-              className="h-40 animate-pulse rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
-            />
-          ))}
-        </div>
-      ) : totalCount > 0 ? (
-        <div className="mt-6 grid gap-4 xl:grid-cols-5">
-          {boardColumns.map((column) => {
-            const columnTasks = tasks.filter((task) => task.status === column.key);
-
-            return (
+        <div className="mt-6 overflow-x-auto">
+          <div className="grid min-w-[1500px] gap-4 xl:grid-cols-5">
+            {boardColumns.map((column) => (
               <div
                 key={column.key}
-                className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-white">
-                    {column.label}
-                  </p>
-                  <span className="rounded bg-[rgba(255,255,255,0.06)] px-2 py-1 text-xs font-medium text-text-secondary">
-                    {columnTasks.length}
-                  </span>
-                </div>
+                className="h-40 animate-pulse rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
+              />
+            ))}
+          </div>
+        </div>
+      ) : totalCount > 0 ? (
+        <div className="mt-6 overflow-x-auto">
+          <div className="grid min-w-[1500px] gap-4 xl:grid-cols-5">
+            {boardColumns.map((column) => {
+              const columnTasks = tasks.filter((task) => task.status === column.key);
 
-                <div className="mt-4 space-y-3">
-                  {columnTasks.length > 0 ? (
-                    columnTasks.map((task) => (
+              return (
+                <div
+                  key={column.key}
+                  className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-white">
+                      {column.label}
+                    </p>
+                    <span className="rounded bg-[rgba(255,255,255,0.06)] px-2 py-1 text-xs font-medium text-text-secondary">
+                      {columnTasks.length}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {columnTasks.length > 0 ? (
+                      columnTasks.map((task) => (
                       <div
                         key={task.id}
                         className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4"
@@ -564,6 +603,12 @@ export default function DeliveryBoard({
                         <div className="mt-3 flex flex-wrap gap-2 text-xs text-text-muted">
                           <span>Execution: {formatLabel(task.executionType)}</span>
                           <span>Priority: {formatLabel(task.priority)}</span>
+                          {task.plannedHours !== null ? (
+                            <span>Planned: {task.plannedHours}h</span>
+                          ) : null}
+                          {task.actualHours !== null ? (
+                            <span>Actual: {task.actualHours}h</span>
+                          ) : null}
                           {task.qaRequired ? <span>QA required</span> : null}
                           {task.approvalRequired ? (
                             <span>Approval required</span>
@@ -660,6 +705,30 @@ export default function DeliveryBoard({
                                       </option>
                                     ))}
                                   </select>
+                                  <input
+                                    type="number"
+                                    value={taskDraft.plannedHours}
+                                    onChange={(event) =>
+                                      setTaskDraft((current) => ({
+                                        ...current,
+                                        plannedHours: event.target.value
+                                      }))
+                                    }
+                                    placeholder="Planned hours"
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                  />
+                                  <input
+                                    type="number"
+                                    value={taskDraft.actualHours}
+                                    onChange={(event) =>
+                                      setTaskDraft((current) => ({
+                                        ...current,
+                                        actualHours: event.target.value
+                                      }))
+                                    }
+                                    placeholder="Actual hours"
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                  />
                                 </div>
                                 <div className="flex flex-wrap gap-4">
                                   <label className="flex items-center gap-2 text-sm text-white">
@@ -754,16 +823,17 @@ export default function DeliveryBoard({
                           </div>
                         )}
                       </div>
-                    ))
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-4 text-sm text-text-secondary">
-                      No tasks in this column yet.
-                    </div>
-                  )}
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-4 text-sm text-text-secondary">
+                        No tasks in this column yet.
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div className="mt-6 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary">

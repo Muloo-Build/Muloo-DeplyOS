@@ -11,6 +11,7 @@ interface FormData {
   owner: string;
   ownerEmail: string;
   scopeType: string;
+  deliveryTemplateId: string;
   commercialBrief: string;
   industry: string;
   website: string;
@@ -34,6 +35,15 @@ interface TeamUser {
   name: string;
   email: string;
   role: string;
+}
+
+interface DeliveryTemplateSummary {
+  id: string;
+  name: string;
+  description?: string | null;
+  scopeType: string;
+  category: string;
+  defaultPlannedHours?: number | null;
 }
 
 const engagementTypes = [
@@ -123,12 +133,16 @@ export default function NewProjectPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
+  const [deliveryTemplates, setDeliveryTemplates] = useState<
+    DeliveryTemplateSummary[]
+  >([]);
   const [formData, setFormData] = useState<FormData>({
     projectName: "",
     clientName: "",
     owner: "",
     ownerEmail: "",
     scopeType: "discovery",
+    deliveryTemplateId: "",
     commercialBrief: "",
     industry: "",
     website: "",
@@ -171,6 +185,25 @@ export default function NewProjectPage() {
     }
 
     void loadUsers();
+  }, []);
+
+  useEffect(() => {
+    async function loadDeliveryTemplates() {
+      try {
+        const response = await fetch("/api/delivery-templates");
+
+        if (!response.ok) {
+          throw new Error("Failed to load delivery templates");
+        }
+
+        const body = await response.json();
+        setDeliveryTemplates(body.templates ?? []);
+      } catch {
+        // Keep project creation usable if the template library is unavailable.
+      }
+    }
+
+    void loadDeliveryTemplates();
   }, []);
 
   function updateField(
@@ -223,6 +256,7 @@ export default function NewProjectPage() {
       owner: formData.owner,
       ownerEmail: formData.ownerEmail,
       scopeType: formData.scopeType,
+      deliveryTemplateId: formData.deliveryTemplateId || undefined,
       commercialBrief: formData.commercialBrief.trim(),
       industry: formData.industry,
       website: formData.website.trim(),
@@ -386,20 +420,50 @@ export default function NewProjectPage() {
                   />
                 </label>
 
-                {formData.scopeType === "standalone_quote" ? (
-                  <label className="block md:col-span-2">
-                    <span className="mb-2 block text-sm text-text-secondary">
-                      Job / scope brief
-                    </span>
-                    <textarea
-                      value={formData.commercialBrief}
-                      onChange={(event) =>
-                        updateField("commercialBrief", event.target.value)
-                      }
-                      placeholder="Describe the standalone job, deliverables, desired outcomes, and any pricing context."
-                      className="min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                    />
-                  </label>
+              {formData.scopeType === "standalone_quote" ? (
+                  <>
+                    <label className="block md:col-span-2">
+                      <span className="mb-2 block text-sm text-text-secondary">
+                        Delivery template
+                      </span>
+                      <select
+                        value={formData.deliveryTemplateId}
+                        onChange={(event) =>
+                          updateField("deliveryTemplateId", event.target.value)
+                        }
+                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      >
+                        <option value="">No template yet</option>
+                        {deliveryTemplates
+                          .filter(
+                            (template) =>
+                              template.scopeType === "standalone_quote"
+                          )
+                          .map((template) => (
+                            <option key={template.id} value={template.id}>
+                              {template.name}
+                              {template.defaultPlannedHours
+                                ? ` · ${template.defaultPlannedHours}h`
+                                : ""}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+
+                    <label className="block md:col-span-2">
+                      <span className="mb-2 block text-sm text-text-secondary">
+                        Job / scope brief
+                      </span>
+                      <textarea
+                        value={formData.commercialBrief}
+                        onChange={(event) =>
+                          updateField("commercialBrief", event.target.value)
+                        }
+                        placeholder="Describe the standalone job, deliverables, desired outcomes, and any pricing context."
+                        className="min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      />
+                    </label>
+                  </>
                 ) : null}
 
                 <label className="block">
@@ -694,6 +758,12 @@ export default function NewProjectPage() {
                   ],
                   ["Industry", formData.industry],
                   ["Website", formData.website],
+                  [
+                    "Delivery template",
+                    deliveryTemplates.find(
+                      (template) => template.id === formData.deliveryTemplateId
+                    )?.name ?? ""
+                  ],
                   ["Champion first name", formData.clientChampionFirstName],
                   ["Champion last name", formData.clientChampionLastName],
                   ["Champion email", formData.clientChampionEmail],

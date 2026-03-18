@@ -57,6 +57,7 @@ model Project {
   clientChampionEmail     String?
   scopeType      String?
   commercialBrief String?
+  deliveryTemplateId String?
   selectedHubs   String[]
   currentPhase   String?
   clientId       String
@@ -65,6 +66,7 @@ model Project {
   updatedAt      DateTime              @updatedAt
   client         Client                @relation(fields: [clientId], references: [id])
   portal         HubSpotPortal         @relation(fields: [portalId], references: [id])
+  deliveryTemplate DeliveryTemplate?   @relation(fields: [deliveryTemplateId], references: [id])
   discovery      DiscoverySubmission[]
   discoveryEvidence DiscoveryEvidence[]
   discoverySummary DiscoverySummary?
@@ -73,6 +75,7 @@ model Project {
   executionJobs  ExecutionJob[]
   clientAccess   ClientProjectAccess[]
   clientSubmissions ClientInputSubmission[]
+  workRequests   WorkRequest[]
 }
 
 model ProductCatalogItem {
@@ -108,6 +111,44 @@ model AgentDefinition {
   updatedAt      DateTime @updatedAt
 }
 
+model DeliveryTemplate {
+  id                 String                @id @default(cuid())
+  slug               String                @unique
+  name               String
+  description        String?
+  category           String
+  scopeType          String
+  recommendedHubs    String[]
+  defaultPlannedHours Float?
+  isActive           Boolean               @default(true)
+  sortOrder          Int                   @default(0)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  tasks              DeliveryTemplateTask[]
+  projects           Project[]
+}
+
+model DeliveryTemplateTask {
+  id               String            @id @default(cuid())
+  templateId       String
+  title            String
+  description      String?
+  category         String?
+  executionType    String            @default("manual")
+  priority         String            @default("medium")
+  status           String            @default("todo")
+  qaRequired       Boolean           @default(false)
+  approvalRequired Boolean           @default(false)
+  assigneeType     String?
+  plannedHours     Float?
+  sortOrder        Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  template         DeliveryTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, sortOrder])
+}
+
 model ClientPortalUser {
   id                       String   @id @default(cuid())
   firstName                String
@@ -136,6 +177,29 @@ model ClientProjectAccess {
   project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([userId, projectId])
+  @@index([projectId, createdAt])
+}
+
+model WorkRequest {
+  id             String    @id @default(cuid())
+  projectId      String?
+  title          String
+  requestType    String
+  companyName    String?
+  contactName    String
+  contactEmail   String
+  summary        String
+  details        String?
+  urgency        String?
+  budgetRange    String?
+  portalOrWebsite String?
+  links          String[]
+  status         String    @default("new")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  project        Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
   @@index([projectId, createdAt])
 }
 
@@ -241,6 +305,8 @@ model Task {
   executionType    String         @default("manual")
   priority         String         @default("medium")
   status           String         @default("draft")
+  plannedHours     Float?
+  actualHours      Float?
   qaRequired       Boolean        @default(false)
   approvalRequired Boolean        @default(false)
   dependencyIds    String[]

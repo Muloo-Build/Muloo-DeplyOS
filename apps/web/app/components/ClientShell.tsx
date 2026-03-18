@@ -55,6 +55,12 @@ export default function ClientShell({
             >
               Support
             </Link>
+            <Link
+              href="/client/request-work"
+              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-white"
+            >
+              Request Work
+            </Link>
             <button
               type="button"
               onClick={() => void handleLogout()}

@@ -1,5 +1,7 @@
 import AppShell from "../components/AppShell";
 import { EmbeddedProductsCatalog } from "../components/ProductsCatalog";
+import WorkRequestsInbox from "../components/WorkRequestsInbox";
+import Link from "next/link";
 
 export default function SettingsPage() {
   return (
@@ -158,6 +160,48 @@ export default function SettingsPage() {
                 gives us a cleaner path to multi-model agent orchestration later
                 on.
               </p>
+            </section>
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+            <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                    Work Intake
+                  </p>
+                  <h2 className="mt-2 text-xl font-semibold text-white">
+                    Request review inbox
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-text-secondary">
+                    Client-submitted quote requests, job briefs, and change
+                    requests land here for triage.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <WorkRequestsInbox />
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                Delivery Templates
+              </p>
+              <h2 className="mt-2 text-xl font-semibold text-white">
+                Reusable delivery patterns
+              </h2>
+              <p className="mt-3 text-text-secondary">
+                Theme installs, onboarding, migrations, and other repeatable
+                jobs should begin from approved templates rather than scratch.
+              </p>
+              <Link
+                href="/templates"
+                className="mt-5 inline-flex rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+              >
+                Open template library
+              </Link>
             </section>
           </div>
 

@@ -1,0 +1,148 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+interface WorkRequest {
+  id: string;
+  projectId: string | null;
+  title: string;
+  requestType: string;
+  companyName: string | null;
+  contactName: string;
+  contactEmail: string;
+  summary: string;
+  urgency: string | null;
+  status: string;
+  createdAt: string;
+  project: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+export default function WorkRequestsInbox() {
+  const [requests, setRequests] = useState<WorkRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadRequests() {
+      try {
+        const response = await fetch("/api/work-requests");
+        if (!response.ok) {
+          throw new Error("Failed to load work requests");
+        }
+
+        const body = await response.json();
+        setRequests(body.workRequests ?? []);
+      } catch (loadError) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load work requests"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadRequests();
+  }, []);
+
+  async function updateStatus(id: string, status: string) {
+    setSavingId(id);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/work-requests/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ status })
+      });
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to update request");
+      }
+
+      setRequests((current) =>
+        current.map((request) =>
+          request.id === id ? body.workRequest : request
+        )
+      );
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Failed to update request"
+      );
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {error ? (
+        <div className="rounded-xl border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-white">
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4 text-sm text-text-secondary">
+          Loading work requests...
+        </div>
+      ) : requests.length === 0 ? (
+        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4 text-sm text-text-secondary">
+          No work requests yet.
+        </div>
+      ) : (
+        requests.map((request) => (
+          <div
+            key={request.id}
+            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  {request.requestType.replace(/_/g, " ")}
+                </p>
+                <h3 className="mt-2 text-lg font-semibold text-white">
+                  {request.title}
+                </h3>
+              </div>
+              <select
+                value={request.status}
+                onChange={(event) =>
+                  void updateStatus(request.id, event.target.value)
+                }
+                disabled={savingId === request.id}
+                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              >
+                {["new", "triaging", "quoted", "converted", "closed"].map(
+                  (status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+            <p className="mt-3 text-sm text-text-secondary">{request.summary}</p>
+            <div className="mt-3 flex flex-wrap gap-3 text-xs text-text-muted">
+              <span>{request.contactName}</span>
+              <span>{request.contactEmail}</span>
+              {request.companyName ? <span>{request.companyName}</span> : null}
+              {request.project ? <span>Project: {request.project.name}</span> : null}
+              {request.urgency ? <span>Urgency: {request.urgency}</span> : null}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
