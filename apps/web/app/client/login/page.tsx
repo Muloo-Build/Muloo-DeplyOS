@@ -46,53 +46,90 @@ export default function ClientLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background-primary px-6 text-white">
-      <div className="w-full max-w-md rounded-3xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
-        <p className="text-sm uppercase tracking-[0.3em] text-text-muted">
-          Muloo
-        </p>
-        <h1 className="mt-3 text-3xl font-bold font-heading gradient-text">
-          Client Portal
-        </h1>
-        <p className="mt-3 text-text-secondary">
-          Sign in to complete discovery inputs, review documents, and track your
-          project.
-        </p>
+    <div className="min-h-screen bg-background-primary px-6 text-white">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center py-10">
+        <div className="grid w-full items-stretch gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+          <section className="hidden rounded-[32px] border border-[rgba(255,255,255,0.07)] bg-[radial-gradient(circle_at_top_left,rgba(124,92,191,0.28),transparent_38%),linear-gradient(180deg,#0f1735_0%,#0a0f24_100%)] p-10 lg:flex lg:flex-col lg:justify-between">
+            <div>
+              <img src="/muloo-logo.svg" alt="Muloo" className="h-12 w-auto" />
+              <p className="mt-8 text-xs uppercase tracking-[0.35em] text-text-muted">
+                Client Portal
+              </p>
+              <h1 className="mt-4 text-5xl font-bold font-heading text-white">
+                Project visibility, documents, and approvals.
+              </h1>
+              <p className="mt-6 max-w-xl text-base leading-7 text-text-secondary">
+                Access your Muloo project workspace to review scope, delivery progress, supporting documents, and any forms we specifically assign to your team.
+              </p>
+            </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-          <label className="block">
-            <span className="mb-2 block text-sm text-text-secondary">
-              Email
-            </span>
-            <input
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-            />
-          </label>
+            <div className="grid gap-4 md:grid-cols-3">
+              {[
+                ["Review docs", "Discovery documents, quotes, and approved scope in one place."],
+                ["Track delivery", "See the current board and what is waiting on Muloo or your team."],
+                ["Respond only when needed", "Forms appear only when Muloo requests a specific client input."]
+              ].map(([title, copy]) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4"
+                >
+                  <p className="text-sm font-semibold text-white">{title}</p>
+                  <p className="mt-2 text-sm leading-6 text-text-secondary">
+                    {copy}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
 
-          <label className="block">
-            <span className="mb-2 block text-sm text-text-secondary">
-              Password
-            </span>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-            />
-          </label>
+          <div className="w-full rounded-3xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
+            <img src="/muloo-logo.svg" alt="Muloo" className="h-10 w-auto lg:hidden" />
+            <p className="mt-4 text-sm uppercase tracking-[0.3em] text-text-muted">
+              Client sign in
+            </p>
+            <h1 className="mt-3 text-3xl font-bold font-heading text-white">
+              Welcome to your Muloo project portal
+            </h1>
+            <p className="mt-3 text-text-secondary">
+              Sign in to review your projects, check delivery status, and complete any forms that have been assigned to you.
+            </p>
 
-          {error ? <p className="text-sm text-[#ff8f9c]">{error}</p> : null}
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+              <label className="block">
+                <span className="mb-2 block text-sm text-text-secondary">
+                  Email
+                </span>
+                <input
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                />
+              </label>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            {submitting ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
+              <label className="block">
+                <span className="mb-2 block text-sm text-text-secondary">
+                  Password
+                </span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                />
+              </label>
+
+              {error ? <p className="text-sm text-[#ff8f9c]">{error}</p> : null}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {submitting ? "Signing in..." : "Sign in"}
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );

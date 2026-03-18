@@ -11,6 +11,7 @@ interface ClientProject {
     id: string;
     name: string;
     status: string;
+    scopeType?: string | null;
     engagementType: string;
     selectedHubs: string[];
     updatedAt: string;
@@ -89,9 +90,15 @@ export default function ClientProjectsDashboard() {
                   <p className="mt-2 text-text-secondary">
                     {project.client.name}
                   </p>
-                  <p className="mt-2 text-sm text-text-muted">
-                    {project.selectedHubs.join(", ")}
-                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-sm text-text-muted">
+                    <span>
+                      {project.scopeType === "standalone_quote"
+                        ? "Standalone scoped job"
+                        : "Discovery-led project"}
+                    </span>
+                    <span>·</span>
+                    <span>{project.selectedHubs.join(", ")}</span>
+                  </div>
                 </div>
                 <div className="text-right text-sm text-text-secondary">
                   <p>Updated</p>

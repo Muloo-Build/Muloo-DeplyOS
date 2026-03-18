@@ -28,13 +28,18 @@ export default function ClientShell({
     <div className="min-h-screen bg-background-primary text-white">
       <header className="border-b border-[rgba(255,255,255,0.07)] bg-[#0a0f24]">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5">
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-text-muted">
-              Muloo
-            </p>
-            <h1 className="mt-2 text-2xl font-bold font-heading gradient-text">
-              Deploy OS
-            </h1>
+          <div className="flex items-center gap-4">
+            <img src="/muloo-logo.svg" alt="Muloo" className="h-10 w-auto" />
+            <div>
+              <p className="text-xs uppercase tracking-[0.35em] text-text-muted">
+                Client workspace
+              </p>
+              <h1 className="mt-2 text-2xl font-bold font-heading text-white">
+                Deploy OS
+              </h1>
+            </div>
+          </div>
+          <div className="hidden min-w-0 flex-1 px-8 lg:block">
             <p className="mt-2 text-sm text-text-secondary">{subtitle}</p>
           </div>
           <nav className="flex flex-wrap items-center gap-3 text-sm">
