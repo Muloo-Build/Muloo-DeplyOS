@@ -61,6 +61,7 @@ interface DiscoverySummary {
 }
 
 interface PhaseCommercialDraft {
+  included: boolean;
   humanHours: string;
   rate: string;
 }
@@ -264,9 +265,7 @@ export default function QuoteDocument({
             : fetch(
                 `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
               ),
-          isStandaloneQuote
-            ? Promise.resolve(null)
-            : fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
           fetch("/api/products")
         ]);
 
@@ -285,7 +284,7 @@ export default function QuoteDocument({
 
         const sessionsBody = await sessionsResponse.json();
         const summaryBody = summaryResponse ? await summaryResponse.json() : null;
-        const blueprintBody = blueprintResponse
+        const blueprintBody = blueprintResponse?.ok
           ? await blueprintResponse.json()
           : null;
         const productsBody = await productsResponse.json();
@@ -366,6 +365,7 @@ export default function QuoteDocument({
             .reduce((total, task) => total + task.effortHours, 0);
 
           nextDrafts[phase.phase] = {
+            included: true,
             humanHours: String(phaseHumanHours),
             rate: defaultRate
           };
@@ -386,6 +386,7 @@ export default function QuoteDocument({
       .filter((task) => task.type === "Human")
       .reduce((total, task) => total + task.effortHours, 0);
     const draft = phaseDrafts[phase.phase];
+    const included = draft?.included ?? true;
     const humanHours = parseNumber(
       draft?.humanHours ?? String(phaseHumanHoursFromBlueprint),
       phaseHumanHoursFromBlueprint
@@ -396,6 +397,7 @@ export default function QuoteDocument({
     return {
       phase: phase.phase,
       phaseName: phase.phaseName,
+      included,
       humanHours,
       rate,
       feeZar,
@@ -403,11 +405,12 @@ export default function QuoteDocument({
     };
   });
 
-  const totalHumanHours = phaseCommercials.reduce(
+  const selectedPhaseCommercials = phaseCommercials.filter((phase) => phase.included);
+  const totalHumanHours = selectedPhaseCommercials.reduce(
     (total, phase) => total + phase.humanHours,
     0
   );
-  const totalFeeZar = phaseCommercials.reduce(
+  const totalFeeZar = selectedPhaseCommercials.reduce(
     (total, phase) => total + phase.feeZar,
     0
   );
@@ -634,7 +637,7 @@ export default function QuoteDocument({
                   <div className="mt-8 grid gap-4">
                     <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
                       <p className="text-sm text-text-secondary">
-                        Total Human Hours
+                        Quoted Human Hours
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-white">
                         {totalHumanHours} hrs
@@ -676,6 +679,52 @@ export default function QuoteDocument({
                 ))}
               </div>
             </section>
+
+            {phaseCommercials.length > 0 ? (
+              <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <SectionEyebrow>Commercial Composition</SectionEyebrow>
+                <SectionTitle>Select the phases to include in this quote</SectionTitle>
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-text-secondary">
+                  Use this to shape the commercial offer from the available implementation phases. This lets you quote the full plan or only the parts the client wants to proceed with now.
+                </p>
+
+                <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                  {phaseCommercials.map((phase) => (
+                    <label
+                      key={`compose-${phase.phase}`}
+                      className="flex items-start gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={phase.included}
+                        onChange={(event) =>
+                          setPhaseDrafts((currentDrafts) => ({
+                            ...currentDrafts,
+                            [phase.phase]: {
+                              included: event.target.checked,
+                              humanHours:
+                                currentDrafts[phase.phase]?.humanHours ??
+                                String(phase.humanHours),
+                              rate:
+                                currentDrafts[phase.phase]?.rate ?? defaultRate
+                            }
+                          }))
+                        }
+                        className="mt-1"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white">
+                          Phase {phase.phase} - {phase.phaseName}
+                        </p>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          {phase.tasks.filter((task) => task.type !== "Client").length} implementation tasks · {phase.humanHours} hrs · {formatCurrency(phase.feeZar, currency)}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-6">
@@ -971,13 +1020,28 @@ export default function QuoteDocument({
                 {phaseCommercials.map((phase) => (
                   <div
                     key={phase.phase}
-                    className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
+                    className={`rounded-2xl border p-5 ${
+                      phase.included
+                        ? "border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
+                        : "border-[rgba(255,255,255,0.05)] bg-[rgba(11,17,38,0.55)] opacity-60"
+                    }`}
                   >
                     <div className="grid gap-4 lg:grid-cols-[1fr_140px_160px_180px]">
                       <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Phase {phase.phase}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Phase {phase.phase}
+                          </p>
+                          <span
+                            className={`rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${
+                              phase.included
+                                ? "border border-[rgba(73,205,225,0.22)] bg-[rgba(73,205,225,0.12)] text-[#7be2ef]"
+                                : "border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] text-text-muted"
+                            }`}
+                          >
+                            {phase.included ? "Included in quote" : "Not included"}
+                          </span>
+                        </div>
                         <h3 className="mt-2 text-lg font-semibold text-white">
                           {phase.phaseName}
                         </h3>
@@ -1000,6 +1064,8 @@ export default function QuoteDocument({
                             setPhaseDrafts((currentDrafts) => ({
                               ...currentDrafts,
                               [phase.phase]: {
+                                included:
+                                  currentDrafts[phase.phase]?.included ?? true,
                                 humanHours: event.target.value,
                                 rate:
                                   currentDrafts[phase.phase]?.rate ?? defaultRate
@@ -1021,12 +1087,14 @@ export default function QuoteDocument({
                           <input
                             value={phaseDrafts[phase.phase]?.rate ?? defaultRate}
                             onChange={(event) =>
-                              setPhaseDrafts((currentDrafts) => ({
-                                ...currentDrafts,
-                                [phase.phase]: {
-                                  humanHours:
-                                    currentDrafts[phase.phase]?.humanHours ??
-                                    String(phase.humanHours),
+                            setPhaseDrafts((currentDrafts) => ({
+                              ...currentDrafts,
+                              [phase.phase]: {
+                                included:
+                                  currentDrafts[phase.phase]?.included ?? true,
+                                humanHours:
+                                  currentDrafts[phase.phase]?.humanHours ??
+                                  String(phase.humanHours),
                                   rate: event.target.value
                                 }
                               }))
@@ -1179,6 +1247,7 @@ export default function QuoteDocument({
                     <span className="text-right">Fee</span>
                   </div>
                   {phaseCommercials.map((phase) => (
+                    phase.included ? (
                     <div
                       key={phase.phase}
                       className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-5 py-4 text-sm text-white last:border-b-0"
@@ -1194,6 +1263,7 @@ export default function QuoteDocument({
                         {formatCurrency(phase.feeZar, currency)}
                       </span>
                     </div>
+                    ) : null
                   ))}
                   {selectedProductLines.map((product) => (
                     <div

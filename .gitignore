@@ -7,3 +7,5 @@ apps/api/data/
 artifacts/*.json
 artifacts/*.log
 !artifacts/.gitkeep
+.DS_Store
+._*
