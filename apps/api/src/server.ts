@@ -65,7 +65,7 @@ const validProjectHubValues = [
   "ops",
   "cms"
 ] as const;
-const projectOwnerOptions = [
+const defaultWorkspaceUsers = [
   {
     id: "jarrud-vander-merwe",
     name: "Jarrud van der Merwe",
@@ -550,10 +550,253 @@ function isValidDiscoveryEvidenceType(
   return discoveryEvidenceTypeValues.includes(value as DiscoveryEvidenceType);
 }
 
-function resolveProjectOwner(ownerName?: string, ownerEmail?: string) {
+async function ensureWorkspaceUsersSeeded() {
+  const existingCount = await prisma.workspaceUser.count();
+
+  if (existingCount > 0) {
+    return;
+  }
+
+  await prisma.workspaceUser.createMany({
+    data: defaultWorkspaceUsers.map((user) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isActive: true,
+      sortOrder: 10
+    }))
+  });
+}
+
+async function loadWorkspaceUsers() {
+  await ensureWorkspaceUsersSeeded();
+
+  return prisma.workspaceUser.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
+  });
+}
+
+async function createWorkspaceUser(value: {
+  name?: unknown;
+  email?: unknown;
+  role?: unknown;
+  isActive?: unknown;
+  sortOrder?: unknown;
+}) {
+  const name = typeof value.name === "string" ? value.name.trim() : "";
+  const email =
+    typeof value.email === "string" ? value.email.trim().toLowerCase() : "";
+  const role = typeof value.role === "string" ? value.role.trim() : "";
+  const sortOrder =
+    typeof value.sortOrder === "number"
+      ? value.sortOrder
+      : Number(value.sortOrder);
+
+  if (!name || !email || !role) {
+    throw new Error("name, email, and role are required");
+  }
+
+  const user = await prisma.workspaceUser.create({
+    data: {
+      name,
+      email,
+      role,
+      isActive: value.isActive === false ? false : true,
+      sortOrder: Number.isFinite(sortOrder) ? Math.round(sortOrder) : 999
+    }
+  });
+
+  return serializeWorkspaceUser(user);
+}
+
+async function updateWorkspaceUser(
+  userId: string,
+  value: {
+    name?: unknown;
+    email?: unknown;
+    role?: unknown;
+    isActive?: unknown;
+    sortOrder?: unknown;
+  }
+) {
+  const data: Prisma.Prisma.WorkspaceUserUpdateInput = {};
+
+  if (value.name !== undefined) {
+    if (typeof value.name !== "string" || value.name.trim().length === 0) {
+      throw new Error("name must be a non-empty string");
+    }
+    data.name = value.name.trim();
+  }
+
+  if (value.email !== undefined) {
+    if (typeof value.email !== "string" || value.email.trim().length === 0) {
+      throw new Error("email must be a non-empty string");
+    }
+    data.email = value.email.trim().toLowerCase();
+  }
+
+  if (value.role !== undefined) {
+    if (typeof value.role !== "string" || value.role.trim().length === 0) {
+      throw new Error("role must be a non-empty string");
+    }
+    data.role = value.role.trim();
+  }
+
+  if (value.isActive !== undefined) {
+    data.isActive = Boolean(value.isActive);
+  }
+
+  if (value.sortOrder !== undefined) {
+    const sortOrder =
+      typeof value.sortOrder === "number"
+        ? value.sortOrder
+        : Number(value.sortOrder);
+    if (!Number.isFinite(sortOrder)) {
+      throw new Error("sortOrder must be a valid number");
+    }
+    data.sortOrder = Math.round(sortOrder);
+  }
+
+  const user = await prisma.workspaceUser.update({
+    where: { id: userId },
+    data
+  });
+
+  return serializeWorkspaceUser(user);
+}
+
+function inferDefaultHubsForServiceFamily(serviceFamily: string) {
+  switch (serviceFamily) {
+    case "custom_engineering":
+      return ["cms"];
+    case "ai_automation":
+      return ["ops"];
+    case "hubspot_architecture":
+    default:
+      return ["sales", "marketing", "service"];
+  }
+}
+
+async function convertWorkRequestToProject(requestId: string) {
+  const workRequest = await prisma.workRequest.findUnique({
+    where: { id: requestId },
+    include: {
+      project: {
+        include: {
+          client: true,
+          portal: true
+        }
+      }
+    }
+  });
+
+  if (!workRequest) {
+    throw new Error("Work request not found");
+  }
+
+  if (workRequest.projectId && workRequest.project) {
+    return {
+      project: serializeProject(workRequest.project),
+      workRequest: serializeWorkRequest(workRequest)
+    };
+  }
+
+  const scopeType =
+    workRequest.requestType === "project_brief" ? "discovery" : "standalone_quote";
+  const serviceFamily = workRequest.serviceFamily || "hubspot_architecture";
+  const owner = await resolveProjectOwner();
+  const defaultTemplate = await prisma.deliveryTemplate.findFirst({
+    where: {
+      serviceFamily,
+      scopeType,
+      isActive: true
+    },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
+  });
+
+  const clientName =
+    workRequest.companyName?.trim() ||
+    workRequest.portalOrWebsite?.trim() ||
+    workRequest.contactName.trim();
+  const clientSlug = createSlug(clientName);
+
+  const client = await prisma.client.upsert({
+    where: { slug: clientSlug },
+    update: {
+      name: clientName,
+      website: workRequest.portalOrWebsite?.trim() || null
+    },
+    create: {
+      name: clientName,
+      slug: clientSlug,
+      website: workRequest.portalOrWebsite?.trim() || null
+    }
+  });
+
+  const portal = await prisma.hubSpotPortal.create({
+    data: {
+      portalId: createPendingPortalId(),
+      displayName: clientName
+    }
+  });
+
+  const project = await prisma.project.create({
+    data: {
+      name: workRequest.title,
+      status: "draft",
+      engagementType: "IMPLEMENTATION",
+      owner: owner.owner,
+      ownerEmail: owner.ownerEmail,
+      serviceFamily,
+      scopeType,
+      deliveryTemplateId: defaultTemplate?.id ?? null,
+      commercialBrief: [workRequest.summary, workRequest.details]
+        .filter(Boolean)
+        .join("\n\n"),
+      selectedHubs: scopeType === "standalone_quote"
+        ? inferDefaultHubsForServiceFamily(serviceFamily)
+        : [],
+      clientChampionFirstName: workRequest.contactName.split(/\s+/)[0] || null,
+      clientChampionLastName:
+        workRequest.contactName.split(/\s+/).slice(1).join(" ") || null,
+      clientChampionEmail: workRequest.contactEmail,
+      clientId: client.id,
+      portalId: portal.id
+    },
+    include: {
+      client: true,
+      portal: true
+    }
+  });
+
+  const updatedRequest = await prisma.workRequest.update({
+    where: { id: requestId },
+    data: {
+      projectId: project.id,
+      status: "converted"
+    },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
+  });
+
+  return {
+    project: serializeProject(project),
+    workRequest: serializeWorkRequest(updatedRequest)
+  };
+}
+
+async function resolveProjectOwner(ownerName?: string, ownerEmail?: string) {
+  const workspaceUsers = await loadWorkspaceUsers();
   const normalizedName = ownerName?.trim().toLowerCase() ?? "";
   const normalizedEmail = ownerEmail?.trim().toLowerCase() ?? "";
-  const matchedOwner = projectOwnerOptions.find(
+  const matchedOwner = workspaceUsers.find(
     (candidate) =>
       candidate.name.toLowerCase() === normalizedName ||
       candidate.email.toLowerCase() === normalizedEmail
@@ -567,8 +810,9 @@ function resolveProjectOwner(ownerName?: string, ownerEmail?: string) {
   }
 
   return {
-    owner: ownerName?.trim() || projectOwnerOptions[0].name,
-    ownerEmail: ownerEmail?.trim() || projectOwnerOptions[0].email
+    owner: ownerName?.trim() || workspaceUsers[0]?.name || "Muloo Operator",
+    ownerEmail:
+      ownerEmail?.trim() || workspaceUsers[0]?.email || "operator@muloo.com"
   };
 }
 
@@ -830,6 +1074,16 @@ function matchProductRoute(pathname: string): { productId?: string } | null {
   return match[1] ? { productId: decodeURIComponent(match[1]) } : {};
 }
 
+function matchWorkspaceUserRoute(pathname: string): { userId?: string } | null {
+  const match = /^\/api\/users(?:\/([^/]+))?$/.exec(pathname);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1] ? { userId: decodeURIComponent(match[1]) } : {};
+}
+
 function matchAgentRoute(pathname: string): { agentId?: string } | null {
   const match = /^\/api\/agents(?:\/([^/]+))?$/.exec(pathname);
 
@@ -854,14 +1108,22 @@ function matchDeliveryTemplateRoute(pathname: string): {
 
 function matchWorkRequestRoute(pathname: string): {
   requestId?: string;
+  action?: "convert";
 } | null {
-  const match = /^\/api\/work-requests(?:\/([^/]+))?$/.exec(pathname);
+  const match = /^\/api\/work-requests(?:\/([^/]+?)(?:\/(convert))?)?$/.exec(
+    pathname
+  );
 
   if (!match) {
     return null;
   }
 
-  return match[1] ? { requestId: decodeURIComponent(match[1]) } : {};
+  return match[1]
+    ? {
+        requestId: decodeURIComponent(match[1]),
+        ...(match[2] === "convert" ? { action: "convert" as const } : {})
+      }
+    : {};
 }
 
 function matchClientProjectRoute(pathname: string): {
@@ -3157,6 +3419,30 @@ function serializeAgentDefinition<
   };
 }
 
+function serializeWorkspaceUser<
+  T extends {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    isActive: boolean;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(user: T) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    isActive: user.isActive,
+    sortOrder: user.sortOrder,
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString()
+  };
+}
+
 async function ensureProductCatalogSeeded() {
   const existingCount = await prisma.productCatalogItem.count();
 
@@ -4825,10 +5111,47 @@ export function createAppServer(config: BaseConfig): http.Server {
         });
       }
 
-      if (url.pathname === "/api/users") {
-        return sendJson(response, 200, {
-          users: projectOwnerOptions
-        });
+      const workspaceUserRoute = matchWorkspaceUserRoute(url.pathname);
+      if (workspaceUserRoute) {
+        if (request.method === "GET" && !workspaceUserRoute.userId) {
+          return sendJson(response, 200, {
+            users: (await loadWorkspaceUsers()).map((user) =>
+              serializeWorkspaceUser(user)
+            )
+          });
+        }
+
+        if (request.method === "POST" && !workspaceUserRoute.userId) {
+          try {
+            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const user = await createWorkspaceUser(body);
+            return sendJson(response, 201, { user });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to create workspace user"
+            });
+          }
+        }
+
+        if (request.method === "PATCH" && workspaceUserRoute.userId) {
+          try {
+            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const user = await updateWorkspaceUser(workspaceUserRoute.userId, body);
+            return sendJson(response, 200, { user });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update workspace user"
+            });
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
       const productRoute = matchProductRoute(url.pathname);
@@ -5043,6 +5366,26 @@ export function createAppServer(config: BaseConfig): http.Server {
           }
         }
 
+        if (
+          request.method === "POST" &&
+          workRequestRoute.requestId &&
+          workRequestRoute.action === "convert"
+        ) {
+          try {
+            const result = await convertWorkRequestToProject(
+              workRequestRoute.requestId
+            );
+            return sendJson(response, 200, result);
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to convert work request"
+            });
+          }
+        }
+
         return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
@@ -5171,7 +5514,7 @@ export function createAppServer(config: BaseConfig): http.Server {
               status: "draft",
               engagementType: (body.engagementType ??
                 "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
-              ...resolveProjectOwner(body.owner, body.ownerEmail),
+              ...(await resolveProjectOwner(body.owner, body.ownerEmail)),
               serviceFamily,
               clientChampionFirstName:
                 body.clientChampionFirstName?.trim() || null,
@@ -6371,7 +6714,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           const nextOwnerDetails =
             normalizedPayload.owner !== undefined ||
             normalizedPayload.ownerEmail !== undefined
-              ? resolveProjectOwner(
+              ? await resolveProjectOwner(
                   normalizedPayload.owner ?? existingProject.owner,
                   normalizedPayload.ownerEmail ?? existingProject.ownerEmail
                 )

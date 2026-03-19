@@ -1,5 +1,6 @@
 import AppShell from "../components/AppShell";
 import { EmbeddedProductsCatalog } from "../components/ProductsCatalog";
+import WorkspaceUsersSettings from "../components/WorkspaceUsersSettings";
 import WorkRequestsInbox from "../components/WorkRequestsInbox";
 import Link from "next/link";
 
@@ -40,34 +41,9 @@ export default function SettingsPage() {
               </div>
 
               <div className="mt-5 grid gap-4 md:grid-cols-2">
-                {[
-                  [
-                    "Admin",
-                    "Manage users, roles, integrations, templates, and workspace rules."
-                  ],
-                  [
-                    "Delivery User",
-                    "Create projects, run discovery, generate summaries, and work active delivery plans."
-                  ],
-                  [
-                    "Viewer",
-                    "Optional later for read-only access to projects, outputs, and reporting."
-                  ],
-                  [
-                    "Default assignment",
-                    "Use this area later for service-line defaults and role-based owner routing."
-                  ]
-                ].map(([label, description]) => (
-                  <div
-                    key={label}
-                    className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
-                  >
-                    <p className="text-sm font-semibold text-white">{label}</p>
-                    <p className="mt-2 text-sm text-text-secondary">
-                      {description}
-                    </p>
-                  </div>
-                ))}
+                <div className="md:col-span-2">
+                  <WorkspaceUsersSettings />
+                </div>
               </div>
             </section>
 

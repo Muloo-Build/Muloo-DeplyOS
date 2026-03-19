@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface WorkRequest {
   id: string;
@@ -31,6 +32,7 @@ const serviceFamilies = [
 ];
 
 export default function WorkRequestsInbox() {
+  const router = useRouter();
   const [requests, setRequests] = useState<WorkRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +96,41 @@ export default function WorkRequestsInbox() {
     }
   }
 
+  async function convertToProject(id: string) {
+    setSavingId(id);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/work-requests/${encodeURIComponent(id)}/convert`,
+        {
+          method: "POST"
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to convert request");
+      }
+
+      setRequests((current) =>
+        current.map((request) =>
+          request.id === id ? body.workRequest : request
+        )
+      );
+
+      router.push(`/projects/${body.project.id}`);
+    } catch (convertError) {
+      setError(
+        convertError instanceof Error
+          ? convertError.message
+          : "Failed to convert request"
+      );
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {error ? (
@@ -151,8 +188,16 @@ export default function WorkRequestsInbox() {
                   )}&requestType=${encodeURIComponent(request.requestType)}`}
                   className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm font-medium text-white"
                 >
-                  Convert to project
+                  Prefill project
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => void convertToProject(request.id)}
+                  disabled={savingId === request.id}
+                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm font-medium text-white"
+                >
+                  {savingId === request.id ? "Converting..." : "Convert now"}
+                </button>
                 <select
                   value={request.status}
                   onChange={(event) =>
