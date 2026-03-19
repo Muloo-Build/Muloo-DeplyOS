@@ -1777,6 +1777,8 @@ function serializeTask<
     approvalRequired: boolean;
     dependencyIds: string[];
     assigneeType: string | null;
+    assignedAgentId?: string | null;
+    assignedAgent?: { name: string } | null;
     createdAt: Date;
     updatedAt: Date;
   }
@@ -1796,6 +1798,8 @@ function serializeTask<
     approvalRequired: task.approvalRequired,
     dependencyIds: task.dependencyIds,
     assigneeType: task.assigneeType,
+    assignedAgentId: task.assignedAgentId ?? null,
+    assignedAgentName: task.assignedAgent?.name ?? null,
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString()
   };
@@ -5845,6 +5849,7 @@ export function createAppServer(config: BaseConfig): http.Server {
 
             const tasks = await prisma.task.findMany({
               where: { projectId: clientProjectRoute.projectId },
+              include: { assignedAgent: { select: { name: true } } },
               orderBy: [{ createdAt: "asc" }]
             });
 
@@ -6842,6 +6847,7 @@ export function createAppServer(config: BaseConfig): http.Server {
         ) {
           const tasks = await prisma.task.findMany({
             where: { projectId: projectTasksRoute.projectId },
+            include: { assignedAgent: { select: { name: true } } },
             orderBy: [{ createdAt: "asc" }]
           });
 
@@ -6867,6 +6873,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             qaRequired?: unknown;
             approvalRequired?: unknown;
             assigneeType?: unknown;
+            assignedAgentId?: unknown;
           };
 
           const validStatuses = [
@@ -6888,6 +6895,10 @@ export function createAppServer(config: BaseConfig): http.Server {
             validAssigneeTypes.includes(body.assigneeType)
               ? body.assigneeType
               : "Human";
+          const assignedAgentId =
+            assigneeType === "Agent" && typeof body.assignedAgentId === "string" && body.assignedAgentId.trim().length > 0
+              ? body.assignedAgentId.trim()
+              : null;
           const priority =
             typeof body.priority === "string" &&
             validPriorities.includes(body.priority.toLowerCase())
@@ -6918,8 +6929,10 @@ export function createAppServer(config: BaseConfig): http.Server {
                     : null,
               qaRequired: Boolean(body.qaRequired),
               approvalRequired: Boolean(body.approvalRequired),
-              assigneeType
-            }
+              assigneeType,
+              assignedAgentId
+            },
+            include: { assignedAgent: { select: { name: true } } }
           });
 
           return sendJson(response, 201, {
@@ -6949,6 +6962,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             qaRequired?: unknown;
             approvalRequired?: unknown;
             assigneeType?: unknown;
+            assignedAgentId?: unknown;
             plannedHours?: unknown;
             actualHours?: unknown;
           };
@@ -7025,6 +7039,19 @@ export function createAppServer(config: BaseConfig): http.Server {
             }
 
             data.assigneeType = body.assigneeType;
+            if (body.assigneeType !== "Agent") {
+              data.assignedAgentId = null;
+            }
+          }
+
+          if (body.assignedAgentId !== undefined) {
+            if (body.assignedAgentId === null || body.assignedAgentId === "") {
+              data.assignedAgentId = null;
+            } else if (typeof body.assignedAgentId === "string") {
+              data.assignedAgentId = body.assignedAgentId.trim();
+            } else {
+              return sendJson(response, 400, { error: "Invalid assigned agent" });
+            }
           }
 
           if (body.plannedHours !== undefined) {
@@ -7067,7 +7094,8 @@ export function createAppServer(config: BaseConfig): http.Server {
 
           const task = await prisma.task.update({
             where: { id: projectTasksRoute.taskId },
-            data
+            data,
+            include: { assignedAgent: { select: { name: true } } }
           });
 
           return sendJson(response, 200, {

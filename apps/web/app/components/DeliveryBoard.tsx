@@ -17,6 +17,8 @@ interface ProjectTask {
   approvalRequired: boolean;
   dependencyIds: string[];
   assigneeType: string | null;
+  assignedAgentId: string | null;
+  assignedAgentName: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +64,12 @@ function assigneeTypeClass(value: string | null) {
   }
 }
 
+interface AgentOption {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
 export default function DeliveryBoard({
   projectId,
   mode = "internal"
@@ -70,6 +78,7 @@ export default function DeliveryBoard({
   mode?: "internal" | "client";
 }) {
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
@@ -87,7 +96,8 @@ export default function DeliveryBoard({
     actualHours: "",
     qaRequired: false,
     approvalRequired: false,
-    assigneeType: "Human"
+    assigneeType: "Human",
+    assignedAgentId: ""
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -101,17 +111,27 @@ export default function DeliveryBoard({
     setError(null);
 
     try {
-      const response = await fetch(baseUrl, {
-        ...(mode === "client" ? { credentials: "include" } : {})
-      });
+      const [tasksResponse, agentsResponse] = await Promise.all([
+        fetch(baseUrl, {
+          ...(mode === "client" ? { credentials: "include" } : {})
+        }),
+        mode === "internal" ? fetch("/api/agents") : Promise.resolve(null)
+      ]);
 
-      const body = await response.json().catch(() => null);
+      const body = await tasksResponse.json().catch(() => null);
 
-      if (!response.ok) {
+      if (!tasksResponse.ok) {
         throw new Error(body?.error ?? "Failed to load delivery board");
       }
 
       setTasks(body?.tasks ?? []);
+
+      if (mode === "internal" && agentsResponse) {
+        const agentsBody = await agentsResponse.json().catch(() => null);
+        if (agentsResponse.ok) {
+          setAgents((agentsBody?.agents ?? []).filter((agent: AgentOption) => agent.isActive));
+        }
+      }
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -139,7 +159,8 @@ export default function DeliveryBoard({
       actualHours: "",
       qaRequired: false,
       approvalRequired: false,
-      assigneeType: "Human"
+      assigneeType: "Human",
+      assignedAgentId: ""
     });
   }
 
@@ -222,7 +243,8 @@ export default function DeliveryBoard({
       actualHours: task.actualHours?.toString() ?? "",
       qaRequired: task.qaRequired,
       approvalRequired: task.approvalRequired,
-      assigneeType: task.assigneeType ?? "Human"
+      assigneeType: task.assigneeType ?? "Human",
+      assignedAgentId: task.assignedAgentId ?? ""
     });
   }
 
@@ -417,6 +439,28 @@ export default function DeliveryBoard({
                 <option value="Client">Client</option>
               </select>
             </label>
+            {taskDraft.assigneeType === "Agent" ? (
+              <label className="block">
+                <span className="text-sm text-white">Assigned agent</span>
+                <select
+                  value={taskDraft.assignedAgentId}
+                  onChange={(event) =>
+                    setTaskDraft((current) => ({
+                      ...current,
+                      assignedAgentId: event.target.value
+                    }))
+                  }
+                  className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                >
+                  <option value="">Select agent</option>
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <label className="block">
               <span className="text-sm text-white">Status</span>
               <select
@@ -613,6 +657,9 @@ export default function DeliveryBoard({
                           {task.approvalRequired ? (
                             <span>Approval required</span>
                           ) : null}
+                          {task.assignedAgentName ? (
+                            <span>Agent: {task.assignedAgentName}</span>
+                          ) : null}
                         </div>
                         {mode === "internal" ? (
                           <>
@@ -675,6 +722,25 @@ export default function DeliveryBoard({
                                     <option value="Agent">Agent</option>
                                     <option value="Client">Client</option>
                                   </select>
+                                  {taskDraft.assigneeType === "Agent" ? (
+                                    <select
+                                      value={taskDraft.assignedAgentId}
+                                      onChange={(event) =>
+                                        setTaskDraft((current) => ({
+                                          ...current,
+                                          assignedAgentId: event.target.value
+                                        }))
+                                      }
+                                      className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                    >
+                                      <option value="">Select agent</option>
+                                      {agents.map((agent) => (
+                                        <option key={agent.id} value={agent.id}>
+                                          {agent.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : null}
                                   <select
                                     value={taskDraft.priority}
                                     onChange={(event) =>

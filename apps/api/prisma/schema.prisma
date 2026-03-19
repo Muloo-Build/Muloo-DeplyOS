@@ -163,6 +163,7 @@ model AgentDefinition {
   sortOrder      Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  tasks          Task[]
 }
 
 model DeliveryTemplate {
@@ -367,9 +368,11 @@ model Task {
   approvalRequired Boolean        @default(false)
   dependencyIds    String[]
   assigneeType     String?
+  assignedAgentId  String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   project          Project        @relation(fields: [projectId], references: [id])
+  assignedAgent    AgentDefinition? @relation(fields: [assignedAgentId], references: [id])
   executionJobs    ExecutionJob[]
 }
 
