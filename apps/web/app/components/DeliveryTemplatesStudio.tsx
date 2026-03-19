@@ -21,6 +21,7 @@ interface DeliveryTemplate {
   id: string;
   name: string;
   description?: string | null;
+  serviceFamily: string;
   category: string;
   scopeType: string;
   recommendedHubs: string[];
@@ -29,6 +30,12 @@ interface DeliveryTemplate {
   sortOrder: number;
   tasks: DeliveryTemplateTask[];
 }
+
+const serviceFamilies = [
+  { value: "hubspot_architecture", label: "HubSpot Architecture" },
+  { value: "custom_engineering", label: "Custom Engineering" },
+  { value: "ai_automation", label: "AI Automation" }
+];
 
 export default function DeliveryTemplatesStudio() {
   const [templates, setTemplates] = useState<DeliveryTemplate[]>([]);
@@ -93,6 +100,7 @@ export default function DeliveryTemplatesStudio() {
           body: JSON.stringify({
             name: template.name,
             description: template.description ?? "",
+            serviceFamily: template.serviceFamily,
             category: template.category,
             scopeType: template.scopeType,
             recommendedHubs: template.recommendedHubs,
@@ -171,6 +179,26 @@ export default function DeliveryTemplatesStudio() {
                   }
                   className="mt-3 min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
                 />
+              </label>
+              <label className="block">
+                <span className="text-sm text-text-secondary">Service family</span>
+                <select
+                  value={template.serviceFamily}
+                  onChange={(event) =>
+                    updateTemplate(
+                      template.id,
+                      "serviceFamily",
+                      event.target.value
+                    )
+                  }
+                  className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                >
+                  {serviceFamilies.map((family) => (
+                    <option key={family.value} value={family.value}>
+                      {family.label}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="block">
                 <span className="text-sm text-text-secondary">Category</span>

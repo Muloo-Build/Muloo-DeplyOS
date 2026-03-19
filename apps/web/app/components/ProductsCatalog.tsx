@@ -8,6 +8,7 @@ interface ProductCatalogItem {
   id: string;
   slug: string;
   name: string;
+  serviceFamily: string;
   category: string;
   billingModel: string;
   description?: string | null;
@@ -20,6 +21,7 @@ interface ProductCatalogItem {
 
 interface ProductDraft {
   name: string;
+  serviceFamily: string;
   category: string;
   billingModel: string;
   description: string;
@@ -33,6 +35,7 @@ interface ProductDraft {
 function createEmptyDraft(): ProductDraft {
   return {
     name: "",
+    serviceFamily: "hubspot_architecture",
     category: "one_time",
     billingModel: "fixed",
     description: "",
@@ -43,6 +46,12 @@ function createEmptyDraft(): ProductDraft {
     sortOrder: "999"
   };
 }
+
+const serviceFamilies = [
+  { value: "hubspot_architecture", label: "HubSpot Architecture" },
+  { value: "custom_engineering", label: "Custom Engineering" },
+  { value: "ai_automation", label: "AI Automation" }
+];
 
 function ProductsCatalogContent() {
   const [products, setProducts] = useState<ProductCatalogItem[]>([]);
@@ -106,6 +115,7 @@ function ProductsCatalogContent() {
         },
         body: JSON.stringify({
           name: product.name,
+          serviceFamily: product.serviceFamily,
           category: product.category,
           billingModel: product.billingModel,
           description: product.description ?? "",
@@ -228,7 +238,7 @@ function ProductsCatalogContent() {
             ))}
 
             <label className="block">
-              <span className="text-sm font-medium text-white">Category</span>
+                <span className="text-sm font-medium text-white">Category</span>
               <select
                 value={newDraft.category}
                 onChange={(event) =>
@@ -242,6 +252,26 @@ function ProductsCatalogContent() {
                 <option value="one_time">One-time</option>
                 <option value="retainer">Retainer</option>
                 <option value="add_on">Add-on</option>
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-white">Service Family</span>
+              <select
+                value={newDraft.serviceFamily}
+                onChange={(event) =>
+                  setNewDraft((currentDraft) => ({
+                    ...currentDraft,
+                    serviceFamily: event.target.value
+                  }))
+                }
+                className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              >
+                {serviceFamilies.map((family) => (
+                  <option key={family.value} value={family.value}>
+                    {family.label}
+                  </option>
+                ))}
               </select>
             </label>
 
@@ -288,15 +318,37 @@ function ProductsCatalogContent() {
                 <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr_1fr_1fr_160px]">
                   <label className="block">
                     <span className="text-sm font-medium text-white">Name</span>
-                    <input
-                      value={product.name}
+                      <input
+                        value={product.name}
                       onChange={(event) =>
                         updateProduct(product.id, "name", event.target.value)
                       }
                       className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                     />
-                  </label>
-                  <label className="block">
+                    </label>
+                    <label className="block">
+                      <span className="text-sm font-medium text-white">
+                        Service Family
+                      </span>
+                      <select
+                        value={product.serviceFamily}
+                        onChange={(event) =>
+                          updateProduct(
+                            product.id,
+                            "serviceFamily",
+                            event.target.value
+                          )
+                        }
+                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      >
+                        {serviceFamilies.map((family) => (
+                          <option key={family.value} value={family.value}>
+                            {family.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
                     <span className="text-sm font-medium text-white">Category</span>
                     <select
                       value={product.category}

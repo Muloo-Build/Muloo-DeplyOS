@@ -19,6 +19,7 @@ interface WorkRequest {
   id: string;
   projectId: string | null;
   title: string;
+  serviceFamily: string;
   requestType: string;
   companyName: string | null;
   contactName: string;
@@ -43,6 +44,11 @@ const requestTypes = [
   { value: "project_brief", label: "Project Brief" },
   { value: "change_request", label: "Change Request" }
 ];
+const serviceFamilies = [
+  { value: "hubspot_architecture", label: "HubSpot Architecture" },
+  { value: "custom_engineering", label: "Custom Engineering" },
+  { value: "ai_automation", label: "AI Automation" }
+];
 
 export default function ClientWorkRequestPortal() {
   const [projects, setProjects] = useState<ClientProjectOption[]>([]);
@@ -52,6 +58,7 @@ export default function ClientWorkRequestPortal() {
   const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
+    serviceFamily: "hubspot_architecture",
     requestType: "job_spec",
     projectId: "",
     companyName: "",
@@ -110,6 +117,7 @@ export default function ClientWorkRequestPortal() {
         },
         body: JSON.stringify({
           title: form.title,
+          serviceFamily: form.serviceFamily,
           requestType: form.requestType,
           projectId: form.projectId || undefined,
           companyName: form.companyName,
@@ -136,6 +144,7 @@ export default function ClientWorkRequestPortal() {
       setRequests((current) => [body.workRequest, ...current]);
       setForm({
         title: "",
+        serviceFamily: "hubspot_architecture",
         requestType: "job_spec",
         projectId: "",
         companyName: "",
@@ -201,6 +210,26 @@ export default function ClientWorkRequestPortal() {
                 }
                 className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
               />
+            </label>
+
+            <label className="block">
+              <span className="text-sm text-text-secondary">Service family</span>
+              <select
+                value={form.serviceFamily}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    serviceFamily: event.target.value
+                  }))
+                }
+                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+              >
+                {serviceFamilies.map((family) => (
+                  <option key={family.value} value={family.value}>
+                    {family.label}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="block">
@@ -414,6 +443,11 @@ export default function ClientWorkRequestPortal() {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        {serviceFamilies.find(
+                          (family) => family.value === request.serviceFamily
+                        )?.label ?? request.serviceFamily}
+                      </p>
                       <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                         {request.requestType.replace(/_/g, " ")}
                       </p>

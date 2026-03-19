@@ -82,6 +82,7 @@ model ProductCatalogItem {
   id              String   @id @default(cuid())
   slug            String   @unique
   name            String
+  serviceFamily   String   @default("hubspot_architecture")
   category        String
   billingModel    String
   description     String?
@@ -116,6 +117,7 @@ model DeliveryTemplate {
   slug               String                @unique
   name               String
   description        String?
+  serviceFamily      String
   category           String
   scopeType          String
   recommendedHubs    String[]
@@ -184,6 +186,7 @@ model WorkRequest {
   id             String    @id @default(cuid())
   projectId      String?
   title          String
+  serviceFamily  String    @default("hubspot_architecture")
   requestType    String
   companyName    String?
   contactName    String

@@ -94,10 +94,16 @@ const industryOptions = [
   "Travel & Hospitality",
   "Other"
 ] as const;
+const serviceFamilyOptions = [
+  "hubspot_architecture",
+  "custom_engineering",
+  "ai_automation"
+] as const;
 const defaultProductCatalog = [
   {
     slug: "hubspot-implementation-phase",
     name: "Implementation Phase",
+    serviceFamily: "hubspot_architecture",
     category: "one_time",
     billingModel: "fixed",
     description:
@@ -110,6 +116,7 @@ const defaultProductCatalog = [
   {
     slug: "monthly-support-retainer",
     name: "Monthly Support Retainer",
+    serviceFamily: "hubspot_architecture",
     category: "retainer",
     billingModel: "monthly",
     description:
@@ -122,6 +129,7 @@ const defaultProductCatalog = [
   {
     slug: "additional-implementation-hours",
     name: "Additional Implementation Hours",
+    serviceFamily: "hubspot_architecture",
     category: "add_on",
     billingModel: "hourly",
     description:
@@ -134,6 +142,7 @@ const defaultProductCatalog = [
   {
     slug: "training-workshop",
     name: "Training Workshop",
+    serviceFamily: "hubspot_architecture",
     category: "add_on",
     billingModel: "fixed",
     description:
@@ -194,6 +203,7 @@ const defaultDeliveryTemplates = [
     name: "Theme Install + Localization",
     description:
       "Repeatable CMS/theme implementation flow for marketplace theme installs, regional variants, QA, and launch.",
+    serviceFamily: "custom_engineering",
     category: "website",
     scopeType: "standalone_quote",
     recommendedHubs: ["cms"],
@@ -367,6 +377,7 @@ const defaultDeliveryTemplates = [
     name: "HubSpot Onboarding Foundation",
     description:
       "Baseline onboarding delivery template for implementation projects moving from approved scope into execution.",
+    serviceFamily: "hubspot_architecture",
     category: "hubspot",
     scopeType: "discovery",
     recommendedHubs: ["sales", "marketing", "service"],
@@ -1369,6 +1380,7 @@ function serializeDeliveryTemplate<
     slug: string;
     name: string;
     description: string | null;
+    serviceFamily: string;
     category: string;
     scopeType: string;
     recommendedHubs: string[];
@@ -1400,6 +1412,7 @@ function serializeDeliveryTemplate<
     slug: template.slug,
     name: template.name,
     description: template.description,
+    serviceFamily: template.serviceFamily,
     category: template.category,
     scopeType: template.scopeType,
     recommendedHubs: template.recommendedHubs,
@@ -1433,6 +1446,7 @@ function serializeWorkRequest<
     id: string;
     projectId: string | null;
     title: string;
+    serviceFamily: string;
     requestType: string;
     companyName: string | null;
     contactName: string;
@@ -1453,6 +1467,7 @@ function serializeWorkRequest<
     id: request.id,
     projectId: request.projectId,
     title: request.title,
+    serviceFamily: request.serviceFamily,
     requestType: request.requestType,
     companyName: request.companyName,
     contactName: request.contactName,
@@ -3072,6 +3087,7 @@ function serializeProductCatalogItem<
     id: string;
     slug: string;
     name: string;
+    serviceFamily: string;
     category: string;
     billingModel: string;
     description: string | null;
@@ -3088,6 +3104,7 @@ function serializeProductCatalogItem<
     id: product.id,
     slug: product.slug,
     name: product.name,
+    serviceFamily: product.serviceFamily,
     category: product.category,
     billingModel: product.billingModel,
     description: product.description,
@@ -3179,6 +3196,7 @@ async function ensureDeliveryTemplatesSeeded() {
         slug: template.slug,
         name: template.name,
         description: template.description,
+        serviceFamily: template.serviceFamily,
         category: template.category,
         scopeType: template.scopeType,
         recommendedHubs: [...template.recommendedHubs],
@@ -3276,6 +3294,7 @@ async function loadWorkRequests(filters?: {
 
 async function createProductCatalogItem(value: {
   name?: unknown;
+  serviceFamily?: unknown;
   category?: unknown;
   billingModel?: unknown;
   description?: unknown;
@@ -3286,6 +3305,8 @@ async function createProductCatalogItem(value: {
   sortOrder?: unknown;
 }) {
   const name = typeof value.name === "string" ? value.name.trim() : "";
+  const serviceFamily =
+    typeof value.serviceFamily === "string" ? value.serviceFamily.trim() : "";
   const category = typeof value.category === "string" ? value.category.trim() : "";
   const billingModel =
     typeof value.billingModel === "string" ? value.billingModel.trim() : "";
@@ -3306,6 +3327,15 @@ async function createProductCatalogItem(value: {
       ? value.sortOrder
       : Number(value.sortOrder);
 
+  if (
+    serviceFamily &&
+    !serviceFamilyOptions.includes(
+      serviceFamily as (typeof serviceFamilyOptions)[number]
+    )
+  ) {
+    throw new Error("Invalid serviceFamily");
+  }
+
   if (!name || !category || !billingModel || !Number.isFinite(unitPrice)) {
     throw new Error(
       "name, category, billingModel, and a valid unitPrice are required"
@@ -3316,6 +3346,7 @@ async function createProductCatalogItem(value: {
     data: {
       slug: createSlug(name),
       name,
+      serviceFamily: serviceFamily || "hubspot_architecture",
       category,
       billingModel,
       description: description || null,
@@ -3394,6 +3425,7 @@ async function createAgentDefinition(value: {
 async function createDeliveryTemplate(value: {
   name?: unknown;
   description?: unknown;
+  serviceFamily?: unknown;
   category?: unknown;
   scopeType?: unknown;
   recommendedHubs?: unknown;
@@ -3405,6 +3437,8 @@ async function createDeliveryTemplate(value: {
   const name = typeof value.name === "string" ? value.name.trim() : "";
   const description =
     typeof value.description === "string" ? value.description.trim() : "";
+  const serviceFamily =
+    typeof value.serviceFamily === "string" ? value.serviceFamily.trim() : "";
   const category = typeof value.category === "string" ? value.category.trim() : "";
   const scopeType =
     typeof value.scopeType === "string" ? value.scopeType.trim() : "";
@@ -3419,6 +3453,15 @@ async function createDeliveryTemplate(value: {
   const recommendedHubs = normalizeStringArray(value.recommendedHubs);
   const tasks = Array.isArray(value.tasks) ? value.tasks : [];
 
+  if (
+    serviceFamily &&
+    !serviceFamilyOptions.includes(
+      serviceFamily as (typeof serviceFamilyOptions)[number]
+    )
+  ) {
+    throw new Error("Invalid serviceFamily");
+  }
+
   if (!name || !category || !scopeType) {
     throw new Error("name, category, and scopeType are required");
   }
@@ -3428,6 +3471,7 @@ async function createDeliveryTemplate(value: {
       slug: createSlug(name),
       name,
       description: description || null,
+      serviceFamily: serviceFamily || "hubspot_architecture",
       category,
       scopeType,
       recommendedHubs,
@@ -3482,6 +3526,7 @@ async function updateDeliveryTemplate(
   value: {
     name?: unknown;
     description?: unknown;
+    serviceFamily?: unknown;
     category?: unknown;
     scopeType?: unknown;
     recommendedHubs?: unknown;
@@ -3508,6 +3553,19 @@ async function updateDeliveryTemplate(
     }
 
     updateData.description = value.description.trim() || null;
+  }
+
+  if (value.serviceFamily !== undefined) {
+    if (
+      typeof value.serviceFamily !== "string" ||
+      !serviceFamilyOptions.includes(
+        value.serviceFamily.trim() as (typeof serviceFamilyOptions)[number]
+      )
+    ) {
+      throw new Error("serviceFamily must be a valid service family");
+    }
+
+    updateData.serviceFamily = value.serviceFamily.trim();
   }
 
   if (value.category !== undefined) {
@@ -3621,6 +3679,7 @@ async function updateDeliveryTemplate(
 async function createWorkRequest(value: {
   projectId?: unknown;
   title?: unknown;
+  serviceFamily?: unknown;
   requestType?: unknown;
   companyName?: unknown;
   contactName?: unknown;
@@ -3635,6 +3694,8 @@ async function createWorkRequest(value: {
   const title = typeof value.title === "string" ? value.title.trim() : "";
   const requestType =
     typeof value.requestType === "string" ? value.requestType.trim() : "";
+  const serviceFamily =
+    typeof value.serviceFamily === "string" ? value.serviceFamily.trim() : "";
   const companyName =
     typeof value.companyName === "string" ? value.companyName.trim() : "";
   const contactName =
@@ -3659,6 +3720,15 @@ async function createWorkRequest(value: {
   }
 
   if (
+    serviceFamily &&
+    !serviceFamilyOptions.includes(
+      serviceFamily as (typeof serviceFamilyOptions)[number]
+    )
+  ) {
+    throw new Error("Invalid serviceFamily");
+  }
+
+  if (
     requestType &&
     !workRequestTypeOptions.includes(
       requestType as (typeof workRequestTypeOptions)[number]
@@ -3674,6 +3744,7 @@ async function createWorkRequest(value: {
           ? value.projectId.trim()
           : null,
       title,
+      serviceFamily: serviceFamily || "hubspot_architecture",
       requestType: requestType || "job_spec",
       companyName: companyName || null,
       contactName,
@@ -3988,6 +4059,7 @@ async function updateProductCatalogItem(
   productId: string,
   value: {
     name?: unknown;
+    serviceFamily?: unknown;
     category?: unknown;
     billingModel?: unknown;
     description?: unknown;
@@ -4015,6 +4087,19 @@ async function updateProductCatalogItem(
     }
 
     updateData.category = value.category.trim();
+  }
+
+  if (value.serviceFamily !== undefined) {
+    if (
+      typeof value.serviceFamily !== "string" ||
+      !serviceFamilyOptions.includes(
+        value.serviceFamily.trim() as (typeof serviceFamilyOptions)[number]
+      )
+    ) {
+      throw new Error("serviceFamily must be a valid service family");
+    }
+
+    updateData.serviceFamily = value.serviceFamily.trim();
   }
 
   if (value.billingModel !== undefined) {

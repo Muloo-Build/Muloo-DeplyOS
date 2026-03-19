@@ -6,6 +6,7 @@ interface WorkRequest {
   id: string;
   projectId: string | null;
   title: string;
+  serviceFamily: string;
   requestType: string;
   companyName: string | null;
   contactName: string;
@@ -19,6 +20,12 @@ interface WorkRequest {
     name: string;
   } | null;
 }
+
+const serviceFamilies = [
+  { value: "hubspot_architecture", label: "HubSpot Architecture" },
+  { value: "custom_engineering", label: "Custom Engineering" },
+  { value: "ai_automation", label: "AI Automation" }
+];
 
 export default function WorkRequestsInbox() {
   const [requests, setRequests] = useState<WorkRequest[]>([]);
@@ -109,6 +116,11 @@ export default function WorkRequestsInbox() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  {serviceFamilies.find(
+                    (family) => family.value === request.serviceFamily
+                  )?.label ?? request.serviceFamily}
+                </p>
+                <p className="mt-2 text-xs uppercase tracking-[0.2em] text-text-muted">
                   {request.requestType.replace(/_/g, " ")}
                 </p>
                 <h3 className="mt-2 text-lg font-semibold text-white">
