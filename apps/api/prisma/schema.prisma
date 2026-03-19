@@ -52,6 +52,7 @@ model Project {
   engagementType EngagementType        @default(IMPLEMENTATION)
   owner          String
   ownerEmail     String
+  serviceFamily  String                @default("hubspot_architecture")
   clientChampionFirstName String?
   clientChampionLastName  String?
   clientChampionEmail     String?

@@ -1213,6 +1213,7 @@ function serializeProject<
     status: string;
     owner: string;
     ownerEmail: string;
+    serviceFamily: string;
     scopeType?: string | null;
     deliveryTemplateId?: string | null;
     commercialBrief?: string | null;
@@ -1260,6 +1261,7 @@ function serializeClientProject<
     id: string;
     name: string;
     status: string;
+    serviceFamily: string;
     scopeType?: string | null;
     deliveryTemplateId?: string | null;
     commercialBrief?: string | null;
@@ -1276,6 +1278,7 @@ function serializeClientProject<
     id: project.id,
     name: project.name,
     status: project.status,
+    serviceFamily: project.serviceFamily,
     scopeType: project.scopeType ?? "discovery",
     deliveryTemplateId: project.deliveryTemplateId ?? null,
     commercialBrief: project.commercialBrief ?? null,
@@ -5064,6 +5067,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             selectedHubs: string[];
             owner?: string;
             ownerEmail?: string;
+            serviceFamily?: string;
             scopeType?: string;
             deliveryTemplateId?: string;
             commercialBrief?: string;
@@ -5107,6 +5111,14 @@ export function createAppServer(config: BaseConfig): http.Server {
               error: "Invalid engagement type"
             });
           }
+
+          const serviceFamily =
+            typeof body.serviceFamily === "string" &&
+            serviceFamilyOptions.includes(
+              body.serviceFamily.trim() as (typeof serviceFamilyOptions)[number]
+            )
+              ? body.serviceFamily.trim()
+              : "hubspot_architecture";
 
           const slug = createSlug(body.clientName);
           const client = await prisma.client.upsert({
@@ -5160,6 +5172,7 @@ export function createAppServer(config: BaseConfig): http.Server {
               engagementType: (body.engagementType ??
                 "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
               ...resolveProjectOwner(body.owner, body.ownerEmail),
+              serviceFamily,
               clientChampionFirstName:
                 body.clientChampionFirstName?.trim() || null,
               clientChampionLastName:

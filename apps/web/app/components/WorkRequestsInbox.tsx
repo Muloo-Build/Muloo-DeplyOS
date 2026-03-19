@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 interface WorkRequest {
   id: string;
@@ -12,6 +13,8 @@ interface WorkRequest {
   contactName: string;
   contactEmail: string;
   summary: string;
+  details?: string | null;
+  portalOrWebsite?: string | null;
   urgency: string | null;
   status: string;
   createdAt: string;
@@ -127,22 +130,46 @@ export default function WorkRequestsInbox() {
                   {request.title}
                 </h3>
               </div>
-              <select
-                value={request.status}
-                onChange={(event) =>
-                  void updateStatus(request.id, event.target.value)
-                }
-                disabled={savingId === request.id}
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
-              >
-                {["new", "triaging", "quoted", "converted", "closed"].map(
-                  (status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  )
-                )}
-              </select>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={`/projects/new?title=${encodeURIComponent(
+                    request.title
+                  )}&clientName=${encodeURIComponent(
+                    request.companyName ?? request.project?.name ?? ""
+                  )}&contactName=${encodeURIComponent(
+                    request.contactName
+                  )}&contactEmail=${encodeURIComponent(
+                    request.contactEmail
+                  )}&portalOrWebsite=${encodeURIComponent(
+                    request.portalOrWebsite ?? ""
+                  )}&summary=${encodeURIComponent(
+                    request.summary
+                  )}&details=${encodeURIComponent(
+                    request.details ?? ""
+                  )}&serviceFamily=${encodeURIComponent(
+                    request.serviceFamily
+                  )}&requestType=${encodeURIComponent(request.requestType)}`}
+                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm font-medium text-white"
+                >
+                  Convert to project
+                </Link>
+                <select
+                  value={request.status}
+                  onChange={(event) =>
+                    void updateStatus(request.id, event.target.value)
+                  }
+                  disabled={savingId === request.id}
+                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                >
+                  {["new", "triaging", "quoted", "converted", "closed"].map(
+                    (status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
             </div>
             <p className="mt-3 text-sm text-text-secondary">{request.summary}</p>
             <div className="mt-3 flex flex-wrap gap-3 text-xs text-text-muted">

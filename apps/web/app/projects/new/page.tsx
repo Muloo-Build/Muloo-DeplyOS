@@ -10,6 +10,7 @@ interface FormData {
   clientName: string;
   owner: string;
   ownerEmail: string;
+  serviceFamily: string;
   scopeType: string;
   deliveryTemplateId: string;
   commercialBrief: string;
@@ -41,10 +42,29 @@ interface DeliveryTemplateSummary {
   id: string;
   name: string;
   description?: string | null;
+  serviceFamily: string;
   scopeType: string;
   category: string;
   defaultPlannedHours?: number | null;
 }
+
+const serviceFamilies = [
+  {
+    id: "hubspot_architecture",
+    label: "HubSpot Architecture",
+    description: "Portal design, implementation, optimization, and delivery."
+  },
+  {
+    id: "custom_engineering",
+    label: "Custom Engineering",
+    description: "CMS, integration, website, and technical implementation work."
+  },
+  {
+    id: "ai_automation",
+    label: "AI Automation",
+    description: "Agent flows, AI operations, and automation-led delivery."
+  }
+];
 
 const engagementTypes = [
   {
@@ -141,6 +161,7 @@ export default function NewProjectPage() {
     clientName: "",
     owner: "",
     ownerEmail: "",
+    serviceFamily: "hubspot_architecture",
     scopeType: "discovery",
     deliveryTemplateId: "",
     commercialBrief: "",
@@ -186,6 +207,85 @@ export default function NewProjectPage() {
 
     void loadUsers();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestType = params.get("requestType");
+    const title = params.get("title");
+    const clientName = params.get("clientName");
+    const contactName = params.get("contactName");
+    const contactEmail = params.get("contactEmail");
+    const portalOrWebsite = params.get("portalOrWebsite");
+    const summary = params.get("summary");
+    const details = params.get("details");
+    const serviceFamily = params.get("serviceFamily");
+
+    if (
+      !title &&
+      !clientName &&
+      !contactName &&
+      !contactEmail &&
+      !portalOrWebsite &&
+      !summary &&
+      !details &&
+      !serviceFamily &&
+      !requestType
+    ) {
+      return;
+    }
+
+    const fullName = (contactName ?? "").trim();
+    const [firstName = "", ...lastNameParts] = fullName.split(/\s+/).filter(Boolean);
+    const inferredScopeType =
+      requestType === "project_brief" ? "discovery" : "standalone_quote";
+
+    setFormData((current) => ({
+      ...current,
+      projectName: title ?? current.projectName,
+      clientName: clientName ?? current.clientName,
+      clientChampionFirstName: firstName || current.clientChampionFirstName,
+      clientChampionLastName:
+        lastNameParts.join(" ") || current.clientChampionLastName,
+      clientChampionEmail: contactEmail ?? current.clientChampionEmail,
+      website: portalOrWebsite ?? current.website,
+      commercialBrief:
+        [summary, details].filter(Boolean).join("\n\n") || current.commercialBrief,
+      serviceFamily:
+        serviceFamilies.some((family) => family.id === serviceFamily)
+          ? (serviceFamily as string)
+          : current.serviceFamily,
+      scopeType: inferredScopeType
+    }));
+  }, []);
+
+  useEffect(() => {
+    const matchingTemplates = deliveryTemplates.filter(
+      (template) =>
+        template.scopeType === formData.scopeType &&
+        template.serviceFamily === formData.serviceFamily
+    );
+
+    if (matchingTemplates.length === 0) {
+      if (formData.deliveryTemplateId) {
+        setFormData((current) => ({
+          ...current,
+          deliveryTemplateId: ""
+        }));
+      }
+      return;
+    }
+
+    const hasCurrentMatch = matchingTemplates.some(
+      (template) => template.id === formData.deliveryTemplateId
+    );
+
+    if (!hasCurrentMatch) {
+      setFormData((current) => ({
+        ...current,
+        deliveryTemplateId: matchingTemplates[0]?.id ?? ""
+      }));
+    }
+  }, [deliveryTemplates, formData.scopeType, formData.serviceFamily, formData.deliveryTemplateId]);
 
   useEffect(() => {
     async function loadDeliveryTemplates() {
@@ -255,6 +355,7 @@ export default function NewProjectPage() {
       engagementType: formData.engagementType,
       owner: formData.owner,
       ownerEmail: formData.ownerEmail,
+      serviceFamily: formData.serviceFamily,
       scopeType: formData.scopeType,
       deliveryTemplateId: formData.deliveryTemplateId || undefined,
       commercialBrief: formData.commercialBrief.trim(),
@@ -420,6 +521,32 @@ export default function NewProjectPage() {
                   />
                 </label>
 
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-sm text-text-secondary">
+                    Service family
+                  </span>
+                  <select
+                    value={formData.serviceFamily}
+                    onChange={(event) =>
+                      updateField("serviceFamily", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  >
+                    {serviceFamilies.map((family) => (
+                      <option key={family.id} value={family.id}>
+                        {family.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs text-text-muted">
+                    {
+                      serviceFamilies.find(
+                        (family) => family.id === formData.serviceFamily
+                      )?.description
+                    }
+                  </p>
+                </label>
+
               {formData.scopeType === "standalone_quote" ? (
                   <>
                     <label className="block md:col-span-2">
@@ -437,7 +564,8 @@ export default function NewProjectPage() {
                         {deliveryTemplates
                           .filter(
                             (template) =>
-                              template.scopeType === "standalone_quote"
+                              template.scopeType === "standalone_quote" &&
+                              template.serviceFamily === formData.serviceFamily
                           )
                           .map((template) => (
                             <option key={template.id} value={template.id}>
@@ -750,6 +878,12 @@ export default function NewProjectPage() {
                 {[
                   ["Project", formData.projectName],
                   ["Client", formData.clientName],
+                  [
+                    "Service family",
+                    serviceFamilies.find(
+                      (family) => family.id === formData.serviceFamily
+                    )?.label ?? ""
+                  ],
                   [
                     "Container",
                     formData.scopeType === "standalone_quote"
