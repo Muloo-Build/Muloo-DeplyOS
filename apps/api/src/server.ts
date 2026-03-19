@@ -99,6 +99,45 @@ const serviceFamilyOptions = [
   "custom_engineering",
   "ai_automation"
 ] as const;
+
+const defaultProviderConnections = [
+  {
+    providerKey: "hubspot_oauth",
+    label: "HubSpot OAuth",
+    connectionType: "oauth",
+    defaultModel: null,
+    endpointUrl: null,
+    notes: "Primary auth layer later for user sign-in and account linking.",
+    isEnabled: false
+  },
+  {
+    providerKey: "anthropic",
+    label: "Anthropic / Claude",
+    connectionType: "api_key",
+    defaultModel: "claude-sonnet-4-20250514",
+    endpointUrl: null,
+    notes: "Discovery drafting, project summaries, and blueprint generation.",
+    isEnabled: false
+  },
+  {
+    providerKey: "openai",
+    label: "OpenAI / ChatGPT",
+    connectionType: "api_key",
+    defaultModel: "gpt-5.4",
+    endpointUrl: null,
+    notes: "Alternative agent workflows, QA passes, summarisation, and future assistants.",
+    isEnabled: false
+  },
+  {
+    providerKey: "gemini",
+    label: "Google Gemini",
+    connectionType: "api_key",
+    defaultModel: "gemini-2.5-pro",
+    endpointUrl: null,
+    notes: "Meeting-summary workflows and discovery ingestion from call outputs.",
+    isEnabled: false
+  }
+] as const;
 const defaultProductCatalog = [
   {
     slug: "hubspot-implementation-phase",
@@ -1082,6 +1121,18 @@ function matchWorkspaceUserRoute(pathname: string): { userId?: string } | null {
   }
 
   return match[1] ? { userId: decodeURIComponent(match[1]) } : {};
+}
+
+function matchProviderConnectionRoute(pathname: string): {
+  providerKey?: string;
+} | null {
+  const match = /^\/api\/provider-connections(?:\/([^/]+))?$/.exec(pathname);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1] ? { providerKey: decodeURIComponent(match[1]) } : {};
 }
 
 function matchAgentRoute(pathname: string): { agentId?: string } | null {
@@ -3505,6 +3556,37 @@ function serializeWorkspaceUser<
   };
 }
 
+function serializeWorkspaceProviderConnection<
+  T extends {
+    id: string;
+    providerKey: string;
+    label: string;
+    connectionType: string;
+    apiKey: string | null;
+    defaultModel: string | null;
+    endpointUrl: string | null;
+    notes: string | null;
+    isEnabled: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(provider: T) {
+  return {
+    id: provider.id,
+    providerKey: provider.providerKey,
+    label: provider.label,
+    connectionType: provider.connectionType,
+    apiKey: provider.apiKey,
+    hasApiKey: Boolean(provider.apiKey),
+    defaultModel: provider.defaultModel,
+    endpointUrl: provider.endpointUrl,
+    notes: provider.notes,
+    isEnabled: provider.isEnabled,
+    createdAt: provider.createdAt.toISOString(),
+    updatedAt: provider.updatedAt.toISOString()
+  };
+}
+
 async function ensureProductCatalogSeeded() {
   const existingCount = await prisma.productCatalogItem.count();
 
@@ -3515,6 +3597,20 @@ async function ensureProductCatalogSeeded() {
   await prisma.productCatalogItem.createMany({
     data: defaultProductCatalog.map((product) => ({
       ...product
+    }))
+  });
+}
+
+async function ensureProviderConnectionsSeeded() {
+  const existingCount = await prisma.workspaceProviderConnection.count();
+
+  if (existingCount > 0) {
+    return;
+  }
+
+  await prisma.workspaceProviderConnection.createMany({
+    data: defaultProviderConnections.map((provider) => ({
+      ...provider
     }))
   });
 }
@@ -3593,6 +3689,18 @@ async function loadAgentCatalog() {
   });
 
   return agents.map((agent) => serializeAgentDefinition(agent));
+}
+
+async function loadProviderConnections() {
+  await ensureProviderConnectionsSeeded();
+
+  const providers = await prisma.workspaceProviderConnection.findMany({
+    orderBy: [{ label: "asc" }]
+  });
+
+  return providers.map((provider) =>
+    serializeWorkspaceProviderConnection(provider)
+  );
 }
 
 async function loadDeliveryTemplates() {
@@ -4755,6 +4863,83 @@ async function updateProductCatalogItem(
   return serializeProductCatalogItem(product);
 }
 
+async function updateWorkspaceProviderConnection(
+  providerKey: string,
+  value: {
+    label?: unknown;
+    connectionType?: unknown;
+    apiKey?: unknown;
+    defaultModel?: unknown;
+    endpointUrl?: unknown;
+    notes?: unknown;
+    isEnabled?: unknown;
+  }
+) {
+  const updateData: Prisma.Prisma.WorkspaceProviderConnectionUpdateInput = {};
+
+  if (value.label !== undefined) {
+    if (typeof value.label !== "string" || value.label.trim().length === 0) {
+      throw new Error("label must be a non-empty string");
+    }
+
+    updateData.label = value.label.trim();
+  }
+
+  if (value.connectionType !== undefined) {
+    if (
+      typeof value.connectionType !== "string" ||
+      value.connectionType.trim().length === 0
+    ) {
+      throw new Error("connectionType must be a non-empty string");
+    }
+
+    updateData.connectionType = value.connectionType.trim();
+  }
+
+  if (value.apiKey !== undefined) {
+    if (typeof value.apiKey !== "string") {
+      throw new Error("apiKey must be a string");
+    }
+
+    updateData.apiKey = value.apiKey.trim() || null;
+  }
+
+  if (value.defaultModel !== undefined) {
+    if (typeof value.defaultModel !== "string") {
+      throw new Error("defaultModel must be a string");
+    }
+
+    updateData.defaultModel = value.defaultModel.trim() || null;
+  }
+
+  if (value.endpointUrl !== undefined) {
+    if (typeof value.endpointUrl !== "string") {
+      throw new Error("endpointUrl must be a string");
+    }
+
+    updateData.endpointUrl = value.endpointUrl.trim() || null;
+  }
+
+  if (value.notes !== undefined) {
+    if (typeof value.notes !== "string") {
+      throw new Error("notes must be a string");
+    }
+
+    updateData.notes = value.notes.trim() || null;
+  }
+
+  if (value.isEnabled !== undefined) {
+    updateData.isEnabled = Boolean(value.isEnabled);
+  }
+
+  const provider = await prisma.workspaceProviderConnection.update({
+    where: { providerKey },
+    data: updateData
+  });
+
+  return serializeWorkspaceProviderConnection(provider);
+}
+
 async function updateAgentDefinition(
   agentId: string,
   value: {
@@ -5524,6 +5709,35 @@ export function createAppServer(config: BaseConfig): http.Server {
                 error instanceof Error
                   ? error.message
                   : "Failed to update workspace user"
+            });
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      const providerConnectionRoute = matchProviderConnectionRoute(url.pathname);
+      if (providerConnectionRoute) {
+        if (request.method === "GET" && !providerConnectionRoute.providerKey) {
+          return sendJson(response, 200, {
+            providers: await loadProviderConnections()
+          });
+        }
+
+        if (request.method === "PATCH" && providerConnectionRoute.providerKey) {
+          try {
+            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const provider = await updateWorkspaceProviderConnection(
+              providerConnectionRoute.providerKey,
+              body
+            );
+            return sendJson(response, 200, { provider });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update provider connection"
             });
           }
         }

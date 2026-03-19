@@ -415,6 +415,10 @@ function ProductsCatalogContent() {
   );
 }
 
+export function StandaloneProductsCatalog() {
+  return <ProductsCatalogContent />;
+}
+
 export function EmbeddedProductsCatalog() {
   return <ProductsCatalogContent />;
 }

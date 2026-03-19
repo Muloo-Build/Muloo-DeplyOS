@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function ProductsPage() {
-  redirect("/settings#products");
+  redirect("/settings/products");
 }
