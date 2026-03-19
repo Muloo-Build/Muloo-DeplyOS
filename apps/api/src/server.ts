@@ -1420,6 +1420,22 @@ function matchProjectTasksRoute(pathname: string): {
   };
 }
 
+function matchProjectTaskAgentRunRoute(pathname: string): {
+  projectId: string;
+  taskId: string;
+} | null {
+  const match = /^\/api\/projects\/([^/]+?)\/tasks\/([^/]+?)\/queue-agent-run$/.exec(pathname);
+
+  if (!match || !match[1] || !match[2]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1]),
+    taskId: decodeURIComponent(match[2])
+  };
+}
+
 function matchProjectMessagesRoute(pathname: string): {
   projectId: string;
 } | null {
@@ -1803,6 +1819,103 @@ function serializeTask<
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString()
   };
+}
+
+function serializeExecutionJob<
+  T extends {
+    id: string;
+    projectId: string;
+    taskId: string | null;
+    moduleKey: string;
+    executionMethod: string;
+    mode: string;
+    status: string;
+    payload: unknown | null;
+    resultStatus: string | null;
+    outputLog: string | null;
+    errorLog: string | null;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    createdAt: Date;
+    project?: { name: string } | null;
+    task?: { title: string } | null;
+  }
+>(job: T) {
+  return {
+    id: job.id,
+    projectId: job.projectId,
+    projectName: job.project?.name ?? null,
+    taskId: job.taskId,
+    taskTitle: job.task?.title ?? null,
+    moduleKey: job.moduleKey,
+    executionMethod: job.executionMethod,
+    mode: job.mode,
+    status: job.status,
+    payload: job.payload,
+    resultStatus: job.resultStatus,
+    outputLog: job.outputLog,
+    errorLog: job.errorLog,
+    startedAt: job.startedAt?.toISOString() ?? null,
+    completedAt: job.completedAt?.toISOString() ?? null,
+    createdAt: job.createdAt.toISOString()
+  };
+}
+
+async function loadAgentRuns() {
+  const jobs = await prisma.executionJob.findMany({
+    where: { moduleKey: "agent-task" },
+    include: {
+      project: { select: { name: true } },
+      task: { select: { title: true } }
+    },
+    orderBy: [{ createdAt: "desc" }]
+  });
+
+  return jobs.map((job) => serializeExecutionJob(job));
+}
+
+async function queueAgentRun(projectId: string, taskId: string) {
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, projectId },
+    include: {
+      assignedAgent: true,
+      project: { select: { name: true } }
+    }
+  });
+
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  if (task.assigneeType !== "Agent" || !task.assignedAgentId || !task.assignedAgent) {
+    throw new Error("Task is not assigned to an agent");
+  }
+
+  const job = await prisma.executionJob.create({
+    data: {
+      projectId,
+      taskId: task.id,
+      moduleKey: "agent-task",
+      executionMethod: task.assignedAgent.provider,
+      mode: "dry-run",
+      status: "queued",
+      payload: {
+        agentId: task.assignedAgent.id,
+        agentName: task.assignedAgent.name,
+        agentProvider: task.assignedAgent.provider,
+        agentModel: task.assignedAgent.model,
+        taskTitle: task.title,
+        taskDescription: task.description,
+        projectName: task.project.name
+      }
+    },
+    include: {
+      project: { select: { name: true } },
+      task: { select: { title: true } }
+    }
+  });
+
+  return serializeExecutionJob(job);
 }
 
 function serializeDeliveryTemplate<
@@ -6318,8 +6431,28 @@ export function createAppServer(config: BaseConfig): http.Server {
 
       if (url.pathname === "/api/runs") {
         return sendJson(response, 200, {
-          runs: await loadAllExecutionRecords()
+          runs: await loadAllExecutionRecords(),
+          agentRuns: await loadAgentRuns()
         });
+      }
+
+      const projectTaskAgentRunRoute = matchProjectTaskAgentRunRoute(url.pathname);
+      if (projectTaskAgentRunRoute) {
+        if (request.method === "POST") {
+          try {
+            const run = await queueAgentRun(
+              projectTaskAgentRunRoute.projectId,
+              projectTaskAgentRunRoute.taskId
+            );
+            return sendJson(response, 201, { run });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error: error instanceof Error ? error.message : "Failed to queue agent run"
+            });
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
       if (url.pathname === "/api/projects") {

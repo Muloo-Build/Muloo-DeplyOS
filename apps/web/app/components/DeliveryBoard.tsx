@@ -85,6 +85,7 @@ export default function DeliveryBoard({
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [savingTask, setSavingTask] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [queueingTaskId, setQueueingTaskId] = useState<string | null>(null);
   const [taskDraft, setTaskDraft] = useState({
     title: "",
     description: "",
@@ -292,6 +293,26 @@ export default function DeliveryBoard({
       );
     } finally {
       setSavingTask(false);
+    }
+  }
+
+  async function queueAgentRun(taskId: string) {
+    setQueueingTaskId(taskId);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/queue-agent-run`,
+        { method: "POST" }
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to queue agent run");
+      }
+    } catch (queueError) {
+      setError(queueError instanceof Error ? queueError.message : "Failed to queue agent run");
+    } finally {
+      setQueueingTaskId(null);
     }
   }
 
@@ -852,6 +873,16 @@ export default function DeliveryBoard({
                                   >
                                     Edit
                                   </button>
+                                  {task.assigneeType?.toLowerCase() === "agent" && task.assignedAgentId ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => void queueAgentRun(task.id)}
+                                      disabled={queueingTaskId === task.id}
+                                      className="rounded-xl border border-[rgba(79,142,247,0.35)] px-3 py-2 text-xs font-medium text-[#8fb4ff] disabled:opacity-60"
+                                    >
+                                      {queueingTaskId === task.id ? "Queueing..." : "Queue Agent Run"}
+                                    </button>
+                                  ) : null}
                                   <button
                                     type="button"
                                     onClick={() => void deleteTask(task.id)}
