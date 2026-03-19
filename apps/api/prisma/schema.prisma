@@ -84,10 +84,26 @@ model Project {
   discoverySummary DiscoverySummary?
   blueprint      Blueprint?
   tasks          Task[]
+  messages       ProjectMessage[]
   executionJobs  ExecutionJob[]
   clientAccess   ClientProjectAccess[]
   clientSubmissions ClientInputSubmission[]
   workRequests   WorkRequest[]
+}
+
+model ProjectMessage {
+  id          String   @id @default(cuid())
+  projectId   String
+  senderType  String
+  senderName  String
+  body        String
+  internalSeenAt DateTime?
+  clientSeenAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
 }
 
 model ProductCatalogItem {

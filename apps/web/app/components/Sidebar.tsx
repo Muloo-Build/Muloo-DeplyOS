@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const navItems = [
   { href: "/", label: "Projects", shortLabel: "P" },
+  { href: "/inbox", label: "Inbox", shortLabel: "I" },
   { href: "/templates", label: "Templates", shortLabel: "T" },
   { href: "/runs", label: "Runs", shortLabel: "R" },
   { href: "/agents", label: "Agents", shortLabel: "A" },
@@ -22,6 +24,26 @@ function isProjectsRoute(pathname: string): boolean {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [inboxCount, setInboxCount] = useState(0);
+
+  useEffect(() => {
+    async function loadSummary() {
+      try {
+        const response = await fetch("/api/inbox/summary");
+
+        if (!response.ok) {
+          return;
+        }
+
+        const body = await response.json();
+        setInboxCount(body.summary?.total ?? 0);
+      } catch {
+        // Ignore nav badge failures.
+      }
+    }
+
+    void loadSummary();
+  }, [pathname]);
 
   return (
     <aside className="fixed left-0 top-0 flex h-screen w-sidebar flex-col border-r border-[rgba(255,255,255,0.07)] bg-[#0a0f24]">
@@ -60,6 +82,11 @@ export default function Sidebar() {
                 {item.shortLabel}
               </span>
               <span className="font-medium">{item.label}</span>
+              {item.href === "/inbox" && inboxCount > 0 ? (
+                <span className="ml-auto flex min-w-6 items-center justify-center rounded-full bg-[rgba(224,80,96,0.9)] px-2 py-1 text-[10px] font-semibold text-white">
+                  {inboxCount}
+                </span>
+              ) : null}
             </Link>
           );
         })}

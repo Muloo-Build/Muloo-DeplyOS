@@ -15,6 +15,12 @@ interface ClientProjectOption {
   };
 }
 
+interface ClientSessionUser {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
 interface WorkRequest {
   id: string;
   projectId: string | null;
@@ -51,6 +57,7 @@ const serviceFamilies = [
 ];
 
 export default function ClientWorkRequestPortal() {
+  const [sessionUser, setSessionUser] = useState<ClientSessionUser | null>(null);
   const [projects, setProjects] = useState<ClientProjectOption[]>([]);
   const [requests, setRequests] = useState<WorkRequest[]>([]);
   const [saving, setSaving] = useState(false);
@@ -62,8 +69,6 @@ export default function ClientWorkRequestPortal() {
     requestType: "job_spec",
     projectId: "",
     companyName: "",
-    contactName: "",
-    contactEmail: "",
     summary: "",
     details: "",
     urgency: "",
@@ -75,21 +80,24 @@ export default function ClientWorkRequestPortal() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [projectsResponse, requestsResponse] = await Promise.all([
+        const [projectsResponse, sessionResponse, requestsResponse] = await Promise.all([
           fetch("/api/client/projects", { credentials: "include" }),
+          fetch("/api/client-auth/session", { credentials: "include" }),
           fetch("/api/client/work-requests", { credentials: "include" })
         ]);
 
-        if (!projectsResponse.ok || !requestsResponse.ok) {
+        if (!projectsResponse.ok || !sessionResponse.ok || !requestsResponse.ok) {
           throw new Error("Failed to load work request workspace");
         }
 
-        const [projectsBody, requestsBody] = await Promise.all([
+        const [projectsBody, sessionBody, requestsBody] = await Promise.all([
           projectsResponse.json(),
+          sessionResponse.json(),
           requestsResponse.json()
         ]);
 
         setProjects(projectsBody.projects ?? []);
+        setSessionUser(sessionBody.user ?? null);
         setRequests(requestsBody.workRequests ?? []);
       } catch (loadError) {
         setError(
@@ -121,8 +129,6 @@ export default function ClientWorkRequestPortal() {
           requestType: form.requestType,
           projectId: form.projectId || undefined,
           companyName: form.companyName,
-          contactName: form.contactName,
-          contactEmail: form.contactEmail,
           summary: form.summary,
           details: form.details,
           urgency: form.urgency,
@@ -148,8 +154,6 @@ export default function ClientWorkRequestPortal() {
         requestType: "job_spec",
         projectId: "",
         companyName: "",
-        contactName: "",
-        contactEmail: "",
         summary: "",
         details: "",
         urgency: "",
@@ -275,33 +279,17 @@ export default function ClientWorkRequestPortal() {
               </select>
             </label>
 
-            <label className="block">
-              <span className="text-sm text-text-secondary">Your name</span>
-              <input
-                value={form.contactName}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    contactName: event.target.value
-                  }))
-                }
-                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-sm text-text-secondary">Your email</span>
-              <input
-                value={form.contactEmail}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    contactEmail: event.target.value
-                  }))
-                }
-                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
-              />
-            </label>
+            <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-4 md:col-span-2">
+              <p className="text-sm text-text-secondary">Submitting as</p>
+              <p className="mt-2 text-sm font-semibold text-white">
+                {sessionUser
+                  ? `${sessionUser.firstName} ${sessionUser.lastName}`
+                  : "Signed-in client"}
+              </p>
+              <p className="mt-1 text-sm text-text-secondary">
+                {sessionUser?.email ?? "Loading..."}
+              </p>
+            </div>
 
             <label className="block">
               <span className="text-sm text-text-secondary">Company</span>

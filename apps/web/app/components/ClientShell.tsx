@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 export default function ClientShell({
@@ -14,6 +15,28 @@ export default function ClientShell({
   subtitle?: string;
 }) {
   const router = useRouter();
+  const [inboxCount, setInboxCount] = useState(0);
+
+  useEffect(() => {
+    async function loadSummary() {
+      try {
+        const response = await fetch("/api/client/inbox/summary", {
+          credentials: "include"
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const body = await response.json();
+        setInboxCount(body.summary?.total ?? 0);
+      } catch {
+        // Ignore nav badge failures.
+      }
+    }
+
+    void loadSummary();
+  }, []);
 
   async function handleLogout() {
     await fetch("/api/client-auth/logout", {
@@ -48,6 +71,17 @@ export default function ClientShell({
               className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-white"
             >
               Projects
+            </Link>
+            <Link
+              href="/client/inbox"
+              className="relative rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-white"
+            >
+              Inbox
+              {inboxCount > 0 ? (
+                <span className="ml-2 inline-flex min-w-6 items-center justify-center rounded-full bg-[rgba(224,80,96,0.9)] px-2 py-1 text-[10px] font-semibold text-white">
+                  {inboxCount}
+                </span>
+              ) : null}
             </Link>
             <Link
               href="/client/support"

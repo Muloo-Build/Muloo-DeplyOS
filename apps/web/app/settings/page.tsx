@@ -1,7 +1,6 @@
 import AppShell from "../components/AppShell";
 import { EmbeddedProductsCatalog } from "../components/ProductsCatalog";
 import WorkspaceUsersSettings from "../components/WorkspaceUsersSettings";
-import WorkRequestsInbox from "../components/WorkRequestsInbox";
 import Link from "next/link";
 
 export default function SettingsPage() {
@@ -144,21 +143,24 @@ export default function SettingsPage() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                    Work Intake
+                    Inbox
                   </p>
                   <h2 className="mt-2 text-xl font-semibold text-white">
-                    Request review inbox
+                    Requests and messages
                   </h2>
                   <p className="mt-2 max-w-2xl text-text-secondary">
-                    Client-submitted quote requests, job briefs, and change
-                    requests land here for triage.
+                    Client-submitted requests and project-linked messaging now
+                    live in the dedicated inbox workspace instead of Settings.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-6">
-                <WorkRequestsInbox />
-              </div>
+              <Link
+                href="/inbox"
+                className="mt-6 inline-flex rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+              >
+                Open inbox workspace
+              </Link>
             </section>
 
             <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">

@@ -1128,7 +1128,7 @@ function matchWorkRequestRoute(pathname: string): {
 
 function matchClientProjectRoute(pathname: string): {
   projectId?: string;
-  resource?: "submissions" | "tasks";
+  resource?: "messages" | "submissions" | "tasks";
   sessionId?: number;
 } | null {
   const listMatch = /^\/api\/client\/projects$/.exec(pathname);
@@ -1137,7 +1137,7 @@ function matchClientProjectRoute(pathname: string): {
     return {};
   }
 
-  const projectMatch = /^\/api\/client\/projects\/([^/]+?)(?:\/(tasks)|\/submissions\/([1-4]))?$/.exec(
+  const projectMatch = /^\/api\/client\/projects\/([^/]+?)(?:\/(tasks|messages)|\/submissions\/([1-4]))?$/.exec(
     pathname
   );
 
@@ -1147,9 +1147,9 @@ function matchClientProjectRoute(pathname: string): {
 
   return {
     projectId: decodeURIComponent(projectMatch[1]),
-    ...(projectMatch[2] === "tasks"
+    ...(projectMatch[2] === "tasks" || projectMatch[2] === "messages"
       ? {
-          resource: "tasks" as const
+          resource: projectMatch[2] as "tasks" | "messages"
         }
       : projectMatch[3]
       ? {
@@ -1162,6 +1162,28 @@ function matchClientProjectRoute(pathname: string): {
 
 function matchClientWorkRequestRoute(pathname: string): null | {} {
   return /^\/api\/client\/work-requests$/.test(pathname) ? {} : null;
+}
+
+function matchInboxRoute(pathname: string): { resource?: "summary" } | null {
+  const match = /^\/api\/inbox(?:\/(summary))?$/.exec(pathname);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1] === "summary" ? { resource: "summary" } : {};
+}
+
+function matchClientInboxRoute(
+  pathname: string
+): { resource?: "summary" } | null {
+  const match = /^\/api\/client\/inbox(?:\/(summary))?$/.exec(pathname);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1] === "summary" ? { resource: "summary" } : {};
 }
 
 function matchProjectClientUsersRoute(pathname: string): {
@@ -1295,6 +1317,20 @@ function matchProjectTasksRoute(pathname: string): {
   return {
     projectId: decodeURIComponent(match[1]),
     taskId: decodeURIComponent(match[2])
+  };
+}
+
+function matchProjectMessagesRoute(pathname: string): {
+  projectId: string;
+} | null {
+  const match = /^\/api\/projects\/([^/]+?)\/messages$/.exec(pathname);
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1])
   };
 }
 
@@ -1596,6 +1632,32 @@ function serializeClientInputSubmission<
         : {},
     createdAt: submission.createdAt.toISOString(),
     updatedAt: submission.updatedAt.toISOString()
+  };
+}
+
+function serializeProjectMessage<
+  T extends {
+    id: string;
+    projectId: string;
+    senderType: string;
+    senderName: string;
+    body: string;
+    internalSeenAt?: Date | null;
+    clientSeenAt?: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(message: T) {
+  return {
+    id: message.id,
+    projectId: message.projectId,
+    senderType: message.senderType,
+    senderName: message.senderName,
+    body: message.body,
+    internalSeenAt: message.internalSeenAt?.toISOString() ?? null,
+    clientSeenAt: message.clientSeenAt?.toISOString() ?? null,
+    createdAt: message.createdAt.toISOString(),
+    updatedAt: message.updatedAt.toISOString()
   };
 }
 
@@ -4344,6 +4406,230 @@ async function saveClientInputSubmission(
   return serializeClientInputSubmission(submission);
 }
 
+async function loadProjectMessages(projectId: string) {
+  const messages = await prisma.projectMessage.findMany({
+    where: { projectId },
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  return messages.map((message) => serializeProjectMessage(message));
+}
+
+async function createProjectMessage(value: {
+  projectId?: unknown;
+  senderType?: unknown;
+  senderName?: unknown;
+  body?: unknown;
+}) {
+  const projectId =
+    typeof value.projectId === "string" ? value.projectId.trim() : "";
+  const senderType =
+    typeof value.senderType === "string" ? value.senderType.trim() : "";
+  const senderName =
+    typeof value.senderName === "string" ? value.senderName.trim() : "";
+  const body = typeof value.body === "string" ? value.body.trim() : "";
+
+  if (!projectId || !senderType || !senderName || !body) {
+    throw new Error("projectId, senderType, senderName, and body are required");
+  }
+
+  const message = await prisma.projectMessage.create({
+    data: {
+      projectId,
+      senderType,
+      senderName,
+      body,
+      internalSeenAt:
+        senderType === "internal" ? new Date() : null,
+      clientSeenAt: senderType === "client" ? new Date() : null
+    }
+  });
+
+  return serializeProjectMessage(message);
+}
+
+async function markProjectMessagesSeenByInternal(projectId: string) {
+  await prisma.projectMessage.updateMany({
+    where: {
+      projectId,
+      senderType: "client",
+      internalSeenAt: null
+    },
+    data: {
+      internalSeenAt: new Date()
+    }
+  });
+}
+
+async function markAllProjectMessagesSeenByInternal() {
+  await prisma.projectMessage.updateMany({
+    where: {
+      senderType: "client",
+      internalSeenAt: null
+    },
+    data: {
+      internalSeenAt: new Date()
+    }
+  });
+}
+
+async function markProjectMessagesSeenByClient(
+  projectIds: string[] | string
+) {
+  const normalizedProjectIds = Array.isArray(projectIds)
+    ? projectIds
+    : [projectIds];
+
+  if (normalizedProjectIds.length === 0) {
+    return;
+  }
+
+  await prisma.projectMessage.updateMany({
+    where: {
+      projectId: { in: normalizedProjectIds },
+      senderType: "internal",
+      clientSeenAt: null
+    },
+    data: {
+      clientSeenAt: new Date()
+    }
+  });
+}
+
+async function loadInternalInbox() {
+  const [workRequests, messages] = await Promise.all([
+    loadWorkRequests(),
+    prisma.projectMessage.findMany({
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: [{ createdAt: "desc" }],
+      take: 100
+    })
+  ]);
+
+  return {
+    workRequests,
+    messages: messages.map((message) => ({
+      ...serializeProjectMessage(message),
+      project: message.project
+    }))
+  };
+}
+
+async function loadClientInbox(userId: string) {
+  const accessRecords = await prisma.clientProjectAccess.findMany({
+    where: { userId },
+    select: { projectId: true }
+  });
+  const projectIds = accessRecords.map((record) => record.projectId);
+
+  const [workRequests, messages] = await Promise.all([
+    prisma.clientPortalUser.findUnique({
+      where: { id: userId },
+      select: { email: true }
+    }).then((user) =>
+      loadWorkRequests(
+        user?.email
+          ? {
+              projectIds,
+              contactEmail: user.email
+            }
+          : {
+              projectIds
+            }
+      )
+    ),
+    prisma.projectMessage.findMany({
+      where: {
+        projectId: { in: projectIds }
+      },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: [{ createdAt: "desc" }],
+      take: 100
+    })
+  ]);
+
+  return {
+    workRequests,
+    messages: messages.map((message) => ({
+      ...serializeProjectMessage(message),
+      project: message.project
+    }))
+  };
+}
+
+async function loadInboxSummary() {
+  const [newWorkRequests, unseenClientMessages] = await Promise.all([
+    prisma.workRequest.count({
+      where: { status: "new" }
+    }),
+    prisma.projectMessage.count({
+      where: {
+        senderType: "client",
+        internalSeenAt: null
+      }
+    })
+  ]);
+
+  return {
+    newWorkRequests,
+    newMessages: unseenClientMessages,
+    total: newWorkRequests + unseenClientMessages
+  };
+}
+
+async function loadClientInboxSummary(userId: string) {
+  const accessRecords = await prisma.clientProjectAccess.findMany({
+    where: { userId },
+    select: { projectId: true }
+  });
+  const projectIds = accessRecords.map((record) => record.projectId);
+  const clientUser = await prisma.clientPortalUser.findUnique({
+    where: { id: userId },
+    select: { email: true }
+  });
+
+  const [unseenInternalMessages, openRequests] = await Promise.all([
+    prisma.projectMessage.count({
+      where: {
+        projectId: { in: projectIds },
+        senderType: "internal",
+        clientSeenAt: null
+      }
+    }),
+    prisma.workRequest.count({
+      where: {
+        OR: [
+          { projectId: { in: projectIds } },
+          {
+            contactEmail: clientUser?.email ?? ""
+          }
+        ],
+        status: { not: "closed" }
+      }
+    })
+  ]);
+
+  return {
+    newMessages: unseenInternalMessages,
+    openRequests,
+    total: unseenInternalMessages + openRequests
+  };
+}
+
 async function updateProductCatalogItem(
   productId: string,
   value: {
@@ -4937,6 +5223,31 @@ export function createAppServer(config: BaseConfig): http.Server {
           return sendJson(response, 401, { error: "Client unauthorized" });
         }
 
+        const clientInboxRoute = matchClientInboxRoute(url.pathname);
+
+        if (clientInboxRoute) {
+          if (request.method === "GET" && clientInboxRoute.resource === "summary") {
+            return sendJson(response, 200, {
+              summary: await loadClientInboxSummary(clientUserId)
+            });
+          }
+
+          if (request.method === "GET") {
+            await markProjectMessagesSeenByClient(
+              (
+                await prisma.clientProjectAccess.findMany({
+                  where: { userId: clientUserId },
+                  select: { projectId: true }
+                })
+              ).map((record) => record.projectId)
+            );
+
+            return sendJson(response, 200, await loadClientInbox(clientUserId));
+          }
+
+          return sendJson(response, 405, { error: "Method Not Allowed" });
+        }
+
         const clientWorkRequestRoute = matchClientWorkRequestRoute(url.pathname);
 
         if (clientWorkRequestRoute) {
@@ -4967,10 +5278,8 @@ export function createAppServer(config: BaseConfig): http.Server {
               const body = (await readJsonBody(request)) as Record<string, unknown>;
               const workRequest = await createWorkRequest({
                 ...body,
-                contactName:
-                  body.contactName ??
-                  `${clientUser.firstName} ${clientUser.lastName}`.trim(),
-                contactEmail: body.contactEmail ?? clientUser.email
+                contactName: `${clientUser.firstName} ${clientUser.lastName}`.trim(),
+                contactEmail: clientUser.email
               });
               return sendJson(response, 201, { workRequest });
             } catch (error) {
@@ -5062,9 +5371,77 @@ export function createAppServer(config: BaseConfig): http.Server {
               tasks: tasks.map((task) => serializeTask(task))
             });
           }
+
+          if (
+            clientProjectRoute.projectId &&
+            clientProjectRoute.resource === "messages"
+          ) {
+            const access = await prisma.clientProjectAccess.findFirst({
+              where: {
+                projectId: clientProjectRoute.projectId,
+                userId: clientUserId
+              }
+            });
+
+            if (!access) {
+              return sendJson(response, 404, { error: "Project not found" });
+            }
+
+            if (request.method === "GET") {
+              await markProjectMessagesSeenByClient(clientProjectRoute.projectId);
+              return sendJson(response, 200, {
+                messages: await loadProjectMessages(clientProjectRoute.projectId)
+              });
+            }
+
+            if (request.method === "POST") {
+              const clientUser = await prisma.clientPortalUser.findUnique({
+                where: { id: clientUserId }
+              });
+
+              if (!clientUser) {
+                return sendJson(response, 401, { error: "Client unauthorized" });
+              }
+
+              try {
+                const body = (await readJsonBody(request)) as { body?: unknown };
+                const message = await createProjectMessage({
+                  projectId: clientProjectRoute.projectId,
+                  senderType: "client",
+                  senderName: `${clientUser.firstName} ${clientUser.lastName}`.trim(),
+                  body: body.body
+                });
+
+                return sendJson(response, 201, { message });
+              } catch (error) {
+                return sendJson(response, 400, {
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "Failed to post message"
+                });
+              }
+            }
+          }
         }
 
         return sendJson(response, 404, { error: "Client route not found" });
+      }
+
+      const inboxRoute = matchInboxRoute(url.pathname);
+      if (inboxRoute) {
+        if (request.method === "GET" && inboxRoute.resource === "summary") {
+          return sendJson(response, 200, {
+            summary: await loadInboxSummary()
+          });
+        }
+
+        if (request.method === "GET") {
+          await markAllProjectMessagesSeenByInternal();
+          return sendJson(response, 200, await loadInternalInbox());
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
       if (request.method === "GET" && url.pathname === "/api/templates") {
@@ -5694,6 +6071,54 @@ export function createAppServer(config: BaseConfig): http.Server {
             }
 
             throw error;
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      const projectMessagesRoute = matchProjectMessagesRoute(url.pathname);
+      if (projectMessagesRoute) {
+        const project = await prisma.project.findUnique({
+          where: { id: projectMessagesRoute.projectId },
+          select: { id: true }
+        });
+
+        if (!project) {
+          return sendJson(response, 404, { error: "Project not found" });
+        }
+
+        if (request.method === "GET") {
+          await markProjectMessagesSeenByInternal(projectMessagesRoute.projectId);
+          return sendJson(response, 200, {
+            messages: await loadProjectMessages(projectMessagesRoute.projectId)
+          });
+        }
+
+        if (request.method === "POST") {
+          try {
+            const body = (await readJsonBody(request)) as {
+              body?: unknown;
+              senderName?: unknown;
+            };
+            const message = await createProjectMessage({
+              projectId: projectMessagesRoute.projectId,
+              senderType: "internal",
+              senderName:
+                typeof body.senderName === "string" && body.senderName.trim().length > 0
+                  ? body.senderName
+                  : "Muloo",
+              body: body.body
+            });
+
+            return sendJson(response, 201, { message });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to post message"
+            });
           }
         }
 
