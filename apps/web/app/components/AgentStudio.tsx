@@ -17,6 +17,14 @@ interface AgentDefinition {
   sortOrder: number;
 }
 
+interface ProviderConnection {
+  providerKey: string;
+  label: string;
+  defaultModel: string | null;
+  isEnabled: boolean;
+  hasApiKey: boolean;
+}
+
 interface AgentDraft {
   name: string;
   purpose: string;
@@ -47,6 +55,7 @@ function createEmptyDraft(): AgentDraft {
 
 export default function AgentStudio() {
   const [agents, setAgents] = useState<AgentDefinition[]>([]);
+  const [providers, setProviders] = useState<ProviderConnection[]>([]);
   const [newDraft, setNewDraft] = useState<AgentDraft>(createEmptyDraft());
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,13 +64,21 @@ export default function AgentStudio() {
   useEffect(() => {
     async function loadAgents() {
       try {
-        const response = await fetch("/api/agents");
-        if (!response.ok) {
+        const [agentsResponse, providersResponse] = await Promise.all([
+          fetch("/api/agents"),
+          fetch("/api/provider-connections")
+        ]);
+        if (!agentsResponse.ok) {
           throw new Error("Failed to load agents");
         }
+        if (!providersResponse.ok) {
+          throw new Error("Failed to load providers");
+        }
 
-        const body = await response.json();
+        const body = await agentsResponse.json();
+        const providersBody = await providersResponse.json();
         setAgents(body.agents ?? []);
+        setProviders((providersBody.providers ?? []).filter((provider: ProviderConnection) => provider.isEnabled && provider.hasApiKey));
       } catch (loadError) {
         setError(
           loadError instanceof Error ? loadError.message : "Failed to load agents"
@@ -222,9 +239,11 @@ export default function AgentStudio() {
               }
               className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
             >
-              <option value="anthropic">Anthropic</option>
-              <option value="openai">OpenAI</option>
-              <option value="gemini">Google Gemini</option>
+              {providers.map((provider) => (
+                <option key={provider.providerKey} value={provider.providerKey}>
+                  {provider.label}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -336,13 +355,19 @@ export default function AgentStudio() {
 
                   <label className="block">
                     <span className="text-sm font-medium text-white">Provider</span>
-                    <input
+                    <select
                       value={agent.provider}
                       onChange={(event) =>
                         updateAgent(agent.id, "provider", event.target.value)
                       }
                       className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
-                    />
+                    >
+                      {providers.map((provider) => (
+                        <option key={provider.providerKey} value={provider.providerKey}>
+                          {provider.label}
+                        </option>
+                      ))}
+                    </select>
                   </label>
 
                   <label className="block">
@@ -352,6 +377,7 @@ export default function AgentStudio() {
                       onChange={(event) =>
                         updateAgent(agent.id, "model", event.target.value)
                       }
+                      placeholder={providers.find((provider) => provider.providerKey === agent.provider)?.defaultModel ?? "Use provider default model"}
                       className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>

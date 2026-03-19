@@ -25,6 +25,13 @@ export default function SettingsPage() {
             href: "/settings/providers"
           },
           {
+            label: "AI Routing",
+            title: "Workflow model routing",
+            description:
+              "Choose which provider and default model powers discovery extraction, summaries, blueprint generation, and repair workflows.",
+            href: "/settings/ai-routing"
+          },
+          {
             label: "Products",
             title: "Commercial catalog",
             description:

@@ -138,6 +138,43 @@ const defaultProviderConnections = [
     isEnabled: false
   }
 ] as const;
+const defaultAiWorkflowRouting = [
+  {
+    workflowKey: "discovery_extract",
+    label: "Discovery Extraction",
+    providerKey: "gemini",
+    modelOverride: "gemini-2.5-pro",
+    notes: "Session note extraction, transcript parsing, and first-pass field drafting."
+  },
+  {
+    workflowKey: "discovery_summary",
+    label: "Discovery Summary",
+    providerKey: "anthropic",
+    modelOverride: "claude-sonnet-4-20250514",
+    notes: "Project-level discovery synthesis, risks, and operator-friendly next questions."
+  },
+  {
+    workflowKey: "blueprint_generation",
+    label: "Discovery Blueprint Generation",
+    providerKey: "anthropic",
+    modelOverride: "claude-sonnet-4-20250514",
+    notes: "Phased implementation blueprints for discovery-led projects."
+  },
+  {
+    workflowKey: "scope_blueprint_generation",
+    label: "Scoped Job Blueprint Generation",
+    providerKey: "openai",
+    modelOverride: "gpt-5.4",
+    notes: "Technical blueprint generation for standalone scoped jobs."
+  },
+  {
+    workflowKey: "json_repair",
+    label: "JSON Repair",
+    providerKey: "openai",
+    modelOverride: "gpt-5.4",
+    notes: "Repair malformed model outputs into valid JSON when needed."
+  }
+] as const;
 const defaultProductCatalog = [
   {
     slug: "hubspot-implementation-phase",
@@ -1135,6 +1172,18 @@ function matchProviderConnectionRoute(pathname: string): {
   return match[1] ? { providerKey: decodeURIComponent(match[1]) } : {};
 }
 
+function matchAiRoutingRoute(pathname: string): {
+  workflowKey?: string;
+} | null {
+  const match = /^\/api\/ai-routing(?:\/([^/]+))?$/.exec(pathname);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1] ? { workflowKey: decodeURIComponent(match[1]) } : {};
+}
+
 function matchAgentRoute(pathname: string): { agentId?: string } | null {
   const match = /^\/api\/agents(?:\/([^/]+))?$/.exec(pathname);
 
@@ -1882,45 +1931,6 @@ function normalizeRequiredTaskString(value: unknown, fieldName: string) {
   return value.trim();
 }
 
-async function callClaude(
-  system: string,
-  user: string,
-  options?: { maxTokens?: number }
-): Promise<string> {
-  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-
-  if (!anthropicApiKey) {
-    throw new Error("ANTHROPIC_API_KEY not configured");
-  }
-
-  const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": anthropicApiKey,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: options?.maxTokens ?? 2000,
-      system,
-      messages: [{ role: "user", content: user }]
-    })
-  });
-
-  if (!claudeResponse.ok) {
-    throw new Error(
-      `Claude request failed with status ${claudeResponse.status}`
-    );
-  }
-
-  const claudeData = (await claudeResponse.json()) as {
-    content?: Array<{ text?: string }>;
-  };
-
-  return claudeData?.content?.[0]?.text?.trim() ?? "";
-}
-
 function extractJsonBlock(rawText: string): string {
   const trimmed = rawText.trim();
 
@@ -1954,7 +1964,7 @@ async function parseModelJson<T>(
     return schema.parse(JSON.parse(normalizedJson) as unknown);
   } catch (initialError) {
     try {
-      const repairedText = await callClaude(
+      const repairedText = await callAiWorkflow("json_repair", 
         `You repair malformed JSON for Muloo Deploy OS.
 
 Rules:
@@ -3063,7 +3073,7 @@ async function generateDiscoverySummary(projectId: string) {
         .map(([key]) => `Session ${session.session}: ${key}`)
   );
 
-  const rawSummary = await callClaude(
+  const rawSummary = await callAiWorkflow("discovery_summary",
     `You are Muloo Deploy OS's Discovery Structuring Agent.
 Given a structured HubSpot discovery project, create a concise project-level discovery summary.
 
@@ -3143,7 +3153,7 @@ async function generateBlueprintFromDiscovery(projectId: string) {
 
   try {
     const discoverySummary = await loadDiscoverySummary(projectId);
-    const rawBlueprint = await callClaude(
+    const rawBlueprint = await callAiWorkflow("blueprint_generation",
       `You are a HubSpot implementation planning assistant for Muloo, a technical HubSpot delivery company.
 Given structured discovery data from a client project, generate a phased implementation blueprint.
 
@@ -3320,7 +3330,7 @@ async function generateBlueprintFromScope(projectId: string) {
   const discoverySummary = await loadDiscoverySummary(projectId);
 
   try {
-    const rawBlueprint = await callClaude(
+    const rawBlueprint = await callAiWorkflow("scope_blueprint_generation",
       `You are a HubSpot technical scoping assistant for Muloo, a HubSpot delivery company.
 Given a standalone scoped job brief, supporting documentation, and project context, generate a phased technical implementation blueprint.
 
@@ -3587,6 +3597,30 @@ function serializeWorkspaceProviderConnection<
   };
 }
 
+function serializeWorkspaceAiRouting<
+  T extends {
+    id: string;
+    workflowKey: string;
+    label: string;
+    providerKey: string;
+    modelOverride: string | null;
+    notes: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(routing: T) {
+  return {
+    id: routing.id,
+    workflowKey: routing.workflowKey,
+    label: routing.label,
+    providerKey: routing.providerKey,
+    modelOverride: routing.modelOverride,
+    notes: routing.notes,
+    createdAt: routing.createdAt.toISOString(),
+    updatedAt: routing.updatedAt.toISOString()
+  };
+}
+
 async function ensureProductCatalogSeeded() {
   const existingCount = await prisma.productCatalogItem.count();
 
@@ -3611,6 +3645,20 @@ async function ensureProviderConnectionsSeeded() {
   await prisma.workspaceProviderConnection.createMany({
     data: defaultProviderConnections.map((provider) => ({
       ...provider
+    }))
+  });
+}
+
+async function ensureAiRoutingSeeded() {
+  const existingCount = await prisma.workspaceAiRouting.count();
+
+  if (existingCount > 0) {
+    return;
+  }
+
+  await prisma.workspaceAiRouting.createMany({
+    data: defaultAiWorkflowRouting.map((routing) => ({
+      ...routing
     }))
   });
 }
@@ -3701,6 +3749,16 @@ async function loadProviderConnections() {
   return providers.map((provider) =>
     serializeWorkspaceProviderConnection(provider)
   );
+}
+
+async function loadAiRouting() {
+  await ensureAiRoutingSeeded();
+
+  const routes = await prisma.workspaceAiRouting.findMany({
+    orderBy: [{ label: "asc" }]
+  });
+
+  return routes.map((routing) => serializeWorkspaceAiRouting(routing));
 }
 
 async function loadDeliveryTemplates() {
@@ -4940,6 +4998,244 @@ async function updateWorkspaceProviderConnection(
   return serializeWorkspaceProviderConnection(provider);
 }
 
+async function updateWorkspaceAiRouting(
+  workflowKey: string,
+  value: {
+    providerKey?: unknown;
+    modelOverride?: unknown;
+    notes?: unknown;
+  }
+) {
+  const updateData: Prisma.Prisma.WorkspaceAiRoutingUpdateInput = {};
+
+  if (value.providerKey !== undefined) {
+    if (typeof value.providerKey !== "string" || value.providerKey.trim().length === 0) {
+      throw new Error("providerKey must be a non-empty string");
+    }
+
+    updateData.providerKey = value.providerKey.trim();
+  }
+
+  if (value.modelOverride !== undefined) {
+    if (typeof value.modelOverride !== "string") {
+      throw new Error("modelOverride must be a string");
+    }
+
+    updateData.modelOverride = value.modelOverride.trim() || null;
+  }
+
+  if (value.notes !== undefined) {
+    if (typeof value.notes !== "string") {
+      throw new Error("notes must be a string");
+    }
+
+    updateData.notes = value.notes.trim() || null;
+  }
+
+  const routing = await prisma.workspaceAiRouting.update({
+    where: { workflowKey },
+    data: updateData
+  });
+
+  return serializeWorkspaceAiRouting(routing);
+}
+
+function getProviderApiKey(providerKey: string, storedApiKey: string | null) {
+  if (storedApiKey) {
+    return storedApiKey;
+  }
+
+  switch (providerKey) {
+    case "anthropic":
+      return process.env.ANTHROPIC_API_KEY ?? null;
+    case "openai":
+      return process.env.OPENAI_API_KEY ?? null;
+    case "gemini":
+      return process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? null;
+    default:
+      return null;
+  }
+}
+
+async function resolveAiWorkflow(workflowKey: string) {
+  await Promise.all([ensureProviderConnectionsSeeded(), ensureAiRoutingSeeded()]);
+
+  const [routing, providers] = await Promise.all([
+    prisma.workspaceAiRouting.findUnique({ where: { workflowKey } }),
+    prisma.workspaceProviderConnection.findMany()
+  ]);
+
+  const providerMap = new Map(
+    providers.map((provider) => [provider.providerKey, provider])
+  );
+  const routedProvider = routing ? providerMap.get(routing.providerKey) ?? null : null;
+  const routedApiKey = routedProvider
+    ? getProviderApiKey(routedProvider.providerKey, routedProvider.apiKey)
+    : null;
+
+  if (routing && routedProvider && routedApiKey && routedProvider.isEnabled !== false) {
+    return {
+      workflowKey,
+      providerKey: routedProvider.providerKey,
+      model: routing.modelOverride || routedProvider.defaultModel || null,
+      endpointUrl: routedProvider.endpointUrl,
+      apiKey: routedApiKey
+    };
+  }
+
+  const fallbackOrder = ["anthropic", "openai", "gemini"];
+  for (const providerKey of fallbackOrder) {
+    const provider = providerMap.get(providerKey) ?? null;
+    const apiKey = getProviderApiKey(providerKey, provider?.apiKey ?? null);
+    if (!apiKey) {
+      continue;
+    }
+
+    return {
+      workflowKey,
+      providerKey,
+      model:
+        routing?.providerKey === providerKey && routing?.modelOverride
+          ? routing.modelOverride
+          : provider?.defaultModel ?? null,
+      endpointUrl: provider?.endpointUrl ?? null,
+      apiKey
+    };
+  }
+
+  throw new Error(
+    `No AI provider with credentials available for workflow ${workflowKey}`
+  );
+}
+
+function extractOpenAiText(payload: any) {
+  const content = payload?.choices?.[0]?.message?.content;
+  if (typeof content === "string") {
+    return content.trim();
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => (typeof item?.text === "string" ? item.text : ""))
+      .join("\n")
+      .trim();
+  }
+
+  return "";
+}
+
+function extractGeminiText(payload: any) {
+  const parts = payload?.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) {
+    return "";
+  }
+
+  return parts
+    .map((part) => (typeof part?.text === "string" ? part.text : ""))
+    .join("\n")
+    .trim();
+}
+
+async function callAiWorkflow(
+  workflowKey: string,
+  system: string,
+  user: string,
+  options?: { maxTokens?: number }
+): Promise<string> {
+  const resolved = await resolveAiWorkflow(workflowKey);
+  const maxTokens = options?.maxTokens ?? 2000;
+
+  if (resolved.providerKey === "anthropic") {
+    const response = await fetch(
+      resolved.endpointUrl || "https://api.anthropic.com/v1/messages",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": resolved.apiKey,
+          "anthropic-version": "2023-06-01"
+        },
+        body: JSON.stringify({
+          model: resolved.model || "claude-sonnet-4-20250514",
+          max_tokens: maxTokens,
+          system,
+          messages: [{ role: "user", content: user }]
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Anthropic request failed with status ${response.status}`);
+    }
+
+    const payload = (await response.json()) as { content?: Array<{ text?: string }> };
+    return payload?.content?.[0]?.text?.trim() ?? "";
+  }
+
+  if (resolved.providerKey === "openai") {
+    const response = await fetch(
+      resolved.endpointUrl || "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${resolved.apiKey}`
+        },
+        body: JSON.stringify({
+          model: resolved.model || "gpt-5.4",
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user }
+          ],
+          max_completion_tokens: maxTokens
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`OpenAI request failed with status ${response.status}`);
+    }
+
+    return extractOpenAiText(await response.json());
+  }
+
+  if (resolved.providerKey === "gemini") {
+    const model = resolved.model || "gemini-2.5-pro";
+    const endpoint =
+      resolved.endpointUrl ||
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${resolved.apiKey}`;
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: system }]
+        },
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: user }]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: maxTokens
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini request failed with status ${response.status}`);
+    }
+
+    return extractGeminiText(await response.json());
+  }
+
+  throw new Error(`Unsupported AI provider: ${resolved.providerKey}`);
+}
+
 async function updateAgentDefinition(
   agentId: string,
   value: {
@@ -5211,7 +5507,7 @@ Example format:
 }`;
   const userPrompt = `Meeting notes:\n\n${text}\n\nExtract the fields now.`;
 
-  const rawText = await callClaude(systemPrompt, userPrompt).catch(() => "{}");
+  const rawText = await callAiWorkflow("discovery_extract", systemPrompt, userPrompt).catch(() => "{}");
   console.log(
     "[discovery/extract] Claude raw response:",
     rawText.substring(0, 500)
@@ -5219,7 +5515,7 @@ Example format:
 
   try {
     const extractedFields = normalizeDiscoveryFields(
-      JSON.parse(rawText) as unknown
+      JSON.parse(extractJsonBlock(rawText)) as unknown
     );
     console.log(
       "[discovery/extract] Parsed fields:",
@@ -5738,6 +6034,35 @@ export function createAppServer(config: BaseConfig): http.Server {
                 error instanceof Error
                   ? error.message
                   : "Failed to update provider connection"
+            });
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      const aiRoutingRoute = matchAiRoutingRoute(url.pathname);
+      if (aiRoutingRoute) {
+        if (request.method === "GET" && !aiRoutingRoute.workflowKey) {
+          return sendJson(response, 200, {
+            routes: await loadAiRouting()
+          });
+        }
+
+        if (request.method === "PATCH" && aiRoutingRoute.workflowKey) {
+          try {
+            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const route = await updateWorkspaceAiRouting(
+              aiRoutingRoute.workflowKey,
+              body
+            );
+            return sendJson(response, 200, { route });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update AI routing"
             });
           }
         }

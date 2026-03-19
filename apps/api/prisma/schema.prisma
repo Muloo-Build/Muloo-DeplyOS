@@ -58,6 +58,17 @@ model WorkspaceProviderConnection {
   updatedAt      DateTime @updatedAt
 }
 
+model WorkspaceAiRouting {
+  id            String   @id @default(cuid())
+  workflowKey   String   @unique
+  label         String
+  providerKey   String
+  modelOverride String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 model HubSpotPortal {
   id          String    @id @default(cuid())
   portalId    String    @unique
