@@ -1878,8 +1878,28 @@ function deriveBlueprintGuidance(
       "help desk",
       "customer portal"
     ]);
+  const hasCrmFoundationScope =
+    selectedHubs.has("sales") ||
+    selectedHubs.has("marketing") ||
+    selectedHubs.has("service") ||
+    selectedHubs.has("ops") ||
+    includesAny(evidenceText, [
+      "crm",
+      "contact",
+      "company",
+      "deal",
+      "lead status",
+      "lifecycle stage",
+      "pipeline",
+      "property",
+      "properties",
+      "record",
+      "records",
+      "ticket",
+      "inbox"
+    ]);
   const recommendedModules = [
-    "CRM Core Foundation",
+    hasCrmFoundationScope ? "CRM Core Foundation" : null,
     hasSalesScope ? "Sales Hub Core" : null,
     hasMarketingScope ? "Marketing Hub Foundation" : null,
     hasServiceScope ? "Service Hub Core" : null,
@@ -2528,12 +2548,21 @@ async function generateProjectPlan(projectId: string) {
     where: { id: projectId },
     select: {
       id: true,
-      scopeType: true
+      scopeType: true,
+      blueprint: {
+        select: {
+          id: true
+        }
+      }
     }
   });
 
   if (!project) {
     throw new Error("Project not found");
+  }
+
+  if (project.blueprint?.id) {
+    return generateBlueprintProjectPlan(projectId);
   }
 
   if (project.scopeType === "standalone_quote") {
@@ -2915,6 +2944,7 @@ Rules:
 - Only include tasks that are relevant to the scoped job.
 - Prefer concise, implementation-ready task names.
 - Use Muloo standards modules where relevant: ${guidance.recommendedModules.join(", ")}.
+- If this is a CMS/theme implementation, do not introduce CRM foundation, sales, marketing, service, reporting, or portal-governance work unless the brief explicitly requires it.
 - If the job is website/CMS heavy, include theme setup, templates, localization, QA, launch, and handover when evidenced.
 - Agent tasks may include inventories, environment preflight, validation, setup checklists, QA passes, and repeatable configuration support.
 - Do not classify stakeholder alignment, architecture decisions, custom implementation judgment, or launch ownership as Agent work.
