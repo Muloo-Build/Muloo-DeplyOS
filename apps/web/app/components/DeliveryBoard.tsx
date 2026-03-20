@@ -379,6 +379,28 @@ export default function DeliveryBoard({
   }
 
   const totalCount = useMemo(() => tasks.length, [tasks]);
+  const boardMetrics = useMemo(() => {
+    const plannedHours = tasks.reduce(
+      (sum, task) => sum + (typeof task.plannedHours === "number" ? task.plannedHours : 0),
+      0
+    );
+    const actualHours = tasks.reduce(
+      (sum, task) => sum + (typeof task.actualHours === "number" ? task.actualHours : 0),
+      0
+    );
+    const readyAgentTasks = tasks.filter(
+      (task) => task.assigneeType?.toLowerCase() === "agent" && ["ready_with_review", "ready"].includes(task.executionReadiness)
+    ).length;
+    const completedTasks = tasks.filter((task) => task.status === "done").length;
+
+    return {
+      plannedHours,
+      actualHours,
+      variance: actualHours - plannedHours,
+      readyAgentTasks,
+      completedTasks
+    };
+  }, [tasks]);
 
   return (
     <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
@@ -425,6 +447,28 @@ export default function DeliveryBoard({
       </div>
 
       {error ? <p className="mt-4 text-sm text-[#ff8f9c]">{error}</p> : null}
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
+          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Planned Hours</p>
+          <p className="mt-2 text-xl font-semibold text-white">{boardMetrics.plannedHours}h</p>
+        </div>
+        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
+          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Actual Hours</p>
+          <p className="mt-2 text-xl font-semibold text-white">{boardMetrics.actualHours}h</p>
+        </div>
+        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
+          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Variance</p>
+          <p className={`mt-2 text-xl font-semibold ${boardMetrics.variance > 0 ? "text-[#ff9aa5]" : boardMetrics.variance < 0 ? "text-[#2dd4a0]" : "text-white"}`}>
+            {boardMetrics.variance > 0 ? "+" : ""}{boardMetrics.variance}h
+          </p>
+        </div>
+        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
+          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Ready Agent Tasks</p>
+          <p className="mt-2 text-xl font-semibold text-white">{boardMetrics.readyAgentTasks}</p>
+          <p className="mt-1 text-xs text-text-secondary">{boardMetrics.completedTasks} done</p>
+        </div>
+      </div>
 
       {mode === "internal" && projectServiceFamily ? (
         <p className="mt-3 text-sm text-text-secondary">
