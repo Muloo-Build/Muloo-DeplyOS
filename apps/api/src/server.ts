@@ -3283,12 +3283,80 @@ function buildStandalonePlanSeed(
   return tasks;
 }
 
+async function loadPreferredAgentIdsByServiceFamily(serviceFamily: string) {
+  const agents = await prisma.agentDefinition.findMany({
+    where: {
+      isActive: true,
+      serviceFamily
+    },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      allowedActions: true,
+      purpose: true,
+      name: true
+    }
+  });
+
+  return agents;
+}
+
+function scoreAgentForTask(
+  agent: { allowedActions: string[]; purpose: string; name: string },
+  task: { title: string; description: string; category: string; executionType: string }
+) {
+  const searchableText = [
+    task.title,
+    task.description,
+    task.category,
+    task.executionType
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  let score = 0;
+  for (const action of agent.allowedActions) {
+    const normalizedAction = action.toLowerCase();
+    if (normalizedAction && searchableText.includes(normalizedAction)) {
+      score += 3;
+    }
+  }
+
+  const purposeText = `${agent.name} ${agent.purpose}`.toLowerCase();
+  for (const keyword of searchableText.split(/\W+/)) {
+    if (keyword.length > 3 && purposeText.includes(keyword)) {
+      score += 1;
+    }
+  }
+
+  return score;
+}
+
+function pickAgentForTask(
+  agents: Array<{ id: string; allowedActions: string[]; purpose: string; name: string }>,
+  task: { title: string; description: string; category: string; executionType: string; assigneeType: string }
+) {
+  if (task.assigneeType !== "Agent" || agents.length === 0) {
+    return null;
+  }
+
+  const ranked = agents
+    .map((agent) => ({
+      agent,
+      score: scoreAgentForTask(agent, task)
+    }))
+    .sort((left, right) => right.score - left.score);
+
+  return ranked[0]?.agent.id ?? null;
+}
+
 async function generateStandaloneProjectPlan(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: {
       id: true,
       name: true,
+      serviceFamily: true,
       scopeType: true,
       commercialBrief: true,
       deliveryTemplate: {
@@ -3309,7 +3377,10 @@ async function generateStandaloneProjectPlan(projectId: string) {
     throw new Error("Generated project plans are currently only available for standalone scoped jobs");
   }
 
-  const evidenceItems = await loadDiscoveryEvidence(projectId, 0);
+  const [evidenceItems, availableAgents] = await Promise.all([
+    loadDiscoveryEvidence(projectId, 0),
+    loadPreferredAgentIdsByServiceFamily(project.serviceFamily)
+  ]);
   const taskSeed =
     project.deliveryTemplate && project.deliveryTemplate.tasks.length > 0
       ? buildPlanSeedFromTemplate(project.deliveryTemplate)
@@ -3343,6 +3414,7 @@ async function generateStandaloneProjectPlan(projectId: string) {
         qaRequired: task.qaRequired ?? false,
         approvalRequired: task.approvalRequired ?? false,
         assigneeType: task.assigneeType,
+        assignedAgentId: pickAgentForTask(availableAgents, task),
         executionReadiness: task.executionReadiness ?? (task.assigneeType === "Agent" ? "ready_with_review" : "not_ready")
       }
     });
@@ -3378,7 +3450,9 @@ async function generateStandaloneProjectPlan(projectId: string) {
 async function generateBlueprintProjectPlan(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    include: {
+    select: {
+      id: true,
+      serviceFamily: true,
       blueprint: {
         include: {
           tasks: {
@@ -3398,6 +3472,8 @@ async function generateBlueprintProjectPlan(projectId: string) {
       "Generate a blueprint first before creating the delivery board for this project"
     );
   }
+
+  const availableAgents = await loadPreferredAgentIdsByServiceFamily(project.serviceFamily);
 
   await prisma.executionJob.deleteMany({
     where: {
@@ -3449,7 +3525,14 @@ async function generateBlueprintProjectPlan(projectId: string) {
         approvalRequired:
           blueprintTask.type === "Client" ||
           /approve|confirm|sign off|review/i.test(blueprintTask.name),
-        assigneeType: blueprintTask.type
+        assigneeType: blueprintTask.type,
+        assignedAgentId: pickAgentForTask(availableAgents, {
+          title: blueprintTask.name,
+          description: `Generated from blueprint phase ${blueprintTask.phase}: ${blueprintTask.phaseName}`,
+          category: `Phase ${blueprintTask.phase} - ${blueprintTask.phaseName}`,
+          executionType,
+          assigneeType: blueprintTask.type
+        })
       }
     });
 
