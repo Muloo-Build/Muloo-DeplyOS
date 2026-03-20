@@ -1790,6 +1790,7 @@ function serializeTask<
     plannedHours: number | null;
     actualHours: number | null;
     qaRequired: boolean;
+    executionReadiness: string;
     approvalRequired: boolean;
     dependencyIds: string[];
     assigneeType: string | null;
@@ -1811,6 +1812,7 @@ function serializeTask<
     plannedHours: task.plannedHours,
     actualHours: task.actualHours,
     qaRequired: task.qaRequired,
+    executionReadiness: task.executionReadiness,
     approvalRequired: task.approvalRequired,
     dependencyIds: task.dependencyIds,
     assigneeType: task.assigneeType,
@@ -1891,6 +1893,14 @@ async function queueAgentRun(projectId: string, taskId: string) {
     throw new Error("Task is not assigned to an agent");
   }
 
+  if (!["ready_with_review", "ready"].includes(task.executionReadiness)) {
+    throw new Error("Task is not execution-ready for agent delivery");
+  }
+
+  if (task.approvalRequired) {
+    throw new Error("Task still requires approval before agent delivery");
+  }
+
   const job = await prisma.executionJob.create({
     data: {
       projectId,
@@ -1906,6 +1916,7 @@ async function queueAgentRun(projectId: string, taskId: string) {
         agentModel: task.assignedAgent.model,
         taskTitle: task.title,
         taskDescription: task.description,
+        executionReadiness: task.executionReadiness,
         projectName: task.project.name
       }
     },
@@ -2621,6 +2632,7 @@ type StandalonePlanSeedTask = {
   approvalRequired?: boolean;
   dependsOn?: string[];
   plannedHours?: number | null;
+  executionReadiness?: string;
 };
 
 function buildPlanSeedFromTemplate(
@@ -2649,7 +2661,8 @@ function buildPlanSeedFromTemplate(
     status: task.status,
     qaRequired: task.qaRequired,
     approvalRequired: task.approvalRequired,
-    plannedHours: task.plannedHours ?? null
+    plannedHours: task.plannedHours ?? null,
+    executionReadiness: task.assigneeType === "Agent" ? "ready_with_review" : "not_ready"
   }));
 }
 
@@ -2718,7 +2731,8 @@ function buildStandalonePlanSeed(
       assigneeType: "Human",
       priority: "high",
       status: "todo",
-      approvalRequired: true
+      approvalRequired: true,
+      executionReadiness: "not_ready"
     },
     {
       title: "Select and approve the marketplace theme",
@@ -2741,6 +2755,7 @@ function buildStandalonePlanSeed(
       assigneeType: "Agent",
       priority: "high",
       status: "todo",
+      executionReadiness: "ready_with_review",
       dependsOn: ["Select and approve the marketplace theme"]
     },
     {
@@ -2766,6 +2781,7 @@ function buildStandalonePlanSeed(
       assigneeType: "Agent",
       priority: "medium",
       status: "todo",
+      executionReadiness: "ready_with_review",
       dependsOn: ["Create child theme and technical customization layer"]
     });
   }
@@ -2780,6 +2796,7 @@ function buildStandalonePlanSeed(
       assigneeType: "Human",
       priority: "medium",
       status: "todo",
+      executionReadiness: "ready_with_review",
       dependsOn: ["Create child theme and technical customization layer"]
     });
   }
@@ -2806,6 +2823,7 @@ function buildStandalonePlanSeed(
       assigneeType: "Agent",
       priority: "high",
       status: "todo",
+      executionReadiness: "ready_with_review",
       dependsOn: ["Define localization approach and content-routing rules"]
     });
   }
@@ -2860,6 +2878,7 @@ function buildStandalonePlanSeed(
       priority: "high",
       status: "todo",
       qaRequired: true,
+      executionReadiness: "ready_with_review",
       dependsOn: ["Implement page templates, linking, and technical configuration"]
     },
     {
@@ -2949,7 +2968,8 @@ async function generateStandaloneProjectPlan(projectId: string) {
         plannedHours: task.plannedHours ?? null,
         qaRequired: task.qaRequired ?? false,
         approvalRequired: task.approvalRequired ?? false,
-        assigneeType: task.assigneeType
+        assigneeType: task.assigneeType,
+        executionReadiness: task.executionReadiness ?? (task.assigneeType === "Agent" ? "ready_with_review" : "not_ready")
       }
     });
 
@@ -3047,6 +3067,8 @@ async function generateBlueprintProjectPlan(projectId: string) {
         priority,
         status,
         plannedHours: blueprintTask.effortHours,
+        executionReadiness:
+          blueprintTask.type === "Agent" ? "ready_with_review" : "not_ready",
         qaRequired:
           /qa|test|validation|launch/i.test(blueprintTask.name) ||
           /qa|launch/i.test(blueprintTask.phaseName),
@@ -7006,6 +7028,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             qaRequired?: unknown;
             approvalRequired?: unknown;
             assigneeType?: unknown;
+            executionReadiness?: unknown;
             assignedAgentId?: unknown;
           };
 
@@ -7018,6 +7041,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           ];
           const validAssigneeTypes = ["Human", "Agent", "Client"];
           const validPriorities = ["low", "medium", "high"];
+          const validExecutionReadiness = ["not_ready", "assisted", "ready_with_review", "ready"];
 
           const status =
             typeof body.status === "string" && validStatuses.includes(body.status)
@@ -7032,6 +7056,13 @@ export function createAppServer(config: BaseConfig): http.Server {
             assigneeType === "Agent" && typeof body.assignedAgentId === "string" && body.assignedAgentId.trim().length > 0
               ? body.assignedAgentId.trim()
               : null;
+          const executionReadiness =
+            typeof body.executionReadiness === "string" &&
+            validExecutionReadiness.includes(body.executionReadiness)
+              ? body.executionReadiness
+              : assigneeType === "Agent"
+                ? "ready_with_review"
+                : "not_ready";
           const priority =
             typeof body.priority === "string" &&
             validPriorities.includes(body.priority.toLowerCase())
@@ -7063,6 +7094,7 @@ export function createAppServer(config: BaseConfig): http.Server {
               qaRequired: Boolean(body.qaRequired),
               approvalRequired: Boolean(body.approvalRequired),
               assigneeType,
+              executionReadiness,
               assignedAgentId
             },
             include: { assignedAgent: { select: { name: true } } }
@@ -7095,6 +7127,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             qaRequired?: unknown;
             approvalRequired?: unknown;
             assigneeType?: unknown;
+            executionReadiness?: unknown;
             assignedAgentId?: unknown;
             plannedHours?: unknown;
             actualHours?: unknown;
@@ -7108,6 +7141,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           ];
           const validAssigneeTypes = ["Human", "Agent", "Client"];
           const validPriorities = ["low", "medium", "high"];
+          const validExecutionReadiness = ["not_ready", "assisted", "ready_with_review", "ready"];
 
           const existingTask = await prisma.task.findFirst({
             where: {
@@ -7175,6 +7209,14 @@ export function createAppServer(config: BaseConfig): http.Server {
             if (body.assigneeType !== "Agent") {
               data.assignedAgentId = null;
             }
+          }
+
+          if (body.executionReadiness !== undefined) {
+            if (typeof body.executionReadiness !== "string" || !validExecutionReadiness.includes(body.executionReadiness)) {
+              return sendJson(response, 400, { error: "Invalid execution readiness" });
+            }
+
+            data.executionReadiness = body.executionReadiness;
           }
 
           if (body.assignedAgentId !== undefined) {

@@ -368,6 +368,7 @@ model Task {
   approvalRequired Boolean        @default(false)
   dependencyIds    String[]
   assigneeType     String?
+  executionReadiness String       @default("not_ready")
   assignedAgentId  String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt

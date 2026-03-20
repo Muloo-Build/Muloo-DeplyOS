@@ -14,6 +14,7 @@ interface ProjectTask {
   plannedHours: number | null;
   actualHours: number | null;
   qaRequired: boolean;
+  executionReadiness: string;
   approvalRequired: boolean;
   dependencyIds: string[];
   assigneeType: string | null;
@@ -96,6 +97,7 @@ export default function DeliveryBoard({
     plannedHours: "",
     actualHours: "",
     qaRequired: false,
+    executionReadiness: "not_ready",
     approvalRequired: false,
     assigneeType: "Human",
     assignedAgentId: ""
@@ -159,6 +161,7 @@ export default function DeliveryBoard({
       plannedHours: "",
       actualHours: "",
       qaRequired: false,
+      executionReadiness: "not_ready",
       approvalRequired: false,
       assigneeType: "Human",
       assignedAgentId: ""
@@ -243,6 +246,7 @@ export default function DeliveryBoard({
       plannedHours: task.plannedHours?.toString() ?? "",
       actualHours: task.actualHours?.toString() ?? "",
       qaRequired: task.qaRequired,
+      executionReadiness: task.executionReadiness,
       approvalRequired: task.approvalRequired,
       assigneeType: task.assigneeType ?? "Human",
       assignedAgentId: task.assignedAgentId ?? ""
@@ -499,6 +503,24 @@ export default function DeliveryBoard({
               </select>
             </label>
             <label className="block">
+              <span className="text-sm text-white">Execution readiness</span>
+              <select
+                value={taskDraft.executionReadiness}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({
+                    ...current,
+                    executionReadiness: event.target.value
+                  }))
+                }
+                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              >
+                <option value="not_ready">Not ready</option>
+                <option value="assisted">Agent assisted</option>
+                <option value="ready_with_review">Ready with review</option>
+                <option value="ready">Ready</option>
+              </select>
+            </label>
+            <label className="block">
               <span className="text-sm text-white">Execution Type</span>
               <input
                 value={taskDraft.executionType}
@@ -674,6 +696,7 @@ export default function DeliveryBoard({
                           {task.actualHours !== null ? (
                             <span>Actual: {task.actualHours}h</span>
                           ) : null}
+                          <span>Readiness: {formatLabel(task.executionReadiness)}</span>
                           {task.qaRequired ? <span>QA required</span> : null}
                           {task.approvalRequired ? (
                             <span>Approval required</span>
@@ -792,6 +815,21 @@ export default function DeliveryBoard({
                                       </option>
                                     ))}
                                   </select>
+                                  <select
+                                    value={taskDraft.executionReadiness}
+                                    onChange={(event) =>
+                                      setTaskDraft((current) => ({
+                                        ...current,
+                                        executionReadiness: event.target.value
+                                      }))
+                                    }
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                  >
+                                    <option value="not_ready">Not ready</option>
+                                    <option value="assisted">Agent assisted</option>
+                                    <option value="ready_with_review">Ready with review</option>
+                                    <option value="ready">Ready</option>
+                                  </select>
                                   <input
                                     type="number"
                                     value={taskDraft.plannedHours}
@@ -873,7 +911,7 @@ export default function DeliveryBoard({
                                   >
                                     Edit
                                   </button>
-                                  {task.assigneeType?.toLowerCase() === "agent" && task.assignedAgentId ? (
+                                  {task.assigneeType?.toLowerCase() === "agent" && task.assignedAgentId && ["ready_with_review", "ready"].includes(task.executionReadiness) && !task.approvalRequired ? (
                                     <button
                                       type="button"
                                       onClick={() => void queueAgentRun(task.id)}
