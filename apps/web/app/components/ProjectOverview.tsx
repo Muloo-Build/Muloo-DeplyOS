@@ -14,6 +14,11 @@ interface Project {
   ownerEmail: string;
   scopeType?: string | null;
   commercialBrief?: string | null;
+  problemStatement?: string | null;
+  solutionRecommendation?: string | null;
+  scopeExecutiveSummary?: string | null;
+  customerPlatformTier?: string | null;
+  platformTierSelections?: Record<string, string> | null;
   clientChampionFirstName?: string | null;
   clientChampionLastName?: string | null;
   clientChampionEmail?: string | null;
@@ -167,6 +172,10 @@ function createProjectDraft(project: Project) {
     type: project.engagementType,
     scopeType: project.scopeType ?? "discovery",
     commercialBrief: project.commercialBrief ?? "",
+    problemStatement: project.problemStatement ?? "",
+    solutionRecommendation: project.solutionRecommendation ?? "",
+    scopeExecutiveSummary: project.scopeExecutiveSummary ?? "",
+    customerPlatformTier: project.customerPlatformTier ?? "",
     portalId: project.portal?.portalId ?? "",
     hubs: project.selectedHubs,
     owner: project.owner,
@@ -290,6 +299,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     type: "IMPLEMENTATION",
     scopeType: "discovery",
     commercialBrief: "",
+    problemStatement: "",
+    solutionRecommendation: "",
+    scopeExecutiveSummary: "",
+    customerPlatformTier: "",
     portalId: "",
     owner: "",
     ownerEmail: "",
@@ -1865,7 +1878,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           Current brief
                         </p>
                         <p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">
-                          {project.commercialBrief ||
+                          {project.scopeExecutiveSummary ||
+                            project.solutionRecommendation ||
+                            project.problemStatement ||
+                            project.commercialBrief ||
                             "No scoped brief captured yet."}
                         </p>
                       </div>

@@ -89,6 +89,11 @@ model Project {
   owner          String
   ownerEmail     String
   serviceFamily  String                @default("hubspot_architecture")
+  customerPlatformTier String?
+  platformTierSelections Json?
+  problemStatement String?
+  solutionRecommendation String?
+  scopeExecutiveSummary String?
   clientChampionFirstName String?
   clientChampionLastName  String?
   clientChampionEmail     String?

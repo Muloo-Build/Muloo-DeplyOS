@@ -14,6 +14,11 @@ interface Project {
   ownerEmail: string;
   scopeType?: string | null;
   commercialBrief?: string | null;
+  problemStatement?: string | null;
+  solutionRecommendation?: string | null;
+  scopeExecutiveSummary?: string | null;
+  customerPlatformTier?: string | null;
+  platformTierSelections?: Record<string, string> | null;
   engagementType: string;
   clientChampionFirstName?: string | null;
   clientChampionLastName?: string | null;
@@ -260,11 +265,9 @@ export default function QuoteDocument({
           productsResponse
         ] = await Promise.all([
           fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
-          isStandaloneQuote
-            ? Promise.resolve(null)
-            : fetch(
-                `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
-              ),
+          fetch(
+            `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
+          ),
           fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
           fetch("/api/products")
         ]);
@@ -272,12 +275,12 @@ export default function QuoteDocument({
         if (
           !sessionsResponse.ok ||
           !productsResponse.ok ||
-          (!isStandaloneQuote && !summaryResponse?.ok) ||
+          !summaryResponse?.ok ||
           (!isStandaloneQuote && !blueprintResponse?.ok)
         ) {
           throw new Error(
             isStandaloneQuote
-              ? "Complete the standalone quote setup before opening the commercial document."
+              ? "Generate the scoped summary before opening the commercial document."
               : "Generate the discovery summary and blueprint before opening the quote."
           );
         }
@@ -733,7 +736,11 @@ export default function QuoteDocument({
                   <SectionTitle>What this quote is based on</SectionTitle>
                   <p className="mt-4 text-sm leading-7 text-text-secondary">
                     {project.scopeType === "standalone_quote"
-                      ? project.commercialBrief ||
+                      ? summary?.executiveSummary ??
+                        project.scopeExecutiveSummary ??
+                        project.solutionRecommendation ??
+                        project.problemStatement ??
+                        project.commercialBrief ??
                         "This standalone quote is based on the scoped job brief captured for the client."
                       : summary?.executiveSummary ??
                         session1.business_overview ??

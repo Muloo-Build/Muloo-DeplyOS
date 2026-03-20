@@ -65,6 +65,31 @@ const validProjectHubValues = [
   "ops",
   "cms"
 ] as const;
+const validCustomerPlatformTierValues = [
+  "starter",
+  "professional",
+  "enterprise"
+] as const;
+const validHubTierValues = [
+  "free",
+  "starter",
+  "professional",
+  "enterprise",
+  "included"
+] as const;
+const validPlatformTierSelectionKeys = [
+  "smart_crm",
+  "marketing_hub",
+  "sales_hub",
+  "service_hub",
+  "content_hub",
+  "operations_hub",
+  "data_hub",
+  "commerce_hub",
+  "breeze",
+  "small_business_bundle",
+  "free_tools"
+] as const;
 const defaultWorkspaceUsers = [
   {
     id: "jarrud-vander-merwe",
@@ -166,6 +191,20 @@ const defaultAiWorkflowRouting = [
     providerKey: "openai",
     modelOverride: "gpt-5.4",
     notes: "Technical blueprint generation for standalone scoped jobs."
+  },
+  {
+    workflowKey: "solution_shaping",
+    label: "Solution Shaping",
+    providerKey: "openai",
+    modelOverride: "gpt-5.4",
+    notes: "Turn a pain point into recommended HubSpot-led solution options."
+  },
+  {
+    workflowKey: "scoped_summary",
+    label: "Scoped Job Summary",
+    providerKey: "anthropic",
+    modelOverride: "claude-sonnet-4-20250514",
+    notes: "Generate executive scope summaries for standalone scoped jobs."
   },
   {
     workflowKey: "json_repair",
@@ -592,6 +631,22 @@ const discoverySummarySchema = z.object({
   keyRisks: z.array(z.string().trim().min(1)).default([]),
   recommendedNextQuestions: z.array(z.string().trim().min(1)).default([])
 });
+const solutionShapingOptionSchema = z.object({
+  title: z.string().trim().min(1),
+  summary: z.string().trim().min(1),
+  rationale: z.string().trim().min(1),
+  recommendedScopeType: z.string().trim().min(1),
+  recommendedEngagementType: z.string().trim().min(1),
+  recommendedServiceFamily: z.string().trim().min(1),
+  recommendedHubs: z.array(z.string().trim().min(1)).default([]),
+  recommendedCustomerPlatformTier: z.string().trim().optional().default(""),
+  recommendedPlatformTierSelections: z.record(z.string().trim()).default({}),
+  jobSpecSeed: z.string().trim().min(1),
+  executiveSummary: z.string().trim().min(1)
+});
+const solutionShapingSchema = z.object({
+  options: z.array(solutionShapingOptionSchema).min(3).max(3)
+});
 
 function serializeDiscoverySummary<
   T extends {
@@ -625,6 +680,36 @@ function isValidEngagementType(value: string): value is EngagementType {
 
 function isValidProjectHub(value: string): value is ProjectHub {
   return validProjectHubValues.includes(value as ProjectHub);
+}
+
+function isValidCustomerPlatformTier(
+  value: string
+): value is (typeof validCustomerPlatformTierValues)[number] {
+  return validCustomerPlatformTierValues.includes(
+    value as (typeof validCustomerPlatformTierValues)[number]
+  );
+}
+
+function isValidHubTier(
+  value: string
+): value is (typeof validHubTierValues)[number] {
+  return validHubTierValues.includes(value as (typeof validHubTierValues)[number]);
+}
+
+function normalizePlatformTierSelections(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {} as Record<string, string>;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key, tier]) =>
+        validPlatformTierSelectionKeys.includes(
+          key as (typeof validPlatformTierSelectionKeys)[number]
+        ) && typeof tier === "string" && isValidHubTier(tier.trim().toLowerCase())
+      )
+      .map(([key, tier]) => [key, (tier as string).trim().toLowerCase()])
+  );
 }
 
 function isValidDiscoveryEvidenceType(
@@ -1649,6 +1734,11 @@ function serializeProject<
     owner: string;
     ownerEmail: string;
     serviceFamily: string;
+    customerPlatformTier?: string | null;
+    platformTierSelections?: unknown | null;
+    problemStatement?: string | null;
+    solutionRecommendation?: string | null;
+    scopeExecutiveSummary?: string | null;
     scopeType?: string | null;
     deliveryTemplateId?: string | null;
     commercialBrief?: string | null;
@@ -1686,6 +1776,9 @@ function serializeProject<
 
   return {
     ...normalizedProject,
+    platformTierSelections: normalizePlatformTierSelections(
+      normalizedProject.platformTierSelections
+    ),
     clientName: normalizedProject.client.name,
     hubsInScope: normalizedProject.selectedHubs
   };
@@ -3654,10 +3747,165 @@ async function loadProjectDiscoveryForBlueprint(projectId: string) {
       sessions,
       evidenceItems,
       commercialBrief: project.commercialBrief,
+      problemStatement: project.problemStatement,
+      solutionRecommendation: project.solutionRecommendation,
+      scopeExecutiveSummary: project.scopeExecutiveSummary,
+      customerPlatformTier: project.customerPlatformTier,
+      platformTierSelections: normalizePlatformTierSelections(
+        project.platformTierSelections
+      ),
       scopeType: project.scopeType ?? "discovery",
       discoveryProfile
     }
   };
+}
+
+async function generateSolutionOptions(input: {
+  clientName?: string;
+  website?: string;
+  problemStatement: string;
+  serviceFamily?: string;
+}) {
+  const rawOptions = await callAiWorkflow(
+    "solution_shaping",
+    `You are Muloo Deploy OS's HubSpot solution shaping assistant.
+Given an early-stage problem statement, suggest three practical ways Muloo could move forward.
+
+Rules:
+- Return ONLY valid JSON. No markdown or explanation.
+- Use exactly this structure: {"options":[{"title":"...","summary":"...","rationale":"...","recommendedScopeType":"standalone_quote","recommendedEngagementType":"IMPLEMENTATION","recommendedServiceFamily":"hubspot_architecture","recommendedHubs":["sales"],"recommendedCustomerPlatformTier":"starter","recommendedPlatformTierSelections":{"sales_hub":"starter"},"jobSpecSeed":"...","executiveSummary":"..."}]}
+- Always return exactly 3 options.
+- Anchor solutions in current HubSpot packaging and practical delivery patterns.
+- Prefer options that Muloo can actually scope and deliver.
+- recommendedScopeType must be either "standalone_quote" or "discovery".
+- recommendedEngagementType must be one of AUDIT, IMPLEMENTATION, MIGRATION, OPTIMISATION, GUIDED_DEPLOYMENT.
+- recommendedServiceFamily must be one of hubspot_architecture, custom_engineering, ai_automation.
+- recommendedHubs may only contain sales, marketing, service, ops, cms.
+- recommendedCustomerPlatformTier should be starter, professional, enterprise, or blank.
+- recommendedPlatformTierSelections should only use these keys: smart_crm, marketing_hub, sales_hub, service_hub, content_hub, operations_hub, data_hub, commerce_hub, breeze, small_business_bundle, free_tools.
+- jobSpecSeed should be a clean structured scope brief, not a bullet dump.
+- executiveSummary should be a short client-facing summary of the selected direction.
+- Include a conservative option, a recommended option, and a more ambitious option when possible.`,
+    JSON.stringify(input, null, 2),
+    { maxTokens: 3500 }
+  );
+
+  const parsedOptions = await parseModelJson(
+    rawOptions,
+    solutionShapingSchema,
+    "solution-options"
+  );
+
+  return {
+    options: parsedOptions.options.map((option) => ({
+      ...option,
+      recommendedScopeType:
+        option.recommendedScopeType === "discovery"
+          ? "discovery"
+          : "standalone_quote",
+      recommendedEngagementType: isValidEngagementType(
+        option.recommendedEngagementType
+      )
+        ? option.recommendedEngagementType
+        : "IMPLEMENTATION",
+      recommendedServiceFamily: serviceFamilyOptions.includes(
+        option.recommendedServiceFamily as (typeof serviceFamilyOptions)[number]
+      )
+        ? option.recommendedServiceFamily
+        : "hubspot_architecture",
+      recommendedHubs: Array.from(
+        new Set(
+          (option.recommendedHubs ?? [])
+            .map((hub) => hub.trim().toLowerCase())
+            .filter((hub) => isValidProjectHub(hub))
+        )
+      ),
+      recommendedCustomerPlatformTier: isValidCustomerPlatformTier(
+        (option.recommendedCustomerPlatformTier ?? "").trim().toLowerCase()
+      )
+        ? (option.recommendedCustomerPlatformTier ?? "").trim().toLowerCase()
+        : "",
+      recommendedPlatformTierSelections: normalizePlatformTierSelections(
+        option.recommendedPlatformTierSelections
+      )
+    }))
+  };
+}
+
+async function generateStandaloneScopeSummary(
+  discoveryPayload: NonNullable<Awaited<ReturnType<typeof loadProjectDiscoveryForBlueprint>>>
+) {
+  const rawSummary = await callAiWorkflow(
+    "scoped_summary",
+    `You are Muloo Deploy OS's scoped implementation summariser.
+Given a standalone HubSpot-related job brief, produce a concise project-level summary for quoting, planning, and client communication.
+
+Rules:
+- Return ONLY valid JSON. No markdown or explanation.
+- Use exactly these keys: executiveSummary, engagementTrack, platformFit, changeManagementRating, dataReadinessRating, scopeVolatilityRating, missingInformation, keyRisks, recommendedNextQuestions
+- Keep executiveSummary to one short paragraph written as a clear executive summary.
+- engagementTrack should be a business-friendly label such as "Standalone implementation", "Technical implementation", or "Scoped integration".
+- platformFit should describe the recommended HubSpot fit and supporting architecture in one short phrase.
+- changeManagementRating, dataReadinessRating, and scopeVolatilityRating should be low, medium, or high.
+- missingInformation should contain only the most important open inputs still needed.
+- keyRisks should focus on delivery, handoff, technical complexity, and dependency risk.
+- recommendedNextQuestions should be practical next clarification points.
+- Base the answer on the scoped brief, the selected HubSpot packaging, supporting context, and any linked documents or notes.
+- Do not speak about discovery sessions unless they actually exist.
+- Do not simply repeat the raw brief. Synthesize it into a clean operator/client summary.`,
+    JSON.stringify(
+      {
+        project: {
+          id: discoveryPayload.project.id,
+          name: discoveryPayload.project.name,
+          engagementType: discoveryPayload.project.engagementType,
+          serviceFamily: discoveryPayload.project.serviceFamily,
+          selectedHubs: discoveryPayload.project.selectedHubs,
+          scopeType: discoveryPayload.project.scopeType,
+          commercialBrief: discoveryPayload.project.commercialBrief,
+          problemStatement: discoveryPayload.project.problemStatement,
+          solutionRecommendation: discoveryPayload.project.solutionRecommendation,
+          customerPlatformTier: discoveryPayload.project.customerPlatformTier,
+          platformTierSelections: normalizePlatformTierSelections(
+            discoveryPayload.project.platformTierSelections
+          )
+        },
+        client: discoveryPayload.discovery.client,
+        supportingContext: discoveryPayload.discovery.evidenceItems
+      },
+      null,
+      2
+    ),
+    { maxTokens: 2500 }
+  );
+
+  const parsedSummary = await parseModelJson(
+    rawSummary,
+    discoverySummarySchema,
+    "scoped-summary"
+  );
+  const normalizedSummary = {
+    ...parsedSummary,
+    missingInformation: parsedSummary.missingInformation ?? [],
+    keyRisks: parsedSummary.keyRisks ?? [],
+    recommendedNextQuestions: parsedSummary.recommendedNextQuestions ?? []
+  };
+
+  const savedSummary = await prisma.discoverySummary.upsert({
+    where: { projectId: discoveryPayload.project.id },
+    update: normalizedSummary,
+    create: {
+      projectId: discoveryPayload.project.id,
+      ...normalizedSummary
+    }
+  });
+
+  await prisma.project.update({
+    where: { id: discoveryPayload.project.id },
+    data: { scopeExecutiveSummary: normalizedSummary.executiveSummary }
+  });
+
+  return serializeDiscoverySummary(savedSummary);
 }
 
 async function generateDiscoverySummary(projectId: string) {
@@ -3665,6 +3913,10 @@ async function generateDiscoverySummary(projectId: string) {
 
   if (!discoveryPayload) {
     throw new Error("Project not found");
+  }
+
+  if (discoveryPayload.project.scopeType === "standalone_quote") {
+    return generateStandaloneScopeSummary(discoveryPayload);
   }
 
   const missingInformation = discoveryPayload.discovery.sessions.flatMap(
@@ -7043,6 +7295,11 @@ export function createAppServer(config: BaseConfig): http.Server {
             owner?: string;
             ownerEmail?: string;
             serviceFamily?: string;
+            customerPlatformTier?: string;
+            platformTierSelections?: Record<string, string>;
+            problemStatement?: string;
+            solutionRecommendation?: string;
+            scopeExecutiveSummary?: string;
             scopeType?: string;
             deliveryTemplateId?: string;
             commercialBrief?: string;
@@ -7094,6 +7351,16 @@ export function createAppServer(config: BaseConfig): http.Server {
             )
               ? body.serviceFamily.trim()
               : "hubspot_architecture";
+          const customerPlatformTier =
+            typeof body.customerPlatformTier === "string" &&
+            isValidCustomerPlatformTier(
+              body.customerPlatformTier.trim().toLowerCase()
+            )
+              ? body.customerPlatformTier.trim().toLowerCase()
+              : null;
+          const platformTierSelections = normalizePlatformTierSelections(
+            body.platformTierSelections
+          );
 
           const slug = createSlug(body.clientName);
           const client = await prisma.client.upsert({
@@ -7148,6 +7415,13 @@ export function createAppServer(config: BaseConfig): http.Server {
                 "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
               ...(await resolveProjectOwner(body.owner, body.ownerEmail)),
               serviceFamily,
+              customerPlatformTier,
+              platformTierSelections,
+              problemStatement: body.problemStatement?.trim() || null,
+              solutionRecommendation:
+                body.solutionRecommendation?.trim() || null,
+              scopeExecutiveSummary:
+                body.scopeExecutiveSummary?.trim() || null,
               clientChampionFirstName:
                 body.clientChampionFirstName?.trim() || null,
               clientChampionLastName:
@@ -8019,6 +8293,36 @@ export function createAppServer(config: BaseConfig): http.Server {
         });
       }
 
+      if (request.method === "POST" && url.pathname === "/api/solution-options") {
+        const body = (await readJsonBody(request)) as {
+          clientName?: string;
+          website?: string;
+          problemStatement?: string;
+          serviceFamily?: string;
+        };
+
+        if (typeof body.problemStatement !== "string" || body.problemStatement.trim().length < 20) {
+          return sendJson(response, 400, {
+            error: "problemStatement must be at least 20 characters"
+          });
+        }
+
+        const options = await generateSolutionOptions({
+          problemStatement: body.problemStatement.trim(),
+          ...(typeof body.clientName === "string" && body.clientName.trim().length > 0
+            ? { clientName: body.clientName.trim() }
+            : {}),
+          ...(typeof body.website === "string" && body.website.trim().length > 0
+            ? { website: body.website.trim() }
+            : {}),
+          ...(typeof body.serviceFamily === "string" && body.serviceFamily.trim().length > 0
+            ? { serviceFamily: body.serviceFamily.trim() }
+            : {})
+        });
+
+        return sendJson(response, 200, options);
+      }
+
       const projectModuleRoute = matchProjectModuleRoute(url.pathname);
       if (projectModuleRoute) {
         return sendJson(response, 200, {
@@ -8144,6 +8448,11 @@ export function createAppServer(config: BaseConfig): http.Server {
           const body = (await readJsonBody(request)) as {
             clientName?: unknown;
             type?: unknown;
+            customerPlatformTier?: unknown;
+            platformTierSelections?: unknown;
+            problemStatement?: unknown;
+            solutionRecommendation?: unknown;
+            scopeExecutiveSummary?: unknown;
             scopeType?: unknown;
             deliveryTemplateId?: unknown;
             commercialBrief?: unknown;
@@ -8167,6 +8476,11 @@ export function createAppServer(config: BaseConfig): http.Server {
           const normalizedPayload: {
             clientName?: string;
             type?: EngagementType;
+            customerPlatformTier?: string;
+            platformTierSelections?: Record<string, string>;
+            problemStatement?: string;
+            solutionRecommendation?: string;
+            scopeExecutiveSummary?: string;
             scopeType?: string;
             deliveryTemplateId?: string;
             commercialBrief?: string;
@@ -8211,6 +8525,64 @@ export function createAppServer(config: BaseConfig): http.Server {
             }
 
             normalizedPayload.type = body.type;
+          }
+
+          if (body.customerPlatformTier !== undefined) {
+            if (
+              body.customerPlatformTier !== null &&
+              (typeof body.customerPlatformTier !== "string" ||
+                (body.customerPlatformTier.trim().length > 0 &&
+                  !isValidCustomerPlatformTier(
+                    body.customerPlatformTier.trim().toLowerCase()
+                  )))
+            ) {
+              return sendJson(response, 400, {
+                error: "customerPlatformTier must be starter, professional, enterprise, or blank"
+              });
+            }
+
+            normalizedPayload.customerPlatformTier =
+              typeof body.customerPlatformTier === "string"
+                ? body.customerPlatformTier.trim().toLowerCase()
+                : "";
+          }
+
+          if (body.platformTierSelections !== undefined) {
+            normalizedPayload.platformTierSelections = normalizePlatformTierSelections(
+              body.platformTierSelections
+            );
+          }
+
+          if (body.problemStatement !== undefined) {
+            if (typeof body.problemStatement !== "string") {
+              return sendJson(response, 400, {
+                error: "problemStatement must be a string"
+              });
+            }
+
+            normalizedPayload.problemStatement = body.problemStatement.trim();
+          }
+
+          if (body.solutionRecommendation !== undefined) {
+            if (typeof body.solutionRecommendation !== "string") {
+              return sendJson(response, 400, {
+                error: "solutionRecommendation must be a string"
+              });
+            }
+
+            normalizedPayload.solutionRecommendation =
+              body.solutionRecommendation.trim();
+          }
+
+          if (body.scopeExecutiveSummary !== undefined) {
+            if (typeof body.scopeExecutiveSummary !== "string") {
+              return sendJson(response, 400, {
+                error: "scopeExecutiveSummary must be a string"
+              });
+            }
+
+            normalizedPayload.scopeExecutiveSummary =
+              body.scopeExecutiveSummary.trim();
           }
 
           if (body.scopeType !== undefined) {
@@ -8416,6 +8788,11 @@ export function createAppServer(config: BaseConfig): http.Server {
           if (
             normalizedPayload.clientName === undefined &&
             normalizedPayload.type === undefined &&
+            normalizedPayload.customerPlatformTier === undefined &&
+            normalizedPayload.platformTierSelections === undefined &&
+            normalizedPayload.problemStatement === undefined &&
+            normalizedPayload.solutionRecommendation === undefined &&
+            normalizedPayload.scopeExecutiveSummary === undefined &&
             normalizedPayload.scopeType === undefined &&
             normalizedPayload.deliveryTemplateId === undefined &&
             normalizedPayload.commercialBrief === undefined &&
@@ -8567,6 +8944,39 @@ export function createAppServer(config: BaseConfig): http.Server {
                   ? {
                       engagementType:
                         normalizedPayload.type as Prisma.$Enums.EngagementType
+                    }
+                  : {}),
+                ...(normalizedPayload.customerPlatformTier !== undefined
+                  ? {
+                      customerPlatformTier:
+                        normalizedPayload.customerPlatformTier || null
+                    }
+                  : {}),
+                ...(normalizedPayload.platformTierSelections !== undefined
+                  ? {
+                      platformTierSelections:
+                        Object.keys(normalizedPayload.platformTierSelections)
+                          .length > 0
+                          ? normalizedPayload.platformTierSelections
+                          : Prisma.Prisma.JsonNull
+                    }
+                  : {}),
+                ...(normalizedPayload.problemStatement !== undefined
+                  ? {
+                      problemStatement:
+                        normalizedPayload.problemStatement || null
+                    }
+                  : {}),
+                ...(normalizedPayload.solutionRecommendation !== undefined
+                  ? {
+                      solutionRecommendation:
+                        normalizedPayload.solutionRecommendation || null
+                    }
+                  : {}),
+                ...(normalizedPayload.scopeExecutiveSummary !== undefined
+                  ? {
+                      scopeExecutiveSummary:
+                        normalizedPayload.scopeExecutiveSummary || null
                     }
                   : {}),
                 ...(normalizedPayload.scopeType !== undefined
