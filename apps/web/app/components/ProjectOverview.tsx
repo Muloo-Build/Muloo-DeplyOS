@@ -1887,6 +1887,34 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       </div>
                       <div className="rounded-xl bg-[#0b1126] px-4 py-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Platform packaging
+                        </p>
+                        <p className="mt-2 text-sm text-white">
+                          {project.customerPlatformTier
+                            ? `${project.customerPlatformTier.charAt(0).toUpperCase()}${project.customerPlatformTier.slice(1)} customer platform`
+                            : "No customer platform tier recorded yet."}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {project.platformTierSelections &&
+                          Object.entries(project.platformTierSelections).length > 0 ? (
+                            Object.entries(project.platformTierSelections).map(([key, tier]) => (
+                              <span
+                                key={key}
+                                className="rounded bg-[rgba(73,205,225,0.12)] px-2 py-1 text-xs font-medium text-[#49cde1]"
+                              >
+                                {key.replace(/_/g, " ")}: {tier}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-sm text-text-secondary">
+                              No product tiers selected yet.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                           Next step
                         </p>
                         <p className="mt-2 text-sm text-white">
