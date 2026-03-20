@@ -69,6 +69,7 @@ interface AgentOption {
   id: string;
   name: string;
   isActive: boolean;
+  serviceFamily?: string;
 }
 
 export default function DeliveryBoard({
@@ -80,6 +81,7 @@ export default function DeliveryBoard({
 }) {
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [projectServiceFamily, setProjectServiceFamily] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
@@ -114,11 +116,12 @@ export default function DeliveryBoard({
     setError(null);
 
     try {
-      const [tasksResponse, agentsResponse] = await Promise.all([
+      const [tasksResponse, agentsResponse, projectResponse] = await Promise.all([
         fetch(baseUrl, {
           ...(mode === "client" ? { credentials: "include" } : {})
         }),
-        mode === "internal" ? fetch("/api/agents") : Promise.resolve(null)
+        mode === "internal" ? fetch("/api/agents") : Promise.resolve(null),
+        mode === "internal" ? fetch(`/api/projects/${encodeURIComponent(projectId)}`) : Promise.resolve(null)
       ]);
 
       const body = await tasksResponse.json().catch(() => null);
@@ -131,8 +134,21 @@ export default function DeliveryBoard({
 
       if (mode === "internal" && agentsResponse) {
         const agentsBody = await agentsResponse.json().catch(() => null);
+        let currentServiceFamily: string | null = null;
+
+        if (projectResponse?.ok) {
+          const projectBody = await projectResponse.json().catch(() => null);
+          currentServiceFamily = projectBody?.project?.serviceFamily ?? null;
+          setProjectServiceFamily(currentServiceFamily);
+        }
+
         if (agentsResponse.ok) {
-          setAgents((agentsBody?.agents ?? []).filter((agent: AgentOption) => agent.isActive));
+          const loadedAgents = (agentsBody?.agents ?? []).filter((agent: AgentOption & { serviceFamily?: string }) => agent.isActive);
+          setAgents(
+            currentServiceFamily
+              ? loadedAgents.filter((agent: AgentOption & { serviceFamily?: string }) => !agent.serviceFamily || agent.serviceFamily === currentServiceFamily)
+              : loadedAgents
+          );
         }
       }
     } catch (loadError) {
@@ -409,6 +425,12 @@ export default function DeliveryBoard({
       </div>
 
       {error ? <p className="mt-4 text-sm text-[#ff8f9c]">{error}</p> : null}
+
+      {mode === "internal" && projectServiceFamily ? (
+        <p className="mt-3 text-sm text-text-secondary">
+          Agent suggestions are filtered to the project service family: {formatLabel(projectServiceFamily)}.
+        </p>
+      ) : null}
 
       {mode === "internal" && editingTaskId === "new" ? (
         <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">

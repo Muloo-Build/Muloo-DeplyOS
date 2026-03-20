@@ -153,6 +153,7 @@ model AgentDefinition {
   slug           String   @unique
   name           String
   purpose        String
+  serviceFamily  String   @default("hubspot_architecture")
   provider       String
   model          String
   triggerType    String   @default("manual")

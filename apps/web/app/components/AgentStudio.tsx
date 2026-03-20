@@ -7,6 +7,7 @@ interface AgentDefinition {
   slug: string;
   name: string;
   purpose: string;
+  serviceFamily: string;
   provider: string;
   model: string;
   triggerType: string;
@@ -28,6 +29,7 @@ interface ProviderConnection {
 interface AgentDraft {
   name: string;
   purpose: string;
+  serviceFamily: string;
   provider: string;
   model: string;
   triggerType: string;
@@ -42,6 +44,7 @@ function createEmptyDraft(): AgentDraft {
   return {
     name: "",
     purpose: "",
+    serviceFamily: "hubspot_architecture",
     provider: "anthropic",
     model: "claude-sonnet",
     triggerType: "manual",
@@ -121,6 +124,7 @@ export default function AgentStudio() {
         body: JSON.stringify({
           name: agent.name,
           purpose: agent.purpose,
+          serviceFamily: agent.serviceFamily,
           provider: agent.provider,
           model: agent.model,
           triggerType: agent.triggerType,
@@ -248,6 +252,24 @@ export default function AgentStudio() {
           </label>
 
           <label className="block">
+            <span className="text-sm font-medium text-white">Service family</span>
+            <select
+              value={newDraft.serviceFamily}
+              onChange={(event) =>
+                setNewDraft((currentDraft) => ({
+                  ...currentDraft,
+                  serviceFamily: event.target.value
+                }))
+              }
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            >
+              <option value="hubspot_architecture">HubSpot Architecture</option>
+              <option value="custom_engineering">Custom Engineering</option>
+              <option value="ai_automation">AI Automation</option>
+            </select>
+          </label>
+
+          <label className="block">
             <span className="text-sm font-medium text-white">Trigger</span>
             <select
               value={newDraft.triggerType}
@@ -351,6 +373,21 @@ export default function AgentStudio() {
                       }
                       className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
                     />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">Service family</span>
+                    <select
+                      value={agent.serviceFamily}
+                      onChange={(event) =>
+                        updateAgent(agent.id, "serviceFamily", event.target.value)
+                      }
+                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                    >
+                      <option value="hubspot_architecture">HubSpot Architecture</option>
+                      <option value="custom_engineering">Custom Engineering</option>
+                      <option value="ai_automation">AI Automation</option>
+                    </select>
                   </label>
 
                   <label className="block">

@@ -173,6 +173,13 @@ const defaultAiWorkflowRouting = [
     providerKey: "openai",
     modelOverride: "gpt-5.4",
     notes: "Repair malformed model outputs into valid JSON when needed."
+  },
+  {
+    workflowKey: "agent_execution_brief",
+    label: "Agent Execution Brief",
+    providerKey: "anthropic",
+    modelOverride: "claude-sonnet-4-20250514",
+    notes: "Prepare task-level execution briefs, checkpoints, and risk notes for queued agent delivery."
   }
 ] as const;
 const defaultProductCatalog = [
@@ -1357,6 +1364,20 @@ function matchExecutionRoute(pathname: string): {
       };
 }
 
+function matchRunRoute(pathname: string): {
+  runId: string;
+} | null {
+  const match = /^\/api\/runs\/([^/]+?)$/.exec(pathname);
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  return {
+    runId: decodeURIComponent(match[1])
+  };
+}
+
 function matchDiscoveryRoute(pathname: string): { projectId: string } | null {
   const match = /^\/api\/discovery\/([^/]+)\/sessions$/.exec(pathname);
 
@@ -1876,6 +1897,273 @@ async function loadAgentRuns() {
   return jobs.map((job) => serializeExecutionJob(job));
 }
 
+async function updateAgentRun(
+  runId: string,
+  value: {
+    status?: unknown;
+    resultStatus?: unknown;
+    outputLog?: unknown;
+    errorLog?: unknown;
+  }
+) {
+  const updateData: {
+    status?: string;
+    resultStatus?: string | null;
+    outputLog?: string | null;
+    errorLog?: string | null;
+    startedAt?: Date | null;
+    completedAt?: Date | null;
+  } = {};
+
+  if (value.status !== undefined) {
+    if (typeof value.status !== "string" || value.status.trim().length === 0) {
+      throw new Error("status must be a non-empty string");
+    }
+
+    const normalizedStatus = value.status.trim();
+    updateData.status = normalizedStatus;
+    if (normalizedStatus === "in_progress") {
+      updateData.startedAt = new Date();
+      updateData.completedAt = null;
+    }
+    if (["completed", "failed", "cancelled", "review_ready"].includes(normalizedStatus)) {
+      updateData.completedAt = new Date();
+      if (normalizedStatus !== "failed") {
+        updateData.errorLog = null;
+      }
+    }
+  }
+
+  if (value.resultStatus !== undefined) {
+    if (value.resultStatus !== null && typeof value.resultStatus !== "string") {
+      throw new Error("resultStatus must be a string or null");
+    }
+    updateData.resultStatus = typeof value.resultStatus === "string" ? value.resultStatus.trim() || null : null;
+  }
+
+  if (value.outputLog !== undefined) {
+    if (value.outputLog !== null && typeof value.outputLog !== "string") {
+      throw new Error("outputLog must be a string or null");
+    }
+    updateData.outputLog = typeof value.outputLog === "string" ? value.outputLog : null;
+  }
+
+  if (value.errorLog !== undefined) {
+    if (value.errorLog !== null && typeof value.errorLog !== "string") {
+      throw new Error("errorLog must be a string or null");
+    }
+    updateData.errorLog = typeof value.errorLog === "string" ? value.errorLog : null;
+  }
+
+  const run = await prisma.executionJob.update({
+    where: { id: runId },
+    data: updateData,
+    include: {
+      project: { select: { name: true } },
+      task: { select: { title: true } }
+    }
+  });
+
+  return serializeExecutionJob(run);
+}
+
+async function loadProjectAgentExecutionContext(projectId: string) {
+  const [project, evidenceItems, recentMessages] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        client: true,
+        blueprint: {
+          include: {
+            tasks: {
+              orderBy: [{ phase: "asc" }, { order: "asc" }],
+              take: 12
+            }
+          }
+        }
+      }
+    }),
+    loadDiscoveryEvidence(projectId),
+    prisma.projectMessage.findMany({
+      where: { projectId },
+      orderBy: [{ createdAt: "desc" }],
+      take: 6
+    })
+  ]);
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  return {
+    project,
+    evidenceItems,
+    recentMessages
+  };
+}
+
+function buildFallbackAgentExecutionBrief(input: {
+  projectName: string;
+  clientName: string;
+  serviceFamily: string;
+  taskTitle: string;
+  taskDescription: string | null;
+  category: string | null;
+  allowedActions: string[];
+  approvalMode: string;
+  supportingContext: string[];
+}) {
+  const contextLines =
+    input.supportingContext.length > 0
+      ? input.supportingContext.map((item) => `- ${item}`).join("\n")
+      : "- No supporting context attached yet.";
+  const actionLines =
+    input.allowedActions.length > 0
+      ? input.allowedActions.map((action) => `- ${action}`).join("\n")
+      : "- No explicit actions configured.";
+
+  return [
+    `Execution Brief: ${input.taskTitle}`,
+    `Project: ${input.projectName}`,
+    `Client: ${input.clientName}`,
+    `Service family: ${input.serviceFamily}`,
+    input.category ? `Task category: ${input.category}` : null,
+    "",
+    "Objective",
+    input.taskDescription ||
+      "Complete the assigned delivery task using the approved project context.",
+    "",
+    "Allowed actions",
+    actionLines,
+    "",
+    "Supporting context",
+    contextLines,
+    "",
+    `Approval mode: ${input.approvalMode}`,
+    "Expected outcome",
+    "Produce a safe, reviewable implementation result and capture any blockers, assumptions, or follow-up actions before completion."
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function generateAgentExecutionBrief(
+  task: {
+    title: string;
+    description: string | null;
+    category: string | null;
+    executionType: string;
+    executionReadiness: string;
+    assignedAgent: {
+      name: string;
+      purpose: string;
+      serviceFamily: string;
+      allowedActions: string[];
+      approvalMode: string;
+      systemPrompt: string | null;
+    };
+  },
+  context: Awaited<ReturnType<typeof loadProjectAgentExecutionContext>>
+) {
+  const supportingContext = context.evidenceItems
+    .slice(0, 8)
+    .map(
+      (item) =>
+        `${item.sourceLabel}${
+          item.sourceUrl ? ` (${item.sourceUrl})` : ""
+        }${item.content ? `: ${item.content.slice(0, 220)}` : ""}`
+    )
+    .filter(Boolean);
+
+  const blueprintTasks =
+    context.project.blueprint?.tasks
+      ?.slice(0, 8)
+      .map(
+        (blueprintTask) =>
+          `Phase ${blueprintTask.phase}: ${blueprintTask.name} (${blueprintTask.type}, ${blueprintTask.effortHours}h)`
+      ) ?? [];
+
+  const messageContext = context.recentMessages
+    .map((message) => `${message.senderName}: ${message.body.slice(0, 180)}`)
+    .filter(Boolean);
+
+  const fallback = buildFallbackAgentExecutionBrief({
+    projectName: context.project.name,
+    clientName: context.project.client.name,
+    serviceFamily: context.project.serviceFamily,
+    taskTitle: task.title,
+    taskDescription: task.description,
+    category: task.category,
+    allowedActions: task.assignedAgent.allowedActions,
+    approvalMode: task.assignedAgent.approvalMode,
+    supportingContext
+  });
+
+  try {
+    const response = await callAiWorkflow(
+      "agent_execution_brief",
+      `You are Muloo Deploy OS's agent execution planner.
+Create a concise execution brief for a delivery task before the assigned agent begins work.
+
+Rules:
+- Return plain text only.
+- Keep the output structured and practical.
+- Include these sections in order: Objective, Recommended approach, Inputs required, Guardrails, Completion checklist, Escalation triggers.
+- Tailor the brief to the task and service family.
+- Respect the agent's allowed actions and approval mode.
+- Do not invent client requirements that are not evidenced.
+- If context is missing, call that out explicitly under Inputs required or Escalation triggers.`,
+      [
+        `Project: ${context.project.name}`,
+        `Client: ${context.project.client.name}`,
+        `Service family: ${context.project.serviceFamily}`,
+        `Scope type: ${context.project.scopeType ?? "discovery"}`,
+        `Project brief: ${context.project.commercialBrief ?? ""}`,
+        `Task title: ${task.title}`,
+        `Task description: ${task.description ?? ""}`,
+        `Task category: ${task.category ?? ""}`,
+        `Execution type: ${task.executionType}`,
+        `Readiness: ${task.executionReadiness}`,
+        `Assigned agent: ${task.assignedAgent.name}`,
+        `Agent purpose: ${task.assignedAgent.purpose}`,
+        `Agent service family: ${task.assignedAgent.serviceFamily}`,
+        `Agent allowed actions: ${
+          task.assignedAgent.allowedActions.join(", ") || "none listed"
+        }`,
+        `Agent approval mode: ${task.assignedAgent.approvalMode}`,
+        task.assignedAgent.systemPrompt
+          ? `Agent system prompt: ${task.assignedAgent.systemPrompt}`
+          : null,
+        supportingContext.length > 0
+          ? `Supporting context:
+${supportingContext
+              .map((item) => `- ${item}`)
+              .join("\n")}`
+          : "Supporting context: none attached",
+        blueprintTasks.length > 0
+          ? `Blueprint context:
+${blueprintTasks
+              .map((item) => `- ${item}`)
+              .join("\n")}`
+          : null,
+        messageContext.length > 0
+          ? `Recent project messages:
+${messageContext
+              .map((item) => `- ${item}`)
+              .join("\n")}`
+          : null
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+      { maxTokens: 1200 }
+    );
+
+    return response.trim() || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 async function queueAgentRun(projectId: string, taskId: string) {
   const task = await prisma.task.findFirst({
     where: { id: taskId, projectId },
@@ -1889,7 +2177,11 @@ async function queueAgentRun(projectId: string, taskId: string) {
     throw new Error("Task not found");
   }
 
-  if (task.assigneeType !== "Agent" || !task.assignedAgentId || !task.assignedAgent) {
+  if (
+    task.assigneeType !== "Agent" ||
+    !task.assignedAgentId ||
+    !task.assignedAgent
+  ) {
     throw new Error("Task is not assigned to an agent");
   }
 
@@ -1901,23 +2193,59 @@ async function queueAgentRun(projectId: string, taskId: string) {
     throw new Error("Task still requires approval before agent delivery");
   }
 
+  const [context, resolvedWorkflow] = await Promise.all([
+    loadProjectAgentExecutionContext(projectId),
+    resolveAiWorkflow("agent_execution_brief")
+  ]);
+  const executionBrief = await generateAgentExecutionBrief(
+    {
+      title: task.title,
+      description: task.description,
+      category: task.category,
+      executionType: task.executionType,
+      executionReadiness: task.executionReadiness,
+      assignedAgent: {
+        name: task.assignedAgent.name,
+        purpose: task.assignedAgent.purpose,
+        serviceFamily: task.assignedAgent.serviceFamily,
+        allowedActions: task.assignedAgent.allowedActions,
+        approvalMode: task.assignedAgent.approvalMode,
+        systemPrompt: task.assignedAgent.systemPrompt
+      }
+    },
+    context
+  );
+
   const job = await prisma.executionJob.create({
     data: {
       projectId,
       taskId: task.id,
       moduleKey: "agent-task",
-      executionMethod: task.assignedAgent.provider,
-      mode: "dry-run",
+      executionMethod: resolvedWorkflow.providerKey,
+      mode: task.executionReadiness === "ready" ? "ready" : "dry-run",
       status: "queued",
+      resultStatus:
+        task.executionReadiness === "ready"
+          ? "ready_to_execute"
+          : "review_required",
+      outputLog: executionBrief,
       payload: {
+        workflowKey: "agent_execution_brief",
         agentId: task.assignedAgent.id,
         agentName: task.assignedAgent.name,
         agentProvider: task.assignedAgent.provider,
         agentModel: task.assignedAgent.model,
+        routedProvider: resolvedWorkflow.providerKey,
+        routedModel: resolvedWorkflow.model,
         taskTitle: task.title,
         taskDescription: task.description,
+        taskCategory: task.category,
+        taskExecutionType: task.executionType,
         executionReadiness: task.executionReadiness,
-        projectName: task.project.name
+        projectName: task.project.name,
+        projectServiceFamily: context.project.serviceFamily,
+        allowedActions: task.assignedAgent.allowedActions,
+        approvalMode: task.assignedAgent.approvalMode
       }
     },
     include: {
@@ -3651,6 +3979,7 @@ function serializeAgentDefinition<
     slug: string;
     name: string;
     purpose: string;
+    serviceFamily: string;
     provider: string;
     model: string;
     triggerType: string;
@@ -3668,6 +3997,7 @@ function serializeAgentDefinition<
     slug: agent.slug,
     name: agent.name,
     purpose: agent.purpose,
+    serviceFamily: agent.serviceFamily,
     provider: agent.provider,
     model: agent.model,
     triggerType: agent.triggerType,
@@ -4023,6 +4353,7 @@ async function createProductCatalogItem(value: {
 async function createAgentDefinition(value: {
   name?: unknown;
   purpose?: unknown;
+  serviceFamily?: unknown;
   provider?: unknown;
   model?: unknown;
   triggerType?: unknown;
@@ -4034,6 +4365,8 @@ async function createAgentDefinition(value: {
 }) {
   const name = typeof value.name === "string" ? value.name.trim() : "";
   const purpose = typeof value.purpose === "string" ? value.purpose.trim() : "";
+  const serviceFamily =
+    typeof value.serviceFamily === "string" ? value.serviceFamily.trim() : "hubspot_architecture";
   const provider = typeof value.provider === "string" ? value.provider.trim() : "";
   const model = typeof value.model === "string" ? value.model.trim() : "";
   const triggerType =
@@ -4059,11 +4392,16 @@ async function createAgentDefinition(value: {
     throw new Error("name, purpose, provider, and model are required");
   }
 
+  if (!serviceFamilyOptions.includes(serviceFamily as (typeof serviceFamilyOptions)[number])) {
+    throw new Error("serviceFamily must be a valid service family");
+  }
+
   const agent = await prisma.agentDefinition.create({
     data: {
       slug: createSlug(name),
       name,
       purpose,
+      serviceFamily,
       provider,
       model,
       triggerType,
@@ -5380,6 +5718,7 @@ async function updateAgentDefinition(
   value: {
     name?: unknown;
     purpose?: unknown;
+    serviceFamily?: unknown;
     provider?: unknown;
     model?: unknown;
     triggerType?: unknown;
@@ -5407,6 +5746,14 @@ async function updateAgentDefinition(
     }
 
     updateData.purpose = value.purpose.trim();
+  }
+
+  if (value.serviceFamily !== undefined) {
+    if (typeof value.serviceFamily !== "string" || !serviceFamilyOptions.includes(value.serviceFamily.trim() as (typeof serviceFamilyOptions)[number])) {
+      throw new Error("serviceFamily must be a valid service family");
+    }
+
+    updateData.serviceFamily = value.serviceFamily.trim();
   }
 
   if (value.provider !== undefined) {
@@ -6456,6 +6803,26 @@ export function createAppServer(config: BaseConfig): http.Server {
           runs: await loadAllExecutionRecords(),
           agentRuns: await loadAgentRuns()
         });
+      }
+
+      const runRoute = matchRunRoute(url.pathname);
+      if (runRoute) {
+        if (request.method === "PATCH") {
+          try {
+            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const run = await updateAgentRun(runRoute.runId, body);
+            return sendJson(response, 200, { run });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update agent run"
+            });
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
       const projectTaskAgentRunRoute = matchProjectTaskAgentRunRoute(url.pathname);
@@ -7567,6 +7934,23 @@ export function createAppServer(config: BaseConfig): http.Server {
 
       const projectRoute = matchProjectRoute(url.pathname);
       if (projectRoute) {
+        if (request.method === "GET" && !projectRoute.resource) {
+          const project = await prisma.project.findUnique({
+            where: { id: projectRoute.projectId },
+            include: {
+              client: true,
+              portal: true
+            }
+          });
+
+          if (!project) {
+            return sendJson(response, 404, { error: "Project not found" });
+          }
+
+          return sendJson(response, 200, {
+            project: serializeProject(project)
+          });
+        }
         if (request.method === "PATCH" && !projectRoute.resource) {
           const body = (await readJsonBody(request)) as {
             clientName?: unknown;
