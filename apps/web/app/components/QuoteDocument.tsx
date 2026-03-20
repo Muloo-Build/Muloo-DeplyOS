@@ -19,6 +19,14 @@ interface Project {
   scopeExecutiveSummary?: string | null;
   customerPlatformTier?: string | null;
   platformTierSelections?: Record<string, string> | null;
+  packagingAssessment?: {
+    fit: "good" | "attention" | "upgrade_needed";
+    summary: string;
+    warnings: string[];
+    recommendedNextStep: string;
+    requiredProductTiers: Record<string, string>;
+    selectedProductTiers: Record<string, string>;
+  } | null;
   engagementType: string;
   clientChampionFirstName?: string | null;
   clientChampionLastName?: string | null;
@@ -967,6 +975,54 @@ export default function QuoteDocument({
                     </div>
                   </div>
                 </div>
+
+                {project.packagingAssessment ? (
+                  <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <SectionEyebrow>Platform Packaging</SectionEyebrow>
+                    <SectionTitle>HubSpot package fit for this scope</SectionTitle>
+                    <div className="mt-4 space-y-4">
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Packaging fit
+                        </p>
+                        <p
+                          className={`mt-2 text-sm font-medium ${
+                            project.packagingAssessment.fit === "good"
+                              ? "text-[#51d0b0]"
+                              : project.packagingAssessment.fit === "attention"
+                                ? "text-[#f8c16c]"
+                                : "text-[#ff8a8a]"
+                          }`}
+                        >
+                          {project.packagingAssessment.fit.replace(/_/g, " ")}
+                        </p>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          {project.packagingAssessment.summary}
+                        </p>
+                      </div>
+                      {project.packagingAssessment.warnings.length > 0 ? (
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Packaging watch-outs
+                          </p>
+                          <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                            {project.packagingAssessment.warnings.map((warning) => (
+                              <li key={warning}>{warning}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Recommended next step
+                        </p>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          {project.packagingAssessment.recommendedNextStep}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 {project.scopeType !== "standalone_quote" ? (
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">

@@ -712,6 +712,257 @@ function normalizePlatformTierSelections(value: unknown) {
   );
 }
 
+const platformTierRank: Record<string, number> = {
+  free: 0,
+  included: 1,
+  starter: 1,
+  professional: 2,
+  enterprise: 3
+};
+
+const platformProductLabels: Record<string, string> = {
+  smart_crm: "Smart CRM",
+  marketing_hub: "Marketing Hub",
+  sales_hub: "Sales Hub",
+  service_hub: "Service Hub",
+  content_hub: "Content Hub",
+  operations_hub: "Operations Hub",
+  data_hub: "Data Hub",
+  commerce_hub: "Commerce Hub",
+  breeze: "Breeze",
+  small_business_bundle: "Small Business Bundle",
+  free_tools: "Free Tools"
+};
+
+const productKeyByProjectHub: Partial<Record<ProjectHub, string>> = {
+  sales: "sales_hub",
+  marketing: "marketing_hub",
+  service: "service_hub",
+  cms: "content_hub",
+  ops: "operations_hub"
+};
+
+type PackagingAssessment = {
+  fit: "good" | "attention" | "upgrade_needed";
+  summary: string;
+  warnings: string[];
+  recommendedNextStep: string;
+  requiredProductTiers: Record<string, string>;
+  selectedProductTiers: Record<string, string>;
+};
+
+function mergeRequiredTier(
+  target: Record<string, string>,
+  productKey: string,
+  tier: string
+) {
+  const current = target[productKey];
+  if (
+    !current ||
+    (platformTierRank[tier] ?? 0) > (platformTierRank[current] ?? 0)
+  ) {
+    target[productKey] = tier;
+  }
+}
+
+function getSelectedProductTier(
+  productKey: string,
+  customerPlatformTier: string | null | undefined,
+  platformTierSelections: Record<string, string>
+) {
+  const directSelection = platformTierSelections[productKey];
+  if (directSelection) {
+    return directSelection;
+  }
+
+  if (productKey === "smart_crm" && customerPlatformTier) {
+    return customerPlatformTier;
+  }
+
+  if (productKey === "breeze" && customerPlatformTier) {
+    return "included";
+  }
+
+  return "";
+}
+
+function derivePlatformPackagingAssessment(input: {
+  selectedHubs: string[];
+  customerPlatformTier?: string | null | undefined;
+  platformTierSelections?: Record<string, string> | null | undefined;
+  evidenceText: string;
+}) {
+  const selectedHubs = new Set(input.selectedHubs);
+  const normalizedSelections = normalizePlatformTierSelections(
+    input.platformTierSelections
+  );
+  const customerPlatformTier =
+    typeof input.customerPlatformTier === "string" &&
+    isValidCustomerPlatformTier(input.customerPlatformTier)
+      ? input.customerPlatformTier
+      : "";
+  const requiredProductTiers: Record<string, string> = {};
+  const selectedProductTiers: Record<string, string> = {};
+  const warnings: string[] = [];
+  const evidenceText = input.evidenceText.toLowerCase();
+
+  for (const hub of selectedHubs) {
+    const productKey = productKeyByProjectHub[hub as ProjectHub];
+    if (!productKey) {
+      continue;
+    }
+
+    const selectedTier = getSelectedProductTier(
+      productKey,
+      customerPlatformTier,
+      normalizedSelections
+    );
+
+    if (selectedTier) {
+      selectedProductTiers[productKey] = selectedTier;
+    } else {
+      warnings.push(
+        `${platformProductLabels[productKey]} is in scope but no tier has been selected yet.`
+      );
+    }
+  }
+
+  if (includesAny(evidenceText, ["website", "cms", "theme", "page", "blog"])) {
+    mergeRequiredTier(requiredProductTiers, "content_hub", "starter");
+  }
+
+  if (
+    includesAny(evidenceText, [
+      "smart content",
+      "localized",
+      "localised",
+      "localization",
+      "localisation",
+      "multi-region",
+      "multi region",
+      "geo-target",
+      "geo target"
+    ])
+  ) {
+    mergeRequiredTier(requiredProductTiers, "content_hub", "professional");
+  }
+
+  if (
+    includesAny(evidenceText, [
+      "workflow",
+      "automation",
+      "nurture",
+      "lead scoring",
+      "branching",
+      "sequence",
+      "webhook"
+    ])
+  ) {
+    const automationProduct = selectedHubs.has("marketing")
+      ? "marketing_hub"
+      : selectedHubs.has("sales")
+        ? "sales_hub"
+        : selectedHubs.has("service")
+          ? "service_hub"
+          : "operations_hub";
+    mergeRequiredTier(requiredProductTiers, automationProduct, "professional");
+  }
+
+  if (
+    includesAny(evidenceText, [
+      "custom object",
+      "custom objects",
+      "many to many",
+      "attendance record",
+      "bridge table"
+    ])
+  ) {
+    mergeRequiredTier(requiredProductTiers, "smart_crm", "enterprise");
+  }
+
+  if (
+    includesAny(evidenceText, [
+      "data sync",
+      "dedupe",
+      "duplicate",
+      "enrichment",
+      "data quality",
+      "staging layer",
+      "middleware"
+    ])
+  ) {
+    mergeRequiredTier(requiredProductTiers, "data_hub", "professional");
+  }
+
+  if (
+    includesAny(evidenceText, [
+      "payment",
+      "invoice",
+      "quote",
+      "commerce",
+      "checkout",
+      "subscription"
+    ])
+  ) {
+    mergeRequiredTier(requiredProductTiers, "commerce_hub", "starter");
+  }
+
+  let fit: PackagingAssessment["fit"] = warnings.length > 0 ? "attention" : "good";
+
+  for (const [productKey, requiredTier] of Object.entries(requiredProductTiers)) {
+    const selectedTier = getSelectedProductTier(
+      productKey,
+      customerPlatformTier,
+      normalizedSelections
+    );
+
+    if (selectedTier) {
+      selectedProductTiers[productKey] = selectedTier;
+    }
+
+    if (!selectedTier) {
+      warnings.push(
+        `${platformProductLabels[productKey]} likely needs at least ${requiredTier}, but no tier has been selected for this product.`
+      );
+      fit = "upgrade_needed";
+      continue;
+    }
+
+    if (
+      (platformTierRank[selectedTier] ?? 0) <
+      (platformTierRank[requiredTier] ?? 0)
+    ) {
+      warnings.push(
+        `${platformProductLabels[productKey]} is currently set to ${selectedTier}, but this scoped work likely needs ${requiredTier} or a documented workaround.`
+      );
+      fit = "upgrade_needed";
+    }
+  }
+
+  const summary =
+    fit === "good"
+      ? "The selected HubSpot packaging appears to support the scoped work."
+      : fit === "attention"
+        ? "The scoped work is broadly aligned, but some product tiers or packaging details still need to be confirmed."
+        : "The scoped work likely exceeds the currently selected HubSpot packaging and needs an upgrade or agreed workaround before delivery.";
+
+  const recommendedNextStep =
+    fit === "good"
+      ? "Proceed with blueprinting and delivery planning using the selected packaging."
+      : fit === "attention"
+        ? "Confirm the customer platform and product tiers before finalizing the blueprint and quote."
+        : "Resolve the packaging gap first by upgrading the required HubSpot products or revising the scoped solution.";
+
+  return {
+    fit,
+    summary,
+    warnings,
+    recommendedNextStep,
+    requiredProductTiers,
+    selectedProductTiers
+  } satisfies PackagingAssessment;
+}
+
 function isValidDiscoveryEvidenceType(
   value: string
 ): value is DiscoveryEvidenceType {
@@ -1773,12 +2024,28 @@ function serializeProject<
   }
 >(project: T) {
   const normalizedProject = normalizeProject(project);
+  const packagingAssessment = derivePlatformPackagingAssessment({
+    selectedHubs: normalizedProject.selectedHubs,
+    customerPlatformTier: normalizedProject.customerPlatformTier,
+    platformTierSelections: normalizePlatformTierSelections(
+      normalizedProject.platformTierSelections
+    ),
+    evidenceText: [
+      normalizedProject.problemStatement ?? "",
+      normalizedProject.solutionRecommendation ?? "",
+      normalizedProject.scopeExecutiveSummary ?? "",
+      normalizedProject.commercialBrief ?? "",
+      normalizedProject.client.industry ?? "",
+      normalizedProject.client.website ?? ""
+    ].join(" \n")
+  });
 
   return {
     ...normalizedProject,
     platformTierSelections: normalizePlatformTierSelections(
       normalizedProject.platformTierSelections
     ),
+    packagingAssessment,
     clientName: normalizedProject.client.name,
     hubsInScope: normalizedProject.selectedHubs
   };
@@ -3054,6 +3321,14 @@ function normalizeGeneratedBlueprint(
   >
 ) {
   const guidance = deriveBlueprintGuidance(discoveryPayload);
+  const packagingAssessment = derivePlatformPackagingAssessment({
+    selectedHubs: discoveryPayload.project.selectedHubs,
+    customerPlatformTier: discoveryPayload.project.customerPlatformTier,
+    platformTierSelections: normalizePlatformTierSelections(
+      discoveryPayload.project.platformTierSelections
+    ),
+    evidenceText: getDiscoveryEvidenceText(discoveryPayload)
+  });
 
   const normalizedPhases = blueprint.phases
     .map((phase, phaseIndex) => {
@@ -3083,6 +3358,31 @@ function normalizeGeneratedBlueprint(
       };
     })
     .filter((phase) => phase.tasks.length > 0);
+
+  if (normalizedPhases.length > 0 && packagingAssessment.fit !== "good") {
+    const firstPhase = normalizedPhases[0];
+    if (firstPhase) {
+      const alreadyHasPackagingTask = firstPhase.tasks.some((task) =>
+        includesAny(task.name.toLowerCase(), ["package", "tier", "upgrade", "licen"])
+      );
+
+      if (!alreadyHasPackagingTask) {
+        firstPhase.tasks.unshift({
+          name:
+            packagingAssessment.fit === "upgrade_needed"
+              ? "Approve required HubSpot package upgrade or agreed workaround"
+              : "Confirm selected HubSpot packaging and scope assumptions",
+          type: "Client",
+          effortHours: 1,
+          order: 1
+        });
+        firstPhase.tasks = firstPhase.tasks.map((task, index) => ({
+          ...task,
+          order: index + 1
+        }));
+      }
+    }
+  }
 
   return blueprintGenerationSchema.parse({
     phases:
@@ -3142,6 +3442,9 @@ function buildStandalonePlanSeed(
   project: {
     name: string;
     commercialBrief: string | null;
+    customerPlatformTier?: string | null;
+    platformTierSelections?: Record<string, string> | null;
+    selectedHubs?: string[];
   },
   evidenceItems: Array<{
     sourceLabel: string;
@@ -3160,6 +3463,12 @@ function buildStandalonePlanSeed(
   ]
     .join(" \n")
     .toLowerCase();
+  const packagingAssessment = derivePlatformPackagingAssessment({
+    selectedHubs: project.selectedHubs ?? ["cms"],
+    customerPlatformTier: project.customerPlatformTier,
+    platformTierSelections: project.platformTierSelections ?? {},
+    evidenceText: scopeText
+  });
 
   const hasLocalization = includesAny(scopeText, [
     "local",
@@ -3192,8 +3501,52 @@ function buildStandalonePlanSeed(
     "preferences",
     "password"
   ]);
+  const packagingDependencyTitle =
+    packagingAssessment.fit !== "good"
+      ? packagingAssessment.fit === "upgrade_needed"
+        ? "Approve required HubSpot tier upgrade or workaround"
+        : "Confirm selected HubSpot package and product tiers"
+      : null;
 
   const tasks: StandalonePlanSeedTask[] = [
+    ...(packagingAssessment.fit !== "good"
+      ? [
+          {
+            title:
+              packagingAssessment.fit === "upgrade_needed"
+                ? "Resolve HubSpot packaging gap before implementation"
+                : "Confirm HubSpot packaging assumptions before delivery",
+            description: `${packagingAssessment.summary} ${packagingAssessment.warnings.join(" ")}`.trim(),
+            category: "00 Platform Packaging",
+            executionType: "manual",
+            assigneeType: "Human",
+            priority: "high",
+            status: "todo",
+            approvalRequired: packagingAssessment.fit === "upgrade_needed",
+            executionReadiness: "not_ready",
+            plannedHours: 2
+          },
+          {
+            title:
+              packagingAssessment.fit === "upgrade_needed"
+                ? "Approve required HubSpot tier upgrade or workaround"
+                : "Confirm selected HubSpot package and product tiers",
+            description: packagingAssessment.recommendedNextStep,
+            category: "00 Platform Packaging",
+            executionType: "client_approval",
+            assigneeType: "Client",
+            priority: "high",
+            status: "waiting_on_client",
+            approvalRequired: true,
+            plannedHours: 1,
+            dependsOn: [
+              packagingAssessment.fit === "upgrade_needed"
+                ? "Resolve HubSpot packaging gap before implementation"
+                : "Confirm HubSpot packaging assumptions before delivery"
+            ]
+          }
+        ]
+      : []),
     {
       title: "Confirm scope, assumptions, and delivery boundaries",
       description:
@@ -3204,7 +3557,10 @@ function buildStandalonePlanSeed(
       priority: "high",
       status: "todo",
       approvalRequired: true,
-      executionReadiness: "not_ready"
+      executionReadiness: "not_ready",
+      ...(packagingDependencyTitle
+        ? { dependsOn: [packagingDependencyTitle] }
+        : {})
     },
     {
       title: "Select and approve the marketplace theme",
@@ -3457,6 +3813,9 @@ async function generateStandaloneProjectPlan(projectId: string) {
       serviceFamily: true,
       scopeType: true,
       commercialBrief: true,
+      customerPlatformTier: true,
+      platformTierSelections: true,
+      selectedHubs: true,
       deliveryTemplate: {
         include: {
           tasks: {
@@ -3482,7 +3841,18 @@ async function generateStandaloneProjectPlan(projectId: string) {
   const taskSeed =
     project.deliveryTemplate && project.deliveryTemplate.tasks.length > 0
       ? buildPlanSeedFromTemplate(project.deliveryTemplate)
-      : buildStandalonePlanSeed(project, evidenceItems);
+      : buildStandalonePlanSeed(
+          {
+            name: project.name,
+            commercialBrief: project.commercialBrief,
+            customerPlatformTier: project.customerPlatformTier,
+            platformTierSelections: normalizePlatformTierSelections(
+              project.platformTierSelections
+            ),
+            selectedHubs: project.selectedHubs
+          },
+          evidenceItems
+        );
 
   await prisma.executionJob.deleteMany({
     where: {
@@ -4003,6 +4373,14 @@ async function generateBlueprintFromDiscovery(projectId: string) {
 
   let parsedBlueprint: z.infer<typeof blueprintGenerationSchema>;
   const guidance = deriveBlueprintGuidance(discoveryPayload);
+  const packagingAssessment = derivePlatformPackagingAssessment({
+    selectedHubs: discoveryPayload.project.selectedHubs,
+    customerPlatformTier: discoveryPayload.project.customerPlatformTier,
+    platformTierSelections: normalizePlatformTierSelections(
+      discoveryPayload.project.platformTierSelections
+    ),
+    evidenceText: getDiscoveryEvidenceText(discoveryPayload)
+  });
 
   try {
     const discoverySummary = await loadDiscoverySummary(projectId);
@@ -4020,6 +4398,8 @@ Rules:
 - Human task hours must be realistic for a senior HubSpot consultant.
 - Prefer concise, implementation-ready task names.
 - Base the blueprint on enabled hubs, use cases, risks, data readiness, and complexity in the discovery.
+- Respect the selected HubSpot customer platform and product tiers. Do not assume features that exceed the selected packaging.
+- If the requested scope appears to require a higher tier than selected, add an early approval/decision task to resolve the packaging gap before implementation continues.
 - Do not invent scope that is not evidenced in discovery.
 - Only include website or CMS implementation tasks if website/CMS scope is explicitly present.
 - Only include migration tasks if migration/import/data-cutover work is explicitly present.
@@ -4033,6 +4413,7 @@ Rules:
         {
           ...discoveryPayload.discovery,
           discoverySummary,
+          packagingAssessment,
           blueprintGuidance: guidance
         },
         null,
@@ -4101,6 +4482,9 @@ function buildStandaloneFallbackBlueprint(
   project: {
     name: string;
     commercialBrief: string | null;
+    customerPlatformTier?: string | null;
+    platformTierSelections?: Record<string, string> | null;
+    selectedHubs?: string[];
   },
   evidenceItems: Array<{
     sourceLabel: string;
@@ -4181,6 +4565,14 @@ async function generateBlueprintFromScope(projectId: string) {
   let parsedBlueprint: z.infer<typeof blueprintGenerationSchema>;
   const guidance = deriveBlueprintGuidance(discoveryPayload);
   const discoverySummary = await loadDiscoverySummary(projectId);
+  const packagingAssessment = derivePlatformPackagingAssessment({
+    selectedHubs: discoveryPayload.project.selectedHubs,
+    customerPlatformTier: discoveryPayload.project.customerPlatformTier,
+    platformTierSelections: normalizePlatformTierSelections(
+      discoveryPayload.project.platformTierSelections
+    ),
+    evidenceText: getDiscoveryEvidenceText(discoveryPayload)
+  });
 
   try {
     const rawBlueprint = await callAiWorkflow("scope_blueprint_generation",
@@ -4195,6 +4587,8 @@ Rules:
 - Each task must have: name, type (Agent/Human/Client), effortHours (realistic anticipated estimate), order (within phase).
 - Agent = repeatable operational work that can be automated or agent-assisted. Human = consultant/implementer time. Client = approvals, assets, access, or sign-off.
 - Base the blueprint on the scoped brief, supporting context, site/platform constraints, and handoff boundaries.
+- Respect the selected HubSpot customer platform and product tiers. Do not assume features that exceed the selected packaging.
+- If requested functionality likely requires a higher tier than selected, add an early packaging/upgrade decision task before planning impossible implementation work.
 - Treat repeatable jobs as templated implementation patterns where appropriate.
 - Do not require discovery-only steps unless explicitly evidenced.
 - Only include tasks that are relevant to the scoped job.
@@ -4213,12 +4607,23 @@ Rules:
             engagementType: discoveryPayload.project.engagementType,
             selectedHubs: discoveryPayload.project.selectedHubs,
             scopeType: discoveryPayload.project.scopeType,
-            commercialBrief: discoveryPayload.project.commercialBrief
+            commercialBrief: discoveryPayload.project.commercialBrief,
+            problemStatement: discoveryPayload.project.problemStatement,
+            solutionRecommendation:
+              discoveryPayload.project.solutionRecommendation,
+            scopeExecutiveSummary:
+              discoveryPayload.project.scopeExecutiveSummary,
+            customerPlatformTier:
+              discoveryPayload.project.customerPlatformTier,
+            platformTierSelections: normalizePlatformTierSelections(
+              discoveryPayload.project.platformTierSelections
+            )
           },
           client: discoveryPayload.discovery.client,
           portal: discoveryPayload.discovery.portal,
           supportingContext: discoveryPayload.discovery.evidenceItems,
           scopedSummary: discoverySummary,
+          packagingAssessment,
           blueprintGuidance: guidance
         },
         null,
@@ -4240,7 +4645,12 @@ Rules:
     parsedBlueprint = buildStandaloneFallbackBlueprint(
       {
         name: discoveryPayload.project.name,
-        commercialBrief: discoveryPayload.project.commercialBrief
+        commercialBrief: discoveryPayload.project.commercialBrief,
+        customerPlatformTier: discoveryPayload.project.customerPlatformTier,
+        platformTierSelections: normalizePlatformTierSelections(
+          discoveryPayload.project.platformTierSelections
+        ),
+        selectedHubs: discoveryPayload.project.selectedHubs
       },
       discoveryPayload.discovery.evidenceItems
     );

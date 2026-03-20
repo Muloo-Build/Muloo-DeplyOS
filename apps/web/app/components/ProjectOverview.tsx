@@ -19,6 +19,14 @@ interface Project {
   scopeExecutiveSummary?: string | null;
   customerPlatformTier?: string | null;
   platformTierSelections?: Record<string, string> | null;
+  packagingAssessment?: {
+    fit: "good" | "attention" | "upgrade_needed";
+    summary: string;
+    warnings: string[];
+    recommendedNextStep: string;
+    requiredProductTiers: Record<string, string>;
+    selectedProductTiers: Record<string, string>;
+  } | null;
   clientChampionFirstName?: string | null;
   clientChampionLastName?: string | null;
   clientChampionEmail?: string | null;
@@ -1911,6 +1919,37 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             </span>
                           )}
                         </div>
+                        {project.packagingAssessment ? (
+                          <div className="mt-4 rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-3 py-3">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Packaging fit
+                            </p>
+                            <p
+                              className={`mt-2 text-sm font-medium ${
+                                project.packagingAssessment.fit === "good"
+                                  ? "text-[#51d0b0]"
+                                  : project.packagingAssessment.fit === "attention"
+                                    ? "text-[#f8c16c]"
+                                    : "text-[#ff8a8a]"
+                              }`}
+                            >
+                              {formatLabel(project.packagingAssessment.fit)}
+                            </p>
+                            <p className="mt-2 text-sm text-text-secondary">
+                              {project.packagingAssessment.summary}
+                            </p>
+                            {project.packagingAssessment.warnings.length > 0 ? (
+                              <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                                {project.packagingAssessment.warnings.map((warning) => (
+                                  <li key={warning}>{warning}</li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            <p className="mt-3 text-sm text-white">
+                              {project.packagingAssessment.recommendedNextStep}
+                            </p>
+                          </div>
+                        ) : null}
                       </div>
 
                       <div className="rounded-xl bg-[#0b1126] px-4 py-4">
