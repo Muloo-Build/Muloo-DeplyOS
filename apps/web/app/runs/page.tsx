@@ -22,6 +22,7 @@ interface AgentRun {
     agentModel?: string;
     routedProvider?: string;
     routedModel?: string;
+    routeSource?: string;
     projectServiceFamily?: string;
     approvalMode?: string;
     allowedActions?: string[];
@@ -141,6 +142,9 @@ export default function RunsPage() {
                   ) : null}
                   {run.payload?.projectServiceFamily ? (
                     <span>Service family: {formatLabel(run.payload.projectServiceFamily)}</span>
+                  ) : null}
+                  {run.payload?.routeSource ? (
+                    <span>Route source: {formatLabel(run.payload.routeSource)}</span>
                   ) : null}
                   <span>Mode: {formatLabel(run.mode)}</span>
                   <span>Queued: {new Date(run.createdAt).toLocaleString()}</span>

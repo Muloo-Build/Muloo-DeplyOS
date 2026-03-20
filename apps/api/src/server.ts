@@ -2241,7 +2241,11 @@ async function queueAgentRun(projectId: string, taskId: string) {
 
   const [context, resolvedWorkflow] = await Promise.all([
     loadProjectAgentExecutionContext(projectId),
-    resolveAiWorkflow("agent_execution_brief")
+    resolveAiWorkflowForAgent(
+      "agent_execution_brief",
+      task.assignedAgent.provider,
+      task.assignedAgent.model
+    )
   ]);
   const executionBrief = await generateAgentExecutionBrief(
     {
@@ -2283,6 +2287,7 @@ async function queueAgentRun(projectId: string, taskId: string) {
         agentModel: task.assignedAgent.model,
         routedProvider: resolvedWorkflow.providerKey,
         routedModel: resolvedWorkflow.model,
+        routeSource: resolvedWorkflow.routeSource,
         taskTitle: task.title,
         taskDescription: task.description,
         taskCategory: task.category,
@@ -5663,6 +5668,39 @@ function getProviderApiKey(providerKey: string, storedApiKey: string | null) {
   }
 }
 
+function resolveProviderCandidate(
+  providerMap: Map<string, {
+    providerKey: string;
+    apiKey: string | null;
+    defaultModel: string | null;
+    endpointUrl: string | null;
+    isEnabled: boolean;
+  }>,
+  providerKey: string | null | undefined,
+  modelOverride?: string | null
+) {
+  if (!providerKey) {
+    return null;
+  }
+
+  const provider = providerMap.get(providerKey) ?? null;
+  if (!provider || provider.isEnabled === false) {
+    return null;
+  }
+
+  const apiKey = getProviderApiKey(provider.providerKey, provider.apiKey);
+  if (!apiKey) {
+    return null;
+  }
+
+  return {
+    providerKey: provider.providerKey,
+    model: modelOverride || provider.defaultModel || null,
+    endpointUrl: provider.endpointUrl,
+    apiKey
+  };
+}
+
 async function resolveAiWorkflow(workflowKey: string) {
   await Promise.all([ensureProviderConnectionsSeeded(), ensureAiRoutingSeeded()]);
 
@@ -5674,44 +5712,66 @@ async function resolveAiWorkflow(workflowKey: string) {
   const providerMap = new Map(
     providers.map((provider) => [provider.providerKey, provider])
   );
-  const routedProvider = routing ? providerMap.get(routing.providerKey) ?? null : null;
-  const routedApiKey = routedProvider
-    ? getProviderApiKey(routedProvider.providerKey, routedProvider.apiKey)
+  const routedCandidate = routing
+    ? resolveProviderCandidate(providerMap, routing.providerKey, routing.modelOverride)
     : null;
 
-  if (routing && routedProvider && routedApiKey && routedProvider.isEnabled !== false) {
+  if (routing && routedCandidate) {
     return {
       workflowKey,
-      providerKey: routedProvider.providerKey,
-      model: routing.modelOverride || routedProvider.defaultModel || null,
-      endpointUrl: routedProvider.endpointUrl,
-      apiKey: routedApiKey
+      routeSource: "workflow_route",
+      ...routedCandidate
     };
   }
 
   const fallbackOrder = ["anthropic", "openai", "gemini"];
   for (const providerKey of fallbackOrder) {
-    const provider = providerMap.get(providerKey) ?? null;
-    const apiKey = getProviderApiKey(providerKey, provider?.apiKey ?? null);
-    if (!apiKey) {
-      continue;
-    }
-
-    return {
-      workflowKey,
+    const fallbackCandidate = resolveProviderCandidate(
+      providerMap,
       providerKey,
-      model:
-        routing?.providerKey === providerKey && routing?.modelOverride
-          ? routing.modelOverride
-          : provider?.defaultModel ?? null,
-      endpointUrl: provider?.endpointUrl ?? null,
-      apiKey
-    };
+      routing?.providerKey === providerKey ? routing?.modelOverride ?? null : null
+    );
+    if (fallbackCandidate) {
+      return {
+        workflowKey,
+        routeSource: "provider_fallback",
+        ...fallbackCandidate
+      };
+    }
   }
 
   throw new Error(
     `No AI provider with credentials available for workflow ${workflowKey}`
   );
+}
+
+async function resolveAiWorkflowForAgent(
+  workflowKey: string,
+  preferredProviderKey: string | null | undefined,
+  preferredModel: string | null | undefined
+) {
+  await Promise.all([ensureProviderConnectionsSeeded(), ensureAiRoutingSeeded()]);
+
+  const providers = await prisma.workspaceProviderConnection.findMany();
+  const providerMap = new Map(
+    providers.map((provider) => [provider.providerKey, provider])
+  );
+
+  const preferredCandidate = resolveProviderCandidate(
+    providerMap,
+    preferredProviderKey,
+    preferredModel ?? null
+  );
+
+  if (preferredCandidate) {
+    return {
+      workflowKey,
+      routeSource: "agent_preference",
+      ...preferredCandidate
+    };
+  }
+
+  return resolveAiWorkflow(workflowKey);
 }
 
 function extractOpenAiText(payload: any) {

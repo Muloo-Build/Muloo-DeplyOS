@@ -106,6 +106,14 @@ export default function AgentStudio() {
     );
   }
 
+  function applyProviderDefaults(providerKey: string) {
+    const provider = providers.find((item) => item.providerKey === providerKey) ?? null;
+    return {
+      providerKey,
+      defaultModel: provider?.defaultModel ?? ""
+    };
+  }
+
   async function saveAgent(agentId: string) {
     const agent = agents.find((candidate) => candidate.id === agentId);
     if (!agent) {
@@ -235,12 +243,14 @@ export default function AgentStudio() {
             <span className="text-sm font-medium text-white">Provider</span>
             <select
               value={newDraft.provider}
-              onChange={(event) =>
+              onChange={(event) => {
+                const nextProvider = applyProviderDefaults(event.target.value);
                 setNewDraft((currentDraft) => ({
                   ...currentDraft,
-                  provider: event.target.value
-                }))
-              }
+                  provider: nextProvider.providerKey,
+                  model: nextProvider.defaultModel || currentDraft.model
+                }));
+              }}
               className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
             >
               {providers.map((provider) => (
