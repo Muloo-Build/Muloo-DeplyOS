@@ -171,7 +171,9 @@ const hubOptions = [
   { value: "marketing", label: "Marketing" },
   { value: "service", label: "Service" },
   { value: "ops", label: "Operations" },
-  { value: "cms", label: "CMS/Content" }
+  { value: "cms", label: "CMS/Content" },
+  { value: "data", label: "Data" },
+  { value: "commerce", label: "Commerce" }
 ] as const;
 
 function createProjectDraft(project: Project) {

@@ -63,7 +63,9 @@ const validProjectHubValues = [
   "marketing",
   "service",
   "ops",
-  "cms"
+  "cms",
+  "data",
+  "commerce"
 ] as const;
 const validCustomerPlatformTierValues = [
   "starter",
@@ -739,7 +741,9 @@ const productKeyByProjectHub: Partial<Record<ProjectHub, string>> = {
   marketing: "marketing_hub",
   service: "service_hub",
   cms: "content_hub",
-  ops: "operations_hub"
+  ops: "operations_hub",
+  data: "data_hub",
+  commerce: "commerce_hub"
 };
 
 type PackagingAssessment = {
@@ -2969,6 +2973,18 @@ function buildFallbackBlueprint(
     );
   }
 
+  if (discovery.selectedHubs.includes("data")) {
+    buildTasks.push(
+      createBlueprintTask("Configure data management, quality, and sync foundations", "Human", 4, buildTasks.length + 1)
+    );
+  }
+
+  if (discovery.selectedHubs.includes("commerce")) {
+    buildTasks.push(
+      createBlueprintTask("Configure commerce, quote, and payment foundations", "Human", 4, buildTasks.length + 1)
+    );
+  }
+
   if ((session3.integration_requirements ?? "").trim().length > 0) {
     buildTasks.push(
       createBlueprintTask("Assess and sequence required integrations", "Human", 3, buildTasks.length + 1)
@@ -3148,6 +3164,27 @@ function deriveBlueprintGuidance(
       "help desk",
       "customer portal"
     ]);
+  const hasDataScope =
+    selectedHubs.has("data") ||
+    includesAny(evidenceText, [
+      "data quality",
+      "enrichment",
+      "dedupe",
+      "duplicate",
+      "data sync",
+      "warehouse",
+      "staging layer"
+    ]);
+  const hasCommerceScope =
+    selectedHubs.has("commerce") ||
+    includesAny(evidenceText, [
+      "quote",
+      "invoice",
+      "payment",
+      "checkout",
+      "subscription",
+      "commerce"
+    ]);
   const hasCrmFoundationScope =
     selectedHubs.has("sales") ||
     selectedHubs.has("marketing") ||
@@ -3174,6 +3211,8 @@ function deriveBlueprintGuidance(
     hasMarketingScope ? "Marketing Hub Foundation" : null,
     hasServiceScope ? "Service Hub Core" : null,
     hasWebsiteScope ? "CMS / Website Foundation" : null,
+    hasDataScope ? "Data Hub Foundation" : null,
+    hasCommerceScope ? "Commerce Hub Foundation" : null,
     hasMigrationScope ? "Data Migration Foundation" : null,
     hasReportingScope ? "Reporting Foundation" : null
   ].filter((module): module is string => Boolean(module));
@@ -3185,6 +3224,8 @@ function deriveBlueprintGuidance(
     hasMarketingScope,
     hasSalesScope,
     hasServiceScope,
+    hasDataScope,
+    hasCommerceScope,
     recommendedModules
   };
 }
@@ -3307,6 +3348,20 @@ function taskMatchesScope(
   if (
     !guidance.hasServiceScope &&
     includesAny(normalizedName, ["service", "ticket", "support", "help desk"])
+  ) {
+    return false;
+  }
+
+  if (
+    !guidance.hasDataScope &&
+    includesAny(normalizedName, ["data", "dedupe", "duplicate", "enrichment", "sync"])
+  ) {
+    return false;
+  }
+
+  if (
+    !guidance.hasCommerceScope &&
+    includesAny(normalizedName, ["commerce", "payment", "invoice", "checkout", "subscription"])
   ) {
     return false;
   }
@@ -4150,7 +4205,7 @@ Rules:
 - recommendedScopeType must be either "standalone_quote" or "discovery".
 - recommendedEngagementType must be one of AUDIT, IMPLEMENTATION, MIGRATION, OPTIMISATION, GUIDED_DEPLOYMENT.
 - recommendedServiceFamily must be one of hubspot_architecture, custom_engineering, ai_automation.
-- recommendedHubs may only contain sales, marketing, service, ops, cms.
+- recommendedHubs may only contain sales, marketing, service, ops, cms, data, commerce.
 - recommendedCustomerPlatformTier should be starter, professional, enterprise, or blank.
 - recommendedPlatformTierSelections should only use these keys: smart_crm, marketing_hub, sales_hub, service_hub, content_hub, operations_hub, data_hub, commerce_hub, breeze, small_business_bundle, free_tools.
 - jobSpecSeed should be a clean structured scope brief, not a bullet dump.

@@ -118,7 +118,9 @@ const hubOptions = [
   { id: "marketing", label: "Marketing Hub" },
   { id: "service", label: "Service Hub" },
   { id: "cms", label: "Content Hub / Website" },
-  { id: "ops", label: "Operations Hub" }
+  { id: "ops", label: "Operations Hub" },
+  { id: "data", label: "Data Hub" },
+  { id: "commerce", label: "Commerce Hub" }
 ];
 
 const customerPlatformTierOptions = [
@@ -186,6 +188,14 @@ function buildModuleSelection(hubsInScope: string[]) {
 
   if (hubsInScope.includes("marketing") || hubsInScope.includes("ops")) {
     modules.push("automation", "reporting");
+  }
+
+  if (hubsInScope.includes("data")) {
+    modules.push("reporting", "qa");
+  }
+
+  if (hubsInScope.includes("commerce")) {
+    modules.push("properties", "qa");
   }
 
   return Array.from(new Set(modules)).map((moduleId, index) => ({

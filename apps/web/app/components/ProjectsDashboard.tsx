@@ -66,6 +66,10 @@ function getHubColor(hub: string) {
       return "hub-service";
     case "cms":
       return "hub-cms";
+    case "data":
+      return "hub-ops";
+    case "commerce":
+      return "hub-sales";
     default:
       return "hub-ops";
   }
