@@ -1906,6 +1906,17 @@ async function updateAgentRun(
     errorLog?: unknown;
   }
 ) {
+  const existingRun = await prisma.executionJob.findUnique({
+    where: { id: runId },
+    include: {
+      task: true
+    }
+  });
+
+  if (!existingRun) {
+    throw new Error("Agent run not found");
+  }
+
   const updateData: {
     status?: string;
     resultStatus?: string | null;
@@ -1915,12 +1926,14 @@ async function updateAgentRun(
     completedAt?: Date | null;
   } = {};
 
+  let normalizedStatus: string | null = null;
+
   if (value.status !== undefined) {
     if (typeof value.status !== "string" || value.status.trim().length === 0) {
       throw new Error("status must be a non-empty string");
     }
 
-    const normalizedStatus = value.status.trim();
+    normalizedStatus = value.status.trim();
     updateData.status = normalizedStatus;
     if (normalizedStatus === "in_progress") {
       updateData.startedAt = new Date();
@@ -1960,9 +1973,42 @@ async function updateAgentRun(
     data: updateData,
     include: {
       project: { select: { name: true } },
-      task: { select: { title: true } }
+      task: { select: { id: true, title: true, plannedHours: true, actualHours: true } }
     }
   });
+
+  if (existingRun.taskId && normalizedStatus) {
+    if (["in_progress", "review_ready"].includes(normalizedStatus)) {
+      await prisma.task.update({
+        where: { id: existingRun.taskId },
+        data: {
+          status: "in_progress"
+        }
+      });
+    }
+
+    if (normalizedStatus === "completed") {
+      const resolvedActualHours = run.task?.actualHours ?? run.task?.plannedHours ?? null;
+      await prisma.task.update({
+        where: { id: existingRun.taskId },
+        data: {
+          status: "done",
+          ...(resolvedActualHours !== null
+            ? { actualHours: resolvedActualHours }
+            : {})
+        }
+      });
+    }
+
+    if (normalizedStatus === "failed") {
+      await prisma.task.update({
+        where: { id: existingRun.taskId },
+        data: {
+          status: "blocked"
+        }
+      });
+    }
+  }
 
   return serializeExecutionJob(run);
 }
