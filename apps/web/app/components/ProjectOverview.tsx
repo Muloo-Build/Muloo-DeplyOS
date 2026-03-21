@@ -282,6 +282,29 @@ function getPreviewText(value: string | null | undefined, maxLength = 420) {
   return `${normalized.slice(0, maxLength).trim()}...`;
 }
 
+function getPackagingOutcome(
+  fit: "good" | "attention" | "upgrade_needed" | undefined
+) {
+  if (fit === "good") {
+    return {
+      label: "Works as selected",
+      className: "text-[#51d0b0]"
+    };
+  }
+
+  if (fit === "attention") {
+    return {
+      label: "Works with workaround",
+      className: "text-[#f8c16c]"
+    };
+  }
+
+  return {
+    label: "Needs upgrade",
+    className: "text-[#ff8a8a]"
+  };
+}
+
 function formatEngagementType(value: string) {
   return (
     engagementOptions.find((option) => option.value === value)?.label ??
@@ -2363,18 +2386,18 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         {project.packagingAssessment ? (
                           <div className="mt-4 rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-3 py-3">
                             <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                              Packaging fit
+                              Packaging decision
                             </p>
                             <p
                               className={`mt-2 text-sm font-medium ${
-                                project.packagingAssessment.fit === "good"
-                                  ? "text-[#51d0b0]"
-                                  : project.packagingAssessment.fit === "attention"
-                                    ? "text-[#f8c16c]"
-                                    : "text-[#ff8a8a]"
+                                getPackagingOutcome(project.packagingAssessment.fit)
+                                  .className
                               }`}
                             >
-                              {formatLabel(project.packagingAssessment.fit)}
+                              {
+                                getPackagingOutcome(project.packagingAssessment.fit)
+                                  .label
+                              }
                             </p>
                             <p className="mt-2 text-sm text-text-secondary">
                               {project.packagingAssessment.summary}
@@ -2382,10 +2405,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             {project.packagingAssessment.reasoning.length > 0 ? (
                               <div className="mt-3">
                                 <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                                  Why the system is saying this
+                                  Why
                                 </p>
                                 <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                                  {project.packagingAssessment.reasoning.map((item) => (
+                                  {project.packagingAssessment.reasoning
+                                    .slice(0, 3)
+                                    .map((item) => (
                                     <li key={item}>{item}</li>
                                   ))}
                                 </ul>
@@ -2423,12 +2448,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     <div>
                       <h2 className="text-lg font-semibold text-white">
                         {isStandaloneQuote
-                          ? "Scoped Work Summary"
+                          ? "Supporting Analysis"
                           : "Agent Handoff Summary"}
                       </h2>
                       <p className="mt-2 text-sm text-text-secondary">
                         {isStandaloneQuote
-                          ? "Use this area to hold the scoped summary for quoting, implementation planning, and later execution."
+                          ? "The recommendation sits above. This section holds the supporting ratings, risks, open questions, and delivery watch-outs."
                           : "Project-level discovery output for scoping, delivery planning, and future agent delegation."}
                       </p>
                     </div>
@@ -2436,47 +2461,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
                   {discoverySummary ? (
                     <>
-                      <p className="mt-5 text-sm text-text-secondary">
-                        {discoverySummary.executiveSummary}
-                      </p>
-
-                      {isStandaloneQuote ? (
-                        <div className="mt-5 grid gap-4">
-                          <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                              Recommended approach
-                            </p>
-                            <p className="mt-2 text-sm text-white">
-                              {discoverySummary.recommendedApproach}
-                            </p>
-                          </div>
-                          <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                              Why this approach
-                            </p>
-                            <p className="mt-2 text-sm text-text-secondary">
-                              {discoverySummary.whyThisApproach}
-                            </p>
-                          </div>
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                                Phase 1 focus
-                              </p>
-                              <p className="mt-2 text-sm text-text-secondary">
-                                {discoverySummary.phaseOneFocus}
-                              </p>
-                            </div>
-                            <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                                Future path
-                              </p>
-                              <p className="mt-2 text-sm text-text-secondary">
-                                {discoverySummary.futureUpgradePath}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                      {!isStandaloneQuote ? (
+                        <p className="mt-5 text-sm text-text-secondary">
+                          {discoverySummary.executiveSummary}
+                        </p>
                       ) : null}
 
                       <div className="mt-5 grid gap-4 md:grid-cols-2">
