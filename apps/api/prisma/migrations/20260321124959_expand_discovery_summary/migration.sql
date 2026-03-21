@@ -1,0 +1,6 @@
+ALTER TABLE "DiscoverySummary"
+ADD COLUMN "mainPainPoints" TEXT[] DEFAULT ARRAY[]::TEXT[] NOT NULL,
+ADD COLUMN "recommendedApproach" TEXT DEFAULT '' NOT NULL,
+ADD COLUMN "whyThisApproach" TEXT DEFAULT '' NOT NULL,
+ADD COLUMN "phaseOneFocus" TEXT DEFAULT '' NOT NULL,
+ADD COLUMN "futureUpgradePath" TEXT DEFAULT '' NOT NULL;

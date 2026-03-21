@@ -333,6 +333,11 @@ model DiscoverySummary {
   id                     String   @id @default(cuid())
   projectId              String   @unique
   executiveSummary       String
+  mainPainPoints         String[] @default([])
+  recommendedApproach    String   @default("")
+  whyThisApproach        String   @default("")
+  phaseOneFocus          String   @default("")
+  futureUpgradePath      String   @default("")
   engagementTrack        String
   platformFit            String
   changeManagementRating String

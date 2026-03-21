@@ -628,6 +628,11 @@ const blueprintGenerationSchema = z.object({
 });
 const discoverySummarySchema = z.object({
   executiveSummary: z.string().trim().min(1),
+  mainPainPoints: z.array(z.string().trim().min(1)).default([]),
+  recommendedApproach: z.string().trim().min(1),
+  whyThisApproach: z.string().trim().min(1),
+  phaseOneFocus: z.string().trim().min(1),
+  futureUpgradePath: z.string().trim().min(1),
   engagementTrack: z.string().trim().min(1),
   platformFit: z.string().trim().min(1),
   changeManagementRating: z.string().trim().min(1),
@@ -657,6 +662,11 @@ const solutionShapingSchema = z.object({
 function serializeDiscoverySummary<
   T extends {
     executiveSummary: string;
+    mainPainPoints: string[];
+    recommendedApproach: string;
+    whyThisApproach: string;
+    phaseOneFocus: string;
+    futureUpgradePath: string;
     engagementTrack: string;
     platformFit: string;
     changeManagementRating: string;
@@ -669,6 +679,11 @@ function serializeDiscoverySummary<
 >(summary: T) {
   return {
     executiveSummary: summary.executiveSummary,
+    mainPainPoints: summary.mainPainPoints,
+    recommendedApproach: summary.recommendedApproach,
+    whyThisApproach: summary.whyThisApproach,
+    phaseOneFocus: summary.phaseOneFocus,
+    futureUpgradePath: summary.futureUpgradePath,
     engagementTrack: summary.engagementTrack,
     platformFit: summary.platformFit,
     changeManagementRating: summary.changeManagementRating,
@@ -4377,12 +4392,17 @@ async function generateStandaloneScopeSummary(
   const rawSummary = await callAiWorkflow(
     "scoped_summary",
     `You are Muloo Deploy OS's scoped implementation summariser.
-Given a standalone HubSpot-related job brief, produce a concise project-level summary for quoting, planning, and client communication.
+Given a standalone HubSpot-related job brief, produce a concise project-level recommendation for quoting, planning, and client communication.
 
 Rules:
 - Return ONLY valid JSON. No markdown or explanation.
-- Use exactly these keys: executiveSummary, engagementTrack, platformFit, changeManagementRating, dataReadinessRating, scopeVolatilityRating, missingInformation, keyRisks, recommendedNextQuestions
-- Keep executiveSummary to one short paragraph written as a clear executive summary.
+- Use exactly these keys: executiveSummary, mainPainPoints, recommendedApproach, whyThisApproach, phaseOneFocus, futureUpgradePath, engagementTrack, platformFit, changeManagementRating, dataReadinessRating, scopeVolatilityRating, missingInformation, keyRisks, recommendedNextQuestions
+- Keep executiveSummary to one short paragraph written as a clear executive summary for a busy decision-maker.
+- mainPainPoints should contain the 3 to 5 most important business or delivery problems this project is trying to solve.
+- recommendedApproach should be a direct recommendation in plain English, describing the best starting path.
+- whyThisApproach should explain why that recommendation is sensible, including any practical shortcuts or architectural tradeoffs.
+- phaseOneFocus should explain what the lean first phase / POC should actually deliver.
+- futureUpgradePath should explain what later expansion, packaging uplift, or deeper architecture could look like once Phase 1 proves value.
 - engagementTrack should be a business-friendly label such as "Standalone implementation", "Technical implementation", or "Scoped integration".
 - platformFit should describe the recommended HubSpot fit and supporting architecture in one short phrase.
 - changeManagementRating, dataReadinessRating, and scopeVolatilityRating should be low, medium, or high.
@@ -4390,7 +4410,9 @@ Rules:
 - keyRisks should focus on delivery, handoff, technical complexity, and dependency risk.
 - recommendedNextQuestions should be practical next clarification points.
 - Base the answer on the scoped brief, the selected HubSpot packaging, supporting context, and any linked documents or notes.
-- Explain the recommendation as a human advisor would: summarize the recommended path, note any packaging assumptions, and clarify when a workaround architecture is acceptable.
+- Think like a senior Muloo consultant, not a literal parser. Synthesize the pain point, recommend a sensible path, note packaging assumptions, and explain when a pragmatic workaround architecture is acceptable.
+- If implementationApproach is pragmatic_poc, prefer a boxed first phase that solves the core pain without prematurely loading cost or complexity.
+- Do not assume every capability must be solved natively inside HubSpot if the brief clearly allows a staging layer, middleware, Databox, or other supporting architecture.
 - Do not speak about discovery sessions unless they actually exist.
 - Do not simply repeat the raw brief. Synthesize it into a clean operator/client summary.`,
     JSON.stringify(
@@ -4428,6 +4450,7 @@ Rules:
   );
   const normalizedSummary = {
     ...parsedSummary,
+    mainPainPoints: parsedSummary.mainPainPoints ?? [],
     missingInformation: parsedSummary.missingInformation ?? [],
     keyRisks: parsedSummary.keyRisks ?? [],
     recommendedNextQuestions: parsedSummary.recommendedNextQuestions ?? []
@@ -4474,8 +4497,13 @@ Given a structured HubSpot discovery project, create a concise project-level dis
 
 Rules:
 - Return ONLY valid JSON. No markdown or explanation.
-- Use exactly these keys: executiveSummary, engagementTrack, platformFit, changeManagementRating, dataReadinessRating, scopeVolatilityRating, missingInformation, keyRisks, recommendedNextQuestions
+- Use exactly these keys: executiveSummary, mainPainPoints, recommendedApproach, whyThisApproach, phaseOneFocus, futureUpgradePath, engagementTrack, platformFit, changeManagementRating, dataReadinessRating, scopeVolatilityRating, missingInformation, keyRisks, recommendedNextQuestions
 - Keep executiveSummary to one short paragraph.
+- mainPainPoints should capture the 3 to 5 most material business or delivery problems.
+- recommendedApproach should state the recommended way forward in plain English.
+- whyThisApproach should explain why that path is sensible.
+- phaseOneFocus should explain what the first delivery phase should accomplish.
+- futureUpgradePath should explain what later phases, upgrades, or broader operationalisation could look like.
 - missingInformation should contain only the most important information gaps.
 - keyRisks should focus on delivery, adoption, data, and scope risk.
 - recommendedNextQuestions should be practical and operator-friendly.
@@ -4498,6 +4526,7 @@ Rules:
   );
   const normalizedSummary = {
     ...parsedSummary,
+    mainPainPoints: parsedSummary.mainPainPoints ?? [],
     missingInformation: parsedSummary.missingInformation ?? [],
     keyRisks: parsedSummary.keyRisks ?? [],
     recommendedNextQuestions: parsedSummary.recommendedNextQuestions ?? []

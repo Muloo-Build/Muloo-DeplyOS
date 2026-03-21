@@ -94,6 +94,11 @@ interface Blueprint {
 
 interface DiscoverySummary {
   executiveSummary: string;
+  mainPainPoints: string[];
+  recommendedApproach: string;
+  whyThisApproach: string;
+  phaseOneFocus: string;
+  futureUpgradePath: string;
   engagementTrack: string;
   platformFit: string;
   changeManagementRating: string;
@@ -264,6 +269,19 @@ function formatLabel(value: string) {
     .replace(/^./, (character) => character.toUpperCase());
 }
 
+function getPreviewText(value: string | null | undefined, maxLength = 420) {
+  const normalized = (value ?? "").trim().replace(/\s+/g, " ");
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength).trim()}...`;
+}
+
 function formatEngagementType(value: string) {
   return (
     engagementOptions.find((option) => option.value === value)?.label ??
@@ -430,6 +448,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [blueprintBusy, setBlueprintBusy] = useState(false);
   const [blueprintError, setBlueprintError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showFullBrief, setShowFullBrief] = useState(false);
+  const [showSupportingContext, setShowSupportingContext] = useState(false);
 
   useEffect(() => {
     async function loadProject() {
@@ -1759,9 +1779,30 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             {renderActions("brief")}
                           </>
                         ) : (
-                          <p className="mt-2 whitespace-pre-wrap text-sm text-white">
-                            {project.commercialBrief || "No scoped brief captured yet."}
-                          </p>
+                          <>
+                            <p className="mt-2 text-sm text-text-secondary">
+                              Raw source brief retained for reference. Use the
+                              scoped summary and recommendation as the working
+                              interpretation.
+                            </p>
+                            <p className="mt-3 whitespace-pre-wrap text-sm text-white">
+                              {showFullBrief
+                                ? project.commercialBrief ||
+                                  "No scoped brief captured yet."
+                                : getPreviewText(project.commercialBrief, 700) ||
+                                  "No scoped brief captured yet."}
+                            </p>
+                            {project.commercialBrief &&
+                            project.commercialBrief.trim().length > 700 ? (
+                              <button
+                                type="button"
+                                onClick={() => setShowFullBrief((current) => !current)}
+                                className="mt-3 text-sm font-medium text-[#49cde1]"
+                              >
+                                {showFullBrief ? "Collapse full brief" : "Show full brief"}
+                              </button>
+                            ) : null}
+                          </>
                         )}
                       </div>
                       {editingField !== "brief" ? (
@@ -1788,8 +1829,19 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           the scoped summary and quote.
                         </p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowSupportingContext((current) => !current)
+                        }
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm font-medium text-white"
+                      >
+                        {showSupportingContext ? "Hide source material" : "Show source material"}
+                      </button>
                     </div>
 
+                    {showSupportingContext ? (
+                      <>
                     <div className="mt-5 grid gap-4 md:grid-cols-2">
                       <label className="block">
                         <span className="text-sm font-medium text-white">
@@ -1929,11 +1981,83 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         </div>
                       )}
                     </div>
+                      </>
+                    ) : (
+                      <div className="mt-5 rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] bg-background-card px-4 py-4 text-sm text-text-secondary">
+                        {supportingContext.length > 0
+                          ? `${supportingContext.length} source item${supportingContext.length === 1 ? "" : "s"} attached. Expand this section to review links, notes, transcripts, and documents.`
+                          : "No source material added yet. Expand this section to add links, notes, transcripts, or documents."}
+                      </div>
+                    )}
                   </div>
                 ) : null}
               </section>
 
               <div className="grid gap-6">
+                {isStandaloneQuote ? (
+                  <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h2 className="text-lg font-semibold text-white">
+                          Solution Snapshot
+                        </h2>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          The most important recommendation, packaging position,
+                          and next-step view for this scoped job.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-4">
+                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Executive summary
+                        </p>
+                        <p className="mt-2 text-sm text-white">
+                          {discoverySummary?.executiveSummary ||
+                            project.scopeExecutiveSummary ||
+                            "Refresh the job summary to generate the recommended path."}
+                        </p>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Recommended approach
+                          </p>
+                          <p className="mt-2 text-sm text-white">
+                            {discoverySummary?.recommendedApproach ||
+                              project.solutionRecommendation ||
+                              "No recommendation generated yet."}
+                          </p>
+                        </div>
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Why this path
+                          </p>
+                          <p className="mt-2 text-sm text-text-secondary">
+                            {discoverySummary?.whyThisApproach ||
+                              "The system should explain why this path is sensible and where pragmatic shortcuts are acceptable."}
+                          </p>
+                        </div>
+                      </div>
+
+                      {discoverySummary?.mainPainPoints.length ? (
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Main pain points
+                          </p>
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {discoverySummary.mainPainPoints.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </div>
+                  </section>
+                ) : null}
+
                 <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -2162,24 +2286,53 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     <div className="mt-5 grid gap-4">
                       <div className="rounded-xl bg-[#0b1126] px-4 py-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Workflow
+                          Executive Recommendation
                         </p>
                         <p className="mt-2 text-sm text-white">
-                          Capture the technical brief, gather supporting docs and
-                          URLs, generate a scoped summary, then shape the quote.
+                          {discoverySummary?.recommendedApproach ||
+                            project.scopeExecutiveSummary ||
+                            project.solutionRecommendation ||
+                            "Refresh the job summary to generate a clearer recommendation."}
+                        </p>
+                        <p className="mt-3 text-sm text-text-secondary">
+                          {discoverySummary?.whyThisApproach ||
+                            "The system will summarize the best path forward, explain why it makes sense, and keep the recommendation boxed to the scoped outcome."}
                         </p>
                       </div>
                       <div className="rounded-xl bg-[#0b1126] px-4 py-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Current brief
+                          Phase 1 Focus
                         </p>
-                        <p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">
-                          {project.scopeExecutiveSummary ||
-                            project.solutionRecommendation ||
-                            project.problemStatement ||
-                            project.commercialBrief ||
-                            "No scoped brief captured yet."}
+                        <p className="mt-2 text-sm text-white">
+                          {discoverySummary?.phaseOneFocus ||
+                            "Use the initial phase to solve the core pain point in a pragmatic way before loading extra packaging or architecture."}
                         </p>
+                        {discoverySummary?.futureUpgradePath ? (
+                          <p className="mt-3 text-sm text-text-secondary">
+                            Later path: {discoverySummary.futureUpgradePath}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Main pain points
+                        </p>
+                        {discoverySummary?.mainPainPoints.length ? (
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {discoverySummary.mainPainPoints.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-2 text-sm text-text-secondary">
+                            {getPreviewText(
+                              project.problemStatement ||
+                                project.commercialBrief ||
+                                "No pain-point summary captured yet.",
+                              220
+                            )}
+                          </p>
+                        )}
                       </div>
                       <div className="rounded-xl bg-[#0b1126] px-4 py-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
@@ -2261,17 +2414,6 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           </div>
                         ) : null}
                       </div>
-
-                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Next step
-                        </p>
-                        <p className="mt-2 text-sm text-white">
-                          Generate a technical blueprint from this scoped brief
-                          and supporting context, then use the quote to shape
-                          commercials and approvals.
-                        </p>
-                      </div>
                     </div>
                   </section>
                 )}
@@ -2297,6 +2439,45 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       <p className="mt-5 text-sm text-text-secondary">
                         {discoverySummary.executiveSummary}
                       </p>
+
+                      {isStandaloneQuote ? (
+                        <div className="mt-5 grid gap-4">
+                          <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Recommended approach
+                            </p>
+                            <p className="mt-2 text-sm text-white">
+                              {discoverySummary.recommendedApproach}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Why this approach
+                            </p>
+                            <p className="mt-2 text-sm text-text-secondary">
+                              {discoverySummary.whyThisApproach}
+                            </p>
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Phase 1 focus
+                              </p>
+                              <p className="mt-2 text-sm text-text-secondary">
+                                {discoverySummary.phaseOneFocus}
+                              </p>
+                            </div>
+                            <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Future path
+                              </p>
+                              <p className="mt-2 text-sm text-text-secondary">
+                                {discoverySummary.futureUpgradePath}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
 
                       <div className="mt-5 grid gap-4 md:grid-cols-2">
                         {[
