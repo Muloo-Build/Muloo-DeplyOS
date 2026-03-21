@@ -599,7 +599,22 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         throw new Error(body?.error ?? "Failed to generate discovery summary");
       }
 
-      setDiscoverySummary(body?.summary ?? null);
+      const nextSummary = body?.summary ?? null;
+      setDiscoverySummary(nextSummary);
+      if (nextSummary?.executiveSummary) {
+        setProject((currentProject) =>
+          currentProject
+            ? {
+                ...currentProject,
+                scopeExecutiveSummary: nextSummary.executiveSummary
+              }
+            : currentProject
+        );
+        setProjectDraft((currentDraft) => ({
+          ...currentDraft,
+          scopeExecutiveSummary: nextSummary.executiveSummary
+        }));
+      }
     } catch (generationError) {
       setSummaryError(
         generationError instanceof Error
