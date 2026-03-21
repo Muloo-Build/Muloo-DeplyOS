@@ -155,6 +155,7 @@ type EditableField =
   | "owner"
   | "clientProfile"
   | "hubs"
+  | "platformPackaging"
   | "clientChampion"
   | null;
 
@@ -176,6 +177,46 @@ const hubOptions = [
   { value: "commerce", label: "Commerce" }
 ] as const;
 
+const customerPlatformTierOptions = [
+  { value: "", label: "Not set yet" },
+  { value: "starter", label: "Starter" },
+  { value: "professional", label: "Professional" },
+  { value: "enterprise", label: "Enterprise" }
+] as const;
+
+const hubTierOptions = [
+  { value: "", label: "Not in use" },
+  { value: "free", label: "Free" },
+  { value: "starter", label: "Starter" },
+  { value: "professional", label: "Professional" },
+  { value: "enterprise", label: "Enterprise" },
+  { value: "included", label: "Included / bundled" }
+] as const;
+
+const platformProductOptions = [
+  { key: "smart_crm", label: "Smart CRM" },
+  { key: "marketing_hub", label: "Marketing Hub" },
+  { key: "sales_hub", label: "Sales Hub" },
+  { key: "service_hub", label: "Service Hub" },
+  { key: "content_hub", label: "Content Hub" },
+  { key: "operations_hub", label: "Operations Hub" },
+  { key: "data_hub", label: "Data Hub" },
+  { key: "commerce_hub", label: "Commerce Hub" },
+  { key: "breeze", label: "Breeze / AI" },
+  { key: "small_business_bundle", label: "Small Business Bundle" },
+  { key: "free_tools", label: "Free Tools" }
+] as const;
+
+const productKeyByHub: Record<string, string> = {
+  sales: "sales_hub",
+  marketing: "marketing_hub",
+  service: "service_hub",
+  cms: "content_hub",
+  ops: "operations_hub",
+  data: "data_hub",
+  commerce: "commerce_hub"
+};
+
 function createProjectDraft(project: Project) {
   return {
     clientName: project.client.name,
@@ -186,6 +227,7 @@ function createProjectDraft(project: Project) {
     solutionRecommendation: project.solutionRecommendation ?? "",
     scopeExecutiveSummary: project.scopeExecutiveSummary ?? "",
     customerPlatformTier: project.customerPlatformTier ?? "",
+    platformTierSelections: project.platformTierSelections ?? {},
     portalId: project.portal?.portalId ?? "",
     hubs: project.selectedHubs,
     owner: project.owner,
@@ -222,6 +264,24 @@ function formatEngagementType(value: string) {
 
 function formatHubLabel(value: string) {
   return hubOptions.find((option) => option.value === value)?.label ?? value;
+}
+
+function formatTierLabel(value: string) {
+  if (!value) {
+    return "Not set";
+  }
+
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatPlatformProductLabel(value: string) {
+  return (
+    platformProductOptions.find((option) => option.key === value)?.label ??
+    value.replace(/_/g, " ")
+  );
 }
 
 function formatDate(dateString: string) {
@@ -313,6 +373,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     solutionRecommendation: "",
     scopeExecutiveSummary: "",
     customerPlatformTier: "",
+    platformTierSelections: {} as Record<string, string>,
     portalId: "",
     owner: "",
     ownerEmail: "",
@@ -477,6 +538,26 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }));
   }
 
+  function updatePlatformTierSelection(productKey: string, tier: string) {
+    setProjectDraft((currentDraft) => ({
+      ...currentDraft,
+      platformTierSelections: {
+        ...(currentDraft.platformTierSelections ?? {}),
+        [productKey]: tier
+      }
+    }));
+  }
+
+  const visiblePlatformProducts = Array.from(
+    new Set([
+      "smart_crm",
+      ...projectDraft.hubs.map((hub) => productKeyByHub[hub]).filter(Boolean),
+      "breeze",
+      "small_business_bundle",
+      "free_tools"
+    ])
+  );
+
   function selectOwner(ownerName: string) {
     const selectedOwner = teamUsers.find((user) => user.name === ownerName);
 
@@ -529,6 +610,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           clientInstagramUrl: projectDraft.clientInstagramUrl,
           clientXUrl: projectDraft.clientXUrl,
           clientYoutubeUrl: projectDraft.clientYoutubeUrl
+        };
+        break;
+      case "platformPackaging":
+        payload = {
+          customerPlatformTier: projectDraft.customerPlatformTier,
+          platformTierSelections: Object.fromEntries(
+            Object.entries(projectDraft.platformTierSelections ?? {}).filter(
+              ([, tier]) => Boolean(tier)
+            )
+          )
         };
         break;
       case "clientChampion":
@@ -1463,6 +1554,137 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     ) : null}
                   </div>
                   {renderError("hubs")}
+                </div>
+
+                <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Platform Packaging
+                      </p>
+                      {editingField === "platformPackaging" ? (
+                        <>
+                          <div className="mt-3 grid gap-3 md:grid-cols-2">
+                            <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3">
+                              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                Customer platform
+                              </p>
+                              <select
+                                value={projectDraft.customerPlatformTier}
+                                onChange={(event) =>
+                                  setProjectDraft((currentDraft) => ({
+                                    ...currentDraft,
+                                    customerPlatformTier: event.target.value
+                                  }))
+                                }
+                                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                              >
+                                {customerPlatformTierOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <p className="mt-2 text-xs text-text-secondary">
+                                Set the overall customer platform level first, then
+                                tune the individual Hub products below.
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3">
+                              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                Hubs in scope
+                              </p>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {projectDraft.hubs.map((hub) => (
+                                  <span
+                                    key={hub}
+                                    className="rounded bg-[rgba(73,205,225,0.12)] px-2 py-1 text-xs font-medium text-[#49cde1]"
+                                  >
+                                    {formatHubLabel(hub)}
+                                  </span>
+                                ))}
+                              </div>
+                              <p className="mt-2 text-xs text-text-secondary">
+                                Edit the hub list above, then set the matching HubSpot
+                                product tiers here.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 grid gap-3 md:grid-cols-2">
+                            {visiblePlatformProducts.map((productKey) => (
+                              <div
+                                key={productKey}
+                                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3"
+                              >
+                                <p className="text-sm font-medium text-white">
+                                  {formatPlatformProductLabel(productKey)}
+                                </p>
+                                <select
+                                  value={
+                                    projectDraft.platformTierSelections?.[
+                                      productKey
+                                    ] ?? ""
+                                  }
+                                  onChange={(event) =>
+                                    updatePlatformTierSelection(
+                                      productKey,
+                                      event.target.value
+                                    )
+                                  }
+                                  className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                >
+                                  {hubTierOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            ))}
+                          </div>
+                          {renderActions("platformPackaging")}
+                        </>
+                      ) : (
+                        <>
+                          <p className="mt-2 text-sm text-white">
+                            {project.customerPlatformTier
+                              ? `${formatTierLabel(project.customerPlatformTier)} customer platform`
+                              : "No customer platform tier recorded yet."}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {project.platformTierSelections &&
+                            Object.entries(project.platformTierSelections).filter(
+                              ([, tier]) => Boolean(tier)
+                            ).length > 0 ? (
+                              Object.entries(project.platformTierSelections)
+                                .filter(([, tier]) => Boolean(tier))
+                                .map(([key, tier]) => (
+                                  <span
+                                    key={key}
+                                    className="rounded bg-[rgba(73,205,225,0.12)] px-2 py-1 text-xs font-medium text-[#49cde1]"
+                                  >
+                                    {formatPlatformProductLabel(key)}:{" "}
+                                    {formatTierLabel(tier)}
+                                  </span>
+                                ))
+                            ) : (
+                              <span className="text-sm text-text-secondary">
+                                No product tiers selected yet.
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {editingField !== "platformPackaging" ? (
+                      <EditButton
+                        label="Edit platform packaging"
+                        onClick={() => startEditing("platformPackaging")}
+                      />
+                    ) : null}
+                  </div>
+                  {renderError("platformPackaging")}
                 </div>
 
                 {isStandaloneQuote ? (
