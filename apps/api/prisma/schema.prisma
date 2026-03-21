@@ -338,6 +338,8 @@ model DiscoverySummary {
   whyThisApproach        String   @default("")
   phaseOneFocus          String   @default("")
   futureUpgradePath      String   @default("")
+  inScopeItems           String[] @default([])
+  outOfScopeItems        String[] @default([])
   engagementTrack        String
   platformFit            String
   changeManagementRating String

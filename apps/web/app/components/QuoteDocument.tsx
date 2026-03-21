@@ -66,6 +66,12 @@ interface Blueprint {
 
 interface DiscoverySummary {
   executiveSummary: string;
+  recommendedApproach: string;
+  whyThisApproach: string;
+  phaseOneFocus: string;
+  futureUpgradePath: string;
+  inScopeItems: string[];
+  outOfScopeItems: string[];
   engagementTrack: string;
   platformFit: string;
   changeManagementRating: string;
@@ -461,8 +467,14 @@ export default function QuoteDocument({
     "Before final handover"
   ];
   const clientResponsibilities = splitIntoList(session4.client_responsibilities);
-  const inScopeItems = splitIntoList(session4.confirmed_scope);
-  const outOfScopeItems = splitIntoList(session4.out_of_scope);
+  const inScopeItems =
+    project.scopeType === "standalone_quote" && summary?.inScopeItems.length
+      ? summary.inScopeItems
+      : splitIntoList(session4.confirmed_scope);
+  const outOfScopeItems =
+    project.scopeType === "standalone_quote" && summary?.outOfScopeItems.length
+      ? summary.outOfScopeItems
+      : splitIntoList(session4.out_of_scope);
   const keyRisks =
     summary?.keyRisks.length && summary.keyRisks.length > 0
       ? summary.keyRisks

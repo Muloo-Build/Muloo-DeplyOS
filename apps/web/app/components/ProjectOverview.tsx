@@ -99,6 +99,8 @@ interface DiscoverySummary {
   whyThisApproach: string;
   phaseOneFocus: string;
   futureUpgradePath: string;
+  inScopeItems: string[];
+  outOfScopeItems: string[];
   engagementTrack: string;
   platformFit: string;
   changeManagementRating: string;
@@ -2046,7 +2048,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       <div className="grid gap-4 md:grid-cols-2">
                         <div className="rounded-xl bg-[#0b1126] px-4 py-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Recommended approach
+                            Best starting path
                           </p>
                           <p className="mt-2 text-sm text-white">
                             {discoverySummary?.recommendedApproach ||
@@ -2056,7 +2058,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         </div>
                         <div className="rounded-xl bg-[#0b1126] px-4 py-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Why this path
+                            Why this makes sense
                           </p>
                           <p className="mt-2 text-sm text-text-secondary">
                             {discoverySummary?.whyThisApproach ||
@@ -2077,6 +2079,37 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           </ul>
                         </div>
                       ) : null}
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            In scope now
+                          </p>
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {(discoverySummary?.inScopeItems?.length
+                              ? discoverySummary.inScopeItems
+                              : ["The recommended Phase 1 / POC items will appear here after the summary is refreshed."]).map(
+                              (item) => (
+                                <li key={item}>{item}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Out of scope for now
+                          </p>
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {(discoverySummary?.outOfScopeItems?.length
+                              ? discoverySummary.outOfScopeItems
+                              : ["Future-state expansion, broader transformation, or optional extras will appear here once the summary is refreshed."]).map(
+                              (item) => (
+                                <li key={item}>{item}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      </div>
                     </div>
                   </section>
                 ) : null}
@@ -2309,7 +2342,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     <div className="mt-5 grid gap-4">
                       <div className="rounded-xl bg-[#0b1126] px-4 py-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Executive Recommendation
+                          Recommended way forward
                         </p>
                         <p className="mt-2 text-sm text-white">
                           {discoverySummary?.recommendedApproach ||
@@ -2366,6 +2399,36 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             )}
                           </p>
                         )}
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            In scope now
+                          </p>
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {(discoverySummary?.inScopeItems?.length
+                              ? discoverySummary.inScopeItems
+                              : ["The summary should define the boxed scope for this phase here."]).map(
+                              (item) => (
+                                <li key={item}>{item}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Out of scope for now
+                          </p>
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {(discoverySummary?.outOfScopeItems?.length
+                              ? discoverySummary.outOfScopeItems
+                              : ["The summary should call out what stays outside this phase so the work remains controlled."]).map(
+                              (item) => (
+                                <li key={item}>{item}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
                       </div>
                       <div className="rounded-xl bg-[#0b1126] px-4 py-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
