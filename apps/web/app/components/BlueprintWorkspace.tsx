@@ -288,6 +288,16 @@ export default function BlueprintWorkspace({
     project,
     summary?.recommendedNextQuestions
   );
+  const recommendDocumentationPack =
+    totalHumanHours >= 40 ||
+    supportingTools.some((item) =>
+      item.toLowerCase().includes("documentation") ||
+      item.toLowerCase().includes("sop")
+    ) ||
+    humanTasks.some((task) =>
+      task.name.toLowerCase().includes("handover") ||
+      task.name.toLowerCase().includes("document")
+    );
 
   return (
     <AppShell>
@@ -483,6 +493,18 @@ export default function BlueprintWorkspace({
                             ))}
                           </ul>
                         </div>
+                        {recommendDocumentationPack ? (
+                          <div className="rounded-xl border border-[rgba(73,205,225,0.18)] bg-[rgba(73,205,225,0.08)] px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-[#49cde1]">
+                              Optional bolt-on
+                            </p>
+                            <p className="mt-2 text-sm text-white">
+                              Add a paid Documentation & SOP Pack if the client needs the agreed
+                              data model, process flow, handover notes, and operating guidance
+                              captured formally at the end of delivery.
+                            </p>
+                          </div>
+                        ) : null}
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="rounded-xl bg-[#0b1126] px-4 py-4">
                             <p className="text-xs uppercase tracking-[0.2em] text-text-muted">

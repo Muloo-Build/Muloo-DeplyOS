@@ -1042,9 +1042,15 @@ function derivePlatformPackagingAssessment(input: {
 
     if (!selectedTier) {
       warnings.push(
-        `${platformProductLabels[productKey]} likely needs at least ${requiredTier}, but no tier has been selected for this product.`
+        allowsWorkaroundArchitecture
+          ? `${platformProductLabels[productKey]} may need at least ${requiredTier} for a native HubSpot delivery, but a boxed Phase 1 can still proceed if Muloo uses a documented workaround architecture.`
+          : `${platformProductLabels[productKey]} likely needs at least ${requiredTier}, but no tier has been selected for this product.`
       );
-      fit = "upgrade_needed";
+      fit = allowsWorkaroundArchitecture
+        ? fit === "good"
+          ? "attention"
+          : fit
+        : "upgrade_needed";
       continue;
     }
 
@@ -1053,9 +1059,15 @@ function derivePlatformPackagingAssessment(input: {
       (platformTierRank[requiredTier] ?? 0)
     ) {
       warnings.push(
-        `${platformProductLabels[productKey]} is currently set to ${selectedTier}, but this scoped work likely needs ${requiredTier} or a documented workaround.`
+        allowsWorkaroundArchitecture
+          ? `${platformProductLabels[productKey]} is currently set to ${selectedTier}. That can still work for a boxed Phase 1 if Muloo keeps the heavier model outside HubSpot and documents the workaround clearly.`
+          : `${platformProductLabels[productKey]} is currently set to ${selectedTier}, but this scoped work likely needs ${requiredTier} or a documented workaround.`
       );
-      fit = "upgrade_needed";
+      fit = allowsWorkaroundArchitecture
+        ? fit === "good"
+          ? "attention"
+          : fit
+        : "upgrade_needed";
     }
   }
 
@@ -1065,7 +1077,9 @@ function derivePlatformPackagingAssessment(input: {
         ? "The selected HubSpot packaging appears workable for the scoped Phase 1 approach, assuming the complex data modeling remains outside HubSpot where needed."
         : "The selected HubSpot packaging appears to support the scoped work."
       : fit === "attention"
-        ? "The scoped work is broadly aligned, but some packaging assumptions or workaround decisions still need to be confirmed."
+        ? allowsWorkaroundArchitecture
+          ? "The selected packaging can work for a boxed Phase 1 if Muloo keeps the heavier data architecture outside HubSpot and treats HubSpot as the operational front end."
+          : "The scoped work is broadly aligned, but some packaging assumptions or workaround decisions still need to be confirmed."
         : "The scoped work likely exceeds the currently selected HubSpot packaging and needs an upgrade or agreed workaround before delivery.";
 
   const recommendedNextStep =
@@ -1074,7 +1088,9 @@ function derivePlatformPackagingAssessment(input: {
         ? "Proceed with blueprinting using a pragmatic architecture: keep the complex consolidation logic outside HubSpot and use HubSpot as the operational CRM layer."
         : "Proceed with blueprinting and delivery planning using the selected packaging."
       : fit === "attention"
-        ? "Confirm whether this should be a pragmatic workaround-led delivery or a more native HubSpot implementation before finalizing the blueprint and quote."
+        ? allowsWorkaroundArchitecture
+          ? "Proceed as a boxed Phase 1 POC, keep the data-heavy model outside HubSpot, and only uplift packaging later if the client wants more native HubSpot capability."
+          : "Confirm whether this should be a pragmatic workaround-led delivery or a more native HubSpot implementation before finalizing the blueprint and quote."
         : "Resolve the packaging gap first by upgrading the required HubSpot products or revising the scoped solution.";
 
   const workaroundPath = allowsWorkaroundArchitecture
@@ -4811,8 +4827,8 @@ Rules:
 - Use exactly these keys: executiveSummary, mainPainPoints, recommendedApproach, whyThisApproach, phaseOneFocus, futureUpgradePath, inScopeItems, outOfScopeItems, supportingTools, engagementTrack, platformFit, changeManagementRating, dataReadinessRating, scopeVolatilityRating, missingInformation, keyRisks, recommendedNextQuestions
 - Keep executiveSummary to one short paragraph written like a Muloo operator explaining the recommended starting point to a smart client.
 - mainPainPoints should contain the 3 to 5 most important business or delivery problems this project is trying to solve.
-- recommendedApproach should be a direct recommendation in plain English, describing the best starting path in a confident but practical way.
-- whyThisApproach should explain why that recommendation is sensible, including practical shortcuts, workaround architecture, or tradeoffs where relevant.
+- recommendedApproach should be a direct recommendation in plain English, describing the best starting path in a confident but practical way. Write it like a Muloo operator making the call after the meeting: "Use...", "Keep...", "Start with...", or "Implement...".
+- whyThisApproach should explain why that recommendation is sensible, including practical shortcuts, workaround architecture, or tradeoffs where relevant. Avoid vague hedging phrases like "likely", "may", or "could" unless the uncertainty genuinely matters.
 - phaseOneFocus should explain what the lean first phase / POC should actually deliver and what success looks like.
 - futureUpgradePath should explain what later expansion, packaging uplift, or deeper architecture could look like once Phase 1 proves value.
 - inScopeItems should list the key work items that are clearly part of this scoped job.
@@ -4979,8 +4995,8 @@ Rules:
 - Use exactly these keys: executiveSummary, mainPainPoints, recommendedApproach, whyThisApproach, phaseOneFocus, futureUpgradePath, inScopeItems, outOfScopeItems, supportingTools, engagementTrack, platformFit, changeManagementRating, dataReadinessRating, scopeVolatilityRating, missingInformation, keyRisks, recommendedNextQuestions
 - Keep executiveSummary to one short paragraph written for a smart client and an internal delivery lead.
 - mainPainPoints should capture the 3 to 5 most material business or delivery problems.
-- recommendedApproach should state the recommended way forward in plain English.
-- whyThisApproach should explain why that path is sensible and what tradeoffs it avoids.
+- recommendedApproach should state the recommended way forward in plain English. Write it like a Muloo operator making the call after the meeting: "Use...", "Keep...", "Start with...", or "Implement...".
+- whyThisApproach should explain why that path is sensible and what tradeoffs it avoids. Avoid vague hedging unless the uncertainty genuinely matters.
 - phaseOneFocus should explain what the first delivery phase should accomplish.
 - futureUpgradePath should explain what later phases, upgrades, or broader operationalisation could look like.
 - inScopeItems should list the clearest items that belong in the recommended scope.

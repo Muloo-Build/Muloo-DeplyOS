@@ -279,6 +279,9 @@ export default function QuoteDocument({
 
         const projectBody = await projectResponse.json();
         const nextProject = projectBody.project;
+        if (!nextProject) {
+          throw new Error("Failed to load project context for this quote.");
+        }
         const isStandaloneQuote = nextProject?.scopeType === "standalone_quote";
 
         const [
