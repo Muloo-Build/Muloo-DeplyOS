@@ -72,6 +72,7 @@ interface DiscoverySummary {
   futureUpgradePath: string;
   inScopeItems: string[];
   outOfScopeItems: string[];
+  supportingTools: string[];
   engagementTrack: string;
   platformFit: string;
   changeManagementRating: string;
@@ -467,14 +468,16 @@ export default function QuoteDocument({
     "Before final handover"
   ];
   const clientResponsibilities = splitIntoList(session4.client_responsibilities);
+  const isStandaloneQuote = project?.scopeType === "standalone_quote";
   const inScopeItems =
-    project.scopeType === "standalone_quote" && summary?.inScopeItems.length
+    isStandaloneQuote && summary?.inScopeItems.length
       ? summary.inScopeItems
       : splitIntoList(session4.confirmed_scope);
   const outOfScopeItems =
-    project.scopeType === "standalone_quote" && summary?.outOfScopeItems.length
+    isStandaloneQuote && summary?.outOfScopeItems.length
       ? summary.outOfScopeItems
       : splitIntoList(session4.out_of_scope);
+  const supportingTools = summary?.supportingTools ?? [];
   const keyRisks =
     summary?.keyRisks.length && summary.keyRisks.length > 0
       ? summary.keyRisks
@@ -530,12 +533,12 @@ export default function QuoteDocument({
                   Back to overview
                 </Link>
                 <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-                  {project.scopeType === "standalone_quote"
+                  {isStandaloneQuote
                     ? "Standalone Quote & Approval"
                     : "Implementation Quote & Approval"}
                 </h1>
                 <p className="mt-2 text-text-secondary">
-                  {project.scopeType === "standalone_quote"
+                  {isStandaloneQuote
                     ? "Commercial proposal generated from a scoped standalone brief and selected products."
                     : "Commercial proposal generated from the approved discovery scope and phased implementation estimate."}
                 </p>
@@ -576,12 +579,12 @@ export default function QuoteDocument({
                   </div>
                   <h2 className="mt-10 max-w-3xl text-5xl font-bold font-heading leading-tight text-white">
                     {project.client.name.toUpperCase()} -{" "}
-                    {project.scopeType === "standalone_quote"
+                    {isStandaloneQuote
                       ? "Standalone Quote"
                       : "Implementation Quote"}
                   </h2>
                   <p className="mt-6 text-lg text-text-secondary">
-                    {project.scopeType === "standalone_quote"
+                    {isStandaloneQuote
                       ? "Commercial quote generated from a standalone scoped brief and optional service products."
                       : `${formatEngagementType(
                           project.engagementType
@@ -688,11 +691,11 @@ export default function QuoteDocument({
               <SectionTitle>Quoted scope and approval pack</SectionTitle>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
                 {[
-                  project.scopeType === "standalone_quote"
+                  isStandaloneQuote
                     ? "This document turns a scoped standalone job brief into a commercial quote with optional products, retainers, and add-on services."
                     : "This document turns the approved discovery recommendation into a commercial quote with phase-level pricing.",
                   "It is designed to support review, approval, and selective commercial sign-off if the client wants to proceed with only part of the recommended scope.",
-                  project.scopeType === "standalone_quote"
+                  isStandaloneQuote
                     ? "Once approved, the accepted line items become the commercial baseline for delivery or a separate implementation plan."
                     : "Once approved, the accepted phases become the commercial baseline for planning and delivery."
                 ].map((item) => (
@@ -758,7 +761,7 @@ export default function QuoteDocument({
                   <SectionEyebrow>Quote Context</SectionEyebrow>
                   <SectionTitle>What this quote is based on</SectionTitle>
                   <p className="mt-4 text-sm leading-7 text-text-secondary">
-                    {project.scopeType === "standalone_quote"
+                    {isStandaloneQuote
                       ? summary?.executiveSummary ??
                         project.scopeExecutiveSummary ??
                         project.solutionRecommendation ??
@@ -771,7 +774,7 @@ export default function QuoteDocument({
                   </p>
                 </div>
 
-                {project.scopeType !== "standalone_quote" ? (
+                {!isStandaloneQuote ? (
                 <>
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <SectionEyebrow>Commercial Framing</SectionEyebrow>
@@ -991,6 +994,57 @@ export default function QuoteDocument({
                   </div>
                 </div>
 
+                {isStandaloneQuote ? (
+                  <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <SectionEyebrow>Delivery Watch-Outs</SectionEyebrow>
+                    <SectionTitle>Tools, risks, and open questions</SectionTitle>
+                    <div className="mt-4 space-y-4">
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Supporting tools
+                        </p>
+                        <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                          {(supportingTools.length
+                            ? supportingTools
+                            : ["No supporting tools recommended yet. Refresh the scoped summary after adding more source material."]).map(
+                            (item) => (
+                              <li key={item}>{item}</li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Key risks
+                        </p>
+                        <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                          {(keyRisks.length
+                            ? keyRisks
+                            : ["No key risks surfaced yet. Refresh the scoped summary after adding more context."]).map(
+                            (item) => (
+                              <li key={item}>{item}</li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Recommended next questions
+                        </p>
+                        <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                          {(nextQuestions.length
+                            ? nextQuestions
+                            : ["No next questions generated yet. Refresh the scoped summary after adding more source material."]).map(
+                            (item) => (
+                              <li key={item}>{item}</li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 {project.packagingAssessment ? (
                   <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                     <SectionEyebrow>Platform Packaging</SectionEyebrow>
@@ -1066,7 +1120,7 @@ export default function QuoteDocument({
                   </div>
                 ) : null}
 
-                {project.scopeType !== "standalone_quote" ? (
+                {!isStandaloneQuote ? (
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <SectionEyebrow>Risks & Dependencies</SectionEyebrow>
                   <SectionTitle>What could affect commercials or timing</SectionTitle>

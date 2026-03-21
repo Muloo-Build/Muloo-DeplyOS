@@ -101,6 +101,7 @@ interface DiscoverySummary {
   futureUpgradePath: string;
   inScopeItems: string[];
   outOfScopeItems: string[];
+  supportingTools: string[];
   engagementTrack: string;
   platformFit: string;
   changeManagementRating: string;
@@ -2367,7 +2368,25 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           <p className="mt-3 text-sm text-text-secondary">
                             Later path: {discoverySummary.futureUpgradePath}
                           </p>
-                        ) : null}
+                          ) : null}
+                      </div>
+                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Supporting tools
+                        </p>
+                        {discoverySummary?.supportingTools?.length ? (
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {discoverySummary.supportingTools.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-2 text-sm text-text-secondary">
+                            No supporting tools recommended yet. Refresh the job
+                            summary to generate architecture-aware tool
+                            suggestions around HubSpot.
+                          </p>
+                        )}
                       </div>
                       {discoverySummary?.futureUpgradePath ? (
                         <div className="rounded-xl bg-[#0b1126] px-4 py-4">
@@ -2423,6 +2442,36 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             {(discoverySummary?.outOfScopeItems?.length
                               ? discoverySummary.outOfScopeItems
                               : ["The summary should call out what stays outside this phase so the work remains controlled."]).map(
+                              (item) => (
+                                <li key={item}>{item}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Key risks
+                          </p>
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {(discoverySummary?.keyRisks?.length
+                              ? discoverySummary.keyRisks
+                              : ["No key risks have been surfaced yet. Refresh the job summary after adding more context."]).map(
+                              (item) => (
+                                <li key={item}>{item}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Recommended next questions
+                          </p>
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {(discoverySummary?.recommendedNextQuestions?.length
+                              ? discoverySummary.recommendedNextQuestions
+                              : ["No follow-up questions generated yet. Refresh the job summary after adding more source material."]).map(
                               (item) => (
                                 <li key={item}>{item}</li>
                               )

@@ -279,6 +279,19 @@ const defaultProductCatalog = [
     defaultQuantity: 1,
     unitLabel: "workshop",
     sortOrder: 40
+  },
+  {
+    slug: "documentation-sop-pack",
+    name: "Documentation & SOP Pack",
+    serviceFamily: "hubspot_architecture",
+    category: "add_on",
+    billingModel: "fixed",
+    description:
+      "Optional process-flow, SOP, and implementation documentation pack delivered alongside the approved scope.",
+    unitPrice: 12000,
+    defaultQuantity: 1,
+    unitLabel: "pack",
+    sortOrder: 50
   }
 ] as const;
 const defaultAgentCatalog = [
@@ -635,6 +648,7 @@ const discoverySummarySchema = z.object({
   futureUpgradePath: z.string().trim().min(1),
   inScopeItems: z.array(z.string().trim().min(1)).default([]),
   outOfScopeItems: z.array(z.string().trim().min(1)).default([]),
+  supportingTools: z.array(z.string().trim().min(1)).default([]),
   engagementTrack: z.string().trim().min(1),
   platformFit: z.string().trim().min(1),
   changeManagementRating: z.string().trim().min(1),
@@ -671,6 +685,7 @@ function serializeDiscoverySummary<
     futureUpgradePath: string;
     inScopeItems: string[];
     outOfScopeItems: string[];
+    supportingTools: string[];
     engagementTrack: string;
     platformFit: string;
     changeManagementRating: string;
@@ -690,6 +705,7 @@ function serializeDiscoverySummary<
     futureUpgradePath: summary.futureUpgradePath,
     inScopeItems: summary.inScopeItems,
     outOfScopeItems: summary.outOfScopeItems,
+    supportingTools: summary.supportingTools,
     engagementTrack: summary.engagementTrack,
     platformFit: summary.platformFit,
     changeManagementRating: summary.changeManagementRating,
@@ -4402,7 +4418,7 @@ Given a standalone HubSpot-related job brief, supporting notes, and platform con
 
 Rules:
 - Return ONLY valid JSON. No markdown or explanation.
-- Use exactly these keys: executiveSummary, mainPainPoints, recommendedApproach, whyThisApproach, phaseOneFocus, futureUpgradePath, inScopeItems, outOfScopeItems, engagementTrack, platformFit, changeManagementRating, dataReadinessRating, scopeVolatilityRating, missingInformation, keyRisks, recommendedNextQuestions
+- Use exactly these keys: executiveSummary, mainPainPoints, recommendedApproach, whyThisApproach, phaseOneFocus, futureUpgradePath, inScopeItems, outOfScopeItems, supportingTools, engagementTrack, platformFit, changeManagementRating, dataReadinessRating, scopeVolatilityRating, missingInformation, keyRisks, recommendedNextQuestions
 - Keep executiveSummary to one short paragraph written like a Muloo operator explaining the recommended starting point to a smart client.
 - mainPainPoints should contain the 3 to 5 most important business or delivery problems this project is trying to solve.
 - recommendedApproach should be a direct recommendation in plain English, describing the best starting path in a confident but practical way.
@@ -4411,12 +4427,14 @@ Rules:
 - futureUpgradePath should explain what later expansion, packaging uplift, or deeper architecture could look like once Phase 1 proves value.
 - inScopeItems should list the key work items that are clearly part of this scoped job.
 - outOfScopeItems should list what is intentionally not being done in this phase so the scope stays boxed.
+- supportingTools should list practical supporting tools or infrastructure around HubSpot that strengthen the recommended solution, such as Databox, Railway, Supabase, Azure, self-hosted database, middleware, or ETL tooling. Only include tools that are genuinely useful for this scoped job.
 - engagementTrack should be a business-friendly label such as "Standalone implementation", "Technical implementation", or "Scoped integration".
 - platformFit should describe the recommended HubSpot fit and supporting architecture in one short phrase.
 - changeManagementRating, dataReadinessRating, and scopeVolatilityRating should be low, medium, or high.
 - missingInformation should contain only the most important open inputs still needed.
-- keyRisks should focus on delivery, handoff, technical complexity, and dependency risk.
-- recommendedNextQuestions should be practical next clarification points.
+- keyRisks should focus on delivery, handoff, technical complexity, and dependency risk. Return at least 3 items unless the brief is extremely thin.
+- recommendedNextQuestions should be practical next clarification points. Return at least 3 items unless the brief is extremely thin.
+- supportingTools should return 2 to 5 concrete recommendations when surrounding tooling materially strengthens the solution.
 - Base the answer on the scoped brief, the selected HubSpot packaging, supporting context, and any linked documents or notes.
 - Think like a senior Muloo consultant and operator, not a literal parser. Synthesize the pain point, recommend a sensible path, note packaging assumptions, and explain when a pragmatic workaround architecture is acceptable.
 - If implementationApproach is pragmatic_poc, prefer a boxed first phase that solves the core pain without prematurely loading cost or complexity.
@@ -4464,6 +4482,7 @@ Rules:
     mainPainPoints: parsedSummary.mainPainPoints ?? [],
     inScopeItems: parsedSummary.inScopeItems ?? [],
     outOfScopeItems: parsedSummary.outOfScopeItems ?? [],
+    supportingTools: parsedSummary.supportingTools ?? [],
     missingInformation: parsedSummary.missingInformation ?? [],
     keyRisks: parsedSummary.keyRisks ?? [],
     recommendedNextQuestions: parsedSummary.recommendedNextQuestions ?? []
@@ -4510,7 +4529,7 @@ Given a structured HubSpot discovery project, create a clear project-level disco
 
 Rules:
 - Return ONLY valid JSON. No markdown or explanation.
-- Use exactly these keys: executiveSummary, mainPainPoints, recommendedApproach, whyThisApproach, phaseOneFocus, futureUpgradePath, inScopeItems, outOfScopeItems, engagementTrack, platformFit, changeManagementRating, dataReadinessRating, scopeVolatilityRating, missingInformation, keyRisks, recommendedNextQuestions
+- Use exactly these keys: executiveSummary, mainPainPoints, recommendedApproach, whyThisApproach, phaseOneFocus, futureUpgradePath, inScopeItems, outOfScopeItems, supportingTools, engagementTrack, platformFit, changeManagementRating, dataReadinessRating, scopeVolatilityRating, missingInformation, keyRisks, recommendedNextQuestions
 - Keep executiveSummary to one short paragraph written for a smart client and an internal delivery lead.
 - mainPainPoints should capture the 3 to 5 most material business or delivery problems.
 - recommendedApproach should state the recommended way forward in plain English.
@@ -4519,9 +4538,11 @@ Rules:
 - futureUpgradePath should explain what later phases, upgrades, or broader operationalisation could look like.
 - inScopeItems should list the clearest items that belong in the recommended scope.
 - outOfScopeItems should list what should stay out of scope for now.
+- supportingTools should list practical supporting tools, reporting layers, or infrastructure that should sit alongside HubSpot when they materially improve the recommended solution.
 - missingInformation should contain only the most important information gaps.
-- keyRisks should focus on delivery, adoption, data, and scope risk.
-- recommendedNextQuestions should be practical and operator-friendly.
+- keyRisks should focus on delivery, adoption, data, and scope risk. Return at least 3 items unless the source material is extremely thin.
+- recommendedNextQuestions should be practical and operator-friendly. Return at least 3 items unless the source material is extremely thin.
+- supportingTools should return 2 to 5 concrete recommendations when surrounding tooling, storage, reporting, or integration layers materially improve the solution.
 - If discoveryProfile already contains a value for engagementTrack, platformFit, changeManagementRating, dataReadinessRating, or scopeVolatilityRating, preserve that meaning in the output.
 - Keep the tone clear, practical, and human. Avoid bloated consultant wording.`,
     JSON.stringify(
@@ -4544,6 +4565,7 @@ Rules:
     mainPainPoints: parsedSummary.mainPainPoints ?? [],
     inScopeItems: parsedSummary.inScopeItems ?? [],
     outOfScopeItems: parsedSummary.outOfScopeItems ?? [],
+    supportingTools: parsedSummary.supportingTools ?? [],
     missingInformation: parsedSummary.missingInformation ?? [],
     keyRisks: parsedSummary.keyRisks ?? [],
     recommendedNextQuestions: parsedSummary.recommendedNextQuestions ?? []
@@ -5121,17 +5143,15 @@ function serializeWorkspaceAiRouting<
 }
 
 async function ensureProductCatalogSeeded() {
-  const existingCount = await prisma.productCatalogItem.count();
-
-  if (existingCount > 0) {
-    return;
+  for (const product of defaultProductCatalog) {
+    await prisma.productCatalogItem.upsert({
+      where: { slug: product.slug },
+      update: {},
+      create: {
+        ...product
+      }
+    });
   }
-
-  await prisma.productCatalogItem.createMany({
-    data: defaultProductCatalog.map((product) => ({
-      ...product
-    }))
-  });
 }
 
 async function ensureProviderConnectionsSeeded() {
