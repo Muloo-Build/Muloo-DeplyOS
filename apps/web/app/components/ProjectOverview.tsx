@@ -2336,6 +2336,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           </p>
                         ) : null}
                       </div>
+                      {discoverySummary?.futureUpgradePath ? (
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Not in Phase 1 yet
+                          </p>
+                          <p className="mt-2 text-sm text-text-secondary">
+                            {discoverySummary.futureUpgradePath}
+                          </p>
+                        </div>
+                      ) : null}
                       <div className="rounded-xl bg-[#0b1126] px-4 py-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                           Main pain points
@@ -2496,11 +2506,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         ))}
                       </div>
 
-                      <div className="mt-5 grid gap-5 lg:grid-cols-3">
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <div className="mt-5 space-y-4">
+                        <details
+                          className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
+                          open
+                        >
+                          <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
                             Missing Information
-                          </p>
+                          </summary>
                           <ul className="mt-4 space-y-3 text-sm text-text-secondary">
                             {discoverySummary.missingInformation.length > 0 ? (
                               discoverySummary.missingInformation.map((item) => (
@@ -2510,12 +2523,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                               <li>No major gaps flagged.</li>
                             )}
                           </ul>
-                        </div>
+                        </details>
 
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <details className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                          <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
                             Key Risks
-                          </p>
+                          </summary>
                           <ul className="mt-4 space-y-3 text-sm text-text-secondary">
                             {discoverySummary.keyRisks.length > 0 ? (
                               discoverySummary.keyRisks.map((item) => (
@@ -2525,12 +2538,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                               <li>No major risks flagged.</li>
                             )}
                           </ul>
-                        </div>
+                        </details>
 
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <details className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                          <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
                             Recommended Next Questions
-                          </p>
+                          </summary>
                           <ul className="mt-4 space-y-3 text-sm text-text-secondary">
                             {discoverySummary.recommendedNextQuestions.length >
                             0 ? (
@@ -2541,7 +2554,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                               <li>No follow-up questions suggested yet.</li>
                             )}
                           </ul>
-                        </div>
+                        </details>
                       </div>
                     </>
                   ) : (
