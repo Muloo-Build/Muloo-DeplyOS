@@ -2111,6 +2111,54 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           </ul>
                         </div>
                       </div>
+
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Supporting tools
+                          </p>
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {(discoverySummary?.supportingTools?.length
+                              ? discoverySummary.supportingTools
+                              : ["No supporting tools recommended yet. Refresh the job summary after adding more context."]).slice(
+                              0,
+                              3
+                            ).map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Key risks
+                          </p>
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {(discoverySummary?.keyRisks?.length
+                              ? discoverySummary.keyRisks
+                              : ["No key risks have been surfaced yet."]).slice(
+                              0,
+                              3
+                            ).map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Next questions
+                          </p>
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {(discoverySummary?.recommendedNextQuestions?.length
+                              ? discoverySummary.recommendedNextQuestions
+                              : ["No next-step questions generated yet."]).slice(
+                              0,
+                              3
+                            ).map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
                     </div>
                   </section>
                 ) : null}

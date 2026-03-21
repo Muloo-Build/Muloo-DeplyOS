@@ -3223,6 +3223,196 @@ function getDiscoveryEvidenceText(
     .toLowerCase();
 }
 
+function uniqueList(items: Array<string | null | undefined>, maxItems = 6) {
+  return Array.from(
+    new Set(
+      items
+        .map((item) => item?.trim())
+        .filter((item): item is string => Boolean(item))
+    )
+  ).slice(0, maxItems);
+}
+
+function deriveSupportingToolsFallback(input: {
+  evidenceText: string;
+  selectedHubs: string[];
+  serviceFamily?: string | null;
+  implementationApproach?: string | null;
+}) {
+  const suggestions: string[] = [];
+  const selectedHubs = new Set(input.selectedHubs);
+  const evidenceText = input.evidenceText.toLowerCase();
+  const pragmaticApproach = input.implementationApproach === "pragmatic_poc";
+
+  if (
+    includesAny(evidenceText, [
+      "dashboard",
+      "reporting",
+      "executive dashboard",
+      "brand reporting",
+      "kpi"
+    ])
+  ) {
+    suggestions.push(
+      "Databox for executive and brand-level dashboards layered over HubSpot reporting."
+    );
+  }
+
+  if (
+    includesAny(evidenceText, [
+      "staging",
+      "middleware",
+      "database",
+      "dedupe",
+      "duplicate",
+      "data quality",
+      "extract",
+      "event platform"
+    ])
+  ) {
+    if (pragmaticApproach) {
+      suggestions.push(
+        "Supabase or Railway Postgres as a lightweight staging database for consolidation, normalization, and deduplication."
+      );
+    } else {
+      suggestions.push(
+        "A managed staging layer such as Azure SQL, Supabase, or Railway Postgres to separate heavy normalization from the operational HubSpot CRM."
+      );
+    }
+  }
+
+  if (
+    includesAny(evidenceText, [
+      "api",
+      "sync",
+      "integration",
+      "extract",
+      "webhook",
+      "current platform"
+    ])
+  ) {
+    suggestions.push(
+      "A lightweight sync or middleware layer to control extraction, transformation, and auditability between the source platform and HubSpot."
+    );
+  }
+
+  if (selectedHubs.has("cms")) {
+    suggestions.push(
+      "HubSpot Content Hub as the front-end content surface, with external infrastructure only where data or workflow complexity genuinely requires it."
+    );
+  }
+
+  if (selectedHubs.has("data")) {
+    suggestions.push(
+      "Databox plus a staging database gives a pragmatic data-and-reporting layer without forcing all complexity into HubSpot on day one."
+    );
+  }
+
+  if (input.serviceFamily === "custom_engineering") {
+    suggestions.push(
+      "A small engineering-owned staging service or self-hosted worker can keep complex processing outside HubSpot while still syncing CRM-friendly outputs back in."
+    );
+  }
+
+  return uniqueList(suggestions, 5);
+}
+
+function deriveKeyRisksFallback(input: {
+  evidenceText: string;
+  packagingAssessment: PackagingAssessment;
+}) {
+  const risks: string[] = [];
+  const evidenceText = input.evidenceText.toLowerCase();
+
+  if (
+    includesAny(evidenceText, ["duplicate", "dedupe", "identity", "attendance"])
+  ) {
+    risks.push(
+      "Identity resolution may require manual review where duplicates, job changes, or inconsistent company naming reduce matching confidence."
+    );
+  }
+
+  if (
+    includesAny(evidenceText, ["api", "extract", "export", "current platform"])
+  ) {
+    risks.push(
+      "Access limitations or poor source exports from the current platform could slow extraction, validation, and early proof-of-value work."
+    );
+  }
+
+  if (
+    includesAny(evidenceText, ["dashboard", "databox", "reporting", "brand"])
+  ) {
+    risks.push(
+      "Reporting credibility depends on clean source data and agreed metric definitions, especially for brand crossover and attendance history."
+    );
+  }
+
+  if (input.packagingAssessment.fit === "upgrade_needed") {
+    risks.push(
+      "The selected HubSpot packaging may constrain delivery unless the team explicitly agrees a workaround architecture or approves an upgrade path."
+    );
+  }
+
+  if (
+    includesAny(evidenceText, ["phase 1", "poc", "proof of concept", "lean"])
+  ) {
+    risks.push(
+      "Phase 1 can drift into a broader transformation unless the team keeps the POC tightly boxed around the agreed operational outcomes."
+    );
+  }
+
+  return uniqueList(risks, 5);
+}
+
+function deriveNextQuestionsFallback(input: {
+  evidenceText: string;
+  packagingAssessment: PackagingAssessment;
+}) {
+  const questions: string[] = [];
+  const evidenceText = input.evidenceText.toLowerCase();
+
+  if (
+    includesAny(evidenceText, ["api", "export", "extract", "platform"])
+  ) {
+    questions.push(
+      "What access is available to the current platform: API, database, scheduled export, or manual extracts?"
+    );
+  }
+
+  if (
+    includesAny(evidenceText, ["attendance", "registration", "event"])
+  ) {
+    questions.push(
+      "How do the source records distinguish registration, attendance, cancellation, no-show, and CPD completion today?"
+    );
+  }
+
+  if (
+    includesAny(evidenceText, ["duplicate", "identity", "company"])
+  ) {
+    questions.push(
+      "Which fields can be trusted most for identity resolution: email, phone, company, CRM ID, or another source key?"
+    );
+  }
+
+  if (
+    includesAny(evidenceText, ["dashboard", "reporting", "executive"])
+  ) {
+    questions.push(
+      "What are the minimum dashboards leadership needs in the first 30 days to treat the POC as successful?"
+    );
+  }
+
+  if (input.packagingAssessment.fit === "upgrade_needed") {
+    questions.push(
+      "Is the client comfortable with a workaround-led Phase 1, or do they want to approve a HubSpot packaging uplift before delivery starts?"
+    );
+  }
+
+  return uniqueList(questions, 5);
+}
+
 function deriveBlueprintGuidance(
   discoveryPayload: NonNullable<
     Awaited<ReturnType<typeof loadProjectDiscoveryForBlueprint>>
@@ -4411,6 +4601,16 @@ Rules:
 async function generateStandaloneScopeSummary(
   discoveryPayload: NonNullable<Awaited<ReturnType<typeof loadProjectDiscoveryForBlueprint>>>
 ) {
+  const evidenceText = getDiscoveryEvidenceText(discoveryPayload);
+  const packagingAssessment = derivePlatformPackagingAssessment({
+    selectedHubs: discoveryPayload.discovery.selectedHubs,
+    customerPlatformTier: discoveryPayload.project.customerPlatformTier,
+    platformTierSelections: normalizePlatformTierSelections(
+      discoveryPayload.project.platformTierSelections
+    ),
+    implementationApproach: discoveryPayload.project.implementationApproach,
+    evidenceText
+  });
   const rawSummary = await callAiWorkflow(
     "scoped_summary",
     `You are Muloo Deploy OS's scoped implementation adviser.
@@ -4482,10 +4682,34 @@ Rules:
     mainPainPoints: parsedSummary.mainPainPoints ?? [],
     inScopeItems: parsedSummary.inScopeItems ?? [],
     outOfScopeItems: parsedSummary.outOfScopeItems ?? [],
-    supportingTools: parsedSummary.supportingTools ?? [],
+    supportingTools: uniqueList(
+      [
+        ...(parsedSummary.supportingTools ?? []),
+        ...deriveSupportingToolsFallback({
+          evidenceText,
+          selectedHubs: discoveryPayload.discovery.selectedHubs,
+          serviceFamily: discoveryPayload.project.serviceFamily,
+          implementationApproach:
+            discoveryPayload.project.implementationApproach
+        })
+      ],
+      5
+    ),
     missingInformation: parsedSummary.missingInformation ?? [],
-    keyRisks: parsedSummary.keyRisks ?? [],
-    recommendedNextQuestions: parsedSummary.recommendedNextQuestions ?? []
+    keyRisks: uniqueList(
+      [
+        ...(parsedSummary.keyRisks ?? []),
+        ...deriveKeyRisksFallback({ evidenceText, packagingAssessment })
+      ],
+      5
+    ),
+    recommendedNextQuestions: uniqueList(
+      [
+        ...(parsedSummary.recommendedNextQuestions ?? []),
+        ...deriveNextQuestionsFallback({ evidenceText, packagingAssessment })
+      ],
+      5
+    )
   };
 
   const savedSummary = await prisma.discoverySummary.upsert({
@@ -4565,10 +4789,25 @@ Rules:
     mainPainPoints: parsedSummary.mainPainPoints ?? [],
     inScopeItems: parsedSummary.inScopeItems ?? [],
     outOfScopeItems: parsedSummary.outOfScopeItems ?? [],
-    supportingTools: parsedSummary.supportingTools ?? [],
+    supportingTools: uniqueList(
+      [
+        ...(parsedSummary.supportingTools ?? []),
+        ...deriveSupportingToolsFallback({
+          evidenceText: getDiscoveryEvidenceText(discoveryPayload),
+          selectedHubs: discoveryPayload.discovery.selectedHubs,
+          serviceFamily: discoveryPayload.project.serviceFamily,
+          implementationApproach:
+            discoveryPayload.project.implementationApproach
+        })
+      ],
+      5
+    ),
     missingInformation: parsedSummary.missingInformation ?? [],
-    keyRisks: parsedSummary.keyRisks ?? [],
-    recommendedNextQuestions: parsedSummary.recommendedNextQuestions ?? []
+    keyRisks: uniqueList(parsedSummary.keyRisks ?? [], 5),
+    recommendedNextQuestions: uniqueList(
+      parsedSummary.recommendedNextQuestions ?? [],
+      5
+    )
   };
 
   const savedSummary = await prisma.discoverySummary.upsert({
