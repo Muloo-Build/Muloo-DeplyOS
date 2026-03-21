@@ -5,6 +5,11 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import AppShell from "./AppShell";
+import {
+  getDisplayKeyRisks,
+  getDisplayNextQuestions,
+  getDisplaySupportingTools
+} from "./scopedRecommendationFallbacks";
 
 type CurrencyCode = "ZAR" | "GBP" | "EUR" | "USD" | "AUD";
 type RateTierKey = "implementation" | "consulting";
@@ -277,9 +282,12 @@ export default function BlueprintWorkspace({
   );
   const totalFeeZar = totalHumanHours * rateTiers[rateTier].hourlyRateZar;
   const isStandaloneQuote = project?.scopeType === "standalone_quote";
-  const supportingTools = summary?.supportingTools ?? [];
-  const keyRisks = summary?.keyRisks ?? [];
-  const nextQuestions = summary?.recommendedNextQuestions ?? [];
+  const supportingTools = getDisplaySupportingTools(project, summary?.supportingTools);
+  const keyRisks = getDisplayKeyRisks(project, summary?.keyRisks);
+  const nextQuestions = getDisplayNextQuestions(
+    project,
+    summary?.recommendedNextQuestions
+  );
 
   return (
     <AppShell>

@@ -3353,6 +3353,21 @@ function deriveSupportingToolsFallback(input: {
     );
   }
 
+  if (selectedHubs.has("marketing")) {
+    suggestions.push(
+      "Databox can sit alongside HubSpot to give leadership cleaner executive and brand-level visibility before a broader Marketing Hub rollout."
+    );
+  }
+
+  if (
+    selectedHubs.has("data") ||
+    includesAny(evidenceText, ["warehouse", "etl", "transform", "normalize"])
+  ) {
+    suggestions.push(
+      "A lightweight ETL or transformation layer should own normalization and auditability so HubSpot only receives CRM-friendly summary records."
+    );
+  }
+
   if (input.serviceFamily === "custom_engineering") {
     suggestions.push(
       "A small engineering-owned staging service or self-hosted worker can keep complex processing outside HubSpot while still syncing CRM-friendly outputs back in."
@@ -3505,6 +3520,83 @@ function deriveNextQuestionsFallback(input: {
   ) {
     questions.push(
       "Does the client want Muloo to include a paid SOP and documentation pack covering the data model, operating process, and handover guidance?"
+    );
+  }
+
+  return uniqueList(questions, 5);
+}
+
+function ensureMinimumRecommendations(
+  items: string[],
+  fallbacks: string[],
+  minimum: number,
+  maxItems = 5
+) {
+  if (items.length >= minimum) {
+    return uniqueList(items, maxItems);
+  }
+
+  return uniqueList([...items, ...fallbacks], maxItems);
+}
+
+function deriveDefaultSupportingTools(input: {
+  selectedHubs: string[];
+  packagingAssessment: PackagingAssessment;
+}) {
+  const suggestions: string[] = [];
+  const selectedHubs = new Set(input.selectedHubs);
+
+  suggestions.push(
+    "Databox for executive and operational dashboards layered over HubSpot once the core CRM views are in place."
+  );
+
+  if (selectedHubs.has("data") || input.packagingAssessment.fit !== "good") {
+    suggestions.push(
+      "A lightweight staging database such as Railway Postgres, Supabase, or Azure SQL to keep normalization and auditability outside HubSpot."
+    );
+  }
+
+  suggestions.push(
+    "A small middleware or sync layer to control extraction, transformation, and CRM-safe data delivery into HubSpot."
+  );
+
+  suggestions.push(
+    "Documentation & SOP Pack as a paid bolt-on so the agreed model, process rules, and handover guidance do not stay trapped in delivery conversations."
+  );
+
+  return uniqueList(suggestions, 5);
+}
+
+function deriveDefaultKeyRisks(input: {
+  packagingAssessment: PackagingAssessment;
+}) {
+  const risks: string[] = [
+    "The current source data may require more manual cleanup than expected before duplicate resolution is reliable.",
+    "A boxed Phase 1 can still drift if the team starts solving full future-state requirements instead of the agreed POC outcomes.",
+    "Reporting trust will depend on agreeing metric definitions and sample validation early, otherwise leadership may challenge the outputs."
+  ];
+
+  if (input.packagingAssessment.fit !== "good") {
+    risks.push(
+      "The chosen HubSpot packaging may only work if the team accepts a workaround architecture and keeps the complex model outside HubSpot."
+    );
+  }
+
+  return uniqueList(risks, 5);
+}
+
+function deriveDefaultNextQuestions(input: {
+  packagingAssessment: PackagingAssessment;
+}) {
+  const questions: string[] = [
+    "What is the minimum sample data set we can use to prove identity resolution, attendance history, and brand participation in Phase 1?",
+    "Which dashboards or metrics must leadership see in the first release for the POC to be treated as successful?",
+    "Which parts of the current process must stay manual in Phase 1, and which parts genuinely need to be automated now?"
+  ];
+
+  if (input.packagingAssessment.fit !== "good") {
+    questions.push(
+      "Is the client comfortable with a workaround-led Phase 1, or do they want to approve a HubSpot packaging uplift before delivery starts?"
     );
   }
 
@@ -4785,32 +4877,50 @@ Rules:
     mainPainPoints: parsedSummary.mainPainPoints ?? [],
     inScopeItems: parsedSummary.inScopeItems ?? [],
     outOfScopeItems: parsedSummary.outOfScopeItems ?? [],
-    supportingTools: uniqueList(
-      [
-        ...(parsedSummary.supportingTools ?? []),
-        ...deriveSupportingToolsFallback({
-          evidenceText,
-          selectedHubs: discoveryPayload.discovery.selectedHubs,
-          serviceFamily: discoveryPayload.project.serviceFamily,
-          implementationApproach:
-            discoveryPayload.project.implementationApproach
-        })
-      ],
+    supportingTools: ensureMinimumRecommendations(
+      uniqueList(
+        [
+          ...(parsedSummary.supportingTools ?? []),
+          ...deriveSupportingToolsFallback({
+            evidenceText,
+            selectedHubs: discoveryPayload.discovery.selectedHubs,
+            serviceFamily: discoveryPayload.project.serviceFamily,
+            implementationApproach:
+              discoveryPayload.project.implementationApproach
+          })
+        ],
+        5
+      ),
+      deriveDefaultSupportingTools({
+        selectedHubs: discoveryPayload.discovery.selectedHubs,
+        packagingAssessment
+      }),
+      3,
       5
     ),
     missingInformation: parsedSummary.missingInformation ?? [],
-    keyRisks: uniqueList(
-      [
-        ...(parsedSummary.keyRisks ?? []),
-        ...deriveKeyRisksFallback({ evidenceText, packagingAssessment })
-      ],
+    keyRisks: ensureMinimumRecommendations(
+      uniqueList(
+        [
+          ...(parsedSummary.keyRisks ?? []),
+          ...deriveKeyRisksFallback({ evidenceText, packagingAssessment })
+        ],
+        5
+      ),
+      deriveDefaultKeyRisks({ packagingAssessment }),
+      3,
       5
     ),
-    recommendedNextQuestions: uniqueList(
-      [
-        ...(parsedSummary.recommendedNextQuestions ?? []),
-        ...deriveNextQuestionsFallback({ evidenceText, packagingAssessment })
-      ],
+    recommendedNextQuestions: ensureMinimumRecommendations(
+      uniqueList(
+        [
+          ...(parsedSummary.recommendedNextQuestions ?? []),
+          ...deriveNextQuestionsFallback({ evidenceText, packagingAssessment })
+        ],
+        5
+      ),
+      deriveDefaultNextQuestions({ packagingAssessment }),
+      3,
       5
     )
   };
@@ -4849,6 +4959,16 @@ async function generateDiscoverySummary(projectId: string) {
         .filter(([, value]) => value.trim().length === 0)
         .map(([key]) => `Session ${session.session}: ${key}`)
   );
+  const evidenceText = getDiscoveryEvidenceText(discoveryPayload);
+  const packagingAssessment = derivePlatformPackagingAssessment({
+    selectedHubs: discoveryPayload.discovery.selectedHubs,
+    customerPlatformTier: discoveryPayload.project.customerPlatformTier,
+    platformTierSelections: normalizePlatformTierSelections(
+      discoveryPayload.project.platformTierSelections
+    ),
+    implementationApproach: discoveryPayload.project.implementationApproach,
+    evidenceText
+  });
 
   const rawSummary = await callAiWorkflow("discovery_summary",
     `You are Muloo Deploy OS's Discovery Structuring Agent.
@@ -4892,23 +5012,50 @@ Rules:
     mainPainPoints: parsedSummary.mainPainPoints ?? [],
     inScopeItems: parsedSummary.inScopeItems ?? [],
     outOfScopeItems: parsedSummary.outOfScopeItems ?? [],
-    supportingTools: uniqueList(
-      [
-        ...(parsedSummary.supportingTools ?? []),
-        ...deriveSupportingToolsFallback({
-          evidenceText: getDiscoveryEvidenceText(discoveryPayload),
-          selectedHubs: discoveryPayload.discovery.selectedHubs,
-          serviceFamily: discoveryPayload.project.serviceFamily,
-          implementationApproach:
-            discoveryPayload.project.implementationApproach
-        })
-      ],
+    supportingTools: ensureMinimumRecommendations(
+      uniqueList(
+        [
+          ...(parsedSummary.supportingTools ?? []),
+          ...deriveSupportingToolsFallback({
+            evidenceText,
+            selectedHubs: discoveryPayload.discovery.selectedHubs,
+            serviceFamily: discoveryPayload.project.serviceFamily,
+            implementationApproach:
+              discoveryPayload.project.implementationApproach
+          })
+        ],
+        5
+      ),
+      deriveDefaultSupportingTools({
+        selectedHubs: discoveryPayload.discovery.selectedHubs,
+        packagingAssessment
+      }),
+      2,
       5
     ),
     missingInformation: parsedSummary.missingInformation ?? [],
-    keyRisks: uniqueList(parsedSummary.keyRisks ?? [], 5),
-    recommendedNextQuestions: uniqueList(
-      parsedSummary.recommendedNextQuestions ?? [],
+    keyRisks: ensureMinimumRecommendations(
+      uniqueList(
+        [
+          ...(parsedSummary.keyRisks ?? []),
+          ...deriveKeyRisksFallback({ evidenceText, packagingAssessment })
+        ],
+        5
+      ),
+      deriveDefaultKeyRisks({ packagingAssessment }),
+      3,
+      5
+    ),
+    recommendedNextQuestions: ensureMinimumRecommendations(
+      uniqueList(
+        [
+          ...(parsedSummary.recommendedNextQuestions ?? []),
+          ...deriveNextQuestionsFallback({ evidenceText, packagingAssessment })
+        ],
+        5
+      ),
+      deriveDefaultNextQuestions({ packagingAssessment }),
+      3,
       5
     )
   };

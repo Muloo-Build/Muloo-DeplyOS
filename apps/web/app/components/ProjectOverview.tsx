@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import AppShell from "./AppShell";
+import {
+  getDisplayKeyRisks,
+  getDisplayNextQuestions,
+  getDisplaySupportingTools
+} from "./scopedRecommendationFallbacks";
 
 interface Project {
   id: string;
@@ -564,6 +569,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     blueprint?.tasks
       .filter((task) => task.type === "Human")
       .reduce((total, task) => total + task.effortHours, 0) ?? 0;
+  const scopedSupportingTools = getDisplaySupportingTools(
+    project,
+    discoverySummary?.supportingTools
+  );
+  const scopedKeyRisks = getDisplayKeyRisks(project, discoverySummary?.keyRisks);
+  const scopedNextQuestions = getDisplayNextQuestions(
+    project,
+    discoverySummary?.recommendedNextQuestions
+  );
 
   function startEditing(field: Exclude<EditableField, null>) {
     if (!project) {
@@ -2118,9 +2132,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             Supporting tools
                           </p>
                           <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                            {(discoverySummary?.supportingTools?.length
-                              ? discoverySummary.supportingTools
-                              : ["No supporting tools recommended yet. Refresh the job summary after adding more context."]).slice(
+                            {scopedSupportingTools.slice(
                               0,
                               3
                             ).map((item) => (
@@ -2133,9 +2145,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             Key risks
                           </p>
                           <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                            {(discoverySummary?.keyRisks?.length
-                              ? discoverySummary.keyRisks
-                              : ["No key risks have been surfaced yet."]).slice(
+                            {scopedKeyRisks.slice(
                               0,
                               3
                             ).map((item) => (
@@ -2148,9 +2158,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             Next questions
                           </p>
                           <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                            {(discoverySummary?.recommendedNextQuestions?.length
-                              ? discoverySummary.recommendedNextQuestions
-                              : ["No next-step questions generated yet."]).slice(
+                            {scopedNextQuestions.slice(
                               0,
                               3
                             ).map((item) => (
@@ -2477,9 +2485,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                               Supporting tools
                             </p>
-                            {discoverySummary?.supportingTools?.length ? (
+                            {scopedSupportingTools.length ? (
                               <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                                {discoverySummary.supportingTools.map((item) => (
+                                {scopedSupportingTools.map((item) => (
                                   <li key={item}>{item}</li>
                                 ))}
                               </ul>
@@ -2497,9 +2505,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 Key risks
                               </p>
                               <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                                {(discoverySummary?.keyRisks?.length
-                                  ? discoverySummary.keyRisks
-                                  : ["No key risks have been surfaced yet. Refresh the job summary after adding more context."]).map(
+                                {scopedKeyRisks.map(
                                   (item) => (
                                     <li key={item}>{item}</li>
                                   )
@@ -2511,9 +2517,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 Recommended next questions
                               </p>
                               <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                                {(discoverySummary?.recommendedNextQuestions?.length
-                                  ? discoverySummary.recommendedNextQuestions
-                                  : ["No follow-up questions generated yet. Refresh the job summary after adding more source material."]).map(
+                                {scopedNextQuestions.map(
                                   (item) => (
                                     <li key={item}>{item}</li>
                                   )
@@ -2713,8 +2717,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             Key Risks
                           </summary>
                           <ul className="mt-4 space-y-3 text-sm text-text-secondary">
-                            {discoverySummary.keyRisks.length > 0 ? (
-                              discoverySummary.keyRisks.map((item) => (
+                            {scopedKeyRisks.length > 0 ? (
+                              scopedKeyRisks.map((item) => (
                                 <li key={item}>{item}</li>
                               ))
                             ) : (
@@ -2728,9 +2732,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             Recommended Next Questions
                           </summary>
                           <ul className="mt-4 space-y-3 text-sm text-text-secondary">
-                            {discoverySummary.recommendedNextQuestions.length >
-                            0 ? (
-                              discoverySummary.recommendedNextQuestions.map(
+                            {scopedNextQuestions.length > 0 ? (
+                              scopedNextQuestions.map(
                                 (item) => <li key={item}>{item}</li>
                               )
                             ) : (

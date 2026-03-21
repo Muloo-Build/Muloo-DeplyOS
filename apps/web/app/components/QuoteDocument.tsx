@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
+import {
+  getDisplayKeyRisks,
+  getDisplayNextQuestions,
+  getDisplaySupportingTools
+} from "./scopedRecommendationFallbacks";
 
 type CurrencyCode = "ZAR" | "GBP" | "EUR" | "USD" | "AUD";
 
@@ -477,12 +482,17 @@ export default function QuoteDocument({
     isStandaloneQuote && summary?.outOfScopeItems?.length
       ? summary.outOfScopeItems
       : splitIntoList(session4.out_of_scope);
-  const supportingTools = summary?.supportingTools ?? [];
-  const keyRisks =
-    summary?.keyRisks?.length && summary.keyRisks.length > 0
+  const supportingTools = isStandaloneQuote
+    ? getDisplaySupportingTools(project, summary?.supportingTools)
+    : summary?.supportingTools ?? [];
+  const keyRisks = isStandaloneQuote
+    ? getDisplayKeyRisks(project, summary?.keyRisks)
+    : summary?.keyRisks?.length && summary.keyRisks.length > 0
       ? summary.keyRisks
       : splitIntoList(session4.risks_and_blockers);
-  const nextQuestions = summary?.recommendedNextQuestions ?? [];
+  const nextQuestions = isStandaloneQuote
+    ? getDisplayNextQuestions(project, summary?.recommendedNextQuestions)
+    : summary?.recommendedNextQuestions ?? [];
   const documentationProduct = products.find(
     (product) => product.slug === "documentation-sop-pack"
   );
