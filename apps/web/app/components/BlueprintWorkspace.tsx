@@ -16,10 +16,33 @@ interface Project {
   status: string;
   engagementType: string;
   scopeType?: string | null;
+  implementationApproach?: string | null;
+  customerPlatformTier?: string | null;
+  scopeExecutiveSummary?: string | null;
+  solutionRecommendation?: string | null;
+  packagingAssessment?: {
+    fit: "good" | "attention" | "upgrade_needed";
+    summary: string;
+    warnings: string[];
+    recommendedNextStep: string;
+    reasoning: string[];
+    workaroundPath?: string | null;
+  } | null;
   client: {
     name: string;
   };
   selectedHubs: string[];
+}
+
+interface DiscoverySummary {
+  executiveSummary?: string;
+  recommendedApproach?: string;
+  whyThisApproach?: string;
+  phaseOneFocus?: string;
+  futureUpgradePath?: string;
+  supportingTools?: string[];
+  keyRisks?: string[];
+  recommendedNextQuestions?: string[];
 }
 
 interface BlueprintTask {
@@ -100,6 +123,7 @@ export default function BlueprintWorkspace({
   const autoGenerateRequested = searchParams.get("generate") === "1";
   const autoGenerateStarted = useRef(false);
   const [project, setProject] = useState<Project | null>(null);
+  const [summary, setSummary] = useState<DiscoverySummary | null>(null);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -113,9 +137,10 @@ export default function BlueprintWorkspace({
     setError(null);
 
     try {
-      const [projectResponse, blueprintResponse] = await Promise.all([
+      const [projectResponse, blueprintResponse, summaryResponse] = await Promise.all([
         fetch(`/api/projects/${encodeURIComponent(projectId)}`),
-        fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`)
+        fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
+        fetch(`/api/projects/${encodeURIComponent(projectId)}/summary`)
       ]);
 
       if (!projectResponse.ok) {
@@ -125,6 +150,13 @@ export default function BlueprintWorkspace({
 
       const projectBody = await projectResponse.json();
       setProject(projectBody.project);
+
+      if (summaryResponse.ok) {
+        const summaryBody = await summaryResponse.json();
+        setSummary(summaryBody.summary ?? null);
+      } else {
+        setSummary(null);
+      }
 
       if (blueprintResponse.status === 404) {
         setBlueprint(null);
@@ -245,6 +277,9 @@ export default function BlueprintWorkspace({
   );
   const totalFeeZar = totalHumanHours * rateTiers[rateTier].hourlyRateZar;
   const isStandaloneQuote = project?.scopeType === "standalone_quote";
+  const supportingTools = summary?.supportingTools ?? [];
+  const keyRisks = summary?.keyRisks ?? [];
+  const nextQuestions = summary?.recommendedNextQuestions ?? [];
 
   return (
     <AppShell>
@@ -377,6 +412,97 @@ export default function BlueprintWorkspace({
                     </div>
                   ))}
                 </section>
+
+                {isStandaloneQuote ? (
+                  <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+                      <div className="space-y-4">
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Recommendation context
+                          </p>
+                          <p className="mt-3 text-sm text-white">
+                            {summary?.recommendedApproach ||
+                              project?.solutionRecommendation ||
+                              project?.scopeExecutiveSummary ||
+                              "Regenerate the technical blueprint after refreshing the scoped summary to pull a clearer recommendation through."}
+                          </p>
+                          {summary?.whyThisApproach ? (
+                            <p className="mt-3 text-sm text-text-secondary">
+                              {summary.whyThisApproach}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Phase 1 focus
+                            </p>
+                            <p className="mt-2 text-sm text-text-secondary">
+                              {summary?.phaseOneFocus ||
+                                "Use the first phase to prove the boxed solution and confirm packaging, data access, and operating fit before expanding the scope."}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Platform packaging
+                            </p>
+                            <p className="mt-2 text-sm text-white">
+                              {project?.customerPlatformTier
+                                ? `${project.customerPlatformTier} customer platform`
+                                : "No customer platform selected"}
+                            </p>
+                            {project?.packagingAssessment ? (
+                              <p className="mt-3 text-sm text-text-secondary">
+                                {project.packagingAssessment.summary}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Supporting tools
+                          </p>
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {(supportingTools.length
+                              ? supportingTools
+                              : ["No supporting tool recommendations loaded yet."]).map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Key risks
+                            </p>
+                            <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                              {(keyRisks.length ? keyRisks : ["No key risks loaded yet."]).map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Next questions
+                            </p>
+                            <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                              {(nextQuestions.length
+                                ? nextQuestions
+                                : ["No follow-up questions loaded yet."]).map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
 
                 <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
                 <section className="space-y-6">

@@ -3283,6 +3283,36 @@ function deriveSupportingToolsFallback(input: {
 
   if (
     includesAny(evidenceText, [
+      "microsoft",
+      "azure",
+      "office 365",
+      "teams",
+      "sharepoint",
+      "sql server"
+    ])
+  ) {
+    suggestions.push(
+      "An Azure-native staging layer such as Azure SQL or Azure Functions may fit better if the client already operates primarily inside the Microsoft stack."
+    );
+  }
+
+  if (
+    includesAny(evidenceText, [
+      "self hosted",
+      "self-hosted",
+      "private cloud",
+      "private server",
+      "own server",
+      "internal hosting"
+    ])
+  ) {
+    suggestions.push(
+      "A self-hosted or private worker service can keep sensitive transformation logic under tighter client control while still pushing CRM-friendly outputs into HubSpot."
+    );
+  }
+
+  if (
+    includesAny(evidenceText, [
       "api",
       "sync",
       "integration",
@@ -3293,6 +3323,21 @@ function deriveSupportingToolsFallback(input: {
   ) {
     suggestions.push(
       "A lightweight sync or middleware layer to control extraction, transformation, and auditability between the source platform and HubSpot."
+    );
+  }
+
+  if (
+    includesAny(evidenceText, [
+      "documentation",
+      "handover",
+      "process",
+      "sop",
+      "operating procedure",
+      "training"
+    ])
+  ) {
+    suggestions.push(
+      "A paid Documentation & SOP Pack can capture the agreed data model, sync logic, operating procedures, and handover notes once the Phase 1 process is proven."
     );
   }
 
@@ -3355,6 +3400,33 @@ function deriveKeyRisksFallback(input: {
   }
 
   if (
+    includesAny(evidenceText, [
+      "dashboard",
+      "databox",
+      "reporting",
+      "executive",
+      "brand reporting"
+    ])
+  ) {
+    risks.push(
+      "Dashboard value depends on agreeing metric definitions early, otherwise executives may lose confidence in the first reporting outputs."
+    );
+  }
+
+  if (
+    includesAny(evidenceText, [
+      "documentation",
+      "handover",
+      "sop",
+      "process"
+    ])
+  ) {
+    risks.push(
+      "If documentation and SOP creation are not explicitly scoped, operational knowledge may stay trapped in delivery conversations and handover quality will vary."
+    );
+  }
+
+  if (
     includesAny(evidenceText, ["phase 1", "poc", "proof of concept", "lean"])
   ) {
     risks.push(
@@ -3407,6 +3479,32 @@ function deriveNextQuestionsFallback(input: {
   if (input.packagingAssessment.fit === "upgrade_needed") {
     questions.push(
       "Is the client comfortable with a workaround-led Phase 1, or do they want to approve a HubSpot packaging uplift before delivery starts?"
+    );
+  }
+
+  if (
+    includesAny(evidenceText, [
+      "dashboard",
+      "databox",
+      "reporting",
+      "executive"
+    ])
+  ) {
+    questions.push(
+      "Which executive, operational, and brand-level metrics must appear in the first reporting release for this POC to be judged successful?"
+    );
+  }
+
+  if (
+    includesAny(evidenceText, [
+      "documentation",
+      "handover",
+      "sop",
+      "process"
+    ])
+  ) {
+    questions.push(
+      "Does the client want Muloo to include a paid SOP and documentation pack covering the data model, operating process, and handover guidance?"
     );
   }
 

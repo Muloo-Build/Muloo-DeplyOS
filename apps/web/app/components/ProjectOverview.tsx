@@ -2388,12 +2388,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       </div>
                     </div>
 
-                    <div className="mt-5 grid gap-4">
-                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Recommended way forward
-                        </p>
-                        <p className="mt-2 text-sm text-white">
+                    <div className="mt-5 space-y-4">
+                      <details
+                        className="rounded-xl bg-[#0b1126] px-4 py-4"
+                        open
+                      >
+                        <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Delivery recommendation
+                        </summary>
+                        <p className="mt-3 text-sm text-white">
                           {discoverySummary?.recommendedApproach ||
                             project.scopeExecutiveSummary ||
                             project.solutionRecommendation ||
@@ -2403,131 +2406,150 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           {discoverySummary?.whyThisApproach ||
                             "The system will summarize the best path forward, explain why it makes sense, and keep the recommendation boxed to the scoped outcome."}
                         </p>
-                      </div>
-                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Phase 1 Focus
-                        </p>
-                        <p className="mt-2 text-sm text-white">
-                          {discoverySummary?.phaseOneFocus ||
-                            "Use the initial phase to solve the core pain point in a pragmatic way before loading extra packaging or architecture."}
-                        </p>
-                        {discoverySummary?.futureUpgradePath ? (
-                          <p className="mt-3 text-sm text-text-secondary">
-                            Later path: {discoverySummary.futureUpgradePath}
+                        <div className="mt-4 rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Phase 1 focus
                           </p>
+                          <p className="mt-2 text-sm text-white">
+                            {discoverySummary?.phaseOneFocus ||
+                              "Use the initial phase to solve the core pain point in a pragmatic way before loading extra packaging or architecture."}
+                          </p>
+                          {discoverySummary?.futureUpgradePath ? (
+                            <p className="mt-3 text-sm text-text-secondary">
+                              Later path: {discoverySummary.futureUpgradePath}
+                            </p>
                           ) : null}
-                      </div>
-                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Supporting tools
-                        </p>
-                        {discoverySummary?.supportingTools?.length ? (
-                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                            {discoverySummary.supportingTools.map((item) => (
-                              <li key={item}>{item}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="mt-2 text-sm text-text-secondary">
-                            No supporting tools recommended yet. Refresh the job
-                            summary to generate architecture-aware tool
-                            suggestions around HubSpot.
-                          </p>
-                        )}
-                      </div>
-                      {discoverySummary?.futureUpgradePath ? (
-                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Not in Phase 1 yet
-                          </p>
-                          <p className="mt-2 text-sm text-text-secondary">
-                            {discoverySummary.futureUpgradePath}
-                          </p>
                         </div>
-                      ) : null}
-                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Main pain points
-                        </p>
-                        {discoverySummary?.mainPainPoints.length ? (
-                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                            {discoverySummary.mainPainPoints.map((item) => (
-                              <li key={item}>{item}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="mt-2 text-sm text-text-secondary">
-                            {getPreviewText(
-                              project.problemStatement ||
-                                project.commercialBrief ||
-                                "No pain-point summary captured yet.",
-                              220
+                      </details>
+
+                      <details className="rounded-xl bg-[#0b1126] px-4 py-4">
+                        <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Scope and delivery boundaries
+                        </summary>
+                        <div className="mt-4 grid gap-4 md:grid-cols-2">
+                          <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              In scope now
+                            </p>
+                            <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                              {(discoverySummary?.inScopeItems?.length
+                                ? discoverySummary.inScopeItems
+                                : ["The summary should define the boxed scope for this phase here."]).map(
+                                (item) => (
+                                  <li key={item}>{item}</li>
+                                )
+                              )}
+                            </ul>
+                          </div>
+                          <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Out of scope for now
+                            </p>
+                            <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                              {(discoverySummary?.outOfScopeItems?.length
+                                ? discoverySummary.outOfScopeItems
+                                : ["The summary should call out what stays outside this phase so the work remains controlled."]).map(
+                                (item) => (
+                                  <li key={item}>{item}</li>
+                                )
+                              )}
+                            </ul>
+                          </div>
+                        </div>
+                        {discoverySummary?.futureUpgradePath ? (
+                          <div className="mt-4 rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Not in Phase 1 yet
+                            </p>
+                            <p className="mt-2 text-sm text-text-secondary">
+                              {discoverySummary.futureUpgradePath}
+                            </p>
+                          </div>
+                        ) : null}
+                      </details>
+
+                      <details className="rounded-xl bg-[#0b1126] px-4 py-4">
+                        <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Tools, risks, and open questions
+                        </summary>
+                        <div className="mt-4 space-y-4">
+                          <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Supporting tools
+                            </p>
+                            {discoverySummary?.supportingTools?.length ? (
+                              <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                                {discoverySummary.supportingTools.map((item) => (
+                                  <li key={item}>{item}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="mt-2 text-sm text-text-secondary">
+                                No supporting tools recommended yet. Refresh the job
+                                summary to generate architecture-aware tool
+                                suggestions around HubSpot.
+                              </p>
                             )}
-                          </p>
-                        )}
-                      </div>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-4 py-4">
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Key risks
+                              </p>
+                              <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                                {(discoverySummary?.keyRisks?.length
+                                  ? discoverySummary.keyRisks
+                                  : ["No key risks have been surfaced yet. Refresh the job summary after adding more context."]).map(
+                                  (item) => (
+                                    <li key={item}>{item}</li>
+                                  )
+                                )}
+                              </ul>
+                            </div>
+                            <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-4 py-4">
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Recommended next questions
+                              </p>
+                              <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                                {(discoverySummary?.recommendedNextQuestions?.length
+                                  ? discoverySummary.recommendedNextQuestions
+                                  : ["No follow-up questions generated yet. Refresh the job summary after adding more source material."]).map(
+                                  (item) => (
+                                    <li key={item}>{item}</li>
+                                  )
+                                )}
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </details>
+
+                      <details className="rounded-xl bg-[#0b1126] px-4 py-4">
+                        <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Problem and packaging context
+                        </summary>
+                        <div className="mt-4 rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-4 py-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                            In scope now
+                            Main pain points
                           </p>
-                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                            {(discoverySummary?.inScopeItems?.length
-                              ? discoverySummary.inScopeItems
-                              : ["The summary should define the boxed scope for this phase here."]).map(
-                              (item) => (
+                          {discoverySummary?.mainPainPoints.length ? (
+                            <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                              {discoverySummary.mainPainPoints.map((item) => (
                                 <li key={item}>{item}</li>
-                              )
-                            )}
-                          </ul>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-2 text-sm text-text-secondary">
+                              {getPreviewText(
+                                project.problemStatement ||
+                                  project.commercialBrief ||
+                                  "No pain-point summary captured yet.",
+                                220
+                              )}
+                            </p>
+                          )}
                         </div>
-                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Out of scope for now
-                          </p>
-                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                            {(discoverySummary?.outOfScopeItems?.length
-                              ? discoverySummary.outOfScopeItems
-                              : ["The summary should call out what stays outside this phase so the work remains controlled."]).map(
-                              (item) => (
-                                <li key={item}>{item}</li>
-                              )
-                            )}
-                          </ul>
-                        </div>
-                      </div>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Key risks
-                          </p>
-                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                            {(discoverySummary?.keyRisks?.length
-                              ? discoverySummary.keyRisks
-                              : ["No key risks have been surfaced yet. Refresh the job summary after adding more context."]).map(
-                              (item) => (
-                                <li key={item}>{item}</li>
-                              )
-                            )}
-                          </ul>
-                        </div>
-                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Recommended next questions
-                          </p>
-                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                            {(discoverySummary?.recommendedNextQuestions?.length
-                              ? discoverySummary.recommendedNextQuestions
-                              : ["No follow-up questions generated yet. Refresh the job summary after adding more source material."]).map(
-                              (item) => (
-                                <li key={item}>{item}</li>
-                              )
-                            )}
-                          </ul>
-                        </div>
-                      </div>
-                      <div className="rounded-xl bg-[#0b1126] px-4 py-4">
+                        <div className="mt-4 rounded-xl bg-background px-4 py-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                           Platform packaging
                         </p>
@@ -2608,7 +2630,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             </p>
                           </div>
                         ) : null}
-                      </div>
+                        </div>
+                      </details>
                     </div>
                   </section>
                 )}

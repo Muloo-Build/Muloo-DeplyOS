@@ -70,17 +70,17 @@ interface DiscoverySummary {
   whyThisApproach: string;
   phaseOneFocus: string;
   futureUpgradePath: string;
-  inScopeItems: string[];
-  outOfScopeItems: string[];
-  supportingTools: string[];
+  inScopeItems?: string[];
+  outOfScopeItems?: string[];
+  supportingTools?: string[];
   engagementTrack: string;
   platformFit: string;
   changeManagementRating: string;
   dataReadinessRating: string;
   scopeVolatilityRating: string;
   missingInformation: string[];
-  keyRisks: string[];
-  recommendedNextQuestions: string[];
+  keyRisks?: string[];
+  recommendedNextQuestions?: string[];
 }
 
 interface PhaseCommercialDraft {
@@ -470,19 +470,38 @@ export default function QuoteDocument({
   const clientResponsibilities = splitIntoList(session4.client_responsibilities);
   const isStandaloneQuote = project?.scopeType === "standalone_quote";
   const inScopeItems =
-    isStandaloneQuote && summary?.inScopeItems.length
+    isStandaloneQuote && summary?.inScopeItems?.length
       ? summary.inScopeItems
       : splitIntoList(session4.confirmed_scope);
   const outOfScopeItems =
-    isStandaloneQuote && summary?.outOfScopeItems.length
+    isStandaloneQuote && summary?.outOfScopeItems?.length
       ? summary.outOfScopeItems
       : splitIntoList(session4.out_of_scope);
   const supportingTools = summary?.supportingTools ?? [];
   const keyRisks =
-    summary?.keyRisks.length && summary.keyRisks.length > 0
+    summary?.keyRisks?.length && summary.keyRisks.length > 0
       ? summary.keyRisks
       : splitIntoList(session4.risks_and_blockers);
   const nextQuestions = summary?.recommendedNextQuestions ?? [];
+  const documentationProduct = products.find(
+    (product) => product.slug === "documentation-sop-pack"
+  );
+  const recommendDocumentationPack =
+    Boolean(documentationProduct?.isActive) &&
+    (totalHumanHours >= 40 ||
+      supportingTools.some((item) =>
+        item.toLowerCase().includes("documentation") ||
+        item.toLowerCase().includes("sop")
+      ) ||
+      inScopeItems.some((item) =>
+        item.toLowerCase().includes("documentation") ||
+        item.toLowerCase().includes("handover") ||
+        item.toLowerCase().includes("process")
+      ) ||
+      outOfScopeItems.some((item) =>
+        item.toLowerCase().includes("documentation") ||
+        item.toLowerCase().includes("sop")
+      ));
 
   const clientChampionName = [
     project?.clientChampionFirstName,
@@ -1041,6 +1060,32 @@ export default function QuoteDocument({
                           )}
                         </ul>
                       </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {isStandaloneQuote && recommendDocumentationPack && documentationProduct ? (
+                  <div className="document-card rounded-2xl border border-[rgba(73,205,225,0.16)] bg-[rgba(73,205,225,0.08)] p-6">
+                    <SectionEyebrow>Recommended Add-On</SectionEyebrow>
+                    <SectionTitle>Documentation & SOP Pack</SectionTitle>
+                    <p className="mt-4 text-sm leading-7 text-text-secondary">
+                      This scoped job would benefit from a formal SOP and documentation
+                      layer so the agreed data model, process flow, handover notes, and
+                      operating guidance do not stay trapped in delivery conversations.
+                    </p>
+                    <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                      <p className="text-sm font-medium text-white">
+                        {documentationProduct.name}
+                      </p>
+                      {documentationProduct.description ? (
+                        <p className="mt-2 text-sm text-text-secondary">
+                          {documentationProduct.description}
+                        </p>
+                      ) : null}
+                      <p className="mt-3 text-sm text-white">
+                        Recommended commercial add-on:{" "}
+                        {formatCurrency(documentationProduct.unitPrice, currency)}
+                      </p>
                     </div>
                   </div>
                 ) : null}
