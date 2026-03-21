@@ -340,6 +340,7 @@ model DiscoverySummary {
   futureUpgradePath      String   @default("")
   inScopeItems           String[] @default([])
   outOfScopeItems        String[] @default([])
+  supportingTools        String[] @default([])
   engagementTrack        String
   platformFit            String
   changeManagementRating String
