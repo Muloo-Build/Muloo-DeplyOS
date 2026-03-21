@@ -72,6 +72,10 @@ const validCustomerPlatformTierValues = [
   "professional",
   "enterprise"
 ] as const;
+const validImplementationApproachValues = [
+  "pragmatic_poc",
+  "best_practice"
+] as const;
 const validHubTierValues = [
   "free",
   "starter",
@@ -692,6 +696,14 @@ function isValidCustomerPlatformTier(
   );
 }
 
+function isValidImplementationApproach(
+  value: string
+): value is (typeof validImplementationApproachValues)[number] {
+  return validImplementationApproachValues.includes(
+    value as (typeof validImplementationApproachValues)[number]
+  );
+}
+
 function isValidHubTier(
   value: string
 ): value is (typeof validHubTierValues)[number] {
@@ -751,6 +763,8 @@ type PackagingAssessment = {
   summary: string;
   warnings: string[];
   recommendedNextStep: string;
+  reasoning: string[];
+  workaroundPath: string | null;
   requiredProductTiers: Record<string, string>;
   selectedProductTiers: Record<string, string>;
 };
@@ -794,6 +808,7 @@ function derivePlatformPackagingAssessment(input: {
   selectedHubs: string[];
   customerPlatformTier?: string | null | undefined;
   platformTierSelections?: Record<string, string> | null | undefined;
+  implementationApproach?: string | null | undefined;
   evidenceText: string;
 }) {
   const selectedHubs = new Set(input.selectedHubs);
@@ -808,7 +823,26 @@ function derivePlatformPackagingAssessment(input: {
   const requiredProductTiers: Record<string, string> = {};
   const selectedProductTiers: Record<string, string> = {};
   const warnings: string[] = [];
+  const reasoning: string[] = [];
   const evidenceText = input.evidenceText.toLowerCase();
+  const implementationApproach =
+    typeof input.implementationApproach === "string" &&
+    isValidImplementationApproach(input.implementationApproach)
+      ? input.implementationApproach
+      : "pragmatic_poc";
+  const allowsWorkaroundArchitecture =
+    implementationApproach === "pragmatic_poc" ||
+    includesAny(evidenceText, [
+      "staging layer",
+      "staging",
+      "middleware",
+      "external layer",
+      "warehouse",
+      "databox",
+      "proof of concept",
+      "poc",
+      "phase 1"
+    ]);
 
   for (const hub of selectedHubs) {
     const productKey = productKeyByProjectHub[hub as ProjectHub];
@@ -833,6 +867,9 @@ function derivePlatformPackagingAssessment(input: {
 
   if (includesAny(evidenceText, ["website", "cms", "theme", "page", "blog"])) {
     mergeRequiredTier(requiredProductTiers, "content_hub", "starter");
+    reasoning.push(
+      "Website/CMS language in the brief suggests Content Hub is part of the workable delivery surface."
+    );
   }
 
   if (
@@ -848,7 +885,19 @@ function derivePlatformPackagingAssessment(input: {
       "geo target"
     ])
   ) {
-    mergeRequiredTier(requiredProductTiers, "content_hub", "professional");
+    if (allowsWorkaroundArchitecture) {
+      warnings.push(
+        "Localized or smart-content requirements may be deliverable on lower packaging if the solution uses pragmatic page structure workarounds instead of native advanced personalization."
+      );
+      reasoning.push(
+        "The brief mentions localization, but the selected planning approach allows pragmatic workaround patterns before assuming a higher native HubSpot tier."
+      );
+    } else {
+      mergeRequiredTier(requiredProductTiers, "content_hub", "professional");
+      reasoning.push(
+        "Localization and smart-content language points toward Content Hub Professional when implemented natively in HubSpot."
+      );
+    }
   }
 
   if (
@@ -870,6 +919,9 @@ function derivePlatformPackagingAssessment(input: {
           ? "service_hub"
           : "operations_hub";
     mergeRequiredTier(requiredProductTiers, automationProduct, "professional");
+    reasoning.push(
+      "Automation-specific language suggests a Professional-tier Hub product if those workflows are expected to run natively inside HubSpot."
+    );
   }
 
   if (
@@ -881,7 +933,19 @@ function derivePlatformPackagingAssessment(input: {
       "bridge table"
     ])
   ) {
-    mergeRequiredTier(requiredProductTiers, "smart_crm", "enterprise");
+    if (allowsWorkaroundArchitecture) {
+      warnings.push(
+        "The brief references many-to-many style attendance history, but the selected planning approach allows that relationship model to live in an external staging layer rather than forcing Smart CRM Enterprise immediately."
+      );
+      reasoning.push(
+        "Many-to-many attendance requirements normally point toward richer data modeling, but a pragmatic POC can keep the bridge model outside HubSpot and sync summarized CRM-friendly fields in."
+      );
+    } else {
+      mergeRequiredTier(requiredProductTiers, "smart_crm", "enterprise");
+      reasoning.push(
+        "Many-to-many or bridge-record requirements usually indicate a need for richer native CRM modeling, which pushes toward Smart CRM Enterprise."
+      );
+    }
   }
 
   if (
@@ -895,7 +959,19 @@ function derivePlatformPackagingAssessment(input: {
       "middleware"
     ])
   ) {
-    mergeRequiredTier(requiredProductTiers, "data_hub", "professional");
+    if (allowsWorkaroundArchitecture) {
+      warnings.push(
+        "Data quality, dedupe, and staging needs may be handled through a lightweight external consolidation layer in Phase 1 rather than requiring Data Hub immediately."
+      );
+      reasoning.push(
+        "The brief references data normalization work, but a pragmatic POC can use external data handling instead of assuming Data Hub Professional from day one."
+      );
+    } else {
+      mergeRequiredTier(requiredProductTiers, "data_hub", "professional");
+      reasoning.push(
+        "Data sync, dedupe, and staged data-management language suggests Data Hub Professional if the data quality workflow is expected to live natively in HubSpot."
+      );
+    }
   }
 
   if (
@@ -909,6 +985,9 @@ function derivePlatformPackagingAssessment(input: {
     ])
   ) {
     mergeRequiredTier(requiredProductTiers, "commerce_hub", "starter");
+    reasoning.push(
+      "Commerce and payment language suggests Commerce Hub if those flows are expected inside HubSpot."
+    );
   }
 
   let fit: PackagingAssessment["fit"] = warnings.length > 0 ? "attention" : "good";
@@ -945,23 +1024,33 @@ function derivePlatformPackagingAssessment(input: {
 
   const summary =
     fit === "good"
-      ? "The selected HubSpot packaging appears to support the scoped work."
+      ? allowsWorkaroundArchitecture
+        ? "The selected HubSpot packaging appears workable for the scoped Phase 1 approach, assuming the complex data modeling remains outside HubSpot where needed."
+        : "The selected HubSpot packaging appears to support the scoped work."
       : fit === "attention"
-        ? "The scoped work is broadly aligned, but some product tiers or packaging details still need to be confirmed."
+        ? "The scoped work is broadly aligned, but some packaging assumptions or workaround decisions still need to be confirmed."
         : "The scoped work likely exceeds the currently selected HubSpot packaging and needs an upgrade or agreed workaround before delivery.";
 
   const recommendedNextStep =
     fit === "good"
-      ? "Proceed with blueprinting and delivery planning using the selected packaging."
+      ? allowsWorkaroundArchitecture
+        ? "Proceed with blueprinting using a pragmatic architecture: keep the complex consolidation logic outside HubSpot and use HubSpot as the operational CRM layer."
+        : "Proceed with blueprinting and delivery planning using the selected packaging."
       : fit === "attention"
-        ? "Confirm the customer platform and product tiers before finalizing the blueprint and quote."
+        ? "Confirm whether this should be a pragmatic workaround-led delivery or a more native HubSpot implementation before finalizing the blueprint and quote."
         : "Resolve the packaging gap first by upgrading the required HubSpot products or revising the scoped solution.";
+
+  const workaroundPath = allowsWorkaroundArchitecture
+    ? "A pragmatic Phase 1 path can keep complex identity resolution, bridge-table logic, and heavy data normalization outside HubSpot, then sync only the operational CRM fields and summary metrics into HubSpot."
+    : null;
 
   return {
     fit,
     summary,
     warnings,
     recommendedNextStep,
+    reasoning,
+    workaroundPath,
     requiredProductTiers,
     selectedProductTiers
   } satisfies PackagingAssessment;
@@ -1989,6 +2078,7 @@ function serializeProject<
     owner: string;
     ownerEmail: string;
     serviceFamily: string;
+    implementationApproach?: string | null;
     customerPlatformTier?: string | null;
     platformTierSelections?: unknown | null;
     problemStatement?: string | null;
@@ -2030,6 +2120,7 @@ function serializeProject<
   const normalizedProject = normalizeProject(project);
   const packagingAssessment = derivePlatformPackagingAssessment({
     selectedHubs: normalizedProject.selectedHubs,
+    implementationApproach: normalizedProject.implementationApproach,
     customerPlatformTier: normalizedProject.customerPlatformTier,
     platformTierSelections: normalizePlatformTierSelections(
       normalizedProject.platformTierSelections
@@ -3310,6 +3401,22 @@ function normalizeBlueprintEffort(
   }
 }
 
+function applyImplementationApproachToEffort(
+  implementationApproach: string | null | undefined,
+  taskType: (typeof blueprintTaskTypeValues)[number],
+  effortHours: number
+) {
+  if (implementationApproach !== "pragmatic_poc") {
+    return effortHours;
+  }
+
+  if (taskType === "Human") {
+    return Math.max(1, Math.round(effortHours * 0.75));
+  }
+
+  return effortHours;
+}
+
 function taskMatchesScope(
   taskName: string,
   guidance: ReturnType<typeof deriveBlueprintGuidance>
@@ -3378,6 +3485,7 @@ function normalizeGeneratedBlueprint(
   const guidance = deriveBlueprintGuidance(discoveryPayload);
   const packagingAssessment = derivePlatformPackagingAssessment({
     selectedHubs: discoveryPayload.project.selectedHubs,
+    implementationApproach: discoveryPayload.project.implementationApproach,
     customerPlatformTier: discoveryPayload.project.customerPlatformTier,
     platformTierSelections: normalizePlatformTierSelections(
       discoveryPayload.project.platformTierSelections
@@ -3401,7 +3509,11 @@ function normalizeGeneratedBlueprint(
           return {
             ...task,
             type: taskType,
-            effortHours: normalizeBlueprintEffort(taskType, task.effortHours),
+            effortHours: applyImplementationApproachToEffort(
+              discoveryPayload.project.implementationApproach,
+              taskType,
+              normalizeBlueprintEffort(taskType, task.effortHours)
+            ),
             order: taskIndex + 1
           };
         });
@@ -3497,6 +3609,7 @@ function buildStandalonePlanSeed(
   project: {
     name: string;
     commercialBrief: string | null;
+    implementationApproach?: string | null;
     customerPlatformTier?: string | null;
     platformTierSelections?: Record<string, string> | null;
     selectedHubs?: string[];
@@ -3520,6 +3633,7 @@ function buildStandalonePlanSeed(
     .toLowerCase();
   const packagingAssessment = derivePlatformPackagingAssessment({
     selectedHubs: project.selectedHubs ?? ["cms"],
+    implementationApproach: project.implementationApproach,
     customerPlatformTier: project.customerPlatformTier,
     platformTierSelections: project.platformTierSelections ?? {},
     evidenceText: scopeText
@@ -4276,6 +4390,7 @@ Rules:
 - keyRisks should focus on delivery, handoff, technical complexity, and dependency risk.
 - recommendedNextQuestions should be practical next clarification points.
 - Base the answer on the scoped brief, the selected HubSpot packaging, supporting context, and any linked documents or notes.
+- Explain the recommendation as a human advisor would: summarize the recommended path, note any packaging assumptions, and clarify when a workaround architecture is acceptable.
 - Do not speak about discovery sessions unless they actually exist.
 - Do not simply repeat the raw brief. Synthesize it into a clean operator/client summary.`,
     JSON.stringify(
@@ -4285,6 +4400,8 @@ Rules:
           name: discoveryPayload.project.name,
           engagementType: discoveryPayload.project.engagementType,
           serviceFamily: discoveryPayload.project.serviceFamily,
+          implementationApproach:
+            discoveryPayload.project.implementationApproach,
           selectedHubs: discoveryPayload.project.selectedHubs,
           scopeType: discoveryPayload.project.scopeType,
           commercialBrief: discoveryPayload.project.commercialBrief,
@@ -4430,6 +4547,7 @@ async function generateBlueprintFromDiscovery(projectId: string) {
   const guidance = deriveBlueprintGuidance(discoveryPayload);
   const packagingAssessment = derivePlatformPackagingAssessment({
     selectedHubs: discoveryPayload.project.selectedHubs,
+    implementationApproach: discoveryPayload.project.implementationApproach,
     customerPlatformTier: discoveryPayload.project.customerPlatformTier,
     platformTierSelections: normalizePlatformTierSelections(
       discoveryPayload.project.platformTierSelections
@@ -4454,6 +4572,7 @@ Rules:
 - Prefer concise, implementation-ready task names.
 - Base the blueprint on enabled hubs, use cases, risks, data readiness, and complexity in the discovery.
 - Respect the selected HubSpot customer platform and product tiers. Do not assume features that exceed the selected packaging.
+- Respect the selected implementation approach. If implementationApproach is pragmatic_poc, prefer lean Phase 1 delivery patterns, external staging/workaround architecture where appropriate, and avoid enterprise-grade design unless the requirement is truly native to HubSpot.
 - If the requested scope appears to require a higher tier than selected, add an early approval/decision task to resolve the packaging gap before implementation continues.
 - Do not invent scope that is not evidenced in discovery.
 - Only include website or CMS implementation tasks if website/CMS scope is explicitly present.
@@ -4469,6 +4588,8 @@ Rules:
           ...discoveryPayload.discovery,
           discoverySummary,
           packagingAssessment,
+          implementationApproach:
+            discoveryPayload.project.implementationApproach,
           blueprintGuidance: guidance
         },
         null,
@@ -4537,6 +4658,7 @@ function buildStandaloneFallbackBlueprint(
   project: {
     name: string;
     commercialBrief: string | null;
+    implementationApproach?: string | null;
     customerPlatformTier?: string | null;
     platformTierSelections?: Record<string, string> | null;
     selectedHubs?: string[];
@@ -4580,12 +4702,17 @@ function buildStandaloneFallbackBlueprint(
             : task.priority === "medium"
               ? 4
               : 3;
+    const normalizedEffortHours = applyImplementationApproachToEffort(
+      project.implementationApproach,
+      taskType,
+      effortHours
+    );
 
     if (existingPhase) {
       existingPhase.tasks.push({
         name: task.title,
         type: taskType,
-        effortHours,
+        effortHours: normalizedEffortHours,
         order: existingPhase.tasks.length + 1
       });
       continue;
@@ -4598,7 +4725,7 @@ function buildStandaloneFallbackBlueprint(
         {
           name: task.title,
           type: taskType,
-          effortHours,
+          effortHours: normalizedEffortHours,
           order: 1
         }
       ]
@@ -4622,6 +4749,7 @@ async function generateBlueprintFromScope(projectId: string) {
   const discoverySummary = await loadDiscoverySummary(projectId);
   const packagingAssessment = derivePlatformPackagingAssessment({
     selectedHubs: discoveryPayload.project.selectedHubs,
+    implementationApproach: discoveryPayload.project.implementationApproach,
     customerPlatformTier: discoveryPayload.project.customerPlatformTier,
     platformTierSelections: normalizePlatformTierSelections(
       discoveryPayload.project.platformTierSelections
@@ -4643,6 +4771,7 @@ Rules:
 - Agent = repeatable operational work that can be automated or agent-assisted. Human = consultant/implementer time. Client = approvals, assets, access, or sign-off.
 - Base the blueprint on the scoped brief, supporting context, site/platform constraints, and handoff boundaries.
 - Respect the selected HubSpot customer platform and product tiers. Do not assume features that exceed the selected packaging.
+- Respect the selected implementation approach. If implementationApproach is pragmatic_poc, optimise for a lean POC path, external staging/workaround architecture where acceptable, and do not invent enterprise-grade native HubSpot work unless the brief requires it.
 - If requested functionality likely requires a higher tier than selected, add an early packaging/upgrade decision task before planning impossible implementation work.
 - Treat repeatable jobs as templated implementation patterns where appropriate.
 - Do not require discovery-only steps unless explicitly evidenced.
@@ -4668,6 +4797,8 @@ Rules:
               discoveryPayload.project.solutionRecommendation,
             scopeExecutiveSummary:
               discoveryPayload.project.scopeExecutiveSummary,
+            implementationApproach:
+              discoveryPayload.project.implementationApproach,
             customerPlatformTier:
               discoveryPayload.project.customerPlatformTier,
             platformTierSelections: normalizePlatformTierSelections(
@@ -4701,6 +4832,8 @@ Rules:
       {
         name: discoveryPayload.project.name,
         commercialBrief: discoveryPayload.project.commercialBrief,
+        implementationApproach:
+          discoveryPayload.project.implementationApproach,
         customerPlatformTier: discoveryPayload.project.customerPlatformTier,
         platformTierSelections: normalizePlatformTierSelections(
           discoveryPayload.project.platformTierSelections
@@ -7760,6 +7893,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             owner?: string;
             ownerEmail?: string;
             serviceFamily?: string;
+            implementationApproach?: string;
             customerPlatformTier?: string;
             platformTierSelections?: Record<string, string>;
             problemStatement?: string;
@@ -7816,6 +7950,11 @@ export function createAppServer(config: BaseConfig): http.Server {
             )
               ? body.serviceFamily.trim()
               : "hubspot_architecture";
+          const implementationApproach =
+            typeof body.implementationApproach === "string" &&
+            isValidImplementationApproach(body.implementationApproach.trim())
+              ? body.implementationApproach.trim()
+              : "pragmatic_poc";
           const customerPlatformTier =
             typeof body.customerPlatformTier === "string" &&
             isValidCustomerPlatformTier(
@@ -7880,6 +8019,7 @@ export function createAppServer(config: BaseConfig): http.Server {
                 "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
               ...(await resolveProjectOwner(body.owner, body.ownerEmail)),
               serviceFamily,
+              implementationApproach,
               customerPlatformTier,
               platformTierSelections,
               problemStatement: body.problemStatement?.trim() || null,
@@ -8913,6 +9053,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           const body = (await readJsonBody(request)) as {
             clientName?: unknown;
             type?: unknown;
+            implementationApproach?: unknown;
             customerPlatformTier?: unknown;
             platformTierSelections?: unknown;
             problemStatement?: unknown;
@@ -8941,6 +9082,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           const normalizedPayload: {
             clientName?: string;
             type?: EngagementType;
+            implementationApproach?: string;
             customerPlatformTier?: string;
             platformTierSelections?: Record<string, string>;
             problemStatement?: string;
@@ -9010,6 +9152,21 @@ export function createAppServer(config: BaseConfig): http.Server {
               typeof body.customerPlatformTier === "string"
                 ? body.customerPlatformTier.trim().toLowerCase()
                 : "";
+          }
+
+          if (body.implementationApproach !== undefined) {
+            if (
+              typeof body.implementationApproach !== "string" ||
+              !isValidImplementationApproach(body.implementationApproach.trim())
+            ) {
+              return sendJson(response, 400, {
+                error:
+                  "implementationApproach must be pragmatic_poc or best_practice"
+              });
+            }
+
+            normalizedPayload.implementationApproach =
+              body.implementationApproach.trim();
           }
 
           if (body.platformTierSelections !== undefined) {
@@ -9254,6 +9411,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             normalizedPayload.clientName === undefined &&
             normalizedPayload.type === undefined &&
             normalizedPayload.customerPlatformTier === undefined &&
+            normalizedPayload.implementationApproach === undefined &&
             normalizedPayload.platformTierSelections === undefined &&
             normalizedPayload.problemStatement === undefined &&
             normalizedPayload.solutionRecommendation === undefined &&
@@ -9415,6 +9573,12 @@ export function createAppServer(config: BaseConfig): http.Server {
                   ? {
                       customerPlatformTier:
                         normalizedPayload.customerPlatformTier || null
+                    }
+                  : {}),
+                ...(normalizedPayload.implementationApproach !== undefined
+                  ? {
+                      implementationApproach:
+                        normalizedPayload.implementationApproach
                     }
                   : {}),
                 ...(normalizedPayload.platformTierSelections !== undefined

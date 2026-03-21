@@ -13,6 +13,7 @@ interface Project {
   owner: string;
   ownerEmail: string;
   scopeType?: string | null;
+  implementationApproach?: string | null;
   commercialBrief?: string | null;
   problemStatement?: string | null;
   solutionRecommendation?: string | null;
@@ -24,6 +25,8 @@ interface Project {
     summary: string;
     warnings: string[];
     recommendedNextStep: string;
+    reasoning: string[];
+    workaroundPath?: string | null;
     requiredProductTiers: Record<string, string>;
     selectedProductTiers: Record<string, string>;
   } | null;
@@ -184,6 +187,11 @@ const customerPlatformTierOptions = [
   { value: "enterprise", label: "Enterprise" }
 ] as const;
 
+const implementationApproachOptions = [
+  { value: "pragmatic_poc", label: "Pragmatic / POC" },
+  { value: "best_practice", label: "Best-practice / scalable" }
+] as const;
+
 const hubTierOptions = [
   { value: "", label: "Not in use" },
   { value: "free", label: "Free" },
@@ -223,6 +231,7 @@ function createProjectDraft(project: Project) {
     type: project.engagementType,
     scopeType: project.scopeType ?? "discovery",
     commercialBrief: project.commercialBrief ?? "",
+    implementationApproach: project.implementationApproach ?? "pragmatic_poc",
     problemStatement: project.problemStatement ?? "",
     solutionRecommendation: project.solutionRecommendation ?? "",
     scopeExecutiveSummary: project.scopeExecutiveSummary ?? "",
@@ -369,6 +378,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     type: "IMPLEMENTATION",
     scopeType: "discovery",
     commercialBrief: "",
+    implementationApproach: "pragmatic_poc",
     problemStatement: "",
     solutionRecommendation: "",
     scopeExecutiveSummary: "",
@@ -614,6 +624,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         break;
       case "platformPackaging":
         payload = {
+          implementationApproach: projectDraft.implementationApproach,
           customerPlatformTier: projectDraft.customerPlatformTier,
           platformTierSelections: Object.fromEntries(
             Object.entries(projectDraft.platformTierSelections ?? {}).filter(
@@ -1567,6 +1578,39 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           <div className="mt-3 grid gap-3 md:grid-cols-2">
                             <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3">
                               <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                Delivery approach
+                              </p>
+                              <div className="mt-3 grid gap-2">
+                                {implementationApproachOptions.map((option) => (
+                                  <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() =>
+                                      setProjectDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        implementationApproach: option.value
+                                      }))
+                                    }
+                                    className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                                      projectDraft.implementationApproach ===
+                                      option.value
+                                        ? "border-[rgba(240,130,74,0.55)] bg-[rgba(240,130,74,0.14)] text-white"
+                                        : "border-[rgba(255,255,255,0.08)] text-text-secondary hover:text-white"
+                                    }`}
+                                  >
+                                    {option.label}
+                                  </button>
+                                ))}
+                              </div>
+                              <p className="mt-2 text-xs text-text-secondary">
+                                Choose whether the plan should favor a lean
+                                workaround-led Phase 1 or a cleaner long-term
+                                architecture.
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3">
+                              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
                                 Customer platform
                               </p>
                               <select
@@ -1590,7 +1634,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 tune the individual Hub products below.
                               </p>
                             </div>
-                            <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3">
+                            <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3 md:col-span-2">
                               <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
                                 Hubs in scope
                               </p>
@@ -1647,6 +1691,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         </>
                       ) : (
                         <>
+                          <p className="mt-2 text-sm text-white">
+                            {project.implementationApproach === "best_practice"
+                              ? "Best-practice / scalable approach"
+                              : "Pragmatic / POC approach"}
+                          </p>
                           <p className="mt-2 text-sm text-white">
                             {project.customerPlatformTier
                               ? `${formatTierLabel(project.customerPlatformTier)} customer platform`
@@ -2177,12 +2226,34 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             <p className="mt-2 text-sm text-text-secondary">
                               {project.packagingAssessment.summary}
                             </p>
+                            {project.packagingAssessment.reasoning.length > 0 ? (
+                              <div className="mt-3">
+                                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                  Why the system is saying this
+                                </p>
+                                <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                                  {project.packagingAssessment.reasoning.map((item) => (
+                                    <li key={item}>{item}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
                             {project.packagingAssessment.warnings.length > 0 ? (
                               <ul className="mt-3 space-y-2 text-sm text-text-secondary">
                                 {project.packagingAssessment.warnings.map((warning) => (
                                   <li key={warning}>{warning}</li>
                                 ))}
                               </ul>
+                            ) : null}
+                            {project.packagingAssessment.workaroundPath ? (
+                              <div className="mt-3 rounded-xl border border-[rgba(73,205,225,0.16)] bg-[rgba(73,205,225,0.08)] px-3 py-3">
+                                <p className="text-xs uppercase tracking-[0.18em] text-[#49cde1]">
+                                  Pragmatic workaround path
+                                </p>
+                                <p className="mt-2 text-sm text-white">
+                                  {project.packagingAssessment.workaroundPath}
+                                </p>
+                              </div>
                             ) : null}
                             <p className="mt-3 text-sm text-white">
                               {project.packagingAssessment.recommendedNextStep}

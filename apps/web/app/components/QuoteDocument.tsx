@@ -13,6 +13,7 @@ interface Project {
   owner: string;
   ownerEmail: string;
   scopeType?: string | null;
+  implementationApproach?: string | null;
   commercialBrief?: string | null;
   problemStatement?: string | null;
   solutionRecommendation?: string | null;
@@ -24,6 +25,8 @@ interface Project {
     summary: string;
     warnings: string[];
     recommendedNextStep: string;
+    reasoning: string[];
+    workaroundPath?: string | null;
     requiredProductTiers: Record<string, string>;
     selectedProductTiers: Record<string, string>;
   } | null;
@@ -985,6 +988,11 @@ export default function QuoteDocument({
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                           Packaging fit
                         </p>
+                        <p className="mt-2 text-sm text-white">
+                          {project.implementationApproach === "best_practice"
+                            ? "Best-practice / scalable approach"
+                            : "Pragmatic / POC approach"}
+                        </p>
                         <p
                           className={`mt-2 text-sm font-medium ${
                             project.packagingAssessment.fit === "good"
@@ -1000,6 +1008,18 @@ export default function QuoteDocument({
                           {project.packagingAssessment.summary}
                         </p>
                       </div>
+                      {project.packagingAssessment.reasoning.length > 0 ? (
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Why this recommendation was made
+                          </p>
+                          <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                            {project.packagingAssessment.reasoning.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
                       {project.packagingAssessment.warnings.length > 0 ? (
                         <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
@@ -1010,6 +1030,16 @@ export default function QuoteDocument({
                               <li key={warning}>{warning}</li>
                             ))}
                           </ul>
+                        </div>
+                      ) : null}
+                      {project.packagingAssessment.workaroundPath ? (
+                        <div className="rounded-2xl border border-[rgba(73,205,225,0.16)] bg-[rgba(73,205,225,0.08)] p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-[#49cde1]">
+                            Lower-tier workaround path
+                          </p>
+                          <p className="mt-2 text-sm text-white">
+                            {project.packagingAssessment.workaroundPath}
+                          </p>
                         </div>
                       ) : null}
                       <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">

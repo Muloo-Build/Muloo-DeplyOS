@@ -11,6 +11,7 @@ interface FormData {
   owner: string;
   ownerEmail: string;
   serviceFamily: string;
+  implementationApproach: string;
   scopeType: string;
   deliveryTemplateId: string;
   commercialBrief: string;
@@ -130,6 +131,21 @@ const customerPlatformTierOptions = [
   { value: "enterprise", label: "Enterprise" }
 ];
 
+const implementationApproachOptions = [
+  {
+    value: "pragmatic_poc",
+    label: "Pragmatic / POC",
+    description:
+      "Use a lean Phase 1 path and allow external workaround architecture where sensible."
+  },
+  {
+    value: "best_practice",
+    label: "Best-practice / scalable",
+    description:
+      "Prefer the cleaner long-term architecture even if it needs more packaging or effort."
+  }
+];
+
 const hubTierOptions = [
   { value: "", label: "Not in use" },
   { value: "free", label: "Free" },
@@ -240,6 +256,7 @@ export default function NewProjectPage() {
     owner: "",
     ownerEmail: "",
     serviceFamily: "hubspot_architecture",
+    implementationApproach: "pragmatic_poc",
     scopeType: "discovery",
     deliveryTemplateId: "",
     commercialBrief: "",
@@ -471,6 +488,7 @@ export default function NewProjectPage() {
     setFormData((current) => ({
       ...current,
       serviceFamily: option.recommendedServiceFamily || current.serviceFamily,
+      implementationApproach: current.implementationApproach,
       engagementType:
         option.recommendedEngagementType || current.engagementType,
       hubsInScope:
@@ -519,6 +537,7 @@ export default function NewProjectPage() {
       owner: formData.owner,
       ownerEmail: formData.ownerEmail,
       serviceFamily: formData.serviceFamily,
+      implementationApproach: formData.implementationApproach,
       scopeType: formData.scopeType,
       deliveryTemplateId: formData.deliveryTemplateId || undefined,
       commercialBrief: formData.commercialBrief.trim(),
@@ -1033,25 +1052,56 @@ export default function NewProjectPage() {
               </div>
 
               <div className="grid gap-6 lg:grid-cols-[0.42fr_0.58fr]">
-                <label className="block">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    Customer platform tier
-                  </span>
-                  <select
-                    value={formData.customerPlatformTier}
-                    onChange={(event) => updateField('customerPlatformTier', event.target.value)}
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                  >
-                    {customerPlatformTierOptions.map((option) => (
-                      <option key={option.value || 'blank'} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-xs text-text-muted">
-                    Use this when the job depends on specific Starter / Professional / Enterprise tooling within the customer platform.
-                  </p>
-                </label>
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-text-secondary">
+                      Delivery approach
+                    </span>
+                    <div className="grid gap-3">
+                      {implementationApproachOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            updateField("implementationApproach", option.value)
+                          }
+                          className={`rounded-2xl border p-4 text-left transition-colors ${
+                            formData.implementationApproach === option.value
+                              ? "border-accent-solid bg-background-elevated"
+                              : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                          }`}
+                        >
+                          <p className="font-semibold text-white">{option.label}</p>
+                          <p className="mt-1 text-sm text-text-secondary">
+                            {option.description}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-text-secondary">
+                      Customer platform tier
+                    </span>
+                    <select
+                      value={formData.customerPlatformTier}
+                      onChange={(event) =>
+                        updateField("customerPlatformTier", event.target.value)
+                      }
+                      className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                    >
+                      {customerPlatformTierOptions.map((option) => (
+                        <option key={option.value || "blank"} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-text-muted">
+                      Use this when the job depends on specific Starter / Professional / Enterprise tooling within the customer platform.
+                    </p>
+                  </label>
+                </div>
 
                 <div>
                   <p className="mb-2 text-sm text-text-secondary">Customer platform includes</p>
