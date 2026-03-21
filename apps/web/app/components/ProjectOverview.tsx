@@ -476,64 +476,70 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [loading, setLoading] = useState(true);
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [summaryFeedback, setSummaryFeedback] = useState<string | null>(null);
   const [blueprintBusy, setBlueprintBusy] = useState(false);
   const [blueprintError, setBlueprintError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showFullBrief, setShowFullBrief] = useState(false);
   const [showSupportingContext, setShowSupportingContext] = useState(false);
 
+  async function loadProjectData() {
+    const [
+      projectResponse,
+      sessionsResponse,
+      blueprintResponse,
+      summaryResponse,
+      usersResponse,
+      clientUsersResponse,
+      supportingContextResponse
+    ] = await Promise.all([
+      fetch(`/api/projects/${encodeURIComponent(projectId)}`),
+      fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
+      fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
+      fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery-summary`),
+      fetch("/api/users"),
+      fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`),
+      fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`)
+    ]);
+
+    if (
+      !projectResponse.ok ||
+      !sessionsResponse.ok ||
+      !summaryResponse.ok ||
+      !usersResponse.ok
+    ) {
+      throw new Error("Failed to load project");
+    }
+
+    const projectBody = await projectResponse.json();
+    const sessionsBody = await sessionsResponse.json();
+    const summaryBody = await summaryResponse.json();
+    const usersBody = await usersResponse.json();
+    const clientUsersBody = await clientUsersResponse.json();
+    const supportingContextBody = await supportingContextResponse.json();
+
+    setProject(projectBody.project);
+    setProjectDraft(createProjectDraft(projectBody.project));
+    setSessions(sessionsBody.sessionDetails ?? []);
+    setDiscoverySummary(summaryBody.summary ?? null);
+    setTeamUsers(usersBody.users ?? []);
+    setClientUsers(clientUsersBody.clientUsers ?? []);
+    setSupportingContext(supportingContextBody.evidenceItems ?? []);
+
+    if (blueprintResponse.ok) {
+      const blueprintBody = await blueprintResponse.json();
+      setBlueprint(blueprintBody.blueprint);
+    } else if (blueprintResponse.status === 404) {
+      setBlueprint(null);
+    } else {
+      throw new Error("Failed to load blueprint status");
+    }
+  }
+
   useEffect(() => {
     async function loadProject() {
       try {
-        const [
-          projectResponse,
-          sessionsResponse,
-          blueprintResponse,
-          summaryResponse,
-          usersResponse,
-          clientUsersResponse,
-          supportingContextResponse
-        ] =
-          await Promise.all([
-            fetch(`/api/projects/${encodeURIComponent(projectId)}`),
-            fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
-            fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
-            fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery-summary`),
-            fetch("/api/users"),
-            fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`),
-            fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`)
-          ]);
-
-        if (
-          !projectResponse.ok ||
-          !sessionsResponse.ok ||
-          !summaryResponse.ok ||
-          !usersResponse.ok
-        ) {
-          throw new Error("Failed to load project");
-        }
-
-        const projectBody = await projectResponse.json();
-        const sessionsBody = await sessionsResponse.json();
-        const summaryBody = await summaryResponse.json();
-        const usersBody = await usersResponse.json();
-        const clientUsersBody = await clientUsersResponse.json();
-        const supportingContextBody = await supportingContextResponse.json();
-
-        setProject(projectBody.project);
-        setProjectDraft(createProjectDraft(projectBody.project));
-        setSessions(sessionsBody.sessionDetails ?? []);
-        setDiscoverySummary(summaryBody.summary ?? null);
-        setTeamUsers(usersBody.users ?? []);
-        setClientUsers(clientUsersBody.clientUsers ?? []);
-        setSupportingContext(supportingContextBody.evidenceItems ?? []);
-
-        if (blueprintResponse.ok) {
-          const blueprintBody = await blueprintResponse.json();
-          setBlueprint(blueprintBody.blueprint);
-        } else if (blueprintResponse.status !== 404) {
-          throw new Error("Failed to load blueprint status");
-        }
+        await loadProjectData();
       } catch (loadError) {
         setError(
           loadError instanceof Error
@@ -746,6 +752,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
     setSummaryBusy(true);
     setSummaryError(null);
+    setSummaryFeedback(null);
 
     try {
       const response = await fetch(
@@ -777,6 +784,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           scopeExecutiveSummary: nextSummary.executiveSummary
         }));
       }
+      await loadProjectData();
+      setSummaryFeedback(
+        `Summary refreshed at ${new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        })}.`
+      );
     } catch (generationError) {
       setSummaryError(
         generationError instanceof Error
@@ -1115,6 +1129,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 {summaryError ? (
                   <p className="max-w-sm text-right text-sm text-[#ff8f9c]">
                     {summaryError}
+                  </p>
+                ) : null}
+                {summaryFeedback ? (
+                  <p className="max-w-sm text-right text-sm text-emerald-300">
+                    {summaryFeedback}
                   </p>
                 ) : null}
               </div>
