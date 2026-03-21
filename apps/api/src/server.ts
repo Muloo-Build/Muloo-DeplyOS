@@ -4735,6 +4735,9 @@ Rules:
 - supportingTools should return 2 to 5 concrete recommendations when surrounding tooling materially strengthens the solution.
 - Base the answer on the scoped brief, the selected HubSpot packaging, supporting context, and any linked documents or notes.
 - Think like a senior Muloo consultant and operator, not a literal parser. Synthesize the pain point, recommend a sensible path, note packaging assumptions, and explain when a pragmatic workaround architecture is acceptable.
+- Frame the answer as: problem -> boxed Phase 1 recommendation -> why this is the smartest starting point -> later path if the POC proves value.
+- If HubSpot is mainly the operational front end and another tool or staging layer should handle the heavy lifting, say that plainly and confidently.
+- Prefer "best starting path", "boxed Phase 1", and "later path" language over generic consulting phrases.
 - If implementationApproach is pragmatic_poc, prefer a boxed first phase that solves the core pain without prematurely loading cost or complexity.
 - Do not assume every capability must be solved natively inside HubSpot if the brief clearly allows a staging layer, middleware, Databox, or other supporting architecture.
 - Do not speak about discovery sessions unless they actually exist.
@@ -4762,6 +4765,8 @@ Rules:
           )
         },
         client: discoveryPayload.discovery.client,
+        packagingAssessment,
+        evidenceText,
         supportingContext: discoveryPayload.discovery.evidenceItems
       },
       null,
