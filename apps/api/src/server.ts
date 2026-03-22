@@ -5310,9 +5310,29 @@ async function loadDiscoverySummary(projectId: string) {
 }
 
 async function resetDiscoverySummary(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { scopeType: true }
+  });
+
   await prisma.discoverySummary.deleteMany({
     where: { projectId }
   });
+
+  if (project?.scopeType === "standalone_quote") {
+    await prisma.executionJob.deleteMany({
+      where: { projectId }
+    });
+    await prisma.task.deleteMany({
+      where: { projectId }
+    });
+    await prisma.blueprintTask.deleteMany({
+      where: { blueprint: { projectId } }
+    });
+    await prisma.blueprint.deleteMany({
+      where: { projectId }
+    });
+  }
 
   await prisma.project.update({
     where: { id: projectId },

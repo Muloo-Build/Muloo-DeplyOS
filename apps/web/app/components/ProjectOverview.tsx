@@ -755,6 +755,45 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     setSummaryFeedback(null);
 
     try {
+      if (isStandaloneQuote) {
+        const resetResponse = await fetch(
+          `/api/projects/${encodeURIComponent(project.id)}/discovery-summary`,
+          {
+            method: "DELETE"
+          }
+        );
+
+        const resetText = await resetResponse.text();
+        let resetBody: { error?: string } | null = null;
+        try {
+          resetBody = resetText ? JSON.parse(resetText) : null;
+        } catch {
+          resetBody = null;
+        }
+
+        if (!resetResponse.ok) {
+          throw new Error(
+            resetBody?.error ||
+              `Failed to reset generated outputs (${resetResponse.status} ${resetResponse.statusText})`
+          );
+        }
+
+        setDiscoverySummary(null);
+        setBlueprint(null);
+        setProject((currentProject) =>
+          currentProject
+            ? {
+                ...currentProject,
+                scopeExecutiveSummary: null
+              }
+            : currentProject
+        );
+        setProjectDraft((currentDraft) => ({
+          ...currentDraft,
+          scopeExecutiveSummary: null
+        }));
+      }
+
       const response = await fetch(
         `/api/projects/${encodeURIComponent(project.id)}/discovery-summary`,
         {
@@ -762,10 +801,20 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         }
       );
 
-      const body = await response.json().catch(() => null);
+      const responseText = await response.text();
+      let body: { summary?: DiscoverySummary; error?: string } | null = null;
+
+      try {
+        body = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        body = null;
+      }
 
       if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to generate discovery summary");
+        throw new Error(
+          body?.error ||
+            `Failed to generate discovery summary (${response.status} ${response.statusText})`
+        );
       }
 
       const nextSummary = body?.summary ?? null;
@@ -784,13 +833,20 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           scopeExecutiveSummary: nextSummary.executiveSummary
         }));
       }
-      await loadProjectData();
-      setSummaryFeedback(
-        `Summary refreshed at ${new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit"
-        })}.`
-      );
+      try {
+        await loadProjectData();
+        setSummaryFeedback(
+          `Summary refreshed at ${new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+          })}.`
+        );
+      } catch (reloadError) {
+        console.error("Summary refreshed but project reload failed", reloadError);
+        setSummaryFeedback(
+          `Summary refreshed, but the page could not fully reload. Please refresh the browser.`
+        );
+      }
     } catch (generationError) {
       setSummaryError(
         generationError instanceof Error
