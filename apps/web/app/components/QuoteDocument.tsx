@@ -550,8 +550,17 @@ export default function QuoteDocument({
 
   async function copyShareLink() {
     try {
-      await navigator.clipboard.writeText(window.location.href);
-      setShareMessage("Client link copied");
+      if (typeof window === "undefined") {
+        throw new Error("Window is not available");
+      }
+
+      const shareUrl = isClientMode
+        ? window.location.href
+        : `${window.location.origin}/client/projects/${encodeURIComponent(projectId)}/quote`;
+      await navigator.clipboard.writeText(shareUrl);
+      setShareMessage(
+        isClientMode ? "Quote link copied" : "Client portal quote link copied"
+      );
       window.setTimeout(() => setShareMessage(null), 2500);
     } catch {
       setShareMessage("Unable to copy link");
@@ -610,7 +619,7 @@ export default function QuoteDocument({
                   onClick={copyShareLink}
                   className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
                 >
-                  Copy Share Link
+                  {isClientMode ? "Copy Quote Link" : "Copy Client Quote Link"}
                 </button>
                 <button
                   type="button"

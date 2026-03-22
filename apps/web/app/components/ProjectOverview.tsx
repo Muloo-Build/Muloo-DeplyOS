@@ -1046,6 +1046,31 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }
   }
 
+  async function copyClientQuoteLink() {
+    if (!project) {
+      return;
+    }
+
+    setProjectEditError(null);
+    setClientAccessFeedback(null);
+
+    try {
+      if (typeof navigator === "undefined" || typeof window === "undefined") {
+        throw new Error("Clipboard is not available in this browser");
+      }
+
+      const clientQuoteUrl = `${window.location.origin}/client/projects/${encodeURIComponent(project.id)}/quote`;
+      await navigator.clipboard.writeText(clientQuoteUrl);
+      setClientAccessFeedback("Client portal quote link copied to clipboard.");
+    } catch (copyError) {
+      setProjectEditError(
+        copyError instanceof Error
+          ? copyError.message
+          : "Failed to copy client quote link"
+      );
+    }
+  }
+
   async function addSupportingContext() {
     if (!project) {
       return;
@@ -1256,6 +1281,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   >
                     Open Quote
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => void copyClientQuoteLink()}
+                    disabled={clientUsers.length === 0}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                  >
+                    Copy Client Quote Link
+                  </button>
                   <button
                     type="button"
                     onClick={handleBlueprintAction}
@@ -2422,14 +2455,24 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     <p className="text-sm text-text-secondary">
                       Client portal login route: `/client/login`
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => void addClientPortalUser()}
-                      disabled={clientAccessSaving}
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                    >
-                      {clientAccessSaving ? "Creating..." : "Add Client User"}
-                    </button>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void copyClientQuoteLink()}
+                        disabled={clientUsers.length === 0}
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                      >
+                        Copy client quote link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void addClientPortalUser()}
+                        disabled={clientAccessSaving}
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                      >
+                        {clientAccessSaving ? "Creating..." : "Add Client User"}
+                      </button>
+                    </div>
                   </div>
 
                   {clientAccessFeedback ? (
