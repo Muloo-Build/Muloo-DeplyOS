@@ -802,6 +802,55 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }
   }
 
+  async function resetDiscoverySummaryState() {
+    if (!project) {
+      return;
+    }
+
+    setSummaryBusy(true);
+    setSummaryError(null);
+    setSummaryFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/discovery-summary`,
+        {
+          method: "DELETE"
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to reset discovery summary");
+      }
+
+      setDiscoverySummary(null);
+      setProject((currentProject) =>
+        currentProject
+          ? {
+              ...currentProject,
+              scopeExecutiveSummary: null
+            }
+          : currentProject
+      );
+      setProjectDraft((currentDraft) => ({
+        ...currentDraft,
+        scopeExecutiveSummary: null
+      }));
+      await loadProjectData();
+      setSummaryFeedback("Summary reset. You can now generate a clean overview.");
+    } catch (resetError) {
+      setSummaryError(
+        resetError instanceof Error
+          ? resetError.message
+          : "Failed to reset discovery summary"
+      );
+    } finally {
+      setSummaryBusy(false);
+    }
+  }
+
   async function addClientPortalUser() {
     if (!project) {
       return;
@@ -1069,6 +1118,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         : isStandaloneQuote
                           ? "Generate Job Summary"
                           : "Generate Agent Summary"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetDiscoverySummaryState}
+                    disabled={summaryBusy}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-text-secondary disabled:cursor-not-allowed disabled:text-text-muted"
+                  >
+                    Reset Summary
                   </button>
                   <Link
                     href={`/projects/${project.id}/delivery`}

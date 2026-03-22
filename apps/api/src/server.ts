@@ -5309,6 +5309,17 @@ async function loadDiscoverySummary(projectId: string) {
   return summary ? serializeDiscoverySummary(summary) : null;
 }
 
+async function resetDiscoverySummary(projectId: string) {
+  await prisma.discoverySummary.deleteMany({
+    where: { projectId }
+  });
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { scopeExecutiveSummary: null }
+  });
+}
+
 async function generateBlueprintFromDiscovery(projectId: string) {
   const discoveryPayload = await loadProjectDiscoveryForBlueprint(projectId);
 
@@ -9145,6 +9156,32 @@ export function createAppServer(config: BaseConfig): http.Server {
               return sendJson(response, 502, {
                 error: "Discovery summary returned invalid JSON"
               });
+            }
+
+            if (error instanceof Error) {
+              return sendJson(response, 500, { error: error.message });
+            }
+
+            throw error;
+          }
+        }
+
+        if (request.method === "DELETE") {
+          try {
+            const project = await prisma.project.findUnique({
+              where: { id: projectDiscoverySummaryRoute.projectId },
+              select: { id: true }
+            });
+
+            if (!project) {
+              return sendJson(response, 404, { error: "Project not found" });
+            }
+
+            await resetDiscoverySummary(projectDiscoverySummaryRoute.projectId);
+            return sendJson(response, 200, { summary: null });
+          } catch (error: unknown) {
+            if (error instanceof Error) {
+              return sendJson(response, 500, { error: error.message });
             }
 
             throw error;
