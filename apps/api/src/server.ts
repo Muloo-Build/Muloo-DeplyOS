@@ -1740,7 +1740,7 @@ function matchWorkRequestRoute(pathname: string): {
 
 function matchClientProjectRoute(pathname: string): {
   projectId?: string;
-  resource?: "messages" | "submissions" | "tasks";
+  resource?: "messages" | "submissions" | "tasks" | "quote";
   sessionId?: number;
 } | null {
   const listMatch = /^\/api\/client\/projects$/.exec(pathname);
@@ -1749,7 +1749,7 @@ function matchClientProjectRoute(pathname: string): {
     return {};
   }
 
-  const projectMatch = /^\/api\/client\/projects\/([^/]+?)(?:\/(tasks|messages)|\/submissions\/([1-4]))?$/.exec(
+  const projectMatch = /^\/api\/client\/projects\/([^/]+?)(?:\/(tasks|messages|quote)|\/submissions\/([1-4]))?$/.exec(
     pathname
   );
 
@@ -1759,9 +1759,11 @@ function matchClientProjectRoute(pathname: string): {
 
   return {
     projectId: decodeURIComponent(projectMatch[1]),
-    ...(projectMatch[2] === "tasks" || projectMatch[2] === "messages"
+    ...(projectMatch[2] === "tasks" ||
+    projectMatch[2] === "messages" ||
+    projectMatch[2] === "quote"
       ? {
-          resource: projectMatch[2] as "tasks" | "messages"
+          resource: projectMatch[2] as "tasks" | "messages" | "quote"
         }
       : projectMatch[3]
       ? {
@@ -5309,6 +5311,32 @@ async function loadDiscoverySummary(projectId: string) {
   return summary ? serializeDiscoverySummary(summary) : null;
 }
 
+function waitForDelay(delayMs: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+}
+
+async function loadDiscoverySummaryWithRetry(
+  projectId: string,
+  attempts = 4,
+  delayMs = 350
+) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const summary = await loadDiscoverySummary(projectId);
+
+    if (summary) {
+      return summary;
+    }
+
+    if (attempt < attempts - 1) {
+      await waitForDelay(delayMs * (attempt + 1));
+    }
+  }
+
+  return null;
+}
+
 async function resetDiscoverySummary(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -6811,6 +6839,57 @@ async function loadClientProjectDetail(projectId: string, userId: string) {
   };
 }
 
+async function loadClientQuoteDocument(projectId: string, userId: string) {
+  const access = await prisma.clientProjectAccess.findUnique({
+    where: {
+      userId_projectId: {
+        userId,
+        projectId
+      }
+    }
+  });
+
+  if (!access) {
+    return null;
+  }
+
+  const [project, discoverySubmissions, summary, blueprint, products] =
+    await Promise.all([
+      prisma.project.findUnique({
+        where: { id: projectId },
+        include: {
+          client: true,
+          portal: true
+        }
+      }),
+      prisma.discoverySubmission.findMany({
+        where: { projectId },
+        orderBy: { version: "asc" },
+        select: {
+          version: true,
+          status: true,
+          sections: true,
+          completedSections: true
+        }
+      }),
+      loadDiscoverySummary(projectId),
+      loadBlueprint(projectId),
+      loadProductCatalog()
+    ]);
+
+  if (!project) {
+    return null;
+  }
+
+  return {
+    project: serializeProject(project),
+    sessions: buildDiscoverySessionsWithStatus(discoverySubmissions),
+    summary,
+    blueprint,
+    products
+  };
+}
+
 async function saveClientInputSubmission(
   projectId: string,
   userId: string,
@@ -8203,6 +8282,41 @@ export function createAppServer(config: BaseConfig): http.Server {
           }
 
           if (
+            request.method === "GET" &&
+            clientProjectRoute.projectId &&
+            clientProjectRoute.resource === "quote"
+          ) {
+            const document = await loadClientQuoteDocument(
+              clientProjectRoute.projectId,
+              clientUserId
+            );
+
+            if (!document) {
+              return sendJson(response, 404, { error: "Project not found" });
+            }
+
+            const isStandaloneQuote =
+              document.project.scopeType === "standalone_quote";
+
+            if (!document.summary) {
+              return sendJson(response, 400, {
+                error: isStandaloneQuote
+                  ? "Generate the scoped summary before opening the commercial document."
+                  : "Generate the discovery summary before opening the quote."
+              });
+            }
+
+            if (!isStandaloneQuote && !document.blueprint) {
+              return sendJson(response, 400, {
+                error:
+                  "Generate the discovery summary and blueprint before opening the quote."
+              });
+            }
+
+            return sendJson(response, 200, document);
+          }
+
+          if (
             clientProjectRoute.projectId &&
             clientProjectRoute.resource === "messages"
           ) {
@@ -9166,7 +9280,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             );
             return sendJson(response, 200, { summary });
           } catch (error: unknown) {
-            const recoveredSummary = await loadDiscoverySummary(
+            const recoveredSummary = await loadDiscoverySummaryWithRetry(
               projectDiscoverySummaryRoute.projectId
             ).catch(() => null);
 

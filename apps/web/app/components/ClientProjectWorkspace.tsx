@@ -324,6 +324,12 @@ export default function ClientProjectWorkspace({
         <div className="space-y-6">
           <div className="flex flex-wrap justify-end gap-3">
             <Link
+              href={`/client/projects/${detail.project.id}/quote`}
+              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+            >
+              Open Quote
+            </Link>
+            <Link
               href={`/client/projects/${detail.project.id}/delivery`}
               className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
             >

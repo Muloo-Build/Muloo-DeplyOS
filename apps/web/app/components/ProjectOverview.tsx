@@ -147,6 +147,12 @@ function isSessionComplete(session: SessionDetail | undefined) {
   return fieldValues.every((value) => value.trim().length > 0);
 }
 
+function waitForDelay(delayMs: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, delayMs);
+  });
+}
+
 const industryOptions = [
   "Accounting & Advisory",
   "Agency & Professional Services",
@@ -750,6 +756,46 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       return;
     }
 
+    async function recoverSavedSummary(projectId: string) {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const rescueResponse = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
+        ).catch(() => null);
+        const rescueBody =
+          rescueResponse && rescueResponse.ok
+            ? await rescueResponse.json().catch(() => null)
+            : null;
+
+        if (rescueBody?.summary) {
+          return rescueBody.summary as DiscoverySummary;
+        }
+
+        if (attempt < 3) {
+          await waitForDelay(450 * (attempt + 1));
+        }
+      }
+
+      return null;
+    }
+
+    function applySummaryResult(nextSummary: DiscoverySummary) {
+      setDiscoverySummary(nextSummary);
+      if (nextSummary.executiveSummary) {
+        setProject((currentProject) =>
+          currentProject
+            ? {
+                ...currentProject,
+                scopeExecutiveSummary: nextSummary.executiveSummary
+              }
+            : currentProject
+        );
+        setProjectDraft((currentDraft) => ({
+          ...currentDraft,
+          scopeExecutiveSummary: nextSummary.executiveSummary
+        }));
+      }
+    }
+
     setSummaryBusy(true);
     setSummaryError(null);
     setSummaryFeedback(null);
@@ -811,31 +857,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       }
 
       if (!response.ok) {
-        const rescueResponse = await fetch(
-          `/api/projects/${encodeURIComponent(project.id)}/discovery-summary`
-        ).catch(() => null);
-        const rescueBody =
-          rescueResponse && rescueResponse.ok
-            ? await rescueResponse.json().catch(() => null)
-            : null;
+        const recoveredSummary = await recoverSavedSummary(project.id);
 
-        if (rescueBody?.summary) {
-          const recoveredSummary = rescueBody.summary as DiscoverySummary;
-          setDiscoverySummary(recoveredSummary);
-          if (recoveredSummary.executiveSummary) {
-            setProject((currentProject) =>
-              currentProject
-                ? {
-                    ...currentProject,
-                    scopeExecutiveSummary: recoveredSummary.executiveSummary
-                  }
-                : currentProject
-            );
-            setProjectDraft((currentDraft) => ({
-              ...currentDraft,
-              scopeExecutiveSummary: recoveredSummary.executiveSummary
-            }));
-          }
+        if (recoveredSummary) {
+          applySummaryResult(recoveredSummary);
           await loadProjectData();
           setSummaryFeedback("Summary refreshed from the saved result.");
           return;
@@ -847,21 +872,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         );
       }
 
-      const nextSummary = body?.summary ?? null;
-      setDiscoverySummary(nextSummary);
-      if (nextSummary?.executiveSummary) {
-        setProject((currentProject) =>
-          currentProject
-            ? {
-                ...currentProject,
-                scopeExecutiveSummary: nextSummary.executiveSummary
-              }
-            : currentProject
-        );
-        setProjectDraft((currentDraft) => ({
-          ...currentDraft,
-          scopeExecutiveSummary: nextSummary.executiveSummary
-        }));
+      const nextSummary =
+        body?.summary ?? (await recoverSavedSummary(project.id));
+
+      if (nextSummary) {
+        applySummaryResult(nextSummary);
       }
       try {
         await loadProjectData();

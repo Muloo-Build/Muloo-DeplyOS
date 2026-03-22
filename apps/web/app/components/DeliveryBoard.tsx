@@ -380,11 +380,16 @@ export default function DeliveryBoard({
 
   const totalCount = useMemo(() => tasks.length, [tasks]);
   const boardMetrics = useMemo(() => {
-    const plannedHours = tasks.reduce(
+    const humanTasks = tasks.filter(
+      (task) =>
+        task.assigneeType?.toLowerCase() !== "agent" &&
+        task.assigneeType?.toLowerCase() !== "client"
+    );
+    const plannedHours = humanTasks.reduce(
       (sum, task) => sum + (typeof task.plannedHours === "number" ? task.plannedHours : 0),
       0
     );
-    const actualHours = tasks.reduce(
+    const actualHours = humanTasks.reduce(
       (sum, task) => sum + (typeof task.actualHours === "number" ? task.actualHours : 0),
       0
     );
@@ -450,15 +455,15 @@ export default function DeliveryBoard({
 
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
-          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Planned Hours</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Planned Human Hours</p>
           <p className="mt-2 text-xl font-semibold text-white">{boardMetrics.plannedHours}h</p>
         </div>
         <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
-          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Actual Hours</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Actual Human Hours</p>
           <p className="mt-2 text-xl font-semibold text-white">{boardMetrics.actualHours}h</p>
         </div>
         <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
-          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Variance</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Human Variance</p>
           <p className={`mt-2 text-xl font-semibold ${boardMetrics.variance > 0 ? "text-[#ff9aa5]" : boardMetrics.variance < 0 ? "text-[#2dd4a0]" : "text-white"}`}>
             {boardMetrics.variance > 0 ? "+" : ""}{boardMetrics.variance}h
           </p>

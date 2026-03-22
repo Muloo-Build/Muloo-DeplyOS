@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
+import ClientShell from "./ClientShell";
 import {
   getDisplayKeyRisks,
   getDisplayNextQuestions,
@@ -242,9 +243,11 @@ function SectionTitle({ children }: { children: string }) {
 }
 
 export default function QuoteDocument({
-  projectId
+  projectId,
+  mode = "internal"
 }: {
   projectId: string;
+  mode?: "internal" | "client";
 }) {
   const [project, setProject] = useState<Project | null>(null);
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
@@ -262,6 +265,7 @@ export default function QuoteDocument({
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isClientMode = mode === "client";
 
   useEffect(() => {
     async function loadDocument() {
@@ -269,6 +273,27 @@ export default function QuoteDocument({
       setError(null);
 
       try {
+        if (isClientMode) {
+          const response = await fetch(
+            `/api/client/projects/${encodeURIComponent(projectId)}/quote`,
+            {
+              credentials: "include"
+            }
+          );
+          const body = await response.json().catch(() => null);
+
+          if (!response.ok) {
+            throw new Error(body?.error ?? "Failed to load quote document");
+          }
+
+          setProject(body?.project ?? null);
+          setSessions(body?.sessions ?? []);
+          setSummary(body?.summary ?? null);
+          setBlueprint(body?.blueprint ?? null);
+          setProducts(body?.products ?? []);
+          return;
+        }
+
         const projectResponse = await fetch(
           `/api/projects/${encodeURIComponent(projectId)}`
         );
@@ -335,7 +360,7 @@ export default function QuoteDocument({
     }
 
     void loadDocument();
-  }, [projectId]);
+  }, [isClientMode, projectId]);
 
   useEffect(() => {
     if (products.length === 0) {
@@ -538,8 +563,8 @@ export default function QuoteDocument({
     window.print();
   }
 
-  return (
-    <AppShell>
+  const documentContent = (
+    <>
       <div className="document-shell p-8">
         {loading ? (
           <div className="grid gap-4">
@@ -559,10 +584,14 @@ export default function QuoteDocument({
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <Link
-                  href={`/projects/${project.id}`}
+                  href={
+                    isClientMode
+                      ? `/client/projects/${project.id}`
+                      : `/projects/${project.id}`
+                  }
                   className="text-sm text-text-muted"
                 >
-                  Back to overview
+                  {isClientMode ? "Back to project" : "Back to overview"}
                 </Link>
                 <h1 className="mt-3 text-3xl font-bold font-heading text-white">
                   {isStandaloneQuote
@@ -655,45 +684,53 @@ export default function QuoteDocument({
 
                 <div className="border-l border-[rgba(255,255,255,0.07)] bg-[#10172f] p-8">
                   <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    Commercial Controls
+                    {isClientMode ? "Commercial Snapshot" : "Commercial Controls"}
                   </p>
 
-                  <div className="mt-6 grid gap-4">
-                    <label className="block">
-                      <span className="mb-2 block text-sm text-text-secondary">
-                        Currency
-                      </span>
-                      <select
-                        value={currency}
-                        onChange={(event) =>
-                          setCurrency(event.target.value as CurrencyCode)
-                        }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                      >
-                        {Object.keys(exchangeRatesToZar).map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-2 block text-sm text-text-secondary">
-                        Default Hourly Rate
-                      </span>
-                      <div className="flex items-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3">
-                        <span className="mr-3 text-sm text-text-secondary">
-                          {currencySymbols[currency]}
+                  {isClientMode ? (
+                    <p className="mt-6 text-sm leading-7 text-text-secondary">
+                      This client portal view is read-only. Currency, hours, and
+                      commercial shaping are controlled by the Muloo team before
+                      the quote is shared here.
+                    </p>
+                  ) : (
+                    <div className="mt-6 grid gap-4">
+                      <label className="block">
+                        <span className="mb-2 block text-sm text-text-secondary">
+                          Currency
                         </span>
-                        <input
-                          value={defaultRate}
-                          onChange={(event) => setDefaultRate(event.target.value)}
-                          className="w-full bg-transparent text-white outline-none"
-                        />
-                      </div>
-                    </label>
-                  </div>
+                        <select
+                          value={currency}
+                          onChange={(event) =>
+                            setCurrency(event.target.value as CurrencyCode)
+                          }
+                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        >
+                          {Object.keys(exchangeRatesToZar).map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-2 block text-sm text-text-secondary">
+                          Default Hourly Rate
+                        </span>
+                        <div className="flex items-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3">
+                          <span className="mr-3 text-sm text-text-secondary">
+                            {currencySymbols[currency]}
+                          </span>
+                          <input
+                            value={defaultRate}
+                            onChange={(event) => setDefaultRate(event.target.value)}
+                            className="w-full bg-transparent text-white outline-none"
+                          />
+                        </div>
+                      </label>
+                    </div>
+                  )}
 
                   <div className="mt-8 grid gap-4">
                     <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
@@ -741,7 +778,7 @@ export default function QuoteDocument({
               </div>
             </section>
 
-            {phaseCommercials.length > 0 ? (
+            {!isClientMode && phaseCommercials.length > 0 ? (
               <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                 <SectionEyebrow>Commercial Composition</SectionEyebrow>
                 <SectionTitle>Select the phases to include in this quote</SectionTitle>
@@ -1277,6 +1314,7 @@ export default function QuoteDocument({
                         </span>
                         <input
                           value={phaseDrafts[phase.phase]?.humanHours ?? String(phase.humanHours)}
+                          disabled={isClientMode}
                           onChange={(event) =>
                             setPhaseDrafts((currentDrafts) => ({
                               ...currentDrafts,
@@ -1303,6 +1341,7 @@ export default function QuoteDocument({
                           </span>
                           <input
                             value={phaseDrafts[phase.phase]?.rate ?? defaultRate}
+                            disabled={isClientMode}
                             onChange={(event) =>
                             setPhaseDrafts((currentDrafts) => ({
                               ...currentDrafts,
@@ -1340,6 +1379,7 @@ export default function QuoteDocument({
             </section>
             ) : null}
 
+            {!isClientMode ? (
             <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <SectionEyebrow>Additional Products</SectionEyebrow>
               <SectionTitle>Retainers and add-on services</SectionTitle>
@@ -1389,6 +1429,7 @@ export default function QuoteDocument({
                           </span>
                           <input
                             value={selection.quantity}
+                            disabled={isClientMode}
                             onChange={(event) =>
                               setSelectedProducts((currentProducts) => ({
                                 ...currentProducts,
@@ -1408,6 +1449,7 @@ export default function QuoteDocument({
                           </span>
                           <input
                             value={selection.unitPrice}
+                            disabled={isClientMode}
                             onChange={(event) =>
                               setSelectedProducts((currentProducts) => ({
                                 ...currentProducts,
@@ -1426,6 +1468,7 @@ export default function QuoteDocument({
                             <input
                               type="checkbox"
                               checked={selection.included}
+                              disabled={isClientMode}
                               onChange={(event) =>
                                 setSelectedProducts((currentProducts) => ({
                                   ...currentProducts,
@@ -1451,6 +1494,7 @@ export default function QuoteDocument({
                   })}
               </div>
             </section>
+            ) : null}
 
             <section className="grid gap-6 xl:grid-cols-[0.72fr_0.28fr]">
               <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
@@ -1576,10 +1620,9 @@ export default function QuoteDocument({
                     routing are finalized during planning after client approval.
                   </p>
                   <p>
-                    Commercials can be refined before approval, including
-                    currency, hours, and per-phase rates. The discovery document
-                    and quote intentionally remain separate so the client can
-                    approve all or only part of the recommended scope.
+                    {isClientMode
+                      ? "The discovery document and quote remain separate so the client can review the recommended scope alongside the commercial offer."
+                      : "Commercials can be refined before approval, including currency, hours, and per-phase rates. The discovery document and quote intentionally remain separate so the client can approve all or only part of the recommended scope."}
                   </p>
                 </div>
               </div>
@@ -1598,7 +1641,8 @@ export default function QuoteDocument({
           nav,
           aside,
           button,
-          a[href^="/projects/"] {
+          a[href^="/projects/"],
+          a[href^="/client/projects/"] {
             display: none !important;
           }
 
@@ -1633,6 +1677,19 @@ export default function QuoteDocument({
           }
         }
       `}</style>
-    </AppShell>
+    </>
   );
+
+  if (isClientMode) {
+    return (
+      <ClientShell
+        title={project?.name ? `${project.name} Quote` : "Quote"}
+        subtitle="Shared quote, commercial scope, and approval reference"
+      >
+        {documentContent}
+      </ClientShell>
+    );
+  }
+
+  return <AppShell>{documentContent}</AppShell>;
 }
