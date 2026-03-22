@@ -473,6 +473,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     role: "contributor"
   });
   const [clientAccessSaving, setClientAccessSaving] = useState(false);
+  const [clientPortalPushBusy, setClientPortalPushBusy] = useState(false);
   const [clientAccessFeedback, setClientAccessFeedback] = useState<string | null>(
     null
   );
@@ -1071,6 +1072,51 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }
   }
 
+  async function pushQuoteToClientPortal() {
+    if (!project) {
+      return;
+    }
+
+    setClientPortalPushBusy(true);
+    setProjectEditError(null);
+    setClientAccessFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            senderName: "Muloo",
+            body:
+              "Your quote is now available in the client portal. Open this project in your portal and use the Open Quote button to review the latest commercial scope and approval pack."
+          })
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to push quote to client portal");
+      }
+
+      setClientAccessFeedback(
+        "Quote pushed to the client portal and posted to the client inbox."
+      );
+    } catch (pushError) {
+      setProjectEditError(
+        pushError instanceof Error
+          ? pushError.message
+          : "Failed to push quote to client portal"
+      );
+    } finally {
+      setClientPortalPushBusy(false);
+    }
+  }
+
   async function addSupportingContext() {
     if (!project) {
       return;
@@ -1281,6 +1327,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   >
                     Open Quote
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => void pushQuoteToClientPortal()}
+                    disabled={clientUsers.length === 0 || clientPortalPushBusy}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                  >
+                    {clientPortalPushBusy
+                      ? "Pushing..."
+                      : "Push to Client Portal"}
+                  </button>
                   <button
                     type="button"
                     onClick={() => void copyClientQuoteLink()}
@@ -2456,6 +2512,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       Client portal login route: `/client/login`
                     </p>
                     <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void pushQuoteToClientPortal()}
+                        disabled={clientUsers.length === 0 || clientPortalPushBusy}
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                      >
+                        {clientPortalPushBusy
+                          ? "Pushing..."
+                          : "Push to client portal"}
+                      </button>
                       <button
                         type="button"
                         onClick={() => void copyClientQuoteLink()}

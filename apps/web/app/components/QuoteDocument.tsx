@@ -263,6 +263,7 @@ export default function QuoteDocument({
     Record<string, { included: boolean; quantity: string; unitPrice: string }>
   >({});
   const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const isClientMode = mode === "client";
@@ -568,6 +569,45 @@ export default function QuoteDocument({
     }
   }
 
+  async function pushToClientPortal() {
+    if (isClientMode) {
+      return;
+    }
+
+    setPushBusy(true);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            senderName: "Muloo",
+            body:
+              "Your quote is now available in the client portal. Open this project in your portal and use the Open Quote button to review the latest commercial scope and approval pack."
+          })
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to push quote to client portal");
+      }
+
+      setShareMessage("Quote pushed to the client portal inbox");
+      window.setTimeout(() => setShareMessage(null), 2500);
+    } catch {
+      setShareMessage("Unable to push quote to client portal");
+      window.setTimeout(() => setShareMessage(null), 2500);
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
   function saveAsPdf() {
     window.print();
   }
@@ -614,6 +654,16 @@ export default function QuoteDocument({
                 </p>
               </div>
               <div className="document-toolbar flex flex-wrap items-center gap-3">
+                {!isClientMode ? (
+                  <button
+                    type="button"
+                    onClick={pushToClientPortal}
+                    disabled={pushBusy}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                  >
+                    {pushBusy ? "Pushing..." : "Push to Client Portal"}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={copyShareLink}
