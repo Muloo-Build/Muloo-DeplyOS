@@ -658,6 +658,29 @@ const discoverySummarySchema = z.object({
   keyRisks: z.array(z.string().trim().min(1)).default([]),
   recommendedNextQuestions: z.array(z.string().trim().min(1)).default([])
 });
+type DiscoverySummaryPayload = z.output<typeof discoverySummarySchema>;
+const discoverySummaryLooseSchema = z.object({
+  executiveSummary: z.string().trim().optional(),
+  mainPainPoints: z.array(z.string().trim().min(1)).optional().default([]),
+  recommendedApproach: z.string().trim().optional(),
+  whyThisApproach: z.string().trim().optional(),
+  phaseOneFocus: z.string().trim().optional(),
+  futureUpgradePath: z.string().trim().optional(),
+  inScopeItems: z.array(z.string().trim().min(1)).optional().default([]),
+  outOfScopeItems: z.array(z.string().trim().min(1)).optional().default([]),
+  supportingTools: z.array(z.string().trim().min(1)).optional().default([]),
+  engagementTrack: z.string().trim().optional(),
+  platformFit: z.string().trim().optional(),
+  changeManagementRating: z.string().trim().optional(),
+  dataReadinessRating: z.string().trim().optional(),
+  scopeVolatilityRating: z.string().trim().optional(),
+  missingInformation: z.array(z.string().trim().min(1)).optional().default([]),
+  keyRisks: z.array(z.string().trim().min(1)).optional().default([]),
+  recommendedNextQuestions: z
+    .array(z.string().trim().min(1))
+    .optional()
+    .default([])
+});
 const solutionShapingOptionSchema = z.object({
   title: z.string().trim().min(1),
   summary: z.string().trim().min(1),
@@ -2970,7 +2993,7 @@ function extractJsonBlock(rawText: string): string {
 
 async function parseModelJson<T>(
   rawText: string,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
   repairLabel: string
 ): Promise<T> {
   const normalizedJson = extractJsonBlock(rawText);
@@ -3617,6 +3640,102 @@ function deriveDefaultNextQuestions(input: {
   }
 
   return uniqueList(questions, 5);
+}
+
+function deriveStandaloneSummaryFallback(input: {
+  discoveryPayload: NonNullable<
+    Awaited<ReturnType<typeof loadProjectDiscoveryForBlueprint>>
+  >;
+  packagingAssessment: PackagingAssessment;
+  evidenceText: string;
+}) {
+  const { discoveryPayload, packagingAssessment } = input;
+  const clientName = discoveryPayload.discovery.client.name || "The client";
+  const hubLabelMap: Record<string, string> = {
+    sales: "Sales Hub",
+    marketing: "Marketing Hub",
+    service: "Service Hub",
+    ops: "Operations Hub",
+    cms: "Content Hub",
+    data: "Data Hub",
+    commerce: "Commerce Hub"
+  };
+  const selectedHubs = discoveryPayload.discovery.selectedHubs;
+  const selectedHubLabels = selectedHubs.length
+    ? selectedHubs
+        .map((hub) => hubLabelMap[hub] ?? hub)
+        .join(", ")
+    : "the selected HubSpot workspace";
+
+  const recommendedApproach =
+    discoveryPayload.project.solutionRecommendation?.trim() ||
+    "Implement a boxed Phase 1 that keeps HubSpot as the operational front end and uses a lightweight external layer for the heavier data normalization work.";
+
+  const executiveSummary = `${clientName} needs a practical Phase 1 that solves the immediate operational pain without forcing every data complexity directly into HubSpot. Start with a boxed implementation that cleans and consolidates source data outside HubSpot where needed, then syncs CRM-friendly records, audience views, and reporting outputs into ${selectedHubLabels}.`;
+
+  const whyThisApproach =
+    packagingAssessment.fit === "good"
+      ? "This keeps the first release lean and usable for the team while still creating a clean foundation for later automation, enrichment, and broader HubSpot adoption."
+      : "This keeps the first release lean and commercially sensible. Instead of loading packaging cost too early, the complex normalization work can sit outside HubSpot while HubSpot remains the operational CRM and reporting surface.";
+
+  const phaseOneFocus =
+    "Phase 1 should prove the working model: extract a representative sample, normalize and deduplicate it, push clean CRM-friendly records into HubSpot, and give the team usable views and reporting they can trust.";
+
+  const futureUpgradePath =
+    packagingAssessment.fit === "good"
+      ? "If Phase 1 proves value, later work can add automation, enrichment, and broader operational rollout without reworking the core model."
+      : "If Phase 1 proves value, later work can uplift HubSpot packaging where genuinely needed and move deeper automation, enrichment, or native modeling into the roadmap rather than forcing it all into the first release.";
+
+  const inScopeItems = uniqueList(
+    [
+      "Current-state source and access review",
+      "Data extraction and staging layer setup",
+      "Deduplication and identity-resolution rules",
+      "HubSpot CRM configuration for the agreed Phase 1 audience model",
+      "Core reporting and validation for the POC"
+    ],
+    6
+  );
+
+  const outOfScopeItems = uniqueList(
+    [
+      "Full source-platform replacement or redesign",
+      "Broader marketing automation rollout",
+      "Advanced workflow and lifecycle orchestration",
+      "Complete historical data perfection where source quality is weak",
+      "Unscoped SOP/documentation pack unless added as a paid bolt-on"
+    ],
+    6
+  );
+
+  const mainPainPoints = uniqueList(
+    [
+      "Fragmented or duplicated records make it hard to trust attendance and audience history.",
+      "Operational teams do not have one clean view of the audience inside HubSpot.",
+      "Reporting is constrained by source-system structure and inconsistent data quality.",
+      "Current setup limits segmentation, communication planning, and strategic reuse of the audience database."
+    ],
+    5
+  );
+
+  return {
+    executiveSummary,
+    mainPainPoints,
+    recommendedApproach,
+    whyThisApproach,
+    phaseOneFocus,
+    futureUpgradePath,
+    inScopeItems,
+    outOfScopeItems,
+    engagementTrack: "Technical implementation",
+    platformFit:
+      packagingAssessment.fit === "good"
+        ? "HubSpot-led Phase 1 with supporting architecture where required"
+        : "HubSpot front end with workaround architecture for the heavier data layer",
+    changeManagementRating: "medium",
+    dataReadinessRating: "medium",
+    scopeVolatilityRating: "medium"
+  };
 }
 
 function deriveBlueprintGuidance(
@@ -4883,11 +5002,96 @@ Rules:
     { maxTokens: 2500 }
   );
 
-  const parsedSummary = await parseModelJson(
-    rawSummary,
-    discoverySummarySchema,
-    "scoped-summary"
-  );
+  let parsedSummary: z.infer<typeof discoverySummarySchema>;
+  let partialSummary: z.infer<typeof discoverySummaryLooseSchema> | null = null;
+
+  try {
+    parsedSummary = await parseModelJson<DiscoverySummaryPayload>(
+      rawSummary,
+      discoverySummarySchema,
+      "scoped-summary"
+    );
+  } catch (parseError) {
+    if (
+      parseError instanceof SyntaxError ||
+      parseError instanceof ZodError
+    ) {
+      try {
+        partialSummary = discoverySummaryLooseSchema.parse(
+          JSON.parse(extractJsonBlock(rawSummary)) as unknown
+        );
+      } catch {
+        partialSummary = null;
+      }
+    } else {
+      throw parseError;
+    }
+
+    const fallbackSummary = deriveStandaloneSummaryFallback({
+      discoveryPayload,
+      packagingAssessment,
+      evidenceText
+    });
+    const mainPainPoints: string[] =
+      partialSummary?.mainPainPoints && partialSummary.mainPainPoints.length > 0
+        ? [...partialSummary.mainPainPoints]
+        : [...fallbackSummary.mainPainPoints];
+    const inScopeItems: string[] =
+      partialSummary?.inScopeItems && partialSummary.inScopeItems.length > 0
+        ? [...partialSummary.inScopeItems]
+        : [...fallbackSummary.inScopeItems];
+    const outOfScopeItems: string[] =
+      partialSummary?.outOfScopeItems && partialSummary.outOfScopeItems.length > 0
+        ? [...partialSummary.outOfScopeItems]
+        : [...fallbackSummary.outOfScopeItems];
+    const supportingTools: string[] = partialSummary?.supportingTools
+      ? [...partialSummary.supportingTools]
+      : [];
+    const missingInformation: string[] = partialSummary?.missingInformation
+      ? [...partialSummary.missingInformation]
+      : [];
+    const keyRisks: string[] = partialSummary?.keyRisks
+      ? [...partialSummary.keyRisks]
+      : [];
+    const recommendedNextQuestions: string[] =
+      partialSummary?.recommendedNextQuestions
+        ? [...partialSummary.recommendedNextQuestions]
+        : [];
+
+    parsedSummary = discoverySummarySchema.parse({
+      executiveSummary:
+        partialSummary?.executiveSummary || fallbackSummary.executiveSummary,
+      mainPainPoints,
+      recommendedApproach:
+        partialSummary?.recommendedApproach ||
+        fallbackSummary.recommendedApproach,
+      whyThisApproach:
+        partialSummary?.whyThisApproach || fallbackSummary.whyThisApproach,
+      phaseOneFocus:
+        partialSummary?.phaseOneFocus || fallbackSummary.phaseOneFocus,
+      futureUpgradePath:
+        partialSummary?.futureUpgradePath ||
+        fallbackSummary.futureUpgradePath,
+      inScopeItems,
+      outOfScopeItems,
+      supportingTools,
+      engagementTrack:
+        partialSummary?.engagementTrack || fallbackSummary.engagementTrack,
+      platformFit: partialSummary?.platformFit || fallbackSummary.platformFit,
+      changeManagementRating:
+        partialSummary?.changeManagementRating ||
+        fallbackSummary.changeManagementRating,
+      dataReadinessRating:
+        partialSummary?.dataReadinessRating ||
+        fallbackSummary.dataReadinessRating,
+      scopeVolatilityRating:
+        partialSummary?.scopeVolatilityRating ||
+        fallbackSummary.scopeVolatilityRating,
+      missingInformation,
+      keyRisks,
+      recommendedNextQuestions
+    });
+  }
   const normalizedSummary = {
     ...parsedSummary,
     mainPainPoints: parsedSummary.mainPainPoints ?? [],
