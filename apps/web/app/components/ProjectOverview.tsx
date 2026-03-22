@@ -811,6 +811,36 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       }
 
       if (!response.ok) {
+        const rescueResponse = await fetch(
+          `/api/projects/${encodeURIComponent(project.id)}/discovery-summary`
+        ).catch(() => null);
+        const rescueBody =
+          rescueResponse && rescueResponse.ok
+            ? await rescueResponse.json().catch(() => null)
+            : null;
+
+        if (rescueBody?.summary) {
+          const recoveredSummary = rescueBody.summary as DiscoverySummary;
+          setDiscoverySummary(recoveredSummary);
+          if (recoveredSummary.executiveSummary) {
+            setProject((currentProject) =>
+              currentProject
+                ? {
+                    ...currentProject,
+                    scopeExecutiveSummary: recoveredSummary.executiveSummary
+                  }
+                : currentProject
+            );
+            setProjectDraft((currentDraft) => ({
+              ...currentDraft,
+              scopeExecutiveSummary: recoveredSummary.executiveSummary
+            }));
+          }
+          await loadProjectData();
+          setSummaryFeedback("Summary refreshed from the saved result.");
+          return;
+        }
+
         throw new Error(
           body?.error ||
             `Failed to generate discovery summary (${response.status} ${response.statusText})`

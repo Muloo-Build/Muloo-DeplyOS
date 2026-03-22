@@ -5721,10 +5721,18 @@ async function generateBlueprintForProject(projectId: string) {
   }
 
   if (project.scopeType === "standalone_quote") {
-    return generateBlueprintFromScope(projectId);
+    const blueprint = await generateBlueprintFromScope(projectId);
+    await generateProjectPlan(projectId).catch((error) => {
+      console.error("Failed to refresh project plan after blueprint generation", error);
+    });
+    return blueprint;
   }
 
-  return generateBlueprintFromDiscovery(projectId);
+  const blueprint = await generateBlueprintFromDiscovery(projectId);
+  await generateProjectPlan(projectId).catch((error) => {
+    console.error("Failed to refresh project plan after blueprint generation", error);
+  });
+  return blueprint;
 }
 
 async function loadBlueprint(projectId: string) {
@@ -9158,6 +9166,17 @@ export function createAppServer(config: BaseConfig): http.Server {
             );
             return sendJson(response, 200, { summary });
           } catch (error: unknown) {
+            const recoveredSummary = await loadDiscoverySummary(
+              projectDiscoverySummaryRoute.projectId
+            ).catch(() => null);
+
+            if (recoveredSummary) {
+              return sendJson(response, 200, {
+                summary: recoveredSummary,
+                recovered: true
+              });
+            }
+
             if (
               error instanceof Error &&
               error.message === "Project not found"
