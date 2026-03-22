@@ -4936,9 +4936,11 @@ async function generateStandaloneScopeSummary(
     implementationApproach: discoveryPayload.project.implementationApproach,
     evidenceText
   });
-  const rawSummary = await callAiWorkflow(
-    "scoped_summary",
-    `You are Muloo Deploy OS's scoped implementation adviser.
+  let rawSummary = "";
+  try {
+    rawSummary = await callAiWorkflow(
+      "scoped_summary",
+      `You are Muloo Deploy OS's scoped implementation adviser.
 Given a standalone HubSpot-related job brief, supporting notes, and platform context, produce a practical Muloo recommendation for quoting, planning, and client communication.
 
 Rules:
@@ -4972,40 +4974,47 @@ Rules:
 - Prefer short, decisive sentences over generic consulting language.
 - If there is a lower-cost workable path, say so plainly.
 - If the brief is describing a POC, keep the recommendation boxed and avoid planning a future-state transformation as if it is Phase 1.`,
-    JSON.stringify(
-      {
-        project: {
-          id: discoveryPayload.project.id,
-          name: discoveryPayload.project.name,
-          engagementType: discoveryPayload.project.engagementType,
-          serviceFamily: discoveryPayload.project.serviceFamily,
-          implementationApproach:
-            discoveryPayload.project.implementationApproach,
-          selectedHubs: discoveryPayload.project.selectedHubs,
-          scopeType: discoveryPayload.project.scopeType,
-          commercialBrief: discoveryPayload.project.commercialBrief,
-          problemStatement: discoveryPayload.project.problemStatement,
-          solutionRecommendation: discoveryPayload.project.solutionRecommendation,
-          customerPlatformTier: discoveryPayload.project.customerPlatformTier,
-          platformTierSelections: normalizePlatformTierSelections(
-            discoveryPayload.project.platformTierSelections
-          )
+      JSON.stringify(
+        {
+          project: {
+            id: discoveryPayload.project.id,
+            name: discoveryPayload.project.name,
+            engagementType: discoveryPayload.project.engagementType,
+            serviceFamily: discoveryPayload.project.serviceFamily,
+            implementationApproach:
+              discoveryPayload.project.implementationApproach,
+            selectedHubs: discoveryPayload.project.selectedHubs,
+            scopeType: discoveryPayload.project.scopeType,
+            commercialBrief: discoveryPayload.project.commercialBrief,
+            problemStatement: discoveryPayload.project.problemStatement,
+            solutionRecommendation:
+              discoveryPayload.project.solutionRecommendation,
+            customerPlatformTier: discoveryPayload.project.customerPlatformTier,
+            platformTierSelections: normalizePlatformTierSelections(
+              discoveryPayload.project.platformTierSelections
+            )
+          },
+          client: discoveryPayload.discovery.client,
+          packagingAssessment,
+          evidenceText,
+          supportingContext: discoveryPayload.discovery.evidenceItems
         },
-        client: discoveryPayload.discovery.client,
-        packagingAssessment,
-        evidenceText,
-        supportingContext: discoveryPayload.discovery.evidenceItems
-      },
-      null,
-      2
-    ),
-    { maxTokens: 2500 }
-  );
+        null,
+        2
+      ),
+      { maxTokens: 2500 }
+    );
+  } catch {
+    rawSummary = "";
+  }
 
   let parsedSummary: z.infer<typeof discoverySummarySchema>;
   let partialSummary: z.infer<typeof discoverySummaryLooseSchema> | null = null;
 
   try {
+    if (!rawSummary.trim()) {
+      throw new SyntaxError("Scoped summary model output was empty");
+    }
     parsedSummary = await parseModelJson<DiscoverySummaryPayload>(
       rawSummary,
       discoverySummarySchema,
