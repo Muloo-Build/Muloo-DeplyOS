@@ -16,6 +16,13 @@ type CurrencyCode = "ZAR" | "GBP" | "EUR" | "USD" | "AUD";
 interface Project {
   id: string;
   name: string;
+  status: string;
+  quoteApprovalStatus?: string | null;
+  quoteSharedAt?: string | null;
+  quoteApprovedAt?: string | null;
+  quoteApprovedByName?: string | null;
+  quoteApprovedByEmail?: string | null;
+  scopeLockedAt?: string | null;
   owner: string;
   ownerEmail: string;
   scopeType?: string | null;
@@ -264,6 +271,7 @@ export default function QuoteDocument({
   >({});
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [pushBusy, setPushBusy] = useState(false);
+  const [approveBusy, setApproveBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const isClientMode = mode === "client";
@@ -503,6 +511,8 @@ export default function QuoteDocument({
   ];
   const clientResponsibilities = splitIntoList(session4.client_responsibilities);
   const isStandaloneQuote = project?.scopeType === "standalone_quote";
+  const quoteApprovalStatus = project?.quoteApprovalStatus ?? "draft";
+  const isApprovedQuote = quoteApprovalStatus === "approved";
   const inScopeItems =
     isStandaloneQuote && summary?.inScopeItems?.length
       ? summary.inScopeItems
@@ -578,17 +588,9 @@ export default function QuoteDocument({
 
     try {
       const response = await fetch(
-        `/api/projects/${encodeURIComponent(projectId)}/messages`,
+        `/api/projects/${encodeURIComponent(projectId)}/quote/share`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            senderName: "Muloo",
-            body:
-              "Your quote is now available in the client portal. Open this project in your portal and use the Open Quote button to review the latest commercial scope and approval pack."
-          })
         }
       );
 
@@ -598,6 +600,10 @@ export default function QuoteDocument({
         throw new Error(body?.error ?? "Failed to push quote to client portal");
       }
 
+       if (body?.project) {
+        setProject(body.project);
+      }
+
       setShareMessage("Quote pushed to the client portal inbox");
       window.setTimeout(() => setShareMessage(null), 2500);
     } catch {
@@ -605,6 +611,41 @@ export default function QuoteDocument({
       window.setTimeout(() => setShareMessage(null), 2500);
     } finally {
       setPushBusy(false);
+    }
+  }
+
+  async function approveQuote() {
+    if (!isClientMode) {
+      return;
+    }
+
+    setApproveBusy(true);
+
+    try {
+      const response = await fetch(
+        `/api/client/projects/${encodeURIComponent(projectId)}/quote/approve`,
+        {
+          method: "POST",
+          credentials: "include"
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to approve quote");
+      }
+
+      if (body?.project) {
+        setProject(body.project);
+      }
+
+      setShareMessage("Quote approved and scope locked");
+      window.setTimeout(() => setShareMessage(null), 2500);
+    } catch {
+      setShareMessage("Unable to approve quote");
+      window.setTimeout(() => setShareMessage(null), 2500);
+    } finally {
+      setApproveBusy(false);
     }
   }
 
@@ -658,10 +699,24 @@ export default function QuoteDocument({
                   <button
                     type="button"
                     onClick={pushToClientPortal}
-                    disabled={pushBusy}
+                    disabled={pushBusy || isApprovedQuote}
                     className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                   >
-                    {pushBusy ? "Pushing..." : "Push to Client Portal"}
+                    {pushBusy
+                      ? "Pushing..."
+                      : isApprovedQuote
+                        ? "Quote Approved"
+                        : "Push to Client Portal"}
+                  </button>
+                ) : null}
+                {isClientMode && quoteApprovalStatus === "shared" ? (
+                  <button
+                    type="button"
+                    onClick={approveQuote}
+                    disabled={approveBusy}
+                    className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {approveBusy ? "Approving..." : "Approve Quote"}
                   </button>
                 ) : null}
                 <button
@@ -1618,17 +1673,30 @@ export default function QuoteDocument({
                 <SectionEyebrow>Approval</SectionEyebrow>
                 <SectionTitle>Client review and sign-off</SectionTitle>
                 <p className="mt-4 text-sm leading-7 text-text-secondary">
-                  This quote is intended to act as the commercial approval pack
-                  for the recommended implementation scope. Once approved, the
-                  accepted phases and commercial split should become the
-                  contractual baseline for planning and delivery.
+                  {isApprovedQuote
+                    ? "This quote has been approved in the client portal. The approved commercial scope is now the delivery baseline and scope-driving changes should move through change management."
+                    : quoteApprovalStatus === "shared"
+                      ? "This quote has been shared to the client portal and is waiting for client approval."
+                      : "This quote is intended to act as the commercial approval pack for the recommended implementation scope. Once approved, the accepted phases and commercial split should become the contractual baseline for planning and delivery."}
                 </p>
                 <div className="mt-6 space-y-4 text-sm text-text-secondary">
-                  <p>Approval status: Pending client review</p>
-                  <p>Prepared from structured discovery, blueprint, and phased estimate</p>
                   <p>
-                    Scope changes after approval should be captured as formal
-                    change requests
+                    Approval status:{" "}
+                    {isApprovedQuote
+                      ? "Approved"
+                      : quoteApprovalStatus === "shared"
+                        ? "Shared with client"
+                        : "Draft"}
+                  </p>
+                  <p>
+                    {isApprovedQuote
+                      ? `Approved by ${project.quoteApprovedByName || project.quoteApprovedByEmail || "client"}${project.quoteApprovedAt ? ` on ${formatDate(project.quoteApprovedAt)}` : ""}`
+                      : "Prepared from structured discovery, blueprint, and phased estimate"}
+                  </p>
+                  <p>
+                    {isApprovedQuote
+                      ? "Scope changes now need to be handled as formal change requests."
+                      : "Scope changes after approval should be captured as formal change requests"}
                   </p>
                 </div>
               </div>

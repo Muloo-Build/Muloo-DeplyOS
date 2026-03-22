@@ -82,6 +82,7 @@ export default function DeliveryBoard({
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [projectServiceFamily, setProjectServiceFamily] = useState<string | null>(null);
+  const [scopeLocked, setScopeLocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
@@ -139,6 +140,12 @@ export default function DeliveryBoard({
         if (projectResponse?.ok) {
           const projectBody = await projectResponse.json().catch(() => null);
           currentServiceFamily = projectBody?.project?.serviceFamily ?? null;
+          setScopeLocked(
+            Boolean(
+              projectBody?.project?.scopeLockedAt ||
+                projectBody?.project?.quoteApprovalStatus === "approved"
+            )
+          );
           setProjectServiceFamily(currentServiceFamily);
         }
 
@@ -430,6 +437,7 @@ export default function DeliveryBoard({
                   setEditingTaskId("new");
                   resetTaskDraft();
                 }}
+                disabled={scopeLocked}
                 className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white"
               >
                 Add Task
@@ -437,7 +445,7 @@ export default function DeliveryBoard({
               <button
                 type="button"
                 onClick={() => void generatePlan()}
-                disabled={generating}
+                disabled={generating || scopeLocked}
                 className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
               >
                 {generating
@@ -478,6 +486,14 @@ export default function DeliveryBoard({
       {mode === "internal" && projectServiceFamily ? (
         <p className="mt-3 text-sm text-text-secondary">
           Agent suggestions are filtered to the project service family: {formatLabel(projectServiceFamily)}.
+        </p>
+      ) : null}
+
+      {mode === "internal" && scopeLocked ? (
+        <p className="mt-3 text-sm text-[#7be2ef]">
+          Approved scope is locked. You can still assign ownership, move status,
+          and track delivery, but new scoped steps should come through change
+          management.
         </p>
       ) : null}
 
@@ -780,6 +796,12 @@ export default function DeliveryBoard({
                           <>
                             {editingTaskId === task.id ? (
                               <div className="mt-4 space-y-3">
+                                {scopeLocked ? (
+                                  <p className="text-xs text-[#7be2ef]">
+                                    Approved scope fields are locked. You can still update
+                                    ownership, readiness, status, and actual hours here.
+                                  </p>
+                                ) : null}
                                 <input
                                   value={taskDraft.title}
                                   onChange={(event) =>
@@ -788,7 +810,8 @@ export default function DeliveryBoard({
                                       title: event.target.value
                                     }))
                                   }
-                                  className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                  disabled={scopeLocked}
+                                  className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                 />
                                 <textarea
                                   value={taskDraft.description}
@@ -798,7 +821,8 @@ export default function DeliveryBoard({
                                       description: event.target.value
                                     }))
                                   }
-                                  className="min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                  disabled={scopeLocked}
+                                  className="min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                 />
                                 <div className="grid gap-3 md:grid-cols-2">
                                   <input
@@ -810,7 +834,8 @@ export default function DeliveryBoard({
                                       }))
                                     }
                                     placeholder="Category"
-                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                    disabled={scopeLocked}
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                   />
                                   <input
                                     value={taskDraft.executionType}
@@ -821,7 +846,8 @@ export default function DeliveryBoard({
                                       }))
                                     }
                                     placeholder="Execution type"
-                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                    disabled={scopeLocked}
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                   />
                                   <select
                                     value={taskDraft.assigneeType}
@@ -864,7 +890,8 @@ export default function DeliveryBoard({
                                         priority: event.target.value
                                       }))
                                     }
-                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                    disabled={scopeLocked}
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                   >
                                     <option value="low">Low</option>
                                     <option value="medium">Medium</option>
@@ -911,7 +938,8 @@ export default function DeliveryBoard({
                                       }))
                                     }
                                     placeholder="Planned hours"
-                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                    disabled={scopeLocked}
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                   />
                                   <input
                                     type="number"
@@ -937,6 +965,7 @@ export default function DeliveryBoard({
                                           qaRequired: event.target.checked
                                         }))
                                       }
+                                      disabled={scopeLocked}
                                     />
                                     QA required
                                   </label>
@@ -950,6 +979,7 @@ export default function DeliveryBoard({
                                           approvalRequired: event.target.checked
                                         }))
                                       }
+                                      disabled={scopeLocked}
                                     />
                                     Approval required
                                   </label>
@@ -995,7 +1025,7 @@ export default function DeliveryBoard({
                                   <button
                                     type="button"
                                     onClick={() => void deleteTask(task.id)}
-                                    disabled={deletingTaskId === task.id}
+                                    disabled={deletingTaskId === task.id || scopeLocked}
                                     className="rounded-xl border border-[rgba(224,80,96,0.35)] px-3 py-2 text-xs font-medium text-[#ff8f9c] disabled:opacity-60"
                                   >
                                     {deletingTaskId === task.id ? "Deleting..." : "Delete"}

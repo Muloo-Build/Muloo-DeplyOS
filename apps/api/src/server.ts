@@ -1614,6 +1614,23 @@ function matchProjectRoute(pathname: string): {
     : { projectId };
 }
 
+function matchProjectQuoteRoute(pathname: string): {
+  projectId: string;
+  action?: "share";
+} | null {
+  const match =
+    /^\/api\/projects\/([^/]+?)\/quote(?:\/(share))?$/.exec(pathname);
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1]),
+    ...(match[2] === "share" ? { action: "share" as const } : {})
+  };
+}
+
 function matchProjectDesignRoute(pathname: string): {
   projectId: string;
   resource?: "lifecycle" | "properties" | "pipelines";
@@ -1771,6 +1788,21 @@ function matchClientProjectRoute(pathname: string): {
           sessionId: Number(projectMatch[3])
         }
       : {})
+  };
+}
+
+function matchClientProjectQuoteApprovalRoute(pathname: string): {
+  projectId: string;
+} | null {
+  const match =
+    /^\/api\/client\/projects\/([^/]+?)\/quote\/approve$/.exec(pathname);
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1])
   };
 }
 
@@ -2153,6 +2185,12 @@ function serializeProject<
     id: string;
     name: string;
     status: string;
+    quoteApprovalStatus?: string | null;
+    quoteSharedAt?: Date | null;
+    quoteApprovedAt?: Date | null;
+    quoteApprovedByName?: string | null;
+    quoteApprovedByEmail?: string | null;
+    scopeLockedAt?: Date | null;
     owner: string;
     ownerEmail: string;
     serviceFamily: string;
@@ -2215,6 +2253,12 @@ function serializeProject<
 
   return {
     ...normalizedProject,
+    quoteApprovalStatus: normalizedProject.quoteApprovalStatus ?? "draft",
+    quoteSharedAt: normalizedProject.quoteSharedAt?.toISOString() ?? null,
+    quoteApprovedAt: normalizedProject.quoteApprovedAt?.toISOString() ?? null,
+    quoteApprovedByName: normalizedProject.quoteApprovedByName ?? null,
+    quoteApprovedByEmail: normalizedProject.quoteApprovedByEmail ?? null,
+    scopeLockedAt: normalizedProject.scopeLockedAt?.toISOString() ?? null,
     platformTierSelections: normalizePlatformTierSelections(
       normalizedProject.platformTierSelections
     ),
@@ -2229,6 +2273,12 @@ function serializeClientProject<
     id: string;
     name: string;
     status: string;
+    quoteApprovalStatus?: string | null;
+    quoteSharedAt?: Date | null;
+    quoteApprovedAt?: Date | null;
+    quoteApprovedByName?: string | null;
+    quoteApprovedByEmail?: string | null;
+    scopeLockedAt?: Date | null;
     serviceFamily: string;
     scopeType?: string | null;
     deliveryTemplateId?: string | null;
@@ -2246,6 +2296,12 @@ function serializeClientProject<
     id: project.id,
     name: project.name,
     status: project.status,
+    quoteApprovalStatus: project.quoteApprovalStatus ?? "draft",
+    quoteSharedAt: project.quoteSharedAt?.toISOString() ?? null,
+    quoteApprovedAt: project.quoteApprovedAt?.toISOString() ?? null,
+    quoteApprovedByName: project.quoteApprovedByName ?? null,
+    quoteApprovedByEmail: project.quoteApprovedByEmail ?? null,
+    scopeLockedAt: project.scopeLockedAt?.toISOString() ?? null,
     serviceFamily: project.serviceFamily,
     scopeType: project.scopeType ?? "discovery",
     deliveryTemplateId: project.deliveryTemplateId ?? null,
@@ -2329,6 +2385,16 @@ function serializeProjectMessage<
     createdAt: message.createdAt.toISOString(),
     updatedAt: message.updatedAt.toISOString()
   };
+}
+
+function isProjectScopeLocked(value: {
+  quoteApprovalStatus?: string | null;
+  scopeLockedAt?: Date | string | null;
+}) {
+  return (
+    value.quoteApprovalStatus === "approved" ||
+    Boolean(value.scopeLockedAt)
+  );
 }
 
 function serializeTask<
@@ -5337,6 +5403,146 @@ async function loadDiscoverySummaryWithRetry(
   return null;
 }
 
+async function ensureProjectScopeUnlocked(
+  projectId: string,
+  errorMessage = "Approved scope is locked. Use change management to revise this project."
+) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      quoteApprovalStatus: true,
+      scopeLockedAt: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (isProjectScopeLocked(project)) {
+    throw new Error(errorMessage);
+  }
+}
+
+async function shareProjectQuote(projectId: string) {
+  const [project, summary, blueprint] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        client: true,
+        portal: true
+      }
+    }),
+    loadDiscoverySummary(projectId),
+    loadBlueprint(projectId)
+  ]);
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const isStandaloneQuote = project.scopeType === "standalone_quote";
+
+  if (!summary) {
+    throw new Error(
+      isStandaloneQuote
+        ? "Generate the scoped summary before sharing the quote."
+        : "Generate the discovery summary before sharing the quote."
+    );
+  }
+
+  if (!isStandaloneQuote && !blueprint) {
+    throw new Error(
+      "Generate the discovery summary and blueprint before sharing the quote."
+    );
+  }
+
+  const updatedProject = await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      quoteApprovalStatus:
+        project.quoteApprovalStatus === "approved" ? "approved" : "shared",
+      quoteSharedAt: project.quoteSharedAt ?? new Date()
+    },
+    include: {
+      client: true,
+      portal: true
+    }
+  });
+
+  await createProjectMessage({
+    projectId,
+    senderType: "internal",
+    senderName: "Muloo",
+    body:
+      "Your quote is now available in the client portal. Open this project and use the Open Quote button to review the latest commercial scope and approval pack."
+  });
+
+  return serializeProject(updatedProject);
+}
+
+async function approveProjectQuote(projectId: string, clientUserId: string) {
+  const access = await prisma.clientProjectAccess.findUnique({
+    where: {
+      userId_projectId: {
+        userId: clientUserId,
+        projectId
+      }
+    },
+    include: {
+      user: true,
+      project: {
+        include: {
+          client: true,
+          portal: true
+        }
+      }
+    }
+  });
+
+  if (!access) {
+    throw new Error("Project not found");
+  }
+
+  if (access.project.quoteApprovalStatus === "draft") {
+    throw new Error("Quote must be shared to the client portal before approval.");
+  }
+
+  const approverName = `${access.user.firstName} ${access.user.lastName}`.trim();
+  const approvedAt = access.project.quoteApprovedAt ?? new Date();
+  const lockedAt = access.project.scopeLockedAt ?? approvedAt;
+
+  const updatedProject = await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      quoteApprovalStatus: "approved",
+      quoteApprovedAt: approvedAt,
+      quoteApprovedByName: approverName || access.user.email,
+      quoteApprovedByEmail: access.user.email,
+      scopeLockedAt: lockedAt,
+      status:
+        access.project.status === "complete"
+          ? access.project.status
+          : "ready-for-execution"
+    },
+    include: {
+      client: true,
+      portal: true
+    }
+  });
+
+  await createProjectMessage({
+    projectId,
+    senderType: "client",
+    senderName: approverName || access.user.email,
+    body:
+      "Approved the quote in the client portal. The project scope is now locked for delivery."
+  });
+
+  return serializeProject(updatedProject);
+}
+
 async function resetDiscoverySummary(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -8203,6 +8409,38 @@ export function createAppServer(config: BaseConfig): http.Server {
           return sendJson(response, 405, { error: "Method Not Allowed" });
         }
 
+        const clientProjectQuoteApprovalRoute =
+          matchClientProjectQuoteApprovalRoute(url.pathname);
+
+        if (clientProjectQuoteApprovalRoute) {
+          if (request.method === "POST") {
+            try {
+              const project = await approveProjectQuote(
+                clientProjectQuoteApprovalRoute.projectId,
+                clientUserId
+              );
+
+              return sendJson(response, 200, { project, approved: true });
+            } catch (error) {
+              if (
+                error instanceof Error &&
+                error.message === "Project not found"
+              ) {
+                return sendJson(response, 404, { error: error.message });
+              }
+
+              return sendJson(response, 400, {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to approve quote"
+              });
+            }
+          }
+
+          return sendJson(response, 405, { error: "Method Not Allowed" });
+        }
+
         const clientProjectRoute = matchClientProjectRoute(url.pathname);
 
         if (clientProjectRoute) {
@@ -9031,11 +9269,18 @@ export function createAppServer(config: BaseConfig): http.Server {
       if (request.method === "PATCH" && projectSessionRoute) {
         const project = await prisma.project.findUnique({
           where: { id: projectSessionRoute.projectId },
-          select: { id: true }
+          select: { id: true, quoteApprovalStatus: true, scopeLockedAt: true }
         });
 
         if (!project) {
           return sendJson(response, 404, { error: "Project not found" });
+        }
+
+        if (isProjectScopeLocked(project)) {
+          return sendJson(response, 409, {
+            error:
+              "Approved scope is locked. Use change management to revise this project."
+          });
         }
 
         const body = (await readJsonBody(request)) as { fields?: unknown };
@@ -9220,11 +9465,18 @@ export function createAppServer(config: BaseConfig): http.Server {
         if (request.method === "POST") {
           const project = await prisma.project.findUnique({
             where: { id: projectSessionEvidenceRoute.projectId },
-            select: { id: true }
+            select: { id: true, quoteApprovalStatus: true, scopeLockedAt: true }
           });
 
           if (!project) {
             return sendJson(response, 404, { error: "Project not found" });
+          }
+
+          if (isProjectScopeLocked(project)) {
+            return sendJson(response, 409, {
+              error:
+                "Approved scope is locked. Use change management to revise this project."
+            });
           }
 
           try {
@@ -9274,21 +9526,29 @@ export function createAppServer(config: BaseConfig): http.Server {
         }
 
         if (request.method === "POST") {
+          let scopeUnlocked = false;
+
           try {
+            await ensureProjectScopeUnlocked(
+              projectDiscoverySummaryRoute.projectId
+            );
+            scopeUnlocked = true;
             const summary = await generateDiscoverySummary(
               projectDiscoverySummaryRoute.projectId
             );
             return sendJson(response, 200, { summary });
           } catch (error: unknown) {
-            const recoveredSummary = await loadDiscoverySummaryWithRetry(
-              projectDiscoverySummaryRoute.projectId
-            ).catch(() => null);
+            if (scopeUnlocked) {
+              const recoveredSummary = await loadDiscoverySummaryWithRetry(
+                projectDiscoverySummaryRoute.projectId
+              ).catch(() => null);
 
-            if (recoveredSummary) {
-              return sendJson(response, 200, {
-                summary: recoveredSummary,
-                recovered: true
-              });
+              if (recoveredSummary) {
+                return sendJson(response, 200, {
+                  summary: recoveredSummary,
+                  recovered: true
+                });
+              }
             }
 
             if (
@@ -9296,6 +9556,14 @@ export function createAppServer(config: BaseConfig): http.Server {
               error.message === "Project not found"
             ) {
               return sendJson(response, 404, { error: error.message });
+            }
+
+            if (
+              error instanceof Error &&
+              error.message ===
+                "Approved scope is locked. Use change management to revise this project."
+            ) {
+              return sendJson(response, 409, { error: error.message });
             }
 
             if (error instanceof ZodError) {
@@ -9323,11 +9591,18 @@ export function createAppServer(config: BaseConfig): http.Server {
           try {
             const project = await prisma.project.findUnique({
               where: { id: projectDiscoverySummaryRoute.projectId },
-              select: { id: true }
+              select: { id: true, quoteApprovalStatus: true, scopeLockedAt: true }
             });
 
             if (!project) {
               return sendJson(response, 404, { error: "Project not found" });
+            }
+
+            if (isProjectScopeLocked(project)) {
+              return sendJson(response, 409, {
+                error:
+                  "Approved scope is locked. Use change management to revise this project."
+              });
             }
 
             await resetDiscoverySummary(projectDiscoverySummaryRoute.projectId);
@@ -9351,6 +9626,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           projectBlueprintRoute.action === "generate"
         ) {
           try {
+            await ensureProjectScopeUnlocked(projectBlueprintRoute.projectId);
             const blueprint = await generateBlueprintForProject(
               projectBlueprintRoute.projectId
             );
@@ -9425,6 +9701,26 @@ export function createAppServer(config: BaseConfig): http.Server {
           !projectTasksRoute.action &&
           !projectTasksRoute.taskId
         ) {
+          try {
+            await ensureProjectScopeUnlocked(
+              projectTasksRoute.projectId,
+              "Approved scope is locked. Use change management to add more project steps."
+            );
+          } catch (error) {
+            return sendJson(
+              response,
+              error instanceof Error && error.message === "Project not found"
+                ? 404
+                : 409,
+              {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to create task"
+              }
+            );
+          }
+
           const body = (await readJsonBody(request)) as {
             title?: unknown;
             description?: unknown;
@@ -9518,6 +9814,26 @@ export function createAppServer(config: BaseConfig): http.Server {
           request.method === "POST" &&
           projectTasksRoute.action === "generate-plan"
         ) {
+          try {
+            await ensureProjectScopeUnlocked(
+              projectTasksRoute.projectId,
+              "Approved scope is locked. Delivery scope can no longer be regenerated."
+            );
+          } catch (error) {
+            return sendJson(
+              response,
+              error instanceof Error && error.message === "Project not found"
+                ? 404
+                : 409,
+              {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to generate project plan"
+              }
+            );
+          }
+
           const tasks = await generateProjectPlan(projectTasksRoute.projectId);
 
           return sendJson(response, 200, {
@@ -9561,6 +9877,36 @@ export function createAppServer(config: BaseConfig): http.Server {
 
           if (!existingTask) {
             return sendJson(response, 404, { error: "Task not found" });
+          }
+
+          const projectLockState = await prisma.project.findUnique({
+            where: { id: projectTasksRoute.projectId },
+            select: {
+              quoteApprovalStatus: true,
+              scopeLockedAt: true
+            }
+          });
+
+          if (projectLockState && isProjectScopeLocked(projectLockState)) {
+            const blockedKeys = [
+              "title",
+              "description",
+              "category",
+              "executionType",
+              "priority",
+              "plannedHours",
+              "qaRequired",
+              "approvalRequired"
+            ].filter((key) =>
+              Object.prototype.hasOwnProperty.call(body, key)
+            );
+
+            if (blockedKeys.length > 0) {
+              return sendJson(response, 409, {
+                error:
+                  "Approved scope is locked. Use change management to revise scoped task details."
+              });
+            }
           }
 
           const data: Record<string, unknown> = {};
@@ -9688,6 +10034,26 @@ export function createAppServer(config: BaseConfig): http.Server {
         }
 
         if (request.method === "DELETE" && projectTasksRoute.taskId) {
+          try {
+            await ensureProjectScopeUnlocked(
+              projectTasksRoute.projectId,
+              "Approved scope is locked. Use change management to remove or replace project steps."
+            );
+          } catch (error) {
+            return sendJson(
+              response,
+              error instanceof Error && error.message === "Project not found"
+                ? 404
+                : 409,
+              {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to delete task"
+              }
+            );
+          }
+
           const existingTask = await prisma.task.findFirst({
             where: {
               id: projectTasksRoute.taskId,
@@ -9707,6 +10073,32 @@ export function createAppServer(config: BaseConfig): http.Server {
           });
 
           return sendJson(response, 200, { success: true });
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      const projectQuoteRoute = matchProjectQuoteRoute(url.pathname);
+      if (projectQuoteRoute) {
+        if (request.method === "POST" && projectQuoteRoute.action === "share") {
+          try {
+            const project = await shareProjectQuote(projectQuoteRoute.projectId);
+            return sendJson(response, 200, { project, shared: true });
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              error.message === "Project not found"
+            ) {
+              return sendJson(response, 404, { error: error.message });
+            }
+
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to share quote"
+            });
+          }
         }
 
         return sendJson(response, 405, { error: "Method Not Allowed" });
@@ -10024,6 +10416,23 @@ export function createAppServer(config: BaseConfig): http.Server {
           });
         }
         if (request.method === "PATCH" && !projectRoute.resource) {
+          try {
+            await ensureProjectScopeUnlocked(projectRoute.projectId);
+          } catch (error) {
+            return sendJson(
+              response,
+              error instanceof Error && error.message === "Project not found"
+                ? 404
+                : 409,
+              {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to update project"
+              }
+            );
+          }
+
           const body = (await readJsonBody(request)) as {
             clientName?: unknown;
             type?: unknown;
@@ -10663,7 +11072,14 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (request.method === "PATCH" && projectRoute.resource === "status") {
           const body = (await readJsonBody(request)) as { status?: string };
-          const allowedStatuses = ["active", "complete", "archived", "draft"];
+          const allowedStatuses = [
+            "active",
+            "complete",
+            "archived",
+            "draft",
+            "ready-for-execution",
+            "in-flight"
+          ];
 
           if (!body.status || !allowedStatuses.includes(body.status)) {
             return sendJson(response, 400, { error: "Invalid status" });

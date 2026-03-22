@@ -15,6 +15,12 @@ interface Project {
   id: string;
   name: string;
   status: string;
+  quoteApprovalStatus?: string | null;
+  quoteSharedAt?: string | null;
+  quoteApprovedAt?: string | null;
+  quoteApprovedByName?: string | null;
+  quoteApprovedByEmail?: string | null;
+  scopeLockedAt?: string | null;
   owner: string;
   ownerEmail: string;
   scopeType?: string | null;
@@ -565,6 +571,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     isSessionComplete(session)
   ).length;
   const isStandaloneQuote = project?.scopeType === "standalone_quote";
+  const isScopeLocked = Boolean(
+    project?.scopeLockedAt || project?.quoteApprovalStatus === "approved"
+  );
   const session1Complete = isSessionComplete(
     sessions.find((session) => session.session === 1)
   );
@@ -1083,17 +1092,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
     try {
       const response = await fetch(
-        `/api/projects/${encodeURIComponent(project.id)}/messages`,
+        `/api/projects/${encodeURIComponent(project.id)}/quote/share`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            senderName: "Muloo",
-            body:
-              "Your quote is now available in the client portal. Open this project in your portal and use the Open Quote button to review the latest commercial scope and approval pack."
-          })
         }
       );
 
@@ -1101,6 +1102,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
       if (!response.ok) {
         throw new Error(body?.error ?? "Failed to push quote to client portal");
+      }
+
+      if (body?.project) {
+        setProject(body.project);
+        setProjectDraft(createProjectDraft(body.project));
       }
 
       setClientAccessFeedback(
@@ -1250,6 +1256,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           </div>
         ) : (
           <>
+            {isScopeLocked ? (
+              <div className="mb-6 rounded-2xl border border-[rgba(45,212,160,0.35)] bg-[rgba(14,44,36,0.7)] p-5 text-sm text-white">
+                Quote approved by{" "}
+                {project.quoteApprovedByName ||
+                  project.quoteApprovedByEmail ||
+                  "the client"}
+                . Scope-driving edits are now locked. Use change management for
+                any additional scoped work.
+              </div>
+            ) : null}
             <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
               <div>
                 <Link href="/" className="text-sm text-text-muted">
@@ -1278,7 +1294,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   <button
                     type="button"
                     onClick={generateDiscoverySummary}
-                    disabled={summaryBusy}
+                    disabled={summaryBusy || isScopeLocked}
                     className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                   >
                     {summaryBusy
@@ -1294,7 +1310,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   <button
                     type="button"
                     onClick={resetDiscoverySummaryState}
-                    disabled={summaryBusy}
+                    disabled={summaryBusy || isScopeLocked}
                     className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-text-secondary disabled:cursor-not-allowed disabled:text-text-muted"
                   >
                     Reset Summary
@@ -1330,12 +1346,18 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   <button
                     type="button"
                     onClick={() => void pushQuoteToClientPortal()}
-                    disabled={clientUsers.length === 0 || clientPortalPushBusy}
+                    disabled={
+                      clientUsers.length === 0 ||
+                      clientPortalPushBusy ||
+                      project.quoteApprovalStatus === "approved"
+                    }
                     className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                   >
                     {clientPortalPushBusy
                       ? "Pushing..."
-                      : "Push to Client Portal"}
+                      : project.quoteApprovalStatus === "approved"
+                        ? "Quote Approved"
+                        : "Push to Client Portal"}
                   </button>
                   <button
                     type="button"
@@ -1349,7 +1371,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     type="button"
                     onClick={handleBlueprintAction}
                     disabled={
-                      blueprintBusy || (!blueprint && !canGenerateBlueprint)
+                      blueprintBusy ||
+                      (!blueprint && !canGenerateBlueprint) ||
+                      isScopeLocked
                     }
                     className={`rounded-xl px-4 py-3 text-sm font-medium text-white ${
                       blueprint
@@ -2515,12 +2539,18 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       <button
                         type="button"
                         onClick={() => void pushQuoteToClientPortal()}
-                        disabled={clientUsers.length === 0 || clientPortalPushBusy}
+                        disabled={
+                          clientUsers.length === 0 ||
+                          clientPortalPushBusy ||
+                          project.quoteApprovalStatus === "approved"
+                        }
                         className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                       >
                         {clientPortalPushBusy
                           ? "Pushing..."
-                          : "Push to client portal"}
+                          : project.quoteApprovalStatus === "approved"
+                            ? "Quote approved"
+                            : "Push to client portal"}
                       </button>
                       <button
                         type="button"

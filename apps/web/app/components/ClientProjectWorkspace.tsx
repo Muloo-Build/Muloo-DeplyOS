@@ -17,6 +17,12 @@ interface ClientProjectDetail {
     id: string;
     name: string;
     status: string;
+    quoteApprovalStatus?: string | null;
+    quoteSharedAt?: string | null;
+    quoteApprovedAt?: string | null;
+    quoteApprovedByName?: string | null;
+    quoteApprovedByEmail?: string | null;
+    scopeLockedAt?: string | null;
     scopeType?: string | null;
     commercialBrief?: string | null;
     engagementType: string;
@@ -203,6 +209,23 @@ function statusForDraft(answers: Record<string, string>) {
   return "In progress";
 }
 
+function formatTimestamp(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = new Date(value);
+
+  if (Number.isNaN(timestamp.getTime())) {
+    return null;
+  }
+
+  return timestamp.toLocaleString("en-ZA", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  });
+}
+
 export default function ClientProjectWorkspace({
   projectId
 }: {
@@ -252,6 +275,13 @@ export default function ClientProjectWorkspace({
     [drafts]
   );
   const isStandaloneQuote = detail?.project.scopeType === "standalone_quote";
+  const quoteApprovalStatus = detail?.project.quoteApprovalStatus ?? "draft";
+  const quoteSharedAt = formatTimestamp(detail?.project.quoteSharedAt);
+  const quoteApprovedAt = formatTimestamp(detail?.project.quoteApprovedAt);
+  const quoteApprover =
+    detail?.project.quoteApprovedByName ||
+    detail?.project.quoteApprovedByEmail ||
+    "client team";
 
   function updateDraft(sessionNumber: number, fieldKey: string, value: string) {
     setDrafts((currentDrafts) => ({
@@ -375,6 +405,80 @@ export default function ClientProjectWorkspace({
               </p>
             </div>
           </div>
+
+          <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  Quote & Approval
+                </p>
+                <h3 className="mt-3 text-2xl font-semibold text-white">
+                  {quoteApprovalStatus === "approved"
+                    ? "Approved commercial scope"
+                    : quoteApprovalStatus === "shared"
+                      ? "Quote ready for review"
+                      : "Quote in preparation"}
+                </h3>
+                <p className="mt-3 max-w-3xl text-text-secondary">
+                  {quoteApprovalStatus === "approved"
+                    ? "This quote has been approved in the client portal. The agreed scope is now locked as the delivery baseline, and any additions should move through change management."
+                    : quoteApprovalStatus === "shared"
+                      ? "Muloo has pushed the latest quote into your portal. Review the scope, pricing, and approval pack, then approve it when you are ready."
+                      : "Muloo is still preparing the commercial scope pack. Once it is pushed here, your team will be able to review and approve it from the portal."}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href={`/client/projects/${detail.project.id}/quote`}
+                  className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white"
+                >
+                  {quoteApprovalStatus === "approved"
+                    ? "Open Approved Quote"
+                    : quoteApprovalStatus === "shared"
+                      ? "Review & Approve Quote"
+                      : "Open Quote"}
+                </Link>
+                <Link
+                  href={`/client/projects/${detail.project.id}/delivery`}
+                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                >
+                  Open Delivery Board
+                </Link>
+              </div>
+            </div>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl bg-[#0b1126] p-5">
+                <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  Quote Status
+                </p>
+                <p className="mt-3 text-lg font-semibold text-white">
+                  {quoteApprovalStatus === "approved"
+                    ? "Approved"
+                    : quoteApprovalStatus === "shared"
+                      ? "Shared for review"
+                      : "Not yet shared"}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-[#0b1126] p-5">
+                <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  Shared To Portal
+                </p>
+                <p className="mt-3 text-lg font-semibold text-white">
+                  {quoteSharedAt ?? "Waiting on Muloo"}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-[#0b1126] p-5">
+                <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  Approval
+                </p>
+                <p className="mt-3 text-lg font-semibold text-white">
+                  {quoteApprovalStatus === "approved"
+                    ? `${quoteApprover}${quoteApprovedAt ? ` on ${quoteApprovedAt}` : ""}`
+                    : "Pending client sign-off"}
+                </p>
+              </div>
+            </div>
+          </section>
 
           {isStandaloneQuote ? (
             <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">

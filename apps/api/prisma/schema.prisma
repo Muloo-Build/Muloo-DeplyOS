@@ -85,6 +85,12 @@ model Project {
   id             String                @id @default(cuid())
   name           String
   status         String                @default("draft")
+  quoteApprovalStatus String           @default("draft")
+  quoteSharedAt  DateTime?
+  quoteApprovedAt DateTime?
+  quoteApprovedByName String?
+  quoteApprovedByEmail String?
+  scopeLockedAt  DateTime?
   engagementType EngagementType        @default(IMPLEMENTATION)
   owner          String
   ownerEmail     String
