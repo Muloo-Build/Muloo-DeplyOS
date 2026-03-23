@@ -7859,6 +7859,64 @@ async function updateClientDirectoryRecord(
   };
 }
 
+async function deleteClientDirectoryRecord(clientId: string) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    include: {
+      contacts: true
+    }
+  });
+
+  if (!client) {
+    throw new Error("Client not found");
+  }
+
+  const contactEmails = new Set(
+    client.contacts
+      .map((contact) => contact.email.trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  const linkedProjects = await prisma.project.findMany({
+    where: {
+      OR: [
+        { clientId },
+        ...(contactEmails.size > 0
+          ? [
+              {
+                clientChampionEmail: {
+                  in: Array.from(contactEmails)
+                }
+              },
+              {
+                clientAccess: {
+                  some: {
+                    user: {
+                      email: {
+                        in: Array.from(contactEmails)
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          : [])
+      ]
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (linkedProjects.length > 0) {
+    throw new Error("Cannot delete a client that still has linked projects");
+  }
+
+  await prisma.client.delete({
+    where: { id: clientId }
+  });
+}
+
 async function createClientContact(
   clientId: string,
   value: {
@@ -11794,6 +11852,30 @@ export function createAppServer(config: BaseConfig): http.Server {
                   error instanceof Error
                     ? error.message
                     : "Failed to update client"
+              }
+            );
+          }
+        }
+
+        if (
+          request.method === "DELETE" &&
+          clientDirectoryRoute.clientId &&
+          !clientDirectoryRoute.resource
+        ) {
+          try {
+            await deleteClientDirectoryRecord(clientDirectoryRoute.clientId);
+            return sendJson(response, 200, { success: true });
+          } catch (error: unknown) {
+            return sendJson(
+              response,
+              error instanceof Error && error.message === "Client not found"
+                ? 404
+                : 400,
+              {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to delete client"
               }
             );
           }

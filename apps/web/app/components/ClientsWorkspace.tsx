@@ -244,6 +244,10 @@ export default function ClientsWorkspace() {
     null
   );
   const [updatingContactId, setUpdatingContactId] = useState<string | null>(null);
+  const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
+  const [confirmingDeleteClientId, setConfirmingDeleteClientId] = useState<string | null>(
+    null
+  );
   const [expandedClientIds, setExpandedClientIds] = useState<string[]>([]);
   const [showingContactFormIds, setShowingContactFormIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -562,6 +566,57 @@ export default function ClientsWorkspace() {
     }
   }
 
+  async function deleteClient(client: ClientRecord) {
+    if (client.projects.length > 0) {
+      setError("This client still has linked projects and cannot be deleted yet.");
+      return;
+    }
+
+    setDeletingClientId(client.id);
+    setError(null);
+    setFeedback(null);
+
+    try {
+      const response = await fetch(`/api/clients/${encodeURIComponent(client.id)}`, {
+        method: "DELETE"
+      });
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to delete client");
+      }
+
+      setClients((currentClients) =>
+        currentClients.filter((existingClient) => existingClient.id !== client.id)
+      );
+      setExpandedClientIds((currentIds) =>
+        currentIds.filter((existingId) => existingId !== client.id)
+      );
+      setShowingContactFormIds((currentIds) =>
+        currentIds.filter((existingId) => existingId !== client.id)
+      );
+      setProfileDrafts((currentDrafts) => {
+        const nextDrafts = { ...currentDrafts };
+        delete nextDrafts[client.id];
+        return nextDrafts;
+      });
+      setContactDrafts((currentDrafts) => {
+        const nextDrafts = { ...currentDrafts };
+        delete nextDrafts[client.id];
+        return nextDrafts;
+      });
+      setConfirmingDeleteClientId(null);
+      setFeedback("Client deleted from the workspace.");
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error ? deleteError.message : "Failed to delete client"
+      );
+    } finally {
+      setDeletingClientId(null);
+    }
+  }
+
   function renderClientRow(client: ClientRecord) {
     const isExpanded = expandedClientIds.includes(client.id);
     const showContactForm = showingContactFormIds.includes(client.id);
@@ -570,6 +625,9 @@ export default function ClientsWorkspace() {
     const contactDraft = contactDrafts[client.id] ?? createEmptyContactDraft();
     const logoUrl = deriveClientLogoUrl(client);
     const websiteHost = getWebsiteHost(client.website);
+    const canDeleteClient = client.projects.length === 0;
+    const isConfirmingDelete = confirmingDeleteClientId === client.id;
+    const isDeleting = deletingClientId === client.id;
 
     return (
       <div
@@ -677,12 +735,17 @@ export default function ClientsWorkspace() {
                       <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                         Company Profile
                       </p>
-                      <p className="mt-2 text-sm text-text-secondary">
-                        Manual logo URL overrides the domain-based icon. Projects
-                        auto-link when client contacts match portal or champion emails.
+                    <p className="mt-2 text-sm text-text-secondary">
+                      Manual logo URL overrides the domain-based icon. Projects
+                      auto-link when client contacts match portal or champion emails.
+                    </p>
+                    {!canDeleteClient ? (
+                      <p className="mt-3 text-xs text-text-muted">
+                        Delete is only available once this client has no linked projects.
                       </p>
-                    </div>
+                    ) : null}
                   </div>
+                </div>
 
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <label className="block">
@@ -740,18 +803,60 @@ export default function ClientsWorkspace() {
                   </div>
 
                   <div className="mt-5 flex items-center justify-between gap-4">
-                    <p className="text-xs text-text-muted">
-                      We’ll use the website or first contact domain for a logo when no
-                      manual URL is set.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => void saveClientProfile(client.id)}
-                      disabled={savingProfileForClient === client.id}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                    >
-                      {savingProfileForClient === client.id ? "Saving..." : "Save client"}
-                    </button>
+                    <div className="space-y-2">
+                      <p className="text-xs text-text-muted">
+                        We’ll use the website or first contact domain for a logo when no
+                        manual URL is set.
+                      </p>
+                      {canDeleteClient ? (
+                        <p className="text-xs text-[#ff8f9c]">
+                          This client has no linked projects, so it can be removed if it is junk or old test data.
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-3">
+                      {canDeleteClient ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isConfirmingDelete) {
+                              void deleteClient(client);
+                              return;
+                            }
+
+                            setConfirmingDeleteClientId(client.id);
+                            setFeedback(null);
+                            setError(null);
+                          }}
+                          disabled={isDeleting}
+                          className="rounded-2xl border border-[rgba(255,143,156,0.22)] bg-[rgba(255,143,156,0.08)] px-5 py-3 text-sm font-medium text-[#ffb1ba] disabled:cursor-not-allowed disabled:text-text-muted"
+                        >
+                          {isDeleting
+                            ? "Deleting..."
+                            : isConfirmingDelete
+                              ? "Confirm delete"
+                              : "Delete client"}
+                        </button>
+                      ) : null}
+                      {isConfirmingDelete ? (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingDeleteClientId(null)}
+                          disabled={isDeleting}
+                          className="rounded-2xl border border-[rgba(255,255,255,0.08)] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                        >
+                          Cancel
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => void saveClientProfile(client.id)}
+                        disabled={savingProfileForClient === client.id || isDeleting}
+                        className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                      >
+                        {savingProfileForClient === client.id ? "Saving..." : "Save client"}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
