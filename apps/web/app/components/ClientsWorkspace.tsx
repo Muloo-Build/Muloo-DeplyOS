@@ -638,11 +638,13 @@ export default function ClientsWorkspace() {
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] text-sm font-semibold text-white">
               {logoUrl ? (
-                <img
-                  src={logoUrl}
-                  alt={`${client.name} logo`}
-                  className="h-9 w-9 rounded-xl object-contain"
-                />
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white p-1.5 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
+                  <img
+                    src={logoUrl}
+                    alt={`${client.name} logo`}
+                    className="h-full w-full object-contain"
+                  />
+                </div>
               ) : (
                 getClientInitials(client.name)
               )}
