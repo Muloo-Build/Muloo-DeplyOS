@@ -9,7 +9,7 @@
     "typecheck": "node node_modules/typescript/lib/tsc.js -b tsconfig.json",
     "clean": "node node_modules/typescript/lib/tsc.js -b tsconfig.json --clean",
     "db:generate": "cd apps/api && npx prisma generate",
-    "db:migrate": "cd apps/api && npx prisma migrate deploy",
+    "db:migrate": "cd apps/api && node ../../scripts/run-with-root-env.mjs npx prisma migrate deploy",
     "lint": "node node_modules/eslint/bin/eslint.js . --ext .ts,.js,.mjs",
     "format": "node node_modules/prettier/bin/prettier.cjs --write .",
     "format:check": "node node_modules/prettier/bin/prettier.cjs --check .",
