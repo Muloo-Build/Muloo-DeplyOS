@@ -123,15 +123,23 @@ model WorkspaceEmailOAuthConnection {
 }
 
 model HubSpotPortal {
-  id          String    @id @default(cuid())
-  portalId    String    @unique
-  displayName String
-  region      String?
-  connected   Boolean   @default(false)
-  accessToken String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  projects    Project[]
+  id             String    @id @default(cuid())
+  portalId       String    @unique
+  displayName    String
+  region         String?
+  connected      Boolean   @default(false)
+  accessToken    String?
+  refreshToken   String?
+  tokenType      String?
+  scopes         String[]
+  tokenExpiresAt DateTime?
+  connectedEmail String?
+  connectedName  String?
+  hubDomain      String?
+  installedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  projects       Project[]
 }
 
 model Project {

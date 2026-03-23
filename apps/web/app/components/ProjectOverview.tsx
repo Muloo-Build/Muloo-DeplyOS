@@ -71,7 +71,22 @@ interface Project {
     displayName: string;
     region?: string | null;
     connected: boolean;
+    connectedEmail?: string | null;
+    connectedName?: string | null;
+    hubDomain?: string | null;
+    installedAt?: string | null;
   } | null;
+}
+
+interface HubSpotPortalOption {
+  id: string;
+  portalId: string;
+  displayName: string;
+  connected: boolean;
+  connectedEmail?: string | null;
+  connectedName?: string | null;
+  hubDomain?: string | null;
+  installedAt?: string | null;
 }
 
 interface EvidenceItem {
@@ -541,6 +556,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [savedClientContacts, setSavedClientContacts] = useState<SavedClientContact[]>(
     []
   );
+  const [portalOptions, setPortalOptions] = useState<HubSpotPortalOption[]>([]);
   const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
   const [contextDraft, setContextDraft] = useState({
     evidenceType: "uploaded-doc" as EvidenceItem["evidenceType"],
@@ -569,6 +585,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [savingField, setSavingField] = useState<EditableField>(null);
   const [projectEditError, setProjectEditError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [portalConnectBusy, setPortalConnectBusy] = useState(false);
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summaryFeedback, setSummaryFeedback] = useState<string | null>(null);
@@ -608,7 +625,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       emailSettingsResponse,
       clientUsersResponse,
       supportingContextResponse,
-      clientsResponse
+      clientsResponse,
+      portalsResponse
     ] = await Promise.all([
       fetch(`/api/projects/${encodeURIComponent(projectId)}`),
       fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
@@ -619,7 +637,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       fetch("/api/email-settings"),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`),
-      fetch("/api/clients")
+      fetch("/api/clients"),
+      fetch("/api/portals")
     ]);
 
     if (
@@ -644,6 +663,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     const supportingContextBody = await supportingContextResponse.json();
     const clientsBody = clientsResponse.ok
       ? await clientsResponse.json().catch(() => null)
+      : null;
+    const portalsBody = portalsResponse.ok
+      ? await portalsResponse.json().catch(() => null)
       : null;
 
     setProject(projectBody.project);
@@ -670,6 +692,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           client.name === projectBody.project?.client?.name
       ) ?? null;
     setSavedClientContacts(matchingClient?.contacts ?? []);
+    setPortalOptions(portalsBody?.portals ?? []);
     if (enabledDraftProviders.length > 0) {
       setEmailProviderKey((currentKey) =>
         enabledDraftProviders.some((provider) => provider.providerKey === currentKey)
@@ -857,6 +880,35 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       owner: ownerName,
       ownerEmail: selectedOwner?.email ?? currentDraft.ownerEmail
     }));
+  }
+
+  async function connectHubSpotPortal() {
+    setPortalConnectBusy(true);
+    setProjectEditError(null);
+
+    try {
+      const response = await fetch("/api/hubspot/oauth/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ projectId })
+      });
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok || !body?.authUrl) {
+        throw new Error(body?.error ?? "Failed to start HubSpot portal connection");
+      }
+
+      window.location.href = body.authUrl;
+    } catch (connectError) {
+      setProjectEditError(
+        connectError instanceof Error
+          ? connectError.message
+          : "Failed to start HubSpot portal connection"
+      );
+      setPortalConnectBusy(false);
+    }
   }
 
   async function saveField(field: Exclude<EditableField, null>) {
@@ -2229,11 +2281,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Portal ID
+                          HubSpot Portal
                         </p>
                         {editingField === "portalId" ? (
                           <>
-                            <input
+                            <select
                               value={projectDraft.portalId}
                               onChange={(event) =>
                                 setProjectDraft((currentDraft) => ({
@@ -2241,23 +2293,58 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                   portalId: event.target.value
                                 }))
                               }
-                              placeholder="Pending"
                               className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            />
+                            >
+                              <option value="">Not linked yet</option>
+                              {portalOptions.map((portalOption) => (
+                                <option
+                                  key={portalOption.id}
+                                  value={portalOption.portalId}
+                                >
+                                  {portalOption.displayName} · {portalOption.portalId}
+                                  {portalOption.connected ? " · Connected" : " · Needs reconnect"}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="mt-3 text-xs text-text-secondary">
+                              Pick an installed HubSpot portal or connect a new one for this project.
+                            </p>
                             {renderActions("portalId")}
                           </>
                         ) : (
-                          <p className="mt-2 text-sm text-white">
-                            {project.portal?.portalId ?? "Pending"}
-                          </p>
+                          <>
+                            <p className="mt-2 text-sm text-white">
+                              {project.portal?.displayName ?? "Not linked yet"}
+                            </p>
+                            <p className="mt-1 text-xs text-text-secondary">
+                              {project.portal?.portalId
+                                ? `${project.portal.portalId}${project.portal.connected ? " · Connected" : " · Needs reconnect"}`
+                                : "Connect the client’s HubSpot portal before running live agent work."}
+                            </p>
+                            {project.portal?.connectedEmail ? (
+                              <p className="mt-1 text-xs text-text-secondary">
+                                Connected as {project.portal.connectedEmail}
+                              </p>
+                            ) : null}
+                          </>
                         )}
                       </div>
-                      {editingField !== "portalId" ? (
-                        <EditButton
-                          label="Edit portal ID"
-                          onClick={() => startEditing("portalId")}
-                        />
-                      ) : null}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void connectHubSpotPortal()}
+                          disabled={portalConnectBusy}
+                          className="rounded-lg border border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.12)] px-3 py-2 text-xs font-medium text-[#51d0b0] disabled:cursor-not-allowed"
+                        >
+                          {portalConnectBusy ? "Connecting..." : "Connect portal"}
+                        </button>
+                        {editingField !== "portalId" ? (
+                          <EditButton
+                            label="Select linked HubSpot portal"
+                            onClick={() => startEditing("portalId")}
+                          />
+                        ) : null}
+                      </div>
                     </div>
                     {renderError("portalId")}
                   </div>

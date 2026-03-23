@@ -85,6 +85,30 @@ const validHubTierValues = [
   "enterprise",
   "included"
 ] as const;
+const defaultHubSpotOAuthRequiredScopes = [
+  "crm.objects.contacts.read",
+  "crm.objects.contacts.write",
+  "crm.objects.companies.read",
+  "crm.objects.companies.write",
+  "crm.objects.deals.read",
+  "crm.objects.deals.write",
+  "crm.objects.tickets.read",
+  "crm.objects.tickets.write",
+  "crm.schemas.contacts.read",
+  "crm.schemas.contacts.write",
+  "crm.schemas.companies.read",
+  "crm.schemas.companies.write",
+  "crm.schemas.deals.read",
+  "crm.schemas.deals.write",
+  "crm.schemas.tickets.read",
+  "crm.schemas.tickets.write"
+] as const;
+const defaultHubSpotOAuthOptionalScopes = [
+  "crm.objects.custom.read",
+  "crm.objects.custom.write",
+  "crm.schemas.custom.read",
+  "crm.schemas.custom.write"
+] as const;
 const validPlatformTierSelectionKeys = [
   "smart_crm",
   "marketing_hub",
@@ -2841,6 +2865,10 @@ function serializeProject<
       displayName: string;
       region: string | null;
       connected: boolean;
+      connectedEmail: string | null;
+      connectedName: string | null;
+      hubDomain: string | null;
+      installedAt: Date | null;
     } | null;
   }
 >(project: T) {
@@ -7408,6 +7436,38 @@ function serializeWorkspaceEmailOAuthConnection<
   };
 }
 
+function serializeHubSpotPortal<
+  T extends {
+    id: string;
+    portalId: string;
+    displayName: string;
+    region: string | null;
+    connected: boolean;
+    connectedEmail: string | null;
+    connectedName: string | null;
+    hubDomain: string | null;
+    tokenExpiresAt: Date | null;
+    installedAt: Date | null;
+    updatedAt: Date;
+    createdAt: Date;
+  }
+>(portal: T) {
+  return {
+    id: portal.id,
+    portalId: portal.portalId,
+    displayName: portal.displayName,
+    region: portal.region,
+    connected: portal.connected,
+    connectedEmail: portal.connectedEmail,
+    connectedName: portal.connectedName,
+    hubDomain: portal.hubDomain,
+    tokenExpiresAt: portal.tokenExpiresAt?.toISOString() ?? null,
+    installedAt: portal.installedAt?.toISOString() ?? null,
+    updatedAt: portal.updatedAt.toISOString(),
+    createdAt: portal.createdAt.toISOString()
+  };
+}
+
 async function ensureProductCatalogSeeded() {
   for (const product of defaultProductCatalog) {
     await prisma.productCatalogItem.upsert({
@@ -7576,6 +7636,374 @@ async function loadProviderConnections() {
   );
 }
 
+async function loadHubSpotPortals() {
+  const portals = await prisma.hubSpotPortal.findMany({
+    where: {
+      NOT: {
+        portalId: {
+          startsWith: pendingPortalPrefix
+        }
+      }
+    },
+    orderBy: [{ connected: "desc" }, { updatedAt: "desc" }, { displayName: "asc" }]
+  });
+
+  return portals.map((portal) => serializeHubSpotPortal(portal));
+}
+
+async function fetchHubSpotOAuthAccessTokenInfo(input: {
+  accessToken: string;
+  baseUrl?: string;
+}) {
+  const response = await fetch(
+    `${normalizeHubSpotBaseUrl(input.baseUrl)}/oauth/v1/access-tokens/${encodeURIComponent(
+      input.accessToken
+    )}`
+  );
+  const body = (await response.json().catch(() => null)) as
+    | {
+        hub_id?: number | string;
+        hub_domain?: string;
+        user?: string;
+        user_id?: number | string;
+        app_id?: number | string;
+        scopes?: string[];
+        token_type?: string;
+      }
+    | null;
+
+  if (!response.ok || !body?.hub_id) {
+    throw new Error("Failed to load HubSpot portal details from the OAuth token");
+  }
+
+  return body;
+}
+
+async function refreshHubSpotPortalAccessTokenIfNeeded(portalRecordId: string) {
+  const portal = await prisma.hubSpotPortal.findUnique({
+    where: { id: portalRecordId }
+  });
+
+  if (!portal?.connected || !portal.refreshToken) {
+    return portal;
+  }
+
+  const tokenStillValid =
+    portal.accessToken &&
+    portal.tokenExpiresAt &&
+    portal.tokenExpiresAt.getTime() > Date.now() + 60_000;
+
+  if (tokenStillValid) {
+    return portal;
+  }
+
+  const oauthConfig = await loadHubSpotOAuthProviderConfig();
+
+  if (!oauthConfig.clientId || !oauthConfig.clientSecret) {
+    throw new Error("HubSpot app credentials are incomplete");
+  }
+
+  const refreshResponse = await fetch(`${oauthConfig.baseUrl}/oauth/v1/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: oauthConfig.clientId,
+      client_secret: oauthConfig.clientSecret,
+      redirect_uri: oauthConfig.redirectUri,
+      refresh_token: portal.refreshToken
+    }).toString()
+  });
+
+  const refreshBody = (await refreshResponse.json().catch(() => null)) as
+    | {
+        access_token?: string;
+        refresh_token?: string;
+        token_type?: string;
+        expires_in?: number;
+        error?: string;
+        message?: string;
+      }
+    | null;
+
+  if (!refreshResponse.ok || !refreshBody?.access_token) {
+    throw new Error(
+      refreshBody?.message || refreshBody?.error || "HubSpot access token refresh failed"
+    );
+  }
+
+  const refreshedPortal = await prisma.hubSpotPortal.update({
+    where: { id: portal.id },
+    data: {
+      accessToken: refreshBody.access_token,
+      refreshToken: refreshBody.refresh_token ?? portal.refreshToken,
+      tokenType: refreshBody.token_type ?? portal.tokenType ?? "bearer",
+      tokenExpiresAt:
+        typeof refreshBody.expires_in === "number"
+          ? new Date(Date.now() + refreshBody.expires_in * 1000)
+          : portal.tokenExpiresAt,
+      connected: true
+    }
+  });
+
+  return refreshedPortal;
+}
+
+async function createHubSpotOAuthStart(value: {
+  projectId?: unknown;
+  portalRecordId?: unknown;
+}) {
+  const projectId =
+    typeof value.projectId === "string" && value.projectId.trim()
+      ? value.projectId.trim()
+      : null;
+  const portalRecordId =
+    typeof value.portalRecordId === "string" && value.portalRecordId.trim()
+      ? value.portalRecordId.trim()
+      : null;
+  const oauthConfig = await loadHubSpotOAuthProviderConfig();
+
+  if (!oauthConfig.provider.isEnabled) {
+    throw new Error("Enable the HubSpot OAuth provider first");
+  }
+
+  if (!oauthConfig.clientId || !oauthConfig.clientSecret) {
+    throw new Error("HubSpot app client ID and secret must be saved first");
+  }
+
+  if (projectId) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true }
+    });
+
+    if (!project) {
+      throw new Error("Project not found");
+    }
+  }
+
+  if (portalRecordId) {
+    const portal = await prisma.hubSpotPortal.findUnique({
+      where: { id: portalRecordId },
+      select: { id: true }
+    });
+
+    if (!portal) {
+      throw new Error("HubSpot portal not found");
+    }
+  }
+
+  const state = createSignedStateToken({
+    providerKey: "hubspot_oauth",
+    projectId,
+    portalRecordId,
+    redirectUri: oauthConfig.redirectUri,
+    returnTo: projectId ? `/projects/${projectId}` : "/settings/providers",
+    expiresAt: Date.now() + 1000 * 60 * 10
+  });
+
+  const params = new URLSearchParams({
+    client_id: oauthConfig.clientId,
+    redirect_uri: oauthConfig.redirectUri,
+    scope: defaultHubSpotOAuthRequiredScopes.join(" "),
+    optional_scope: defaultHubSpotOAuthOptionalScopes.join(" "),
+    state
+  });
+
+  return {
+    authUrl: `https://app.hubspot.com/oauth/authorize?${params.toString()}`
+  };
+}
+
+async function completeHubSpotOAuthCallback(value: {
+  code?: unknown;
+  state?: unknown;
+}) {
+  const code = typeof value.code === "string" ? value.code.trim() : "";
+  const state = typeof value.state === "string" ? value.state.trim() : "";
+
+  if (!code || !state) {
+    throw new Error("HubSpot OAuth callback is missing code or state");
+  }
+
+  const verifiedState = verifySignedStateToken(state);
+  const redirectUri =
+    typeof verifiedState.redirectUri === "string"
+      ? verifiedState.redirectUri.trim()
+      : "";
+  const projectId =
+    typeof verifiedState.projectId === "string"
+      ? verifiedState.projectId.trim()
+      : "";
+  const portalRecordId =
+    typeof verifiedState.portalRecordId === "string"
+      ? verifiedState.portalRecordId.trim()
+      : "";
+  const returnTo =
+    typeof verifiedState.returnTo === "string" && verifiedState.returnTo.trim()
+      ? verifiedState.returnTo.trim()
+      : "/settings/providers";
+
+  if (!redirectUri) {
+    throw new Error("OAuth redirect URI is missing from state");
+  }
+
+  const oauthConfig = await loadHubSpotOAuthProviderConfig();
+
+  if (!oauthConfig.clientId || !oauthConfig.clientSecret) {
+    throw new Error("HubSpot app client ID and secret are incomplete");
+  }
+
+  const tokenResponse = await fetch(`${oauthConfig.baseUrl}/oauth/v1/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: oauthConfig.clientId,
+      client_secret: oauthConfig.clientSecret,
+      redirect_uri: redirectUri,
+      code
+    }).toString()
+  });
+
+  const tokenBody = (await tokenResponse.json().catch(() => null)) as
+    | {
+        access_token?: string;
+        refresh_token?: string;
+        token_type?: string;
+        expires_in?: number;
+        error?: string;
+        message?: string;
+      }
+    | null;
+
+  if (!tokenResponse.ok || !tokenBody?.access_token) {
+    throw new Error(
+      tokenBody?.message || tokenBody?.error || "HubSpot token exchange failed"
+    );
+  }
+
+  const accessToken = tokenBody.access_token;
+
+  const accessTokenInfo = await fetchHubSpotOAuthAccessTokenInfo({
+    accessToken,
+    baseUrl: oauthConfig.baseUrl
+  });
+  const resolvedPortalId = `${accessTokenInfo.hub_id}`;
+  const scopeValues = Array.isArray(accessTokenInfo.scopes)
+    ? accessTokenInfo.scopes.filter(
+        (scope): scope is string => typeof scope === "string" && scope.trim().length > 0
+      )
+    : [
+        ...defaultHubSpotOAuthRequiredScopes,
+        ...defaultHubSpotOAuthOptionalScopes
+      ];
+  const displayName =
+    accessTokenInfo.hub_domain?.trim() ||
+    `HubSpot Portal ${resolvedPortalId}`;
+  const connectedEmail =
+    typeof accessTokenInfo.user === "string" && accessTokenInfo.user.includes("@")
+      ? accessTokenInfo.user.trim().toLowerCase()
+      : null;
+  const connectedName =
+    connectedEmail?.split("@")[0]?.replace(/\./g, " ")?.trim() || null;
+
+  const portal = await prisma.$transaction(async (transaction) => {
+    const existingByHubId = await transaction.hubSpotPortal.findUnique({
+      where: { portalId: resolvedPortalId }
+    });
+    const targetPortal =
+      existingByHubId ||
+      (portalRecordId
+        ? await transaction.hubSpotPortal.findUnique({
+            where: { id: portalRecordId }
+          })
+        : null);
+
+    const savedPortal = targetPortal
+      ? await transaction.hubSpotPortal.update({
+          where: { id: targetPortal.id },
+          data: {
+            portalId: resolvedPortalId,
+            displayName,
+            connected: true,
+            accessToken,
+            refreshToken: tokenBody.refresh_token ?? targetPortal.refreshToken,
+            tokenType:
+              tokenBody.token_type ?? accessTokenInfo.token_type ?? "bearer",
+            scopes: scopeValues,
+            tokenExpiresAt:
+              typeof tokenBody.expires_in === "number"
+                ? new Date(Date.now() + tokenBody.expires_in * 1000)
+                : null,
+            connectedEmail,
+            connectedName,
+            hubDomain: accessTokenInfo.hub_domain?.trim() || null,
+            installedAt: new Date()
+          }
+        })
+      : await transaction.hubSpotPortal.create({
+          data: {
+            portalId: resolvedPortalId,
+            displayName,
+            connected: true,
+            accessToken,
+            refreshToken: tokenBody.refresh_token ?? null,
+            tokenType:
+              tokenBody.token_type ?? accessTokenInfo.token_type ?? "bearer",
+            scopes: scopeValues,
+            tokenExpiresAt:
+              typeof tokenBody.expires_in === "number"
+                ? new Date(Date.now() + tokenBody.expires_in * 1000)
+                : null,
+            connectedEmail,
+            connectedName,
+            hubDomain: accessTokenInfo.hub_domain?.trim() || null,
+            installedAt: new Date()
+          }
+        });
+
+    if (projectId) {
+      const project = await transaction.project.findUnique({
+        where: { id: projectId },
+        select: { id: true, portalId: true }
+      });
+
+      if (project) {
+        const previousPortalId = project.portalId;
+
+        await transaction.project.update({
+          where: { id: projectId },
+          data: { portalId: savedPortal.id }
+        });
+
+        if (previousPortalId !== savedPortal.id) {
+          const remainingPortalProjects = await transaction.project.count({
+            where: { portalId: previousPortalId }
+          });
+
+          if (remainingPortalProjects === 0) {
+            await transaction.hubSpotPortal.delete({
+              where: { id: previousPortalId }
+            }).catch(() => null);
+          }
+        }
+      }
+    }
+
+    return savedPortal;
+  });
+
+  return {
+    portal: serializeHubSpotPortal(portal),
+    returnTo
+  };
+}
+
 function normalizeHubSpotBaseUrl(value?: string | null) {
   const trimmed = value?.trim();
 
@@ -7586,21 +8014,98 @@ function normalizeHubSpotBaseUrl(value?: string | null) {
   return trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
 }
 
-async function resolveHubSpotAgentConnection() {
+function resolveHubSpotOAuthRedirectUri(explicitRedirectUri?: string | null) {
+  const trimmedExplicitRedirectUri = explicitRedirectUri?.trim() ?? "";
+
+  if (trimmedExplicitRedirectUri) {
+    return trimmedExplicitRedirectUri;
+  }
+
+  const baseUrl =
+    process.env.APP_BASE_URL ??
+    process.env.NEXT_PUBLIC_APP_BASE_URL ??
+    "https://deploy.wearemuloo.com";
+
+  return `${baseUrl}/settings/providers/hubspot/callback`;
+}
+
+async function loadHubSpotOAuthProviderConnectionRecord() {
+  await ensureProviderConnectionsSeeded();
+
+  return prisma.workspaceProviderConnection.findUnique({
+    where: { providerKey: "hubspot_oauth" }
+  });
+}
+
+async function loadHubSpotOAuthProviderConfig() {
+  const provider = await loadHubSpotOAuthProviderConnectionRecord();
+
+  if (!provider) {
+    throw new Error("HubSpot OAuth provider is not configured");
+  }
+
+  const clientId = provider.defaultModel?.trim() ?? "";
+  const clientSecret = provider.apiKey?.trim() ?? "";
+  const baseUrl = normalizeHubSpotBaseUrl(provider.endpointUrl);
+
+  return {
+    provider,
+    clientId,
+    clientSecret,
+    baseUrl,
+    redirectUri: resolveHubSpotOAuthRedirectUri()
+  };
+}
+
+async function resolveHubSpotAgentConnection(portalRecordId?: string | null) {
   await ensureProviderConnectionsSeeded();
 
   const provider = await prisma.workspaceProviderConnection.findUnique({
     where: { providerKey: "hubspot_oauth" }
   });
+  const requestedPortalId = portalRecordId?.trim() || null;
+  const availablePortals = await prisma.hubSpotPortal.findMany({
+    where: {
+      NOT: {
+        portalId: {
+          startsWith: pendingPortalPrefix
+        }
+      }
+    },
+    orderBy: [{ connected: "desc" }, { updatedAt: "desc" }, { displayName: "asc" }]
+  });
+
+  if (requestedPortalId) {
+    const portal = await refreshHubSpotPortalAccessTokenIfNeeded(requestedPortalId);
+
+    if (!portal) {
+      throw new Error("Selected HubSpot portal was not found");
+    }
+
+    const portalAccessToken = portal.connected && portal.accessToken?.trim()
+      ? portal.accessToken.trim()
+      : "";
+
+    return {
+      ready: portalAccessToken.length > 0,
+      accessToken: portalAccessToken,
+      source: "connected_portal",
+      baseUrl: normalizeHubSpotBaseUrl(
+        process.env.HUBSPOT_BASE_URL ?? provider?.endpointUrl ?? undefined
+      ),
+      portalId: portal.portalId,
+      portalRecordId: portal.id,
+      portalDisplayName: portal.displayName,
+      providerEnabled: provider?.isEnabled ?? false,
+      availablePortals: availablePortals.map((connectedPortal) =>
+        serializeHubSpotPortal(connectedPortal)
+      )
+    };
+  }
+
   const envAccessToken = process.env.HUBSPOT_ACCESS_TOKEN?.trim() ?? "";
-  const providerAccessToken =
-    provider?.isEnabled && provider.apiKey?.trim() ? provider.apiKey.trim() : "";
-  const accessToken = envAccessToken || providerAccessToken;
-  const source = envAccessToken
-    ? "env"
-    : providerAccessToken
-      ? "provider_connection"
-      : "missing";
+  const accessToken = envAccessToken;
+  const source = envAccessToken ? "env" : "missing";
   const baseUrl = normalizeHubSpotBaseUrl(
     process.env.HUBSPOT_BASE_URL ?? provider?.endpointUrl ?? undefined
   );
@@ -7612,7 +8117,12 @@ async function resolveHubSpotAgentConnection() {
     source,
     baseUrl,
     portalId,
-    providerEnabled: provider?.isEnabled ?? false
+    portalRecordId: null,
+    portalDisplayName: null,
+    providerEnabled: provider?.isEnabled ?? false,
+    availablePortals: availablePortals.map((connectedPortal) =>
+      serializeHubSpotPortal(connectedPortal)
+    )
   };
 }
 
@@ -7621,7 +8131,10 @@ function buildHubSpotAgentCapabilitiesPayload(input: {
   source: string;
   baseUrl: string;
   portalId: string | null;
+  portalRecordId: string | null;
+  portalDisplayName: string | null;
   providerEnabled: boolean;
+  availablePortals: ReturnType<typeof serializeHubSpotPortal>[];
 }) {
   return {
     connection: {
@@ -7629,8 +8142,11 @@ function buildHubSpotAgentCapabilitiesPayload(input: {
       source: input.source,
       baseUrl: input.baseUrl,
       portalId: input.portalId,
+      portalRecordId: input.portalRecordId,
+      portalDisplayName: input.portalDisplayName,
       providerEnabled: input.providerEnabled
     },
+    portals: input.availablePortals,
     capabilities: hubSpotAgentCapabilities,
     supportedActions: Array.from(
       new Set(
@@ -7646,9 +8162,14 @@ async function executeHubSpotAgentAction(value: {
   action?: unknown;
   input?: unknown;
   dryRun?: unknown;
+  portalRecordId?: unknown;
 }) {
   const action = typeof value.action === "string" ? value.action.trim() : "";
   const dryRun = value.dryRun !== false;
+  const portalRecordId =
+    typeof value.portalRecordId === "string" && value.portalRecordId.trim()
+      ? value.portalRecordId.trim()
+      : null;
   const input =
     value.input && typeof value.input === "object" && !Array.isArray(value.input)
       ? (value.input as Record<string, unknown>)
@@ -7666,12 +8187,14 @@ async function executeHubSpotAgentAction(value: {
     throw new Error("Unsupported HubSpot agent action");
   }
 
-  const connection = await resolveHubSpotAgentConnection();
+  const connection = await resolveHubSpotAgentConnection(portalRecordId);
   const connectionSummary = {
     ready: connection.ready,
     source: connection.source,
     baseUrl: connection.baseUrl,
-    portalId: connection.portalId
+    portalId: connection.portalId,
+    portalRecordId: connection.portalRecordId,
+    portalDisplayName: connection.portalDisplayName
   };
 
   if (dryRun) {
@@ -7685,7 +8208,7 @@ async function executeHubSpotAgentAction(value: {
 
   if (!connection.ready) {
     throw new Error(
-      "HubSpot auth is not configured. Add HUBSPOT_ACCESS_TOKEN or enable the HubSpot provider connection first."
+      "HubSpot auth is not configured. Connect a HubSpot portal first or set HUBSPOT_ACCESS_TOKEN for the legacy fallback path."
     );
   }
 
@@ -12239,7 +12762,8 @@ export function createAppServer(config: BaseConfig): http.Server {
 
       if (url.pathname === "/api/hubspot/agent-capabilities") {
         if (request.method === "GET") {
-          const connection = await resolveHubSpotAgentConnection();
+          const portalRecordId = url.searchParams.get("portalRecordId");
+          const connection = await resolveHubSpotAgentConnection(portalRecordId);
           return sendJson(
             response,
             200,
@@ -12267,6 +12791,36 @@ export function createAppServer(config: BaseConfig): http.Server {
         }
 
         return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/hubspot/oauth/start") {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const result = await createHubSpotOAuthStart(body);
+          return sendJson(response, 200, result);
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to start HubSpot OAuth"
+          });
+        }
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/hubspot/oauth/callback") {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const result = await completeHubSpotOAuthCallback(body);
+          return sendJson(response, 200, result);
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to complete HubSpot OAuth"
+          });
+        }
       }
 
       const workspaceUserRoute = matchWorkspaceUserRoute(url.pathname);
@@ -14222,6 +14776,12 @@ export function createAppServer(config: BaseConfig): http.Server {
         }
 
         return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/portals") {
+        return sendJson(response, 200, {
+          portals: await loadHubSpotPortals()
+        });
       }
 
       if (request.method === "POST" && url.pathname === "/api/portals") {

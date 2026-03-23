@@ -132,6 +132,27 @@ export default function ProviderConnectionsSettings() {
           key={provider.id}
           className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
         >
+          {(() => {
+            const isHubSpotOAuth = provider.providerKey === "hubspot_oauth";
+            const defaultModelLabel = isHubSpotOAuth
+              ? "HubSpot app client ID"
+              : "Default model";
+            const defaultModelPlaceholder = isHubSpotOAuth
+              ? "Paste the HubSpot public app client ID"
+              : "e.g. gpt-5.4 or claude-sonnet";
+            const apiKeyLabel = isHubSpotOAuth
+              ? "HubSpot app client secret"
+              : provider.connectionType === "oauth"
+                ? "Connection token / notes"
+                : "API key";
+            const apiKeyPlaceholder = isHubSpotOAuth
+              ? "Paste the HubSpot public app client secret"
+              : provider.connectionType === "oauth"
+                ? "Store a token or integration reference"
+                : "Paste provider API key";
+
+            return (
+              <>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
@@ -155,15 +176,20 @@ export default function ProviderConnectionsSettings() {
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <label className="block">
-              <span className="text-sm font-medium text-white">Default model</span>
+              <span className="text-sm font-medium text-white">{defaultModelLabel}</span>
               <input
                 value={provider.defaultModel ?? ""}
                 onChange={(event) =>
                   updateProvider(provider.providerKey, "defaultModel", event.target.value)
                 }
-                placeholder="e.g. gpt-5.4 or claude-sonnet"
+                placeholder={defaultModelPlaceholder}
                 className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
               />
+              {isHubSpotOAuth ? (
+                <p className="mt-2 text-xs text-text-muted">
+                  Use the client ID from your single HubSpot public app. Each client portal will install that app separately.
+                </p>
+              ) : null}
             </label>
 
             <label className="block">
@@ -184,22 +210,14 @@ export default function ProviderConnectionsSettings() {
             </label>
 
             <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-white">
-                {provider.connectionType === "oauth" ? "Connection token / notes" : "API key"}
-              </span>
+              <span className="text-sm font-medium text-white">{apiKeyLabel}</span>
               <input
                 type="password"
                 value={provider.apiKey ?? ""}
                 onChange={(event) =>
                   updateProvider(provider.providerKey, "apiKey", event.target.value)
                 }
-                placeholder={
-                  provider.providerKey === "hubspot_oauth"
-                    ? "Paste a HubSpot private app token or OAuth access token"
-                    : provider.connectionType === "oauth"
-                      ? "Store a token or integration reference"
-                    : "Paste provider API key"
-                }
+                placeholder={apiKeyPlaceholder}
                 className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
               />
               {provider.hasApiKey ? (
@@ -234,6 +252,9 @@ export default function ProviderConnectionsSettings() {
           >
             {saving === provider.providerKey ? "Saving..." : "Save provider"}
           </button>
+              </>
+            );
+          })()}
         </div>
       ))}
     </div>

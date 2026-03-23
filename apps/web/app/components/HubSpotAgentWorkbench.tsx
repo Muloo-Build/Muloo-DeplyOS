@@ -35,8 +35,17 @@ interface HubSpotCapabilitiesResponse {
     source: string;
     baseUrl: string;
     portalId: string | null;
+    portalRecordId: string | null;
+    portalDisplayName: string | null;
     providerEnabled: boolean;
   };
+  portals: Array<{
+    id: string;
+    portalId: string;
+    displayName: string;
+    connected: boolean;
+    connectedEmail?: string | null;
+  }>;
   capabilities: HubSpotCapability[];
   supportedActions: HubSpotAgentActionKey[];
 }
@@ -164,11 +173,18 @@ export default function HubSpotAgentWorkbench() {
   const [dryRun, setDryRun] = useState(true);
   const [executing, setExecuting] = useState(false);
   const [resultText, setResultText] = useState<string>("");
+  const [portalRecordId, setPortalRecordId] = useState<string>("");
 
   useEffect(() => {
     async function loadCapabilities() {
       try {
-        const response = await fetch("/api/hubspot/agent-capabilities");
+        const params = new URLSearchParams();
+        if (portalRecordId.trim()) {
+          params.set("portalRecordId", portalRecordId.trim());
+        }
+        const response = await fetch(
+          `/api/hubspot/agent-capabilities${params.toString() ? `?${params.toString()}` : ""}`
+        );
         if (!response.ok) {
           throw new Error("Failed to load HubSpot agent capabilities");
         }
@@ -187,7 +203,7 @@ export default function HubSpotAgentWorkbench() {
     }
 
     void loadCapabilities();
-  }, []);
+  }, [portalRecordId]);
 
   async function executeAction() {
     setExecuting(true);
@@ -203,7 +219,8 @@ export default function HubSpotAgentWorkbench() {
         body: JSON.stringify({
           action,
           input: parsedPayload,
-          dryRun
+          dryRun,
+          portalRecordId: portalRecordId.trim() || undefined
         })
       });
       const body = await response.json().catch(() => null);
@@ -293,6 +310,34 @@ export default function HubSpotAgentWorkbench() {
                 {capabilities.connection.portalId ?? "Not set"}
               </p>
             </div>
+            <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                Active target
+              </p>
+              <p className="mt-2 text-sm font-semibold text-white">
+                {capabilities.connection.portalDisplayName ?? "Global fallback token"}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+            <p className="text-sm font-medium text-white">Execution target</p>
+            <p className="mt-2 text-sm text-text-secondary">
+              Pick a connected HubSpot portal for agent execution. Leave it on the fallback only if you still need the older single-token path.
+            </p>
+            <select
+              value={portalRecordId}
+              onChange={(event) => setPortalRecordId(event.target.value)}
+              className="mt-4 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none md:max-w-xl"
+            >
+              <option value="">Global fallback token</option>
+              {capabilities.portals.map((portal) => (
+                <option key={portal.id} value={portal.id}>
+                  {portal.displayName} · {portal.portalId}
+                  {portal.connected ? " · Connected" : " · Needs reconnect"}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
@@ -412,8 +457,7 @@ export default function HubSpotAgentWorkbench() {
                       : "Execute action"}
                 </button>
                 <p className="text-xs text-text-muted">
-                  Live execution uses `HUBSPOT_ACCESS_TOKEN` first, then the
-                  enabled HubSpot provider connection token.
+                  Live execution now prefers the selected connected HubSpot portal. If no portal is selected, it falls back to the legacy global token path.
                 </p>
               </div>
 
