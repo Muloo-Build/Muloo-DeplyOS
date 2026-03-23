@@ -165,6 +165,106 @@ const defaultHubSpotOAuthOptionalScopes = [
   "crm.schemas.custom.read",
   "crm.schemas.custom.write"
 ] as const;
+const hubSpotScopeProfiles = {
+  core_crm: {
+    label: "Core CRM",
+    requiredScopes: [
+      "crm.objects.contacts.read",
+      "crm.objects.contacts.write",
+      "crm.objects.companies.read",
+      "crm.objects.companies.write",
+      "crm.objects.deals.read",
+      "crm.objects.deals.write",
+      "crm.objects.tickets.read",
+      "crm.objects.tickets.write",
+      "crm.objects.line_items.read",
+      "crm.objects.line_items.write",
+      "crm.objects.products.read",
+      "crm.objects.products.write",
+      "crm.schemas.contacts.read",
+      "crm.schemas.contacts.write",
+      "crm.schemas.companies.read",
+      "crm.schemas.companies.write",
+      "crm.schemas.deals.read",
+      "crm.schemas.deals.write",
+      "crm.schemas.tickets.read",
+      "crm.schemas.tickets.write",
+      "crm.schemas.line_items.read",
+      "crm.objects.owners.read",
+      "settings.currencies.read"
+    ],
+    optionalScopes: [
+      "crm.objects.custom.read",
+      "crm.objects.custom.write",
+      "crm.schemas.custom.read",
+      "crm.schemas.custom.write",
+      "crm.lists.read",
+      "crm.lists.write",
+      "crm.import",
+      "communication_preferences.read",
+      "communication_preferences.read_write"
+    ]
+  },
+  automation: {
+    label: "Automation",
+    requiredScopes: ["automation"],
+    optionalScopes: [
+      "crm.objects.marketing_events.read",
+      "crm.objects.marketing_events.write",
+      "marketing.campaigns.read",
+      "marketing.campaigns.write",
+      "marketing-email",
+      "business-intelligence"
+    ]
+  },
+  cms_content: {
+    label: "CMS & Content",
+    requiredScopes: ["content", "files"],
+    optionalScopes: ["hubdb"]
+  },
+  commercial_objects: {
+    label: "Commercial Objects",
+    requiredScopes: [
+      "crm.objects.quotes.read",
+      "crm.objects.quotes.write",
+      "crm.schemas.quotes.read",
+      "crm.schemas.quotes.write",
+      "crm.objects.orders.read",
+      "crm.objects.orders.write",
+      "crm.schemas.orders.read",
+      "crm.schemas.orders.write",
+      "crm.schemas.subscriptions.read",
+      "crm.schemas.subscriptions.write"
+    ],
+    optionalScopes: ["crm.dealsplits.read_write"]
+  },
+  advanced_admin: {
+    label: "Advanced Admin",
+    requiredScopes: [],
+    optionalScopes: [
+      "settings.currencies.write",
+      "settings.users.read",
+      "settings.users.write",
+      "settings.users.teams.read",
+      "settings.users.teams.write",
+      "settings.security.security_health.read",
+      "business_units_view.read",
+      "crm.objects.users.read",
+      "crm.objects.users.write",
+      "crm.objects.partner-clients.read",
+      "crm.objects.partner-clients.write",
+      "crm.objects.partner-services.read",
+      "crm.objects.partner-services.write",
+      "crm.objects.services.read",
+      "crm.objects.services.write",
+      "crm.schemas.listings.read",
+      "crm.schemas.listings.write",
+      "crm.objects.leads.read",
+      "crm.objects.leads.write"
+    ]
+  }
+} as const;
+type HubSpotScopeProfileKey = keyof typeof hubSpotScopeProfiles;
 const validPlatformTierSelectionKeys = [
   "smart_crm",
   "marketing_hub",
@@ -8083,6 +8183,7 @@ async function refreshHubSpotPortalAccessTokenIfNeeded(portalRecordId: string) {
 async function createHubSpotOAuthStart(value: {
   projectId?: unknown;
   portalRecordId?: unknown;
+  installProfile?: unknown;
 }) {
   const projectId =
     typeof value.projectId === "string" && value.projectId.trim()
@@ -8092,6 +8193,11 @@ async function createHubSpotOAuthStart(value: {
     typeof value.portalRecordId === "string" && value.portalRecordId.trim()
       ? value.portalRecordId.trim()
       : null;
+  const installProfile =
+    typeof value.installProfile === "string" &&
+    value.installProfile in hubSpotScopeProfiles
+      ? (value.installProfile as HubSpotScopeProfileKey)
+      : "core_crm";
   const oauthConfig = await loadHubSpotOAuthProviderConfig();
 
   if (!oauthConfig.provider.isEnabled) {
@@ -8124,10 +8230,15 @@ async function createHubSpotOAuthStart(value: {
     }
   }
 
+  const selectedProfile = hubSpotScopeProfiles[installProfile];
+  const requiredScopes = Array.from(new Set(selectedProfile.requiredScopes));
+  const optionalScopes = Array.from(new Set(selectedProfile.optionalScopes));
+
   const state = createSignedStateToken({
     providerKey: "hubspot_oauth",
     projectId,
     portalRecordId,
+    installProfile,
     redirectUri: oauthConfig.redirectUri,
     returnTo: projectId ? `/projects/${projectId}` : "/settings/providers",
     expiresAt: Date.now() + 1000 * 60 * 10
@@ -8136,13 +8247,18 @@ async function createHubSpotOAuthStart(value: {
   const params = new URLSearchParams({
     client_id: oauthConfig.clientId,
     redirect_uri: oauthConfig.redirectUri,
-    scope: defaultHubSpotOAuthRequiredScopes.join(" "),
-    optional_scope: defaultHubSpotOAuthOptionalScopes.join(" "),
+    scope: requiredScopes.join(" "),
+    optional_scope: optionalScopes.join(" "),
     state
   });
 
   return {
-    authUrl: `https://app.hubspot.com/oauth/authorize?${params.toString()}`
+    authUrl: `https://app.hubspot.com/oauth/authorize?${params.toString()}`,
+    installProfile,
+    requestedScopes: {
+      required: requiredScopes,
+      optional: optionalScopes
+    }
   };
 }
 

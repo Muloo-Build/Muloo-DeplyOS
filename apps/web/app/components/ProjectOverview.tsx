@@ -89,6 +89,13 @@ interface HubSpotPortalOption {
   installedAt?: string | null;
 }
 
+type HubSpotInstallProfile =
+  | "core_crm"
+  | "automation"
+  | "cms_content"
+  | "commercial_objects"
+  | "advanced_admin";
+
 interface EvidenceItem {
   id: string;
   projectId: string;
@@ -557,6 +564,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     []
   );
   const [portalOptions, setPortalOptions] = useState<HubSpotPortalOption[]>([]);
+  const [hubSpotInstallProfile, setHubSpotInstallProfile] =
+    useState<HubSpotInstallProfile>("core_crm");
   const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
   const [contextDraft, setContextDraft] = useState({
     evidenceType: "uploaded-doc" as EvidenceItem["evidenceType"],
@@ -892,7 +901,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ projectId })
+        body: JSON.stringify({
+          projectId,
+          installProfile: hubSpotInstallProfile
+        })
       });
       const body = await response.json().catch(() => null);
 
@@ -2330,6 +2342,21 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          value={hubSpotInstallProfile}
+                          onChange={(event) =>
+                            setHubSpotInstallProfile(
+                              event.target.value as HubSpotInstallProfile
+                            )
+                          }
+                          className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-xs font-medium text-white outline-none"
+                        >
+                          <option value="core_crm">Core CRM install</option>
+                          <option value="automation">Automation add-on</option>
+                          <option value="cms_content">CMS / content add-on</option>
+                          <option value="commercial_objects">Commercial objects add-on</option>
+                          <option value="advanced_admin">Advanced admin add-on</option>
+                        </select>
                         <button
                           type="button"
                           onClick={() => void connectHubSpotPortal()}
@@ -2346,6 +2373,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         ) : null}
                       </div>
                     </div>
+                    <p className="mt-3 text-xs text-text-secondary">
+                      Start with `Core CRM install` for most client portals. Use the add-on profiles only when that project genuinely needs those HubSpot products.
+                    </p>
                     {renderError("portalId")}
                   </div>
                   <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
