@@ -193,17 +193,7 @@ const hubSpotScopeProfiles = {
       "crm.objects.owners.read",
       "settings.currencies.read"
     ],
-    optionalScopes: [
-      "crm.objects.custom.read",
-      "crm.objects.custom.write",
-      "crm.schemas.custom.read",
-      "crm.schemas.custom.write",
-      "crm.lists.read",
-      "crm.lists.write",
-      "crm.import",
-      "communication_preferences.read",
-      "communication_preferences.read_write"
-    ]
+    optionalScopes: []
   },
   automation: {
     label: "Automation",
@@ -8248,9 +8238,12 @@ async function createHubSpotOAuthStart(value: {
     client_id: oauthConfig.clientId,
     redirect_uri: oauthConfig.redirectUri,
     scope: requiredScopes.join(" "),
-    optional_scope: optionalScopes.join(" "),
     state
   });
+
+  if (optionalScopes.length > 0) {
+    params.set("optional_scope", optionalScopes.join(" "));
+  }
 
   return {
     authUrl: `https://app.hubspot.com/oauth/authorize?${params.toString()}`,
