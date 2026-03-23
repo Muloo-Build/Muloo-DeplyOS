@@ -1931,6 +1931,23 @@ function matchClientDirectoryRoute(pathname: string): {
   };
 }
 
+function matchClientContactPortalAccessRoute(pathname: string): {
+  clientId: string;
+  contactId: string;
+} | null {
+  const match =
+    /^\/api\/clients\/([^/]+?)\/contacts\/([^/]+?)\/portal-access$/.exec(pathname);
+
+  if (!match?.[1] || !match[2]) {
+    return null;
+  }
+
+  return {
+    clientId: decodeURIComponent(match[1]),
+    contactId: decodeURIComponent(match[2])
+  };
+}
+
 function matchProjectQuoteRoute(pathname: string): {
   projectId: string;
   action?: "share";
@@ -5639,7 +5656,7 @@ Rules:
 - Body should be plain text with natural paragraph breaks, ready to paste into email.
 - Use concise sentences.
 - Mention the actual next step requested from the client.
-- If the workflow intent is questionnaire_invite, ask them to complete the portal questionnaire and explain why it matters.
+- If the workflow intent is questionnaire_invite, ask them to complete the project inputs in the portal and explain why it matters.
 - If the workflow intent is next_steps, summarise what Muloo has understood and what should happen next.
 - If the workflow intent is quote_ready, explain that the quote is available in the client portal for review.
 - If the workflow intent is approval_follow_up, ask for approval politely and mention any timing dependency.
@@ -7914,7 +7931,26 @@ async function loadClientsDirectory() {
       youtubeUrl: client.youtubeUrl,
       createdAt: client.createdAt.toISOString(),
       updatedAt: client.updatedAt.toISOString(),
-      contacts: client.contacts.map((contact) => serializeClientContact(contact)),
+      contacts: client.contacts.map((contact) => ({
+        ...serializeClientContact(contact),
+        portalAssignments: linkedProjects.flatMap((project) =>
+          project.clientAccess
+            .filter(
+              (accessRecord) =>
+                accessRecord.user.email.trim().toLowerCase() ===
+                contact.email.trim().toLowerCase()
+            )
+            .map((accessRecord) => ({
+              projectId: project.id,
+              projectName: project.name,
+              role: accessRecord.role,
+              questionnaireAccess: accessRecord.questionnaireAccess,
+              authStatus: accessRecord.user.inviteAcceptedAt
+                ? "active"
+                : "invite_pending"
+            }))
+        )
+      })),
       projects: linkedProjects.map((project) => ({
         id: project.id,
         name: project.name,
@@ -8181,8 +8217,8 @@ async function createClientPortalUserForProject(
       ? true
       : Boolean(value.questionnaireAccess);
 
-  if (!firstName || !lastName || !email) {
-    throw new Error("firstName, lastName, and email are required");
+  if (!firstName || !email) {
+    throw new Error("firstName and email are required");
   }
 
   const existingUser = await prisma.clientPortalUser.findUnique({
@@ -8248,13 +8284,74 @@ async function createClientPortalUserForProject(
   };
 }
 
-function buildClientAccessUrl(pathname: string, token: string) {
-  const baseUrl =
+function getAppBaseUrl() {
+  return (
     process.env.APP_BASE_URL ??
     process.env.NEXT_PUBLIC_APP_BASE_URL ??
-    "https://deploy.wearemuloo.com";
+    "https://deploy.wearemuloo.com"
+  );
+}
 
-  return `${baseUrl}${pathname}?token=${encodeURIComponent(token)}`;
+function buildClientAccessUrl(pathname: string, token: string) {
+  return `${getAppBaseUrl()}${pathname}?token=${encodeURIComponent(token)}`;
+}
+
+function buildClientPortalLoginUrl() {
+  return `${getAppBaseUrl()}/client/login`;
+}
+
+function buildClientPortalInviteEmail(input: {
+  contact: {
+    firstName: string;
+    email: string;
+    canApproveQuotes: boolean;
+  };
+  projects: Array<{ name: string }>;
+  accessUrl: string;
+  questionnaireAccess: boolean;
+}) {
+  const greetingName = input.contact.firstName.trim() || "there";
+  const projectLines = input.projects.map((project) => `- ${project.name}`).join("\n");
+  const subject =
+    input.projects.length === 1
+      ? `Action required: access your Muloo portal for ${input.projects[0]?.name ?? "your project"}`
+      : "Action required: access your Muloo project portal";
+
+  const body = [
+    `Hi ${greetingName},`,
+    "",
+    "You now have access to the Muloo project portal.",
+    "",
+    input.projects.length === 1
+      ? `We’ve set you up on this project:\n${projectLines}`
+      : `We’ve set you up on these projects:\n${projectLines}`,
+    "",
+    "This portal is where we’ll share project updates, documents, quotes, approvals, and any client inputs we need from your team.",
+    "",
+    "Your next step:",
+    input.questionnaireAccess
+      ? "- Open the portal and set your password if this is your first visit"
+      : "- Open the portal and sign in",
+    input.questionnaireAccess
+      ? "- Open the assigned project and complete the requested project inputs"
+      : "- Open the assigned project and review the latest updates and approvals",
+    "- Return anytime as the project moves forward",
+    "",
+    input.questionnaireAccess
+      ? "Your progress saves automatically as you work, so you can leave and come back later without losing your answers."
+      : "You have visibility into the project without being asked to complete the active inputs.",
+    input.contact.canApproveQuotes
+      ? "You are also marked as a quote approver for any commercial sign-off required on these projects."
+      : "If approval is needed later, we’ll surface it clearly in the portal.",
+    "",
+    `Portal access: ${input.accessUrl}`,
+    "",
+    "If anything is unclear, reply and we’ll help.",
+    "",
+    "Muloo"
+  ].join("\n");
+
+  return { subject, body };
 }
 
 async function createClientResetLink(userId: string, projectId: string) {
@@ -8304,6 +8401,185 @@ async function loadClientUsersForProject(projectId: string) {
     questionnaireAccess: record.questionnaireAccess,
     canApproveQuotes: record.role === "approver"
   }));
+}
+
+async function inviteClientContactToProjects(
+  clientId: string,
+  contactId: string,
+  value: {
+    projectIds?: unknown;
+    questionnaireAccess?: unknown;
+    sendEmail?: unknown;
+  }
+) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    include: {
+      contacts: true
+    }
+  });
+
+  if (!client) {
+    throw new Error("Client not found");
+  }
+
+  const contact = client.contacts.find((candidate) => candidate.id === contactId);
+
+  if (!contact) {
+    throw new Error("Client contact not found");
+  }
+
+  const requestedProjectIds = Array.isArray(value.projectIds)
+    ? Array.from(
+        new Set(
+          value.projectIds
+            .filter((entry): entry is string => typeof entry === "string")
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+        )
+      )
+    : [];
+
+  if (requestedProjectIds.length === 0) {
+    throw new Error("Select at least one project for portal access");
+  }
+
+  const clientContactEmails = client.contacts
+    .map((clientContact) => clientContact.email.trim().toLowerCase())
+    .filter(Boolean);
+  const linkedProjects = await prisma.project.findMany({
+    where: {
+      OR: [
+        { clientId },
+        ...(clientContactEmails.length > 0
+          ? [
+              {
+                clientChampionEmail: {
+                  in: clientContactEmails
+                }
+              },
+              {
+                clientAccess: {
+                  some: {
+                    user: {
+                      email: {
+                        in: clientContactEmails
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          : [])
+      ]
+    },
+    select: {
+      id: true,
+      name: true,
+      clientId: true
+    },
+    orderBy: [{ updatedAt: "desc" }]
+  });
+
+  const selectedProjects = linkedProjects.filter((project) =>
+    requestedProjectIds.includes(project.id)
+  );
+
+  if (selectedProjects.length !== requestedProjectIds.length) {
+    throw new Error("One or more selected projects are no longer linked to this client");
+  }
+
+  const questionnaireAccess =
+    value.questionnaireAccess === undefined
+      ? true
+      : Boolean(value.questionnaireAccess);
+  const sendEmail = value.sendEmail === undefined ? true : Boolean(value.sendEmail);
+  const role = contact.canApproveQuotes ? "approver" : "contributor";
+  const contactName =
+    [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim() ||
+    contact.email;
+
+  let inviteLink: string | null = null;
+  const assignments: Array<{
+    projectId: string;
+    projectName: string;
+    role: string;
+    questionnaireAccess: boolean;
+    authStatus: string;
+  }> = [];
+
+  for (const project of selectedProjects) {
+    const clientUser = await createClientPortalUserForProject(project.id, {
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      email: contact.email,
+      role,
+      questionnaireAccess
+    });
+
+    if (clientUser.inviteLink) {
+      inviteLink = clientUser.inviteLink;
+    }
+
+    assignments.push({
+      projectId: project.id,
+      projectName: project.name,
+      role: clientUser.role,
+      questionnaireAccess: clientUser.questionnaireAccess,
+      authStatus: clientUser.authStatus
+    });
+  }
+
+  const accessUrl = inviteLink ?? buildClientPortalLoginUrl();
+  let emailSent = false;
+  let emailError: string | null = null;
+
+  if (sendEmail) {
+    const inviteEmail = buildClientPortalInviteEmail({
+      contact,
+      projects: selectedProjects,
+      accessUrl,
+      questionnaireAccess
+    });
+
+    try {
+      await sendWorkspaceEmail({
+        to: [contact.email],
+        subject: inviteEmail.subject,
+        body: inviteEmail.body
+      });
+      emailSent = true;
+    } catch (error) {
+      emailError =
+        error instanceof Error ? error.message : "Failed to send onboarding email";
+    }
+  }
+
+  await Promise.all(
+    selectedProjects.map((project) =>
+      createProjectMessage({
+        projectId: project.id,
+        senderType: "internal",
+        senderName: "Muloo Client Workspace",
+        body: `Portal access updated for ${contactName}` +
+          ` (${contact.email}). ${
+            questionnaireAccess
+              ? "Assigned to project inputs."
+              : "Visibility only."
+          }${sendEmail ? ` ${emailSent ? "Onboarding email sent." : `Onboarding email could not be sent: ${emailError}`}` : ""}`
+      })
+    )
+  );
+
+  return {
+    contact: serializeClientContact(contact),
+    assignments,
+    role,
+    questionnaireAccess,
+    accessUrl,
+    emailSent,
+    emailError
+  };
 }
 
 async function updateClientProjectAccess(
@@ -8506,7 +8782,7 @@ async function saveClientInputSubmission(
 
   if (!access.questionnaireAccess) {
     throw new Error(
-      "Questionnaire access is not enabled for this client user on this project."
+      "Project input access is not enabled for this client user on this project."
     );
   }
 
@@ -8520,10 +8796,16 @@ async function saveClientInputSubmission(
       typeof value === "string" ? value.trim() : ""
     ])
   );
+  const totalQuestionCount = Object.keys(normalizedAnswers).length;
   const completedCount = Object.values(normalizedAnswers).filter(
     (value) => typeof value === "string" && value.trim().length > 0
   ).length;
-  const status = completedCount > 0 ? "submitted" : "draft";
+  const status =
+    completedCount === 0
+      ? "draft"
+      : completedCount === totalQuestionCount
+        ? "complete"
+        : "in_progress";
 
   const submission = await prisma.clientInputSubmission.upsert({
     where: {
@@ -12406,6 +12688,44 @@ export function createAppServer(config: BaseConfig): http.Server {
         const docText = await docResponse.text();
         const extraction = await extractDiscoveryFields(docText, body.session);
         return sendJson(response, 200, extraction);
+      }
+
+      const clientContactPortalAccessRoute = matchClientContactPortalAccessRoute(
+        url.pathname
+      );
+      if (clientContactPortalAccessRoute) {
+        if (request.method === "POST") {
+          try {
+            const body = (await readJsonBody(request)) as {
+              projectIds?: unknown;
+              questionnaireAccess?: unknown;
+              sendEmail?: unknown;
+            };
+            const result = await inviteClientContactToProjects(
+              clientContactPortalAccessRoute.clientId,
+              clientContactPortalAccessRoute.contactId,
+              body
+            );
+
+            return sendJson(response, 200, result);
+          } catch (error) {
+            return sendJson(
+              response,
+              error instanceof Error &&
+              ["Client not found", "Client contact not found"].includes(error.message)
+                ? 404
+                : 400,
+              {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to update client portal access"
+              }
+            );
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
       const clientDirectoryRoute = matchClientDirectoryRoute(url.pathname);

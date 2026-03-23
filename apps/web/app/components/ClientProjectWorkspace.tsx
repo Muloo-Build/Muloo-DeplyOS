@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import ClientShell from "./ClientShell";
 import {
@@ -45,8 +45,14 @@ interface ClientProjectDetail {
     sessionNumber: number;
     status: string;
     answers: Record<string, string>;
+    updatedAt: string;
   }>;
 }
+
+type SessionSaveState = {
+  status: "idle" | "pending" | "saving" | "saved" | "error";
+  message: string | null;
+};
 
 function createDrafts(
   submissions: ClientProjectDetail["submissions"],
@@ -86,6 +92,20 @@ function statusForDraft(answers: Record<string, string>) {
   return "In progress";
 }
 
+function createSessionSaveStateMap(
+  submissions: ClientProjectDetail["submissions"]
+): Record<number, SessionSaveState> {
+  return submissions.reduce<Record<number, SessionSaveState>>((state, submission) => {
+    state[submission.sessionNumber] = {
+      status: "saved",
+      message: formatTimestamp(submission.updatedAt)
+        ? `Saved ${formatTimestamp(submission.updatedAt)}`
+        : "Saved"
+    };
+    return state;
+  }, {});
+}
+
 function formatTimestamp(value?: string | null) {
   if (!value) {
     return null;
@@ -119,9 +139,17 @@ export default function ClientProjectWorkspace({
     3: {},
     4: {}
   });
-  const [savingSession, setSavingSession] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [sessionSaveState, setSessionSaveState] = useState<
+    Record<number, SessionSaveState>
+  >({});
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const draftsRef = useRef(drafts);
+  const autosaveTimersRef = useRef<
+    Record<number, ReturnType<typeof setTimeout> | undefined>
+  >({});
+  const dirtySessionsRef = useRef<Record<number, boolean>>({});
 
   useEffect(() => {
     async function loadProject() {
@@ -140,8 +168,10 @@ export default function ClientProjectWorkspace({
         setDetail(body);
         setQuestionnaireDefinitions(nextDefinitions);
         setDrafts(createDrafts(body.submissions ?? [], nextDefinitions));
+        setSessionSaveState(createSessionSaveStateMap(body.submissions ?? []));
+        dirtySessionsRef.current = {};
       } catch (loadError) {
-        setError(
+        setPageError(
           loadError instanceof Error ? loadError.message : "Failed to load client project"
         );
       } finally {
@@ -152,12 +182,25 @@ export default function ClientProjectWorkspace({
     void loadProject();
   }, [projectId]);
 
+  useEffect(() => {
+    draftsRef.current = drafts;
+  }, [drafts]);
+
+  const sessionNumbers = useMemo(
+    () =>
+      Object.keys(questionnaireDefinitions)
+        .map((sessionNumberText) => Number(sessionNumberText))
+        .filter((sessionNumber) => Number.isFinite(sessionNumber))
+        .sort((left, right) => left - right),
+    [questionnaireDefinitions]
+  );
   const completedCount = useMemo(
     () =>
       Object.values(drafts).filter((answers) => statusForDraft(answers) === "Complete")
         .length,
     [drafts]
   );
+  const totalInputSections = sessionNumbers.length;
   const isStandaloneQuote = detail?.project.scopeType === "standalone_quote";
   const questionnaireAssigned =
     !isStandaloneQuote && detail?.canCompleteQuestionnaire !== false;
@@ -169,19 +212,70 @@ export default function ClientProjectWorkspace({
     detail?.project.quoteApprovedByEmail ||
     "client team";
 
-  function updateDraft(sessionNumber: number, fieldKey: string, value: string) {
-    setDrafts((currentDrafts) => ({
-      ...currentDrafts,
+  function clearAutosaveTimer(sessionNumber: number) {
+    const existingTimer = autosaveTimersRef.current[sessionNumber];
+
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      delete autosaveTimersRef.current[sessionNumber];
+    }
+  }
+
+  function markSessionPending(sessionNumber: number) {
+    setSessionSaveState((currentState) => ({
+      ...currentState,
       [sessionNumber]: {
-        ...currentDrafts[sessionNumber],
-        [fieldKey]: value
+        status: "pending",
+        message: "Saving automatically..."
       }
     }));
   }
 
-  async function saveSession(sessionNumber: number) {
-    setSavingSession(sessionNumber);
-    setError(null);
+  function updateDraft(sessionNumber: number, fieldKey: string, value: string) {
+    setDrafts((currentDrafts) => {
+      const nextAnswers = {
+        ...currentDrafts[sessionNumber],
+        [fieldKey]: value
+      };
+      const nextDrafts = {
+        ...currentDrafts,
+        [sessionNumber]: nextAnswers
+      };
+
+      draftsRef.current = nextDrafts;
+      dirtySessionsRef.current[sessionNumber] = true;
+      clearAutosaveTimer(sessionNumber);
+      markSessionPending(sessionNumber);
+      autosaveTimersRef.current[sessionNumber] = setTimeout(() => {
+        void saveSession(sessionNumber, {
+          mode: "autosave",
+          answersOverride: nextAnswers
+        });
+      }, 1200);
+
+      return nextDrafts;
+    });
+  }
+
+  async function saveSession(
+    sessionNumber: number,
+    options?: {
+      mode?: "manual" | "autosave";
+      answersOverride?: Record<string, string>;
+    }
+  ) {
+    const mode = options?.mode ?? "manual";
+    const answers = options?.answersOverride ?? draftsRef.current[sessionNumber] ?? {};
+
+    clearAutosaveTimer(sessionNumber);
+    setSaveError(null);
+    setSessionSaveState((currentState) => ({
+      ...currentState,
+      [sessionNumber]: {
+        status: "saving",
+        message: mode === "manual" ? "Saving now..." : "Saving automatically..."
+      }
+    }));
 
     try {
       const response = await fetch(
@@ -193,7 +287,7 @@ export default function ClientProjectWorkspace({
           },
           credentials: "include",
           body: JSON.stringify({
-            answers: drafts[sessionNumber]
+            answers
           })
         }
       );
@@ -217,14 +311,91 @@ export default function ClientProjectWorkspace({
             }
           : currentDetail
       );
+      draftsRef.current = {
+        ...draftsRef.current,
+        [sessionNumber]: answers
+      };
+      dirtySessionsRef.current[sessionNumber] = false;
+      setSessionSaveState((currentState) => ({
+        ...currentState,
+        [sessionNumber]: {
+          status: "saved",
+          message: body?.submission?.updatedAt
+            ? `Saved ${formatTimestamp(body.submission.updatedAt)}`
+            : mode === "manual"
+              ? "Saved"
+              : "Saved automatically"
+        }
+      }));
     } catch (saveError) {
-      setError(
-        saveError instanceof Error ? saveError.message : "Failed to save session"
+      dirtySessionsRef.current[sessionNumber] = true;
+      setSaveError(
+        saveError instanceof Error ? saveError.message : "Failed to save inputs"
       );
-    } finally {
-      setSavingSession(null);
+      setSessionSaveState((currentState) => ({
+        ...currentState,
+        [sessionNumber]: {
+          status: "error",
+          message: "Could not save yet. Your latest edits are still on screen."
+        }
+      }));
     }
   }
+
+  useEffect(() => {
+    if (!questionnaireAssigned) {
+      return undefined;
+    }
+
+    function flushPendingDrafts() {
+      for (const [sessionNumberText, isDirty] of Object.entries(
+        dirtySessionsRef.current
+      )) {
+        if (!isDirty) {
+          continue;
+        }
+
+        const sessionNumber = Number(sessionNumberText);
+        const answers = draftsRef.current[sessionNumber];
+
+        if (!answers) {
+          continue;
+        }
+
+        clearAutosaveTimer(sessionNumber);
+
+        void fetch(
+          `/api/client/projects/${encodeURIComponent(projectId)}/submissions/${sessionNumber}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            credentials: "include",
+            keepalive: true,
+            body: JSON.stringify({ answers })
+          }
+        ).catch(() => null);
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        flushPendingDrafts();
+      }
+    }
+
+    window.addEventListener("beforeunload", flushPendingDrafts);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", flushPendingDrafts);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      for (const sessionNumberText of Object.keys(autosaveTimersRef.current)) {
+        clearAutosaveTimer(Number(sessionNumberText));
+      }
+    };
+  }, [projectId, questionnaireAssigned]);
 
   return (
     <ClientShell title={detail?.project.name ?? "Project"}>
@@ -232,12 +403,17 @@ export default function ClientProjectWorkspace({
         <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
           Loading project...
         </div>
-      ) : error || !detail ? (
+      ) : pageError || !detail ? (
         <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-6 text-white">
-          {error ?? "Project unavailable"}
+          {pageError ?? "Project unavailable"}
         </div>
       ) : (
         <div className="space-y-6">
+          {saveError ? (
+            <div className="rounded-2xl border border-[rgba(224,80,96,0.35)] bg-background-card px-5 py-4 text-sm text-[#ffb1ba]">
+              {saveError}
+            </div>
+          ) : null}
           <div className="flex flex-wrap justify-end gap-3">
             {quoteApprovalStatus === "draft" ? (
               <button
@@ -255,21 +431,21 @@ export default function ClientProjectWorkspace({
                 Open Quote
               </Link>
             )}
-            <Link
-              href={`/client/projects/${detail.project.id}/delivery`}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
-            >
-              Open Delivery Board
-            </Link>
-            {isStandaloneQuote ? null : (
               <Link
-                href={`/client/projects/${detail.project.id}`}
+                href={`/client/projects/${detail.project.id}/delivery`}
                 className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
               >
-                Discovery Inputs
+                Open Delivery Board
               </Link>
-            )}
-          </div>
+              {isStandaloneQuote ? null : (
+                <Link
+                  href={`/client/projects/${detail.project.id}`}
+                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                >
+                  Project Inputs
+                </Link>
+              )}
+            </div>
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
@@ -284,12 +460,12 @@ export default function ClientProjectWorkspace({
               <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                 {detail.project.scopeType === "standalone_quote"
                   ? "Project Type"
-                  : "Discovery Sessions Complete"}
+                  : "Input Sections Complete"}
               </p>
               <p className="mt-3 text-xl font-semibold text-white">
                 {detail.project.scopeType === "standalone_quote"
                   ? "Scoped project"
-                  : `${completedCount}/4`}
+                  : `${completedCount}/${totalInputSections}`}
               </p>
             </div>
             <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
@@ -393,13 +569,13 @@ export default function ClientProjectWorkspace({
               </p>
               <h3 className="mt-3 text-2xl font-semibold text-white">
                 {isStandaloneQuote
-                  ? "No questionnaire assigned right now"
-                  : "Questionnaire access is not assigned for this contact"}
+                  ? "No project inputs assigned right now"
+                  : "Project input access is not assigned for this contact"}
               </h3>
               <p className="mt-3 max-w-3xl text-text-secondary">
                 {isStandaloneQuote
-                  ? "This project is running as a scoped job, so there is no standard discovery form to complete right now. Use this workspace to review the project, track delivery, and access any documents or approvals Muloo shares with you."
-                  : "This portal contact has visibility into the project, but Muloo has not assigned the discovery questionnaire to them. Use this workspace to review updates, documents, and approvals while the active questionnaire owners complete the required inputs."}
+                  ? "This project is running as a scoped job, so there are no standard client inputs to complete right now. Use this workspace to review the project, track delivery, and access any documents or approvals Muloo shares with you."
+                  : "This portal contact has visibility into the project, but Muloo has not assigned the active project inputs to them. Use this workspace to review updates, documents, and approvals while the assigned contributors complete the required inputs."}
               </p>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <div className="rounded-2xl bg-[#0b1126] p-5">
@@ -417,16 +593,20 @@ export default function ClientProjectWorkspace({
                     If Muloo needs client input
                   </p>
                   <p className="mt-3 text-sm text-text-secondary">
-                    We’ll surface a specific form or request here only when information is required from your team for this project.
+                    We’ll surface a specific input pack or request here only when information is required from your team for this project.
                   </p>
                 </div>
               </div>
             </section>
           ) : (
-            Object.entries(questionnaireDefinitions).map(([sessionNumberText, definition]) => {
-              const sessionNumber = Number(sessionNumberText);
+            sessionNumbers.map((sessionNumber) => {
+              const definition = questionnaireDefinitions[sessionNumber];
+              if (!definition) {
+                return null;
+              }
               const answers = drafts[sessionNumber] ?? {};
               const status = statusForDraft(answers);
+              const saveState = sessionSaveState[sessionNumber];
 
               return (
                 <section
@@ -436,13 +616,17 @@ export default function ClientProjectWorkspace({
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                        Session {sessionNumber}
+                        Input Section {sessionNumber}
                       </p>
                       <h3 className="mt-2 text-2xl font-semibold text-white">
                         {definition.title}
                       </h3>
                       <p className="mt-2 max-w-3xl text-text-secondary">
                         {definition.description}
+                      </p>
+                      <p className="mt-3 text-sm text-text-muted">
+                        Your progress saves automatically as you work, so you can
+                        leave and come back later.
                       </p>
                     </div>
                     <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3 text-sm text-white">
@@ -464,20 +648,40 @@ export default function ClientProjectWorkspace({
                           onChange={(event) =>
                             updateDraft(sessionNumber, question.key, event.target.value)
                           }
+                          onBlur={() =>
+                            void saveSession(sessionNumber, {
+                              mode: "autosave"
+                            })
+                          }
                           className="mt-3 min-h-[150px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                         />
                       </label>
                     ))}
                   </div>
 
-                  <div className="mt-6 flex justify-end">
+                  <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                    <p
+                      className={`text-sm ${
+                        saveState?.status === "error"
+                          ? "text-[#ff8f9c]"
+                          : saveState?.status === "saved"
+                            ? "text-[#51d0b0]"
+                            : "text-text-secondary"
+                      }`}
+                    >
+                      {saveState?.message ?? "Progress saves automatically."}
+                    </p>
                     <button
                       type="button"
-                      onClick={() => void saveSession(sessionNumber)}
-                      disabled={savingSession === sessionNumber}
+                      onClick={() =>
+                        void saveSession(sessionNumber, {
+                          mode: "manual"
+                        })
+                      }
+                      disabled={saveState?.status === "saving"}
                       className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
                     >
-                      {savingSession === sessionNumber ? "Saving..." : "Save Session"}
+                      {saveState?.status === "saving" ? "Saving..." : "Save Now"}
                     </button>
                   </div>
                 </section>

@@ -1623,7 +1623,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   function resetQuestionnaireDefaults() {
     setQuestionnaireDraft(createDefaultClientQuestionnaireDefinitionMap());
     setQuestionnaireError(null);
-    setQuestionnaireFeedback("Questionnaire reset to the default Muloo structure.");
+    setQuestionnaireFeedback("Project inputs reset to the default Muloo structure.");
   }
 
   async function saveQuestionnaireConfig() {
@@ -1662,19 +1662,19 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       const body = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to save questionnaire");
+        throw new Error(body?.error ?? "Failed to save project inputs");
       }
 
       setProject(body.project);
       setQuestionnaireDraft(
         cloneQuestionnaireDefinitions(body.project.clientQuestionnaireConfig)
       );
-      setQuestionnaireFeedback("Client questionnaire saved for this project.");
+      setQuestionnaireFeedback("Project inputs saved for this project.");
     } catch (saveError) {
       setQuestionnaireError(
         saveError instanceof Error
           ? saveError.message
-          : "Failed to save questionnaire"
+          : "Failed to save project inputs"
       );
     } finally {
       setQuestionnaireSaving(false);
@@ -3034,7 +3034,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     >
                       <option value="next_steps">Next steps</option>
                       <option value="questionnaire_invite">
-                        Questionnaire invite
+                        Project inputs invite
                       </option>
                       <option value="quote_ready">Quote ready for review</option>
                       <option value="approval_follow_up">
@@ -3470,7 +3470,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         Client Portal Access
                       </h2>
                       <p className="mt-2 text-sm text-text-secondary">
-                        Create client logins for discovery forms, document
+                        Create client logins for project inputs, document
                         review, and later approvals.
                       </p>
                     </div>
@@ -3588,7 +3588,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             }))
                           }
                         />
-                        This client contact receives the discovery questionnaire
+                        This client contact receives the active project inputs
                       </label>
                     </div>
                   </div>
@@ -3658,7 +3658,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                   : "Invite pending"}
                               </p>
                               <p className="mt-2 text-xs text-text-secondary">
-                                Questionnaire:{" "}
+                                Project inputs:{" "}
                                 {clientUser.questionnaireAccess === false
                                   ? "Visibility only"
                                   : "Assigned"}
@@ -3695,7 +3695,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                     })
                                   }
                                 />
-                                Questionnaire
+                                Project inputs
                               </label>
                               <button
                                 type="button"
@@ -3738,7 +3738,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <h2 className="text-lg font-semibold text-white">
-                          Client Questionnaire
+                          Project Inputs
                         </h2>
                         <p className="mt-2 text-sm text-text-secondary">
                           Adjust the client-facing questions for this project
@@ -3760,7 +3760,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           disabled={questionnaireSaving || isScopeLocked}
                           className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                         >
-                          {questionnaireSaving ? "Saving..." : "Save questionnaire"}
+                          {questionnaireSaving ? "Saving..." : "Save project inputs"}
                         </button>
                       </div>
                     </div>

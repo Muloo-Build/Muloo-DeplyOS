@@ -12,6 +12,13 @@ interface ClientContact {
   email: string;
   title: string;
   canApproveQuotes: boolean;
+  portalAssignments: Array<{
+    projectId: string;
+    projectName: string;
+    role: string;
+    questionnaireAccess: boolean;
+    authStatus: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -55,6 +62,12 @@ interface ClientProfileDraft {
   region: string;
 }
 
+interface PortalInviteDraft {
+  projectIds: string[];
+  questionnaireAccess: boolean;
+  sendEmail: boolean;
+}
+
 const alphabet = ["All", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
 
 function createEmptyContactDraft(): ContactDraft {
@@ -74,6 +87,23 @@ function createClientProfileDraft(client: ClientRecord): ClientProfileDraft {
     logoUrl: client.logoUrl ?? "",
     industry: client.industry ?? "",
     region: client.region ?? ""
+  };
+}
+
+function createPortalInviteDraft(
+  client: ClientRecord,
+  contact: ClientContact
+): PortalInviteDraft {
+  return {
+    projectIds:
+      contact.portalAssignments.length > 0
+        ? contact.portalAssignments.map((assignment) => assignment.projectId)
+        : client.projects.map((project) => project.id),
+    questionnaireAccess:
+      contact.portalAssignments.length > 0
+        ? contact.portalAssignments.every((assignment) => assignment.questionnaireAccess)
+        : true,
+    sendEmail: true
   };
 }
 
@@ -250,6 +280,7 @@ export default function ClientsWorkspace() {
   );
   const [expandedClientIds, setExpandedClientIds] = useState<string[]>([]);
   const [showingContactFormIds, setShowingContactFormIds] = useState<string[]>([]);
+  const [showingPortalInviteIds, setShowingPortalInviteIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [alphabetFilter, setAlphabetFilter] = useState("All");
   const [clientDraft, setClientDraft] = useState({
@@ -265,6 +296,10 @@ export default function ClientsWorkspace() {
   const [profileDrafts, setProfileDrafts] = useState<
     Record<string, ClientProfileDraft>
   >({});
+  const [portalInviteDrafts, setPortalInviteDrafts] = useState<
+    Record<string, PortalInviteDraft>
+  >({});
+  const [invitingContactId, setInvitingContactId] = useState<string | null>(null);
 
   async function refreshClients(options?: { background?: boolean }) {
     if (options?.background) {
@@ -393,6 +428,44 @@ export default function ClientsWorkspace() {
         ? currentIds.filter((id) => id !== clientId)
         : [...currentIds, clientId]
     );
+  }
+
+  function getPortalInviteDraft(client: ClientRecord, contact: ClientContact) {
+    return (
+      portalInviteDrafts[contact.id] ?? createPortalInviteDraft(client, contact)
+    );
+  }
+
+  function togglePortalInvite(client: ClientRecord, contact: ClientContact) {
+    setShowingPortalInviteIds((currentIds) =>
+      currentIds.includes(contact.id)
+        ? currentIds.filter((id) => id !== contact.id)
+        : [...currentIds, contact.id]
+    );
+    setPortalInviteDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [contact.id]: currentDrafts[contact.id] ?? createPortalInviteDraft(client, contact)
+    }));
+  }
+
+  function updatePortalInviteDraft(
+    contactId: string,
+    updater: (draft: PortalInviteDraft) => PortalInviteDraft
+  ) {
+    setPortalInviteDrafts((currentDrafts) => {
+      const currentDraft =
+        currentDrafts[contactId] ??
+        ({
+          projectIds: [],
+          questionnaireAccess: true,
+          sendEmail: true
+        } satisfies PortalInviteDraft);
+
+      return {
+        ...currentDrafts,
+        [contactId]: updater(currentDraft)
+      };
+    });
   }
 
   async function createClient() {
@@ -550,7 +623,13 @@ export default function ClientsWorkspace() {
             ? {
                 ...client,
                 contacts: client.contacts.map((existingContact) =>
-                  existingContact.id === contact.id ? body.contact : existingContact
+                  existingContact.id === contact.id
+                    ? {
+                        ...existingContact,
+                        ...body.contact,
+                        portalAssignments: existingContact.portalAssignments
+                      }
+                    : existingContact
                 )
               }
             : client
@@ -563,6 +642,53 @@ export default function ClientsWorkspace() {
       );
     } finally {
       setUpdatingContactId(null);
+    }
+  }
+
+  async function inviteContactToProjects(client: ClientRecord, contact: ClientContact) {
+    const draft = getPortalInviteDraft(client, contact);
+
+    if (draft.projectIds.length === 0) {
+      setError("Select at least one linked project before sending portal access.");
+      return;
+    }
+
+    setInvitingContactId(contact.id);
+    setError(null);
+    setFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/clients/${encodeURIComponent(client.id)}/contacts/${encodeURIComponent(contact.id)}/portal-access`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(draft)
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to update portal access");
+      }
+
+      setFeedback(
+        body?.emailSent
+          ? `${contact.firstName || contact.email} now has project portal access and the onboarding email was sent.`
+          : body?.emailError
+            ? `${contact.firstName || contact.email} now has project portal access, but the onboarding email could not be sent: ${body.emailError}`
+            : `${contact.firstName || contact.email} now has project portal access.`
+      );
+      await refreshClients({ background: true });
+    } catch (inviteError) {
+      setError(
+        inviteError instanceof Error
+          ? inviteError.message
+          : "Failed to update portal access"
+      );
+    } finally {
+      setInvitingContactId(null);
     }
   }
 
@@ -596,6 +722,12 @@ export default function ClientsWorkspace() {
       setShowingContactFormIds((currentIds) =>
         currentIds.filter((existingId) => existingId !== client.id)
       );
+      setShowingPortalInviteIds((currentIds) =>
+        currentIds.filter(
+          (existingId) =>
+            !client.contacts.some((contact) => contact.id === existingId)
+        )
+      );
       setProfileDrafts((currentDrafts) => {
         const nextDrafts = { ...currentDrafts };
         delete nextDrafts[client.id];
@@ -604,6 +736,13 @@ export default function ClientsWorkspace() {
       setContactDrafts((currentDrafts) => {
         const nextDrafts = { ...currentDrafts };
         delete nextDrafts[client.id];
+        return nextDrafts;
+      });
+      setPortalInviteDrafts((currentDrafts) => {
+        const nextDrafts = { ...currentDrafts };
+        for (const contact of client.contacts) {
+          delete nextDrafts[contact.id];
+        }
         return nextDrafts;
       });
       setConfirmingDeleteClientId(null);
@@ -884,51 +1023,227 @@ export default function ClientsWorkspace() {
 
                   <div className="mt-4 space-y-3">
                     {client.contacts.length > 0 ? (
-                      client.contacts.map((contact) => (
-                        <div
-                          key={contact.id}
-                          className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-medium text-white">
-                                {[contact.firstName, contact.lastName]
-                                  .filter(Boolean)
-                                  .join(" ")}
-                              </p>
-                              <p className="mt-1 text-xs text-text-secondary">
-                                {contact.email}
-                                {contact.title ? ` · ${contact.title}` : ""}
-                              </p>
+                      client.contacts.map((contact) => {
+                        const showPortalInvite = showingPortalInviteIds.includes(contact.id);
+                        const portalInviteDraft = getPortalInviteDraft(client, contact);
+
+                        return (
+                          <div
+                            key={contact.id}
+                            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-medium text-white">
+                                  {[contact.firstName, contact.lastName]
+                                    .filter(Boolean)
+                                    .join(" ")}
+                                </p>
+                                <p className="mt-1 text-xs text-text-secondary">
+                                  {contact.email}
+                                  {contact.title ? ` · ${contact.title}` : ""}
+                                </p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {contact.canApproveQuotes ? (
+                                    <span className="rounded-full bg-[rgba(81,208,176,0.14)] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#51d0b0]">
+                                      Quote approver
+                                    </span>
+                                  ) : null}
+                                  {contact.portalAssignments.length > 0 ? (
+                                    <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-2 text-[11px] font-medium text-text-secondary">
+                                      {contact.portalAssignments.length} portal project
+                                      {contact.portalAssignments.length === 1 ? "" : "s"}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => void toggleApprover(client.id, contact)}
+                                  disabled={updatingContactId === contact.id}
+                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                                >
+                                  {updatingContactId === contact.id
+                                    ? "Saving..."
+                                    : contact.canApproveQuotes
+                                      ? "Remove approval"
+                                      : "Make approver"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => togglePortalInvite(client, contact)}
+                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                >
+                                  {showPortalInvite ? "Hide portal access" : "Portal access"}
+                                </button>
+                                <Link
+                                  href={buildProjectLink(client, contact)}
+                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                >
+                                  Use in project
+                                </Link>
+                              </div>
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                              {contact.canApproveQuotes ? (
-                                <span className="rounded-full bg-[rgba(81,208,176,0.14)] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#51d0b0]">
-                                  Quote approver
-                                </span>
-                              ) : null}
-                              <button
-                                type="button"
-                                onClick={() => void toggleApprover(client.id, contact)}
-                                disabled={updatingContactId === contact.id}
-                                className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                              >
-                                {updatingContactId === contact.id
-                                  ? "Saving..."
-                                  : contact.canApproveQuotes
-                                    ? "Remove approval"
-                                    : "Make approver"}
-                              </button>
-                              <Link
-                                href={buildProjectLink(client, contact)}
-                                className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
-                              >
-                                Use in project
-                              </Link>
-                            </div>
+
+                            {showPortalInvite ? (
+                              <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                  <div>
+                                    <p className="text-sm font-semibold text-white">
+                                      Portal access and onboarding
+                                    </p>
+                                    <p className="mt-2 max-w-2xl text-sm text-text-secondary">
+                                      Choose which linked projects this contact should see,
+                                      whether they need to complete the active project
+                                      inputs, and send the onboarding email in one step.
+                                    </p>
+                                  </div>
+                                  <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-2 text-[11px] font-medium text-text-secondary">
+                                    Role: {contact.canApproveQuotes ? "Approver" : "Contributor"}
+                                  </div>
+                                </div>
+
+                                <div className="mt-4 space-y-3">
+                                  {client.projects.length > 0 ? (
+                                    client.projects.map((project) => {
+                                      const existingAssignment =
+                                        contact.portalAssignments.find(
+                                          (assignment) => assignment.projectId === project.id
+                                        ) ?? null;
+                                      const isSelected = portalInviteDraft.projectIds.includes(
+                                        project.id
+                                      );
+
+                                      return (
+                                        <label
+                                          key={project.id}
+                                          className="flex cursor-pointer flex-wrap items-start justify-between gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4"
+                                        >
+                                          <div className="flex items-start gap-3">
+                                            <input
+                                              type="checkbox"
+                                              checked={isSelected}
+                                              onChange={(event) =>
+                                                updatePortalInviteDraft(
+                                                  contact.id,
+                                                  (currentDraft) => ({
+                                                    ...currentDraft,
+                                                    projectIds: event.target.checked
+                                                      ? Array.from(
+                                                          new Set([
+                                                            ...currentDraft.projectIds,
+                                                            project.id
+                                                          ])
+                                                        )
+                                                      : currentDraft.projectIds.filter(
+                                                          (projectId) =>
+                                                            projectId !== project.id
+                                                        )
+                                                  })
+                                                )
+                                              }
+                                              className="mt-1"
+                                            />
+                                            <div>
+                                              <p className="text-sm font-medium text-white">
+                                                {project.name}
+                                              </p>
+                                              <p className="mt-1 text-xs text-text-secondary">
+                                                {project.scopeType.replace(/_/g, " ")} ·{" "}
+                                                {project.quoteApprovalStatus}
+                                              </p>
+                                            </div>
+                                          </div>
+                                          {existingAssignment ? (
+                                            <div className="text-right text-xs text-text-secondary">
+                                              <p>
+                                                {existingAssignment.authStatus === "active"
+                                                  ? "Portal active"
+                                                  : "Invite pending"}
+                                              </p>
+                                              <p className="mt-1">
+                                                {existingAssignment.questionnaireAccess
+                                                  ? "Project inputs enabled"
+                                                  : "Visibility only"}
+                                              </p>
+                                            </div>
+                                          ) : (
+                                            <span className="text-xs text-text-muted">
+                                              Not yet assigned
+                                            </span>
+                                          )}
+                                        </label>
+                                      );
+                                    })
+                                  ) : (
+                                    <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-4 py-4 text-sm text-text-secondary">
+                                      This client does not have any linked projects yet.
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                  <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4 text-sm text-white">
+                                    <input
+                                      type="checkbox"
+                                      checked={portalInviteDraft.questionnaireAccess}
+                                      onChange={(event) =>
+                                        updatePortalInviteDraft(contact.id, (currentDraft) => ({
+                                          ...currentDraft,
+                                          questionnaireAccess: event.target.checked
+                                        }))
+                                      }
+                                    />
+                                    This contact should complete project inputs
+                                  </label>
+                                  <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4 text-sm text-white">
+                                    <input
+                                      type="checkbox"
+                                      checked={portalInviteDraft.sendEmail}
+                                      onChange={(event) =>
+                                        updatePortalInviteDraft(contact.id, (currentDraft) => ({
+                                          ...currentDraft,
+                                          sendEmail: event.target.checked
+                                        }))
+                                      }
+                                    />
+                                    Send the Muloo onboarding email now
+                                  </label>
+                                </div>
+
+                                <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4 text-sm text-text-secondary">
+                                  The onboarding email explains the portal, required next
+                                  step, and that project inputs save automatically so the
+                                  client can stop and resume later.
+                                </div>
+
+                                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                                  <p className="text-sm text-text-secondary">
+                                    {portalInviteDraft.projectIds.length} project
+                                    {portalInviteDraft.projectIds.length === 1 ? "" : "s"} selected
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => void inviteContactToProjects(client, contact)}
+                                    disabled={
+                                      invitingContactId === contact.id ||
+                                      portalInviteDraft.projectIds.length === 0
+                                    }
+                                    className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                                  >
+                                    {invitingContactId === contact.id
+                                      ? "Updating access..."
+                                      : portalInviteDraft.sendEmail
+                                        ? "Save access and send invite"
+                                        : "Save portal access"}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-4 py-4 text-sm text-text-secondary">
                         No contacts added yet for this client.
