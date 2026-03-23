@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { markPendingHubSpotPortalLogin } from "../../components/hubspotClientTracking";
+
 export default function ClientLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -34,6 +36,7 @@ export default function ClientLoginPage() {
         throw new Error(body?.error ?? "Login failed");
       }
 
+      markPendingHubSpotPortalLogin();
       router.replace("/client/projects");
       router.refresh();
     } catch (submitError) {

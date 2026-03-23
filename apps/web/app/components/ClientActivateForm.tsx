@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { markPendingHubSpotPortalLogin } from "./hubspotClientTracking";
+
 export default function ClientActivateForm({ token }: { token: string }) {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -46,6 +48,7 @@ export default function ClientActivateForm({ token }: { token: string }) {
         throw new Error(body?.error ?? "Failed to set password");
       }
 
+      markPendingHubSpotPortalLogin();
       router.replace("/client/projects");
       router.refresh();
     } catch (submitError) {
