@@ -22,6 +22,13 @@ interface ProjectTask {
   changeRequestId?: string | null;
   assignedAgentId: string | null;
   assignedAgentName: string | null;
+  latestExecutionJob?: {
+    id: string;
+    status: string;
+    resultStatus: string | null;
+    createdAt: string;
+    completedAt: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -340,6 +347,8 @@ export default function DeliveryBoard({
       if (!response.ok) {
         throw new Error(body?.error ?? "Failed to queue agent run");
       }
+
+      await loadTasks();
     } catch (queueError) {
       setError(queueError instanceof Error ? queueError.message : "Failed to queue agent run");
     } finally {
@@ -824,6 +833,14 @@ export default function DeliveryBoard({
                           ) : null}
                           {task.assignedAgentName ? (
                             <span>Agent: {task.assignedAgentName}</span>
+                          ) : null}
+                          {task.latestExecutionJob ? (
+                            <span>
+                              Latest run: {formatLabel(task.latestExecutionJob.status)}
+                              {task.latestExecutionJob.resultStatus
+                                ? ` (${formatLabel(task.latestExecutionJob.resultStatus)})`
+                                : ""}
+                            </span>
                           ) : null}
                         </div>
                         {mode === "internal" ? (

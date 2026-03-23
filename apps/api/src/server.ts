@@ -3023,10 +3023,19 @@ function serializeTask<
     changeRequestId?: string | null;
     assignedAgentId?: string | null;
     assignedAgent?: { name: string } | null;
+    executionJobs?: Array<{
+      id: string;
+      status: string;
+      resultStatus: string | null;
+      createdAt: Date;
+      completedAt: Date | null;
+    }>;
     createdAt: Date;
     updatedAt: Date;
   }
 >(task: T) {
+  const latestExecutionJob = task.executionJobs?.[0] ?? null;
+
   return {
     id: task.id,
     projectId: task.projectId,
@@ -3047,6 +3056,15 @@ function serializeTask<
     changeRequestId: task.changeRequestId ?? null,
     assignedAgentId: task.assignedAgentId ?? null,
     assignedAgentName: task.assignedAgent?.name ?? null,
+    latestExecutionJob: latestExecutionJob
+      ? {
+          id: latestExecutionJob.id,
+          status: latestExecutionJob.status,
+          resultStatus: latestExecutionJob.resultStatus,
+          createdAt: latestExecutionJob.createdAt.toISOString(),
+          completedAt: latestExecutionJob.completedAt?.toISOString() ?? null
+        }
+      : null,
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString()
   };
@@ -11478,7 +11496,20 @@ export function createAppServer(config: BaseConfig): http.Server {
 
             const tasks = await prisma.task.findMany({
               where: { projectId: clientProjectRoute.projectId },
-              include: { assignedAgent: { select: { name: true } } },
+              include: {
+                assignedAgent: { select: { name: true } },
+                executionJobs: {
+                  select: {
+                    id: true,
+                    status: true,
+                    resultStatus: true,
+                    createdAt: true,
+                    completedAt: true
+                  },
+                  orderBy: [{ createdAt: "desc" }],
+                  take: 1
+                }
+              },
               orderBy: [{ createdAt: "asc" }]
             });
 
@@ -12821,7 +12852,20 @@ export function createAppServer(config: BaseConfig): http.Server {
         ) {
           const tasks = await prisma.task.findMany({
             where: { projectId: projectTasksRoute.projectId },
-            include: { assignedAgent: { select: { name: true } } },
+            include: {
+              assignedAgent: { select: { name: true } },
+              executionJobs: {
+                select: {
+                  id: true,
+                  status: true,
+                  resultStatus: true,
+                  createdAt: true,
+                  completedAt: true
+                },
+                orderBy: [{ createdAt: "desc" }],
+                take: 1
+              }
+            },
             orderBy: [{ createdAt: "asc" }]
           });
 
