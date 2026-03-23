@@ -189,6 +189,24 @@ function waitForDelay(delayMs: number) {
   });
 }
 
+function appendRecipientList(currentValue: string, nextEmail: string) {
+  const normalizedEmail = nextEmail.trim();
+  if (!normalizedEmail) {
+    return currentValue;
+  }
+
+  const recipients = currentValue
+    .split(/[,\n;]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (recipients.includes(normalizedEmail)) {
+    return recipients.join(", ");
+  }
+
+  return [...recipients, normalizedEmail].join(", ");
+}
+
 const industryOptions = [
   "Accounting & Advisory",
   "Agency & Professional Services",
@@ -1298,6 +1316,23 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         ? `${contactName} loaded into the portal access form.`
         : "Saved contact loaded into the portal access form."
     );
+  }
+
+  function addRecipient(
+    target: "to" | "cc",
+    email: string,
+    label?: string
+  ) {
+    if (target === "to") {
+      setEmailTo((currentValue) => appendRecipientList(currentValue, email));
+    } else {
+      setEmailCc((currentValue) => appendRecipientList(currentValue, email));
+    }
+
+    setEmailFeedback(
+      `${label || email} added to ${target.toUpperCase()}.`
+    );
+    setEmailError(null);
   }
 
   async function copyClientQuoteLink() {
@@ -2963,6 +2998,124 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     />
                   </label>
                 </div>
+
+                {(savedClientContacts.length > 0 || clientUsers.length > 0) ? (
+                  <div className="mt-5 rounded-2xl bg-[#0b1126] p-4">
+                    <p className="text-sm font-medium text-white">
+                      Quick recipients
+                    </p>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      Pull people into the email without typing addresses again.
+                    </p>
+
+                    {savedClientContacts.length > 0 ? (
+                      <div className="mt-4">
+                        <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                          Saved client contacts
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          {savedClientContacts.map((contact) => {
+                            const contactLabel = [
+                              contact.firstName,
+                              contact.lastName
+                            ]
+                              .filter(Boolean)
+                              .join(" ");
+
+                            return (
+                              <div
+                                key={`email-contact-${contact.id}`}
+                                className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-3"
+                              >
+                                <p className="text-sm font-medium text-white">
+                                  {contactLabel || contact.email}
+                                </p>
+                                <p className="mt-1 text-xs text-text-secondary">
+                                  {contact.email}
+                                  {contact.canApproveQuotes
+                                    ? " · Quote approver"
+                                    : ""}
+                                </p>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      addRecipient("to", contact.email, contactLabel)
+                                    }
+                                    className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                  >
+                                    Add to To
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      addRecipient("cc", contact.email, contactLabel)
+                                    }
+                                    className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                  >
+                                    Add to Cc
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {clientUsers.length > 0 ? (
+                      <div className="mt-4">
+                        <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                          Portal users
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          {clientUsers.map((clientUser) => {
+                            const contactLabel = [
+                              clientUser.firstName,
+                              clientUser.lastName
+                            ]
+                              .filter(Boolean)
+                              .join(" ");
+
+                            return (
+                              <div
+                                key={`email-client-user-${clientUser.id}`}
+                                className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-3"
+                              >
+                                <p className="text-sm font-medium text-white">
+                                  {contactLabel || clientUser.email}
+                                </p>
+                                <p className="mt-1 text-xs text-text-secondary">
+                                  {clientUser.email} · {clientUser.role}
+                                </p>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      addRecipient("to", clientUser.email, contactLabel)
+                                    }
+                                    className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                  >
+                                    Add to To
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      addRecipient("cc", clientUser.email, contactLabel)
+                                    }
+                                    className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                  >
+                                    Add to Cc
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <label className="block">
