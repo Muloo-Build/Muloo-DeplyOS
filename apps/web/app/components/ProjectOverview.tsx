@@ -143,6 +143,7 @@ interface ClientPortalUser {
   lastName: string;
   email: string;
   role: string;
+  canApproveQuotes?: boolean;
   questionnaireAccess?: boolean;
   authStatus?: "active" | "invite_pending";
 }
@@ -1187,10 +1188,25 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         throw new Error(body?.error ?? "Failed to add client user");
       }
 
-      setClientUsers((currentUsers) => [...currentUsers, body.clientUser]);
-      if (body.inviteLink && typeof navigator !== "undefined") {
-        await navigator.clipboard.writeText(body.inviteLink);
+      const nextClientUser = body.clientUser;
+      setClientUsers((currentUsers) => {
+        const existingIndex = currentUsers.findIndex(
+          (clientUser) => clientUser.id === nextClientUser.id
+        );
+
+        if (existingIndex >= 0) {
+          return currentUsers.map((clientUser) =>
+            clientUser.id === nextClientUser.id ? nextClientUser : clientUser
+          );
+        }
+
+        return [...currentUsers, nextClientUser];
+      });
+      if (nextClientUser?.inviteLink && typeof navigator !== "undefined") {
+        await navigator.clipboard.writeText(nextClientUser.inviteLink);
         setClientAccessFeedback("Invite link copied to clipboard.");
+      } else if (nextClientUser?.authStatus === "active") {
+        setClientAccessFeedback("Client user linked to this project. Access is already active.");
       } else {
         setClientAccessFeedback("Client user created.");
       }
@@ -1206,6 +1222,87 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         saveError instanceof Error
           ? saveError.message
           : "Failed to add client user"
+      );
+    } finally {
+      setClientAccessSaving(false);
+    }
+  }
+
+  async function inviteSavedClientContact(contact: SavedClientContact) {
+    setClientAccessDraft((currentDraft) => ({
+      ...currentDraft,
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      email: contact.email,
+      role: contact.canApproveQuotes ? "approver" : "contributor"
+    }));
+
+    if (!project) {
+      return;
+    }
+
+    setClientAccessSaving(true);
+    setProjectEditError(null);
+    setClientAccessFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/client-users`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            firstName: contact.firstName,
+            lastName: contact.lastName,
+            email: contact.email,
+            role: contact.canApproveQuotes ? "approver" : "contributor",
+            questionnaireAccess: true
+          })
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to invite saved contact");
+      }
+
+      const nextClientUser = body.clientUser;
+      setClientUsers((currentUsers) => {
+        const existingIndex = currentUsers.findIndex(
+          (clientUser) => clientUser.id === nextClientUser.id
+        );
+
+        if (existingIndex >= 0) {
+          return currentUsers.map((clientUser) =>
+            clientUser.id === nextClientUser.id ? nextClientUser : clientUser
+          );
+        }
+
+        return [...currentUsers, nextClientUser];
+      });
+
+      const contactName = [contact.firstName, contact.lastName]
+        .filter(Boolean)
+        .join(" ");
+
+      if (nextClientUser?.inviteLink && typeof navigator !== "undefined") {
+        await navigator.clipboard.writeText(nextClientUser.inviteLink);
+        setClientAccessFeedback(
+          `${contactName || contact.email} invited to the portal and the invite link was copied.`
+        );
+      } else {
+        setClientAccessFeedback(
+          `${contactName || contact.email} already had active portal access and is now linked to this project.`
+        );
+      }
+    } catch (inviteError) {
+      setProjectEditError(
+        inviteError instanceof Error
+          ? inviteError.message
+          : "Failed to invite saved contact"
       );
     } finally {
       setClientAccessSaving(false);
@@ -3387,10 +3484,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         </p>
                         <div className="mt-4 flex flex-wrap gap-3">
                           {savedClientContacts.map((contact) => (
-                            <button
+                            <div
                               key={contact.id}
-                              type="button"
-                              onClick={() => useSavedClientContact(contact)}
                               className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-left text-sm text-white"
                             >
                               <span className="block font-medium">
@@ -3402,7 +3497,24 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 {contact.email}
                                 {contact.canApproveQuotes ? " · Quote approver" : ""}
                               </span>
-                            </button>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => useSavedClientContact(contact)}
+                                  className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                >
+                                  Load into form
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rounded-lg border border-[rgba(81,208,176,0.18)] bg-[rgba(81,208,176,0.12)] px-3 py-2 text-xs font-medium text-[#51d0b0]"
+                                  onClick={() => void inviteSavedClientContact(contact)}
+                                  disabled={clientAccessSaving}
+                                >
+                                  Invite now
+                                </button>
+                              </div>
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -3546,9 +3658,28 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 {clientUser.questionnaireAccess === false
                                   ? "Visibility only"
                                   : "Assigned"}
+                                {clientUser.canApproveQuotes
+                                  ? " · Quote approver"
+                                  : ""}
                               </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled={clientAccessUpdatingId === clientUser.id}
+                                onClick={() =>
+                                  void updateClientPortalUser(clientUser.id, {
+                                    role: clientUser.role === "approver"
+                                      ? "contributor"
+                                      : "approver"
+                                  })
+                                }
+                                className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                              >
+                                {clientUser.role === "approver"
+                                  ? "Make contributor"
+                                  : "Make approver"}
+                              </button>
                               <label className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white">
                                 <input
                                   type="checkbox"

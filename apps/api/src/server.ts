@@ -6266,6 +6266,10 @@ async function approveProjectQuote(projectId: string, clientUserId: string) {
     throw new Error("Project not found");
   }
 
+  if (access.role !== "approver") {
+    throw new Error("Only approved quote signatories can approve this quote.");
+  }
+
   if (access.project.quoteApprovalStatus === "draft") {
     throw new Error("Quote must be shared to the client portal before approval.");
   }
@@ -8044,18 +8048,23 @@ async function createClientPortalUserForProject(
     throw new Error("firstName, lastName, and email are required");
   }
 
-  const inviteToken = crypto.randomBytes(24).toString("hex");
-  const inviteTokenExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14);
   const existingUser = await prisma.clientPortalUser.findUnique({
     where: { email }
   });
+  const isExistingActiveUser = Boolean(existingUser?.inviteAcceptedAt);
+  const inviteToken = isExistingActiveUser
+    ? null
+    : crypto.randomBytes(24).toString("hex");
+  const inviteTokenExpiresAt = inviteToken
+    ? new Date(Date.now() + 1000 * 60 * 60 * 24 * 14)
+    : null;
 
   const user = await prisma.clientPortalUser.upsert({
     where: { email },
     update: {
       firstName,
       lastName,
-      ...(existingUser?.inviteAcceptedAt
+      ...(isExistingActiveUser
         ? {}
         : {
             inviteToken,
@@ -8093,9 +8102,12 @@ async function createClientPortalUserForProject(
 
   return {
     ...serializeClientPortalUser(user),
-    inviteLink: buildClientAccessUrl("/client/activate", inviteToken),
+    inviteLink: inviteToken
+      ? buildClientAccessUrl("/client/activate", inviteToken)
+      : null,
     role,
-    questionnaireAccess
+    questionnaireAccess,
+    canApproveQuotes: role === "approver"
   };
 }
 
@@ -8152,7 +8164,8 @@ async function loadClientUsersForProject(projectId: string) {
   return accessRecords.map((record) => ({
     ...serializeClientPortalUser(record.user),
     role: record.role,
-    questionnaireAccess: record.questionnaireAccess
+    questionnaireAccess: record.questionnaireAccess,
+    canApproveQuotes: record.role === "approver"
   }));
 }
 
@@ -8210,7 +8223,8 @@ async function updateClientProjectAccess(
   return {
     ...serializeClientPortalUser(updatedAccess.user),
     role: updatedAccess.role,
-    questionnaireAccess: updatedAccess.questionnaireAccess
+    questionnaireAccess: updatedAccess.questionnaireAccess,
+    canApproveQuotes: updatedAccess.role === "approver"
   };
 }
 
