@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AppShell from "../../../components/AppShell";
 import DeliveryBoard from "../../../components/DeliveryBoard";
+import ProjectWorkflowNav from "../../../components/ProjectWorkflowNav";
 
 export default function ProjectDeliveryBoardPage({
   params
@@ -10,6 +11,7 @@ export default function ProjectDeliveryBoardPage({
   return (
     <AppShell>
       <div className="p-8">
+        <ProjectWorkflowNav projectId={params.id} />
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <Link

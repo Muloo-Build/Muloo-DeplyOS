@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import AppShell from "./AppShell";
+import ProjectWorkflowNav from "./ProjectWorkflowNav";
 
 interface Project {
   id: string;
@@ -875,6 +876,7 @@ export default function DiscoveryWorkspace({
           </div>
         ) : (
           <>
+            <ProjectWorkflowNav projectId={projectId} />
             <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
               <div>
                 <Link

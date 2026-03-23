@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import AppShell from "./AppShell";
+import ProjectWorkflowNav from "./ProjectWorkflowNav";
 import {
   getDisplayKeyRisks,
   getDisplayNextQuestions,
@@ -317,6 +318,10 @@ export default function BlueprintWorkspace({
           </div>
         ) : (
           <>
+            <ProjectWorkflowNav
+              projectId={projectId}
+              showDiscovery={!isStandaloneQuote}
+            />
             <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
               <div>
                 <Link

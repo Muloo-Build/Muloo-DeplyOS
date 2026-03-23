@@ -1846,6 +1846,23 @@ function matchProjectClientUsersRoute(pathname: string): {
   };
 }
 
+function matchProjectClientUserRoute(pathname: string): {
+  projectId: string;
+  userId: string;
+} | null {
+  const match =
+    /^\/api\/projects\/([^/]+?)\/client-users\/([^/]+?)$/.exec(pathname);
+
+  if (!match || !match[1] || !match[2]) {
+    return null;
+  }
+
+  return {
+    projectId: decodeURIComponent(match[1]),
+    userId: decodeURIComponent(match[2])
+  };
+}
+
 function matchProjectClientUserActionRoute(pathname: string): {
   projectId: string;
   userId: string;
@@ -7205,6 +7222,7 @@ async function createClientPortalUserForProject(
     lastName?: unknown;
     email?: unknown;
     role?: unknown;
+    questionnaireAccess?: unknown;
   }
 ) {
   const firstName =
@@ -7213,6 +7231,10 @@ async function createClientPortalUserForProject(
     typeof value.lastName === "string" ? value.lastName.trim() : "";
   const email = typeof value.email === "string" ? value.email.trim().toLowerCase() : "";
   const role = typeof value.role === "string" ? value.role.trim() : "contributor";
+  const questionnaireAccess =
+    value.questionnaireAccess === undefined
+      ? true
+      : Boolean(value.questionnaireAccess);
 
   if (!firstName || !lastName || !email) {
     throw new Error("firstName, lastName, and email are required");
@@ -7254,18 +7276,22 @@ async function createClientPortalUserForProject(
       }
     },
     update: {
-      role
+      role,
+      questionnaireAccess
     },
     create: {
       userId: user.id,
       projectId,
-      role
+      role,
+      questionnaireAccess
     }
   });
 
   return {
     ...serializeClientPortalUser(user),
-    inviteLink: buildClientAccessUrl("/client/activate", inviteToken)
+    inviteLink: buildClientAccessUrl("/client/activate", inviteToken),
+    role,
+    questionnaireAccess
   };
 }
 
@@ -7321,8 +7347,67 @@ async function loadClientUsersForProject(projectId: string) {
 
   return accessRecords.map((record) => ({
     ...serializeClientPortalUser(record.user),
-    role: record.role
+    role: record.role,
+    questionnaireAccess: record.questionnaireAccess
   }));
+}
+
+async function updateClientProjectAccess(
+  projectId: string,
+  userId: string,
+  value: {
+    role?: unknown;
+    questionnaireAccess?: unknown;
+  }
+) {
+  const existingAccess = await prisma.clientProjectAccess.findUnique({
+    where: {
+      userId_projectId: {
+        userId,
+        projectId
+      }
+    },
+    include: {
+      user: true
+    }
+  });
+
+  if (!existingAccess) {
+    throw new Error("Client user not found for this project");
+  }
+
+  const updateData: Prisma.Prisma.ClientProjectAccessUpdateInput = {};
+
+  if (value.role !== undefined) {
+    if (typeof value.role !== "string" || value.role.trim().length === 0) {
+      throw new Error("role must be a non-empty string");
+    }
+
+    updateData.role = value.role.trim();
+  }
+
+  if (value.questionnaireAccess !== undefined) {
+    updateData.questionnaireAccess = Boolean(value.questionnaireAccess);
+  }
+
+  const updatedAccess = await prisma.clientProjectAccess.update({
+    where: {
+      userId_projectId: {
+        userId,
+        projectId
+      }
+    },
+    data: updateData,
+    include: {
+      user: true
+    }
+  });
+
+  return {
+    ...serializeClientPortalUser(updatedAccess.user),
+    role: updatedAccess.role,
+    questionnaireAccess: updatedAccess.questionnaireAccess
+  };
 }
 
 async function loadClientProjectsForUser(userId: string) {
@@ -7381,6 +7466,7 @@ async function loadClientProjectDetail(projectId: string, userId: string) {
   return {
     user: serializeClientPortalUser(access.user),
     role: access.role,
+    canCompleteQuestionnaire: access.questionnaireAccess,
     project: serializeClientProject(access.project),
     submissions: submissions.map((submission) =>
       serializeClientInputSubmission(submission)
@@ -7447,6 +7533,28 @@ async function saveClientInputSubmission(
   sessionNumber: number,
   answers: unknown
 ) {
+  const access = await prisma.clientProjectAccess.findUnique({
+    where: {
+      userId_projectId: {
+        userId,
+        projectId
+      }
+    },
+    select: {
+      questionnaireAccess: true
+    }
+  });
+
+  if (!access) {
+    throw new Error("Project not found");
+  }
+
+  if (!access.questionnaireAccess) {
+    throw new Error(
+      "Questionnaire access is not enabled for this client user on this project."
+    );
+  }
+
   if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
     throw new Error("answers must be an object");
   }
@@ -9689,6 +9797,40 @@ export function createAppServer(config: BaseConfig): http.Server {
       const projectClientUserActionRoute = matchProjectClientUserActionRoute(
         url.pathname
       );
+      const projectClientUserRoute = matchProjectClientUserRoute(url.pathname);
+      if (projectClientUserRoute) {
+        if (request.method === "PATCH") {
+          try {
+            const body = (await readJsonBody(request)) as {
+              role?: unknown;
+              questionnaireAccess?: unknown;
+            };
+            const clientUser = await updateClientProjectAccess(
+              projectClientUserRoute.projectId,
+              projectClientUserRoute.userId,
+              body
+            );
+
+            return sendJson(response, 200, { clientUser });
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              error.message === "Client user not found for this project"
+            ) {
+              return sendJson(response, 404, { error: error.message });
+            }
+
+            if (error instanceof Error) {
+              return sendJson(response, 400, { error: error.message });
+            }
+
+            throw error;
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
       if (projectClientUserActionRoute) {
         if (request.method === "POST") {
           try {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import AppShell from "./AppShell";
+import ProjectWorkflowNav from "./ProjectWorkflowNav";
 
 interface Project {
   id: string;
@@ -293,6 +294,10 @@ export default function DiscoveryOutputDocument({
           </div>
         ) : (
           <div className="document-content space-y-8">
+            <ProjectWorkflowNav
+              projectId={project.id}
+              showDiscovery={project.scopeType !== "standalone_quote"}
+            />
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <Link

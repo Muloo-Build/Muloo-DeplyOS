@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
 import ClientShell from "./ClientShell";
+import ProjectWorkflowNav from "./ProjectWorkflowNav";
 import {
   getDisplayKeyRisks,
   getDisplayNextQuestions,
@@ -1055,7 +1056,7 @@ export default function QuoteDocument({
                   <div className="mt-8 grid gap-4">
                     <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
                       <p className="text-sm text-text-secondary">
-                        Quoted Human Hours
+                        Quoted Hours
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-white">
                         {displayTotals.totalHumanHours} hrs
@@ -2017,5 +2018,17 @@ export default function QuoteDocument({
     );
   }
 
-  return <AppShell>{documentContent}</AppShell>;
+  return (
+    <AppShell>
+      {project ? (
+        <div className="px-8 pt-8">
+          <ProjectWorkflowNav
+            projectId={project.id}
+            showDiscovery={project.scopeType !== "standalone_quote"}
+          />
+        </div>
+      ) : null}
+      {documentContent}
+    </AppShell>
+  );
 }

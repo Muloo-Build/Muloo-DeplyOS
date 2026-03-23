@@ -261,14 +261,15 @@ model ClientPortalUser {
 }
 
 model ClientProjectAccess {
-  id        String           @id @default(cuid())
-  userId    String
-  projectId String
-  role      String           @default("contributor")
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  user      ClientPortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                  String           @id @default(cuid())
+  userId              String
+  projectId           String
+  role                String           @default("contributor")
+  questionnaireAccess Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  user                ClientPortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project             Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([userId, projectId])
   @@index([projectId, createdAt])

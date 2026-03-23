@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import AppShell from "./AppShell";
+import ProjectWorkflowNav from "./ProjectWorkflowNav";
+import { clientSessionDefinitions } from "./clientQuestionnaire";
 import {
   getDisplayKeyRisks,
   getDisplayNextQuestions,
@@ -136,6 +138,7 @@ interface ClientPortalUser {
   lastName: string;
   email: string;
   role: string;
+  questionnaireAccess?: boolean;
   authStatus?: "active" | "invite_pending";
 }
 
@@ -476,9 +479,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     firstName: "",
     lastName: "",
     email: "",
-    role: "contributor"
+    role: "contributor",
+    questionnaireAccess: true
   });
   const [clientAccessSaving, setClientAccessSaving] = useState(false);
+  const [clientAccessUpdatingId, setClientAccessUpdatingId] = useState<string | null>(
+    null
+  );
   const [clientPortalPushBusy, setClientPortalPushBusy] = useState(false);
   const [clientAccessFeedback, setClientAccessFeedback] = useState<string | null>(
     null
@@ -1000,7 +1007,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         firstName: "",
         lastName: "",
         email: "",
-        role: "contributor"
+        role: "contributor",
+        questionnaireAccess: true
       });
     } catch (saveError) {
       setProjectEditError(
@@ -1053,6 +1061,53 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           ? linkError.message
           : "Failed to generate access link"
       );
+    }
+  }
+
+  async function updateClientPortalUser(
+    userId: string,
+    updates: { role?: string; questionnaireAccess?: boolean }
+  ) {
+    if (!project) {
+      return;
+    }
+
+    setClientAccessUpdatingId(userId);
+    setProjectEditError(null);
+    setClientAccessFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/client-users/${encodeURIComponent(userId)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(updates)
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to update client access");
+      }
+
+      setClientUsers((currentUsers) =>
+        currentUsers.map((clientUser) =>
+          clientUser.id === userId ? body.clientUser : clientUser
+        )
+      );
+      setClientAccessFeedback("Client portal access updated.");
+    } catch (updateError) {
+      setProjectEditError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Failed to update client access"
+      );
+    } finally {
+      setClientAccessUpdatingId(null);
     }
   }
 
@@ -1266,6 +1321,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 any additional scoped work.
               </div>
             ) : null}
+            <ProjectWorkflowNav
+              projectId={project.id}
+              showDiscovery={!isStandaloneQuote}
+            />
             <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
               <div>
                 <Link href="/" className="text-sm text-text-muted">
@@ -2528,6 +2587,19 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         Muloo will create an invite link so the client can set
                         their own password securely.
                       </p>
+                      <label className="mt-4 flex items-center gap-3 text-sm text-white">
+                        <input
+                          type="checkbox"
+                          checked={clientAccessDraft.questionnaireAccess}
+                          onChange={(event) =>
+                            setClientAccessDraft((currentDraft) => ({
+                              ...currentDraft,
+                              questionnaireAccess: event.target.checked
+                            }))
+                          }
+                        />
+                        This client contact receives the discovery questionnaire
+                      </label>
                     </div>
                   </div>
 
@@ -2595,8 +2667,27 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                   ? "Access active"
                                   : "Invite pending"}
                               </p>
+                              <p className="mt-2 text-xs text-text-secondary">
+                                Questionnaire:{" "}
+                                {clientUser.questionnaireAccess === false
+                                  ? "Visibility only"
+                                  : "Assigned"}
+                              </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
+                              <label className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white">
+                                <input
+                                  type="checkbox"
+                                  checked={clientUser.questionnaireAccess !== false}
+                                  disabled={clientAccessUpdatingId === clientUser.id}
+                                  onChange={(event) =>
+                                    void updateClientPortalUser(clientUser.id, {
+                                      questionnaireAccess: event.target.checked
+                                    })
+                                  }
+                                />
+                                Questionnaire
+                              </label>
                               <button
                                 type="button"
                                 onClick={() =>
@@ -2632,6 +2723,61 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     )}
                   </div>
                 </section>
+
+                {!isStandaloneQuote ? (
+                  <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h2 className="text-lg font-semibold text-white">
+                          Client Questionnaire Preview
+                        </h2>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          Preview the standard client-facing discovery questions
+                          before you invite contacts into the portal.
+                        </p>
+                      </div>
+                      <Link
+                        href={`/projects/${project.id}/discovery`}
+                        className="text-sm font-medium text-white"
+                      >
+                        Open discovery
+                      </Link>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                      {Object.entries(clientSessionDefinitions).map(
+                        ([sessionNumberText, definition]) => (
+                          <div
+                            key={sessionNumberText}
+                            className="rounded-2xl bg-[#0b1126] p-5"
+                          >
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Session {sessionNumberText}
+                            </p>
+                            <h3 className="mt-2 text-lg font-semibold text-white">
+                              {definition.title}
+                            </h3>
+                            <p className="mt-2 text-sm text-text-secondary">
+                              {definition.description}
+                            </p>
+                            <div className="mt-4 space-y-3">
+                              {definition.questions.map((question) => (
+                                <div key={question.key}>
+                                  <p className="text-sm font-medium text-white">
+                                    {question.label}
+                                  </p>
+                                  <p className="mt-1 text-xs text-text-muted">
+                                    {question.hint}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </section>
+                ) : null}
 
                 {!isStandaloneQuote ? (
                   <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
