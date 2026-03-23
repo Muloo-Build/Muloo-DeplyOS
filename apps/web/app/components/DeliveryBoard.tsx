@@ -18,6 +18,14 @@ interface ProjectTask {
   approvalRequired: boolean;
   dependencyIds: string[];
   assigneeType: string | null;
+  executionPath: {
+    lane: string;
+    label: string;
+    summary: string;
+    apiEligible: boolean;
+    directActions: string[];
+    notes: string[];
+  };
   scopeOrigin?: string | null;
   changeRequestId?: string | null;
   assignedAgentId: string | null;
@@ -71,6 +79,23 @@ function assigneeTypeClass(value: string | null) {
       return "bg-[rgba(45,212,160,0.18)] text-[#2dd4a0]";
     default:
       return "bg-[rgba(240,160,80,0.18)] text-[#f0a050]";
+  }
+}
+
+function executionLaneClass(value: string) {
+  switch (value) {
+    case "direct_api":
+      return "bg-[rgba(79,142,247,0.18)] text-[#8fb4ff]";
+    case "workflow_bridge":
+      return "bg-[rgba(123,226,239,0.16)] text-[#7be2ef]";
+    case "developer_tooling":
+      return "bg-[rgba(255,214,102,0.16)] text-[#ffd666]";
+    case "manual_review":
+      return "bg-[rgba(255,154,165,0.16)] text-[#ff9aa5]";
+    case "client_input":
+      return "bg-[rgba(45,212,160,0.18)] text-[#2dd4a0]";
+    default:
+      return "bg-[rgba(255,255,255,0.08)] text-text-secondary";
   }
 }
 
@@ -199,6 +224,35 @@ export default function DeliveryBoard({
       approvalRequired: false,
       assigneeType: "Human",
       assignedAgentId: ""
+    });
+  }
+
+  function updateTaskDraft(
+    field: keyof typeof taskDraft,
+    value: string | boolean
+  ) {
+    setTaskDraft((current) => {
+      const nextDraft = { ...current, [field]: value };
+
+      if (field === "assigneeType") {
+        if (value !== "Agent") {
+          nextDraft.assignedAgentId = "";
+          if (
+            current.executionReadiness === "ready" ||
+            current.executionReadiness === "ready_with_review"
+          ) {
+            nextDraft.executionReadiness =
+              value === "Client" ? "not_ready" : "assisted";
+          }
+        } else if (
+          current.executionReadiness === "not_ready" ||
+          current.executionReadiness === "assisted"
+        ) {
+          nextDraft.executionReadiness = "ready_with_review";
+        }
+      }
+
+      return nextDraft;
     });
   }
 
@@ -418,6 +472,12 @@ export default function DeliveryBoard({
     const readyAgentTasks = tasks.filter(
       (task) => task.assigneeType?.toLowerCase() === "agent" && ["ready_with_review", "ready"].includes(task.executionReadiness)
     ).length;
+    const apiEligibleTasks = tasks.filter((task) => task.executionPath.apiEligible).length;
+    const reviewFirstTasks = tasks.filter(
+      (task) =>
+        task.executionPath.lane === "workflow_bridge" ||
+        task.executionPath.lane === "manual_review"
+    ).length;
     const completedTasks = tasks.filter((task) => task.status === "done").length;
     const changeTasks = tasks.filter(
       (task) => task.scopeOrigin?.toLowerCase() === "change_request"
@@ -428,6 +488,8 @@ export default function DeliveryBoard({
       actualHours,
       variance: actualHours - plannedHours,
       readyAgentTasks,
+      apiEligibleTasks,
+      reviewFirstTasks,
       completedTasks,
       changeTasks
     };
@@ -507,7 +569,7 @@ export default function DeliveryBoard({
           <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Ready Agent Tasks</p>
           <p className="mt-2 text-xl font-semibold text-white">{boardMetrics.readyAgentTasks}</p>
           <p className="mt-1 text-xs text-text-secondary">
-            {boardMetrics.completedTasks} done · {boardMetrics.changeTasks} change tasks
+            {boardMetrics.apiEligibleTasks} API-ready · {boardMetrics.reviewFirstTasks} review-first
           </p>
         </div>
       </div>
@@ -567,12 +629,7 @@ export default function DeliveryBoard({
               <span className="text-sm text-white">Assignee</span>
               <select
                 value={taskDraft.assigneeType}
-                onChange={(event) =>
-                  setTaskDraft((current) => ({
-                    ...current,
-                    assigneeType: event.target.value
-                  }))
-                }
+                onChange={(event) => updateTaskDraft("assigneeType", event.target.value)}
                 className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
               >
                 <option value="Human">Human</option>
@@ -586,10 +643,7 @@ export default function DeliveryBoard({
                 <select
                   value={taskDraft.assignedAgentId}
                   onChange={(event) =>
-                    setTaskDraft((current) => ({
-                      ...current,
-                      assignedAgentId: event.target.value
-                    }))
+                    updateTaskDraft("assignedAgentId", event.target.value)
                   }
                   className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
                 >
@@ -790,6 +844,13 @@ export default function DeliveryBoard({
                             {formatAssigneeType(task.assigneeType)}
                           </span>
                           <span
+                            className={`rounded px-2 py-1 text-xs font-medium ${executionLaneClass(
+                              task.executionPath.lane
+                            )}`}
+                          >
+                            {task.executionPath.label}
+                          </span>
+                          <span
                             className={`rounded px-2 py-1 text-xs font-medium ${
                               task.scopeOrigin?.toLowerCase() === "change_request"
                                 ? "bg-[rgba(123,226,239,0.14)] text-[#7be2ef]"
@@ -814,6 +875,19 @@ export default function DeliveryBoard({
                             {task.description}
                           </p>
                         ) : null}
+                        <div className="mt-3 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#0b1126] px-3 py-3">
+                          <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                            Best execution path
+                          </p>
+                          <p className="mt-2 text-sm text-white">
+                            {task.executionPath.summary}
+                          </p>
+                          {task.executionPath.directActions.length > 0 ? (
+                            <p className="mt-2 text-xs text-text-secondary">
+                              API actions: {task.executionPath.directActions.join(", ")}
+                            </p>
+                          ) : null}
+                        </div>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs text-text-muted">
                           <span>Execution: {formatLabel(task.executionType)}</span>
                           <span>Priority: {formatLabel(task.priority)}</span>
@@ -903,10 +977,7 @@ export default function DeliveryBoard({
                                   <select
                                     value={taskDraft.assigneeType}
                                     onChange={(event) =>
-                                      setTaskDraft((current) => ({
-                                        ...current,
-                                        assigneeType: event.target.value
-                                      }))
+                                      updateTaskDraft("assigneeType", event.target.value)
                                     }
                                     className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
                                   >
@@ -918,10 +989,7 @@ export default function DeliveryBoard({
                                     <select
                                       value={taskDraft.assignedAgentId}
                                       onChange={(event) =>
-                                        setTaskDraft((current) => ({
-                                          ...current,
-                                          assignedAgentId: event.target.value
-                                        }))
+                                        updateTaskDraft("assignedAgentId", event.target.value)
                                       }
                                       className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
                                     >
@@ -1070,7 +1138,11 @@ export default function DeliveryBoard({
                                       disabled={queueingTaskId === task.id}
                                       className="rounded-xl border border-[rgba(79,142,247,0.35)] px-3 py-2 text-xs font-medium text-[#8fb4ff] disabled:opacity-60"
                                     >
-                                      {queueingTaskId === task.id ? "Queueing..." : "Queue Agent Run"}
+                                      {queueingTaskId === task.id
+                                        ? "Queueing..."
+                                        : task.executionPath.apiEligible
+                                          ? "Queue API Agent Run"
+                                          : "Queue Review Run"}
                                     </button>
                                   ) : null}
                                   <button
@@ -1101,6 +1173,18 @@ export default function DeliveryBoard({
                                     ))}
                                   </select>
                                 </label>
+                                {task.assigneeType?.toLowerCase() === "agent" &&
+                                (!task.assignedAgentId ||
+                                  task.approvalRequired ||
+                                  !["ready_with_review", "ready"].includes(task.executionReadiness)) ? (
+                                  <p className="mt-3 text-xs text-text-secondary">
+                                    {task.approvalRequired
+                                      ? "Approval is still required before this agent task can be queued."
+                                      : !task.assignedAgentId
+                                        ? "Assign an agent before queueing execution."
+                                        : "Move readiness to Ready with review or Ready before queueing execution."}
+                                  </p>
+                                ) : null}
                               </>
                             )}
                           </>

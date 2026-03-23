@@ -369,6 +369,67 @@ const defaultAgentCatalog = [
     systemPrompt:
       "Translate approved scope into clean commercial options without overpromising delivery or changing the agreed recommendation.",
     sortOrder: 30
+  },
+  {
+    slug: "hubspot-build-agent",
+    name: "HubSpot Build Agent",
+    purpose:
+      "Execute safe HubSpot CRM build work like properties, property groups, custom objects, pipelines, and record updates through direct APIs.",
+    provider: "openai",
+    model: "gpt-5.4",
+    triggerType: "manual",
+    approvalMode: "review_required",
+    allowedActions: [
+      "properties",
+      "property-groups",
+      "custom-objects",
+      "pipelines",
+      "records",
+      "direct-rest-api"
+    ],
+    systemPrompt:
+      "Prefer deterministic HubSpot API operations. Avoid UI-driven setup when an official API path exists, and surface any required review before writing to production.",
+    sortOrder: 40
+  },
+  {
+    slug: "hubspot-workflow-agent",
+    name: "HubSpot Workflow Agent",
+    purpose:
+      "Prepare automation-ready workflow designs, custom workflow action plans, and custom code action handoffs for HubSpot implementations.",
+    provider: "anthropic",
+    model: "claude-sonnet-4-20250514",
+    triggerType: "manual",
+    approvalMode: "review_required",
+    allowedActions: [
+      "workflow",
+      "automation",
+      "custom-workflow-action",
+      "custom-code-action",
+      "review-first"
+    ],
+    systemPrompt:
+      "Guide workflow and automation implementation toward supported HubSpot patterns. Keep risky or beta-heavy automation behind review checkpoints.",
+    sortOrder: 50
+  },
+  {
+    slug: "hubspot-qa-agent",
+    name: "HubSpot QA Agent",
+    purpose:
+      "Review HubSpot delivery outputs, validate schema readiness, and call out execution gaps before go-live or handoff.",
+    provider: "anthropic",
+    model: "claude-sonnet-4-20250514",
+    triggerType: "manual",
+    approvalMode: "review_required",
+    allowedActions: [
+      "qa",
+      "validate",
+      "review",
+      "compare-schema",
+      "readiness-check"
+    ],
+    systemPrompt:
+      "Focus on validation, risk review, and production readiness. Do not fabricate completion; call out missing inputs, risky assumptions, and test gaps clearly.",
+    sortOrder: 60
   }
 ] as const;
 const defaultDeliveryTemplates = [
@@ -3189,6 +3250,145 @@ function isProjectScopeLocked(value: {
   );
 }
 
+function deriveTaskExecutionPath(input: {
+  title: string;
+  description: string | null;
+  category: string | null;
+  executionType: string;
+  assigneeType: string | null;
+}) {
+  const searchableText = [
+    input.title,
+    input.description ?? "",
+    input.category ?? "",
+    input.executionType
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  if ((input.assigneeType ?? "").toLowerCase() === "client") {
+    return {
+      lane: "client_input",
+      label: "Client input",
+      summary: "Best handled in the client portal or through direct client follow-up.",
+      apiEligible: false,
+      directActions: [] as string[],
+      notes: ["Keep this as a client-owned dependency rather than agent execution."]
+    };
+  }
+
+  if (
+    includesAny(searchableText, [
+      "property",
+      "properties",
+      "field",
+      "fields",
+      "custom object",
+      "object schema",
+      "pipeline",
+      "stage",
+      "record",
+      "association"
+    ])
+  ) {
+    return {
+      lane: "direct_api",
+      label: "Direct API",
+      summary: "This work is a good fit for deterministic HubSpot API execution.",
+      apiEligible: true,
+      directActions: [
+        "create_property_group",
+        "create_property",
+        "create_custom_object",
+        "create_pipeline",
+        "upsert_record"
+      ],
+      notes: [
+        "Use the connected HubSpot portal and prefer dry-run before live execution."
+      ]
+    };
+  }
+
+  if (
+    includesAny(searchableText, [
+      "workflow",
+      "automation",
+      "nurture",
+      "sequence",
+      "enrollment",
+      "trigger"
+    ])
+  ) {
+    return {
+      lane: "workflow_bridge",
+      label: "Workflow bridge",
+      summary:
+        "Best delivered through reviewed workflow design, custom workflow actions, or custom code actions.",
+      apiEligible: false,
+      directActions: [],
+      notes: [
+        "Treat this as review-first work rather than direct API execution."
+      ]
+    };
+  }
+
+  if (
+    includesAny(searchableText, [
+      "theme",
+      "cms",
+      "module",
+      "template",
+      "app home",
+      "ui extension",
+      "serverless",
+      "website"
+    ])
+  ) {
+    return {
+      lane: "developer_tooling",
+      label: "Developer tooling",
+      summary:
+        "Better handled through HubSpot developer projects, UI extensions, or external engineering workflows.",
+      apiEligible: false,
+      directActions: [],
+      notes: [
+        "Do not force this through CRM APIs if the developer platform is the proper path."
+      ]
+    };
+  }
+
+  if (
+    includesAny(searchableText, [
+      "dashboard",
+      "report",
+      "qa",
+      "review",
+      "audit",
+      "approval"
+    ])
+  ) {
+    return {
+      lane: "manual_review",
+      label: "Manual / review",
+      summary:
+        "This is better as reviewed human work or QA support, not direct API execution.",
+      apiEligible: false,
+      directActions: [],
+      notes: ["Keep an operator in the loop before treating this as automated work."]
+    };
+  }
+
+  return {
+    lane: "human_delivery",
+    label: "Human delivery",
+    summary:
+      "Treat this as standard delivery work unless a more explicit API path is defined.",
+    apiEligible: false,
+    directActions: [],
+    notes: ["Refine the execution type if you want a tighter automation path later."]
+  };
+}
+
 function serializeTask<
   T extends {
     id: string;
@@ -3222,6 +3422,13 @@ function serializeTask<
   }
 >(task: T) {
   const latestExecutionJob = task.executionJobs?.[0] ?? null;
+  const executionPath = deriveTaskExecutionPath({
+    title: task.title,
+    description: task.description,
+    category: task.category,
+    executionType: task.executionType,
+    assigneeType: task.assigneeType
+  });
 
   return {
     id: task.id,
@@ -3239,6 +3446,7 @@ function serializeTask<
     approvalRequired: task.approvalRequired,
     dependencyIds: task.dependencyIds,
     assigneeType: task.assigneeType,
+    executionPath,
     scopeOrigin: task.scopeOrigin ?? "baseline",
     changeRequestId: task.changeRequestId ?? null,
     assignedAgentId: task.assignedAgentId ?? null,
@@ -5434,8 +5642,34 @@ function scoreAgentForTask(
   let score = 0;
   for (const action of agent.allowedActions) {
     const normalizedAction = action.toLowerCase();
-    if (normalizedAction && searchableText.includes(normalizedAction)) {
-      score += 3;
+    const actionKeywords = Array.from(
+      new Set(
+        [
+          normalizedAction,
+          ...normalizedAction.split(/[-_]/g),
+          ...(normalizedAction.includes("property")
+            ? ["field", "properties", "schema"]
+            : []),
+          ...(normalizedAction.includes("pipeline")
+            ? ["stage", "dealstage"]
+            : []),
+          ...(normalizedAction.includes("record")
+            ? ["contact", "company", "deal", "ticket", "object"]
+            : []),
+          ...(normalizedAction.includes("workflow")
+            ? ["automation", "trigger", "enrollment"]
+            : []),
+          ...(normalizedAction.includes("qa") || normalizedAction.includes("review")
+            ? ["validate", "audit", "check"]
+            : [])
+        ].filter((keyword) => keyword.length > 2)
+      )
+    );
+
+    for (const keyword of actionKeywords) {
+      if (searchableText.includes(keyword)) {
+        score += 3;
+      }
     }
   }
 
@@ -7549,18 +7783,22 @@ async function ensureWorkspaceEmailOAuthConnectionsSeeded() {
 }
 
 async function ensureAgentCatalogSeeded() {
-  const existingCount = await prisma.agentDefinition.count();
+  for (const agent of defaultAgentCatalog) {
+    const existingAgent = await prisma.agentDefinition.findUnique({
+      where: { slug: agent.slug }
+    });
 
-  if (existingCount > 0) {
-    return;
+    if (existingAgent) {
+      continue;
+    }
+
+    await prisma.agentDefinition.create({
+      data: {
+        ...agent,
+        allowedActions: [...agent.allowedActions]
+      }
+    });
   }
-
-  await prisma.agentDefinition.createMany({
-    data: defaultAgentCatalog.map((agent) => ({
-      ...agent,
-      allowedActions: [...agent.allowedActions]
-    }))
-  });
 }
 
 async function ensureDeliveryTemplatesSeeded() {
