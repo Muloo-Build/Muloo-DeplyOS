@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import ClientShell from "./ClientShell";
-import { clientSessionDefinitions } from "./clientQuestionnaire";
+import {
+  clientSessionDefinitions,
+  createDefaultClientQuestionnaireDefinitionMap,
+  type ClientQuestionnaireDefinitionMap
+} from "./clientQuestionnaire";
 
 interface ClientProjectDetail {
   user: {
@@ -27,6 +31,7 @@ interface ClientProjectDetail {
     scopeLockedAt?: string | null;
     scopeType?: string | null;
     commercialBrief?: string | null;
+    clientQuestionnaireConfig?: ClientQuestionnaireDefinitionMap | null;
     engagementType: string;
     selectedHubs: string[];
     updatedAt: string;
@@ -44,14 +49,16 @@ interface ClientProjectDetail {
 }
 
 function createDrafts(
-  submissions: ClientProjectDetail["submissions"]
+  submissions: ClientProjectDetail["submissions"],
+  definitions: ClientQuestionnaireDefinitionMap
 ): Record<number, Record<string, string>> {
-  return [1, 2, 3, 4].reduce<Record<number, Record<string, string>>>(
-    (drafts, sessionNumber) => {
+  return Object.keys(definitions).reduce<Record<number, Record<string, string>>>(
+    (drafts, sessionNumberText) => {
+      const sessionNumber = Number(sessionNumberText);
       const submission = submissions.find(
         (candidate) => candidate.sessionNumber === sessionNumber
       );
-      const questions = clientSessionDefinitions[sessionNumber]?.questions ?? [];
+      const questions = definitions[sessionNumber]?.questions ?? [];
 
       drafts[sessionNumber] = Object.fromEntries(
         questions.map((question) => [question.key, submission?.answers?.[question.key] ?? ""])
@@ -59,7 +66,9 @@ function createDrafts(
 
       return drafts;
     },
-    { 1: {}, 2: {}, 3: {}, 4: {} }
+    Object.fromEntries(
+      Object.keys(definitions).map((sessionNumberText) => [Number(sessionNumberText), {}])
+    ) as Record<number, Record<string, string>>
   );
 }
 
@@ -99,6 +108,10 @@ export default function ClientProjectWorkspace({
 }: {
   projectId: string;
 }) {
+  const [questionnaireDefinitions, setQuestionnaireDefinitions] =
+    useState<ClientQuestionnaireDefinitionMap>(
+      createDefaultClientQuestionnaireDefinitionMap()
+    );
   const [detail, setDetail] = useState<ClientProjectDetail | null>(null);
   const [drafts, setDrafts] = useState<Record<number, Record<string, string>>>({
     1: {},
@@ -122,8 +135,11 @@ export default function ClientProjectWorkspace({
         }
 
         const body = await response.json();
+        const nextDefinitions =
+          body.project?.clientQuestionnaireConfig ?? clientSessionDefinitions;
         setDetail(body);
-        setDrafts(createDrafts(body.submissions ?? []));
+        setQuestionnaireDefinitions(nextDefinitions);
+        setDrafts(createDrafts(body.submissions ?? [], nextDefinitions));
       } catch (loadError) {
         setError(
           loadError instanceof Error ? loadError.message : "Failed to load client project"
@@ -407,7 +423,7 @@ export default function ClientProjectWorkspace({
               </div>
             </section>
           ) : (
-            Object.entries(clientSessionDefinitions).map(([sessionNumberText, definition]) => {
+            Object.entries(questionnaireDefinitions).map(([sessionNumberText, definition]) => {
               const sessionNumber = Number(sessionNumberText);
               const answers = drafts[sessionNumber] ?? {};
               const status = statusForDraft(answers);

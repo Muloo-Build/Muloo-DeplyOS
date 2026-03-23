@@ -225,6 +225,13 @@ const defaultAiWorkflowRouting = [
     providerKey: "anthropic",
     modelOverride: "claude-sonnet-4-20250514",
     notes: "Prepare task-level execution briefs, checkpoints, and risk notes for queued agent delivery."
+  },
+  {
+    workflowKey: "project_email_drafting",
+    label: "Project Email Drafting",
+    providerKey: "openai",
+    modelOverride: "gpt-5.4",
+    notes: "Draft internal-to-client emails from the saved project summary, quote status, and supporting context."
   }
 ] as const;
 const defaultProductCatalog = [
@@ -600,12 +607,153 @@ type ProjectHub = (typeof validProjectHubValues)[number];
 type DiscoverySessionFields = Record<string, string>;
 type DiscoverySessionStatus = "draft" | "in_progress" | "complete";
 type DiscoveryEvidenceType = (typeof discoveryEvidenceTypeValues)[number];
+type ClientQuestionnaireQuestion = {
+  key: string;
+  label: string;
+  hint: string;
+};
+type ClientQuestionnaireSessionConfig = {
+  title: string;
+  description: string;
+  questions: ClientQuestionnaireQuestion[];
+};
+type ClientQuestionnaireConfig = Record<number, ClientQuestionnaireSessionConfig>;
 
 const sessionTitles: Record<number, string> = {
   1: "Business & Goals",
   2: "Current State",
   3: "Future State Design",
   4: "Scope & Handover"
+};
+const defaultClientQuestionnaireConfig: ClientQuestionnaireConfig = {
+  1: {
+    title: "Business & Goals",
+    description:
+      "Help Muloo understand the business, why this project matters, and what success should look like.",
+    questions: [
+      {
+        key: "business_overview",
+        label: "Tell us about your business",
+        hint: "What the business does, key services, and who you serve."
+      },
+      {
+        key: "primary_pain_challenge",
+        label: "What is the biggest challenge driving this project?",
+        hint: "What is not working well enough today?"
+      },
+      {
+        key: "goals_and_success_metrics",
+        label: "What outcomes would make this project a success?",
+        hint: "Think in terms of business results, team improvements, or customer outcomes."
+      },
+      {
+        key: "key_stakeholders",
+        label: "Who should be involved in decisions and delivery?",
+        hint: "List the people, teams, or roles that matter."
+      },
+      {
+        key: "timeline_and_constraints",
+        label: "Are there key timing or business constraints?",
+        hint: "Important deadlines, events, campaigns, resourcing, or dependencies."
+      }
+    ]
+  },
+  2: {
+    title: "Current State",
+    description:
+      "Describe the systems, tools, data, and workflows you use today so discovery starts from reality.",
+    questions: [
+      {
+        key: "current_tech_stack",
+        label: "What tools and platforms do you use today?",
+        hint: "CRM, email, forms, reporting, finance, website, or any other important tools."
+      },
+      {
+        key: "current_hubspot_state",
+        label: "What is your current HubSpot situation?",
+        hint: "If you already use HubSpot, what is in place and what feels incomplete or broken?"
+      },
+      {
+        key: "data_landscape",
+        label: "Where does your key data live today?",
+        hint: "Spreadsheets, legacy CRM, email lists, finance systems, or other sources."
+      },
+      {
+        key: "current_processes",
+        label: "How do your teams currently work?",
+        hint: "Describe the current sales, marketing, service, or operational process."
+      },
+      {
+        key: "what_has_been_tried_before",
+        label: "What has already been tried?",
+        hint: "Previous systems, projects, fixes, or workarounds."
+      }
+    ]
+  },
+  3: {
+    title: "Future State Design",
+    description:
+      "Describe what you want the future way of working to look like so Muloo can shape the recommendation properly.",
+    questions: [
+      {
+        key: "hubs_and_features_required",
+        label: "Which hubs or capabilities matter most?",
+        hint: "Sales, marketing, service, content, operations, automation, reporting, and so on."
+      },
+      {
+        key: "pipeline_and_process_design",
+        label: "How should the future process work?",
+        hint: "What should happen from first enquiry through to delivery, renewal, or support?"
+      },
+      {
+        key: "automation_requirements",
+        label: "What should be automated?",
+        hint: "Routing, notifications, qualification, reminders, handoffs, or customer journeys."
+      },
+      {
+        key: "integration_requirements",
+        label: "What other systems need to connect?",
+        hint: "Finance, events, website, support, surveys, forms, or any other critical tools."
+      },
+      {
+        key: "reporting_requirements",
+        label: "What reporting or visibility is needed?",
+        hint: "Dashboards, KPIs, board reporting, pipeline visibility, attribution, or service performance."
+      }
+    ]
+  },
+  4: {
+    title: "Scope & Handover",
+    description:
+      "Help Muloo understand what should be prioritised, what is out of scope for now, and what the client team needs to provide.",
+    questions: [
+      {
+        key: "confirmed_scope",
+        label: "What do you see as the priority scope for this work?",
+        hint: "The pieces that matter most to get right first."
+      },
+      {
+        key: "out_of_scope",
+        label: "What should not be part of this phase?",
+        hint: "Anything that should be excluded, deferred, or treated separately."
+      },
+      {
+        key: "risks_and_blockers",
+        label: "What could delay or complicate delivery?",
+        hint: "Access, data, resourcing, change resistance, approvals, or technical unknowns."
+      },
+      {
+        key: "client_responsibilities",
+        label: "What can your team provide or own?",
+        hint: "Data, access, decisions, approvals, subject matter expertise, or internal project ownership."
+      },
+      {
+        key: "agreed_next_steps",
+        label: "What should happen next after discovery?",
+        hint: "Actions, owners, and what you expect to receive back from Muloo."
+      }
+    ]
+  }
 };
 const blueprintTaskTypeValues = ["Agent", "Human", "Client"] as const;
 const discoveryEvidenceTypeValues = [
@@ -657,6 +805,10 @@ const discoverySummarySchema = z.object({
   missingInformation: z.array(z.string().trim().min(1)).default([]),
   keyRisks: z.array(z.string().trim().min(1)).default([]),
   recommendedNextQuestions: z.array(z.string().trim().min(1)).default([])
+});
+const projectEmailDraftSchema = z.object({
+  subject: z.string().trim().min(1),
+  body: z.string().trim().min(1)
 });
 type DiscoverySummaryPayload = z.output<typeof discoverySummarySchema>;
 const discoverySummaryLooseSchema = z.object({
@@ -1450,6 +1602,95 @@ function normalizeProject<T extends { portal: { portalId: string } | null }>(
     : project;
 }
 
+function cloneClientQuestionnaireConfig(
+  value: ClientQuestionnaireConfig
+): ClientQuestionnaireConfig {
+  return JSON.parse(JSON.stringify(value)) as ClientQuestionnaireConfig;
+}
+
+function createClientQuestionKey(label: string, fallbackIndex: number): string {
+  const normalized = createSlug(label).replace(/-/g, "_");
+  return normalized || `custom_question_${fallbackIndex}`;
+}
+
+function normalizeClientQuestionnaireConfig(
+  value: unknown
+): ClientQuestionnaireConfig {
+  const source =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+
+  const defaults = cloneClientQuestionnaireConfig(
+    defaultClientQuestionnaireConfig
+  );
+
+  return [1, 2, 3, 4].reduce<ClientQuestionnaireConfig>((config, sessionNumber) => {
+    const rawSession = source[String(sessionNumber)] ?? source[sessionNumber];
+    const defaultSession = defaults[sessionNumber] ?? defaults[1]!;
+    if (!rawSession || typeof rawSession !== "object" || Array.isArray(rawSession)) {
+      config[sessionNumber] = defaultSession;
+      return config;
+    }
+
+    const sessionRecord = rawSession as Record<string, unknown>;
+    const usedKeys = new Set<string>();
+
+    const questions = Array.isArray(sessionRecord.questions)
+      ? sessionRecord.questions
+          .filter(
+            (
+              question
+            ): question is Record<string, unknown> =>
+              Boolean(question) &&
+              typeof question === "object" &&
+              !Array.isArray(question)
+          )
+          .map((question, index) => {
+            const baseKey =
+              typeof question.key === "string" && question.key.trim().length > 0
+                ? question.key.trim()
+                : createClientQuestionKey(
+                    typeof question.label === "string" ? question.label : "",
+                    index + 1
+                  );
+            let key = baseKey;
+            let suffix = 2;
+            while (usedKeys.has(key)) {
+              key = `${baseKey}_${suffix}`;
+              suffix += 1;
+            }
+            usedKeys.add(key);
+
+            return {
+              key,
+              label:
+                typeof question.label === "string" && question.label.trim().length > 0
+                  ? question.label.trim()
+                  : `Question ${index + 1}`,
+              hint:
+                typeof question.hint === "string" ? question.hint.trim() : ""
+            };
+          })
+      : [];
+
+    config[sessionNumber] = {
+      title:
+        typeof sessionRecord.title === "string" && sessionRecord.title.trim().length > 0
+          ? sessionRecord.title.trim()
+          : defaultSession.title,
+      description:
+        typeof sessionRecord.description === "string" &&
+        sessionRecord.description.trim().length > 0
+          ? sessionRecord.description.trim()
+          : defaultSession.description,
+      questions: questions.length > 0 ? questions : defaultSession.questions
+    };
+
+    return config;
+  }, {} as ClientQuestionnaireConfig);
+}
+
 function sendJson(
   response: http.ServerResponse,
   statusCode: number,
@@ -1584,10 +1825,11 @@ function matchProjectRoute(pathname: string): {
     | "executions"
     | "scope"
     | "discovery"
-    | "status";
+    | "status"
+    | "email-draft";
 } | null {
   const match =
-    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions|scope|discovery|status))?$/.exec(
+    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions|scope|discovery|status|email-draft))?$/.exec(
       pathname
     );
 
@@ -1605,13 +1847,35 @@ function matchProjectRoute(pathname: string): {
     resource === "executions" ||
     resource === "scope" ||
     resource === "discovery" ||
-    resource === "status"
+    resource === "status" ||
+    resource === "email-draft"
       ? resource
       : undefined;
 
   return normalizedResource
     ? { projectId, resource: normalizedResource }
     : { projectId };
+}
+
+function matchClientDirectoryRoute(pathname: string): {
+  clientId?: string;
+  resource?: "contacts";
+  contactId?: string;
+} | null {
+  const match =
+    /^\/api\/clients(?:\/([^/]+?)(?:\/(contacts)(?:\/([^/]+))?)?)?$/.exec(
+      pathname
+    );
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    ...(match[1] ? { clientId: decodeURIComponent(match[1]) } : {}),
+    ...(match[2] === "contacts" ? { resource: "contacts" as const } : {}),
+    ...(match[3] ? { contactId: decodeURIComponent(match[3]) } : {})
+  };
 }
 
 function matchProjectQuoteRoute(pathname: string): {
@@ -2217,6 +2481,7 @@ function serializeProject<
     problemStatement?: string | null;
     solutionRecommendation?: string | null;
     scopeExecutiveSummary?: string | null;
+    clientQuestionnaireConfig?: unknown | null;
     scopeType?: string | null;
     deliveryTemplateId?: string | null;
     commercialBrief?: string | null;
@@ -2276,6 +2541,9 @@ function serializeProject<
     quoteApprovedByName: normalizedProject.quoteApprovedByName ?? null,
     quoteApprovedByEmail: normalizedProject.quoteApprovedByEmail ?? null,
     scopeLockedAt: normalizedProject.scopeLockedAt?.toISOString() ?? null,
+    clientQuestionnaireConfig: normalizeClientQuestionnaireConfig(
+      normalizedProject.clientQuestionnaireConfig
+    ),
     platformTierSelections: normalizePlatformTierSelections(
       normalizedProject.platformTierSelections
     ),
@@ -2300,6 +2568,7 @@ function serializeClientProject<
     scopeType?: string | null;
     deliveryTemplateId?: string | null;
     commercialBrief?: string | null;
+    clientQuestionnaireConfig?: unknown | null;
     engagementType: Prisma.$Enums.EngagementType;
     selectedHubs: string[];
     updatedAt: Date;
@@ -2323,6 +2592,9 @@ function serializeClientProject<
     scopeType: project.scopeType ?? "discovery",
     deliveryTemplateId: project.deliveryTemplateId ?? null,
     commercialBrief: project.commercialBrief ?? null,
+    clientQuestionnaireConfig: normalizeClientQuestionnaireConfig(
+      project.clientQuestionnaireConfig
+    ),
     engagementType: project.engagementType,
     selectedHubs: project.selectedHubs,
     updatedAt: project.updatedAt.toISOString(),
@@ -2330,6 +2602,30 @@ function serializeClientProject<
       name: project.client.name,
       website: project.client.website
     }
+  };
+}
+
+function serializeClientContact<
+  T extends {
+    id: string;
+    firstName: string;
+    lastName: string | null;
+    email: string;
+    title: string | null;
+    canApproveQuotes: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(contact: T) {
+  return {
+    id: contact.id,
+    firstName: contact.firstName,
+    lastName: contact.lastName ?? "",
+    email: contact.email,
+    title: contact.title ?? "",
+    canApproveQuotes: contact.canApproveQuotes,
+    createdAt: contact.createdAt.toISOString(),
+    updatedAt: contact.updatedAt.toISOString()
   };
 }
 
@@ -5217,6 +5513,110 @@ Rules:
   };
 }
 
+async function generateProjectEmailDraft(input: {
+  projectId: string;
+  intent: string;
+  customInstructions?: string;
+}) {
+  const [project, summary, evidenceItems, latestQuote, clientUsers] =
+    await Promise.all([
+      prisma.project.findUnique({
+        where: { id: input.projectId },
+        include: {
+          client: true,
+          portal: true
+        }
+      }),
+      loadDiscoverySummary(input.projectId).catch(() => null),
+      loadDiscoveryEvidence(input.projectId).catch(() => []),
+      loadLatestProjectQuote(input.projectId).catch(() => null),
+      loadClientUsersForProject(input.projectId).catch(() => [])
+    ]);
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const contextPreview = evidenceItems
+    .slice(0, 8)
+    .map((item) => {
+      const content = (item.content ?? "").trim();
+      const contentPreview =
+        content.length > 240 ? `${content.slice(0, 240).trim()}...` : content;
+      return {
+        sourceLabel: item.sourceLabel,
+        evidenceType: item.evidenceType,
+        sourceUrl: item.sourceUrl,
+        content: contentPreview
+      };
+    });
+
+  const rawDraft = await callAiWorkflow(
+    "project_email_drafting",
+    `You draft polished Muloo operator emails to clients.
+
+Rules:
+- Return ONLY valid JSON. No markdown or commentary.
+- Use exactly this structure: {"subject":"...","body":"..."}
+- Write like a confident, warm project lead from Muloo.
+- Keep the email practical and commercially aware.
+- Body should be plain text with natural paragraph breaks, ready to paste into email.
+- Use concise sentences.
+- Mention the actual next step requested from the client.
+- If the workflow intent is questionnaire_invite, ask them to complete the portal questionnaire and explain why it matters.
+- If the workflow intent is next_steps, summarise what Muloo has understood and what should happen next.
+- If the workflow intent is quote_ready, explain that the quote is available in the client portal for review.
+- If the workflow intent is approval_follow_up, ask for approval politely and mention any timing dependency.
+- Do not invent meetings, deadlines, or attachments.
+- Use the saved project context, summary, quote status, and supporting context.`,
+    JSON.stringify(
+      {
+        intent: input.intent,
+        customInstructions: input.customInstructions?.trim() || "",
+        project: {
+          name: project.name,
+          clientName: project.client.name,
+          serviceFamily: project.serviceFamily,
+          scopeType: project.scopeType ?? "discovery",
+          engagementType: project.engagementType,
+          owner: project.owner,
+          ownerEmail: project.ownerEmail,
+          commercialBrief: project.commercialBrief,
+          problemStatement: project.problemStatement,
+          solutionRecommendation: project.solutionRecommendation,
+          scopeExecutiveSummary: project.scopeExecutiveSummary,
+          selectedHubs: project.selectedHubs,
+          quoteApprovalStatus: project.quoteApprovalStatus,
+          quoteSharedAt: project.quoteSharedAt?.toISOString() ?? null,
+          quoteApprovedAt: project.quoteApprovedAt?.toISOString() ?? null
+        },
+        summary,
+        latestQuote: latestQuote
+          ? {
+              version: latestQuote.version,
+              status: latestQuote.status,
+              currency: latestQuote.currency,
+              totals: latestQuote.totals
+            }
+          : null,
+        clientUsers: clientUsers.map((user) => ({
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role,
+          questionnaireAccess: user.questionnaireAccess
+        })),
+        supportingContext: contextPreview
+      },
+      null,
+      2
+    ),
+    { maxTokens: 2200 }
+  );
+
+  return parseModelJson(rawDraft, projectEmailDraftSchema, "project-email-draft");
+}
+
 async function generateStandaloneScopeSummary(
   discoveryPayload: NonNullable<Awaited<ReturnType<typeof loadProjectDiscoveryForBlueprint>>>
 ) {
@@ -7213,6 +7613,152 @@ async function updateWorkRequest(
   });
 
   return serializeWorkRequest(request);
+}
+
+async function loadClientsDirectory() {
+  const clients = await prisma.client.findMany({
+    include: {
+      contacts: {
+        orderBy: [{ canApproveQuotes: "desc" }, { firstName: "asc" }]
+      },
+      projects: {
+        orderBy: [{ updatedAt: "desc" }],
+        include: {
+          client: true,
+          portal: true
+        }
+      }
+    },
+    orderBy: [{ updatedAt: "desc" }]
+  });
+
+  return clients.map((client) => ({
+    id: client.id,
+    name: client.name,
+    slug: client.slug,
+    industry: client.industry,
+    region: client.region,
+    website: client.website,
+    additionalWebsites: client.additionalWebsites,
+    linkedinUrl: client.linkedinUrl,
+    facebookUrl: client.facebookUrl,
+    instagramUrl: client.instagramUrl,
+    xUrl: client.xUrl,
+    youtubeUrl: client.youtubeUrl,
+    createdAt: client.createdAt.toISOString(),
+    updatedAt: client.updatedAt.toISOString(),
+    contacts: client.contacts.map((contact) => serializeClientContact(contact)),
+    projects: client.projects.map((project) => ({
+      id: project.id,
+      name: project.name,
+      status: project.status,
+      quoteApprovalStatus: project.quoteApprovalStatus ?? "draft",
+      scopeType: project.scopeType ?? "discovery",
+      updatedAt: project.updatedAt.toISOString()
+    }))
+  }));
+}
+
+async function createClientContact(
+  clientId: string,
+  value: {
+    firstName?: unknown;
+    lastName?: unknown;
+    email?: unknown;
+    title?: unknown;
+    canApproveQuotes?: unknown;
+  }
+) {
+  const firstName =
+    typeof value.firstName === "string" ? value.firstName.trim() : "";
+  const lastName =
+    typeof value.lastName === "string" ? value.lastName.trim() : "";
+  const email =
+    typeof value.email === "string" ? value.email.trim().toLowerCase() : "";
+  const title = typeof value.title === "string" ? value.title.trim() : "";
+  const canApproveQuotes = Boolean(value.canApproveQuotes);
+
+  if (!firstName || !email) {
+    throw new Error("firstName and email are required");
+  }
+
+  const contact = await prisma.clientContact.create({
+    data: {
+      clientId,
+      firstName,
+      lastName: lastName || null,
+      email,
+      title: title || null,
+      canApproveQuotes
+    }
+  });
+
+  return serializeClientContact(contact);
+}
+
+async function updateClientContact(
+  clientId: string,
+  contactId: string,
+  value: {
+    firstName?: unknown;
+    lastName?: unknown;
+    email?: unknown;
+    title?: unknown;
+    canApproveQuotes?: unknown;
+  }
+) {
+  const existingContact = await prisma.clientContact.findUnique({
+    where: { id: contactId }
+  });
+
+  if (!existingContact || existingContact.clientId !== clientId) {
+    throw new Error("Client contact not found");
+  }
+
+  const updateData: Prisma.Prisma.ClientContactUpdateInput = {};
+
+  if (value.firstName !== undefined) {
+    if (typeof value.firstName !== "string" || value.firstName.trim().length === 0) {
+      throw new Error("firstName must be a non-empty string");
+    }
+
+    updateData.firstName = value.firstName.trim();
+  }
+
+  if (value.lastName !== undefined) {
+    if (typeof value.lastName !== "string") {
+      throw new Error("lastName must be a string");
+    }
+
+    updateData.lastName = value.lastName.trim() || null;
+  }
+
+  if (value.email !== undefined) {
+    if (typeof value.email !== "string" || value.email.trim().length === 0) {
+      throw new Error("email must be a non-empty string");
+    }
+
+    updateData.email = value.email.trim().toLowerCase();
+  }
+
+  if (value.title !== undefined) {
+    if (typeof value.title !== "string") {
+      throw new Error("title must be a string");
+    }
+
+    updateData.title = value.title.trim() || null;
+  }
+
+  if (value.canApproveQuotes !== undefined) {
+    updateData.canApproveQuotes = Boolean(value.canApproveQuotes);
+  }
+
+  const contact = await prisma.clientContact.update({
+    where: { id: contactId },
+    data: updateData
+  });
+
+  return serializeClientContact(contact);
 }
 
 async function createClientPortalUserForProject(
@@ -10696,35 +11242,150 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 200, extraction);
       }
 
-      if (request.method === "POST" && url.pathname === "/api/clients") {
-        const body = (await readJsonBody(request)) as {
-          name: string;
-          website?: string;
-          industry?: string;
-          region?: string;
-        };
-
-        try {
-          const client = await prisma.client.create({
-            data: {
-              name: body.name,
-              slug: createSlug(body.name),
-              website: body.website ?? null,
-              industry: body.industry ?? null,
-              region: body.region ?? null
-            }
+      const clientDirectoryRoute = matchClientDirectoryRoute(url.pathname);
+      if (clientDirectoryRoute) {
+        if (
+          request.method === "GET" &&
+          !clientDirectoryRoute.clientId &&
+          !clientDirectoryRoute.resource
+        ) {
+          return sendJson(response, 200, {
+            clients: await loadClientsDirectory()
           });
+        }
 
-          return sendJson(response, 201, { client });
-        } catch (error: unknown) {
-          if (isUniqueConstraintError(error)) {
-            return sendJson(response, 409, {
-              error: "A client with that name already exists"
+        if (
+          request.method === "POST" &&
+          !clientDirectoryRoute.clientId &&
+          !clientDirectoryRoute.resource
+        ) {
+          const body = (await readJsonBody(request)) as {
+            name: string;
+            website?: string;
+            industry?: string;
+            region?: string;
+          };
+
+          try {
+            const client = await prisma.client.create({
+              data: {
+                name: body.name,
+                slug: createSlug(body.name),
+                website: body.website ?? null,
+                industry: body.industry ?? null,
+                region: body.region ?? null
+              }
+            });
+
+            return sendJson(response, 201, {
+              client: {
+                id: client.id,
+                name: client.name,
+                slug: client.slug,
+                industry: client.industry,
+                region: client.region,
+                website: client.website,
+                additionalWebsites: client.additionalWebsites,
+                linkedinUrl: client.linkedinUrl,
+                facebookUrl: client.facebookUrl,
+                instagramUrl: client.instagramUrl,
+                xUrl: client.xUrl,
+                youtubeUrl: client.youtubeUrl,
+                createdAt: client.createdAt.toISOString(),
+                updatedAt: client.updatedAt.toISOString(),
+                contacts: [],
+                projects: []
+              }
+            });
+          } catch (error: unknown) {
+            if (isUniqueConstraintError(error)) {
+              return sendJson(response, 409, {
+                error: "A client with that name already exists"
+              });
+            }
+
+            throw error;
+          }
+        }
+
+        if (
+          request.method === "POST" &&
+          clientDirectoryRoute.clientId &&
+          clientDirectoryRoute.resource === "contacts" &&
+          !clientDirectoryRoute.contactId
+        ) {
+          try {
+            const body = (await readJsonBody(request)) as {
+              firstName?: unknown;
+              lastName?: unknown;
+              email?: unknown;
+              title?: unknown;
+              canApproveQuotes?: unknown;
+            };
+            const contact = await createClientContact(
+              clientDirectoryRoute.clientId,
+              body
+            );
+            return sendJson(response, 201, { contact });
+          } catch (error) {
+            if (isUniqueConstraintError(error)) {
+              return sendJson(response, 409, {
+                error: "A contact with that email already exists for this client"
+              });
+            }
+
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to create client contact"
             });
           }
-
-          throw error;
         }
+
+        if (
+          request.method === "PATCH" &&
+          clientDirectoryRoute.clientId &&
+          clientDirectoryRoute.resource === "contacts" &&
+          clientDirectoryRoute.contactId
+        ) {
+          try {
+            const body = (await readJsonBody(request)) as {
+              firstName?: unknown;
+              lastName?: unknown;
+              email?: unknown;
+              title?: unknown;
+              canApproveQuotes?: unknown;
+            };
+            const contact = await updateClientContact(
+              clientDirectoryRoute.clientId,
+              clientDirectoryRoute.contactId,
+              body
+            );
+            return sendJson(response, 200, { contact });
+          } catch (error) {
+            if (isUniqueConstraintError(error)) {
+              return sendJson(response, 409, {
+                error: "A contact with that email already exists for this client"
+              });
+            }
+
+            return sendJson(
+              response,
+              error instanceof Error && error.message === "Client contact not found"
+                ? 404
+                : 400,
+              {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to update client contact"
+              }
+            );
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
       if (request.method === "POST" && url.pathname === "/api/portals") {
@@ -10953,6 +11614,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             problemStatement?: unknown;
             solutionRecommendation?: unknown;
             scopeExecutiveSummary?: unknown;
+            clientQuestionnaireConfig?: unknown;
             scopeType?: unknown;
             deliveryTemplateId?: unknown;
             commercialBrief?: unknown;
@@ -10982,6 +11644,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             problemStatement?: string;
             solutionRecommendation?: string;
             scopeExecutiveSummary?: string;
+            clientQuestionnaireConfig?: ClientQuestionnaireConfig;
             scopeType?: string;
             deliveryTemplateId?: string;
             commercialBrief?: string;
@@ -11099,6 +11762,11 @@ export function createAppServer(config: BaseConfig): http.Server {
 
             normalizedPayload.scopeExecutiveSummary =
               body.scopeExecutiveSummary.trim();
+          }
+
+          if (body.clientQuestionnaireConfig !== undefined) {
+            normalizedPayload.clientQuestionnaireConfig =
+              normalizeClientQuestionnaireConfig(body.clientQuestionnaireConfig);
           }
 
           if (body.scopeType !== undefined) {
@@ -11310,6 +11978,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             normalizedPayload.problemStatement === undefined &&
             normalizedPayload.solutionRecommendation === undefined &&
             normalizedPayload.scopeExecutiveSummary === undefined &&
+            normalizedPayload.clientQuestionnaireConfig === undefined &&
             normalizedPayload.scopeType === undefined &&
             normalizedPayload.deliveryTemplateId === undefined &&
             normalizedPayload.commercialBrief === undefined &&
@@ -11502,6 +12171,12 @@ export function createAppServer(config: BaseConfig): http.Server {
                         normalizedPayload.scopeExecutiveSummary || null
                     }
                   : {}),
+                ...(normalizedPayload.clientQuestionnaireConfig !== undefined
+                  ? {
+                      clientQuestionnaireConfig:
+                        normalizedPayload.clientQuestionnaireConfig
+                    }
+                  : {}),
                 ...(normalizedPayload.scopeType !== undefined
                   ? { scopeType: normalizedPayload.scopeType || "discovery" }
                   : {}),
@@ -11688,6 +12363,47 @@ export function createAppServer(config: BaseConfig): http.Server {
             project,
             summary: await summarizeProject(project)
           });
+        }
+
+        if (
+          request.method === "POST" &&
+          projectRoute.resource === "email-draft"
+        ) {
+          try {
+            const body = (await readJsonBody(request)) as {
+              intent?: unknown;
+              customInstructions?: unknown;
+            };
+
+            if (typeof body.intent !== "string" || body.intent.trim().length === 0) {
+              return sendJson(response, 400, {
+                error: "intent must be a non-empty string"
+              });
+            }
+
+            const draft = await generateProjectEmailDraft({
+              projectId: projectRoute.projectId,
+              intent: body.intent.trim(),
+              ...(typeof body.customInstructions === "string"
+                ? { customInstructions: body.customInstructions.trim() }
+                : {})
+            });
+
+            return sendJson(response, 200, { draft });
+          } catch (error) {
+            return sendJson(
+              response,
+              error instanceof Error && error.message === "Project not found"
+                ? 404
+                : 400,
+              {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to draft project email"
+              }
+            );
+          }
         }
 
         if (projectRoute.resource === "discovery") {

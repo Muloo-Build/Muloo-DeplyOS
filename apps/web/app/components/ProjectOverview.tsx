@@ -6,7 +6,11 @@ import { useEffect, useState } from "react";
 
 import AppShell from "./AppShell";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
-import { clientSessionDefinitions } from "./clientQuestionnaire";
+import {
+  createDefaultClientQuestionnaireDefinitionMap,
+  type ClientQuestionDefinition,
+  type ClientQuestionnaireDefinitionMap
+} from "./clientQuestionnaire";
 import {
   getDisplayKeyRisks,
   getDisplayNextQuestions,
@@ -31,6 +35,7 @@ interface Project {
   problemStatement?: string | null;
   solutionRecommendation?: string | null;
   scopeExecutiveSummary?: string | null;
+  clientQuestionnaireConfig?: ClientQuestionnaireDefinitionMap | null;
   customerPlatformTier?: string | null;
   platformTierSelections?: Record<string, string> | null;
   packagingAssessment?: {
@@ -398,6 +403,24 @@ function formatEvidenceTypeLabel(type: EvidenceItem["evidenceType"]) {
   }
 }
 
+function cloneQuestionnaireDefinitions(
+  value?: ClientQuestionnaireDefinitionMap | null
+): ClientQuestionnaireDefinitionMap {
+  return JSON.parse(
+    JSON.stringify(value ?? createDefaultClientQuestionnaireDefinitionMap())
+  ) as ClientQuestionnaireDefinitionMap;
+}
+
+function createQuestionKey(label: string, fallbackIndex: number) {
+  const normalized = label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return normalized || `custom_question_${fallbackIndex}`;
+}
+
 function EditButton({
   onClick,
   label
@@ -464,6 +487,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     clientChampionLastName: "",
     clientChampionEmail: ""
   });
+  const [questionnaireDraft, setQuestionnaireDraft] =
+    useState<ClientQuestionnaireDefinitionMap>(
+      createDefaultClientQuestionnaireDefinitionMap()
+    );
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [clientUsers, setClientUsers] = useState<ClientPortalUser[]>([]);
   const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
@@ -502,6 +529,20 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [showFullBrief, setShowFullBrief] = useState(false);
   const [showSupportingContext, setShowSupportingContext] = useState(false);
+  const [questionnaireSaving, setQuestionnaireSaving] = useState(false);
+  const [questionnaireError, setQuestionnaireError] = useState<string | null>(null);
+  const [questionnaireFeedback, setQuestionnaireFeedback] = useState<string | null>(
+    null
+  );
+  const [emailIntent, setEmailIntent] = useState("next_steps");
+  const [emailInstructions, setEmailInstructions] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailFeedback, setEmailFeedback] = useState<string | null>(null);
+  const [emailDraft, setEmailDraft] = useState<{
+    subject: string;
+    body: string;
+  } | null>(null);
 
   async function loadProjectData() {
     const [
@@ -540,6 +581,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
     setProject(projectBody.project);
     setProjectDraft(createProjectDraft(projectBody.project));
+    setQuestionnaireDraft(
+      cloneQuestionnaireDefinitions(projectBody.project.clientQuestionnaireConfig)
+    );
     setSessions(sessionsBody.sessionDetails ?? []);
     setDiscoverySummary(summaryBody.summary ?? null);
     setTeamUsers(usersBody.users ?? []);
@@ -1223,6 +1267,191 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     } finally {
       setSavingContext(false);
     }
+  }
+
+  function updateQuestionnaireSession(
+    sessionNumber: number,
+    field: "title" | "description",
+    value: string
+  ) {
+    setQuestionnaireDraft((currentDraft) => ({
+      ...currentDraft,
+      [sessionNumber]: {
+        ...currentDraft[sessionNumber],
+        [field]: value
+      }
+    }));
+  }
+
+  function updateQuestionnaireQuestion(
+    sessionNumber: number,
+    questionIndex: number,
+    field: keyof ClientQuestionDefinition,
+    value: string
+  ) {
+    setQuestionnaireDraft((currentDraft) => ({
+      ...currentDraft,
+      [sessionNumber]: {
+        ...currentDraft[sessionNumber],
+        questions: currentDraft[sessionNumber].questions.map((question, index) =>
+          index === questionIndex
+            ? {
+                ...question,
+                [field]: value,
+                ...(field === "label" && !question.key.trim()
+                  ? {
+                      key: createQuestionKey(value, questionIndex + 1)
+                    }
+                  : {})
+              }
+            : question
+        )
+      }
+    }));
+  }
+
+  function addQuestionnaireQuestion(sessionNumber: number) {
+    setQuestionnaireDraft((currentDraft) => {
+      const questions = currentDraft[sessionNumber].questions;
+      const nextIndex = questions.length + 1;
+      return {
+        ...currentDraft,
+        [sessionNumber]: {
+          ...currentDraft[sessionNumber],
+          questions: [
+            ...questions,
+            {
+              key: `custom_question_${nextIndex}`,
+              label: `New question ${nextIndex}`,
+              hint: ""
+            }
+          ]
+        }
+      };
+    });
+  }
+
+  function removeQuestionnaireQuestion(sessionNumber: number, questionIndex: number) {
+    setQuestionnaireDraft((currentDraft) => ({
+      ...currentDraft,
+      [sessionNumber]: {
+        ...currentDraft[sessionNumber],
+        questions: currentDraft[sessionNumber].questions.filter(
+          (_, index) => index !== questionIndex
+        )
+      }
+    }));
+  }
+
+  function resetQuestionnaireDefaults() {
+    setQuestionnaireDraft(createDefaultClientQuestionnaireDefinitionMap());
+    setQuestionnaireError(null);
+    setQuestionnaireFeedback("Questionnaire reset to the default Muloo structure.");
+  }
+
+  async function saveQuestionnaireConfig() {
+    if (!project) {
+      return;
+    }
+
+    setQuestionnaireSaving(true);
+    setQuestionnaireError(null);
+    setQuestionnaireFeedback(null);
+
+    try {
+      const payload = cloneQuestionnaireDefinitions(questionnaireDraft);
+
+      Object.entries(payload).forEach(([sessionNumberText, session]) => {
+        session.questions = session.questions.map((question, index) => ({
+          ...question,
+          key:
+            question.key.trim() ||
+            createQuestionKey(question.label, index + 1)
+        }));
+        payload[Number(sessionNumberText)] = session;
+      });
+
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientQuestionnaireConfig: payload
+          })
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to save questionnaire");
+      }
+
+      setProject(body.project);
+      setQuestionnaireDraft(
+        cloneQuestionnaireDefinitions(body.project.clientQuestionnaireConfig)
+      );
+      setQuestionnaireFeedback("Client questionnaire saved for this project.");
+    } catch (saveError) {
+      setQuestionnaireError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save questionnaire"
+      );
+    } finally {
+      setQuestionnaireSaving(false);
+    }
+  }
+
+  async function generateEmailDraft() {
+    if (!project) {
+      return;
+    }
+
+    setEmailBusy(true);
+    setEmailError(null);
+    setEmailFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/email-draft`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            intent: emailIntent,
+            customInstructions: emailInstructions
+          })
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to draft email");
+      }
+
+      setEmailDraft(body.draft ?? null);
+      setEmailFeedback("Email draft generated from the current project context.");
+    } catch (draftError) {
+      setEmailError(
+        draftError instanceof Error ? draftError.message : "Failed to draft email"
+      );
+    } finally {
+      setEmailBusy(false);
+    }
+  }
+
+  async function copyEmailDraft() {
+    if (!emailDraft || typeof navigator === "undefined") {
+      return;
+    }
+
+    await navigator.clipboard.writeText(
+      `Subject: ${emailDraft.subject}\n\n${emailDraft.body}`
+    );
+    setEmailFeedback("Email draft copied to clipboard.");
   }
 
   async function handleBlueprintAction() {
@@ -2382,6 +2611,108 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 ) : null}
               </section>
 
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">
+                      AI Email Drafts
+                    </h2>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      Draft a clean client email from the saved summary,
+                      supporting context, quote status, and portal setup.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">
+                      Email intent
+                    </span>
+                    <select
+                      value={emailIntent}
+                      onChange={(event) => setEmailIntent(event.target.value)}
+                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                    >
+                      <option value="next_steps">Next steps</option>
+                      <option value="questionnaire_invite">
+                        Questionnaire invite
+                      </option>
+                      <option value="quote_ready">Quote ready for review</option>
+                      <option value="approval_follow_up">
+                        Approval follow-up
+                      </option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">
+                      Extra instruction
+                    </span>
+                    <textarea
+                      value={emailInstructions}
+                      onChange={(event) =>
+                        setEmailInstructions(event.target.value)
+                      }
+                      placeholder="Example: mention that Magnusol should nominate one operations lead and one sales owner for discovery."
+                      className="mt-3 min-h-[88px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    {emailError ? (
+                      <p className="text-sm text-[#ff8f9c]">{emailError}</p>
+                    ) : emailFeedback ? (
+                      <p className="text-sm text-status-success">
+                        {emailFeedback}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-text-secondary">
+                        Best for client nudges, discovery invites, approval
+                        follow-ups, and summary handoff emails.
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {emailDraft ? (
+                      <button
+                        type="button"
+                        onClick={() => void copyEmailDraft()}
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
+                      >
+                        Copy email
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => void generateEmailDraft()}
+                      disabled={emailBusy}
+                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                    >
+                      {emailBusy ? "Drafting..." : "Generate email"}
+                    </button>
+                  </div>
+                </div>
+
+                {emailDraft ? (
+                  <div className="mt-5 rounded-2xl bg-[#0b1126] p-5">
+                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      Subject
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-white">
+                      {emailDraft.subject}
+                    </p>
+                    <p className="mt-5 text-xs uppercase tracking-[0.2em] text-text-muted">
+                      Body
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-secondary">
+                      {emailDraft.body}
+                    </p>
+                  </div>
+                ) : null}
+              </section>
+
               <div className="grid gap-6">
                 {isStandaloneQuote ? (
                   <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
@@ -2729,23 +3060,50 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <h2 className="text-lg font-semibold text-white">
-                          Client Questionnaire Preview
+                          Client Questionnaire
                         </h2>
                         <p className="mt-2 text-sm text-text-secondary">
-                          Preview the standard client-facing discovery questions
+                          Adjust the client-facing questions for this project
                           before you invite contacts into the portal.
                         </p>
                       </div>
-                      <Link
-                        href={`/projects/${project.id}/discovery`}
-                        className="text-sm font-medium text-white"
-                      >
-                        Open discovery
-                      </Link>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={resetQuestionnaireDefaults}
+                          disabled={isScopeLocked}
+                          className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                        >
+                          Reset defaults
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void saveQuestionnaireConfig()}
+                          disabled={questionnaireSaving || isScopeLocked}
+                          className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                        >
+                          {questionnaireSaving ? "Saving..." : "Save questionnaire"}
+                        </button>
+                      </div>
                     </div>
 
+                    {questionnaireError ? (
+                      <p className="mt-4 text-sm text-[#ff8f9c]">
+                        {questionnaireError}
+                      </p>
+                    ) : questionnaireFeedback ? (
+                      <p className="mt-4 text-sm text-status-success">
+                        {questionnaireFeedback}
+                      </p>
+                    ) : (
+                      <p className="mt-4 text-sm text-text-secondary">
+                        Keep the structure specific to the client and the job.
+                        Save once the wording feels right.
+                      </p>
+                    )}
+
                     <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                      {Object.entries(clientSessionDefinitions).map(
+                      {Object.entries(questionnaireDraft).map(
                         ([sessionNumberText, definition]) => (
                           <div
                             key={sessionNumberText}
@@ -2754,23 +3112,116 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                               Session {sessionNumberText}
                             </p>
-                            <h3 className="mt-2 text-lg font-semibold text-white">
-                              {definition.title}
-                            </h3>
-                            <p className="mt-2 text-sm text-text-secondary">
-                              {definition.description}
-                            </p>
+                            <label className="mt-3 block">
+                              <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                                Title
+                              </span>
+                              <input
+                                value={definition.title}
+                                onChange={(event) =>
+                                  updateQuestionnaireSession(
+                                    Number(sessionNumberText),
+                                    "title",
+                                    event.target.value
+                                  )
+                                }
+                                disabled={isScopeLocked}
+                                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:text-text-muted"
+                              />
+                            </label>
+                            <label className="mt-4 block">
+                              <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                                Intro
+                              </span>
+                              <textarea
+                                value={definition.description}
+                                onChange={(event) =>
+                                  updateQuestionnaireSession(
+                                    Number(sessionNumberText),
+                                    "description",
+                                    event.target.value
+                                  )
+                                }
+                                disabled={isScopeLocked}
+                                className="mt-2 min-h-[88px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:text-text-muted"
+                              />
+                            </label>
                             <div className="mt-4 space-y-3">
-                              {definition.questions.map((question) => (
-                                <div key={question.key}>
-                                  <p className="text-sm font-medium text-white">
-                                    {question.label}
-                                  </p>
-                                  <p className="mt-1 text-xs text-text-muted">
-                                    {question.hint}
-                                  </p>
+                              {definition.questions.map((question, questionIndex) => (
+                                <div
+                                  key={`${question.key}-${questionIndex}`}
+                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-3"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1">
+                                      <label className="block">
+                                        <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                                          Question
+                                        </span>
+                                        <input
+                                          value={question.label}
+                                          onChange={(event) =>
+                                            updateQuestionnaireQuestion(
+                                              Number(sessionNumberText),
+                                              questionIndex,
+                                              "label",
+                                              event.target.value
+                                            )
+                                          }
+                                          disabled={isScopeLocked}
+                                          className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#08101f] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:text-text-muted"
+                                        />
+                                      </label>
+                                      <label className="mt-3 block">
+                                        <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                                          Prompt help
+                                        </span>
+                                        <textarea
+                                          value={question.hint}
+                                          onChange={(event) =>
+                                            updateQuestionnaireQuestion(
+                                              Number(sessionNumberText),
+                                              questionIndex,
+                                              "hint",
+                                              event.target.value
+                                            )
+                                          }
+                                          disabled={isScopeLocked}
+                                          className="mt-2 min-h-[72px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#08101f] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:text-text-muted"
+                                        />
+                                      </label>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        removeQuestionnaireQuestion(
+                                          Number(sessionNumberText),
+                                          questionIndex
+                                        )
+                                      }
+                                      disabled={
+                                        isScopeLocked ||
+                                        definition.questions.length <= 1
+                                      }
+                                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
+                            </div>
+                            <div className="mt-4 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  addQuestionnaireQuestion(Number(sessionNumberText))
+                                }
+                                disabled={isScopeLocked}
+                                className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                              >
+                                Add question
+                              </button>
                             </div>
                           </div>
                         )

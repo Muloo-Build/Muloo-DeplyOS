@@ -4,14 +4,18 @@ export interface ClientQuestionDefinition {
   hint: string;
 }
 
-export const clientSessionDefinitions: Record<
+export interface ClientQuestionnaireSessionDefinition {
+  title: string;
+  description: string;
+  questions: ClientQuestionDefinition[];
+}
+
+export type ClientQuestionnaireDefinitionMap = Record<
   number,
-  {
-    title: string;
-    description: string;
-    questions: ClientQuestionDefinition[];
-  }
-> = {
+  ClientQuestionnaireSessionDefinition
+>;
+
+export const clientSessionDefinitions: ClientQuestionnaireDefinitionMap = {
   1: {
     title: "Business & Goals",
     description:
@@ -141,3 +145,7 @@ export const clientSessionDefinitions: Record<
     ]
   }
 };
+
+export function createDefaultClientQuestionnaireDefinitionMap(): ClientQuestionnaireDefinitionMap {
+  return JSON.parse(JSON.stringify(clientSessionDefinitions)) as ClientQuestionnaireDefinitionMap;
+}

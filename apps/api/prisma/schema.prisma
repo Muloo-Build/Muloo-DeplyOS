@@ -30,7 +30,24 @@ model Client {
   youtubeUrl         String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+  contacts           ClientContact[]
   projects           Project[]
+}
+
+model ClientContact {
+  id               String   @id @default(cuid())
+  clientId         String
+  firstName        String
+  lastName         String?
+  email            String
+  title            String?
+  canApproveQuotes Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, email])
+  @@index([clientId, createdAt])
 }
 
 model WorkspaceUser {
@@ -104,6 +121,7 @@ model Project {
   clientChampionFirstName String?
   clientChampionLastName  String?
   clientChampionEmail     String?
+  clientQuestionnaireConfig Json?
   scopeType      String?
   commercialBrief String?
   deliveryTemplateId String?
