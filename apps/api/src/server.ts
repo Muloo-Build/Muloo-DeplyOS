@@ -9341,6 +9341,168 @@ async function disconnectWorkspaceGoogleEmailOAuthConnection() {
   });
 }
 
+async function getGoogleWorkspaceEmailOAuthConnectionRecord() {
+  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+
+  return prisma.workspaceEmailOAuthConnection.findUnique({
+    where: { providerKey: "google_workspace" }
+  });
+}
+
+async function refreshGoogleWorkspaceEmailAccessTokenIfNeeded() {
+  const connection = await getGoogleWorkspaceEmailOAuthConnectionRecord();
+
+  if (
+    !connection?.enabled ||
+    !connection.connectedEmail ||
+    !connection.refreshToken ||
+    !connection.clientId ||
+    !connection.clientSecret
+  ) {
+    return null;
+  }
+
+  const tokenStillValid =
+    connection.accessToken &&
+    connection.tokenExpiresAt &&
+    connection.tokenExpiresAt.getTime() > Date.now() + 60_000;
+
+  if (tokenStillValid) {
+    return connection;
+  }
+
+  const refreshResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      client_id: connection.clientId,
+      client_secret: connection.clientSecret,
+      refresh_token: connection.refreshToken,
+      grant_type: "refresh_token"
+    }).toString()
+  });
+
+  const refreshBody = (await refreshResponse.json().catch(() => null)) as
+    | {
+        access_token?: string;
+        expires_in?: number;
+        token_type?: string;
+        error?: string;
+        error_description?: string;
+      }
+    | null;
+
+  if (!refreshResponse.ok || !refreshBody?.access_token) {
+    throw new Error(
+      refreshBody?.error_description ||
+        refreshBody?.error ||
+        "Google access token refresh failed"
+    );
+  }
+
+  return prisma.workspaceEmailOAuthConnection.update({
+    where: { id: connection.id },
+    data: {
+      accessToken: refreshBody.access_token,
+      tokenType: refreshBody.token_type ?? connection.tokenType ?? "Bearer",
+      tokenExpiresAt:
+        typeof refreshBody.expires_in === "number"
+          ? new Date(Date.now() + refreshBody.expires_in * 1000)
+          : connection.tokenExpiresAt
+    }
+  });
+}
+
+function buildRawEmailMessage(value: {
+  from: string;
+  to: string[];
+  cc: string[];
+  replyTo?: string | null;
+  subject: string;
+  body: string;
+}) {
+  const lines = [
+    `From: ${value.from}`,
+    `To: ${value.to.join(", ")}`,
+    ...(value.cc.length > 0 ? [`Cc: ${value.cc.join(", ")}`] : []),
+    ...(value.replyTo ? [`Reply-To: ${value.replyTo}`] : []),
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=utf-8",
+    `Subject: ${value.subject}`,
+    "",
+    value.body
+  ];
+
+  return Buffer.from(lines.join("\r\n"))
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+async function sendWorkspaceEmailViaGoogleMailbox(value: {
+  to: string[];
+  cc: string[];
+  subject: string;
+  body: string;
+}) {
+  const connection = await refreshGoogleWorkspaceEmailAccessTokenIfNeeded();
+  const settings = await prisma.workspaceEmailSettings.findFirstOrThrow({
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  if (!connection?.accessToken || !connection.connectedEmail) {
+    return null;
+  }
+
+  const fromEmail =
+    settings.fromEmail &&
+    settings.fromEmail.trim().toLowerCase() ===
+      connection.connectedEmail.trim().toLowerCase()
+      ? settings.fromEmail.trim()
+      : connection.connectedEmail.trim();
+  const fromHeader = settings.fromName
+    ? `"${settings.fromName}" <${fromEmail}>`
+    : fromEmail;
+  const raw = buildRawEmailMessage({
+    from: fromHeader,
+    to: value.to,
+    cc: value.cc,
+    replyTo: settings.replyToEmail,
+    subject: value.subject,
+    body: value.body
+  });
+
+  const response = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${connection.accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ raw })
+    }
+  );
+
+  const body = (await response.json().catch(() => null)) as
+    | { id?: string; error?: { message?: string } }
+    | null;
+
+  if (!response.ok || !body?.id) {
+    throw new Error(body?.error?.message || "Failed to send email via Gmail");
+  }
+
+  return {
+    accepted: [...value.to, ...value.cc],
+    rejected: [],
+    messageId: body.id,
+    transport: "google_mailbox"
+  };
+}
+
 async function sendWorkspaceEmail(value: {
   to?: unknown;
   cc?: unknown;
@@ -9348,18 +9510,6 @@ async function sendWorkspaceEmail(value: {
   body?: unknown;
 }) {
   await ensureWorkspaceEmailSettingsSeeded();
-
-  const settings = await prisma.workspaceEmailSettings.findFirstOrThrow({
-    orderBy: [{ createdAt: "asc" }]
-  });
-
-  if (!settings.enabled) {
-    throw new Error("Workspace email is not enabled yet");
-  }
-
-  if (!settings.host || !settings.port || !settings.fromEmail) {
-    throw new Error("Workspace email settings are incomplete");
-  }
 
   const parseEmailRecipients = (input: unknown) =>
     (Array.isArray(input) ? input : [input])
@@ -9380,6 +9530,31 @@ async function sendWorkspaceEmail(value: {
 
   if (to.length === 0 || !subject || !body) {
     throw new Error("to, subject, and body are required");
+  }
+
+  const googleResult = await sendWorkspaceEmailViaGoogleMailbox({
+    to,
+    cc,
+    subject,
+    body
+  });
+
+  if (googleResult) {
+    return googleResult;
+  }
+
+  const settings = await prisma.workspaceEmailSettings.findFirstOrThrow({
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  if (!settings.enabled) {
+    throw new Error(
+      "No active Google mailbox is connected, and SMTP sending is not enabled yet"
+    );
+  }
+
+  if (!settings.host || !settings.port || !settings.fromEmail) {
+    throw new Error("Workspace email settings are incomplete");
   }
 
   const transport = nodemailer.createTransport({
@@ -9410,7 +9585,8 @@ async function sendWorkspaceEmail(value: {
   return {
     accepted: Array.isArray(info.accepted) ? info.accepted : [],
     rejected: Array.isArray(info.rejected) ? info.rejected : [],
-    messageId: typeof info.messageId === "string" ? info.messageId : null
+    messageId: typeof info.messageId === "string" ? info.messageId : null,
+    transport: "smtp"
   };
 }
 

@@ -1832,7 +1832,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         throw new Error(body?.error ?? "Failed to send email");
       }
 
-      setEmailFeedback("Project email sent.");
+      setEmailFeedback(
+        body?.result?.transport === "google_mailbox"
+          ? "Project email sent via the connected Google mailbox."
+          : "Project email sent via SMTP relay."
+      );
     } catch (sendError) {
       setEmailError(
         sendError instanceof Error ? sendError.message : "Failed to send email"
