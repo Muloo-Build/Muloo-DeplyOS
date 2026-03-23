@@ -116,6 +116,55 @@ interface ProductCatalogItem {
   sortOrder: number;
 }
 
+interface QuoteSnapshot {
+  id: string;
+  projectId: string;
+  version: number;
+  status: string;
+  currency: CurrencyCode;
+  defaultRate: number | null;
+  phaseLines: Array<{
+    phase: number;
+    phaseName: string;
+    included: boolean;
+    humanHours: number;
+    rate: number;
+    feeZar: number;
+    tasks: BlueprintTask[];
+  }>;
+  productLines: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    category: string;
+    billingModel: string;
+    description?: string | null;
+    unitLabel: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotalZar: number;
+  }>;
+  totals: {
+    totalHumanHours: number;
+    totalFeeZar: number;
+    additionalProductsTotalZar: number;
+    grandTotalZar: number;
+    paymentAmountZar: number;
+  };
+  paymentSchedule: string[];
+  context: {
+    quoteContextSummary: string | null;
+    inScopeItems: string[];
+    outOfScopeItems: string[];
+    supportingTools: string[];
+    keyRisks: string[];
+    nextQuestions: string[];
+    clientResponsibilities: string[];
+    isStandaloneQuote: boolean;
+    blueprintGeneratedAt: string | null;
+  } | null;
+}
+
 const exchangeRatesToZar: Record<CurrencyCode, number> = {
   ZAR: 1,
   GBP: 23,
@@ -266,6 +315,7 @@ export default function QuoteDocument({
     Record<number, PhaseCommercialDraft>
   >({});
   const [products, setProducts] = useState<ProductCatalogItem[]>([]);
+  const [savedQuote, setSavedQuote] = useState<QuoteSnapshot | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<
     Record<string, { included: boolean; quantity: string; unitPrice: string }>
   >({});
@@ -300,6 +350,7 @@ export default function QuoteDocument({
           setSummary(body?.summary ?? null);
           setBlueprint(body?.blueprint ?? null);
           setProducts(body?.products ?? []);
+          setSavedQuote(body?.quote ?? null);
           return;
         }
 
@@ -439,6 +490,45 @@ export default function QuoteDocument({
     });
   }, [defaultRate, groupedPhases]);
 
+  useEffect(() => {
+    if (!savedQuote) {
+      return;
+    }
+
+    setCurrency(savedQuote.currency);
+
+    if (savedQuote.defaultRate) {
+      setDefaultRate(String(savedQuote.defaultRate));
+    }
+
+    setPhaseDrafts(
+      Object.fromEntries(
+        savedQuote.phaseLines.map((phase) => [
+          phase.phase,
+          {
+            included: phase.included,
+            humanHours: String(phase.humanHours),
+            rate: String(phase.rate)
+          }
+        ])
+      )
+    );
+
+    setSelectedProducts((currentProducts) => {
+      const nextProducts = { ...currentProducts };
+
+      for (const productLine of savedQuote.productLines) {
+        nextProducts[productLine.id] = {
+          included: true,
+          quantity: String(productLine.quantity),
+          unitPrice: String(productLine.unitPrice)
+        };
+      }
+
+      return nextProducts;
+    });
+  }, [savedQuote]);
+
   const session1 = sessions.find((session) => session.session === 1)?.fields ?? {};
   const session2 = sessions.find((session) => session.session === 2)?.fields ?? {};
   const session3 = sessions.find((session) => session.session === 3)?.fields ?? {};
@@ -532,22 +622,72 @@ export default function QuoteDocument({
   const nextQuestions = isStandaloneQuote
     ? getDisplayNextQuestions(project, summary?.recommendedNextQuestions)
     : summary?.recommendedNextQuestions ?? [];
+  const quoteContext = savedQuote?.context;
+  const displayPhaseCommercials =
+    isClientMode && savedQuote ? savedQuote.phaseLines : phaseCommercials;
+  const displaySelectedProductLines =
+    isClientMode && savedQuote ? savedQuote.productLines : selectedProductLines;
+  const displayTotals =
+    isClientMode && savedQuote
+      ? savedQuote.totals
+      : {
+          totalHumanHours,
+          totalFeeZar,
+          additionalProductsTotalZar,
+          grandTotalZar,
+          paymentAmountZar
+        };
+  const displayPaymentSchedule =
+    isClientMode && savedQuote ? savedQuote.paymentSchedule : paymentSchedule;
+  const displayInScopeItems =
+    isClientMode && quoteContext ? quoteContext.inScopeItems : inScopeItems;
+  const displayOutOfScopeItems =
+    isClientMode && quoteContext ? quoteContext.outOfScopeItems : outOfScopeItems;
+  const displaySupportingTools =
+    isClientMode && quoteContext
+      ? quoteContext.supportingTools
+      : supportingTools;
+  const displayKeyRisks =
+    isClientMode && quoteContext ? quoteContext.keyRisks : keyRisks;
+  const displayNextQuestions =
+    isClientMode && quoteContext ? quoteContext.nextQuestions : nextQuestions;
+  const displayClientResponsibilities =
+    isClientMode && quoteContext
+      ? quoteContext.clientResponsibilities
+      : clientResponsibilities;
+  const displayQuoteContextSummary =
+    isClientMode && quoteContext
+      ? quoteContext.quoteContextSummary
+      : isStandaloneQuote
+        ? summary?.executiveSummary ??
+          project?.scopeExecutiveSummary ??
+          project?.solutionRecommendation ??
+          project?.problemStatement ??
+          project?.commercialBrief ??
+          "This standalone quote is based on the scoped job brief captured for the client."
+        : summary?.executiveSummary ??
+          session1.business_overview ??
+          "No executive summary generated yet.";
+  const displayBlueprintGeneratedAt =
+    isClientMode && quoteContext?.blueprintGeneratedAt
+      ? quoteContext.blueprintGeneratedAt
+      : blueprint?.generatedAt ?? null;
   const documentationProduct = products.find(
     (product) => product.slug === "documentation-sop-pack"
   );
   const recommendDocumentationPack =
     Boolean(documentationProduct?.isActive) &&
-    (totalHumanHours >= 40 ||
-      supportingTools.some((item) =>
+    (displayTotals.totalHumanHours >= 40 ||
+      displaySupportingTools.some((item) =>
         item.toLowerCase().includes("documentation") ||
         item.toLowerCase().includes("sop")
       ) ||
-      inScopeItems.some((item) =>
+      displayInScopeItems.some((item) =>
         item.toLowerCase().includes("documentation") ||
         item.toLowerCase().includes("handover") ||
         item.toLowerCase().includes("process")
       ) ||
-      outOfScopeItems.some((item) =>
+      displayOutOfScopeItems.some((item) =>
         item.toLowerCase().includes("documentation") ||
         item.toLowerCase().includes("sop")
       ));
@@ -591,6 +731,64 @@ export default function QuoteDocument({
         `/api/projects/${encodeURIComponent(projectId)}/quote/share`,
         {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            currency,
+            defaultRate: parseNumber(defaultRate, 1500),
+            phaseLines: phaseCommercials.map((phase) => ({
+              phase: phase.phase,
+              phaseName: phase.phaseName,
+              included: phase.included,
+              humanHours: phase.humanHours,
+              rate: phase.rate,
+              feeZar: phase.feeZar,
+              tasks: phase.tasks.map((task) => ({
+                id: task.id,
+                name: task.name,
+                type: task.type,
+                effortHours: task.effortHours
+              }))
+            })),
+            productLines: selectedProductLines.map((product) => ({
+              id: product.id,
+              slug: product.slug,
+              name: product.name,
+              category: product.category,
+              billingModel: product.billingModel,
+              description: product.description ?? null,
+              unitLabel: product.unitLabel,
+              quantity: product.quantity,
+              unitPrice: product.unitPrice,
+              lineTotalZar: product.lineTotalZar
+            })),
+            totals: {
+              totalHumanHours,
+              totalFeeZar,
+              additionalProductsTotalZar,
+              grandTotalZar,
+              paymentAmountZar
+            },
+            paymentSchedule,
+            context: {
+              quoteContextSummary:
+                summary?.executiveSummary ??
+                project?.scopeExecutiveSummary ??
+                project?.solutionRecommendation ??
+                project?.problemStatement ??
+                project?.commercialBrief ??
+                null,
+              inScopeItems,
+              outOfScopeItems,
+              supportingTools,
+              keyRisks,
+              nextQuestions,
+              clientResponsibilities,
+              isStandaloneQuote,
+              blueprintGeneratedAt: blueprint?.generatedAt ?? null
+            }
+          })
         }
       );
 
@@ -600,8 +798,12 @@ export default function QuoteDocument({
         throw new Error(body?.error ?? "Failed to push quote to client portal");
       }
 
-       if (body?.project) {
+      if (body?.project) {
         setProject(body.project);
+      }
+
+      if (body?.quote) {
+        setSavedQuote(body.quote);
       }
 
       setShareMessage("Quote pushed to the client portal inbox");
@@ -637,6 +839,10 @@ export default function QuoteDocument({
 
       if (body?.project) {
         setProject(body.project);
+      }
+
+      if (body?.quote) {
+        setSavedQuote(body.quote);
       }
 
       setShareMessage("Quote approved and scope locked");
@@ -852,7 +1058,7 @@ export default function QuoteDocument({
                         Quoted Human Hours
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-white">
-                        {totalHumanHours} hrs
+                        {displayTotals.totalHumanHours} hrs
                       </p>
                     </div>
 
@@ -861,7 +1067,7 @@ export default function QuoteDocument({
                         Estimated Investment
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-white">
-                        {formatCurrency(grandTotalZar, currency)}
+                        {formatCurrency(displayTotals.grandTotalZar, currency)}
                       </p>
                     </div>
                   </div>
@@ -944,16 +1150,7 @@ export default function QuoteDocument({
                   <SectionEyebrow>Quote Context</SectionEyebrow>
                   <SectionTitle>What this quote is based on</SectionTitle>
                   <p className="mt-4 text-sm leading-7 text-text-secondary">
-                    {isStandaloneQuote
-                      ? summary?.executiveSummary ??
-                        project.scopeExecutiveSummary ??
-                        project.solutionRecommendation ??
-                        project.problemStatement ??
-                        project.commercialBrief ??
-                        "This standalone quote is based on the scoped job brief captured for the client."
-                      : summary?.executiveSummary ??
-                        session1.business_overview ??
-                        "No executive summary generated yet."}
+                    {displayQuoteContextSummary}
                   </p>
                 </div>
 
@@ -1159,7 +1356,7 @@ export default function QuoteDocument({
                         In Scope
                       </p>
                       <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-                        {inScopeItems.map((item) => (
+                        {displayInScopeItems.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
                       </ul>
@@ -1169,7 +1366,7 @@ export default function QuoteDocument({
                         Out of Scope
                       </p>
                       <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-                        {outOfScopeItems.map((item) => (
+                        {displayOutOfScopeItems.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
                       </ul>
@@ -1187,8 +1384,8 @@ export default function QuoteDocument({
                           Supporting tools
                         </p>
                         <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-                          {(supportingTools.length
-                            ? supportingTools
+                          {(displaySupportingTools.length
+                            ? displaySupportingTools
                             : ["No supporting tools recommended yet. Refresh the scoped summary after adding more source material."]).map(
                             (item) => (
                               <li key={item}>{item}</li>
@@ -1201,8 +1398,8 @@ export default function QuoteDocument({
                           Key risks
                         </p>
                         <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-                          {(keyRisks.length
-                            ? keyRisks
+                          {(displayKeyRisks.length
+                            ? displayKeyRisks
                             : ["No key risks surfaced yet. Refresh the scoped summary after adding more context."]).map(
                             (item) => (
                               <li key={item}>{item}</li>
@@ -1215,8 +1412,8 @@ export default function QuoteDocument({
                           Recommended next questions
                         </p>
                         <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-                          {(nextQuestions.length
-                            ? nextQuestions
+                          {(displayNextQuestions.length
+                            ? displayNextQuestions
                             : ["No next questions generated yet. Refresh the scoped summary after adding more source material."]).map(
                             (item) => (
                               <li key={item}>{item}</li>
@@ -1337,7 +1534,7 @@ export default function QuoteDocument({
                     <div>
                       <p className="text-sm font-medium text-white">Key risks</p>
                       <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                        {keyRisks.map((item) => (
+                        {displayKeyRisks.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
                       </ul>
@@ -1347,18 +1544,18 @@ export default function QuoteDocument({
                         Client responsibilities
                       </p>
                       <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                        {clientResponsibilities.map((item) => (
+                        {displayClientResponsibilities.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
                       </ul>
                     </div>
-                    {nextQuestions.length > 0 ? (
+                    {displayNextQuestions.length > 0 ? (
                       <div>
                         <p className="text-sm font-medium text-white">
                           Open questions to resolve during approval
                         </p>
                         <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                          {nextQuestions.map((item) => (
+                          {displayNextQuestions.map((item) => (
                             <li key={item}>{item}</li>
                           ))}
                         </ul>
@@ -1370,7 +1567,7 @@ export default function QuoteDocument({
               </div>
             </section>
 
-            {phaseCommercials.length > 0 ? (
+            {displayPhaseCommercials.length > 0 ? (
             <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
@@ -1379,13 +1576,15 @@ export default function QuoteDocument({
                     Proposed onboarding phases and commercial split
                   </SectionTitle>
                 </div>
-                <p className="text-sm text-text-secondary">
-                  Generated {formatDate(blueprint.generatedAt)}
-                </p>
+                {displayBlueprintGeneratedAt ? (
+                  <p className="text-sm text-text-secondary">
+                    Generated {formatDate(displayBlueprintGeneratedAt)}
+                  </p>
+                ) : null}
               </div>
 
               <div className="mt-6 space-y-5">
-                {phaseCommercials.map((phase) => (
+                {displayPhaseCommercials.map((phase) => (
                   <div
                     key={phase.phase}
                     className={`rounded-2xl border p-5 ${
@@ -1621,7 +1820,7 @@ export default function QuoteDocument({
                     <span>Rate</span>
                     <span className="text-right">Fee</span>
                   </div>
-                  {phaseCommercials.map((phase) => (
+                  {displayPhaseCommercials.map((phase) => (
                     phase.included ? (
                     <div
                       key={phase.phase}
@@ -1640,7 +1839,7 @@ export default function QuoteDocument({
                     </div>
                     ) : null
                   ))}
-                  {selectedProductLines.map((product) => (
+                  {displaySelectedProductLines.map((product) => (
                     <div
                       key={product.id}
                       className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-5 py-4 text-sm text-white last:border-b-0"
@@ -1660,10 +1859,10 @@ export default function QuoteDocument({
                   ))}
                   <div className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-t border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-4 text-sm font-semibold text-white">
                     <span>Total</span>
-                    <span>{totalHumanHours} hrs + extras</span>
+                    <span>{displayTotals.totalHumanHours} hrs + extras</span>
                     <span />
                     <span className="text-right">
-                      {formatCurrency(grandTotalZar, currency)}
+                      {formatCurrency(displayTotals.grandTotalZar, currency)}
                     </span>
                   </div>
                 </div>
@@ -1712,7 +1911,7 @@ export default function QuoteDocument({
                     <span>Due</span>
                     <span className="text-right">Amount</span>
                   </div>
-                  {paymentSchedule.map((due, index) => (
+                  {displayPaymentSchedule.map((due, index) => (
                     <div
                       key={due}
                       className="grid grid-cols-[120px_1fr_160px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-5 py-4 text-sm text-white last:border-b-0"
@@ -1720,7 +1919,7 @@ export default function QuoteDocument({
                       <span>Payment {index + 1}</span>
                       <span>{due}</span>
                       <span className="text-right">
-                        {formatCurrency(paymentAmountZar, currency)}
+                        {formatCurrency(displayTotals.paymentAmountZar, currency)}
                       </span>
                     </div>
                   ))}

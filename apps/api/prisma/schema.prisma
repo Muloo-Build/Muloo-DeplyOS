@@ -125,7 +125,32 @@ model Project {
   executionJobs  ExecutionJob[]
   clientAccess   ClientProjectAccess[]
   clientSubmissions ClientInputSubmission[]
+  quotes         ProjectQuote[]
   workRequests   WorkRequest[]
+}
+
+model ProjectQuote {
+  id              String   @id @default(cuid())
+  projectId       String
+  version         Int
+  status          String   @default("shared")
+  currency        String
+  defaultRate     Float?
+  phaseLines      Json
+  productLines    Json
+  totals          Json
+  paymentSchedule Json
+  context         Json?
+  sharedAt        DateTime @default(now())
+  approvedAt      DateTime?
+  approvedByName  String?
+  approvedByEmail String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, version])
+  @@index([projectId, createdAt])
 }
 
 model ProjectMessage {

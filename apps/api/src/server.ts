@@ -2316,6 +2316,128 @@ function serializeClientProject<
   };
 }
 
+const projectQuotePhaseTaskSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  type: z.enum(["Agent", "Human", "Client"]),
+  effortHours: z.number().finite().nonnegative()
+});
+
+const projectQuotePhaseLineSchema = z.object({
+  phase: z.number().int().positive(),
+  phaseName: z.string().min(1),
+  included: z.boolean(),
+  humanHours: z.number().finite().nonnegative(),
+  rate: z.number().finite().nonnegative(),
+  feeZar: z.number().finite().nonnegative(),
+  tasks: z.array(projectQuotePhaseTaskSchema)
+});
+
+const projectQuoteProductLineSchema = z.object({
+  id: z.string().min(1),
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  category: z.string().min(1),
+  billingModel: z.string().min(1),
+  description: z.string().nullable().optional(),
+  unitLabel: z.string().min(1),
+  quantity: z.number().finite().positive(),
+  unitPrice: z.number().finite().positive(),
+  lineTotalZar: z.number().finite().nonnegative()
+});
+
+const projectQuoteTotalsSchema = z.object({
+  totalHumanHours: z.number().finite().nonnegative(),
+  totalFeeZar: z.number().finite().nonnegative(),
+  additionalProductsTotalZar: z.number().finite().nonnegative(),
+  grandTotalZar: z.number().finite().nonnegative(),
+  paymentAmountZar: z.number().finite().nonnegative()
+});
+
+const projectQuoteContextSchema = z.object({
+  quoteContextSummary: z.string().nullable(),
+  inScopeItems: z.array(z.string()),
+  outOfScopeItems: z.array(z.string()),
+  supportingTools: z.array(z.string()),
+  keyRisks: z.array(z.string()),
+  nextQuestions: z.array(z.string()),
+  clientResponsibilities: z.array(z.string()),
+  isStandaloneQuote: z.boolean(),
+  blueprintGeneratedAt: z.string().nullable()
+});
+
+const projectQuotePayloadSchema = z.object({
+  currency: z.enum(["ZAR", "GBP", "EUR", "USD", "AUD"]),
+  defaultRate: z.number().finite().positive(),
+  phaseLines: z.array(projectQuotePhaseLineSchema),
+  productLines: z.array(projectQuoteProductLineSchema),
+  totals: projectQuoteTotalsSchema,
+  paymentSchedule: z.array(z.string().min(1)).min(1),
+  context: projectQuoteContextSchema
+});
+
+function serializeProjectQuote<
+  T extends {
+    id: string;
+    projectId: string;
+    version: number;
+    status: string;
+    currency: string;
+    defaultRate: number | null;
+    phaseLines: Prisma.Prisma.JsonValue;
+    productLines: Prisma.Prisma.JsonValue;
+    totals: Prisma.Prisma.JsonValue;
+    paymentSchedule: Prisma.Prisma.JsonValue;
+    context: Prisma.Prisma.JsonValue | null;
+    sharedAt: Date;
+    approvedAt: Date | null;
+    approvedByName: string | null;
+    approvedByEmail: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(quote: T) {
+  return {
+    id: quote.id,
+    projectId: quote.projectId,
+    version: quote.version,
+    status: quote.status,
+    currency: quote.currency,
+    defaultRate: quote.defaultRate ?? null,
+    phaseLines: z.array(projectQuotePhaseLineSchema).parse(quote.phaseLines),
+    productLines: z.array(projectQuoteProductLineSchema).parse(
+      quote.productLines
+    ),
+    totals: projectQuoteTotalsSchema.parse(quote.totals),
+    paymentSchedule: z.array(z.string()).parse(quote.paymentSchedule),
+    context:
+      quote.context === null
+        ? null
+        : projectQuoteContextSchema.parse(quote.context),
+    sharedAt: quote.sharedAt.toISOString(),
+    approvedAt: quote.approvedAt?.toISOString() ?? null,
+    approvedByName: quote.approvedByName ?? null,
+    approvedByEmail: quote.approvedByEmail ?? null,
+    createdAt: quote.createdAt.toISOString(),
+    updatedAt: quote.updatedAt.toISOString()
+  };
+}
+
+async function loadLatestProjectQuote(
+  projectId: string,
+  statuses?: string[]
+) {
+  const quote = await prisma.projectQuote.findFirst({
+    where: {
+      projectId,
+      ...(statuses?.length ? { status: { in: statuses } } : {})
+    },
+    orderBy: [{ version: "desc" }]
+  });
+
+  return quote ? serializeProjectQuote(quote) : null;
+}
+
 function serializeClientPortalUser<
   T extends {
     id: string;
@@ -5425,7 +5547,59 @@ async function ensureProjectScopeUnlocked(
   }
 }
 
-async function shareProjectQuote(projectId: string) {
+async function shareProjectQuote(projectId: string, payload: unknown) {
+  await ensureProjectScopeUnlocked(projectId);
+  const latestExistingQuote = await prisma.projectQuote.findFirst({
+    where: { projectId },
+    orderBy: [{ version: "desc" }]
+  });
+  const hasIncomingPayload =
+    payload &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    Object.keys(payload as Record<string, unknown>).length > 0;
+
+  const normalizedPayload = hasIncomingPayload
+    ? projectQuotePayloadSchema.parse(payload)
+    : latestExistingQuote
+      ? {
+          currency: z
+            .enum(["ZAR", "GBP", "EUR", "USD", "AUD"])
+            .parse(latestExistingQuote.currency),
+          defaultRate: latestExistingQuote.defaultRate ?? 1500,
+          phaseLines: z
+            .array(projectQuotePhaseLineSchema)
+            .parse(latestExistingQuote.phaseLines),
+          productLines: z
+            .array(projectQuoteProductLineSchema)
+            .parse(latestExistingQuote.productLines),
+          totals: projectQuoteTotalsSchema.parse(latestExistingQuote.totals),
+          paymentSchedule: z
+            .array(z.string().min(1))
+            .parse(latestExistingQuote.paymentSchedule),
+          context:
+            latestExistingQuote.context === null
+              ? {
+                  quoteContextSummary: null,
+                  inScopeItems: [],
+                  outOfScopeItems: [],
+                  supportingTools: [],
+                  keyRisks: [],
+                  nextQuestions: [],
+                  clientResponsibilities: [],
+                  isStandaloneQuote: false,
+                  blueprintGeneratedAt: null
+                }
+              : projectQuoteContextSchema.parse(latestExistingQuote.context)
+        }
+      : null;
+
+  if (!normalizedPayload) {
+    throw new Error(
+      "Open the quote page first, set the commercial scope, then push the quote to the client portal."
+    );
+  }
+
   const [project, summary, blueprint] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
@@ -5458,18 +5632,64 @@ async function shareProjectQuote(projectId: string) {
     );
   }
 
-  const updatedProject = await prisma.project.update({
-    where: { id: projectId },
-    data: {
-      quoteApprovalStatus:
-        project.quoteApprovalStatus === "approved" ? "approved" : "shared",
-      quoteSharedAt: project.quoteSharedAt ?? new Date()
-    },
-    include: {
-      client: true,
-      portal: true
+  const sharedAt = new Date();
+
+  const { updatedProject, createdQuote } = await prisma.$transaction(
+    async (transaction) => {
+      await transaction.projectQuote.updateMany({
+        where: {
+          projectId,
+          status: {
+            in: ["shared", "draft"]
+          }
+        },
+        data: {
+          status: "superseded"
+        }
+      });
+
+      const createdQuote = hasIncomingPayload
+        ? await transaction.projectQuote.create({
+            data: {
+              projectId,
+              version: (latestExistingQuote?.version ?? 0) + 1,
+              status: "shared",
+              currency: normalizedPayload.currency,
+              defaultRate: normalizedPayload.defaultRate,
+              phaseLines:
+                normalizedPayload.phaseLines as Prisma.Prisma.InputJsonValue,
+              productLines:
+                normalizedPayload.productLines as Prisma.Prisma.InputJsonValue,
+              totals: normalizedPayload.totals as Prisma.Prisma.InputJsonValue,
+              paymentSchedule:
+                normalizedPayload.paymentSchedule as Prisma.Prisma.InputJsonValue,
+              context: normalizedPayload.context as Prisma.Prisma.InputJsonValue,
+              sharedAt
+            }
+          })
+        : await transaction.projectQuote.update({
+            where: { id: latestExistingQuote!.id },
+            data: {
+              status: "shared",
+              sharedAt
+            }
+          });
+
+      const updatedProject = await transaction.project.update({
+        where: { id: projectId },
+        data: {
+          quoteApprovalStatus: "shared",
+          quoteSharedAt: sharedAt
+        },
+        include: {
+          client: true,
+          portal: true
+        }
+      });
+
+      return { updatedProject, createdQuote };
     }
-  });
+  );
 
   await createProjectMessage({
     projectId,
@@ -5479,7 +5699,10 @@ async function shareProjectQuote(projectId: string) {
       "Your quote is now available in the client portal. Open this project and use the Open Quote button to review the latest commercial scope and approval pack."
   });
 
-  return serializeProject(updatedProject);
+  return {
+    project: serializeProject(updatedProject),
+    quote: serializeProjectQuote(createdQuote)
+  };
 }
 
 async function approveProjectQuote(projectId: string, clientUserId: string) {
@@ -5513,24 +5736,54 @@ async function approveProjectQuote(projectId: string, clientUserId: string) {
   const approvedAt = access.project.quoteApprovedAt ?? new Date();
   const lockedAt = access.project.scopeLockedAt ?? approvedAt;
 
-  const updatedProject = await prisma.project.update({
-    where: { id: projectId },
-    data: {
-      quoteApprovalStatus: "approved",
-      quoteApprovedAt: approvedAt,
-      quoteApprovedByName: approverName || access.user.email,
-      quoteApprovedByEmail: access.user.email,
-      scopeLockedAt: lockedAt,
-      status:
-        access.project.status === "complete"
-          ? access.project.status
-          : "ready-for-execution"
-    },
-    include: {
-      client: true,
-      portal: true
+  const { updatedProject, approvedQuote } = await prisma.$transaction(
+    async (transaction) => {
+      const latestQuote = await transaction.projectQuote.findFirst({
+        where: {
+          projectId,
+          status: {
+            in: ["shared", "approved"]
+          }
+        },
+        orderBy: [{ version: "desc" }]
+      });
+
+      if (!latestQuote) {
+        throw new Error("Quote has not yet been published to the client portal.");
+      }
+
+      const approvedQuote = await transaction.projectQuote.update({
+        where: { id: latestQuote.id },
+        data: {
+          status: "approved",
+          approvedAt,
+          approvedByName: approverName || access.user.email,
+          approvedByEmail: access.user.email
+        }
+      });
+
+      const updatedProject = await transaction.project.update({
+        where: { id: projectId },
+        data: {
+          quoteApprovalStatus: "approved",
+          quoteApprovedAt: approvedAt,
+          quoteApprovedByName: approverName || access.user.email,
+          quoteApprovedByEmail: access.user.email,
+          scopeLockedAt: lockedAt,
+          status:
+            access.project.status === "complete"
+              ? access.project.status
+              : "ready-for-execution"
+        },
+        include: {
+          client: true,
+          portal: true
+        }
+      });
+
+      return { updatedProject, approvedQuote };
     }
-  });
+  );
 
   await createProjectMessage({
     projectId,
@@ -5540,7 +5793,10 @@ async function approveProjectQuote(projectId: string, clientUserId: string) {
       "Approved the quote in the client portal. The project scope is now locked for delivery."
   });
 
-  return serializeProject(updatedProject);
+  return {
+    project: serializeProject(updatedProject),
+    quote: serializeProjectQuote(approvedQuote)
+  };
 }
 
 async function resetDiscoverySummary(projectId: string) {
@@ -7059,7 +7315,7 @@ async function loadClientQuoteDocument(projectId: string, userId: string) {
     return null;
   }
 
-  const [project, discoverySubmissions, summary, blueprint, products] =
+  const [project, discoverySubmissions, summary, blueprint, products, quote] =
     await Promise.all([
       prisma.project.findUnique({
         where: { id: projectId },
@@ -7080,7 +7336,8 @@ async function loadClientQuoteDocument(projectId: string, userId: string) {
       }),
       loadDiscoverySummary(projectId),
       loadBlueprint(projectId),
-      loadProductCatalog()
+      loadProductCatalog(),
+      loadLatestProjectQuote(projectId, ["shared", "approved"])
     ]);
 
   if (!project) {
@@ -7092,7 +7349,8 @@ async function loadClientQuoteDocument(projectId: string, userId: string) {
     sessions: buildDiscoverySessionsWithStatus(discoverySubmissions),
     summary,
     blueprint,
-    products
+    products,
+    quote
   };
 }
 
@@ -8415,12 +8673,16 @@ export function createAppServer(config: BaseConfig): http.Server {
         if (clientProjectQuoteApprovalRoute) {
           if (request.method === "POST") {
             try {
-              const project = await approveProjectQuote(
+              const result = await approveProjectQuote(
                 clientProjectQuoteApprovalRoute.projectId,
                 clientUserId
               );
 
-              return sendJson(response, 200, { project, approved: true });
+              return sendJson(response, 200, {
+                project: result.project,
+                quote: result.quote,
+                approved: true
+              });
             } catch (error) {
               if (
                 error instanceof Error &&
@@ -8531,6 +8793,12 @@ export function createAppServer(config: BaseConfig): http.Server {
 
             if (!document) {
               return sendJson(response, 404, { error: "Project not found" });
+            }
+
+            if (!document.quote) {
+              return sendJson(response, 400, {
+                error: "Quote has not yet been published to the client portal."
+              });
             }
 
             const isStandaloneQuote =
@@ -10082,14 +10350,29 @@ export function createAppServer(config: BaseConfig): http.Server {
       if (projectQuoteRoute) {
         if (request.method === "POST" && projectQuoteRoute.action === "share") {
           try {
-            const project = await shareProjectQuote(projectQuoteRoute.projectId);
-            return sendJson(response, 200, { project, shared: true });
+            const result = await shareProjectQuote(
+              projectQuoteRoute.projectId,
+              await readJsonBody(request)
+            );
+            return sendJson(response, 200, {
+              project: result.project,
+              quote: result.quote,
+              shared: true
+            });
           } catch (error) {
             if (
               error instanceof Error &&
               error.message === "Project not found"
             ) {
               return sendJson(response, 404, { error: error.message });
+            }
+
+            if (
+              error instanceof Error &&
+              error.message ===
+                "Approved scope is locked. Use change management to revise this project."
+            ) {
+              return sendJson(response, 409, { error: error.message });
             }
 
             return sendJson(response, 400, {
