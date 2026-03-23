@@ -602,12 +602,32 @@ const workRequestTypeOptions = [
   "project_brief",
   "change_request"
 ] as const;
+const changeRequestStatusOptions = [
+  "new",
+  "under_review",
+  "priced",
+  "approved",
+  "rejected",
+  "appended_to_delivery",
+  "closed"
+] as const;
 
 type EngagementType = (typeof validEngagementTypes)[number];
 type ProjectHub = (typeof validProjectHubValues)[number];
 type DiscoverySessionFields = Record<string, string>;
 type DiscoverySessionStatus = "draft" | "in_progress" | "complete";
 type DiscoveryEvidenceType = (typeof discoveryEvidenceTypeValues)[number];
+type ChangeDeliveryTaskPlan = {
+  title: string;
+  description: string;
+  category: string;
+  plannedHours: number;
+  assigneeType: "Human" | "Agent" | "Client";
+  executionType: string;
+  priority: string;
+  qaRequired: boolean;
+  approvalRequired: boolean;
+};
 type ClientQuestionnaireQuestion = {
   key: string;
   label: string;
@@ -1951,11 +1971,12 @@ function matchProjectRoute(pathname: string): {
     | "scope"
     | "discovery"
     | "status"
+    | "changes"
     | "email-draft"
     | "send-email";
 } | null {
   const match =
-    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions|scope|discovery|status|email-draft|send-email))?$/.exec(
+    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions|scope|discovery|status|changes|email-draft|send-email))?$/.exec(
       pathname
     );
 
@@ -1974,6 +1995,7 @@ function matchProjectRoute(pathname: string): {
     resource === "scope" ||
     resource === "discovery" ||
     resource === "status" ||
+    resource === "changes" ||
     resource === "email-draft" ||
     resource === "send-email"
       ? resource
@@ -2145,9 +2167,9 @@ function matchDeliveryTemplateRoute(pathname: string): {
 
 function matchWorkRequestRoute(pathname: string): {
   requestId?: string;
-  action?: "convert";
+  action?: "convert" | "append-to-delivery";
 } | null {
-  const match = /^\/api\/work-requests(?:\/([^/]+?)(?:\/(convert))?)?$/.exec(
+  const match = /^\/api\/work-requests(?:\/([^/]+?)(?:\/(convert|append-to-delivery))?)?$/.exec(
     pathname
   );
 
@@ -2158,7 +2180,11 @@ function matchWorkRequestRoute(pathname: string): {
   return match[1]
     ? {
         requestId: decodeURIComponent(match[1]),
-        ...(match[2] === "convert" ? { action: "convert" as const } : {})
+        ...(match[2] === "convert"
+          ? { action: "convert" as const }
+          : match[2] === "append-to-delivery"
+            ? { action: "append-to-delivery" as const }
+            : {})
       }
     : {};
 }
@@ -2993,6 +3019,8 @@ function serializeTask<
     approvalRequired: boolean;
     dependencyIds: string[];
     assigneeType: string | null;
+    scopeOrigin?: string | null;
+    changeRequestId?: string | null;
     assignedAgentId?: string | null;
     assignedAgent?: { name: string } | null;
     createdAt: Date;
@@ -3015,6 +3043,8 @@ function serializeTask<
     approvalRequired: task.approvalRequired,
     dependencyIds: task.dependencyIds,
     assigneeType: task.assigneeType,
+    scopeOrigin: task.scopeOrigin ?? "baseline",
+    changeRequestId: task.changeRequestId ?? null,
     assignedAgentId: task.assignedAgentId ?? null,
     assignedAgentName: task.assignedAgent?.name ?? null,
     createdAt: task.createdAt.toISOString(),
@@ -3568,6 +3598,15 @@ function serializeWorkRequest<
     urgency: string | null;
     budgetRange: string | null;
     portalOrWebsite: string | null;
+    internalNotes?: string | null;
+    commercialImpactHours?: number | null;
+    commercialImpactFeeZar?: number | null;
+    deliveryTasks?: unknown | null;
+    reviewedAt?: Date | null;
+    approvedAt?: Date | null;
+    approvedByName?: string | null;
+    rejectedAt?: Date | null;
+    deliveryAppendedAt?: Date | null;
     links: string[];
     status: string;
     createdAt: Date;
@@ -3589,6 +3628,15 @@ function serializeWorkRequest<
     urgency: request.urgency,
     budgetRange: request.budgetRange,
     portalOrWebsite: request.portalOrWebsite,
+    internalNotes: request.internalNotes ?? null,
+    commercialImpactHours: request.commercialImpactHours ?? null,
+    commercialImpactFeeZar: request.commercialImpactFeeZar ?? null,
+    deliveryTasks: normalizeChangeDeliveryTasks(request.deliveryTasks),
+    reviewedAt: request.reviewedAt?.toISOString() ?? null,
+    approvedAt: request.approvedAt?.toISOString() ?? null,
+    approvedByName: request.approvedByName ?? null,
+    rejectedAt: request.rejectedAt?.toISOString() ?? null,
+    deliveryAppendedAt: request.deliveryAppendedAt?.toISOString() ?? null,
     links: request.links,
     status: request.status,
     createdAt: request.createdAt.toISOString(),
@@ -3614,6 +3662,48 @@ function normalizeRequiredTaskString(value: unknown, fieldName: string) {
   }
 
   return value.trim();
+}
+
+function normalizeChangeDeliveryTasks(value: unknown): ChangeDeliveryTaskPlan[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((task): task is Record<string, unknown> => Boolean(task) && typeof task === "object")
+    .map((task) => {
+      const plannedHours =
+        typeof task.plannedHours === "number"
+          ? task.plannedHours
+          : Number(task.plannedHours);
+      const assigneeType =
+        typeof task.assigneeType === "string" ? task.assigneeType.trim() : "Human";
+      const normalizedAssigneeType =
+        assigneeType === "Agent" || assigneeType === "Client" ? assigneeType : "Human";
+      const priority =
+        typeof task.priority === "string" && task.priority.trim().length > 0
+          ? task.priority.trim().toLowerCase()
+          : "medium";
+
+      return {
+        title: normalizeRequiredTaskString(task.title, "change task title"),
+        description:
+          typeof task.description === "string" ? task.description.trim() : "",
+        category: typeof task.category === "string" ? task.category.trim() : "",
+        plannedHours: Number.isFinite(plannedHours) && plannedHours >= 0 ? plannedHours : 0,
+        assigneeType: normalizedAssigneeType,
+        executionType:
+          typeof task.executionType === "string" && task.executionType.trim().length > 0
+            ? task.executionType.trim()
+            : "manual",
+        priority:
+          priority === "low" || priority === "high" || priority === "medium"
+            ? priority
+            : "medium",
+        qaRequired: Boolean(task.qaRequired),
+        approvalRequired: Boolean(task.approvalRequired)
+      };
+    });
 }
 
 function extractJsonBlock(rawText: string): string {
@@ -7375,9 +7465,11 @@ async function loadDeliveryTemplates() {
 async function loadWorkRequests(filters?: {
   projectIds?: string[];
   contactEmail?: string;
+  requestType?: string;
 }) {
   const requests = await prisma.workRequest.findMany({
     where: {
+      ...(filters?.requestType ? { requestType: filters.requestType } : {}),
       ...(filters?.projectIds?.length
         ? {
             OR: [
@@ -7403,6 +7495,27 @@ async function loadWorkRequests(filters?: {
   });
 
   return requests.map((request) => serializeWorkRequest(request));
+}
+
+async function loadProjectChangeRequests(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, name: true }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const workRequests = await loadWorkRequests({
+    projectIds: [projectId],
+    requestType: "change_request"
+  });
+
+  return {
+    project,
+    workRequests
+  };
 }
 
 async function createProductCatalogItem(value: {
@@ -7811,6 +7924,12 @@ async function createWorkRequest(value: {
   budgetRange?: unknown;
   portalOrWebsite?: unknown;
   links?: unknown;
+  internalNotes?: unknown;
+  commercialImpactHours?: unknown;
+  commercialImpactFeeZar?: unknown;
+  deliveryTasks?: unknown;
+  approvedByName?: unknown;
+  status?: unknown;
 }) {
   const title = typeof value.title === "string" ? value.title.trim() : "";
   const requestType =
@@ -7835,6 +7954,21 @@ async function createWorkRequest(value: {
       ? value.portalOrWebsite.trim()
       : "";
   const links = normalizeStringArray(value.links);
+  const internalNotes =
+    typeof value.internalNotes === "string" ? value.internalNotes.trim() : "";
+  const approvedByName =
+    typeof value.approvedByName === "string" ? value.approvedByName.trim() : "";
+  const commercialImpactHours =
+    typeof value.commercialImpactHours === "number"
+      ? value.commercialImpactHours
+      : Number(value.commercialImpactHours);
+  const commercialImpactFeeZar =
+    typeof value.commercialImpactFeeZar === "number"
+      ? value.commercialImpactFeeZar
+      : Number(value.commercialImpactFeeZar);
+  const deliveryTasks = normalizeChangeDeliveryTasks(value.deliveryTasks);
+  const requestedStatus =
+    typeof value.status === "string" ? value.status.trim() : "";
 
   if (!title || !contactName || !contactEmail || !summary) {
     throw new Error("title, contactName, contactEmail, and summary are required");
@@ -7858,6 +7992,16 @@ async function createWorkRequest(value: {
     throw new Error("Invalid requestType");
   }
 
+  if (
+    requestedStatus &&
+    requestType === "change_request" &&
+    !changeRequestStatusOptions.includes(
+      requestedStatus as (typeof changeRequestStatusOptions)[number]
+    )
+  ) {
+    throw new Error("Invalid change request status");
+  }
+
   const request = await prisma.workRequest.create({
     data: {
       projectId:
@@ -7875,8 +8019,40 @@ async function createWorkRequest(value: {
       urgency: urgency || null,
       budgetRange: budgetRange || null,
       portalOrWebsite: portalOrWebsite || null,
+      internalNotes: internalNotes || null,
+      commercialImpactHours:
+        Number.isFinite(commercialImpactHours) && commercialImpactHours >= 0
+          ? commercialImpactHours
+          : null,
+      commercialImpactFeeZar:
+        Number.isFinite(commercialImpactFeeZar) && commercialImpactFeeZar >= 0
+          ? commercialImpactFeeZar
+          : null,
+      deliveryTasks,
+      reviewedAt:
+        requestedStatus === "under_review" ||
+        requestedStatus === "priced" ||
+        requestedStatus === "approved" ||
+        requestedStatus === "rejected" ||
+        requestedStatus === "appended_to_delivery"
+          ? new Date()
+          : null,
+      approvedAt:
+        requestedStatus === "approved" || requestedStatus === "appended_to_delivery"
+          ? new Date()
+          : null,
+      approvedByName:
+        requestedStatus === "approved" || requestedStatus === "appended_to_delivery"
+          ? approvedByName || "Muloo"
+          : null,
+      rejectedAt: requestedStatus === "rejected" ? new Date() : null,
+      deliveryAppendedAt:
+        requestedStatus === "appended_to_delivery" ? new Date() : null,
       links,
-      status: "new"
+      status:
+        requestType === "change_request" && requestedStatus
+          ? requestedStatus
+          : "new"
     },
     include: {
       project: {
@@ -7897,8 +8073,32 @@ async function updateWorkRequest(
     status?: unknown;
     title?: unknown;
     summary?: unknown;
+    details?: unknown;
+    internalNotes?: unknown;
+    commercialImpactHours?: unknown;
+    commercialImpactFeeZar?: unknown;
+    deliveryTasks?: unknown;
+    approvedByName?: unknown;
   }
 ) {
+  const existingRequest = await prisma.workRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      id: true,
+      requestType: true,
+      status: true,
+      reviewedAt: true,
+      approvedAt: true,
+      approvedByName: true,
+      rejectedAt: true,
+      deliveryAppendedAt: true
+    }
+  });
+
+  if (!existingRequest) {
+    throw new Error("Work request not found");
+  }
+
   const updateData: Prisma.Prisma.WorkRequestUpdateInput = {};
 
   if (value.status !== undefined) {
@@ -7906,7 +8106,50 @@ async function updateWorkRequest(
       throw new Error("status must be a non-empty string");
     }
 
-    updateData.status = value.status.trim();
+    const nextStatus = value.status.trim();
+
+    if (
+      existingRequest.requestType === "change_request" &&
+      !changeRequestStatusOptions.includes(
+        nextStatus as (typeof changeRequestStatusOptions)[number]
+      )
+    ) {
+      throw new Error("Invalid change request status");
+    }
+
+    updateData.status = nextStatus;
+
+    if (
+      existingRequest.requestType === "change_request" &&
+      ["under_review", "priced", "approved", "rejected", "appended_to_delivery", "closed"].includes(
+        nextStatus
+      )
+    ) {
+      updateData.reviewedAt = existingRequest.reviewedAt ?? new Date();
+    }
+
+    if (
+      existingRequest.requestType === "change_request" &&
+      (nextStatus === "approved" || nextStatus === "appended_to_delivery")
+    ) {
+      updateData.approvedAt = existingRequest.approvedAt ?? new Date();
+      updateData.approvedByName =
+        typeof value.approvedByName === "string" && value.approvedByName.trim()
+          ? value.approvedByName.trim()
+          : existingRequest.approvedByName ?? "Muloo";
+    }
+
+    if (existingRequest.requestType === "change_request" && nextStatus === "rejected") {
+      updateData.rejectedAt = existingRequest.rejectedAt ?? new Date();
+    }
+
+    if (
+      existingRequest.requestType === "change_request" &&
+      nextStatus === "appended_to_delivery"
+    ) {
+      updateData.deliveryAppendedAt =
+        existingRequest.deliveryAppendedAt ?? new Date();
+    }
   }
 
   if (value.title !== undefined) {
@@ -7925,6 +8168,75 @@ async function updateWorkRequest(
     updateData.summary = value.summary.trim();
   }
 
+  if (value.details !== undefined) {
+    if (value.details !== null && typeof value.details !== "string") {
+      throw new Error("details must be a string or null");
+    }
+
+    updateData.details =
+      typeof value.details === "string" ? value.details.trim() || null : null;
+  }
+
+  if (value.internalNotes !== undefined) {
+    if (value.internalNotes !== null && typeof value.internalNotes !== "string") {
+      throw new Error("internalNotes must be a string or null");
+    }
+
+    updateData.internalNotes =
+      typeof value.internalNotes === "string"
+        ? value.internalNotes.trim() || null
+        : null;
+  }
+
+  if (value.commercialImpactHours !== undefined) {
+    if (value.commercialImpactHours === null || value.commercialImpactHours === "") {
+      updateData.commercialImpactHours = null;
+    } else {
+    const commercialImpactHours =
+      typeof value.commercialImpactHours === "number"
+        ? value.commercialImpactHours
+        : Number(value.commercialImpactHours);
+
+    if (!Number.isFinite(commercialImpactHours) || commercialImpactHours < 0) {
+      throw new Error("commercialImpactHours must be a valid non-negative number");
+    }
+
+    updateData.commercialImpactHours = commercialImpactHours;
+    }
+  }
+
+  if (value.commercialImpactFeeZar !== undefined) {
+    if (value.commercialImpactFeeZar === null || value.commercialImpactFeeZar === "") {
+      updateData.commercialImpactFeeZar = null;
+    } else {
+    const commercialImpactFeeZar =
+      typeof value.commercialImpactFeeZar === "number"
+        ? value.commercialImpactFeeZar
+        : Number(value.commercialImpactFeeZar);
+
+    if (!Number.isFinite(commercialImpactFeeZar) || commercialImpactFeeZar < 0) {
+      throw new Error("commercialImpactFeeZar must be a valid non-negative number");
+    }
+
+    updateData.commercialImpactFeeZar = commercialImpactFeeZar;
+    }
+  }
+
+  if (value.deliveryTasks !== undefined) {
+    updateData.deliveryTasks = normalizeChangeDeliveryTasks(value.deliveryTasks);
+  }
+
+  if (value.approvedByName !== undefined) {
+    if (value.approvedByName !== null && typeof value.approvedByName !== "string") {
+      throw new Error("approvedByName must be a string or null");
+    }
+
+    updateData.approvedByName =
+      typeof value.approvedByName === "string"
+        ? value.approvedByName.trim() || null
+        : null;
+  }
+
   const request = await prisma.workRequest.update({
     where: { id: requestId },
     data: updateData,
@@ -7939,6 +8251,128 @@ async function updateWorkRequest(
   });
 
   return serializeWorkRequest(request);
+}
+
+async function appendApprovedChangeRequestToDelivery(requestId: string) {
+  const workRequest = await prisma.workRequest.findUnique({
+    where: { id: requestId },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          serviceFamily: true,
+          quoteApprovalStatus: true,
+          scopeLockedAt: true
+        }
+      }
+    }
+  });
+
+  if (!workRequest) {
+    throw new Error("Change request not found");
+  }
+
+  if (workRequest.requestType !== "change_request") {
+    throw new Error("Only change requests can be appended to delivery");
+  }
+
+  if (!workRequest.projectId || !workRequest.project) {
+    throw new Error("Change request is not linked to a project");
+  }
+
+  if (!isProjectScopeLocked(workRequest.project)) {
+    throw new Error("Approve and lock the project scope before appending change work");
+  }
+
+  if (!["approved", "appended_to_delivery"].includes(workRequest.status)) {
+    throw new Error("Approve the change request before pushing it into delivery");
+  }
+
+  if (workRequest.deliveryAppendedAt) {
+    throw new Error("This change request has already been appended to delivery");
+  }
+
+  const plannedTasks = normalizeChangeDeliveryTasks(workRequest.deliveryTasks);
+  const availableAgents = await loadPreferredAgentIdsByServiceFamily(
+    workRequest.project.serviceFamily
+  );
+
+  if (plannedTasks.length === 0) {
+    throw new Error("Add at least one delivery task before appending this change");
+  }
+
+  const createdTasks = [] as Awaited<ReturnType<typeof prisma.task.create>>[];
+
+  for (const plannedTask of plannedTasks) {
+    const task = await prisma.task.create({
+      data: {
+        projectId: workRequest.projectId,
+        changeRequestId: workRequest.id,
+        scopeOrigin: "change_request",
+        title: plannedTask.title,
+        description: plannedTask.description || null,
+        category: plannedTask.category || "Approved change request",
+        executionType: plannedTask.executionType,
+        priority: plannedTask.priority,
+        status:
+          plannedTask.assigneeType === "Client" ? "waiting_on_client" : "todo",
+        plannedHours: plannedTask.plannedHours,
+        actualHours: 0,
+        qaRequired: plannedTask.qaRequired,
+        approvalRequired: plannedTask.approvalRequired,
+        assigneeType: plannedTask.assigneeType,
+        assignedAgentId:
+          plannedTask.assigneeType === "Agent"
+            ? pickAgentForTask(availableAgents, {
+                title: plannedTask.title,
+                description: plannedTask.description,
+                category: plannedTask.category,
+                executionType: plannedTask.executionType,
+                assigneeType: plannedTask.assigneeType
+              })
+            : null,
+        executionReadiness:
+          plannedTask.assigneeType === "Agent" ? "ready_with_review" : "not_ready"
+      },
+      include: {
+        assignedAgent: { select: { name: true } }
+      }
+    });
+
+    createdTasks.push(task);
+  }
+
+  const updatedRequest = await prisma.workRequest.update({
+    where: { id: workRequest.id },
+    data: {
+      status: "appended_to_delivery",
+      reviewedAt: workRequest.reviewedAt ?? new Date(),
+      approvedAt: workRequest.approvedAt ?? new Date(),
+      approvedByName: workRequest.approvedByName ?? "Muloo",
+      deliveryAppendedAt: new Date()
+    },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
+  });
+
+  await createProjectMessage({
+    projectId: workRequest.projectId,
+    senderType: "internal",
+    senderName: "Muloo",
+    body: `Approved change request "${workRequest.title}" was appended to the delivery board with ${createdTasks.length} new task${createdTasks.length === 1 ? "" : "s"}.`
+  });
+
+  return {
+    workRequest: serializeWorkRequest(updatedRequest),
+    tasks: createdTasks.map((task) => serializeTask(task))
+  };
 }
 
 async function loadClientsDirectory() {
@@ -11637,6 +12071,35 @@ export function createAppServer(config: BaseConfig): http.Server {
           }
         }
 
+        if (
+          request.method === "POST" &&
+          workRequestRoute.requestId &&
+          workRequestRoute.action === "append-to-delivery"
+        ) {
+          try {
+            const result = await appendApprovedChangeRequestToDelivery(
+              workRequestRoute.requestId
+            );
+            return sendJson(response, 200, result);
+          } catch (error) {
+            return sendJson(
+              response,
+              error instanceof Error &&
+              ["Change request not found", "Change request is not linked to a project"].includes(
+                error.message
+              )
+                ? 404
+                : 400,
+              {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to append change request to delivery"
+              }
+            );
+          }
+        }
+
         return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
@@ -13305,6 +13768,71 @@ export function createAppServer(config: BaseConfig): http.Server {
 
       const projectRoute = matchProjectRoute(url.pathname);
       if (projectRoute) {
+        if (projectRoute.resource === "changes") {
+          if (request.method === "GET") {
+            try {
+              const result = await loadProjectChangeRequests(projectRoute.projectId);
+              return sendJson(response, 200, result);
+            } catch (error) {
+              return sendJson(
+                response,
+                error instanceof Error && error.message === "Project not found"
+                  ? 404
+                  : 400,
+                {
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "Failed to load project change requests"
+                }
+              );
+            }
+          }
+
+          if (request.method === "POST") {
+            try {
+              const project = await prisma.project.findUnique({
+                where: { id: projectRoute.projectId },
+                include: {
+                  client: true
+                }
+              });
+
+              if (!project) {
+                return sendJson(response, 404, { error: "Project not found" });
+              }
+
+              const body = (await readJsonBody(request)) as Record<string, unknown>;
+              const workRequest = await createWorkRequest({
+                ...body,
+                projectId: project.id,
+                serviceFamily: project.serviceFamily,
+                companyName: project.client.name,
+                contactName:
+                  typeof body.contactName === "string" && body.contactName.trim().length > 0
+                    ? body.contactName
+                    : project.clientChampionFirstName || project.owner || project.client.name,
+                contactEmail:
+                  typeof body.contactEmail === "string" && body.contactEmail.trim().length > 0
+                    ? body.contactEmail
+                    : project.clientChampionEmail || project.ownerEmail || "hello@muloo.co",
+                requestType: "change_request"
+              });
+
+              return sendJson(response, 201, { workRequest });
+            } catch (error) {
+              return sendJson(response, 400, {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to create project change request"
+              });
+            }
+          }
+
+          return sendJson(response, 405, { error: "Method Not Allowed" });
+        }
+
         if (request.method === "GET" && !projectRoute.resource) {
           const project = await prisma.project.findUnique({
             where: { id: projectRoute.projectId },

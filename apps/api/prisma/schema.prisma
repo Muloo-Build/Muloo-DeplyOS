@@ -331,24 +331,34 @@ model ClientProjectAccess {
 }
 
 model WorkRequest {
-  id             String    @id @default(cuid())
-  projectId      String?
-  title          String
-  serviceFamily  String    @default("hubspot_architecture")
-  requestType    String
-  companyName    String?
-  contactName    String
-  contactEmail   String
-  summary        String
-  details        String?
-  urgency        String?
-  budgetRange    String?
-  portalOrWebsite String?
-  links          String[]
-  status         String    @default("new")
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  project        Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  id                     String    @id @default(cuid())
+  projectId              String?
+  title                  String
+  serviceFamily          String    @default("hubspot_architecture")
+  requestType            String
+  companyName            String?
+  contactName            String
+  contactEmail           String
+  summary                String
+  details                String?
+  urgency                String?
+  budgetRange            String?
+  portalOrWebsite        String?
+  internalNotes          String?
+  commercialImpactHours  Float?
+  commercialImpactFeeZar Float?
+  deliveryTasks          Json?
+  reviewedAt             DateTime?
+  approvedAt             DateTime?
+  approvedByName         String?
+  rejectedAt             DateTime?
+  deliveryAppendedAt     DateTime?
+  links                  String[]
+  status                 String    @default("new")
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  project                Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  tasks                  Task[]
 
   @@index([status, createdAt])
   @@index([projectId, createdAt])
@@ -458,6 +468,8 @@ model BlueprintTask {
 model Task {
   id               String         @id @default(cuid())
   projectId        String
+  changeRequestId  String?
+  scopeOrigin      String         @default("baseline")
   title            String
   description      String?
   category         String?
@@ -475,6 +487,7 @@ model Task {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   project          Project        @relation(fields: [projectId], references: [id])
+  changeRequest    WorkRequest?   @relation(fields: [changeRequestId], references: [id], onDelete: SetNull)
   assignedAgent    AgentDefinition? @relation(fields: [assignedAgentId], references: [id])
   executionJobs    ExecutionJob[]
 }

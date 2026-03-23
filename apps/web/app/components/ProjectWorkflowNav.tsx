@@ -49,6 +49,10 @@ export default function ProjectWorkflowNav({
       label: "Quote & Approval"
     },
     {
+      href: `/projects/${projectId}/changes`,
+      label: "Change Mgmt"
+    },
+    {
       href: `/projects/${projectId}/delivery`,
       label: "Delivery Board"
     }

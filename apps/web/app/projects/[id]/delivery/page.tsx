@@ -35,6 +35,12 @@ export default function ProjectDeliveryBoardPage({
               Project Overview
             </Link>
             <Link
+              href={`/projects/${params.id}/changes`}
+              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+            >
+              Change Mgmt
+            </Link>
+            <Link
               href={`/projects/${params.id}/quote`}
               className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
             >

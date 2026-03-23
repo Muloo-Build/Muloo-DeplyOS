@@ -30,6 +30,16 @@ const serviceFamilies = [
   { value: "custom_engineering", label: "Custom Engineering" },
   { value: "ai_automation", label: "AI Automation" }
 ];
+const generalStatuses = ["new", "triaging", "quoted", "converted", "closed"];
+const changeRequestStatuses = [
+  "new",
+  "under_review",
+  "priced",
+  "approved",
+  "rejected",
+  "appended_to_delivery",
+  "closed"
+];
 
 export default function WorkRequestsInbox() {
   const router = useRouter();
@@ -168,36 +178,48 @@ export default function WorkRequestsInbox() {
                 </h3>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  href={`/projects/new?title=${encodeURIComponent(
-                    request.title
-                  )}&clientName=${encodeURIComponent(
-                    request.companyName ?? request.project?.name ?? ""
-                  )}&contactName=${encodeURIComponent(
-                    request.contactName
-                  )}&contactEmail=${encodeURIComponent(
-                    request.contactEmail
-                  )}&portalOrWebsite=${encodeURIComponent(
-                    request.portalOrWebsite ?? ""
-                  )}&summary=${encodeURIComponent(
-                    request.summary
-                  )}&details=${encodeURIComponent(
-                    request.details ?? ""
-                  )}&serviceFamily=${encodeURIComponent(
-                    request.serviceFamily
-                  )}&requestType=${encodeURIComponent(request.requestType)}`}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm font-medium text-white"
-                >
-                  Prefill project
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => void convertToProject(request.id)}
-                  disabled={savingId === request.id}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm font-medium text-white"
-                >
-                  {savingId === request.id ? "Converting..." : "Convert now"}
-                </button>
+                {request.requestType !== "change_request" ? (
+                  <Link
+                    href={`/projects/new?title=${encodeURIComponent(
+                      request.title
+                    )}&clientName=${encodeURIComponent(
+                      request.companyName ?? request.project?.name ?? ""
+                    )}&contactName=${encodeURIComponent(
+                      request.contactName
+                    )}&contactEmail=${encodeURIComponent(
+                      request.contactEmail
+                    )}&portalOrWebsite=${encodeURIComponent(
+                      request.portalOrWebsite ?? ""
+                    )}&summary=${encodeURIComponent(
+                      request.summary
+                    )}&details=${encodeURIComponent(
+                      request.details ?? ""
+                    )}&serviceFamily=${encodeURIComponent(
+                      request.serviceFamily
+                    )}&requestType=${encodeURIComponent(request.requestType)}`}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm font-medium text-white"
+                  >
+                    Prefill project
+                  </Link>
+                ) : null}
+                {request.requestType === "change_request" && request.project ? (
+                  <Link
+                    href={`/projects/${request.project.id}/changes`}
+                    className="rounded-xl border border-[rgba(123,226,239,0.25)] bg-background-card px-3 py-2 text-sm font-medium text-[#7be2ef]"
+                  >
+                    Open change mgmt
+                  </Link>
+                ) : null}
+                {request.requestType !== "change_request" ? (
+                  <button
+                    type="button"
+                    onClick={() => void convertToProject(request.id)}
+                    disabled={savingId === request.id}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm font-medium text-white"
+                  >
+                    {savingId === request.id ? "Converting..." : "Convert now"}
+                  </button>
+                ) : null}
                 <select
                   value={request.status}
                   onChange={(event) =>
@@ -206,13 +228,14 @@ export default function WorkRequestsInbox() {
                   disabled={savingId === request.id}
                   className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
                 >
-                  {["new", "triaging", "quoted", "converted", "closed"].map(
-                    (status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    )
-                  )}
+                  {(request.requestType === "change_request"
+                    ? changeRequestStatuses
+                    : generalStatuses
+                  ).map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

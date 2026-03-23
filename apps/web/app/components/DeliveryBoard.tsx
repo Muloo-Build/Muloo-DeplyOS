@@ -18,6 +18,8 @@ interface ProjectTask {
   approvalRequired: boolean;
   dependencyIds: string[];
   assigneeType: string | null;
+  scopeOrigin?: string | null;
+  changeRequestId?: string | null;
   assignedAgentId: string | null;
   assignedAgentName: string | null;
   createdAt: string;
@@ -408,13 +410,17 @@ export default function DeliveryBoard({
       (task) => task.assigneeType?.toLowerCase() === "agent" && ["ready_with_review", "ready"].includes(task.executionReadiness)
     ).length;
     const completedTasks = tasks.filter((task) => task.status === "done").length;
+    const changeTasks = tasks.filter(
+      (task) => task.scopeOrigin?.toLowerCase() === "change_request"
+    ).length;
 
     return {
       plannedHours,
       actualHours,
       variance: actualHours - plannedHours,
       readyAgentTasks,
-      completedTasks
+      completedTasks,
+      changeTasks
     };
   }, [tasks]);
 
@@ -431,7 +437,13 @@ export default function DeliveryBoard({
         </div>
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
-            {totalCount > 0 ? `${totalCount} planned items` : "No plan yet"}
+            {totalCount > 0
+              ? `${totalCount} planned items${
+                  boardMetrics.changeTasks > 0
+                    ? ` · ${boardMetrics.changeTasks} approved changes`
+                    : ""
+                }`
+              : "No plan yet"}
           </div>
           {mode === "internal" ? (
             <>
@@ -485,7 +497,9 @@ export default function DeliveryBoard({
         <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
           <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Ready Agent Tasks</p>
           <p className="mt-2 text-xl font-semibold text-white">{boardMetrics.readyAgentTasks}</p>
-          <p className="mt-1 text-xs text-text-secondary">{boardMetrics.completedTasks} done</p>
+          <p className="mt-1 text-xs text-text-secondary">
+            {boardMetrics.completedTasks} done · {boardMetrics.changeTasks} change tasks
+          </p>
         </div>
       </div>
 
@@ -766,6 +780,17 @@ export default function DeliveryBoard({
                           >
                             {formatAssigneeType(task.assigneeType)}
                           </span>
+                          <span
+                            className={`rounded px-2 py-1 text-xs font-medium ${
+                              task.scopeOrigin?.toLowerCase() === "change_request"
+                                ? "bg-[rgba(123,226,239,0.14)] text-[#7be2ef]"
+                                : "bg-[rgba(255,255,255,0.08)] text-text-secondary"
+                            }`}
+                          >
+                            {task.scopeOrigin?.toLowerCase() === "change_request"
+                              ? "Approved Change"
+                              : "Baseline"}
+                          </span>
                           {task.category ? (
                             <span className="text-xs text-text-muted">
                               {task.category}
@@ -793,6 +818,9 @@ export default function DeliveryBoard({
                           {task.qaRequired ? <span>QA required</span> : null}
                           {task.approvalRequired ? (
                             <span>Approval required</span>
+                          ) : null}
+                          {task.changeRequestId ? (
+                            <span>Change linked</span>
                           ) : null}
                           {task.assignedAgentName ? (
                             <span>Agent: {task.assignedAgentName}</span>
