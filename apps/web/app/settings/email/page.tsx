@@ -5,7 +5,7 @@ export default function SettingsEmailPage() {
   return (
     <SettingsShell
       title="Email"
-      subtitle="Connect SMTP so project updates and notifications can send from your own domain."
+      subtitle="Configure SMTP relay for system mail and connect a Google mailbox when you want OAuth-based sending."
     >
       <EmailSettings />
     </SettingsShell>

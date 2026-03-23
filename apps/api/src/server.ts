@@ -1767,6 +1767,56 @@ function createClientAuthToken(userId: string) {
   return Buffer.from(`${userId}:${secret}`).toString("base64url");
 }
 
+function createSignedStateToken(value: Record<string, unknown>) {
+  const payload = Buffer.from(JSON.stringify(value)).toString("base64url");
+  const signature = crypto
+    .createHmac(
+      "sha256",
+      process.env.GOOGLE_OAUTH_STATE_SECRET ??
+        process.env.CLIENT_AUTH_SECRET ??
+        "muloo-google-oauth-state"
+    )
+    .update(payload)
+    .digest("base64url");
+
+  return `${payload}.${signature}`;
+}
+
+function verifySignedStateToken(value: string) {
+  const [payload, signature] = value.split(".");
+
+  if (!payload || !signature) {
+    throw new Error("Invalid OAuth state");
+  }
+
+  const expectedSignature = crypto
+    .createHmac(
+      "sha256",
+      process.env.GOOGLE_OAUTH_STATE_SECRET ??
+        process.env.CLIENT_AUTH_SECRET ??
+        "muloo-google-oauth-state"
+    )
+    .update(payload)
+    .digest("base64url");
+
+  if (signature !== expectedSignature) {
+    throw new Error("Invalid OAuth state");
+  }
+
+  const decoded = JSON.parse(
+    Buffer.from(payload, "base64url").toString("utf8")
+  ) as Record<string, unknown>;
+
+  if (
+    typeof decoded.expiresAt !== "number" ||
+    decoded.expiresAt < Date.now()
+  ) {
+    throw new Error("OAuth state has expired");
+  }
+
+  return decoded;
+}
+
 function isAuthenticated(request: http.IncomingMessage) {
   const cookies = parseCookies(request);
   const { username } = resolveSimpleAuthCredentials();
@@ -6965,6 +7015,41 @@ function serializeWorkspaceEmailSettings<
   };
 }
 
+function serializeWorkspaceEmailOAuthConnection<
+  T extends {
+    id: string;
+    providerKey: string;
+    label: string;
+    clientId: string | null;
+    clientSecret: string | null;
+    redirectUri: string | null;
+    scopes: string[];
+    connectedEmail: string | null;
+    connectedName: string | null;
+    tokenExpiresAt: Date | null;
+    enabled: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(connection: T) {
+  return {
+    id: connection.id,
+    providerKey: connection.providerKey,
+    label: connection.label,
+    clientId: connection.clientId,
+    hasClientSecret: Boolean(connection.clientSecret),
+    redirectUri: connection.redirectUri,
+    scopes: connection.scopes,
+    connectedEmail: connection.connectedEmail,
+    connectedName: connection.connectedName,
+    tokenExpiresAt: connection.tokenExpiresAt?.toISOString() ?? null,
+    isConnected: Boolean(connection.connectedEmail),
+    enabled: connection.enabled,
+    createdAt: connection.createdAt.toISOString(),
+    updatedAt: connection.updatedAt.toISOString()
+  };
+}
+
 async function ensureProductCatalogSeeded() {
   for (const product of defaultProductCatalog) {
     await prisma.productCatalogItem.upsert({
@@ -7016,6 +7101,30 @@ async function ensureWorkspaceEmailSettingsSeeded() {
     data: {
       providerLabel: "SMTP",
       secure: false,
+      enabled: false
+    }
+  });
+}
+
+async function ensureWorkspaceEmailOAuthConnectionsSeeded() {
+  const existingConnection = await prisma.workspaceEmailOAuthConnection.findUnique({
+    where: { providerKey: "google_workspace" }
+  });
+
+  if (existingConnection) {
+    return;
+  }
+
+  await prisma.workspaceEmailOAuthConnection.create({
+    data: {
+      providerKey: "google_workspace",
+      label: "Google Workspace Mailbox",
+      scopes: [
+        "openid",
+        "email",
+        "profile",
+        "https://www.googleapis.com/auth/gmail.send"
+      ],
       enabled: false
     }
   });
@@ -7127,6 +7236,34 @@ async function loadWorkspaceEmailSettings() {
   });
 
   return serializeWorkspaceEmailSettings(settings);
+}
+
+function resolveGoogleWorkspaceEmailOAuthRedirectUri(explicitRedirectUri?: string | null) {
+  const trimmedExplicitRedirectUri = explicitRedirectUri?.trim() ?? "";
+
+  if (trimmedExplicitRedirectUri) {
+    return trimmedExplicitRedirectUri;
+  }
+
+  const baseUrl =
+    process.env.APP_BASE_URL ??
+    process.env.NEXT_PUBLIC_APP_BASE_URL ??
+    "https://deploy.wearemuloo.com";
+
+  return `${baseUrl}/settings/email/google/callback`;
+}
+
+async function loadWorkspaceEmailOAuthConnection() {
+  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+
+  const connection = await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
+    where: { providerKey: "google_workspace" }
+  });
+
+  return serializeWorkspaceEmailOAuthConnection({
+    ...connection,
+    redirectUri: resolveGoogleWorkspaceEmailOAuthRedirectUri(connection.redirectUri)
+  });
 }
 
 async function loadDeliveryTemplates() {
@@ -8938,6 +9075,266 @@ async function updateWorkspaceEmailSettings(value: {
   return serializeWorkspaceEmailSettings(updatedSettings);
 }
 
+async function updateWorkspaceEmailOAuthConnection(value: {
+  clientId?: unknown;
+  clientSecret?: unknown;
+  redirectUri?: unknown;
+  enabled?: unknown;
+  scopes?: unknown;
+}) {
+  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+
+  const connection = await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
+    where: { providerKey: "google_workspace" }
+  });
+
+  const updateData: Prisma.Prisma.WorkspaceEmailOAuthConnectionUpdateInput = {};
+
+  if (value.clientId !== undefined) {
+    if (typeof value.clientId !== "string") {
+      throw new Error("clientId must be a string");
+    }
+
+    updateData.clientId = value.clientId.trim() || null;
+  }
+
+  if (value.clientSecret !== undefined) {
+    if (typeof value.clientSecret !== "string") {
+      throw new Error("clientSecret must be a string");
+    }
+
+    updateData.clientSecret = value.clientSecret.trim() || null;
+  }
+
+  if (value.redirectUri !== undefined) {
+    if (typeof value.redirectUri !== "string") {
+      throw new Error("redirectUri must be a string");
+    }
+
+    updateData.redirectUri = value.redirectUri.trim() || null;
+  }
+
+  if (value.enabled !== undefined) {
+    updateData.enabled = Boolean(value.enabled);
+  }
+
+  if (value.scopes !== undefined) {
+    const scopes = Array.isArray(value.scopes)
+      ? value.scopes
+      : typeof value.scopes === "string"
+        ? value.scopes.split(/[\n, ]+/)
+        : [];
+
+    const normalizedScopes = scopes
+      .filter((scope): scope is string => typeof scope === "string")
+      .map((scope) => scope.trim())
+      .filter(Boolean);
+
+    if (normalizedScopes.length === 0) {
+      throw new Error("At least one OAuth scope is required");
+    }
+
+    updateData.scopes = normalizedScopes;
+  }
+
+  const updatedConnection = await prisma.workspaceEmailOAuthConnection.update({
+    where: { id: connection.id },
+    data: updateData
+  });
+
+  return serializeWorkspaceEmailOAuthConnection({
+    ...updatedConnection,
+    redirectUri: resolveGoogleWorkspaceEmailOAuthRedirectUri(
+      updatedConnection.redirectUri
+    )
+  });
+}
+
+async function createWorkspaceGoogleEmailOAuthStart() {
+  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+
+  const connection = await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
+    where: { providerKey: "google_workspace" }
+  });
+
+  if (!connection.clientId?.trim()) {
+    throw new Error("Google OAuth client ID is not configured yet");
+  }
+
+  const redirectUri = resolveGoogleWorkspaceEmailOAuthRedirectUri(
+    connection.redirectUri
+  );
+  const state = createSignedStateToken({
+    providerKey: "google_workspace",
+    redirectUri,
+    expiresAt: Date.now() + 1000 * 60 * 10
+  });
+  const scopes = connection.scopes.length
+    ? connection.scopes
+    : [
+        "openid",
+        "email",
+        "profile",
+        "https://www.googleapis.com/auth/gmail.send"
+      ];
+
+  const params = new URLSearchParams({
+    client_id: connection.clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    access_type: "offline",
+    prompt: "consent",
+    include_granted_scopes: "true",
+    scope: scopes.join(" "),
+    state
+  });
+
+  return {
+    authUrl: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+  };
+}
+
+async function completeWorkspaceGoogleEmailOAuthCallback(value: {
+  code?: unknown;
+  state?: unknown;
+}) {
+  const code = typeof value.code === "string" ? value.code.trim() : "";
+  const state = typeof value.state === "string" ? value.state.trim() : "";
+
+  if (!code || !state) {
+    throw new Error("Google OAuth callback is missing code or state");
+  }
+
+  const verifiedState = verifySignedStateToken(state);
+  const redirectUri =
+    typeof verifiedState.redirectUri === "string"
+      ? verifiedState.redirectUri
+      : "";
+
+  if (!redirectUri) {
+    throw new Error("OAuth redirect URI is missing from state");
+  }
+
+  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+
+  const connection = await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
+    where: { providerKey: "google_workspace" }
+  });
+
+  if (!connection.clientId?.trim() || !connection.clientSecret?.trim()) {
+    throw new Error("Google OAuth client credentials are incomplete");
+  }
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      code,
+      client_id: connection.clientId,
+      client_secret: connection.clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code"
+    }).toString()
+  });
+
+  const tokenBody = (await tokenResponse.json().catch(() => null)) as
+    | {
+        access_token?: string;
+        refresh_token?: string;
+        token_type?: string;
+        expires_in?: number;
+      }
+    | null;
+
+  if (!tokenResponse.ok || !tokenBody?.access_token) {
+    throw new Error("Google token exchange failed");
+  }
+
+  const profileResponse = await fetch(
+    "https://openidconnect.googleapis.com/v1/userinfo",
+    {
+      headers: {
+        Authorization: `Bearer ${tokenBody.access_token}`
+      }
+    }
+  );
+  const profileBody = (await profileResponse.json().catch(() => null)) as
+    | {
+        email?: string;
+        name?: string;
+      }
+    | null;
+
+  if (!profileResponse.ok || !profileBody?.email) {
+    throw new Error("Could not load the connected Google profile");
+  }
+
+  const updatedConnection = await prisma.workspaceEmailOAuthConnection.update({
+    where: { id: connection.id },
+    data: {
+      accessToken: tokenBody.access_token,
+      refreshToken: tokenBody.refresh_token ?? connection.refreshToken,
+      tokenType: tokenBody.token_type ?? "Bearer",
+      connectedEmail: profileBody.email.trim().toLowerCase(),
+      connectedName: profileBody.name?.trim() || null,
+      tokenExpiresAt:
+        typeof tokenBody.expires_in === "number"
+          ? new Date(Date.now() + tokenBody.expires_in * 1000)
+          : null,
+      redirectUri,
+      enabled: true
+    }
+  });
+
+  return serializeWorkspaceEmailOAuthConnection({
+    ...updatedConnection,
+    redirectUri: resolveGoogleWorkspaceEmailOAuthRedirectUri(
+      updatedConnection.redirectUri
+    )
+  });
+}
+
+async function disconnectWorkspaceGoogleEmailOAuthConnection() {
+  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+
+  const connection = await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
+    where: { providerKey: "google_workspace" }
+  });
+
+  if (connection.accessToken) {
+    await fetch(
+      `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(
+        connection.accessToken
+      )}`,
+      {
+        method: "POST"
+      }
+    ).catch(() => null);
+  }
+
+  const updatedConnection = await prisma.workspaceEmailOAuthConnection.update({
+    where: { id: connection.id },
+    data: {
+      accessToken: null,
+      refreshToken: null,
+      tokenType: null,
+      connectedEmail: null,
+      connectedName: null,
+      tokenExpiresAt: null,
+      enabled: false
+    }
+  });
+
+  return serializeWorkspaceEmailOAuthConnection({
+    ...updatedConnection,
+    redirectUri: resolveGoogleWorkspaceEmailOAuthRedirectUri(
+      updatedConnection.redirectUri
+    )
+  });
+}
+
 async function sendWorkspaceEmail(value: {
   to?: unknown;
   cc?: unknown;
@@ -10296,6 +10693,75 @@ export function createAppServer(config: BaseConfig): http.Server {
         }
 
         return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      if (url.pathname === "/api/email-oauth/google") {
+        if (request.method === "GET") {
+          return sendJson(response, 200, {
+            connection: await loadWorkspaceEmailOAuthConnection()
+          });
+        }
+
+        if (request.method === "PATCH") {
+          try {
+            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const connection = await updateWorkspaceEmailOAuthConnection(body);
+            return sendJson(response, 200, { connection });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update Google email OAuth settings"
+            });
+          }
+        }
+
+        if (request.method === "DELETE") {
+          try {
+            const connection =
+              await disconnectWorkspaceGoogleEmailOAuthConnection();
+            return sendJson(response, 200, { connection });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to disconnect Google mailbox"
+            });
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/email-oauth/google/start") {
+        try {
+          const result = await createWorkspaceGoogleEmailOAuthStart();
+          return sendJson(response, 200, result);
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to start Google OAuth"
+          });
+        }
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/email-oauth/google/callback") {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const connection = await completeWorkspaceGoogleEmailOAuthCallback(body);
+          return sendJson(response, 200, { connection });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to complete Google OAuth"
+          });
+        }
       }
 
       const productRoute = matchProductRoute(url.pathname);

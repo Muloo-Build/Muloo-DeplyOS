@@ -103,6 +103,25 @@ model WorkspaceEmailSettings {
   updatedAt      DateTime @updatedAt
 }
 
+model WorkspaceEmailOAuthConnection {
+  id             String   @id @default(cuid())
+  providerKey    String   @unique
+  label          String
+  clientId       String?
+  clientSecret   String?
+  redirectUri    String?
+  scopes         String[]
+  accessToken    String?
+  refreshToken   String?
+  tokenType      String?
+  connectedEmail String?
+  connectedName  String?
+  tokenExpiresAt DateTime?
+  enabled        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model HubSpotPortal {
   id          String    @id @default(cuid())
   portalId    String    @unique
