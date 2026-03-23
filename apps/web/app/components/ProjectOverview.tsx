@@ -147,6 +147,15 @@ interface ClientPortalUser {
   authStatus?: "active" | "invite_pending";
 }
 
+interface SavedClientContact {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  title?: string;
+  canApproveQuotes?: boolean;
+}
+
 function isSessionComplete(session: SessionDetail | undefined) {
   if (!session) {
     return false;
@@ -493,6 +502,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     );
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [clientUsers, setClientUsers] = useState<ClientPortalUser[]>([]);
+  const [savedClientContacts, setSavedClientContacts] = useState<SavedClientContact[]>(
+    []
+  );
   const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
   const [contextDraft, setContextDraft] = useState({
     evidenceType: "uploaded-doc" as EvidenceItem["evidenceType"],
@@ -552,7 +564,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       summaryResponse,
       usersResponse,
       clientUsersResponse,
-      supportingContextResponse
+      supportingContextResponse,
+      clientsResponse
     ] = await Promise.all([
       fetch(`/api/projects/${encodeURIComponent(projectId)}`),
       fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
@@ -560,7 +573,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery-summary`),
       fetch("/api/users"),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`),
-      fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`)
+      fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`),
+      fetch("/api/clients")
     ]);
 
     if (
@@ -578,6 +592,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     const usersBody = await usersResponse.json();
     const clientUsersBody = await clientUsersResponse.json();
     const supportingContextBody = await supportingContextResponse.json();
+    const clientsBody = clientsResponse.ok
+      ? await clientsResponse.json().catch(() => null)
+      : null;
 
     setProject(projectBody.project);
     setProjectDraft(createProjectDraft(projectBody.project));
@@ -589,6 +606,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     setTeamUsers(usersBody.users ?? []);
     setClientUsers(clientUsersBody.clientUsers ?? []);
     setSupportingContext(supportingContextBody.evidenceItems ?? []);
+    const matchingClient =
+      (clientsBody?.clients ?? []).find(
+        (client: { name?: string; contacts?: SavedClientContact[] }) =>
+          client.name === projectBody.project?.client?.name
+      ) ?? null;
+    setSavedClientContacts(matchingClient?.contacts ?? []);
 
     if (blueprintResponse.ok) {
       const blueprintBody = await blueprintResponse.json();
@@ -1153,6 +1176,22 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     } finally {
       setClientAccessUpdatingId(null);
     }
+  }
+
+  function useSavedClientContact(contact: SavedClientContact) {
+    const contactName = `${contact.firstName} ${contact.lastName}`.trim();
+    setClientAccessDraft((currentDraft) => ({
+      ...currentDraft,
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      email: contact.email,
+      role: contact.canApproveQuotes ? "approver" : currentDraft.role
+    }));
+    setClientAccessFeedback(
+      contactName
+        ? `${contactName} loaded into the portal access form.`
+        : "Saved contact loaded into the portal access form."
+    );
   }
 
   async function copyClientQuoteLink() {
@@ -2865,6 +2904,38 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </div>
 
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    {savedClientContacts.length > 0 ? (
+                      <div className="md:col-span-2 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                        <p className="text-sm font-medium text-white">
+                          Saved client contacts
+                        </p>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          Pull approvers and stakeholders in from the client
+                          workspace instead of typing them again.
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-3">
+                          {savedClientContacts.map((contact) => (
+                            <button
+                              key={contact.id}
+                              type="button"
+                              onClick={() => useSavedClientContact(contact)}
+                              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-left text-sm text-white"
+                            >
+                              <span className="block font-medium">
+                                {[contact.firstName, contact.lastName]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                              </span>
+                              <span className="mt-1 block text-xs text-text-secondary">
+                                {contact.email}
+                                {contact.canApproveQuotes ? " · Quote approver" : ""}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
                     <label className="block">
                       <span className="text-sm font-medium text-white">
                         First name
