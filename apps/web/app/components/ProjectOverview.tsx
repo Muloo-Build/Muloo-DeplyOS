@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import AppShell from "./AppShell";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
@@ -154,6 +154,19 @@ interface SavedClientContact {
   email: string;
   title?: string;
   canApproveQuotes?: boolean;
+}
+
+interface ProviderConnectionSummary {
+  providerKey: string;
+  label: string;
+  defaultModel?: string | null;
+  isEnabled: boolean;
+  hasApiKey: boolean;
+}
+
+interface EmailSettingsSummary {
+  enabled: boolean;
+  fromEmail?: string | null;
 }
 
 function isSessionComplete(session: SessionDetail | undefined) {
@@ -501,6 +514,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       createDefaultClientQuestionnaireDefinitionMap()
     );
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
+  const [aiProviders, setAiProviders] = useState<ProviderConnectionSummary[]>([]);
+  const [emailSettings, setEmailSettings] = useState<EmailSettingsSummary | null>(
+    null
+  );
   const [clientUsers, setClientUsers] = useState<ClientPortalUser[]>([]);
   const [savedClientContacts, setSavedClientContacts] = useState<SavedClientContact[]>(
     []
@@ -547,14 +564,19 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     null
   );
   const [emailIntent, setEmailIntent] = useState("next_steps");
+  const [emailProviderKey, setEmailProviderKey] = useState("openai");
+  const [emailModelOverride, setEmailModelOverride] = useState("");
   const [emailInstructions, setEmailInstructions] = useState("");
+  const [emailTo, setEmailTo] = useState("");
+  const [emailCc, setEmailCc] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
   const [emailBusy, setEmailBusy] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [emailFeedback, setEmailFeedback] = useState<string | null>(null);
-  const [emailDraft, setEmailDraft] = useState<{
-    subject: string;
-    body: string;
-  } | null>(null);
+  const [dictationActive, setDictationActive] = useState(false);
+  const speechRecognitionRef = useRef<any>(null);
 
   async function loadProjectData() {
     const [
@@ -563,6 +585,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       blueprintResponse,
       summaryResponse,
       usersResponse,
+      providersResponse,
+      emailSettingsResponse,
       clientUsersResponse,
       supportingContextResponse,
       clientsResponse
@@ -572,6 +596,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery-summary`),
       fetch("/api/users"),
+      fetch("/api/provider-connections"),
+      fetch("/api/email-settings"),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`),
       fetch("/api/clients")
@@ -581,7 +607,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       !projectResponse.ok ||
       !sessionsResponse.ok ||
       !summaryResponse.ok ||
-      !usersResponse.ok
+      !usersResponse.ok ||
+      !providersResponse.ok
     ) {
       throw new Error("Failed to load project");
     }
@@ -590,6 +617,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     const sessionsBody = await sessionsResponse.json();
     const summaryBody = await summaryResponse.json();
     const usersBody = await usersResponse.json();
+    const providersBody = await providersResponse.json();
+    const emailSettingsBody = emailSettingsResponse.ok
+      ? await emailSettingsResponse.json().catch(() => null)
+      : null;
     const clientUsersBody = await clientUsersResponse.json();
     const supportingContextBody = await supportingContextResponse.json();
     const clientsBody = clientsResponse.ok
@@ -604,6 +635,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     setSessions(sessionsBody.sessionDetails ?? []);
     setDiscoverySummary(summaryBody.summary ?? null);
     setTeamUsers(usersBody.users ?? []);
+    const enabledDraftProviders = (providersBody.providers ?? []).filter(
+      (provider: ProviderConnectionSummary) =>
+        provider.isEnabled &&
+        provider.hasApiKey &&
+        (provider.providerKey === "openai" || provider.providerKey === "anthropic")
+    );
+    setAiProviders(enabledDraftProviders);
+    setEmailSettings(emailSettingsBody?.settings ?? null);
     setClientUsers(clientUsersBody.clientUsers ?? []);
     setSupportingContext(supportingContextBody.evidenceItems ?? []);
     const matchingClient =
@@ -612,6 +651,24 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           client.name === projectBody.project?.client?.name
       ) ?? null;
     setSavedClientContacts(matchingClient?.contacts ?? []);
+    if (enabledDraftProviders.length > 0) {
+      setEmailProviderKey((currentKey) =>
+        enabledDraftProviders.some((provider) => provider.providerKey === currentKey)
+          ? currentKey
+          : enabledDraftProviders[0].providerKey
+      );
+      setEmailModelOverride((currentModel) => {
+        if (currentModel.trim()) {
+          return currentModel;
+        }
+
+        return (
+          enabledDraftProviders.find(
+            (provider) => provider.providerKey === emailProviderKey
+          )?.defaultModel ?? enabledDraftProviders[0].defaultModel ?? ""
+        );
+      });
+    }
 
     if (blueprintResponse.ok) {
       const blueprintBody = await blueprintResponse.json();
@@ -640,6 +697,55 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
     void loadProject();
   }, [projectId]);
+
+  useEffect(() => {
+    if (aiProviders.length === 0) {
+      return;
+    }
+
+    const selectedProvider =
+      aiProviders.find((provider) => provider.providerKey === emailProviderKey) ??
+      aiProviders[0];
+
+    if (selectedProvider && selectedProvider.providerKey !== emailProviderKey) {
+      setEmailProviderKey(selectedProvider.providerKey);
+    }
+
+    if (!emailModelOverride.trim() && selectedProvider?.defaultModel) {
+      setEmailModelOverride(selectedProvider.defaultModel);
+    }
+  }, [aiProviders, emailModelOverride, emailProviderKey]);
+
+  useEffect(() => {
+    if (!project) {
+      return;
+    }
+
+    const defaultRecipients = Array.from(
+      new Set(
+        [
+          project.clientChampionEmail ?? "",
+          ...clientUsers.map((clientUser) => clientUser.email)
+        ].filter(Boolean)
+      )
+    ).join(", ");
+
+    if (!emailTo.trim() && defaultRecipients) {
+      setEmailTo(defaultRecipients);
+    }
+
+    if (!emailSubject.trim()) {
+      setEmailSubject(`${project.client.name} | ${project.name}`);
+    }
+  }, [clientUsers, emailSubject, emailTo, project]);
+
+  useEffect(() => {
+    return () => {
+      if (speechRecognitionRef.current) {
+        speechRecognitionRef.current.stop();
+      }
+    };
+  }, []);
 
   const completedSessions = sessions.filter((session) =>
     isSessionComplete(session)
@@ -1443,7 +1549,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }
   }
 
-  async function generateEmailDraft() {
+  async function generateEmailDraft(mode: "generate" | "cleanup" = "generate") {
     if (!project) {
       return;
     }
@@ -1460,6 +1566,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             intent: emailIntent,
+            mode,
+            providerKey: emailProviderKey,
+            modelOverride: emailModelOverride,
+            sourceSubject: emailSubject,
+            sourceBody: emailBody,
             customInstructions: emailInstructions
           })
         }
@@ -1471,8 +1582,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         throw new Error(body?.error ?? "Failed to draft email");
       }
 
-      setEmailDraft(body.draft ?? null);
-      setEmailFeedback("Email draft generated from the current project context.");
+      setEmailSubject(body.draft?.subject ?? emailSubject);
+      setEmailBody(body.draft?.body ?? emailBody);
+      setEmailFeedback(
+        mode === "cleanup"
+          ? "Email cleaned up with AI."
+          : "Email draft generated from the current project context."
+      );
     } catch (draftError) {
       setEmailError(
         draftError instanceof Error ? draftError.message : "Failed to draft email"
@@ -1483,14 +1599,115 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   }
 
   async function copyEmailDraft() {
-    if (!emailDraft || typeof navigator === "undefined") {
+    if (typeof navigator === "undefined") {
       return;
     }
 
     await navigator.clipboard.writeText(
-      `Subject: ${emailDraft.subject}\n\n${emailDraft.body}`
+      `Subject: ${emailSubject}\n\n${emailBody}`
     );
     setEmailFeedback("Email draft copied to clipboard.");
+  }
+
+  function toggleVoiceDictation() {
+    const recognitionApi =
+      (window as typeof window & {
+        SpeechRecognition?: new () => any;
+        webkitSpeechRecognition?: new () => any;
+      }).SpeechRecognition ??
+      (window as typeof window & {
+        SpeechRecognition?: new () => any;
+        webkitSpeechRecognition?: new () => any;
+      }).webkitSpeechRecognition;
+
+    if (!recognitionApi) {
+      setEmailError("Voice dictation is not available in this browser.");
+      return;
+    }
+
+    if (speechRecognitionRef.current && dictationActive) {
+      speechRecognitionRef.current.stop();
+      return;
+    }
+
+    const recognition = new recognitionApi();
+    recognition.lang = "en-ZA";
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    const startingBody = emailBody;
+
+    recognition.onstart = () => {
+      setDictationActive(true);
+      setEmailError(null);
+      setEmailFeedback("Voice dictation started.");
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((result: any) => result[0]?.transcript ?? "")
+        .join(" ")
+        .trim();
+
+      setEmailBody(
+        [startingBody.trim(), transcript].filter(Boolean).join(
+          startingBody.trim() ? "\n\n" : ""
+        )
+      );
+    };
+
+    recognition.onerror = () => {
+      setEmailError("Voice dictation could not complete cleanly.");
+      setDictationActive(false);
+      speechRecognitionRef.current = null;
+    };
+
+    recognition.onend = () => {
+      setDictationActive(false);
+      speechRecognitionRef.current = null;
+    };
+
+    speechRecognitionRef.current = recognition;
+    recognition.start();
+  }
+
+  async function sendProjectEmail() {
+    if (!project) {
+      return;
+    }
+
+    setEmailSending(true);
+    setEmailError(null);
+    setEmailFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/send-email`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: emailTo,
+            cc: emailCc,
+            subject: emailSubject,
+            body: emailBody
+          })
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to send email");
+      }
+
+      setEmailFeedback("Project email sent.");
+    } catch (sendError) {
+      setEmailError(
+        sendError instanceof Error ? sendError.message : "Failed to send email"
+      );
+    } finally {
+      setEmailSending(false);
+    }
   }
 
   async function handleBlueprintAction() {
@@ -2654,16 +2871,22 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h2 className="text-lg font-semibold text-white">
-                      AI Email Drafts
+                      Project Email Composer
                     </h2>
                     <p className="mt-2 text-sm text-text-secondary">
-                      Draft a clean client email from the saved summary,
-                      supporting context, quote status, and portal setup.
+                      Plain-text project emails with dictation, AI cleanup, AI
+                      drafting, and direct send from your connected domain
+                      mailbox.
                     </p>
+                  </div>
+                  <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs text-text-secondary">
+                    {emailSettings?.enabled && emailSettings.fromEmail
+                      ? `Sending from ${emailSettings.fromEmail}`
+                      : "Outbound email not connected yet"}
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <label className="block">
                     <span className="text-sm font-medium text-white">
                       Email intent
@@ -2685,6 +2908,49 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </label>
                   <label className="block">
                     <span className="text-sm font-medium text-white">
+                      AI provider
+                    </span>
+                    <select
+                      value={emailProviderKey}
+                      onChange={(event) => {
+                        const nextProviderKey = event.target.value;
+                        setEmailProviderKey(nextProviderKey);
+                        const nextProvider = aiProviders.find(
+                          (provider) => provider.providerKey === nextProviderKey
+                        );
+                        setEmailModelOverride(nextProvider?.defaultModel ?? "");
+                      }}
+                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                    >
+                      {aiProviders.length > 0 ? (
+                        aiProviders.map((provider) => (
+                          <option
+                            key={provider.providerKey}
+                            value={provider.providerKey}
+                          >
+                            {provider.label}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">No enabled AI providers</option>
+                      )}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">
+                      Model
+                    </span>
+                    <input
+                      value={emailModelOverride}
+                      onChange={(event) =>
+                        setEmailModelOverride(event.target.value)
+                      }
+                      placeholder="Use provider default model"
+                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">
                       Extra instruction
                     </span>
                     <textarea
@@ -2698,6 +2964,48 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </label>
                 </div>
 
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">To</span>
+                    <input
+                      value={emailTo}
+                      onChange={(event) => setEmailTo(event.target.value)}
+                      placeholder="Comma-separated recipients"
+                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">Cc</span>
+                    <input
+                      value={emailCc}
+                      onChange={(event) => setEmailCc(event.target.value)}
+                      placeholder="Optional comma-separated recipients"
+                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                    />
+                  </label>
+                </div>
+
+                <label className="mt-5 block">
+                  <span className="text-sm font-medium text-white">Subject</span>
+                  <input
+                    value={emailSubject}
+                    onChange={(event) => setEmailSubject(event.target.value)}
+                    className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                  />
+                </label>
+
+                <label className="mt-5 block">
+                  <span className="text-sm font-medium text-white">
+                    Plain-text body
+                  </span>
+                  <textarea
+                    value={emailBody}
+                    onChange={(event) => setEmailBody(event.target.value)}
+                    placeholder="Write freely here like a project note. Keep it plain text. Use dictation, then clean it up with AI if needed."
+                    className="mt-3 min-h-[320px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#09111f] px-4 py-4 font-mono text-sm leading-6 text-white outline-none"
+                  />
+                </label>
+
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
                   <div>
                     {emailError ? (
@@ -2708,48 +3016,59 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       </p>
                     ) : (
                       <p className="text-sm text-text-secondary">
-                        Best for client nudges, discovery invites, approval
-                        follow-ups, and summary handoff emails.
+                        This editor stays plain text on purpose, closer to a
+                        fast note tool than a formatted email builder.
                       </p>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    {emailDraft ? (
-                      <button
-                        type="button"
-                        onClick={() => void copyEmailDraft()}
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
-                      >
-                        Copy email
-                      </button>
-                    ) : null}
                     <button
                       type="button"
-                      onClick={() => void generateEmailDraft()}
-                      disabled={emailBusy}
+                      onClick={toggleVoiceDictation}
+                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
+                    >
+                      {dictationActive ? "Stop dictation" : "Voice dictation"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void generateEmailDraft("cleanup")}
+                      disabled={emailBusy || !emailBody.trim()}
+                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                    >
+                      {emailBusy ? "Working..." : "Clean up with AI"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void generateEmailDraft("generate")}
+                      disabled={emailBusy || aiProviders.length === 0}
                       className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                     >
-                      {emailBusy ? "Drafting..." : "Generate email"}
+                      {emailBusy ? "Drafting..." : "AI generate email"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void copyEmailDraft()}
+                      disabled={!emailSubject.trim() && !emailBody.trim()}
+                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                    >
+                      Copy email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void sendProjectEmail()}
+                      disabled={
+                        emailSending ||
+                        !emailSettings?.enabled ||
+                        !emailTo.trim() ||
+                        !emailSubject.trim() ||
+                        !emailBody.trim()
+                      }
+                      className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {emailSending ? "Sending..." : "Send email"}
                     </button>
                   </div>
                 </div>
-
-                {emailDraft ? (
-                  <div className="mt-5 rounded-2xl bg-[#0b1126] p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                      Subject
-                    </p>
-                    <p className="mt-2 text-sm font-medium text-white">
-                      {emailDraft.subject}
-                    </p>
-                    <p className="mt-5 text-xs uppercase tracking-[0.2em] text-text-muted">
-                      Body
-                    </p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-secondary">
-                      {emailDraft.body}
-                    </p>
-                  </div>
-                ) : null}
               </section>
 
               <div className="grid gap-6">

@@ -10,6 +10,7 @@ const navItems = [
   { href: "/settings", label: "Overview" },
   { href: "/settings/team", label: "Team" },
   { href: "/settings/providers", label: "Providers" },
+  { href: "/settings/email", label: "Email" },
   { href: "/settings/ai-routing", label: "AI Routing" },
   { href: "/settings/products", label: "Products" }
 ];

@@ -32,6 +32,13 @@ export default function SettingsPage() {
             href: "/settings/ai-routing"
           },
           {
+            label: "Email",
+            title: "Outbound mail and notifications",
+            description:
+              "Connect SMTP from Google Workspace or another mail provider so project emails and notifications can send from your own domain.",
+            href: "/settings/email"
+          },
+          {
             label: "Products",
             title: "Commercial catalog",
             description:

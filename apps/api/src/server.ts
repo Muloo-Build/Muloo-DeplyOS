@@ -1,5 +1,6 @@
 import http from "node:http";
 import crypto from "node:crypto";
+import nodemailer from "nodemailer";
 import { getIntegrationStatus, type BaseConfig } from "@muloo/config";
 import {
   createProjectFromTemplate,
@@ -1826,10 +1827,11 @@ function matchProjectRoute(pathname: string): {
     | "scope"
     | "discovery"
     | "status"
-    | "email-draft";
+    | "email-draft"
+    | "send-email";
 } | null {
   const match =
-    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions|scope|discovery|status|email-draft))?$/.exec(
+    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions|scope|discovery|status|email-draft|send-email))?$/.exec(
       pathname
     );
 
@@ -1848,7 +1850,8 @@ function matchProjectRoute(pathname: string): {
     resource === "scope" ||
     resource === "discovery" ||
     resource === "status" ||
-    resource === "email-draft"
+    resource === "email-draft" ||
+    resource === "send-email"
       ? resource
       : undefined;
 
@@ -5516,6 +5519,11 @@ Rules:
 async function generateProjectEmailDraft(input: {
   projectId: string;
   intent: string;
+  mode?: "generate" | "cleanup";
+  providerKey?: string;
+  modelOverride?: string;
+  sourceSubject?: string;
+  sourceBody?: string;
   customInstructions?: string;
 }) {
   const [project, summary, evidenceItems, latestQuote, clientUsers] =
@@ -5551,9 +5559,27 @@ async function generateProjectEmailDraft(input: {
       };
     });
 
-  const rawDraft = await callAiWorkflow(
+  const resolvedWorkflow = await resolveAiWorkflowSelection(
     "project_email_drafting",
-    `You draft polished Muloo operator emails to clients.
+    input.providerKey,
+    input.modelOverride
+  );
+
+  const rawDraft = await callResolvedAiWorkflow(
+    resolvedWorkflow,
+    input.mode === "cleanup"
+      ? `You clean up draft Muloo client emails without changing the intended meaning.
+
+Rules:
+- Return ONLY valid JSON. No markdown or commentary.
+- Use exactly this structure: {"subject":"...","body":"..."}
+- Keep the meaning, recipients, and commercial intent intact.
+- Improve clarity, grammar, structure, and professionalism.
+- Keep the body in plain text with natural paragraph breaks.
+- Do not turn it into marketing copy or heavy formatting.
+- Only strengthen the call to action if it is weak or unclear.
+- Do not invent meetings, deadlines, attachments, or facts.`
+      : `You draft polished Muloo operator emails to clients.
 
 Rules:
 - Return ONLY valid JSON. No markdown or commentary.
@@ -5572,7 +5598,15 @@ Rules:
     JSON.stringify(
       {
         intent: input.intent,
+        mode: input.mode ?? "generate",
         customInstructions: input.customInstructions?.trim() || "",
+        sourceDraft:
+          input.mode === "cleanup"
+            ? {
+                subject: input.sourceSubject?.trim() || "",
+                body: input.sourceBody?.trim() || ""
+              }
+            : null,
         project: {
           name: project.name,
           clientName: project.client.name,
@@ -6893,6 +6927,40 @@ function serializeWorkspaceAiRouting<
   };
 }
 
+function serializeWorkspaceEmailSettings<
+  T extends {
+    id: string;
+    providerLabel: string;
+    host: string | null;
+    port: number | null;
+    secure: boolean;
+    username: string | null;
+    password: string | null;
+    fromName: string | null;
+    fromEmail: string | null;
+    replyToEmail: string | null;
+    enabled: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(settings: T) {
+  return {
+    id: settings.id,
+    providerLabel: settings.providerLabel,
+    host: settings.host,
+    port: settings.port,
+    secure: settings.secure,
+    username: settings.username,
+    hasPassword: Boolean(settings.password),
+    fromName: settings.fromName,
+    fromEmail: settings.fromEmail,
+    replyToEmail: settings.replyToEmail,
+    enabled: settings.enabled,
+    createdAt: settings.createdAt.toISOString(),
+    updatedAt: settings.updatedAt.toISOString()
+  };
+}
+
 async function ensureProductCatalogSeeded() {
   for (const product of defaultProductCatalog) {
     await prisma.productCatalogItem.upsert({
@@ -6930,6 +6998,22 @@ async function ensureAiRoutingSeeded() {
     data: defaultAiWorkflowRouting.map((routing) => ({
       ...routing
     }))
+  });
+}
+
+async function ensureWorkspaceEmailSettingsSeeded() {
+  const existingCount = await prisma.workspaceEmailSettings.count();
+
+  if (existingCount > 0) {
+    return;
+  }
+
+  await prisma.workspaceEmailSettings.create({
+    data: {
+      providerLabel: "SMTP",
+      secure: false,
+      enabled: false
+    }
   });
 }
 
@@ -7029,6 +7113,16 @@ async function loadAiRouting() {
   });
 
   return routes.map((routing) => serializeWorkspaceAiRouting(routing));
+}
+
+async function loadWorkspaceEmailSettings() {
+  await ensureWorkspaceEmailSettingsSeeded();
+
+  const settings = await prisma.workspaceEmailSettings.findFirstOrThrow({
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  return serializeWorkspaceEmailSettings(settings);
 }
 
 async function loadDeliveryTemplates() {
@@ -8566,6 +8660,173 @@ async function updateWorkspaceProviderConnection(
   return serializeWorkspaceProviderConnection(provider);
 }
 
+async function updateWorkspaceEmailSettings(value: {
+  providerLabel?: unknown;
+  host?: unknown;
+  port?: unknown;
+  secure?: unknown;
+  username?: unknown;
+  password?: unknown;
+  fromName?: unknown;
+  fromEmail?: unknown;
+  replyToEmail?: unknown;
+  enabled?: unknown;
+}) {
+  await ensureWorkspaceEmailSettingsSeeded();
+
+  const settings = await prisma.workspaceEmailSettings.findFirstOrThrow({
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  const updateData: Prisma.Prisma.WorkspaceEmailSettingsUpdateInput = {};
+
+  if (value.providerLabel !== undefined) {
+    if (
+      typeof value.providerLabel !== "string" ||
+      value.providerLabel.trim().length === 0
+    ) {
+      throw new Error("providerLabel must be a non-empty string");
+    }
+    updateData.providerLabel = value.providerLabel.trim();
+  }
+
+  if (value.host !== undefined) {
+    if (typeof value.host !== "string") {
+      throw new Error("host must be a string");
+    }
+    updateData.host = value.host.trim() || null;
+  }
+
+  if (value.port !== undefined) {
+    if (value.port === null || value.port === "") {
+      updateData.port = null;
+    } else {
+      const port = typeof value.port === "number" ? value.port : Number(value.port);
+      if (!Number.isFinite(port) || port <= 0) {
+        throw new Error("port must be a valid positive number");
+      }
+      updateData.port = Math.round(port);
+    }
+  }
+
+  if (value.secure !== undefined) {
+    updateData.secure = Boolean(value.secure);
+  }
+
+  if (value.username !== undefined) {
+    if (typeof value.username !== "string") {
+      throw new Error("username must be a string");
+    }
+    updateData.username = value.username.trim() || null;
+  }
+
+  if (value.password !== undefined) {
+    if (typeof value.password !== "string") {
+      throw new Error("password must be a string");
+    }
+    updateData.password = value.password.trim() || null;
+  }
+
+  if (value.fromName !== undefined) {
+    if (typeof value.fromName !== "string") {
+      throw new Error("fromName must be a string");
+    }
+    updateData.fromName = value.fromName.trim() || null;
+  }
+
+  if (value.fromEmail !== undefined) {
+    if (typeof value.fromEmail !== "string") {
+      throw new Error("fromEmail must be a string");
+    }
+    updateData.fromEmail = value.fromEmail.trim() || null;
+  }
+
+  if (value.replyToEmail !== undefined) {
+    if (typeof value.replyToEmail !== "string") {
+      throw new Error("replyToEmail must be a string");
+    }
+    updateData.replyToEmail = value.replyToEmail.trim() || null;
+  }
+
+  if (value.enabled !== undefined) {
+    updateData.enabled = Boolean(value.enabled);
+  }
+
+  const updatedSettings = await prisma.workspaceEmailSettings.update({
+    where: { id: settings.id },
+    data: updateData
+  });
+
+  return serializeWorkspaceEmailSettings(updatedSettings);
+}
+
+async function sendWorkspaceEmail(value: {
+  to?: unknown;
+  cc?: unknown;
+  subject?: unknown;
+  body?: unknown;
+}) {
+  await ensureWorkspaceEmailSettingsSeeded();
+
+  const settings = await prisma.workspaceEmailSettings.findFirstOrThrow({
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  if (!settings.enabled) {
+    throw new Error("Workspace email is not enabled yet");
+  }
+
+  if (!settings.host || !settings.port || !settings.fromEmail) {
+    throw new Error("Workspace email settings are incomplete");
+  }
+
+  const to = normalizeStringArray(value.to)
+    .flatMap((entry) => entry.split(/[,\n;]/))
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  const cc = normalizeStringArray(value.cc)
+    .flatMap((entry) => entry.split(/[,\n;]/))
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  const subject = typeof value.subject === "string" ? value.subject.trim() : "";
+  const body = typeof value.body === "string" ? value.body.trim() : "";
+
+  if (to.length === 0 || !subject || !body) {
+    throw new Error("to, subject, and body are required");
+  }
+
+  const transport = nodemailer.createTransport({
+    host: settings.host,
+    port: settings.port,
+    secure: settings.secure,
+    ...(settings.username
+      ? {
+          auth: {
+            user: settings.username,
+            pass: settings.password ?? ""
+          }
+        }
+      : {})
+  });
+
+  const info = await transport.sendMail({
+    from: settings.fromName
+      ? `"${settings.fromName}" <${settings.fromEmail}>`
+      : settings.fromEmail,
+    to,
+    ...(cc.length > 0 ? { cc } : {}),
+    ...(settings.replyToEmail ? { replyTo: settings.replyToEmail } : {}),
+    subject,
+    text: body
+  });
+
+  return {
+    accepted: Array.isArray(info.accepted) ? info.accepted : [],
+    rejected: Array.isArray(info.rejected) ? info.rejected : [],
+    messageId: typeof info.messageId === "string" ? info.messageId : null
+  };
+}
+
 async function updateWorkspaceAiRouting(
   workflowKey: string,
   value: {
@@ -8702,6 +8963,38 @@ async function resolveAiWorkflow(workflowKey: string) {
   );
 }
 
+async function resolveAiWorkflowSelection(
+  workflowKey: string,
+  providerKey?: string | null,
+  modelOverride?: string | null
+) {
+  if (!providerKey) {
+    return resolveAiWorkflow(workflowKey);
+  }
+
+  await Promise.all([ensureProviderConnectionsSeeded(), ensureAiRoutingSeeded()]);
+
+  const providers = await prisma.workspaceProviderConnection.findMany();
+  const providerMap = new Map(
+    providers.map((provider) => [provider.providerKey, provider])
+  );
+  const candidate = resolveProviderCandidate(
+    providerMap,
+    providerKey,
+    modelOverride ?? null
+  );
+
+  if (!candidate) {
+    throw new Error(`No enabled credentials found for provider ${providerKey}`);
+  }
+
+  return {
+    workflowKey,
+    routeSource: "manual_selection",
+    ...candidate
+  };
+}
+
 async function resolveAiWorkflowForAgent(
   workflowKey: string,
   preferredProviderKey: string | null | undefined,
@@ -8766,6 +9059,22 @@ async function callAiWorkflow(
   options?: { maxTokens?: number }
 ): Promise<string> {
   const resolved = await resolveAiWorkflow(workflowKey);
+  return callResolvedAiWorkflow(resolved, system, user, options);
+}
+
+async function callResolvedAiWorkflow(
+  resolved: {
+    workflowKey: string;
+    routeSource: string;
+    providerKey: string;
+    model: string | null;
+    endpointUrl: string | null;
+    apiKey: string;
+  },
+  system: string,
+  user: string,
+  options?: { maxTokens?: number }
+): Promise<string> {
   const maxTokens = options?.maxTokens ?? 2000;
 
   if (resolved.providerKey === "anthropic") {
@@ -9773,6 +10082,31 @@ export function createAppServer(config: BaseConfig): http.Server {
                 error instanceof Error
                   ? error.message
                   : "Failed to update AI routing"
+            });
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      if (url.pathname === "/api/email-settings") {
+        if (request.method === "GET") {
+          return sendJson(response, 200, {
+            settings: await loadWorkspaceEmailSettings()
+          });
+        }
+
+        if (request.method === "PATCH") {
+          try {
+            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const settings = await updateWorkspaceEmailSettings(body);
+            return sendJson(response, 200, { settings });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update email settings"
             });
           }
         }
@@ -12372,6 +12706,11 @@ export function createAppServer(config: BaseConfig): http.Server {
           try {
             const body = (await readJsonBody(request)) as {
               intent?: unknown;
+              mode?: unknown;
+              providerKey?: unknown;
+              modelOverride?: unknown;
+              sourceSubject?: unknown;
+              sourceBody?: unknown;
               customInstructions?: unknown;
             };
 
@@ -12384,6 +12723,23 @@ export function createAppServer(config: BaseConfig): http.Server {
             const draft = await generateProjectEmailDraft({
               projectId: projectRoute.projectId,
               intent: body.intent.trim(),
+              mode:
+                body.mode === "cleanup" || body.mode === "generate"
+                  ? body.mode
+                  : "generate",
+              ...(typeof body.providerKey === "string" &&
+              body.providerKey.trim().length > 0
+                ? { providerKey: body.providerKey.trim() }
+                : {}),
+              ...(typeof body.modelOverride === "string"
+                ? { modelOverride: body.modelOverride.trim() }
+                : {}),
+              ...(typeof body.sourceSubject === "string"
+                ? { sourceSubject: body.sourceSubject }
+                : {}),
+              ...(typeof body.sourceBody === "string"
+                ? { sourceBody: body.sourceBody }
+                : {}),
               ...(typeof body.customInstructions === "string"
                 ? { customInstructions: body.customInstructions.trim() }
                 : {})
@@ -12403,6 +12759,30 @@ export function createAppServer(config: BaseConfig): http.Server {
                     : "Failed to draft project email"
               }
             );
+          }
+        }
+
+        if (
+          request.method === "POST" &&
+          projectRoute.resource === "send-email"
+        ) {
+          try {
+            const body = (await readJsonBody(request)) as {
+              to?: unknown;
+              cc?: unknown;
+              subject?: unknown;
+              body?: unknown;
+            };
+
+            const result = await sendWorkspaceEmail(body);
+            return sendJson(response, 200, { sent: true, result });
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to send email"
+            });
           }
         }
 
