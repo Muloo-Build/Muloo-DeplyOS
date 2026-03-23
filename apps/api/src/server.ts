@@ -8780,12 +8780,18 @@ async function sendWorkspaceEmail(value: {
     throw new Error("Workspace email settings are incomplete");
   }
 
-  const to = normalizeStringArray(value.to)
-    .flatMap((entry) => entry.split(/[,\n;]/))
+  const parseEmailRecipients = (input: unknown) =>
+    (Array.isArray(input) ? input : [input])
+      .flatMap((entry) =>
+        typeof entry === "string" ? entry.split(/[,\n;]/) : []
+      )
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+
+  const to = parseEmailRecipients(value.to)
     .map((entry) => entry.trim())
     .filter(Boolean);
-  const cc = normalizeStringArray(value.cc)
-    .flatMap((entry) => entry.split(/[,\n;]/))
+  const cc = parseEmailRecipients(value.cc)
     .map((entry) => entry.trim())
     .filter(Boolean);
   const subject = typeof value.subject === "string" ? value.subject.trim() : "";
@@ -12775,6 +12781,32 @@ export function createAppServer(config: BaseConfig): http.Server {
             };
 
             const result = await sendWorkspaceEmail(body);
+            const toRecipients = (Array.isArray(body.to) ? body.to : [body.to])
+              .flatMap((entry) =>
+                typeof entry === "string" ? entry.split(/[,\n;]/) : []
+              )
+              .map((entry) => entry.trim())
+              .filter(Boolean);
+            const ccRecipients = (Array.isArray(body.cc) ? body.cc : [body.cc])
+              .flatMap((entry) =>
+                typeof entry === "string" ? entry.split(/[,\n;]/) : []
+              )
+              .map((entry) => entry.trim())
+              .filter(Boolean);
+            await createProjectMessage({
+              projectId: projectRoute.projectId,
+              senderType: "internal",
+              senderName: "Muloo Email Composer",
+              body: `Email sent\nTo: ${toRecipients.join(", ")}${
+                ccRecipients.length > 0
+                  ? `\nCc: ${ccRecipients.join(", ")}`
+                  : ""
+              }\nSubject: ${
+                typeof body.subject === "string" ? body.subject.trim() : ""
+              }\n\n${
+                typeof body.body === "string" ? body.body.trim() : ""
+              }`
+            });
             return sendJson(response, 200, { sent: true, result });
           } catch (error) {
             return sendJson(response, 400, {

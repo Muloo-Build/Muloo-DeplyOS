@@ -56,6 +56,22 @@ export default function EmailSettings() {
     );
   }
 
+  function applyGoogleRelayPreset() {
+    setSettings((current) =>
+      current
+        ? {
+            ...current,
+            providerLabel: "Google Workspace SMTP Relay",
+            host: "smtp-relay.gmail.com",
+            port: 587,
+            secure: false
+          }
+        : current
+    );
+    setFeedback("Google Workspace relay preset applied.");
+    setError(null);
+  }
+
   async function saveSettings() {
     if (!settings) {
       return;
@@ -123,10 +139,23 @@ export default function EmailSettings() {
       <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
         <h2 className="text-xl font-semibold text-white">SMTP connection</h2>
         <p className="mt-2 text-sm text-text-secondary">
-          This works well with Google Workspace SMTP relay, Gmail SMTP, or any
-          standard SMTP service. It keeps sending on your own domain instead of
-          tying the app to one mail vendor.
+          This is now framed primarily for Google Workspace SMTP relay. It can
+          still work with another SMTP service later, but the clean path here is
+          relay-first instead of mailbox-password auth.
         </p>
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={applyGoogleRelayPreset}
+            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white"
+          >
+            Use Google Workspace relay preset
+          </button>
+          <div className="rounded-xl border border-[rgba(255,255,255,0.07)] px-4 py-3 text-xs leading-5 text-text-secondary">
+            Recommended values: `smtp-relay.gmail.com`, port `587`, secure off.
+          </div>
+        </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <label className="block">
@@ -144,7 +173,7 @@ export default function EmailSettings() {
             <input
               value={settings.host ?? ""}
               onChange={(event) => updateField("host", event.target.value)}
-              placeholder="smtp.gmail.com or your relay host"
+              placeholder="smtp-relay.gmail.com"
               className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
             />
           </label>
@@ -175,7 +204,7 @@ export default function EmailSettings() {
             <input
               value={settings.username ?? ""}
               onChange={(event) => updateField("username", event.target.value)}
-              placeholder="Usually your mailbox or relay user"
+              placeholder="Optional if relay auth is required"
               className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
             />
           </label>
@@ -188,7 +217,7 @@ export default function EmailSettings() {
               placeholder={
                 settings.hasPassword
                   ? "Leave blank to keep stored password"
-                  : "SMTP password or app password"
+                  : "Optional if your relay requires SMTP auth"
               }
               className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
             />
@@ -196,7 +225,12 @@ export default function EmailSettings() {
               <p className="mt-2 text-xs text-text-muted">
                 A password is already stored.
               </p>
-            ) : null}
+            ) : (
+              <p className="mt-2 text-xs text-text-muted">
+                Many Google Workspace relay setups do not need this if the relay
+                trusts your server or allowed sender rules.
+              </p>
+            )}
           </label>
         </div>
       </section>
@@ -250,8 +284,9 @@ export default function EmailSettings() {
           <p className="mt-4 text-sm text-status-success">{feedback}</p>
         ) : (
           <p className="mt-4 text-sm text-text-secondary">
-            Recommended starting point: Google Workspace SMTP relay or Gmail SMTP
-            with an app password, using your normal domain mailbox.
+            Recommended starting point: Google Workspace SMTP relay using your
+            Muloo domain sender, with mailbox OAuth kept for later if we add
+            true user-connected inbox features.
           </p>
         )}
 
