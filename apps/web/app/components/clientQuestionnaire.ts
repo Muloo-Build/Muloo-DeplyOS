@@ -2,11 +2,13 @@ export interface ClientQuestionDefinition {
   key: string;
   label: string;
   hint: string;
+  enabled?: boolean;
 }
 
 export interface ClientQuestionnaireSessionDefinition {
   title: string;
   description: string;
+  enabled?: boolean;
   questions: ClientQuestionDefinition[];
 }
 

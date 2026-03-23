@@ -612,10 +612,12 @@ type ClientQuestionnaireQuestion = {
   key: string;
   label: string;
   hint: string;
+  enabled?: boolean;
 };
 type ClientQuestionnaireSessionConfig = {
   title: string;
   description: string;
+  enabled?: boolean;
   questions: ClientQuestionnaireQuestion[];
 };
 type ClientQuestionnaireConfig = Record<number, ClientQuestionnaireSessionConfig>;
@@ -1685,11 +1687,83 @@ function normalizeClientQuestionnaireConfig(
         sessionRecord.description.trim().length > 0
           ? sessionRecord.description.trim()
           : defaultSession.description,
+      enabled:
+        typeof sessionRecord.enabled === "boolean"
+          ? sessionRecord.enabled
+          : defaultSession.enabled ?? true,
       questions: questions.length > 0 ? questions : defaultSession.questions
     };
 
+    config[sessionNumber].questions = config[sessionNumber].questions.map((question, index) => {
+      const rawQuestion =
+        Array.isArray(sessionRecord.questions) &&
+        sessionRecord.questions[index] &&
+        typeof sessionRecord.questions[index] === "object" &&
+        !Array.isArray(sessionRecord.questions[index])
+          ? (sessionRecord.questions[index] as Record<string, unknown>)
+          : null;
+
+      return {
+        ...question,
+        enabled:
+          rawQuestion && typeof rawQuestion.enabled === "boolean"
+            ? rawQuestion.enabled
+            : true
+      };
+    });
+
     return config;
   }, {} as ClientQuestionnaireConfig);
+}
+
+function getEnabledClientInputSections(config: ClientQuestionnaireConfig): number[] {
+  return Object.entries(config)
+    .map(([sessionNumberText, session]) => ({
+      sessionNumber: Number(sessionNumberText),
+      session
+    }))
+    .filter(
+      ({ sessionNumber, session }) =>
+        Number.isFinite(sessionNumber) &&
+        session.enabled !== false &&
+        session.questions.some((question) => question.enabled !== false)
+    )
+    .map(({ sessionNumber }) => sessionNumber)
+    .sort((left, right) => left - right);
+}
+
+function normalizeAssignedInputSections(
+  value: unknown,
+  availableSections: number[]
+): number[] {
+  const requestedSections = Array.isArray(value)
+    ? value
+        .map((entry) =>
+          typeof entry === "number" ? entry : Number.parseInt(String(entry), 10)
+        )
+        .filter((entry) => Number.isFinite(entry))
+    : [];
+
+  const normalizedSections = Array.from(
+    new Set(requestedSections.filter((section) => availableSections.includes(section)))
+  ).sort((left, right) => left - right);
+
+  return normalizedSections.length > 0 ? normalizedSections : availableSections;
+}
+
+function resolveAssignedInputSectionsForAccess(input: {
+  questionnaireAccess: boolean;
+  assignedInputSections: number[];
+  availableSections: number[];
+}) {
+  if (!input.questionnaireAccess) {
+    return [];
+  }
+
+  return normalizeAssignedInputSections(
+    input.assignedInputSections,
+    input.availableSections
+  );
 }
 
 function sendJson(
@@ -8204,6 +8278,7 @@ async function createClientPortalUserForProject(
     email?: unknown;
     role?: unknown;
     questionnaireAccess?: unknown;
+    assignedInputSections?: unknown;
   }
 ) {
   const firstName =
@@ -8216,6 +8291,24 @@ async function createClientPortalUserForProject(
     value.questionnaireAccess === undefined
       ? true
       : Boolean(value.questionnaireAccess);
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      clientQuestionnaireConfig: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const inputConfig = normalizeClientQuestionnaireConfig(
+    project.clientQuestionnaireConfig
+  );
+  const availableInputSections = getEnabledClientInputSections(inputConfig);
+  const assignedInputSections = questionnaireAccess
+    ? normalizeAssignedInputSections(value.assignedInputSections, availableInputSections)
+    : [];
 
   if (!firstName || !email) {
     throw new Error("firstName and email are required");
@@ -8263,13 +8356,15 @@ async function createClientPortalUserForProject(
     },
     update: {
       role,
-      questionnaireAccess
+      questionnaireAccess,
+      assignedInputSections
     },
     create: {
       userId: user.id,
       projectId,
       role,
-      questionnaireAccess
+      questionnaireAccess,
+      assignedInputSections
     }
   });
 
@@ -8280,6 +8375,7 @@ async function createClientPortalUserForProject(
       : null,
     role,
     questionnaireAccess,
+    assignedInputSections,
     canApproveQuotes: role === "approver"
   };
 }
@@ -8389,6 +8485,15 @@ async function createClientResetLink(userId: string, projectId: string) {
 }
 
 async function loadClientUsersForProject(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      clientQuestionnaireConfig: true
+    }
+  });
+  const availableInputSections = getEnabledClientInputSections(
+    normalizeClientQuestionnaireConfig(project?.clientQuestionnaireConfig)
+  );
   const accessRecords = await prisma.clientProjectAccess.findMany({
     where: { projectId },
     include: { user: true },
@@ -8399,6 +8504,11 @@ async function loadClientUsersForProject(projectId: string) {
     ...serializeClientPortalUser(record.user),
     role: record.role,
     questionnaireAccess: record.questionnaireAccess,
+    assignedInputSections: resolveAssignedInputSectionsForAccess({
+      questionnaireAccess: record.questionnaireAccess,
+      assignedInputSections: record.assignedInputSections,
+      availableSections: availableInputSections
+    }),
     canApproveQuotes: record.role === "approver"
   }));
 }
@@ -8588,6 +8698,7 @@ async function updateClientProjectAccess(
   value: {
     role?: unknown;
     questionnaireAccess?: unknown;
+    assignedInputSections?: unknown;
   }
 ) {
   const existingAccess = await prisma.clientProjectAccess.findUnique({
@@ -8620,6 +8731,39 @@ async function updateClientProjectAccess(
     updateData.questionnaireAccess = Boolean(value.questionnaireAccess);
   }
 
+  if (value.assignedInputSections !== undefined || value.questionnaireAccess !== undefined) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        clientQuestionnaireConfig: true
+      }
+    });
+
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const availableInputSections = getEnabledClientInputSections(
+      normalizeClientQuestionnaireConfig(project.clientQuestionnaireConfig)
+    );
+    const nextQuestionnaireAccess =
+      value.questionnaireAccess === undefined
+        ? existingAccess.questionnaireAccess
+        : Boolean(value.questionnaireAccess);
+    const currentAssignedInputSections = resolveAssignedInputSectionsForAccess({
+      questionnaireAccess: existingAccess.questionnaireAccess,
+      assignedInputSections: existingAccess.assignedInputSections,
+      availableSections: availableInputSections
+    });
+
+    updateData.assignedInputSections = nextQuestionnaireAccess
+      ? normalizeAssignedInputSections(
+          value.assignedInputSections ?? currentAssignedInputSections,
+          availableInputSections
+        )
+      : [];
+  }
+
   const updatedAccess = await prisma.clientProjectAccess.update({
     where: {
       userId_projectId: {
@@ -8637,6 +8781,7 @@ async function updateClientProjectAccess(
     ...serializeClientPortalUser(updatedAccess.user),
     role: updatedAccess.role,
     questionnaireAccess: updatedAccess.questionnaireAccess,
+    assignedInputSections: updatedAccess.assignedInputSections,
     canApproveQuotes: updatedAccess.role === "approver"
   };
 }
@@ -8693,12 +8838,44 @@ async function loadClientProjectDetail(projectId: string, userId: string) {
     },
     orderBy: [{ sessionNumber: "asc" }]
   });
+  const normalizedInputConfig = normalizeClientQuestionnaireConfig(
+    access.project.clientQuestionnaireConfig
+  );
+  const availableInputSections = getEnabledClientInputSections(
+    normalizedInputConfig
+  );
+  const assignedInputSections = resolveAssignedInputSectionsForAccess({
+    questionnaireAccess: access.questionnaireAccess,
+    assignedInputSections: access.assignedInputSections,
+    availableSections: availableInputSections
+  });
 
   return {
     user: serializeClientPortalUser(access.user),
     role: access.role,
     canCompleteQuestionnaire: access.questionnaireAccess,
-    project: serializeClientProject(access.project),
+    assignedInputSections,
+    project: {
+      ...serializeClientProject(access.project),
+      clientQuestionnaireConfig: Object.fromEntries(
+        Object.entries(normalizedInputConfig)
+          .filter(([sessionNumberText, session]) =>
+            access.questionnaireAccess &&
+            assignedInputSections.includes(Number(sessionNumberText)) &&
+            session.enabled !== false &&
+            session.questions.some((question) => question.enabled !== false)
+          )
+          .map(([sessionNumberText, session]) => [
+            Number(sessionNumberText),
+            {
+              ...session,
+              questions: session.questions.filter(
+                (question) => question.enabled !== false
+              )
+            }
+          ])
+      ) as ClientQuestionnaireConfig
+    },
     submissions: submissions.map((submission) =>
       serializeClientInputSubmission(submission)
     )
@@ -11768,6 +11945,8 @@ export function createAppServer(config: BaseConfig): http.Server {
               email?: unknown;
               password?: unknown;
               role?: unknown;
+              questionnaireAccess?: unknown;
+              assignedInputSections?: unknown;
             };
 
             const clientUser = await createClientPortalUserForProject(
@@ -11798,6 +11977,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             const body = (await readJsonBody(request)) as {
               role?: unknown;
               questionnaireAccess?: unknown;
+              assignedInputSections?: unknown;
             };
             const clientUser = await updateClientProjectAccess(
               projectClientUserRoute.projectId,

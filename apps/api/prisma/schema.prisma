@@ -320,6 +320,7 @@ model ClientProjectAccess {
   projectId           String
   role                String           @default("contributor")
   questionnaireAccess Boolean          @default(true)
+  assignedInputSections Int[]          @default([])
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   user                ClientPortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)

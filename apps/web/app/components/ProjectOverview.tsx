@@ -2004,6 +2004,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   {!isStandaloneQuote ? (
                     <>
                       <Link
+                        href={`/projects/${project.id}/inputs`}
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                      >
+                        Open Project Inputs
+                      </Link>
+                      <Link
                         href={`/projects/${project.id}/discovery`}
                         className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
                       >
@@ -3010,9 +3016,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       Project Email Composer
                     </h2>
                     <p className="mt-2 text-sm text-text-secondary">
-                      Plain-text project emails with dictation, AI cleanup, AI
-                      drafting, and direct send from your connected domain
-                      mailbox.
+                      Plain-text project emails with dictation, AI cleanup, and
+                      AI drafting. Use this as a copy-first drafting space, then
+                      paste into your own email tool when that suits your
+                      workflow better.
                     </p>
                   </div>
                   <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs text-text-secondary">
@@ -3303,7 +3310,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       type="button"
                       onClick={() => void copyEmailDraft()}
                       disabled={!emailSubject.trim() && !emailBody.trim()}
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                      className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Copy email
                     </button>
@@ -3317,7 +3324,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         !emailSubject.trim() ||
                         !emailBody.trim()
                       }
-                      className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                     >
                       {emailSending ? "Sending..." : "Send email"}
                     </button>
@@ -3735,175 +3742,55 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
                 {!isStandaloneQuote ? (
                   <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
                         <h2 className="text-lg font-semibold text-white">
                           Project Inputs
                         </h2>
                         <p className="mt-2 text-sm text-text-secondary">
-                          Adjust the client-facing questions for this project
-                          before you invite contacts into the portal.
+                          Build the client input pack and assign sections to the
+                          right portal users in the dedicated builder.
                         </p>
                       </div>
-                      <div className="flex flex-wrap gap-3">
-                        <button
-                          type="button"
-                          onClick={resetQuestionnaireDefaults}
-                          disabled={isScopeLocked}
-                          className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                        >
-                          Reset defaults
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void saveQuestionnaireConfig()}
-                          disabled={questionnaireSaving || isScopeLocked}
-                          className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                        >
-                          {questionnaireSaving ? "Saving..." : "Save project inputs"}
-                        </button>
-                      </div>
+                      <Link
+                        href={`/projects/${project.id}/inputs`}
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white"
+                      >
+                        Open builder
+                      </Link>
                     </div>
 
-                    {questionnaireError ? (
-                      <p className="mt-4 text-sm text-[#ff8f9c]">
-                        {questionnaireError}
-                      </p>
-                    ) : questionnaireFeedback ? (
-                      <p className="mt-4 text-sm text-status-success">
-                        {questionnaireFeedback}
-                      </p>
-                    ) : (
-                      <p className="mt-4 text-sm text-text-secondary">
-                        Keep the structure specific to the client and the job.
-                        Save once the wording feels right.
-                      </p>
-                    )}
-
-                    <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                      {Object.entries(questionnaireDraft).map(
-                        ([sessionNumberText, definition]) => (
-                          <div
-                            key={sessionNumberText}
-                            className="rounded-2xl bg-[#0b1126] p-5"
-                          >
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                              Session {sessionNumberText}
-                            </p>
-                            <label className="mt-3 block">
-                              <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
-                                Title
-                              </span>
-                              <input
-                                value={definition.title}
-                                onChange={(event) =>
-                                  updateQuestionnaireSession(
-                                    Number(sessionNumberText),
-                                    "title",
-                                    event.target.value
-                                  )
-                                }
-                                disabled={isScopeLocked}
-                                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:text-text-muted"
-                              />
-                            </label>
-                            <label className="mt-4 block">
-                              <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
-                                Intro
-                              </span>
-                              <textarea
-                                value={definition.description}
-                                onChange={(event) =>
-                                  updateQuestionnaireSession(
-                                    Number(sessionNumberText),
-                                    "description",
-                                    event.target.value
-                                  )
-                                }
-                                disabled={isScopeLocked}
-                                className="mt-2 min-h-[88px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:text-text-muted"
-                              />
-                            </label>
-                            <div className="mt-4 space-y-3">
-                              {definition.questions.map((question, questionIndex) => (
-                                <div
-                                  key={`${question.key}-${questionIndex}`}
-                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-3"
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1">
-                                      <label className="block">
-                                        <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
-                                          Question
-                                        </span>
-                                        <input
-                                          value={question.label}
-                                          onChange={(event) =>
-                                            updateQuestionnaireQuestion(
-                                              Number(sessionNumberText),
-                                              questionIndex,
-                                              "label",
-                                              event.target.value
-                                            )
-                                          }
-                                          disabled={isScopeLocked}
-                                          className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#08101f] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:text-text-muted"
-                                        />
-                                      </label>
-                                      <label className="mt-3 block">
-                                        <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
-                                          Prompt help
-                                        </span>
-                                        <textarea
-                                          value={question.hint}
-                                          onChange={(event) =>
-                                            updateQuestionnaireQuestion(
-                                              Number(sessionNumberText),
-                                              questionIndex,
-                                              "hint",
-                                              event.target.value
-                                            )
-                                          }
-                                          disabled={isScopeLocked}
-                                          className="mt-2 min-h-[72px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#08101f] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:text-text-muted"
-                                        />
-                                      </label>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        removeQuestionnaireQuestion(
-                                          Number(sessionNumberText),
-                                          questionIndex
-                                        )
-                                      }
-                                      disabled={
-                                        isScopeLocked ||
-                                        definition.questions.length <= 1
-                                      }
-                                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="mt-4 flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  addQuestionnaireQuestion(Number(sessionNumberText))
-                                }
-                                disabled={isScopeLocked}
-                                className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                              >
-                                Add question
-                              </button>
-                            </div>
-                          </div>
-                        )
-                      )}
+                    <div className="mt-5 grid gap-4 md:grid-cols-3">
+                      <div className="rounded-2xl bg-[#0b1126] p-5">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Why use the builder
+                        </p>
+                        <p className="mt-3 text-sm text-text-secondary">
+                          Choose which sections are active, add ad hoc questions,
+                          and stop generic defaults leaking into the client
+                          experience.
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-[#0b1126] p-5">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Per-contact assignment
+                        </p>
+                        <p className="mt-3 text-sm text-text-secondary">
+                          Assign specific sections to specific client users so
+                          operations, leadership, and stakeholders only see the
+                          inputs relevant to them.
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-[#0b1126] p-5">
+                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          Client experience
+                        </p>
+                        <p className="mt-3 text-sm text-text-secondary">
+                          Clients now autosave as they work and only see the
+                          sections they have been assigned, making it much
+                          easier to resume later.
+                        </p>
+                      </div>
                     </div>
                   </section>
                 ) : null}

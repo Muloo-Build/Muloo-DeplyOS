@@ -24,6 +24,10 @@ export default function ProjectWorkflowNav({
       href: `/projects/${projectId}`,
       label: "Project Summary"
     },
+    {
+      href: `/projects/${projectId}/inputs`,
+      label: "Project Inputs"
+    },
     ...(showDiscovery
       ? [
           {
