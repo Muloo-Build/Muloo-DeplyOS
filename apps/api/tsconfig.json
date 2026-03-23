@@ -10,6 +10,7 @@
   "references": [
     { "path": "../../packages/shared" },
     { "path": "../../packages/config" },
-    { "path": "../../packages/file-system" }
+    { "path": "../../packages/file-system" },
+    { "path": "../../packages/hubspot-client" }
   ]
 }

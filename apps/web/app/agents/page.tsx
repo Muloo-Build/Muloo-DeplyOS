@@ -1,5 +1,6 @@
 import AppShell from "../components/AppShell";
 import AgentStudio from "../components/AgentStudio";
+import HubSpotAgentWorkbench from "../components/HubSpotAgentWorkbench";
 
 export default function AgentsPage() {
   return (
@@ -20,6 +21,7 @@ export default function AgentsPage() {
           </div>
 
           <AgentStudio />
+          <HubSpotAgentWorkbench />
         </div>
       </div>
     </AppShell>

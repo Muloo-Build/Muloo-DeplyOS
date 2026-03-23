@@ -176,6 +176,11 @@ export default function ProviderConnectionsSettings() {
                 placeholder="Optional custom endpoint"
                 className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
               />
+              {provider.providerKey === "hubspot_oauth" ? (
+                <p className="mt-2 text-xs text-text-muted">
+                  Leave blank for HubSpot&apos;s default API base URL. Only set this when routing through a specific HubSpot-compatible gateway.
+                </p>
+              ) : null}
             </label>
 
             <label className="block md:col-span-2">
@@ -189,8 +194,10 @@ export default function ProviderConnectionsSettings() {
                   updateProvider(provider.providerKey, "apiKey", event.target.value)
                 }
                 placeholder={
-                  provider.connectionType === "oauth"
-                    ? "Store a token or integration reference"
+                  provider.providerKey === "hubspot_oauth"
+                    ? "Paste a HubSpot private app token or OAuth access token"
+                    : provider.connectionType === "oauth"
+                      ? "Store a token or integration reference"
                     : "Paste provider API key"
                 }
                 className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
@@ -198,6 +205,11 @@ export default function ProviderConnectionsSettings() {
               {provider.hasApiKey ? (
                 <p className="mt-2 text-xs text-text-muted">
                   A value is already stored for this provider.
+                </p>
+              ) : null}
+              {provider.providerKey === "hubspot_oauth" ? (
+                <p className="mt-2 text-xs text-text-muted">
+                  Best first path for agent execution: use a HubSpot token for direct CRM schema and record APIs. Keep workflow, dashboard, and CMS work on the reviewed paths surfaced in Agent Studio.
                 </p>
               ) : null}
             </label>

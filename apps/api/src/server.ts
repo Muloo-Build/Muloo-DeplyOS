@@ -2,6 +2,7 @@ import http from "node:http";
 import crypto from "node:crypto";
 import nodemailer from "nodemailer";
 import { getIntegrationStatus, type BaseConfig } from "@muloo/config";
+import { HubSpotClient } from "@muloo/hubspot-client";
 import {
   createProjectFromTemplate,
   loadAllExecutionRecords,
@@ -641,6 +642,164 @@ type ClientQuestionnaireSessionConfig = {
   questions: ClientQuestionnaireQuestion[];
 };
 type ClientQuestionnaireConfig = Record<number, ClientQuestionnaireSessionConfig>;
+type HubSpotAgentCapabilitySupport =
+  | "supported"
+  | "beta"
+  | "external_best_path"
+  | "not_recommended";
+type HubSpotAgentExecutionPath =
+  | "direct_rest_api"
+  | "custom_workflow_action"
+  | "custom_code_action"
+  | "app_home_or_ui_extension"
+  | "developer_mcp_or_cli"
+  | "manual_or_review";
+type HubSpotAgentActionKey =
+  | "create_property_group"
+  | "create_property"
+  | "create_custom_object"
+  | "create_pipeline"
+  | "upsert_record";
+type HubSpotAgentCapability = {
+  key: string;
+  label: string;
+  support: HubSpotAgentCapabilitySupport;
+  recommendedPath: HubSpotAgentExecutionPath;
+  summary: string;
+  notes: string[];
+  docs: Array<{ label: string; url: string }>;
+  directActions?: HubSpotAgentActionKey[];
+};
+
+const hubSpotAgentCapabilities: HubSpotAgentCapability[] = [
+  {
+    key: "crm_schema",
+    label: "CRM Objects, Properties, Pipelines, and Associations",
+    support: "supported",
+    recommendedPath: "direct_rest_api",
+    summary:
+      "Use HubSpot's CRM REST APIs for custom properties, property groups, custom objects, associations, pipelines, stages, and record CRUD.",
+    notes: [
+      "This is the strongest path for agent execution because the APIs are stable, scoped, and deterministic.",
+      "Start with properties on standard objects before reaching for custom objects.",
+      "When the data model grows beyond standard objects, create a custom object schema first, then attach properties and associations."
+    ],
+    docs: [
+      {
+        label: "CRM Properties API",
+        url: "https://developers.hubspot.com/docs/api-reference/crm-properties-v3/guide"
+      },
+      {
+        label: "Custom Objects API",
+        url: "https://developers.hubspot.com/docs/api-reference/crm-custom-objects-v3/guide"
+      },
+      {
+        label: "Associations v4 API",
+        url: "https://developers.hubspot.com/docs/api-reference/crm-associations-v4/guide"
+      },
+      {
+        label: "Pipelines API",
+        url: "https://developers.hubspot.com/docs/api-reference/crm-pipelines-v3/guide"
+      },
+      {
+        label: "Objects API",
+        url: "https://developers.hubspot.com/docs/api-reference/crm-objects-v3/guide"
+      }
+    ],
+    directActions: [
+      "create_property_group",
+      "create_property",
+      "create_custom_object",
+      "create_pipeline",
+      "upsert_record"
+    ]
+  },
+  {
+    key: "workflow_automation",
+    label: "Workflows and Automation",
+    support: "beta",
+    recommendedPath: "custom_workflow_action",
+    summary:
+      "For agent-style execution inside HubSpot automation, prefer custom workflow actions and agent tools rather than brittle UI automation.",
+    notes: [
+      "Custom workflow actions are the right bridge when HubSpot workflows need to call external Muloo execution.",
+      "Custom code actions are useful when the logic should execute inside HubSpot's managed serverless runtime.",
+      "Treat workflow creation and mutation as a review-heavy lane until the workflow APIs and project tooling are fully standardized in our stack."
+    ],
+    docs: [
+      {
+        label: "Define a custom workflow action",
+        url: "https://developers.hubspot.com/docs/apps/developer-platform/add-features/custom-workflow-actions"
+      },
+      {
+        label: "Automation API | Custom Workflow Actions",
+        url: "https://developers.hubspot.com/docs/api/automation/custom-workflow-actions"
+      },
+      {
+        label: "Workflows | Custom Code Actions",
+        url: "https://developers.hubspot.com/docs/api-reference/automation-actions-v4-v4/custom-code-actions"
+      },
+      {
+        label: "Create an agent tool",
+        url: "https://developers.hubspot.com/docs/apps/developer-platform/add-features/agent-tools/create-an-agent-tool"
+      }
+    ]
+  },
+  {
+    key: "dashboards_and_reporting",
+    label: "Dashboards and Reporting",
+    support: "external_best_path",
+    recommendedPath: "app_home_or_ui_extension",
+    summary:
+      "Use HubSpot app home and UI extensions as the native reporting surface, and use report-sharing or external BI for richer dashboard delivery.",
+    notes: [
+      "There is still no clean general-purpose public dashboard-builder path to rely on for agent CRUD the way we can for CRM schema APIs.",
+      "For internal productized reporting, app home is the better native interface than trying to automate the dashboard UI.",
+      "For executive dashboards, external BI remains the safer pattern when HubSpot-native reporting won't cover the use case cleanly."
+    ],
+    docs: [
+      {
+        label: "Create an app home page",
+        url: "https://developers.hubspot.com/docs/apps/developer-platform/add-features/ui-extensibility/create-an-app-home-page"
+      },
+      {
+        label: "UI extensions overview",
+        url: "https://developers.hubspot.com/docs/apps/developer-platform/add-features/ui-extensibility/overview"
+      },
+      {
+        label: "October 2025 Developer Rollup",
+        url: "https://developers.hubspot.com/changelog/october-2025-developer-rollup"
+      }
+    ]
+  },
+  {
+    key: "cms_and_theme_delivery",
+    label: "CMS Themes, Pages, and Developer Assets",
+    support: "supported",
+    recommendedPath: "developer_mcp_or_cli",
+    summary:
+      "For CMS builds, developer projects, the HubSpot CLI, and HubSpot's MCP tooling are the best path rather than direct CRM-style API calls.",
+    notes: [
+      "This is the right lane for themes, modules, UI extensions, app home, serverless functions, and future HubSpot-native agent tools.",
+      "Developer MCP is useful for scaffolding and managing HubSpot projects locally, while the remote MCP server is useful for secure CRM context retrieval.",
+      "When the work is asset-heavy, treat the codebase and deployment pipeline as the source of truth, not the browser UI."
+    ],
+    docs: [
+      {
+        label: "HubSpot MCP Server",
+        url: "https://developers.hubspot.com/mcp"
+      },
+      {
+        label: "Introducing the HubSpot Developer Platform",
+        url: "https://developers.hubspot.com/changelog/introducing-the-hubspot-developer-platform-2025"
+      },
+      {
+        label: "Create an app home page",
+        url: "https://developers.hubspot.com/docs/apps/developer-platform/add-features/ui-extensibility/create-an-app-home-page"
+      }
+    ]
+  }
+];
 
 const sessionTitles: Record<number, string> = {
   1: "Business & Goals",
@@ -7417,6 +7576,409 @@ async function loadProviderConnections() {
   );
 }
 
+function normalizeHubSpotBaseUrl(value?: string | null) {
+  const trimmed = value?.trim();
+
+  if (!trimmed) {
+    return "https://api.hubapi.com";
+  }
+
+  return trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
+}
+
+async function resolveHubSpotAgentConnection() {
+  await ensureProviderConnectionsSeeded();
+
+  const provider = await prisma.workspaceProviderConnection.findUnique({
+    where: { providerKey: "hubspot_oauth" }
+  });
+  const envAccessToken = process.env.HUBSPOT_ACCESS_TOKEN?.trim() ?? "";
+  const providerAccessToken =
+    provider?.isEnabled && provider.apiKey?.trim() ? provider.apiKey.trim() : "";
+  const accessToken = envAccessToken || providerAccessToken;
+  const source = envAccessToken
+    ? "env"
+    : providerAccessToken
+      ? "provider_connection"
+      : "missing";
+  const baseUrl = normalizeHubSpotBaseUrl(
+    process.env.HUBSPOT_BASE_URL ?? provider?.endpointUrl ?? undefined
+  );
+  const portalId = process.env.HUBSPOT_PORTAL_ID?.trim() || null;
+
+  return {
+    ready: accessToken.length > 0,
+    accessToken,
+    source,
+    baseUrl,
+    portalId,
+    providerEnabled: provider?.isEnabled ?? false
+  };
+}
+
+function buildHubSpotAgentCapabilitiesPayload(input: {
+  ready: boolean;
+  source: string;
+  baseUrl: string;
+  portalId: string | null;
+  providerEnabled: boolean;
+}) {
+  return {
+    connection: {
+      ready: input.ready,
+      source: input.source,
+      baseUrl: input.baseUrl,
+      portalId: input.portalId,
+      providerEnabled: input.providerEnabled
+    },
+    capabilities: hubSpotAgentCapabilities,
+    supportedActions: Array.from(
+      new Set(
+        hubSpotAgentCapabilities.flatMap(
+          (capability) => capability.directActions ?? []
+        )
+      )
+    )
+  };
+}
+
+async function executeHubSpotAgentAction(value: {
+  action?: unknown;
+  input?: unknown;
+  dryRun?: unknown;
+}) {
+  const action = typeof value.action === "string" ? value.action.trim() : "";
+  const dryRun = value.dryRun !== false;
+  const input =
+    value.input && typeof value.input === "object" && !Array.isArray(value.input)
+      ? (value.input as Record<string, unknown>)
+      : {};
+
+  if (
+    ![
+      "create_property_group",
+      "create_property",
+      "create_custom_object",
+      "create_pipeline",
+      "upsert_record"
+    ].includes(action)
+  ) {
+    throw new Error("Unsupported HubSpot agent action");
+  }
+
+  const connection = await resolveHubSpotAgentConnection();
+  const connectionSummary = {
+    ready: connection.ready,
+    source: connection.source,
+    baseUrl: connection.baseUrl,
+    portalId: connection.portalId
+  };
+
+  if (dryRun) {
+    return {
+      dryRun: true,
+      action,
+      connection: connectionSummary,
+      requestPreview: input
+    };
+  }
+
+  if (!connection.ready) {
+    throw new Error(
+      "HubSpot auth is not configured. Add HUBSPOT_ACCESS_TOKEN or enable the HubSpot provider connection first."
+    );
+  }
+
+  const client = new HubSpotClient({
+    accessToken: connection.accessToken,
+    baseUrl: connection.baseUrl,
+    logger: {
+      info(message: string, context?: Record<string, unknown>) {
+        console.info(message, context);
+      },
+      warn(message: string, context?: Record<string, unknown>) {
+        console.warn(message, context);
+      },
+      error(message: string, context?: Record<string, unknown>) {
+        console.error(message, context);
+      }
+    }
+  });
+
+  switch (action as HubSpotAgentActionKey) {
+    case "create_property_group": {
+      const objectType =
+        typeof input.objectType === "string" ? input.objectType.trim() : "";
+      const name = typeof input.name === "string" ? input.name.trim() : "";
+      const label = typeof input.label === "string" ? input.label.trim() : "";
+      const displayOrder =
+        typeof input.displayOrder === "number"
+          ? input.displayOrder
+          : Number(input.displayOrder);
+
+      if (!objectType || !name || !label) {
+        throw new Error("objectType, name, and label are required");
+      }
+
+      const result = await client.createPropertyGroup(objectType, {
+        name,
+        label,
+        ...(Number.isFinite(displayOrder) ? { displayOrder } : {})
+      });
+
+      return {
+        dryRun: false,
+        action,
+        connection: connectionSummary,
+        result
+      };
+    }
+    case "create_property": {
+      const objectType =
+        typeof input.objectType === "string" ? input.objectType.trim() : "";
+      const name = typeof input.name === "string" ? input.name.trim() : "";
+      const label = typeof input.label === "string" ? input.label.trim() : "";
+      const type = typeof input.type === "string" ? input.type.trim() : "";
+      const fieldType =
+        typeof input.fieldType === "string" ? input.fieldType.trim() : "";
+
+      if (!objectType || !name || !label || !type || !fieldType) {
+        throw new Error(
+          "objectType, name, label, type, and fieldType are required"
+        );
+      }
+
+      const result = await client.createProperty(objectType, {
+        name,
+        label,
+        type,
+        fieldType,
+        ...(typeof input.description === "string" && input.description.trim()
+          ? { description: input.description.trim() }
+          : {}),
+        ...(typeof input.groupName === "string" && input.groupName.trim()
+          ? { groupName: input.groupName.trim() }
+          : {}),
+        ...(input.formField !== undefined
+          ? { formField: Boolean(input.formField) }
+          : {}),
+        ...(Array.isArray(input.options)
+          ? {
+              options: input.options
+                .filter(
+                  (option): option is Record<string, unknown> =>
+                    Boolean(option) && typeof option === "object"
+                )
+                .map((option, index) => ({
+                  label:
+                    typeof option.label === "string" ? option.label.trim() : "",
+                  value:
+                    typeof option.value === "string" ? option.value.trim() : "",
+                  ...(option.displayOrder !== undefined
+                    ? {
+                        displayOrder:
+                          typeof option.displayOrder === "number"
+                            ? option.displayOrder
+                            : Number(option.displayOrder) || index
+                      }
+                    : {}),
+                  ...(option.hidden !== undefined
+                    ? { hidden: Boolean(option.hidden) }
+                    : {})
+                }))
+            }
+          : {})
+      });
+
+      return {
+        dryRun: false,
+        action,
+        connection: connectionSummary,
+        result
+      };
+    }
+    case "create_custom_object": {
+      const name = typeof input.name === "string" ? input.name.trim() : "";
+      const singularLabel =
+        typeof input.singularLabel === "string" ? input.singularLabel.trim() : "";
+      const pluralLabel =
+        typeof input.pluralLabel === "string" ? input.pluralLabel.trim() : "";
+      const primaryDisplayProperty =
+        typeof input.primaryDisplayProperty === "string"
+          ? input.primaryDisplayProperty.trim()
+          : "";
+      const properties = Array.isArray(input.properties)
+        ? input.properties
+            .filter(
+              (property): property is Record<string, unknown> =>
+                Boolean(property) && typeof property === "object"
+            )
+            .map((property) => ({
+              name:
+                typeof property.name === "string" ? property.name.trim() : "",
+              label:
+                typeof property.label === "string" ? property.label.trim() : "",
+              type:
+                typeof property.type === "string" ? property.type.trim() : "",
+              fieldType:
+                typeof property.fieldType === "string"
+                  ? property.fieldType.trim()
+                  : "",
+              ...(typeof property.description === "string" &&
+              property.description.trim()
+                ? { description: property.description.trim() }
+                : {}),
+              ...(typeof property.groupName === "string" &&
+              property.groupName.trim()
+                ? { groupName: property.groupName.trim() }
+                : {}),
+              ...(property.formField !== undefined
+                ? { formField: Boolean(property.formField) }
+                : {}),
+              ...(Array.isArray(property.options)
+                ? {
+                    options: property.options
+                      .filter(
+                        (option): option is Record<string, unknown> =>
+                          Boolean(option) && typeof option === "object"
+                      )
+                      .map((option) => ({
+                        label:
+                          typeof option.label === "string"
+                            ? option.label.trim()
+                            : "",
+                        value:
+                          typeof option.value === "string"
+                            ? option.value.trim()
+                            : ""
+                      }))
+                  }
+                : {})
+            }))
+        : [];
+
+      if (!name || !singularLabel || !pluralLabel || !primaryDisplayProperty) {
+        throw new Error(
+          "name, singularLabel, pluralLabel, and primaryDisplayProperty are required"
+        );
+      }
+
+      if (properties.length === 0) {
+        throw new Error("At least one property is required for a custom object");
+      }
+
+      const result = await client.createCustomObjectSchema({
+        name,
+        ...(typeof input.description === "string" && input.description.trim()
+          ? { description: input.description.trim() }
+          : {}),
+        labels: {
+          singular: singularLabel,
+          plural: pluralLabel
+        },
+        primaryDisplayProperty,
+        secondaryDisplayProperties: normalizeStringArray(
+          input.secondaryDisplayProperties
+        ),
+        searchableProperties: normalizeStringArray(input.searchableProperties),
+        requiredProperties: normalizeStringArray(input.requiredProperties),
+        associatedObjects: normalizeStringArray(input.associatedObjects),
+        properties
+      });
+
+      return {
+        dryRun: false,
+        action,
+        connection: connectionSummary,
+        result
+      };
+    }
+    case "create_pipeline": {
+      const objectType =
+        typeof input.objectType === "string" ? input.objectType.trim() : "";
+      const label = typeof input.label === "string" ? input.label.trim() : "";
+      const displayOrder =
+        typeof input.displayOrder === "number"
+          ? input.displayOrder
+          : Number(input.displayOrder);
+      const stages = Array.isArray(input.stages)
+        ? input.stages
+            .filter(
+              (stage): stage is Record<string, unknown> =>
+                Boolean(stage) && typeof stage === "object"
+            )
+            .map((stage) => ({
+              label: typeof stage.label === "string" ? stage.label.trim() : "",
+              ...(stage.displayOrder !== undefined
+                ? {
+                    displayOrder:
+                      typeof stage.displayOrder === "number"
+                        ? stage.displayOrder
+                        : Number(stage.displayOrder) || 0
+                  }
+                : {}),
+              ...(stage.probability !== undefined
+                ? {
+                    probability:
+                      typeof stage.probability === "number"
+                        ? stage.probability
+                        : Number(stage.probability)
+                  }
+                : {})
+            }))
+        : [];
+
+      if ((objectType !== "deals" && objectType !== "tickets") || !label) {
+        throw new Error("objectType must be deals or tickets, and label is required");
+      }
+
+      const result = await client.createPipeline(objectType, {
+        label,
+        ...(Number.isFinite(displayOrder) ? { displayOrder } : {}),
+        ...(stages.length > 0 ? { stages } : {})
+      });
+
+      return {
+        dryRun: false,
+        action,
+        connection: connectionSummary,
+        result
+      };
+    }
+    case "upsert_record": {
+      const objectType =
+        typeof input.objectType === "string" ? input.objectType.trim() : "";
+      const id = typeof input.id === "string" ? input.id.trim() : "";
+      const idProperty =
+        typeof input.idProperty === "string" ? input.idProperty.trim() : "";
+      const properties =
+        input.properties &&
+        typeof input.properties === "object" &&
+        !Array.isArray(input.properties)
+          ? (input.properties as Record<string, string | number | boolean | null>)
+          : null;
+
+      if (!objectType || !properties) {
+        throw new Error("objectType and properties are required");
+      }
+
+      const result = await client.upsertObjectRecord({
+        objectType,
+        ...(id ? { id } : {}),
+        ...(idProperty ? { idProperty } : {}),
+        properties
+      });
+
+      return {
+        dryRun: false,
+        action,
+        connection: connectionSummary,
+        result
+      };
+    }
+  }
+}
+
 async function loadAiRouting() {
   await ensureAiRoutingSeeded();
 
@@ -11673,6 +12235,38 @@ export function createAppServer(config: BaseConfig): http.Server {
           applyEnabled: config.applyEnabled,
           integrationStatus: getIntegrationStatus(config)
         });
+      }
+
+      if (url.pathname === "/api/hubspot/agent-capabilities") {
+        if (request.method === "GET") {
+          const connection = await resolveHubSpotAgentConnection();
+          return sendJson(
+            response,
+            200,
+            buildHubSpotAgentCapabilitiesPayload(connection)
+          );
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      if (url.pathname === "/api/hubspot/agent-execute") {
+        if (request.method === "POST") {
+          try {
+            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const result = await executeHubSpotAgentAction(body);
+            return sendJson(response, 200, result);
+          } catch (error) {
+            return sendJson(response, 400, {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to execute HubSpot agent action"
+            });
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
       const workspaceUserRoute = matchWorkspaceUserRoute(url.pathname);
