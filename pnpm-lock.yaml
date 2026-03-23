@@ -66,6 +66,9 @@ importers:
       '@muloo/file-system':
         specifier: workspace:*
         version: link:../../packages/file-system
+      '@muloo/hubspot-client':
+        specifier: workspace:*
+        version: link:../../packages/hubspot-client
       '@muloo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
