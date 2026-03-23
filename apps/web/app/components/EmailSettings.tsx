@@ -157,7 +157,7 @@ export default function EmailSettings() {
 
   async function saveGoogleSettings() {
     if (!googleConnection) {
-      return;
+      return null;
     }
 
     setSavingGoogle(true);
@@ -185,12 +185,14 @@ export default function EmailSettings() {
       setGoogleConnection(body.connection ?? null);
       setGoogleClientSecretDraft("");
       setFeedback("Google mailbox settings saved.");
+      return body.connection ?? null;
     } catch (saveError) {
       setError(
         saveError instanceof Error
           ? saveError.message
           : "Failed to save Google OAuth settings"
       );
+      return null;
     } finally {
       setSavingGoogle(false);
     }
@@ -202,6 +204,16 @@ export default function EmailSettings() {
     setFeedback(null);
 
     try {
+      let nextConnection = googleConnection;
+
+      if (googleClientSecretDraft.trim()) {
+        nextConnection = await saveGoogleSettings();
+      }
+
+      if (!nextConnection?.clientId?.trim() || !nextConnection.hasClientSecret) {
+        throw new Error("Save the Google client ID and client secret before connecting.");
+      }
+
       const response = await fetch("/api/email-oauth/google/start", {
         method: "POST"
       });

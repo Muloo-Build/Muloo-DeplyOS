@@ -9245,11 +9245,17 @@ async function completeWorkspaceGoogleEmailOAuthCallback(value: {
         refresh_token?: string;
         token_type?: string;
         expires_in?: number;
+        error?: string;
+        error_description?: string;
       }
     | null;
 
   if (!tokenResponse.ok || !tokenBody?.access_token) {
-    throw new Error("Google token exchange failed");
+    throw new Error(
+      tokenBody?.error_description ||
+        tokenBody?.error ||
+        "Google token exchange failed"
+    );
   }
 
   const profileResponse = await fetch(
