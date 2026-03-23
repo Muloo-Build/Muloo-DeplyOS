@@ -40,6 +40,66 @@ interface AgentDraft {
   sortOrder: string;
 }
 
+const agentPresets = [
+  {
+    label: "HubSpot Build",
+    draft: {
+      name: "HubSpot Build Agent",
+      purpose:
+        "Execute safe HubSpot CRM build work like properties, property groups, custom objects, pipelines, and record updates through direct APIs.",
+      serviceFamily: "hubspot_architecture",
+      provider: "openai",
+      model: "gpt-5.4",
+      triggerType: "manual",
+      approvalMode: "review_required",
+      allowedActionsText:
+        "properties, property-groups, custom-objects, pipelines, records, direct-rest-api",
+      systemPrompt:
+        "Prefer deterministic HubSpot API operations. Avoid UI-driven setup when an official API path exists, and surface any required review before writing to production.",
+      isActive: true,
+      sortOrder: "40"
+    }
+  },
+  {
+    label: "Workflow Review",
+    draft: {
+      name: "HubSpot Workflow Agent",
+      purpose:
+        "Prepare automation-ready workflow designs, custom workflow action plans, and custom code action handoffs for HubSpot implementations.",
+      serviceFamily: "hubspot_architecture",
+      provider: "anthropic",
+      model: "claude-sonnet-4-20250514",
+      triggerType: "manual",
+      approvalMode: "review_required",
+      allowedActionsText:
+        "workflow, automation, custom-workflow-action, custom-code-action, review-first",
+      systemPrompt:
+        "Guide workflow and automation implementation toward supported HubSpot patterns. Keep risky or beta-heavy automation behind review checkpoints.",
+      isActive: true,
+      sortOrder: "50"
+    }
+  },
+  {
+    label: "QA / Readiness",
+    draft: {
+      name: "HubSpot QA Agent",
+      purpose:
+        "Review HubSpot delivery outputs, validate schema readiness, and call out execution gaps before go-live or handoff.",
+      serviceFamily: "hubspot_architecture",
+      provider: "anthropic",
+      model: "claude-sonnet-4-20250514",
+      triggerType: "manual",
+      approvalMode: "review_required",
+      allowedActionsText:
+        "qa, validate, review, compare-schema, readiness-check",
+      systemPrompt:
+        "Focus on validation, risk review, and production readiness. Do not fabricate completion; call out missing inputs, risky assumptions, and test gaps clearly.",
+      isActive: true,
+      sortOrder: "60"
+    }
+  }
+] as const;
+
 function createEmptyDraft(): AgentDraft {
   return {
     name: "",
@@ -112,6 +172,20 @@ export default function AgentStudio() {
       providerKey,
       defaultModel: provider?.defaultModel ?? ""
     };
+  }
+
+  function applyPreset(index: number) {
+    const preset = agentPresets[index];
+    if (!preset) {
+      return;
+    }
+
+    const providerDefaults = applyProviderDefaults(preset.draft.provider);
+    setNewDraft({
+      ...preset.draft,
+      provider: providerDefaults.providerKey,
+      model: providerDefaults.defaultModel || preset.draft.model
+    });
   }
 
   async function saveAgent(agentId: string) {
@@ -215,6 +289,18 @@ export default function AgentStudio() {
         <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
           Create Agent
         </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {agentPresets.map((preset, index) => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => applyPreset(index)}
+              className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-xs font-medium text-white"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[
             ["Name", "name"],

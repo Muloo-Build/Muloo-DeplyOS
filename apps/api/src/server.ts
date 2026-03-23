@@ -5701,6 +5701,41 @@ function pickAgentForTask(
   return ranked[0]?.agent.id ?? null;
 }
 
+async function resolveAssignedAgentIdForTask(
+  projectId: string,
+  task: {
+    title: string;
+    description: string;
+    category: string;
+    executionType: string;
+    assigneeType: string;
+  },
+  explicitAssignedAgentId?: string | null
+) {
+  if (task.assigneeType !== "Agent") {
+    return null;
+  }
+
+  if (explicitAssignedAgentId?.trim()) {
+    return explicitAssignedAgentId.trim();
+  }
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { serviceFamily: true }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const availableAgents = await loadPreferredAgentIdsByServiceFamily(
+    project.serviceFamily
+  );
+
+  return pickAgentForTask(availableAgents, task);
+}
+
 async function generateStandaloneProjectPlan(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -14337,15 +14372,32 @@ export function createAppServer(config: BaseConfig): http.Server {
             validPriorities.includes(body.priority.toLowerCase())
               ? body.priority.toLowerCase()
               : "medium";
+          const normalizedTitle = normalizeRequiredTaskString(body.title, "title");
+          const normalizedDescription =
+            normalizeOptionalTaskString(body.description) ?? "";
+          const normalizedCategory =
+            normalizeOptionalTaskString(body.category) ?? "";
+          const normalizedExecutionType =
+            normalizeOptionalTaskString(body.executionType) ?? "manual";
+          const resolvedAssignedAgentId = await resolveAssignedAgentIdForTask(
+            projectTasksRoute.projectId,
+            {
+              title: normalizedTitle,
+              description: normalizedDescription,
+              category: normalizedCategory,
+              executionType: normalizedExecutionType,
+              assigneeType
+            },
+            assignedAgentId
+          );
 
           const task = await prisma.task.create({
             data: {
               projectId: projectTasksRoute.projectId,
-              title: normalizeRequiredTaskString(body.title, "title"),
-              description: normalizeOptionalTaskString(body.description),
-              category: normalizeOptionalTaskString(body.category),
-              executionType:
-                normalizeOptionalTaskString(body.executionType) ?? "manual",
+              title: normalizedTitle,
+              description: normalizedDescription || null,
+              category: normalizedCategory || null,
+              executionType: normalizedExecutionType,
               priority,
               status,
               plannedHours:
@@ -14364,7 +14416,7 @@ export function createAppServer(config: BaseConfig): http.Server {
               approvalRequired: Boolean(body.approvalRequired),
               assigneeType,
               executionReadiness,
-              assignedAgentId
+              assignedAgentId: resolvedAssignedAgentId
             },
             include: { assignedAgent: { select: { name: true } } }
           });
@@ -14583,6 +14635,40 @@ export function createAppServer(config: BaseConfig): http.Server {
 
           if (body.approvalRequired !== undefined) {
             data.approvalRequired = Boolean(body.approvalRequired);
+          }
+
+          const nextTaskShape = {
+            title:
+              typeof data.title === "string"
+                ? data.title
+                : existingTask.title,
+            description:
+              typeof data.description === "string"
+                ? data.description
+                : existingTask.description ?? "",
+            category:
+              typeof data.category === "string"
+                ? data.category
+                : existingTask.category ?? "",
+            executionType:
+              typeof data.executionType === "string"
+                ? data.executionType
+                : existingTask.executionType,
+            assigneeType:
+              typeof data.assigneeType === "string"
+                ? data.assigneeType
+                : existingTask.assigneeType ?? "Human"
+          };
+
+          if (
+            nextTaskShape.assigneeType === "Agent" &&
+            !("assignedAgentId" in data)
+          ) {
+            data.assignedAgentId = await resolveAssignedAgentIdForTask(
+              projectTasksRoute.projectId,
+              nextTaskShape,
+              existingTask.assignedAgentId
+            );
           }
 
           const task = await prisma.task.update({
