@@ -7710,47 +7710,153 @@ async function updateWorkRequest(
 }
 
 async function loadClientsDirectory() {
-  const clients = await prisma.client.findMany({
-    include: {
-      contacts: {
-        orderBy: [{ canApproveQuotes: "desc" }, { firstName: "asc" }]
-      },
-      projects: {
-        orderBy: [{ updatedAt: "desc" }],
-        include: {
-          client: true,
-          portal: true
+  const [clients, projects] = await Promise.all([
+    prisma.client.findMany({
+      include: {
+        contacts: {
+          orderBy: [{ canApproveQuotes: "desc" }, { firstName: "asc" }]
         }
+      },
+      orderBy: [{ updatedAt: "desc" }]
+    }),
+    prisma.project.findMany({
+      include: {
+        client: true,
+        portal: true,
+        clientAccess: {
+          include: {
+            user: true
+          }
+        }
+      },
+      orderBy: [{ updatedAt: "desc" }]
+    })
+  ]);
+
+  return clients.map((client) => {
+    const contactEmails = new Set(
+      client.contacts
+        .map((contact) => contact.email.trim().toLowerCase())
+        .filter(Boolean)
+    );
+
+    const linkedProjects = projects.filter((project) => {
+      if (project.clientId === client.id) {
+        return true;
       }
-    },
-    orderBy: [{ updatedAt: "desc" }]
+
+      if (
+        project.clientChampionEmail &&
+        contactEmails.has(project.clientChampionEmail.trim().toLowerCase())
+      ) {
+        return true;
+      }
+
+      return project.clientAccess.some((accessRecord) =>
+        contactEmails.has(accessRecord.user.email.trim().toLowerCase())
+      );
+    });
+
+    return {
+      id: client.id,
+      name: client.name,
+      slug: client.slug,
+      industry: client.industry,
+      region: client.region,
+      website: client.website,
+      logoUrl: client.logoUrl,
+      additionalWebsites: client.additionalWebsites,
+      linkedinUrl: client.linkedinUrl,
+      facebookUrl: client.facebookUrl,
+      instagramUrl: client.instagramUrl,
+      xUrl: client.xUrl,
+      youtubeUrl: client.youtubeUrl,
+      createdAt: client.createdAt.toISOString(),
+      updatedAt: client.updatedAt.toISOString(),
+      contacts: client.contacts.map((contact) => serializeClientContact(contact)),
+      projects: linkedProjects.map((project) => ({
+        id: project.id,
+        name: project.name,
+        status: project.status,
+        quoteApprovalStatus: project.quoteApprovalStatus ?? "draft",
+        scopeType: project.scopeType ?? "discovery",
+        updatedAt: project.updatedAt.toISOString()
+      }))
+    };
+  });
+}
+
+async function updateClientDirectoryRecord(
+  clientId: string,
+  value: {
+    name?: unknown;
+    website?: unknown;
+    industry?: unknown;
+    region?: unknown;
+    logoUrl?: unknown;
+  }
+) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId }
   });
 
-  return clients.map((client) => ({
-    id: client.id,
-    name: client.name,
-    slug: client.slug,
-    industry: client.industry,
-    region: client.region,
-    website: client.website,
-    additionalWebsites: client.additionalWebsites,
-    linkedinUrl: client.linkedinUrl,
-    facebookUrl: client.facebookUrl,
-    instagramUrl: client.instagramUrl,
-    xUrl: client.xUrl,
-    youtubeUrl: client.youtubeUrl,
-    createdAt: client.createdAt.toISOString(),
-    updatedAt: client.updatedAt.toISOString(),
-    contacts: client.contacts.map((contact) => serializeClientContact(contact)),
-    projects: client.projects.map((project) => ({
-      id: project.id,
-      name: project.name,
-      status: project.status,
-      quoteApprovalStatus: project.quoteApprovalStatus ?? "draft",
-      scopeType: project.scopeType ?? "discovery",
-      updatedAt: project.updatedAt.toISOString()
-    }))
-  }));
+  if (!client) {
+    throw new Error("Client not found");
+  }
+
+  const updateData: Prisma.Prisma.ClientUpdateInput = {};
+
+  if (typeof value.name === "string") {
+    const name = value.name.trim();
+
+    if (!name) {
+      throw new Error("Client name is required");
+    }
+
+    if (name !== client.name) {
+      updateData.name = name;
+      updateData.slug = createSlug(name);
+    }
+  }
+
+  if (typeof value.website === "string") {
+    updateData.website = value.website.trim() || null;
+  }
+
+  if (typeof value.industry === "string") {
+    updateData.industry = value.industry.trim() || null;
+  }
+
+  if (typeof value.region === "string") {
+    updateData.region = value.region.trim() || null;
+  }
+
+  if (typeof value.logoUrl === "string") {
+    updateData.logoUrl = value.logoUrl.trim() || null;
+  }
+
+  const updatedClient = await prisma.client.update({
+    where: { id: clientId },
+    data: updateData
+  });
+
+  return {
+    id: updatedClient.id,
+    name: updatedClient.name,
+    slug: updatedClient.slug,
+    industry: updatedClient.industry,
+    region: updatedClient.region,
+    website: updatedClient.website,
+    logoUrl: updatedClient.logoUrl,
+    additionalWebsites: updatedClient.additionalWebsites,
+    linkedinUrl: updatedClient.linkedinUrl,
+    facebookUrl: updatedClient.facebookUrl,
+    instagramUrl: updatedClient.instagramUrl,
+    xUrl: updatedClient.xUrl,
+    youtubeUrl: updatedClient.youtubeUrl,
+    createdAt: updatedClient.createdAt.toISOString(),
+    updatedAt: updatedClient.updatedAt.toISOString()
+  };
 }
 
 async function createClientContact(
@@ -11602,6 +11708,7 @@ export function createAppServer(config: BaseConfig): http.Server {
           const body = (await readJsonBody(request)) as {
             name: string;
             website?: string;
+            logoUrl?: string;
             industry?: string;
             region?: string;
           };
@@ -11612,6 +11719,7 @@ export function createAppServer(config: BaseConfig): http.Server {
                 name: body.name,
                 slug: createSlug(body.name),
                 website: body.website ?? null,
+                logoUrl: body.logoUrl ?? null,
                 industry: body.industry ?? null,
                 region: body.region ?? null
               }
@@ -11625,6 +11733,7 @@ export function createAppServer(config: BaseConfig): http.Server {
                 industry: client.industry,
                 region: client.region,
                 website: client.website,
+                logoUrl: client.logoUrl,
                 additionalWebsites: client.additionalWebsites,
                 linkedinUrl: client.linkedinUrl,
                 facebookUrl: client.facebookUrl,
@@ -11645,6 +11754,48 @@ export function createAppServer(config: BaseConfig): http.Server {
             }
 
             throw error;
+          }
+        }
+
+        if (
+          request.method === "PATCH" &&
+          clientDirectoryRoute.clientId &&
+          !clientDirectoryRoute.resource
+        ) {
+          try {
+            const body = (await readJsonBody(request)) as {
+              name?: unknown;
+              website?: unknown;
+              logoUrl?: unknown;
+              industry?: unknown;
+              region?: unknown;
+            };
+
+            const client = await updateClientDirectoryRecord(
+              clientDirectoryRoute.clientId,
+              body
+            );
+
+            return sendJson(response, 200, { client });
+          } catch (error: unknown) {
+            if (isUniqueConstraintError(error)) {
+              return sendJson(response, 409, {
+                error: "A client with that name already exists"
+              });
+            }
+
+            return sendJson(
+              response,
+              error instanceof Error && error.message === "Client not found"
+                ? 404
+                : 400,
+              {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to update client"
+              }
+            );
           }
         }
 

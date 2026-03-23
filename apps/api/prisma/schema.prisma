@@ -22,6 +22,7 @@ model Client {
   industry           String?
   region             String?
   website            String?
+  logoUrl            String?
   additionalWebsites String[]
   linkedinUrl        String?
   facebookUrl        String?
