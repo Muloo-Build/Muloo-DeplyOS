@@ -4832,12 +4832,20 @@ async function generateBlueprintProjectPlan(projectId: string) {
     select: {
       id: true,
       serviceFamily: true,
+      quoteApprovalStatus: true,
       blueprint: {
         include: {
           tasks: {
             orderBy: [{ phase: "asc" }, { order: "asc" }]
           }
         }
+      },
+      quotes: {
+        where: {
+          status: "approved"
+        },
+        orderBy: [{ version: "desc" }],
+        take: 1
       }
     }
   });
@@ -4851,6 +4859,42 @@ async function generateBlueprintProjectPlan(projectId: string) {
       "Generate a blueprint first before creating the delivery board for this project"
     );
   }
+
+  const approvedQuote = project.quotes[0] ?? null;
+  const sourceTasks =
+    project.quoteApprovalStatus === "approved"
+      ? (() => {
+          if (!approvedQuote) {
+            throw new Error(
+              "Approve and publish the quote before creating the delivery board for this project"
+            );
+          }
+
+          const approvedPhaseLines = projectQuotePhaseLineSchema
+            .array()
+            .parse(approvedQuote.phaseLines)
+            .filter((phase) => phase.included)
+            .sort((left, right) => left.phase - right.phase);
+
+          const quoteTasks = approvedPhaseLines.flatMap((phase) =>
+            phase.tasks.map((task) => ({
+              phase: phase.phase,
+              phaseName: phase.phaseName,
+              name: task.name,
+              type: task.type,
+              effortHours: task.effortHours
+            }))
+          );
+
+          if (quoteTasks.length === 0) {
+            throw new Error(
+              "The approved quote does not include any delivery phases yet."
+            );
+          }
+
+          return quoteTasks;
+        })()
+      : project.blueprint.tasks;
 
   const availableAgents = await loadPreferredAgentIdsByServiceFamily(project.serviceFamily);
 
@@ -4868,7 +4912,7 @@ async function generateBlueprintProjectPlan(projectId: string) {
 
   const createdTasks = [] as Array<Awaited<ReturnType<typeof prisma.task.create>>>;
 
-  for (const blueprintTask of project.blueprint.tasks) {
+  for (const blueprintTask of sourceTasks) {
     const status =
       blueprintTask.type === "Client" ? "waiting_on_client" : "todo";
     const priority =
@@ -4888,7 +4932,11 @@ async function generateBlueprintProjectPlan(projectId: string) {
       data: {
         projectId,
         title: blueprintTask.name,
-        description: `Generated from blueprint phase ${blueprintTask.phase}: ${blueprintTask.phaseName}. Planned effort: ${blueprintTask.effortHours} hour${
+        description: `${
+          project.quoteApprovalStatus === "approved"
+            ? `Generated from approved quote phase ${blueprintTask.phase}: ${blueprintTask.phaseName}.`
+            : `Generated from blueprint phase ${blueprintTask.phase}: ${blueprintTask.phaseName}.`
+        } Planned effort: ${blueprintTask.effortHours} hour${
           blueprintTask.effortHours === 1 ? "" : "s"
         }.`,
         category: `Phase ${blueprintTask.phase} - ${blueprintTask.phaseName}`,
@@ -4907,7 +4955,11 @@ async function generateBlueprintProjectPlan(projectId: string) {
         assigneeType: blueprintTask.type,
         assignedAgentId: pickAgentForTask(availableAgents, {
           title: blueprintTask.name,
-          description: `Generated from blueprint phase ${blueprintTask.phase}: ${blueprintTask.phaseName}`,
+          description: `${
+            project.quoteApprovalStatus === "approved"
+              ? `Generated from approved quote phase ${blueprintTask.phase}: ${blueprintTask.phaseName}`
+              : `Generated from blueprint phase ${blueprintTask.phase}: ${blueprintTask.phaseName}`
+          }`,
           category: `Phase ${blueprintTask.phase} - ${blueprintTask.phaseName}`,
           executionType,
           assigneeType: blueprintTask.type
@@ -4948,6 +5000,41 @@ async function generateProjectPlan(projectId: string) {
   }
 
   return generateBlueprintProjectPlan(projectId);
+}
+
+async function ensureProjectPlanGenerationAllowed(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      quoteApprovalStatus: true,
+      scopeLockedAt: true,
+      _count: {
+        select: {
+          tasks: true
+        }
+      }
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (!isProjectScopeLocked(project)) {
+    return;
+  }
+
+  if (
+    project.quoteApprovalStatus === "approved" &&
+    project._count.tasks === 0
+  ) {
+    return;
+  }
+
+  throw new Error(
+    "Approved scope is locked. Delivery scope can only be generated once from the approved quote."
+  );
 }
 
 async function loadProjectDiscoveryForBlueprint(projectId: string) {
@@ -10083,9 +10170,8 @@ export function createAppServer(config: BaseConfig): http.Server {
           projectTasksRoute.action === "generate-plan"
         ) {
           try {
-            await ensureProjectScopeUnlocked(
-              projectTasksRoute.projectId,
-              "Approved scope is locked. Delivery scope can no longer be regenerated."
+            await ensureProjectPlanGenerationAllowed(
+              projectTasksRoute.projectId
             );
           } catch (error) {
             return sendJson(

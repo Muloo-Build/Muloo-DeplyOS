@@ -83,6 +83,7 @@ export default function DeliveryBoard({
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [projectServiceFamily, setProjectServiceFamily] = useState<string | null>(null);
   const [scopeLocked, setScopeLocked] = useState(false);
+  const [quoteApproved, setQuoteApproved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
@@ -140,6 +141,7 @@ export default function DeliveryBoard({
         if (projectResponse?.ok) {
           const projectBody = await projectResponse.json().catch(() => null);
           currentServiceFamily = projectBody?.project?.serviceFamily ?? null;
+          setQuoteApproved(projectBody?.project?.quoteApprovalStatus === "approved");
           setScopeLocked(
             Boolean(
               projectBody?.project?.scopeLockedAt ||
@@ -386,6 +388,8 @@ export default function DeliveryBoard({
   }
 
   const totalCount = useMemo(() => tasks.length, [tasks]);
+  const canGenerateLockedApprovedPlan =
+    mode === "internal" && scopeLocked && quoteApproved && totalCount === 0;
   const boardMetrics = useMemo(() => {
     const humanTasks = tasks.filter(
       (task) =>
@@ -445,12 +449,14 @@ export default function DeliveryBoard({
               <button
                 type="button"
                 onClick={() => void generatePlan()}
-                disabled={generating || scopeLocked}
+                disabled={generating || (scopeLocked && !canGenerateLockedApprovedPlan)}
                 className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
               >
                 {generating
                   ? "Generating Plan..."
-                  : totalCount > 0
+                  : canGenerateLockedApprovedPlan
+                    ? "Push Approved Scope to Delivery"
+                    : totalCount > 0
                     ? "Refresh Project Plan"
                     : "Generate Project Plan"}
               </button>
@@ -491,9 +497,9 @@ export default function DeliveryBoard({
 
       {mode === "internal" && scopeLocked ? (
         <p className="mt-3 text-sm text-[#7be2ef]">
-          Approved scope is locked. You can still assign ownership, move status,
-          and track delivery, but new scoped steps should come through change
-          management.
+          {canGenerateLockedApprovedPlan
+            ? "Approved scope is locked. You can push the approved quote into delivery once, then ownership, status, and tracking stay live while new scoped steps move through change management."
+            : "Approved scope is locked. You can still assign ownership, move status, and track delivery, but new scoped steps should come through change management."}
         </p>
       ) : null}
 
