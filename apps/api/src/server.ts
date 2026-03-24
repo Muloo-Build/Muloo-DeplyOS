@@ -2425,60 +2425,6 @@ function matchProjectRoute(pathname: string): {
     : { projectId };
 }
 
-function matchClientDirectoryRoute(pathname: string): {
-  clientId?: string;
-  resource?: "contacts";
-  contactId?: string;
-} | null {
-  const match =
-    /^\/api\/clients(?:\/([^/]+?)(?:\/(contacts)(?:\/([^/]+))?)?)?$/.exec(
-      pathname
-    );
-
-  if (!match) {
-    return null;
-  }
-
-  return {
-    ...(match[1] ? { clientId: decodeURIComponent(match[1]) } : {}),
-    ...(match[2] === "contacts" ? { resource: "contacts" as const } : {}),
-    ...(match[3] ? { contactId: decodeURIComponent(match[3]) } : {})
-  };
-}
-
-function matchClientContactPortalAccessRoute(pathname: string): {
-  clientId: string;
-  contactId: string;
-} | null {
-  const match =
-    /^\/api\/clients\/([^/]+?)\/contacts\/([^/]+?)\/portal-access$/.exec(
-      pathname
-    );
-
-  if (!match?.[1] || !match[2]) {
-    return null;
-  }
-
-  return {
-    clientId: decodeURIComponent(match[1]),
-    contactId: decodeURIComponent(match[2])
-  };
-}
-
-function matchClientEnrichmentRoute(pathname: string): {
-  clientId: string;
-} | null {
-  const match = /^\/api\/clients\/([^/]+?)\/enrich$/.exec(pathname);
-
-  if (!match?.[1]) {
-    return null;
-  }
-
-  return {
-    clientId: decodeURIComponent(match[1])
-  };
-}
-
 function matchProjectQuoteRoute(pathname: string): {
   projectId: string;
   action?: "share";
@@ -10453,7 +10399,7 @@ export async function appendApprovedChangeRequestToDelivery(requestId: string) {
   };
 }
 
-async function loadClientsDirectory() {
+export async function loadClientsDirectory() {
   const [clients, projects] = await Promise.all([
     prisma.client.findMany({
       include: {
@@ -10595,7 +10541,125 @@ async function syncPartnerVisibilityLinks(
   });
 }
 
-async function updateClientDirectoryRecord(
+export async function createClientDirectoryRecord(value: {
+  name?: string;
+  website?: string;
+  logoUrl?: string;
+  industry?: string;
+  region?: string;
+  additionalWebsites?: string[];
+  linkedinUrl?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  xUrl?: string;
+  youtubeUrl?: string;
+  clientRoles?: string[];
+  parentClientId?: string;
+  visibleToPartnerIds?: string[];
+}) {
+  const client = await prisma.client.create({
+    data: {
+      name: value.name ?? "",
+      slug: createSlug(value.name ?? ""),
+      website: value.website ?? null,
+      logoUrl: value.logoUrl ?? null,
+      industry: value.industry ?? null,
+      region: normalizeClientRegion(value.region),
+      additionalWebsites: Array.isArray(value.additionalWebsites)
+        ? value.additionalWebsites
+            .filter((entry): entry is string => typeof entry === "string")
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+        : [],
+      linkedinUrl:
+        typeof value.linkedinUrl === "string"
+          ? value.linkedinUrl.trim() || null
+          : null,
+      facebookUrl:
+        typeof value.facebookUrl === "string"
+          ? value.facebookUrl.trim() || null
+          : null,
+      instagramUrl:
+        typeof value.instagramUrl === "string"
+          ? value.instagramUrl.trim() || null
+          : null,
+      xUrl: typeof value.xUrl === "string" ? value.xUrl.trim() || null : null,
+      youtubeUrl:
+        typeof value.youtubeUrl === "string"
+          ? value.youtubeUrl.trim() || null
+          : null,
+      clientRoles: normalizeClientRoleTags(value.clientRoles),
+      ...(typeof value.parentClientId === "string" &&
+      value.parentClientId.trim()
+        ? {
+            parentClient: {
+              connect: {
+                id: value.parentClientId.trim()
+              }
+            }
+          }
+        : {})
+    }
+  });
+
+  const partnerVisibilityIds = normalizeClientVisibilityIds(
+    value.visibleToPartnerIds
+  ).filter((partnerClientId) => partnerClientId !== client.id);
+
+  if (partnerVisibilityIds.length > 0) {
+    await syncPartnerVisibilityLinks(client.id, partnerVisibilityIds);
+  }
+
+  const createdClient = await prisma.client.findUnique({
+    where: { id: client.id },
+    include: {
+      parentClient: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      childClients: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      visibleToPartners: {
+        include: {
+          partnerClient: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      },
+      visibleClients: {
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (!createdClient) {
+    throw new Error("Client not found");
+  }
+
+  return {
+    ...serializeClientDirectoryRecord(createdClient),
+    contacts: [],
+    projects: []
+  };
+}
+
+export async function updateClientDirectoryRecord(
   clientId: string,
   value: {
     name?: unknown;
@@ -10769,7 +10833,7 @@ async function updateClientDirectoryRecord(
   };
 }
 
-async function deleteClientDirectoryRecord(clientId: string) {
+export async function deleteClientDirectoryRecord(clientId: string) {
   const client = await prisma.client.findUnique({
     where: { id: clientId },
     include: {
@@ -10827,7 +10891,7 @@ async function deleteClientDirectoryRecord(clientId: string) {
   });
 }
 
-async function refreshClientEnrichment(clientId: string) {
+export async function refreshClientEnrichment(clientId: string) {
   const client = await prisma.client.findUnique({
     where: { id: clientId }
   });
@@ -10846,7 +10910,7 @@ async function refreshClientEnrichment(clientId: string) {
   return serializeClientDirectoryRecord(updatedClient);
 }
 
-async function createClientContact(
+export async function createClientContact(
   clientId: string,
   value: {
     firstName?: unknown;
@@ -10883,7 +10947,7 @@ async function createClientContact(
   return serializeClientContact(contact);
 }
 
-async function updateClientContact(
+export async function updateClientContact(
   clientId: string,
   contactId: string,
   value: {
@@ -11201,7 +11265,7 @@ async function loadClientUsersForProject(projectId: string) {
   }));
 }
 
-async function inviteClientContactToProjects(
+export async function inviteClientContactToProjects(
   clientId: string,
   contactId: string,
   value: {
@@ -15102,380 +15166,6 @@ export async function handleLegacyRequest(
       const docText = await docResponse.text();
       const extraction = await extractDiscoveryFields(docText, body.session);
       return sendJson(response, 200, extraction);
-    }
-
-    const clientContactPortalAccessRoute = matchClientContactPortalAccessRoute(
-      url.pathname
-    );
-    if (clientContactPortalAccessRoute) {
-      if (request.method === "POST") {
-        try {
-          const body = (await readJsonBody(request)) as {
-            projectIds?: unknown;
-            questionnaireAccess?: unknown;
-            sendEmail?: unknown;
-          };
-          const result = await inviteClientContactToProjects(
-            clientContactPortalAccessRoute.clientId,
-            clientContactPortalAccessRoute.contactId,
-            body
-          );
-
-          return sendJson(response, 200, result);
-        } catch (error) {
-          return sendJson(
-            response,
-            error instanceof Error &&
-              ["Client not found", "Client contact not found"].includes(
-                error.message
-              )
-              ? 404
-              : 400,
-            {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update client portal access"
-            }
-          );
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const clientEnrichmentRoute = matchClientEnrichmentRoute(url.pathname);
-    if (clientEnrichmentRoute) {
-      if (request.method === "POST") {
-        try {
-          const client = await refreshClientEnrichment(
-            clientEnrichmentRoute.clientId
-          );
-          return sendJson(response, 200, { client });
-        } catch (error) {
-          return sendJson(
-            response,
-            error instanceof Error && error.message === "Client not found"
-              ? 404
-              : 400,
-            {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to refresh client enrichment"
-            }
-          );
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const clientDirectoryRoute = matchClientDirectoryRoute(url.pathname);
-    if (clientDirectoryRoute) {
-      if (
-        request.method === "GET" &&
-        !clientDirectoryRoute.clientId &&
-        !clientDirectoryRoute.resource
-      ) {
-        return sendJson(response, 200, {
-          clients: await loadClientsDirectory()
-        });
-      }
-
-      if (
-        request.method === "POST" &&
-        !clientDirectoryRoute.clientId &&
-        !clientDirectoryRoute.resource
-      ) {
-        const body = (await readJsonBody(request)) as {
-          name: string;
-          website?: string;
-          logoUrl?: string;
-          industry?: string;
-          region?: string;
-          additionalWebsites?: string[];
-          linkedinUrl?: string;
-          facebookUrl?: string;
-          instagramUrl?: string;
-          xUrl?: string;
-          youtubeUrl?: string;
-          clientRoles?: string[];
-          parentClientId?: string;
-          visibleToPartnerIds?: string[];
-        };
-
-        try {
-          const client = await prisma.client.create({
-            data: {
-              name: body.name,
-              slug: createSlug(body.name),
-              website: body.website ?? null,
-              logoUrl: body.logoUrl ?? null,
-              industry: body.industry ?? null,
-              region: normalizeClientRegion(body.region),
-              additionalWebsites: Array.isArray(body.additionalWebsites)
-                ? body.additionalWebsites
-                    .filter(
-                      (entry): entry is string => typeof entry === "string"
-                    )
-                    .map((entry) => entry.trim())
-                    .filter(Boolean)
-                : [],
-              linkedinUrl:
-                typeof body.linkedinUrl === "string"
-                  ? body.linkedinUrl.trim() || null
-                  : null,
-              facebookUrl:
-                typeof body.facebookUrl === "string"
-                  ? body.facebookUrl.trim() || null
-                  : null,
-              instagramUrl:
-                typeof body.instagramUrl === "string"
-                  ? body.instagramUrl.trim() || null
-                  : null,
-              xUrl:
-                typeof body.xUrl === "string" ? body.xUrl.trim() || null : null,
-              youtubeUrl:
-                typeof body.youtubeUrl === "string"
-                  ? body.youtubeUrl.trim() || null
-                  : null,
-              clientRoles: normalizeClientRoleTags(body.clientRoles),
-              ...(typeof body.parentClientId === "string" &&
-              body.parentClientId.trim()
-                ? {
-                    parentClient: {
-                      connect: {
-                        id: body.parentClientId.trim()
-                      }
-                    }
-                  }
-                : {})
-            }
-          });
-
-          const partnerVisibilityIds = normalizeClientVisibilityIds(
-            body.visibleToPartnerIds
-          ).filter((partnerClientId) => partnerClientId !== client.id);
-
-          if (partnerVisibilityIds.length > 0) {
-            await syncPartnerVisibilityLinks(client.id, partnerVisibilityIds);
-          }
-
-          const createdClient = await prisma.client.findUnique({
-            where: { id: client.id },
-            include: {
-              parentClient: {
-                select: {
-                  id: true,
-                  name: true
-                }
-              },
-              childClients: {
-                select: {
-                  id: true,
-                  name: true
-                }
-              },
-              visibleToPartners: {
-                include: {
-                  partnerClient: {
-                    select: {
-                      id: true,
-                      name: true
-                    }
-                  }
-                }
-              },
-              visibleClients: {
-                include: {
-                  client: {
-                    select: {
-                      id: true,
-                      name: true
-                    }
-                  }
-                }
-              }
-            }
-          });
-
-          if (!createdClient) {
-            throw new Error("Client not found");
-          }
-
-          return sendJson(response, 201, {
-            client: {
-              ...serializeClientDirectoryRecord(createdClient),
-              contacts: [],
-              projects: []
-            }
-          });
-        } catch (error: unknown) {
-          if (isUniqueConstraintError(error)) {
-            return sendJson(response, 409, {
-              error: "A client with that name already exists"
-            });
-          }
-
-          throw error;
-        }
-      }
-
-      if (
-        request.method === "PATCH" &&
-        clientDirectoryRoute.clientId &&
-        !clientDirectoryRoute.resource
-      ) {
-        try {
-          const body = (await readJsonBody(request)) as {
-            name?: unknown;
-            website?: unknown;
-            logoUrl?: unknown;
-            industry?: unknown;
-            region?: unknown;
-            additionalWebsites?: unknown;
-            linkedinUrl?: unknown;
-            facebookUrl?: unknown;
-            instagramUrl?: unknown;
-            xUrl?: unknown;
-            youtubeUrl?: unknown;
-            clientRoles?: unknown;
-            parentClientId?: unknown;
-            visibleToPartnerIds?: unknown;
-          };
-
-          const client = await updateClientDirectoryRecord(
-            clientDirectoryRoute.clientId,
-            body
-          );
-
-          return sendJson(response, 200, { client });
-        } catch (error: unknown) {
-          if (isUniqueConstraintError(error)) {
-            return sendJson(response, 409, {
-              error: "A client with that name already exists"
-            });
-          }
-
-          return sendJson(
-            response,
-            error instanceof Error && error.message === "Client not found"
-              ? 404
-              : 400,
-            {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update client"
-            }
-          );
-        }
-      }
-
-      if (
-        request.method === "DELETE" &&
-        clientDirectoryRoute.clientId &&
-        !clientDirectoryRoute.resource
-      ) {
-        try {
-          await deleteClientDirectoryRecord(clientDirectoryRoute.clientId);
-          return sendJson(response, 200, { success: true });
-        } catch (error: unknown) {
-          return sendJson(
-            response,
-            error instanceof Error && error.message === "Client not found"
-              ? 404
-              : 400,
-            {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to delete client"
-            }
-          );
-        }
-      }
-
-      if (
-        request.method === "POST" &&
-        clientDirectoryRoute.clientId &&
-        clientDirectoryRoute.resource === "contacts" &&
-        !clientDirectoryRoute.contactId
-      ) {
-        try {
-          const body = (await readJsonBody(request)) as {
-            firstName?: unknown;
-            lastName?: unknown;
-            email?: unknown;
-            title?: unknown;
-            canApproveQuotes?: unknown;
-          };
-          const contact = await createClientContact(
-            clientDirectoryRoute.clientId,
-            body
-          );
-          return sendJson(response, 201, { contact });
-        } catch (error) {
-          if (isUniqueConstraintError(error)) {
-            return sendJson(response, 409, {
-              error: "A contact with that email already exists for this client"
-            });
-          }
-
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to create client contact"
-          });
-        }
-      }
-
-      if (
-        request.method === "PATCH" &&
-        clientDirectoryRoute.clientId &&
-        clientDirectoryRoute.resource === "contacts" &&
-        clientDirectoryRoute.contactId
-      ) {
-        try {
-          const body = (await readJsonBody(request)) as {
-            firstName?: unknown;
-            lastName?: unknown;
-            email?: unknown;
-            title?: unknown;
-            canApproveQuotes?: unknown;
-          };
-          const contact = await updateClientContact(
-            clientDirectoryRoute.clientId,
-            clientDirectoryRoute.contactId,
-            body
-          );
-          return sendJson(response, 200, { contact });
-        } catch (error) {
-          if (isUniqueConstraintError(error)) {
-            return sendJson(response, 409, {
-              error: "A contact with that email already exists for this client"
-            });
-          }
-
-          return sendJson(
-            response,
-            error instanceof Error &&
-              error.message === "Client contact not found"
-              ? 404
-              : 400,
-            {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update client contact"
-            }
-          );
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
     }
 
     if (

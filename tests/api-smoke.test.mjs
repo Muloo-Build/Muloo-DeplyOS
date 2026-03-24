@@ -362,6 +362,42 @@ test("guards internal Hono system routes without an auth cookie", async () => {
       method: "POST",
       body: {}
     });
+    await expectUnauthorized(baseUrl, "/api/clients");
+    await expectUnauthorized(baseUrl, "/api/clients", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/clients/test-client", {
+      method: "PATCH",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/clients/test-client", {
+      method: "DELETE"
+    });
+    await expectUnauthorized(baseUrl, "/api/clients/test-client/enrich", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/clients/test-client/contacts", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(
+      baseUrl,
+      "/api/clients/test-client/contacts/test-contact",
+      {
+        method: "PATCH",
+        body: {}
+      }
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/clients/test-client/contacts/test-contact/portal-access",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
   } finally {
     await stopServer(server);
   }
