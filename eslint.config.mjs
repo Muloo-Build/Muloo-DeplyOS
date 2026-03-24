@@ -45,6 +45,7 @@ export default [
       "@typescript-eslint": tseslint
     },
     rules: {
+      "no-undef": "off",
       "no-unused-vars": "off",
       "@typescript-eslint/consistent-type-imports": "error"
     }
