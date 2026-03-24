@@ -106,8 +106,8 @@ async function loginAndGetCookie(baseUrl) {
   return authCookie;
 }
 
-async function expectUnauthorized(baseUrl, path) {
-  const { response, body } = await requestJson(baseUrl, path);
+async function expectUnauthorized(baseUrl, path, options = {}) {
+  const { response, body } = await requestJson(baseUrl, path, options);
 
   assert.equal(response.status, 401);
   assert.deepEqual(body, { error: "Unauthorized" });
@@ -253,10 +253,37 @@ test("guards internal Hono system routes without an auth cookie", async () => {
     await expectUnauthorized(baseUrl, "/api/inbox/summary");
     await expectUnauthorized(baseUrl, "/api/runs");
     await expectUnauthorized(baseUrl, "/api/users");
+    await expectUnauthorized(baseUrl, "/api/users", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/users/test-user", {
+      method: "PATCH",
+      body: {}
+    });
     await expectUnauthorized(baseUrl, "/api/provider-connections");
+    await expectUnauthorized(baseUrl, "/api/provider-connections/openai", {
+      method: "PATCH",
+      body: {}
+    });
     await expectUnauthorized(baseUrl, "/api/ai-routing");
+    await expectUnauthorized(baseUrl, "/api/ai-routing/discovery-summary", {
+      method: "PATCH",
+      body: {}
+    });
     await expectUnauthorized(baseUrl, "/api/email-settings");
+    await expectUnauthorized(baseUrl, "/api/email-settings", {
+      method: "PATCH",
+      body: {}
+    });
     await expectUnauthorized(baseUrl, "/api/email-oauth/google");
+    await expectUnauthorized(baseUrl, "/api/email-oauth/google", {
+      method: "PATCH",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/email-oauth/google", {
+      method: "DELETE"
+    });
   } finally {
     await stopServer(server);
   }

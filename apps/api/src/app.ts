@@ -14,9 +14,11 @@ import { ZodError } from "zod";
 import { prisma } from "./prisma";
 import {
   clientAuthCookieName,
+  createWorkspaceUser,
   createClientAuthToken,
   createCookieHeader,
   createSimpleAuthToken,
+  disconnectWorkspaceGoogleEmailOAuthConnection,
   getAuthenticatedClientUserId,
   handleLegacyRequest,
   industryOptions,
@@ -32,7 +34,12 @@ import {
   markAllProjectMessagesSeenByInternal,
   resolveSimpleAuthCredentials,
   serializeWorkspaceUser,
-  serializeClientPortalUser
+  serializeClientPortalUser,
+  updateWorkspaceAiRouting,
+  updateWorkspaceEmailOAuthConnection,
+  updateWorkspaceEmailSettings,
+  updateWorkspaceProviderConnection,
+  updateWorkspaceUser
 } from "./server";
 
 type HonoBindings = { Bindings: HttpBindings };
@@ -85,8 +92,11 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/inbox/*", internalAuth);
   app.use("/api/runs", internalAuth);
   app.use("/api/users", internalAuth);
+  app.use("/api/users/*", internalAuth);
   app.use("/api/provider-connections", internalAuth);
+  app.use("/api/provider-connections/*", internalAuth);
   app.use("/api/ai-routing", internalAuth);
+  app.use("/api/ai-routing/*", internalAuth);
   app.use("/api/email-settings", internalAuth);
   app.use("/api/email-oauth/google", internalAuth);
 
@@ -371,6 +381,137 @@ export function createApiApp(config: BaseConfig) {
       connection: await loadWorkspaceEmailOAuthConnection()
     })
   );
+
+  app.post("/api/users", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const user = await createWorkspaceUser(body);
+      return c.json({ user }, 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to create workspace user"
+        },
+        400
+      );
+    }
+  });
+
+  app.patch("/api/users/:userId", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const user = await updateWorkspaceUser(c.req.param("userId"), body);
+      return c.json({ user });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update workspace user"
+        },
+        400
+      );
+    }
+  });
+
+  app.patch("/api/provider-connections/:providerKey", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const provider = await updateWorkspaceProviderConnection(
+        c.req.param("providerKey"),
+        body
+      );
+      return c.json({ provider });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update provider connection"
+        },
+        400
+      );
+    }
+  });
+
+  app.patch("/api/ai-routing/:workflowKey", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const route = await updateWorkspaceAiRouting(
+        c.req.param("workflowKey"),
+        body
+      );
+      return c.json({ route });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update AI routing"
+        },
+        400
+      );
+    }
+  });
+
+  app.patch("/api/email-settings", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const settings = await updateWorkspaceEmailSettings(body);
+      return c.json({ settings });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update email settings"
+        },
+        400
+      );
+    }
+  });
+
+  app.patch("/api/email-oauth/google", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const connection = await updateWorkspaceEmailOAuthConnection(body);
+      return c.json({ connection });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update Google email OAuth settings"
+        },
+        400
+      );
+    }
+  });
+
+  app.delete("/api/email-oauth/google", async (c) => {
+    try {
+      const connection = await disconnectWorkspaceGoogleEmailOAuthConnection();
+      return c.json({ connection });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to disconnect Google mailbox"
+        },
+        400
+      );
+    }
+  });
 
   app.all("*", async (c) => {
     await handleLegacyRequest(config, c.env.incoming, c.env.outgoing);
