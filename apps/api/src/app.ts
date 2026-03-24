@@ -3,6 +3,7 @@ import { createAdaptorServer, type HttpBindings } from "@hono/node-server";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import { type BaseConfig, getIntegrationStatus } from "@muloo/config";
 import {
+  loadAllExecutionRecords,
   loadAllTemplates,
   loadTemplateById,
   validateAllProjects
@@ -20,6 +21,10 @@ import {
   handleLegacyRequest,
   industryOptions,
   isAuthenticated,
+  loadAgentRuns,
+  loadInboxSummary,
+  loadInternalInbox,
+  markAllProjectMessagesSeenByInternal,
   resolveSimpleAuthCredentials,
   serializeClientPortalUser
 } from "./server";
@@ -70,6 +75,9 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/templates", internalAuth);
   app.use("/api/templates/*", internalAuth);
   app.use("/api/projects/validation-summary", internalAuth);
+  app.use("/api/inbox", internalAuth);
+  app.use("/api/inbox/*", internalAuth);
+  app.use("/api/runs", internalAuth);
 
   app.all("/api/auth/session", (c) =>
     c.json({
@@ -300,6 +308,24 @@ export function createApiApp(config: BaseConfig) {
   app.get("/api/projects/validation-summary", async (c) =>
     c.json({
       validations: await validateAllProjects()
+    })
+  );
+
+  app.get("/api/inbox", async (c) => {
+    await markAllProjectMessagesSeenByInternal();
+    return c.json(await loadInternalInbox());
+  });
+
+  app.get("/api/inbox/summary", async (c) =>
+    c.json({
+      summary: await loadInboxSummary()
+    })
+  );
+
+  app.get("/api/runs", async (c) =>
+    c.json({
+      runs: await loadAllExecutionRecords(),
+      agentRuns: await loadAgentRuns()
     })
   );
 

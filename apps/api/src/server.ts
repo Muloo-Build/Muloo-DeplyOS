@@ -5,8 +5,6 @@ import { getIntegrationStatus, type BaseConfig } from "@muloo/config";
 import { HubSpotClient } from "@muloo/hubspot-client";
 import {
   createProjectFromTemplate,
-  loadAllExecutionRecords,
-  loadAllTemplates,
   loadExecutionById,
   loadExecutionSteps,
   loadProjectById,
@@ -16,7 +14,6 @@ import {
   loadProjectModuleDetail,
   loadProjectReadinessById,
   loadProjectSummaryById,
-  loadTemplateById,
   summarizeProjectModules,
   summarizeProject,
   updateProjectDiscoverySection,
@@ -25,7 +22,6 @@ import {
   updateProjectPipelinesDesign,
   updateProjectPropertiesDesign,
   updateProjectScope,
-  validateAllProjects,
   validateProjectById
 } from "@muloo/file-system";
 import Prisma from "@prisma/client";
@@ -2527,18 +2523,6 @@ function matchProjectDesignRoute(pathname: string): {
   };
 }
 
-function matchTemplateRoute(pathname: string): { templateId: string } | null {
-  const match = /^\/api\/templates\/([^/]+)$/.exec(pathname);
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  return {
-    templateId: decodeURIComponent(match[1])
-  };
-}
-
 function matchProductRoute(pathname: string): { productId?: string } | null {
   const match = /^\/api\/products(?:\/([^/]+))?$/.exec(pathname);
 
@@ -2685,16 +2669,6 @@ function matchClientProjectQuoteApprovalRoute(pathname: string): {
 
 function matchClientWorkRequestRoute(pathname: string): null | {} {
   return /^\/api\/client\/work-requests$/.test(pathname) ? {} : null;
-}
-
-function matchInboxRoute(pathname: string): { resource?: "summary" } | null {
-  const match = /^\/api\/inbox(?:\/(summary))?$/.exec(pathname);
-
-  if (!match) {
-    return null;
-  }
-
-  return match[1] === "summary" ? { resource: "summary" } : {};
 }
 
 function matchClientInboxRoute(
@@ -4026,7 +4000,7 @@ function serializeExecutionJob<
   };
 }
 
-async function loadAgentRuns() {
+export async function loadAgentRuns() {
   const jobs = await prisma.executionJob.findMany({
     where: { moduleKey: "agent-task" },
     include: {
@@ -11877,7 +11851,7 @@ async function markProjectMessagesSeenByInternal(projectId: string) {
   });
 }
 
-async function markAllProjectMessagesSeenByInternal() {
+export async function markAllProjectMessagesSeenByInternal() {
   await prisma.projectMessage.updateMany({
     where: {
       senderType: "client",
@@ -11910,7 +11884,7 @@ async function markProjectMessagesSeenByClient(projectIds: string[] | string) {
   });
 }
 
-async function loadInternalInbox() {
+export async function loadInternalInbox() {
   const [workRequests, messages] = await Promise.all([
     loadWorkRequests(),
     prisma.projectMessage.findMany({
@@ -11987,7 +11961,7 @@ async function loadClientInbox(userId: string) {
   };
 }
 
-async function loadInboxSummary() {
+export async function loadInboxSummary() {
   const [newWorkRequests, unseenClientMessages] = await Promise.all([
     prisma.workRequest.count({
       where: { status: "new" }
@@ -13936,22 +13910,6 @@ export async function handleLegacyRequest(
       return sendJson(response, 404, { error: "Client route not found" });
     }
 
-    const inboxRoute = matchInboxRoute(url.pathname);
-    if (inboxRoute) {
-      if (request.method === "GET" && inboxRoute.resource === "summary") {
-        return sendJson(response, 200, {
-          summary: await loadInboxSummary()
-        });
-      }
-
-      if (request.method === "GET") {
-        await markAllProjectMessagesSeenByInternal();
-        return sendJson(response, 200, await loadInternalInbox());
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
     if (url.pathname === "/api/hubspot/agent-capabilities") {
       if (request.method === "GET") {
         const portalRecordId = url.searchParams.get("portalRecordId");
@@ -14487,13 +14445,6 @@ export async function handleLegacyRequest(
       }
 
       return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    if (url.pathname === "/api/runs") {
-      return sendJson(response, 200, {
-        runs: await loadAllExecutionRecords(),
-        agentRuns: await loadAgentRuns()
-      });
     }
 
     const runRoute = matchRunRoute(url.pathname);
