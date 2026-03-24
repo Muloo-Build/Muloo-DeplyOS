@@ -1736,7 +1736,7 @@ export async function loadWorkspaceUsers() {
   });
 }
 
-async function createWorkspaceUser(value: {
+export async function createWorkspaceUser(value: {
   name?: unknown;
   email?: unknown;
   role?: unknown;
@@ -1769,7 +1769,7 @@ async function createWorkspaceUser(value: {
   return serializeWorkspaceUser(user);
 }
 
-async function updateWorkspaceUser(
+export async function updateWorkspaceUser(
   userId: string,
   value: {
     name?: unknown;
@@ -2531,40 +2531,6 @@ function matchProductRoute(pathname: string): { productId?: string } | null {
   }
 
   return match[1] ? { productId: decodeURIComponent(match[1]) } : {};
-}
-
-function matchWorkspaceUserRoute(pathname: string): { userId?: string } | null {
-  const match = /^\/api\/users(?:\/([^/]+))?$/.exec(pathname);
-
-  if (!match) {
-    return null;
-  }
-
-  return match[1] ? { userId: decodeURIComponent(match[1]) } : {};
-}
-
-function matchProviderConnectionRoute(pathname: string): {
-  providerKey?: string;
-} | null {
-  const match = /^\/api\/provider-connections(?:\/([^/]+))?$/.exec(pathname);
-
-  if (!match) {
-    return null;
-  }
-
-  return match[1] ? { providerKey: decodeURIComponent(match[1]) } : {};
-}
-
-function matchAiRoutingRoute(pathname: string): {
-  workflowKey?: string;
-} | null {
-  const match = /^\/api\/ai-routing(?:\/([^/]+))?$/.exec(pathname);
-
-  if (!match) {
-    return null;
-  }
-
-  return match[1] ? { workflowKey: decodeURIComponent(match[1]) } : {};
 }
 
 function matchAgentRoute(pathname: string): { agentId?: string } | null {
@@ -12151,7 +12117,7 @@ async function updateProductCatalogItem(
   return serializeProductCatalogItem(product);
 }
 
-async function updateWorkspaceProviderConnection(
+export async function updateWorkspaceProviderConnection(
   providerKey: string,
   value: {
     label?: unknown;
@@ -12228,7 +12194,7 @@ async function updateWorkspaceProviderConnection(
   return serializeWorkspaceProviderConnection(provider);
 }
 
-async function updateWorkspaceEmailSettings(value: {
+export async function updateWorkspaceEmailSettings(value: {
   providerLabel?: unknown;
   host?: unknown;
   port?: unknown;
@@ -12329,7 +12295,7 @@ async function updateWorkspaceEmailSettings(value: {
   return serializeWorkspaceEmailSettings(updatedSettings);
 }
 
-async function updateWorkspaceEmailOAuthConnection(value: {
+export async function updateWorkspaceEmailOAuthConnection(value: {
   clientId?: unknown;
   clientSecret?: unknown;
   redirectUri?: unknown;
@@ -12555,7 +12521,7 @@ async function completeWorkspaceGoogleEmailOAuthCallback(value: {
   });
 }
 
-async function disconnectWorkspaceGoogleEmailOAuthConnection() {
+export async function disconnectWorkspaceGoogleEmailOAuthConnection() {
   await ensureWorkspaceEmailOAuthConnectionsSeeded();
 
   const connection =
@@ -12843,7 +12809,7 @@ async function sendWorkspaceEmail(value: {
   };
 }
 
-async function updateWorkspaceAiRouting(
+export async function updateWorkspaceAiRouting(
   workflowKey: string,
   value: {
     providerKey?: unknown;
@@ -13977,143 +13943,6 @@ export async function handleLegacyRequest(
               : "Failed to complete HubSpot OAuth"
         });
       }
-    }
-
-    const workspaceUserRoute = matchWorkspaceUserRoute(url.pathname);
-    if (workspaceUserRoute) {
-      if (request.method === "POST" && !workspaceUserRoute.userId) {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const user = await createWorkspaceUser(body);
-          return sendJson(response, 201, { user });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to create workspace user"
-          });
-        }
-      }
-
-      if (request.method === "PATCH" && workspaceUserRoute.userId) {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const user = await updateWorkspaceUser(
-            workspaceUserRoute.userId,
-            body
-          );
-          return sendJson(response, 200, { user });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to update workspace user"
-          });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const providerConnectionRoute = matchProviderConnectionRoute(url.pathname);
-    if (providerConnectionRoute) {
-      if (request.method === "PATCH" && providerConnectionRoute.providerKey) {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const provider = await updateWorkspaceProviderConnection(
-            providerConnectionRoute.providerKey,
-            body
-          );
-          return sendJson(response, 200, { provider });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to update provider connection"
-          });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const aiRoutingRoute = matchAiRoutingRoute(url.pathname);
-    if (aiRoutingRoute) {
-      if (request.method === "PATCH" && aiRoutingRoute.workflowKey) {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const route = await updateWorkspaceAiRouting(
-            aiRoutingRoute.workflowKey,
-            body
-          );
-          return sendJson(response, 200, { route });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to update AI routing"
-          });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    if (url.pathname === "/api/email-settings") {
-      if (request.method === "PATCH") {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const settings = await updateWorkspaceEmailSettings(body);
-          return sendJson(response, 200, { settings });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to update email settings"
-          });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    if (url.pathname === "/api/email-oauth/google") {
-      if (request.method === "PATCH") {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const connection = await updateWorkspaceEmailOAuthConnection(body);
-          return sendJson(response, 200, { connection });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to update Google email OAuth settings"
-          });
-        }
-      }
-
-      if (request.method === "DELETE") {
-        try {
-          const connection =
-            await disconnectWorkspaceGoogleEmailOAuthConnection();
-          return sendJson(response, 200, { connection });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to disconnect Google mailbox"
-          });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
     }
 
     if (
