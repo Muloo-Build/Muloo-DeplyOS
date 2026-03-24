@@ -11,7 +11,7 @@ process.env.SIMPLE_AUTH_PASSWORD = "smoke-pass";
 // These smoke tests intentionally stay on routes that do not execute Prisma queries.
 // The server instantiates Prisma at module load, but CI does not provision Postgres yet.
 // When we add DB-dependent smoke coverage, we should add a Postgres service container first.
-const { createAppServer } = await import("../apps/api/dist/server.js");
+const { createAppServer } = await import("../apps/api/dist/app.js");
 
 const defaultConfig = {
   nodeEnv: "test",
@@ -88,6 +88,24 @@ function readCookie(response) {
   return response.headers.get("set-cookie") ?? "";
 }
 
+async function loginAndGetCookie(baseUrl) {
+  const loginResult = await requestJson(baseUrl, "/api/auth/login", {
+    method: "POST",
+    body: {
+      username: process.env.SIMPLE_AUTH_USERNAME,
+      password: process.env.SIMPLE_AUTH_PASSWORD
+    }
+  });
+
+  assert.equal(loginResult.response.status, 200);
+  assert.deepEqual(loginResult.body, { authenticated: true });
+
+  const authCookie = readCookie(loginResult.response);
+  assert.match(authCookie, /^muloo_deploy_os_auth=/);
+
+  return authCookie;
+}
+
 test("returns an unauthenticated internal session by default", async () => {
   const { server, baseUrl } = await startServer();
 
@@ -124,19 +142,7 @@ test("supports internal login, session lookup, and logout", async () => {
   const { server, baseUrl } = await startServer();
 
   try {
-    const loginResult = await requestJson(baseUrl, "/api/auth/login", {
-      method: "POST",
-      body: {
-        username: process.env.SIMPLE_AUTH_USERNAME,
-        password: process.env.SIMPLE_AUTH_PASSWORD
-      }
-    });
-
-    assert.equal(loginResult.response.status, 200);
-    assert.deepEqual(loginResult.body, { authenticated: true });
-
-    const authCookie = readCookie(loginResult.response);
-    assert.match(authCookie, /^muloo_deploy_os_auth=/);
+    const authCookie = await loginAndGetCookie(baseUrl);
 
     const sessionResult = await requestJson(baseUrl, "/api/auth/session", {
       headers: {
@@ -185,6 +191,24 @@ test("returns an unauthenticated client portal session by default", async () => 
 
     assert.equal(response.status, 200);
     assert.deepEqual(body, { authenticated: false });
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test("returns module catalog metadata from the Hono system routes", async () => {
+  const { server, baseUrl } = await startServer();
+
+  try {
+    const authCookie = await loginAndGetCookie(baseUrl);
+    const { response, body } = await requestJson(baseUrl, "/api/modules", {
+      headers: {
+        Cookie: authCookie
+      }
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(Array.isArray(body.modules), true);
   } finally {
     await stopServer(server);
   }

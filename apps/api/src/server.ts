@@ -1,4 +1,4 @@
-import http from "node:http";
+import type * as http from "node:http";
 import crypto from "node:crypto";
 import nodemailer from "nodemailer";
 import { getIntegrationStatus, type BaseConfig } from "@muloo/config";
@@ -40,17 +40,15 @@ import {
   updateProjectScopeRequestSchema
 } from "@muloo/shared";
 import { z, ZodError } from "zod";
-
-const { PrismaClient } = Prisma;
-const prisma = new PrismaClient();
+import { prisma } from "./prisma";
 
 const contentTypes: Record<string, string> = {
   ".json": "application/json; charset=utf-8"
 };
 
 const pendingPortalPrefix = "pending-portal-";
-const authCookieName = "muloo_deploy_os_auth";
-const clientAuthCookieName = "muloo_deploy_os_client_auth";
+export const authCookieName = "muloo_deploy_os_auth";
+export const clientAuthCookieName = "muloo_deploy_os_client_auth";
 const defaultSimpleAuthUsername = "jarrud";
 const defaultSimpleAuthPassword = "deployos";
 const validEngagementTypes = [
@@ -252,7 +250,7 @@ const defaultWorkspaceUsers = [
     role: "Operations"
   }
 ] as const;
-const industryOptions = [
+export const industryOptions = [
   "Accounting & Advisory",
   "Agency & Professional Services",
   "Construction & Property",
@@ -2240,8 +2238,7 @@ function parseCookies(request: http.IncomingMessage): Record<string, string> {
   );
 }
 
-function setCookie(
-  response: http.ServerResponse,
+export function createCookieHeader(
   value: string,
   options?: { maxAge?: number; name?: string }
 ) {
@@ -2256,24 +2253,32 @@ function setCookie(
     cookieParts.push(`Max-Age=${options.maxAge}`);
   }
 
-  response.setHeader("Set-Cookie", cookieParts.join("; "));
+  return cookieParts.join("; ");
 }
 
-function resolveSimpleAuthCredentials() {
+function setCookie(
+  response: http.ServerResponse,
+  value: string,
+  options?: { maxAge?: number; name?: string }
+) {
+  response.setHeader("Set-Cookie", createCookieHeader(value, options));
+}
+
+export function resolveSimpleAuthCredentials() {
   return {
     username: process.env.SIMPLE_AUTH_USERNAME ?? defaultSimpleAuthUsername,
     password: process.env.SIMPLE_AUTH_PASSWORD ?? defaultSimpleAuthPassword
   };
 }
 
-function createSimpleAuthToken(username: string) {
+export function createSimpleAuthToken(username: string) {
   const secret =
     process.env.SIMPLE_AUTH_SECRET ?? "muloo-deploy-os-internal-auth";
 
   return Buffer.from(`${username}:${secret}`).toString("base64url");
 }
 
-function createClientAuthToken(userId: string) {
+export function createClientAuthToken(userId: string) {
   const secret =
     process.env.CLIENT_AUTH_SECRET ?? "muloo-deploy-os-client-auth";
 
@@ -2327,14 +2332,14 @@ function verifySignedStateToken(value: string) {
   return decoded;
 }
 
-function isAuthenticated(request: http.IncomingMessage) {
+export function isAuthenticated(request: http.IncomingMessage) {
   const cookies = parseCookies(request);
   const { username } = resolveSimpleAuthCredentials();
 
   return cookies[authCookieName] === createSimpleAuthToken(username);
 }
 
-function getAuthenticatedClientUserId(request: http.IncomingMessage) {
+export function getAuthenticatedClientUserId(request: http.IncomingMessage) {
   const cookies = parseCookies(request);
   const token = cookies[clientAuthCookieName];
 
@@ -2361,7 +2366,9 @@ function getAuthenticatedClientUserId(request: http.IncomingMessage) {
   }
 }
 
-async function readJsonBody(request: http.IncomingMessage): Promise<unknown> {
+export async function readJsonBody(
+  request: http.IncomingMessage
+): Promise<unknown> {
   const chunks: Buffer[] = [];
 
   for await (const chunk of request) {
@@ -3676,7 +3683,7 @@ async function loadLatestProjectQuote(projectId: string, statuses?: string[]) {
   return quote ? serializeProjectQuote(quote) : null;
 }
 
-function serializeClientPortalUser<
+export function serializeClientPortalUser<
   T extends {
     id: string;
     firstName: string;
@@ -13592,1059 +13599,259 @@ Example format:
   }
 }
 
-export function createAppServer(config: BaseConfig): http.Server {
-  return http.createServer(async (request, response) => {
-    const url = new URL(request.url ?? "/", config.appBaseUrl);
+export async function handleLegacyRequest(
+  config: BaseConfig,
+  request: http.IncomingMessage,
+  response: http.ServerResponse
+) {
+  const url = new URL(request.url ?? "/", config.appBaseUrl);
 
-    try {
-      if (url.pathname === "/api/auth/session") {
-        return sendJson(response, 200, {
-          authenticated: isAuthenticated(request)
-        });
+  try {
+    if (url.pathname === "/api/auth/session") {
+      return sendJson(response, 200, {
+        authenticated: isAuthenticated(request)
+      });
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/auth/login") {
+      const body = (await readJsonBody(request)) as {
+        username?: string;
+        password?: string;
+      };
+      const credentials = resolveSimpleAuthCredentials();
+
+      if (
+        body.username?.trim() !== credentials.username ||
+        body.password !== credentials.password
+      ) {
+        return sendJson(response, 401, { error: "Invalid credentials" });
       }
 
-      if (request.method === "POST" && url.pathname === "/api/auth/login") {
-        const body = (await readJsonBody(request)) as {
-          username?: string;
-          password?: string;
-        };
-        const credentials = resolveSimpleAuthCredentials();
+      setCookie(response, createSimpleAuthToken(credentials.username), {
+        maxAge: 60 * 60 * 12
+      });
+      return sendJson(response, 200, { authenticated: true });
+    }
 
-        if (
-          body.username?.trim() !== credentials.username ||
-          body.password !== credentials.password
-        ) {
-          return sendJson(response, 401, { error: "Invalid credentials" });
-        }
+    if (request.method === "POST" && url.pathname === "/api/auth/logout") {
+      setCookie(response, "", { maxAge: 0 });
+      return sendJson(response, 200, { authenticated: false });
+    }
 
-        setCookie(response, createSimpleAuthToken(credentials.username), {
-          maxAge: 60 * 60 * 12
-        });
-        return sendJson(response, 200, { authenticated: true });
-      }
+    if (url.pathname === "/api/client-auth/session") {
+      const clientUserId = getAuthenticatedClientUserId(request);
 
-      if (request.method === "POST" && url.pathname === "/api/auth/logout") {
-        setCookie(response, "", { maxAge: 0 });
+      if (!clientUserId) {
         return sendJson(response, 200, { authenticated: false });
       }
 
-      if (url.pathname === "/api/client-auth/session") {
-        const clientUserId = getAuthenticatedClientUserId(request);
+      const user = await prisma.clientPortalUser.findUnique({
+        where: { id: clientUserId }
+      });
 
-        if (!clientUserId) {
-          return sendJson(response, 200, { authenticated: false });
+      return sendJson(response, 200, {
+        authenticated: Boolean(user),
+        user: user ? serializeClientPortalUser(user) : null
+      });
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/client-auth/login"
+    ) {
+      const body = (await readJsonBody(request)) as {
+        email?: string;
+        password?: string;
+      };
+      const email = body.email?.trim().toLowerCase() ?? "";
+      const password = body.password ?? "";
+
+      const user = email
+        ? await prisma.clientPortalUser.findUnique({
+            where: { email }
+          })
+        : null;
+
+      if (!user || user.password !== password) {
+        return sendJson(response, 401, {
+          error: "Invalid client credentials"
+        });
+      }
+
+      setCookie(response, createClientAuthToken(user.id), {
+        name: clientAuthCookieName,
+        maxAge: 60 * 60 * 24 * 14
+      });
+
+      return sendJson(response, 200, {
+        authenticated: true,
+        user: serializeClientPortalUser(user)
+      });
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/client-auth/set-password"
+    ) {
+      const body = (await readJsonBody(request)) as {
+        token?: string;
+        password?: string;
+      };
+      const token = body.token?.trim() ?? "";
+      const password = body.password?.trim() ?? "";
+
+      if (!token || password.length < 8) {
+        return sendJson(response, 400, {
+          error:
+            "A valid token and password of at least 8 characters are required"
+        });
+      }
+
+      const now = new Date();
+      const user =
+        (await prisma.clientPortalUser.findFirst({
+          where: {
+            OR: [
+              {
+                inviteToken: token,
+                inviteTokenExpiresAt: {
+                  gt: now
+                }
+              },
+              {
+                passwordResetToken: token,
+                passwordResetTokenExpiresAt: {
+                  gt: now
+                }
+              }
+            ]
+          }
+        })) ?? null;
+
+      if (!user) {
+        return sendJson(response, 400, {
+          error: "This access link is invalid or has expired"
+        });
+      }
+
+      const updatedUser = await prisma.clientPortalUser.update({
+        where: { id: user.id },
+        data: {
+          password,
+          inviteToken: null,
+          inviteTokenExpiresAt: null,
+          passwordResetToken: null,
+          passwordResetTokenExpiresAt: null,
+          inviteAcceptedAt: user.inviteAcceptedAt ?? now
+        }
+      });
+
+      setCookie(response, createClientAuthToken(updatedUser.id), {
+        name: clientAuthCookieName,
+        maxAge: 60 * 60 * 24 * 14
+      });
+
+      return sendJson(response, 200, {
+        authenticated: true,
+        user: serializeClientPortalUser(updatedUser)
+      });
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/client-auth/logout"
+    ) {
+      setCookie(response, "", {
+        name: clientAuthCookieName,
+        maxAge: 0
+      });
+      return sendJson(response, 200, { authenticated: false });
+    }
+
+    if (
+      url.pathname.startsWith("/api/") &&
+      !url.pathname.startsWith("/api/client-auth/") &&
+      !url.pathname.startsWith("/api/auth/") &&
+      !url.pathname.startsWith("/api/client/") &&
+      url.pathname !== "/api/health"
+    ) {
+      if (!isAuthenticated(request)) {
+        return sendJson(response, 401, { error: "Unauthorized" });
+      }
+    }
+
+    if (url.pathname.startsWith("/api/client/")) {
+      const clientUserId = getAuthenticatedClientUserId(request);
+
+      if (!clientUserId) {
+        return sendJson(response, 401, { error: "Client unauthorized" });
+      }
+
+      const clientInboxRoute = matchClientInboxRoute(url.pathname);
+
+      if (clientInboxRoute) {
+        if (
+          request.method === "GET" &&
+          clientInboxRoute.resource === "summary"
+        ) {
+          return sendJson(response, 200, {
+            summary: await loadClientInboxSummary(clientUserId)
+          });
         }
 
-        const user = await prisma.clientPortalUser.findUnique({
+        if (request.method === "GET") {
+          await markProjectMessagesSeenByClient(
+            (
+              await prisma.clientProjectAccess.findMany({
+                where: { userId: clientUserId },
+                select: { projectId: true }
+              })
+            ).map((record) => record.projectId)
+          );
+
+          return sendJson(response, 200, await loadClientInbox(clientUserId));
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      const clientWorkRequestRoute = matchClientWorkRequestRoute(url.pathname);
+
+      if (clientWorkRequestRoute) {
+        const clientUser = await prisma.clientPortalUser.findUnique({
           where: { id: clientUserId }
         });
 
-        return sendJson(response, 200, {
-          authenticated: Boolean(user),
-          user: user ? serializeClientPortalUser(user) : null
-        });
-      }
-
-      if (
-        request.method === "POST" &&
-        url.pathname === "/api/client-auth/login"
-      ) {
-        const body = (await readJsonBody(request)) as {
-          email?: string;
-          password?: string;
-        };
-        const email = body.email?.trim().toLowerCase() ?? "";
-        const password = body.password ?? "";
-
-        const user = email
-          ? await prisma.clientPortalUser.findUnique({
-              where: { email }
-            })
-          : null;
-
-        if (!user || user.password !== password) {
-          return sendJson(response, 401, {
-            error: "Invalid client credentials"
-          });
-        }
-
-        setCookie(response, createClientAuthToken(user.id), {
-          name: clientAuthCookieName,
-          maxAge: 60 * 60 * 24 * 14
-        });
-
-        return sendJson(response, 200, {
-          authenticated: true,
-          user: serializeClientPortalUser(user)
-        });
-      }
-
-      if (
-        request.method === "POST" &&
-        url.pathname === "/api/client-auth/set-password"
-      ) {
-        const body = (await readJsonBody(request)) as {
-          token?: string;
-          password?: string;
-        };
-        const token = body.token?.trim() ?? "";
-        const password = body.password?.trim() ?? "";
-
-        if (!token || password.length < 8) {
-          return sendJson(response, 400, {
-            error:
-              "A valid token and password of at least 8 characters are required"
-          });
-        }
-
-        const now = new Date();
-        const user =
-          (await prisma.clientPortalUser.findFirst({
-            where: {
-              OR: [
-                {
-                  inviteToken: token,
-                  inviteTokenExpiresAt: {
-                    gt: now
-                  }
-                },
-                {
-                  passwordResetToken: token,
-                  passwordResetTokenExpiresAt: {
-                    gt: now
-                  }
-                }
-              ]
-            }
-          })) ?? null;
-
-        if (!user) {
-          return sendJson(response, 400, {
-            error: "This access link is invalid or has expired"
-          });
-        }
-
-        const updatedUser = await prisma.clientPortalUser.update({
-          where: { id: user.id },
-          data: {
-            password,
-            inviteToken: null,
-            inviteTokenExpiresAt: null,
-            passwordResetToken: null,
-            passwordResetTokenExpiresAt: null,
-            inviteAcceptedAt: user.inviteAcceptedAt ?? now
-          }
-        });
-
-        setCookie(response, createClientAuthToken(updatedUser.id), {
-          name: clientAuthCookieName,
-          maxAge: 60 * 60 * 24 * 14
-        });
-
-        return sendJson(response, 200, {
-          authenticated: true,
-          user: serializeClientPortalUser(updatedUser)
-        });
-      }
-
-      if (
-        request.method === "POST" &&
-        url.pathname === "/api/client-auth/logout"
-      ) {
-        setCookie(response, "", {
-          name: clientAuthCookieName,
-          maxAge: 0
-        });
-        return sendJson(response, 200, { authenticated: false });
-      }
-
-      if (
-        url.pathname.startsWith("/api/") &&
-        !url.pathname.startsWith("/api/client-auth/") &&
-        !url.pathname.startsWith("/api/auth/") &&
-        !url.pathname.startsWith("/api/client/") &&
-        url.pathname !== "/api/health"
-      ) {
-        if (!isAuthenticated(request)) {
-          return sendJson(response, 401, { error: "Unauthorized" });
-        }
-      }
-
-      if (url.pathname.startsWith("/api/client/")) {
-        const clientUserId = getAuthenticatedClientUserId(request);
-
-        if (!clientUserId) {
+        if (!clientUser) {
           return sendJson(response, 401, { error: "Client unauthorized" });
         }
 
-        const clientInboxRoute = matchClientInboxRoute(url.pathname);
-
-        if (clientInboxRoute) {
-          if (
-            request.method === "GET" &&
-            clientInboxRoute.resource === "summary"
-          ) {
-            return sendJson(response, 200, {
-              summary: await loadClientInboxSummary(clientUserId)
-            });
-          }
-
-          if (request.method === "GET") {
-            await markProjectMessagesSeenByClient(
-              (
-                await prisma.clientProjectAccess.findMany({
-                  where: { userId: clientUserId },
-                  select: { projectId: true }
-                })
-              ).map((record) => record.projectId)
-            );
-
-            return sendJson(response, 200, await loadClientInbox(clientUserId));
-          }
-
-          return sendJson(response, 405, { error: "Method Not Allowed" });
-        }
-
-        const clientWorkRequestRoute = matchClientWorkRequestRoute(
-          url.pathname
-        );
-
-        if (clientWorkRequestRoute) {
-          const clientUser = await prisma.clientPortalUser.findUnique({
-            where: { id: clientUserId }
+        if (request.method === "GET") {
+          const accessRecords = await prisma.clientProjectAccess.findMany({
+            where: { userId: clientUserId },
+            select: { projectId: true }
           });
 
-          if (!clientUser) {
-            return sendJson(response, 401, { error: "Client unauthorized" });
-          }
-
-          if (request.method === "GET") {
-            const accessRecords = await prisma.clientProjectAccess.findMany({
-              where: { userId: clientUserId },
-              select: { projectId: true }
-            });
-
-            return sendJson(response, 200, {
-              workRequests: await loadWorkRequests({
-                projectIds: accessRecords.map((record) => record.projectId),
-                contactEmail: clientUser.email
-              })
-            });
-          }
-
-          if (request.method === "POST") {
-            try {
-              const body = (await readJsonBody(request)) as Record<
-                string,
-                unknown
-              >;
-              const workRequest = await createWorkRequest({
-                ...body,
-                contactName:
-                  `${clientUser.firstName} ${clientUser.lastName}`.trim(),
-                contactEmail: clientUser.email
-              });
-              return sendJson(response, 201, { workRequest });
-            } catch (error) {
-              return sendJson(response, 400, {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to create work request"
-              });
-            }
-          }
-
-          return sendJson(response, 405, { error: "Method Not Allowed" });
-        }
-
-        const clientProjectQuoteApprovalRoute =
-          matchClientProjectQuoteApprovalRoute(url.pathname);
-
-        if (clientProjectQuoteApprovalRoute) {
-          if (request.method === "POST") {
-            try {
-              const result = await approveProjectQuote(
-                clientProjectQuoteApprovalRoute.projectId,
-                clientUserId
-              );
-
-              return sendJson(response, 200, {
-                project: result.project,
-                quote: result.quote,
-                approved: true
-              });
-            } catch (error) {
-              if (
-                error instanceof Error &&
-                error.message === "Project not found"
-              ) {
-                return sendJson(response, 404, { error: error.message });
-              }
-
-              return sendJson(response, 400, {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to approve quote"
-              });
-            }
-          }
-
-          return sendJson(response, 405, { error: "Method Not Allowed" });
-        }
-
-        const clientProjectRoute = matchClientProjectRoute(url.pathname);
-
-        if (clientProjectRoute) {
-          if (request.method === "GET" && !clientProjectRoute.projectId) {
-            return sendJson(response, 200, {
-              projects: await loadClientProjectsForUser(clientUserId)
-            });
-          }
-
-          if (
-            request.method === "GET" &&
-            clientProjectRoute.projectId &&
-            !clientProjectRoute.resource
-          ) {
-            const detail = await loadClientProjectDetail(
-              clientProjectRoute.projectId,
-              clientUserId
-            );
-
-            if (!detail) {
-              return sendJson(response, 404, { error: "Project not found" });
-            }
-
-            return sendJson(response, 200, detail);
-          }
-
-          if (
-            request.method === "PATCH" &&
-            clientProjectRoute.projectId &&
-            clientProjectRoute.resource === "submissions" &&
-            clientProjectRoute.sessionId
-          ) {
-            try {
-              const body = (await readJsonBody(request)) as {
-                answers?: unknown;
-              };
-              const submission = await saveClientInputSubmission(
-                clientProjectRoute.projectId,
-                clientUserId,
-                clientProjectRoute.sessionId,
-                body.answers ?? {}
-              );
-
-              return sendJson(response, 200, { submission });
-            } catch (error) {
-              if (error instanceof Error) {
-                return sendJson(response, 400, { error: error.message });
-              }
-
-              throw error;
-            }
-          }
-
-          if (
-            request.method === "GET" &&
-            clientProjectRoute.projectId &&
-            clientProjectRoute.resource === "tasks"
-          ) {
-            const access = await prisma.clientProjectAccess.findFirst({
-              where: {
-                projectId: clientProjectRoute.projectId,
-                userId: clientUserId
-              }
-            });
-
-            if (!access) {
-              return sendJson(response, 404, { error: "Project not found" });
-            }
-
-            const tasks = await prisma.task.findMany({
-              where: { projectId: clientProjectRoute.projectId },
-              include: {
-                assignedAgent: { select: { name: true } },
-                executionJobs: {
-                  select: {
-                    id: true,
-                    status: true,
-                    resultStatus: true,
-                    createdAt: true,
-                    completedAt: true
-                  },
-                  orderBy: [{ createdAt: "desc" }],
-                  take: 1
-                }
-              },
-              orderBy: [{ createdAt: "asc" }]
-            });
-
-            return sendJson(response, 200, {
-              tasks: tasks.map((task) => serializeTask(task))
-            });
-          }
-
-          if (
-            request.method === "GET" &&
-            clientProjectRoute.projectId &&
-            clientProjectRoute.resource === "quote"
-          ) {
-            const document = await loadClientQuoteDocument(
-              clientProjectRoute.projectId,
-              clientUserId
-            );
-
-            if (!document) {
-              return sendJson(response, 404, { error: "Project not found" });
-            }
-
-            if (!document.quote) {
-              return sendJson(response, 400, {
-                error: "Quote has not yet been published to the client portal."
-              });
-            }
-
-            const isStandaloneQuote =
-              document.project.scopeType === "standalone_quote";
-
-            if (!document.summary) {
-              return sendJson(response, 400, {
-                error: isStandaloneQuote
-                  ? "Generate the scoped summary before opening the commercial document."
-                  : "Generate the discovery summary before opening the quote."
-              });
-            }
-
-            if (!isStandaloneQuote && !document.blueprint) {
-              return sendJson(response, 400, {
-                error:
-                  "Generate the discovery summary and blueprint before opening the quote."
-              });
-            }
-
-            return sendJson(response, 200, document);
-          }
-
-          if (
-            clientProjectRoute.projectId &&
-            clientProjectRoute.resource === "messages"
-          ) {
-            const access = await prisma.clientProjectAccess.findFirst({
-              where: {
-                projectId: clientProjectRoute.projectId,
-                userId: clientUserId
-              }
-            });
-
-            if (!access) {
-              return sendJson(response, 404, { error: "Project not found" });
-            }
-
-            if (request.method === "GET") {
-              await markProjectMessagesSeenByClient(
-                clientProjectRoute.projectId
-              );
-              return sendJson(response, 200, {
-                messages: await loadProjectMessages(
-                  clientProjectRoute.projectId
-                )
-              });
-            }
-
-            if (request.method === "POST") {
-              const clientUser = await prisma.clientPortalUser.findUnique({
-                where: { id: clientUserId }
-              });
-
-              if (!clientUser) {
-                return sendJson(response, 401, {
-                  error: "Client unauthorized"
-                });
-              }
-
-              try {
-                const body = (await readJsonBody(request)) as {
-                  body?: unknown;
-                };
-                const message = await createProjectMessage({
-                  projectId: clientProjectRoute.projectId,
-                  senderType: "client",
-                  senderName:
-                    `${clientUser.firstName} ${clientUser.lastName}`.trim(),
-                  body: body.body
-                });
-
-                return sendJson(response, 201, { message });
-              } catch (error) {
-                return sendJson(response, 400, {
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : "Failed to post message"
-                });
-              }
-            }
-          }
-        }
-
-        return sendJson(response, 404, { error: "Client route not found" });
-      }
-
-      const inboxRoute = matchInboxRoute(url.pathname);
-      if (inboxRoute) {
-        if (request.method === "GET" && inboxRoute.resource === "summary") {
           return sendJson(response, 200, {
-            summary: await loadInboxSummary()
+            workRequests: await loadWorkRequests({
+              projectIds: accessRecords.map((record) => record.projectId),
+              contactEmail: clientUser.email
+            })
           });
         }
 
-        if (request.method === "GET") {
-          await markAllProjectMessagesSeenByInternal();
-          return sendJson(response, 200, await loadInternalInbox());
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      if (request.method === "GET" && url.pathname === "/api/templates") {
-        return sendJson(response, 200, {
-          templates: await loadAllTemplates()
-        });
-      }
-
-      const templateRoute = matchTemplateRoute(url.pathname);
-      if (request.method === "GET" && templateRoute) {
-        return sendJson(response, 200, {
-          template: await loadTemplateById(templateRoute.templateId)
-        });
-      }
-
-      if (url.pathname === "/api/health") {
-        await prisma.$queryRaw`SELECT 1`;
-        return sendJson(response, 200, {
-          status: "ok",
-          service: "muloo-deploy-os-api",
-          timestamp: new Date().toISOString(),
-          environment: config.nodeEnv,
-          database: "connected",
-          executionMode: config.executionMode,
-          applyEnabled: config.applyEnabled,
-          moduleCount: moduleCatalog.length
-        });
-      }
-
-      if (url.pathname === "/api/modules") {
-        return sendJson(response, 200, {
-          modules: moduleCatalog
-        });
-      }
-
-      if (url.pathname === "/api/settings") {
-        return sendJson(response, 200, {
-          environment: config.nodeEnv,
-          appBaseUrl: config.appBaseUrl,
-          artifactDir: config.artifactDir,
-          executionMode: config.executionMode,
-          applyEnabled: config.applyEnabled,
-          integrationStatus: getIntegrationStatus(config)
-        });
-      }
-
-      if (url.pathname === "/api/hubspot/agent-capabilities") {
-        if (request.method === "GET") {
-          const portalRecordId = url.searchParams.get("portalRecordId");
-          const connection =
-            await resolveHubSpotAgentConnection(portalRecordId);
-          return sendJson(
-            response,
-            200,
-            buildHubSpotAgentCapabilitiesPayload(connection)
-          );
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      if (url.pathname === "/api/hubspot/agent-execute") {
         if (request.method === "POST") {
           try {
             const body = (await readJsonBody(request)) as Record<
               string,
               unknown
             >;
-            const result = await executeHubSpotAgentAction(body);
-            return sendJson(response, 200, result);
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to execute HubSpot agent action"
+            const workRequest = await createWorkRequest({
+              ...body,
+              contactName:
+                `${clientUser.firstName} ${clientUser.lastName}`.trim(),
+              contactEmail: clientUser.email
             });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      if (
-        request.method === "POST" &&
-        url.pathname === "/api/hubspot/oauth/start"
-      ) {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const result = await createHubSpotOAuthStart(body);
-          return sendJson(response, 200, result);
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to start HubSpot OAuth"
-          });
-        }
-      }
-
-      if (
-        request.method === "POST" &&
-        url.pathname === "/api/hubspot/oauth/callback"
-      ) {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const result = await completeHubSpotOAuthCallback(body);
-          return sendJson(response, 200, result);
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to complete HubSpot OAuth"
-          });
-        }
-      }
-
-      const workspaceUserRoute = matchWorkspaceUserRoute(url.pathname);
-      if (workspaceUserRoute) {
-        if (request.method === "GET" && !workspaceUserRoute.userId) {
-          return sendJson(response, 200, {
-            users: (await loadWorkspaceUsers()).map((user) =>
-              serializeWorkspaceUser(user)
-            )
-          });
-        }
-
-        if (request.method === "POST" && !workspaceUserRoute.userId) {
-          try {
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const user = await createWorkspaceUser(body);
-            return sendJson(response, 201, { user });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to create workspace user"
-            });
-          }
-        }
-
-        if (request.method === "PATCH" && workspaceUserRoute.userId) {
-          try {
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const user = await updateWorkspaceUser(
-              workspaceUserRoute.userId,
-              body
-            );
-            return sendJson(response, 200, { user });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update workspace user"
-            });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const providerConnectionRoute = matchProviderConnectionRoute(
-        url.pathname
-      );
-      if (providerConnectionRoute) {
-        if (request.method === "GET" && !providerConnectionRoute.providerKey) {
-          return sendJson(response, 200, {
-            providers: await loadProviderConnections()
-          });
-        }
-
-        if (request.method === "PATCH" && providerConnectionRoute.providerKey) {
-          try {
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const provider = await updateWorkspaceProviderConnection(
-              providerConnectionRoute.providerKey,
-              body
-            );
-            return sendJson(response, 200, { provider });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update provider connection"
-            });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const aiRoutingRoute = matchAiRoutingRoute(url.pathname);
-      if (aiRoutingRoute) {
-        if (request.method === "GET" && !aiRoutingRoute.workflowKey) {
-          return sendJson(response, 200, {
-            routes: await loadAiRouting()
-          });
-        }
-
-        if (request.method === "PATCH" && aiRoutingRoute.workflowKey) {
-          try {
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const route = await updateWorkspaceAiRouting(
-              aiRoutingRoute.workflowKey,
-              body
-            );
-            return sendJson(response, 200, { route });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update AI routing"
-            });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      if (url.pathname === "/api/email-settings") {
-        if (request.method === "GET") {
-          return sendJson(response, 200, {
-            settings: await loadWorkspaceEmailSettings()
-          });
-        }
-
-        if (request.method === "PATCH") {
-          try {
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const settings = await updateWorkspaceEmailSettings(body);
-            return sendJson(response, 200, { settings });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update email settings"
-            });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      if (url.pathname === "/api/email-oauth/google") {
-        if (request.method === "GET") {
-          return sendJson(response, 200, {
-            connection: await loadWorkspaceEmailOAuthConnection()
-          });
-        }
-
-        if (request.method === "PATCH") {
-          try {
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const connection = await updateWorkspaceEmailOAuthConnection(body);
-            return sendJson(response, 200, { connection });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update Google email OAuth settings"
-            });
-          }
-        }
-
-        if (request.method === "DELETE") {
-          try {
-            const connection =
-              await disconnectWorkspaceGoogleEmailOAuthConnection();
-            return sendJson(response, 200, { connection });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to disconnect Google mailbox"
-            });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      if (
-        request.method === "POST" &&
-        url.pathname === "/api/email-oauth/google/start"
-      ) {
-        try {
-          const result = await createWorkspaceGoogleEmailOAuthStart();
-          return sendJson(response, 200, result);
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to start Google OAuth"
-          });
-        }
-      }
-
-      if (
-        request.method === "POST" &&
-        url.pathname === "/api/email-oauth/google/callback"
-      ) {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const connection =
-            await completeWorkspaceGoogleEmailOAuthCallback(body);
-          return sendJson(response, 200, { connection });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to complete Google OAuth"
-          });
-        }
-      }
-
-      const productRoute = matchProductRoute(url.pathname);
-      if (productRoute) {
-        if (request.method === "GET" && !productRoute.productId) {
-          return sendJson(response, 200, {
-            products: await loadProductCatalog()
-          });
-        }
-
-        if (request.method === "POST" && !productRoute.productId) {
-          try {
-            const body = (await readJsonBody(request)) as {
-              name?: unknown;
-              category?: unknown;
-              billingModel?: unknown;
-              description?: unknown;
-              unitPrice?: unknown;
-              defaultQuantity?: unknown;
-              unitLabel?: unknown;
-              isActive?: unknown;
-              sortOrder?: unknown;
-            };
-
-            const product = await createProductCatalogItem(body);
-            return sendJson(response, 201, { product });
-          } catch (error) {
-            if (error instanceof Error) {
-              return sendJson(response, 400, { error: error.message });
-            }
-
-            throw error;
-          }
-        }
-
-        if (request.method === "PATCH" && productRoute.productId) {
-          try {
-            const body = (await readJsonBody(request)) as {
-              name?: unknown;
-              category?: unknown;
-              billingModel?: unknown;
-              description?: unknown;
-              unitPrice?: unknown;
-              defaultQuantity?: unknown;
-              unitLabel?: unknown;
-              isActive?: unknown;
-              sortOrder?: unknown;
-            };
-
-            const product = await updateProductCatalogItem(
-              productRoute.productId,
-              body
-            );
-            return sendJson(response, 200, { product });
-          } catch (error) {
-            if (error instanceof Error) {
-              return sendJson(response, 400, { error: error.message });
-            }
-
-            throw error;
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const agentRoute = matchAgentRoute(url.pathname);
-      if (agentRoute) {
-        if (request.method === "GET" && !agentRoute.agentId) {
-          return sendJson(response, 200, {
-            agents: await loadAgentCatalog()
-          });
-        }
-
-        if (request.method === "POST" && !agentRoute.agentId) {
-          try {
-            const body = (await readJsonBody(request)) as {
-              name?: unknown;
-              purpose?: unknown;
-              provider?: unknown;
-              model?: unknown;
-              triggerType?: unknown;
-              approvalMode?: unknown;
-              allowedActions?: unknown;
-              systemPrompt?: unknown;
-              isActive?: unknown;
-              sortOrder?: unknown;
-            };
-
-            const agent = await createAgentDefinition(body);
-            return sendJson(response, 201, { agent });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to create agent"
-            });
-          }
-        }
-
-        if (request.method === "PATCH" && agentRoute.agentId) {
-          try {
-            const body = (await readJsonBody(request)) as {
-              name?: unknown;
-              purpose?: unknown;
-              provider?: unknown;
-              model?: unknown;
-              triggerType?: unknown;
-              approvalMode?: unknown;
-              allowedActions?: unknown;
-              systemPrompt?: unknown;
-              isActive?: unknown;
-              sortOrder?: unknown;
-            };
-
-            const agent = await updateAgentDefinition(agentRoute.agentId, body);
-            return sendJson(response, 200, { agent });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update agent"
-            });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const deliveryTemplateRoute = matchDeliveryTemplateRoute(url.pathname);
-      if (deliveryTemplateRoute) {
-        if (request.method === "GET" && !deliveryTemplateRoute.templateId) {
-          return sendJson(response, 200, {
-            templates: await loadDeliveryTemplates()
-          });
-        }
-
-        if (request.method === "POST" && !deliveryTemplateRoute.templateId) {
-          try {
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const template = await createDeliveryTemplate(body);
-            return sendJson(response, 201, { template });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to create delivery template"
-            });
-          }
-        }
-
-        if (request.method === "PATCH" && deliveryTemplateRoute.templateId) {
-          try {
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const template = await updateDeliveryTemplate(
-              deliveryTemplateRoute.templateId,
-              body
-            );
-            return sendJson(response, 200, { template });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update delivery template"
-            });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const workRequestRoute = matchWorkRequestRoute(url.pathname);
-      if (workRequestRoute) {
-        if (request.method === "GET" && !workRequestRoute.requestId) {
-          return sendJson(response, 200, {
-            workRequests: await loadWorkRequests()
-          });
-        }
-
-        if (request.method === "POST" && !workRequestRoute.requestId) {
-          try {
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const workRequest = await createWorkRequest(body);
             return sendJson(response, 201, { workRequest });
           } catch (error) {
             return sendJson(response, 400, {
@@ -14656,557 +13863,38 @@ export function createAppServer(config: BaseConfig): http.Server {
           }
         }
 
-        if (request.method === "PATCH" && workRequestRoute.requestId) {
-          try {
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const workRequest = await updateWorkRequest(
-              workRequestRoute.requestId,
-              body
-            );
-            return sendJson(response, 200, { workRequest });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update work request"
-            });
-          }
-        }
-
-        if (
-          request.method === "POST" &&
-          workRequestRoute.requestId &&
-          workRequestRoute.action === "convert"
-        ) {
-          try {
-            const result = await convertWorkRequestToProject(
-              workRequestRoute.requestId
-            );
-            return sendJson(response, 200, result);
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to convert work request"
-            });
-          }
-        }
-
-        if (
-          request.method === "POST" &&
-          workRequestRoute.requestId &&
-          workRequestRoute.action === "append-to-delivery"
-        ) {
-          try {
-            const result = await appendApprovedChangeRequestToDelivery(
-              workRequestRoute.requestId
-            );
-            return sendJson(response, 200, result);
-          } catch (error) {
-            return sendJson(
-              response,
-              error instanceof Error &&
-                [
-                  "Change request not found",
-                  "Change request is not linked to a project"
-                ].includes(error.message)
-                ? 404
-                : 400,
-              {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to append change request to delivery"
-              }
-            );
-          }
-        }
-
         return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
-      if (url.pathname === "/api/industries") {
-        return sendJson(response, 200, {
-          industries: industryOptions
-        });
-      }
+      const clientProjectQuoteApprovalRoute =
+        matchClientProjectQuoteApprovalRoute(url.pathname);
 
-      if (url.pathname === "/api/runs") {
-        return sendJson(response, 200, {
-          runs: await loadAllExecutionRecords(),
-          agentRuns: await loadAgentRuns()
-        });
-      }
-
-      const runRoute = matchRunRoute(url.pathname);
-      if (runRoute) {
-        if (request.method === "PATCH") {
-          try {
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const run = await updateAgentRun(runRoute.runId, body);
-            return sendJson(response, 200, { run });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update agent run"
-            });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const projectTaskAgentRunRoute = matchProjectTaskAgentRunRoute(
-        url.pathname
-      );
-      if (projectTaskAgentRunRoute) {
+      if (clientProjectQuoteApprovalRoute) {
         if (request.method === "POST") {
           try {
-            const run = await queueAgentRun(
-              projectTaskAgentRunRoute.projectId,
-              projectTaskAgentRunRoute.taskId
+            const result = await approveProjectQuote(
+              clientProjectQuoteApprovalRoute.projectId,
+              clientUserId
             );
-            return sendJson(response, 201, { run });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to queue agent run"
-            });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      if (url.pathname === "/api/projects") {
-        if (request.method === "POST") {
-          const body = (await readJsonBody(request)) as {
-            name: string;
-            clientName: string;
-            hubspotPortalId?: string;
-            selectedHubs: string[];
-            owner?: string;
-            ownerEmail?: string;
-            serviceFamily?: string;
-            implementationApproach?: string;
-            customerPlatformTier?: string;
-            platformTierSelections?: Record<string, string>;
-            problemStatement?: string;
-            solutionRecommendation?: string;
-            scopeExecutiveSummary?: string;
-            scopeType?: string;
-            deliveryTemplateId?: string;
-            commercialBrief?: string;
-            engagementType?: string;
-            industry?: string;
-            website?: string;
-            additionalWebsites?: string[];
-            linkedinUrl?: string;
-            facebookUrl?: string;
-            instagramUrl?: string;
-            xUrl?: string;
-            youtubeUrl?: string;
-            clientChampionFirstName?: string;
-            clientChampionLastName?: string;
-            clientChampionEmail?: string;
-          };
-
-          const scopeType =
-            typeof body.scopeType === "string" &&
-            body.scopeType.trim().length > 0
-              ? body.scopeType.trim()
-              : "discovery";
-
-          if (
-            !body.name ||
-            !body.clientName ||
-            (scopeType !== "standalone_quote" && !body.selectedHubs?.length)
-          ) {
-            return sendJson(response, 400, {
-              error:
-                scopeType === "standalone_quote"
-                  ? "name and clientName are required"
-                  : "name, clientName, and selectedHubs are required"
-            });
-          }
-
-          if (
-            body.engagementType &&
-            !isValidEngagementType(body.engagementType)
-          ) {
-            return sendJson(response, 400, {
-              error: "Invalid engagement type"
-            });
-          }
-
-          const serviceFamily =
-            typeof body.serviceFamily === "string" &&
-            serviceFamilyOptions.includes(
-              body.serviceFamily.trim() as (typeof serviceFamilyOptions)[number]
-            )
-              ? body.serviceFamily.trim()
-              : "hubspot_architecture";
-          const implementationApproach =
-            typeof body.implementationApproach === "string" &&
-            isValidImplementationApproach(body.implementationApproach.trim())
-              ? body.implementationApproach.trim()
-              : "pragmatic_poc";
-          const customerPlatformTier =
-            typeof body.customerPlatformTier === "string" &&
-            isValidCustomerPlatformTier(
-              body.customerPlatformTier.trim().toLowerCase()
-            )
-              ? body.customerPlatformTier.trim().toLowerCase()
-              : null;
-          const platformTierSelections = normalizePlatformTierSelections(
-            body.platformTierSelections
-          );
-
-          const slug = createSlug(body.clientName);
-          const client = await prisma.client.upsert({
-            where: { slug },
-            update: {
-              name: body.clientName,
-              industry: body.industry?.trim() || null,
-              website: body.website?.trim() || null,
-              additionalWebsites: normalizeStringArray(body.additionalWebsites),
-              linkedinUrl: body.linkedinUrl?.trim() || null,
-              facebookUrl: body.facebookUrl?.trim() || null,
-              instagramUrl: body.instagramUrl?.trim() || null,
-              xUrl: body.xUrl?.trim() || null,
-              youtubeUrl: body.youtubeUrl?.trim() || null
-            },
-            create: {
-              name: body.clientName,
-              slug,
-              industry: body.industry?.trim() || null,
-              website: body.website?.trim() || null,
-              additionalWebsites: normalizeStringArray(body.additionalWebsites),
-              linkedinUrl: body.linkedinUrl?.trim() || null,
-              facebookUrl: body.facebookUrl?.trim() || null,
-              instagramUrl: body.instagramUrl?.trim() || null,
-              xUrl: body.xUrl?.trim() || null,
-              youtubeUrl: body.youtubeUrl?.trim() || null
-            }
-          });
-
-          const requestedPortalId = body.hubspotPortalId?.trim() ?? "";
-          const portal = requestedPortalId
-            ? await prisma.hubSpotPortal.upsert({
-                where: { portalId: requestedPortalId },
-                update: {},
-                create: {
-                  portalId: requestedPortalId,
-                  displayName: body.clientName
-                }
-              })
-            : await prisma.hubSpotPortal.create({
-                data: {
-                  portalId: createPendingPortalId(),
-                  displayName: body.clientName
-                }
-              });
-
-          const project = await prisma.project.create({
-            data: {
-              name: body.name,
-              status: "draft",
-              engagementType: (body.engagementType ??
-                "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
-              ...(await resolveProjectOwner(body.owner, body.ownerEmail)),
-              serviceFamily,
-              implementationApproach,
-              customerPlatformTier,
-              platformTierSelections,
-              problemStatement: body.problemStatement?.trim() || null,
-              solutionRecommendation:
-                body.solutionRecommendation?.trim() || null,
-              scopeExecutiveSummary: body.scopeExecutiveSummary?.trim() || null,
-              clientChampionFirstName:
-                body.clientChampionFirstName?.trim() || null,
-              clientChampionLastName:
-                body.clientChampionLastName?.trim() || null,
-              clientChampionEmail: body.clientChampionEmail?.trim() || null,
-              scopeType,
-              deliveryTemplateId: body.deliveryTemplateId?.trim() || null,
-              commercialBrief: body.commercialBrief?.trim() || null,
-              selectedHubs: Array.isArray(body.selectedHubs)
-                ? body.selectedHubs
-                : [],
-              clientId: client.id,
-              portalId: portal.id
-            },
-            include: {
-              client: true,
-              portal: true
-            }
-          });
-
-          return sendJson(response, 201, {
-            project: serializeProject(project)
-          });
-        }
-
-        const projects = await prisma.project.findMany({
-          include: { client: true, portal: true },
-          orderBy: { updatedAt: "desc" }
-        });
-        return sendJson(response, 200, {
-          projects: projects.map((project) => serializeProject(project))
-        });
-      }
-
-      const discoveryRoute = matchDiscoveryRoute(url.pathname);
-      if (request.method === "GET" && discoveryRoute) {
-        const [submissions, evidenceItems] = await Promise.all([
-          prisma.discoverySubmission.findMany({
-            where: { projectId: discoveryRoute.projectId },
-            orderBy: { version: "asc" },
-            select: {
-              version: true,
-              status: true,
-              sections: true,
-              completedSections: true
-            }
-          }),
-          loadDiscoveryEvidence(discoveryRoute.projectId)
-        ]);
-
-        return sendJson(response, 200, {
-          sessions: buildDiscoverySessions(
-            submissions.map((submission) => ({
-              version: submission.version,
-              sections: submission.sections
-            }))
-          ),
-          sessionDetails: buildDiscoverySessionsWithStatus(submissions),
-          evidenceItems
-        });
-      }
-
-      const projectSessionRoute = matchProjectSessionRoute(url.pathname);
-      if (request.method === "PATCH" && projectSessionRoute) {
-        const project = await prisma.project.findUnique({
-          where: { id: projectSessionRoute.projectId },
-          select: { id: true, quoteApprovalStatus: true, scopeLockedAt: true }
-        });
-
-        if (!project) {
-          return sendJson(response, 404, { error: "Project not found" });
-        }
-
-        if (isProjectScopeLocked(project)) {
-          return sendJson(response, 409, {
-            error:
-              "Approved scope is locked. Use change management to revise this project."
-          });
-        }
-
-        const body = (await readJsonBody(request)) as { fields?: unknown };
-        const sessionDetail = await saveDiscoverySession(
-          projectSessionRoute.projectId,
-          projectSessionRoute.sessionId,
-          body.fields ?? body
-        );
-
-        return sendJson(response, 200, { sessionDetail });
-      }
-
-      const projectClientUsersRoute = matchProjectClientUsersRoute(
-        url.pathname
-      );
-      if (projectClientUsersRoute) {
-        if (request.method === "GET") {
-          return sendJson(response, 200, {
-            clientUsers: await loadClientUsersForProject(
-              projectClientUsersRoute.projectId
-            )
-          });
-        }
-
-        if (request.method === "POST") {
-          try {
-            const body = (await readJsonBody(request)) as {
-              firstName?: unknown;
-              lastName?: unknown;
-              email?: unknown;
-              password?: unknown;
-              role?: unknown;
-              questionnaireAccess?: unknown;
-              assignedInputSections?: unknown;
-            };
-
-            const clientUser = await createClientPortalUserForProject(
-              projectClientUsersRoute.projectId,
-              body
-            );
-
-            return sendJson(response, 201, { clientUser });
-          } catch (error) {
-            if (error instanceof Error) {
-              return sendJson(response, 400, { error: error.message });
-            }
-
-            throw error;
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const projectClientUserActionRoute = matchProjectClientUserActionRoute(
-        url.pathname
-      );
-      const projectClientUserRoute = matchProjectClientUserRoute(url.pathname);
-      if (projectClientUserRoute) {
-        if (request.method === "PATCH") {
-          try {
-            const body = (await readJsonBody(request)) as {
-              role?: unknown;
-              questionnaireAccess?: unknown;
-              assignedInputSections?: unknown;
-            };
-            const clientUser = await updateClientProjectAccess(
-              projectClientUserRoute.projectId,
-              projectClientUserRoute.userId,
-              body
-            );
-
-            return sendJson(response, 200, { clientUser });
-          } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message === "Client user not found for this project"
-            ) {
-              return sendJson(response, 404, { error: error.message });
-            }
-
-            if (error instanceof Error) {
-              return sendJson(response, 400, { error: error.message });
-            }
-
-            throw error;
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      if (projectClientUserActionRoute) {
-        if (request.method === "POST") {
-          try {
-            if (projectClientUserActionRoute.action === "reset-link") {
-              const result = await createClientResetLink(
-                projectClientUserActionRoute.userId,
-                projectClientUserActionRoute.projectId
-              );
-
-              return sendJson(response, 200, result);
-            }
-
-            const access = await prisma.clientProjectAccess.findUnique({
-              where: {
-                userId_projectId: {
-                  userId: projectClientUserActionRoute.userId,
-                  projectId: projectClientUserActionRoute.projectId
-                }
-              },
-              include: {
-                user: true
-              }
-            });
-
-            if (!access) {
-              return sendJson(response, 404, {
-                error: "Client user not found for this project"
-              });
-            }
-
-            const inviteToken = crypto.randomBytes(24).toString("hex");
-            const inviteTokenExpiresAt = new Date(
-              Date.now() + 1000 * 60 * 60 * 24 * 14
-            );
-
-            await prisma.clientPortalUser.update({
-              where: { id: access.user.id },
-              data: {
-                inviteToken,
-                inviteTokenExpiresAt
-              }
-            });
 
             return sendJson(response, 200, {
-              user: serializeClientPortalUser(access.user),
-              inviteLink: buildClientAccessUrl("/client/activate", inviteToken)
+              project: result.project,
+              quote: result.quote,
+              approved: true
             });
           } catch (error) {
-            if (error instanceof Error) {
-              return sendJson(response, 400, { error: error.message });
+            if (
+              error instanceof Error &&
+              error.message === "Project not found"
+            ) {
+              return sendJson(response, 404, { error: error.message });
             }
 
-            throw error;
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const projectMessagesRoute = matchProjectMessagesRoute(url.pathname);
-      if (projectMessagesRoute) {
-        const project = await prisma.project.findUnique({
-          where: { id: projectMessagesRoute.projectId },
-          select: { id: true }
-        });
-
-        if (!project) {
-          return sendJson(response, 404, { error: "Project not found" });
-        }
-
-        if (request.method === "GET") {
-          await markProjectMessagesSeenByInternal(
-            projectMessagesRoute.projectId
-          );
-          return sendJson(response, 200, {
-            messages: await loadProjectMessages(projectMessagesRoute.projectId)
-          });
-        }
-
-        if (request.method === "POST") {
-          try {
-            const body = (await readJsonBody(request)) as {
-              body?: unknown;
-              senderName?: unknown;
-            };
-            const message = await createProjectMessage({
-              projectId: projectMessagesRoute.projectId,
-              senderType: "internal",
-              senderName:
-                typeof body.senderName === "string" &&
-                body.senderName.trim().length > 0
-                  ? body.senderName
-                  : "Muloo",
-              body: body.body
-            });
-
-            return sendJson(response, 201, { message });
-          } catch (error) {
             return sendJson(response, 400, {
               error:
                 error instanceof Error
                   ? error.message
-                  : "Failed to post message"
+                  : "Failed to approve quote"
             });
           }
         }
@@ -15214,58 +13902,50 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
-      const projectSessionEvidenceRoute = matchProjectSessionEvidenceRoute(
-        url.pathname
-      );
-      if (projectSessionEvidenceRoute) {
-        if (request.method === "GET") {
-          const project = await prisma.project.findUnique({
-            where: { id: projectSessionEvidenceRoute.projectId },
-            select: { id: true }
+      const clientProjectRoute = matchClientProjectRoute(url.pathname);
+
+      if (clientProjectRoute) {
+        if (request.method === "GET" && !clientProjectRoute.projectId) {
+          return sendJson(response, 200, {
+            projects: await loadClientProjectsForUser(clientUserId)
           });
-
-          if (!project) {
-            return sendJson(response, 404, { error: "Project not found" });
-          }
-
-          const evidenceItems = await loadDiscoveryEvidence(
-            projectSessionEvidenceRoute.projectId,
-            projectSessionEvidenceRoute.sessionId
-          );
-          return sendJson(response, 200, { evidenceItems });
         }
 
-        if (request.method === "POST") {
-          const project = await prisma.project.findUnique({
-            where: { id: projectSessionEvidenceRoute.projectId },
-            select: { id: true, quoteApprovalStatus: true, scopeLockedAt: true }
-          });
+        if (
+          request.method === "GET" &&
+          clientProjectRoute.projectId &&
+          !clientProjectRoute.resource
+        ) {
+          const detail = await loadClientProjectDetail(
+            clientProjectRoute.projectId,
+            clientUserId
+          );
 
-          if (!project) {
+          if (!detail) {
             return sendJson(response, 404, { error: "Project not found" });
           }
 
-          if (isProjectScopeLocked(project)) {
-            return sendJson(response, 409, {
-              error:
-                "Approved scope is locked. Use change management to revise this project."
-            });
-          }
+          return sendJson(response, 200, detail);
+        }
 
+        if (
+          request.method === "PATCH" &&
+          clientProjectRoute.projectId &&
+          clientProjectRoute.resource === "submissions" &&
+          clientProjectRoute.sessionId
+        ) {
           try {
             const body = (await readJsonBody(request)) as {
-              evidenceType?: unknown;
-              sourceLabel?: unknown;
-              sourceUrl?: unknown;
-              content?: unknown;
+              answers?: unknown;
             };
-            const evidenceItem = await createDiscoveryEvidence(
-              projectSessionEvidenceRoute.projectId,
-              projectSessionEvidenceRoute.sessionId,
-              body
+            const submission = await saveClientInputSubmission(
+              clientProjectRoute.projectId,
+              clientUserId,
+              clientProjectRoute.sessionId,
+              body.answers ?? {}
             );
 
-            return sendJson(response, 201, { evidenceItem });
+            return sendJson(response, 200, { submission });
           } catch (error) {
             if (error instanceof Error) {
               return sendJson(response, 400, { error: error.message });
@@ -15275,195 +13955,24 @@ export function createAppServer(config: BaseConfig): http.Server {
           }
         }
 
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const projectDiscoverySummaryRoute = matchProjectDiscoverySummaryRoute(
-        url.pathname
-      );
-      if (projectDiscoverySummaryRoute) {
-        if (request.method === "GET") {
-          const project = await prisma.project.findUnique({
-            where: { id: projectDiscoverySummaryRoute.projectId },
-            select: { id: true }
+        if (
+          request.method === "GET" &&
+          clientProjectRoute.projectId &&
+          clientProjectRoute.resource === "tasks"
+        ) {
+          const access = await prisma.clientProjectAccess.findFirst({
+            where: {
+              projectId: clientProjectRoute.projectId,
+              userId: clientUserId
+            }
           });
 
-          if (!project) {
+          if (!access) {
             return sendJson(response, 404, { error: "Project not found" });
           }
 
-          const summary = await loadDiscoverySummary(
-            projectDiscoverySummaryRoute.projectId
-          );
-          return sendJson(response, 200, { summary });
-        }
-
-        if (request.method === "POST") {
-          let scopeUnlocked = false;
-
-          try {
-            await ensureProjectScopeUnlocked(
-              projectDiscoverySummaryRoute.projectId
-            );
-            scopeUnlocked = true;
-            const summary = await generateDiscoverySummary(
-              projectDiscoverySummaryRoute.projectId
-            );
-            return sendJson(response, 200, { summary });
-          } catch (error: unknown) {
-            if (scopeUnlocked) {
-              const recoveredSummary = await loadDiscoverySummaryWithRetry(
-                projectDiscoverySummaryRoute.projectId
-              ).catch(() => null);
-
-              if (recoveredSummary) {
-                return sendJson(response, 200, {
-                  summary: recoveredSummary,
-                  recovered: true
-                });
-              }
-            }
-
-            if (
-              error instanceof Error &&
-              error.message === "Project not found"
-            ) {
-              return sendJson(response, 404, { error: error.message });
-            }
-
-            if (
-              error instanceof Error &&
-              error.message ===
-                "Approved scope is locked. Use change management to revise this project."
-            ) {
-              return sendJson(response, 409, { error: error.message });
-            }
-
-            if (error instanceof ZodError) {
-              return sendJson(response, 502, {
-                error: "Discovery summary returned invalid JSON",
-                details: error.flatten()
-              });
-            }
-
-            if (error instanceof SyntaxError) {
-              return sendJson(response, 502, {
-                error: "Discovery summary returned invalid JSON"
-              });
-            }
-
-            if (error instanceof Error) {
-              return sendJson(response, 500, { error: error.message });
-            }
-
-            throw error;
-          }
-        }
-
-        if (request.method === "DELETE") {
-          try {
-            const project = await prisma.project.findUnique({
-              where: { id: projectDiscoverySummaryRoute.projectId },
-              select: {
-                id: true,
-                quoteApprovalStatus: true,
-                scopeLockedAt: true
-              }
-            });
-
-            if (!project) {
-              return sendJson(response, 404, { error: "Project not found" });
-            }
-
-            if (isProjectScopeLocked(project)) {
-              return sendJson(response, 409, {
-                error:
-                  "Approved scope is locked. Use change management to revise this project."
-              });
-            }
-
-            await resetDiscoverySummary(projectDiscoverySummaryRoute.projectId);
-            return sendJson(response, 200, { summary: null });
-          } catch (error: unknown) {
-            if (error instanceof Error) {
-              return sendJson(response, 500, { error: error.message });
-            }
-
-            throw error;
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const projectBlueprintRoute = matchProjectBlueprintRoute(url.pathname);
-      if (projectBlueprintRoute) {
-        if (
-          request.method === "POST" &&
-          projectBlueprintRoute.action === "generate"
-        ) {
-          try {
-            await ensureProjectScopeUnlocked(projectBlueprintRoute.projectId);
-            const blueprint = await generateBlueprintForProject(
-              projectBlueprintRoute.projectId
-            );
-            return sendJson(response, 200, { blueprint });
-          } catch (error: unknown) {
-            if (
-              error instanceof Error &&
-              error.message === "Project not found"
-            ) {
-              return sendJson(response, 404, { error: error.message });
-            }
-
-            if (
-              error instanceof Error &&
-              error.message.includes("must be complete before generating")
-            ) {
-              return sendJson(response, 400, { error: error.message });
-            }
-
-            if (error instanceof ZodError) {
-              return sendJson(response, 502, {
-                error: "Blueprint generation returned invalid JSON",
-                details: error.flatten()
-              });
-            }
-
-            if (error instanceof SyntaxError) {
-              return sendJson(response, 502, {
-                error: "Blueprint generation returned invalid JSON"
-              });
-            }
-
-            throw error;
-          }
-        }
-
-        if (request.method === "GET" && !projectBlueprintRoute.action) {
-          const blueprint = await loadBlueprint(
-            projectBlueprintRoute.projectId
-          );
-
-          if (!blueprint) {
-            return sendJson(response, 404, { error: "Blueprint not found" });
-          }
-
-          return sendJson(response, 200, { blueprint });
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const projectTasksRoute = matchProjectTasksRoute(url.pathname);
-      if (projectTasksRoute) {
-        if (
-          request.method === "GET" &&
-          !projectTasksRoute.action &&
-          !projectTasksRoute.taskId
-        ) {
           const tasks = await prisma.task.findMany({
-            where: { projectId: projectTasksRoute.projectId },
+            where: { projectId: clientProjectRoute.projectId },
             include: {
               assignedAgent: { select: { name: true } },
               executionJobs: {
@@ -15487,982 +13996,2211 @@ export function createAppServer(config: BaseConfig): http.Server {
         }
 
         if (
-          request.method === "POST" &&
-          !projectTasksRoute.action &&
-          !projectTasksRoute.taskId
+          request.method === "GET" &&
+          clientProjectRoute.projectId &&
+          clientProjectRoute.resource === "quote"
         ) {
-          try {
-            await ensureProjectScopeUnlocked(
-              projectTasksRoute.projectId,
-              "Approved scope is locked. Use change management to add more project steps."
-            );
-          } catch (error) {
-            return sendJson(
-              response,
-              error instanceof Error && error.message === "Project not found"
-                ? 404
-                : 409,
-              {
+          const document = await loadClientQuoteDocument(
+            clientProjectRoute.projectId,
+            clientUserId
+          );
+
+          if (!document) {
+            return sendJson(response, 404, { error: "Project not found" });
+          }
+
+          if (!document.quote) {
+            return sendJson(response, 400, {
+              error: "Quote has not yet been published to the client portal."
+            });
+          }
+
+          const isStandaloneQuote =
+            document.project.scopeType === "standalone_quote";
+
+          if (!document.summary) {
+            return sendJson(response, 400, {
+              error: isStandaloneQuote
+                ? "Generate the scoped summary before opening the commercial document."
+                : "Generate the discovery summary before opening the quote."
+            });
+          }
+
+          if (!isStandaloneQuote && !document.blueprint) {
+            return sendJson(response, 400, {
+              error:
+                "Generate the discovery summary and blueprint before opening the quote."
+            });
+          }
+
+          return sendJson(response, 200, document);
+        }
+
+        if (
+          clientProjectRoute.projectId &&
+          clientProjectRoute.resource === "messages"
+        ) {
+          const access = await prisma.clientProjectAccess.findFirst({
+            where: {
+              projectId: clientProjectRoute.projectId,
+              userId: clientUserId
+            }
+          });
+
+          if (!access) {
+            return sendJson(response, 404, { error: "Project not found" });
+          }
+
+          if (request.method === "GET") {
+            await markProjectMessagesSeenByClient(clientProjectRoute.projectId);
+            return sendJson(response, 200, {
+              messages: await loadProjectMessages(clientProjectRoute.projectId)
+            });
+          }
+
+          if (request.method === "POST") {
+            const clientUser = await prisma.clientPortalUser.findUnique({
+              where: { id: clientUserId }
+            });
+
+            if (!clientUser) {
+              return sendJson(response, 401, {
+                error: "Client unauthorized"
+              });
+            }
+
+            try {
+              const body = (await readJsonBody(request)) as {
+                body?: unknown;
+              };
+              const message = await createProjectMessage({
+                projectId: clientProjectRoute.projectId,
+                senderType: "client",
+                senderName:
+                  `${clientUser.firstName} ${clientUser.lastName}`.trim(),
+                body: body.body
+              });
+
+              return sendJson(response, 201, { message });
+            } catch (error) {
+              return sendJson(response, 400, {
                 error:
                   error instanceof Error
                     ? error.message
-                    : "Failed to create task"
-              }
-            );
+                    : "Failed to post message"
+              });
+            }
           }
+        }
+      }
 
+      return sendJson(response, 404, { error: "Client route not found" });
+    }
+
+    const inboxRoute = matchInboxRoute(url.pathname);
+    if (inboxRoute) {
+      if (request.method === "GET" && inboxRoute.resource === "summary") {
+        return sendJson(response, 200, {
+          summary: await loadInboxSummary()
+        });
+      }
+
+      if (request.method === "GET") {
+        await markAllProjectMessagesSeenByInternal();
+        return sendJson(response, 200, await loadInternalInbox());
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/templates") {
+      return sendJson(response, 200, {
+        templates: await loadAllTemplates()
+      });
+    }
+
+    const templateRoute = matchTemplateRoute(url.pathname);
+    if (request.method === "GET" && templateRoute) {
+      return sendJson(response, 200, {
+        template: await loadTemplateById(templateRoute.templateId)
+      });
+    }
+
+    if (url.pathname === "/api/health") {
+      await prisma.$queryRaw`SELECT 1`;
+      return sendJson(response, 200, {
+        status: "ok",
+        service: "muloo-deploy-os-api",
+        timestamp: new Date().toISOString(),
+        environment: config.nodeEnv,
+        database: "connected",
+        executionMode: config.executionMode,
+        applyEnabled: config.applyEnabled,
+        moduleCount: moduleCatalog.length
+      });
+    }
+
+    if (url.pathname === "/api/modules") {
+      return sendJson(response, 200, {
+        modules: moduleCatalog
+      });
+    }
+
+    if (url.pathname === "/api/settings") {
+      return sendJson(response, 200, {
+        environment: config.nodeEnv,
+        appBaseUrl: config.appBaseUrl,
+        artifactDir: config.artifactDir,
+        executionMode: config.executionMode,
+        applyEnabled: config.applyEnabled,
+        integrationStatus: getIntegrationStatus(config)
+      });
+    }
+
+    if (url.pathname === "/api/hubspot/agent-capabilities") {
+      if (request.method === "GET") {
+        const portalRecordId = url.searchParams.get("portalRecordId");
+        const connection = await resolveHubSpotAgentConnection(portalRecordId);
+        return sendJson(
+          response,
+          200,
+          buildHubSpotAgentCapabilitiesPayload(connection)
+        );
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    if (url.pathname === "/api/hubspot/agent-execute") {
+      if (request.method === "POST") {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const result = await executeHubSpotAgentAction(body);
+          return sendJson(response, 200, result);
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to execute HubSpot agent action"
+          });
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/hubspot/oauth/start"
+    ) {
+      try {
+        const body = (await readJsonBody(request)) as Record<string, unknown>;
+        const result = await createHubSpotOAuthStart(body);
+        return sendJson(response, 200, result);
+      } catch (error) {
+        return sendJson(response, 400, {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to start HubSpot OAuth"
+        });
+      }
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/hubspot/oauth/callback"
+    ) {
+      try {
+        const body = (await readJsonBody(request)) as Record<string, unknown>;
+        const result = await completeHubSpotOAuthCallback(body);
+        return sendJson(response, 200, result);
+      } catch (error) {
+        return sendJson(response, 400, {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to complete HubSpot OAuth"
+        });
+      }
+    }
+
+    const workspaceUserRoute = matchWorkspaceUserRoute(url.pathname);
+    if (workspaceUserRoute) {
+      if (request.method === "GET" && !workspaceUserRoute.userId) {
+        return sendJson(response, 200, {
+          users: (await loadWorkspaceUsers()).map((user) =>
+            serializeWorkspaceUser(user)
+          )
+        });
+      }
+
+      if (request.method === "POST" && !workspaceUserRoute.userId) {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const user = await createWorkspaceUser(body);
+          return sendJson(response, 201, { user });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create workspace user"
+          });
+        }
+      }
+
+      if (request.method === "PATCH" && workspaceUserRoute.userId) {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const user = await updateWorkspaceUser(
+            workspaceUserRoute.userId,
+            body
+          );
+          return sendJson(response, 200, { user });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update workspace user"
+          });
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const providerConnectionRoute = matchProviderConnectionRoute(url.pathname);
+    if (providerConnectionRoute) {
+      if (request.method === "GET" && !providerConnectionRoute.providerKey) {
+        return sendJson(response, 200, {
+          providers: await loadProviderConnections()
+        });
+      }
+
+      if (request.method === "PATCH" && providerConnectionRoute.providerKey) {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const provider = await updateWorkspaceProviderConnection(
+            providerConnectionRoute.providerKey,
+            body
+          );
+          return sendJson(response, 200, { provider });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update provider connection"
+          });
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const aiRoutingRoute = matchAiRoutingRoute(url.pathname);
+    if (aiRoutingRoute) {
+      if (request.method === "GET" && !aiRoutingRoute.workflowKey) {
+        return sendJson(response, 200, {
+          routes: await loadAiRouting()
+        });
+      }
+
+      if (request.method === "PATCH" && aiRoutingRoute.workflowKey) {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const route = await updateWorkspaceAiRouting(
+            aiRoutingRoute.workflowKey,
+            body
+          );
+          return sendJson(response, 200, { route });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update AI routing"
+          });
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    if (url.pathname === "/api/email-settings") {
+      if (request.method === "GET") {
+        return sendJson(response, 200, {
+          settings: await loadWorkspaceEmailSettings()
+        });
+      }
+
+      if (request.method === "PATCH") {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const settings = await updateWorkspaceEmailSettings(body);
+          return sendJson(response, 200, { settings });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update email settings"
+          });
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    if (url.pathname === "/api/email-oauth/google") {
+      if (request.method === "GET") {
+        return sendJson(response, 200, {
+          connection: await loadWorkspaceEmailOAuthConnection()
+        });
+      }
+
+      if (request.method === "PATCH") {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const connection = await updateWorkspaceEmailOAuthConnection(body);
+          return sendJson(response, 200, { connection });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update Google email OAuth settings"
+          });
+        }
+      }
+
+      if (request.method === "DELETE") {
+        try {
+          const connection =
+            await disconnectWorkspaceGoogleEmailOAuthConnection();
+          return sendJson(response, 200, { connection });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to disconnect Google mailbox"
+          });
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/email-oauth/google/start"
+    ) {
+      try {
+        const result = await createWorkspaceGoogleEmailOAuthStart();
+        return sendJson(response, 200, result);
+      } catch (error) {
+        return sendJson(response, 400, {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to start Google OAuth"
+        });
+      }
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/email-oauth/google/callback"
+    ) {
+      try {
+        const body = (await readJsonBody(request)) as Record<string, unknown>;
+        const connection =
+          await completeWorkspaceGoogleEmailOAuthCallback(body);
+        return sendJson(response, 200, { connection });
+      } catch (error) {
+        return sendJson(response, 400, {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to complete Google OAuth"
+        });
+      }
+    }
+
+    const productRoute = matchProductRoute(url.pathname);
+    if (productRoute) {
+      if (request.method === "GET" && !productRoute.productId) {
+        return sendJson(response, 200, {
+          products: await loadProductCatalog()
+        });
+      }
+
+      if (request.method === "POST" && !productRoute.productId) {
+        try {
           const body = (await readJsonBody(request)) as {
-            title?: unknown;
-            description?: unknown;
+            name?: unknown;
             category?: unknown;
-            executionType?: unknown;
-            priority?: unknown;
-            status?: unknown;
-            plannedHours?: unknown;
-            actualHours?: unknown;
-            qaRequired?: unknown;
-            approvalRequired?: unknown;
-            assigneeType?: unknown;
-            executionReadiness?: unknown;
-            assignedAgentId?: unknown;
+            billingModel?: unknown;
+            description?: unknown;
+            unitPrice?: unknown;
+            defaultQuantity?: unknown;
+            unitLabel?: unknown;
+            isActive?: unknown;
+            sortOrder?: unknown;
           };
 
-          const validStatuses = [
-            "todo",
-            "waiting_on_client",
-            "in_progress",
-            "blocked",
-            "done"
-          ];
-          const validAssigneeTypes = ["Human", "Agent", "Client"];
-          const validPriorities = ["low", "medium", "high"];
-          const validExecutionReadiness = [
-            "not_ready",
-            "assisted",
-            "ready_with_review",
-            "ready"
-          ];
+          const product = await createProductCatalogItem(body);
+          return sendJson(response, 201, { product });
+        } catch (error) {
+          if (error instanceof Error) {
+            return sendJson(response, 400, { error: error.message });
+          }
 
-          const status =
-            typeof body.status === "string" &&
-            validStatuses.includes(body.status)
-              ? body.status
-              : "todo";
-          const assigneeType =
-            typeof body.assigneeType === "string" &&
-            validAssigneeTypes.includes(body.assigneeType)
-              ? body.assigneeType
-              : "Human";
-          const assignedAgentId =
-            assigneeType === "Agent" &&
-            typeof body.assignedAgentId === "string" &&
-            body.assignedAgentId.trim().length > 0
-              ? body.assignedAgentId.trim()
-              : null;
-          const executionReadiness =
-            typeof body.executionReadiness === "string" &&
-            validExecutionReadiness.includes(body.executionReadiness)
-              ? body.executionReadiness
-              : assigneeType === "Agent"
-                ? "ready_with_review"
-                : "not_ready";
-          const priority =
-            typeof body.priority === "string" &&
-            validPriorities.includes(body.priority.toLowerCase())
-              ? body.priority.toLowerCase()
-              : "medium";
-          const normalizedTitle = normalizeRequiredTaskString(
-            body.title,
-            "title"
-          );
-          const normalizedDescription =
-            normalizeOptionalTaskString(body.description) ?? "";
-          const normalizedCategory =
-            normalizeOptionalTaskString(body.category) ?? "";
-          const normalizedExecutionType =
-            normalizeOptionalTaskString(body.executionType) ?? "manual";
-          const resolvedAssignedAgentId = await resolveAssignedAgentIdForTask(
-            projectTasksRoute.projectId,
-            {
-              title: normalizedTitle,
-              description: normalizedDescription,
-              category: normalizedCategory,
-              executionType: normalizedExecutionType,
-              assigneeType
-            },
-            assignedAgentId
-          );
+          throw error;
+        }
+      }
 
-          const task = await prisma.task.create({
-            data: {
-              projectId: projectTasksRoute.projectId,
-              title: normalizedTitle,
-              description: normalizedDescription || null,
-              category: normalizedCategory || null,
-              executionType: normalizedExecutionType,
-              priority,
-              status,
-              plannedHours:
-                typeof body.plannedHours === "number"
-                  ? body.plannedHours
-                  : Number.isFinite(Number(body.plannedHours))
-                    ? Number(body.plannedHours)
-                    : null,
-              actualHours:
-                typeof body.actualHours === "number"
-                  ? body.actualHours
-                  : Number.isFinite(Number(body.actualHours))
-                    ? Number(body.actualHours)
-                    : null,
-              qaRequired: Boolean(body.qaRequired),
-              approvalRequired: Boolean(body.approvalRequired),
-              assigneeType,
-              executionReadiness,
-              assignedAgentId: resolvedAssignedAgentId
-            },
-            include: { assignedAgent: { select: { name: true } } }
+      if (request.method === "PATCH" && productRoute.productId) {
+        try {
+          const body = (await readJsonBody(request)) as {
+            name?: unknown;
+            category?: unknown;
+            billingModel?: unknown;
+            description?: unknown;
+            unitPrice?: unknown;
+            defaultQuantity?: unknown;
+            unitLabel?: unknown;
+            isActive?: unknown;
+            sortOrder?: unknown;
+          };
+
+          const product = await updateProductCatalogItem(
+            productRoute.productId,
+            body
+          );
+          return sendJson(response, 200, { product });
+        } catch (error) {
+          if (error instanceof Error) {
+            return sendJson(response, 400, { error: error.message });
+          }
+
+          throw error;
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const agentRoute = matchAgentRoute(url.pathname);
+    if (agentRoute) {
+      if (request.method === "GET" && !agentRoute.agentId) {
+        return sendJson(response, 200, {
+          agents: await loadAgentCatalog()
+        });
+      }
+
+      if (request.method === "POST" && !agentRoute.agentId) {
+        try {
+          const body = (await readJsonBody(request)) as {
+            name?: unknown;
+            purpose?: unknown;
+            provider?: unknown;
+            model?: unknown;
+            triggerType?: unknown;
+            approvalMode?: unknown;
+            allowedActions?: unknown;
+            systemPrompt?: unknown;
+            isActive?: unknown;
+            sortOrder?: unknown;
+          };
+
+          const agent = await createAgentDefinition(body);
+          return sendJson(response, 201, { agent });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error ? error.message : "Failed to create agent"
           });
+        }
+      }
 
-          return sendJson(response, 201, {
-            task: serializeTask(task)
+      if (request.method === "PATCH" && agentRoute.agentId) {
+        try {
+          const body = (await readJsonBody(request)) as {
+            name?: unknown;
+            purpose?: unknown;
+            provider?: unknown;
+            model?: unknown;
+            triggerType?: unknown;
+            approvalMode?: unknown;
+            allowedActions?: unknown;
+            systemPrompt?: unknown;
+            isActive?: unknown;
+            sortOrder?: unknown;
+          };
+
+          const agent = await updateAgentDefinition(agentRoute.agentId, body);
+          return sendJson(response, 200, { agent });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error ? error.message : "Failed to update agent"
+          });
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const deliveryTemplateRoute = matchDeliveryTemplateRoute(url.pathname);
+    if (deliveryTemplateRoute) {
+      if (request.method === "GET" && !deliveryTemplateRoute.templateId) {
+        return sendJson(response, 200, {
+          templates: await loadDeliveryTemplates()
+        });
+      }
+
+      if (request.method === "POST" && !deliveryTemplateRoute.templateId) {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const template = await createDeliveryTemplate(body);
+          return sendJson(response, 201, { template });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create delivery template"
+          });
+        }
+      }
+
+      if (request.method === "PATCH" && deliveryTemplateRoute.templateId) {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const template = await updateDeliveryTemplate(
+            deliveryTemplateRoute.templateId,
+            body
+          );
+          return sendJson(response, 200, { template });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update delivery template"
+          });
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const workRequestRoute = matchWorkRequestRoute(url.pathname);
+    if (workRequestRoute) {
+      if (request.method === "GET" && !workRequestRoute.requestId) {
+        return sendJson(response, 200, {
+          workRequests: await loadWorkRequests()
+        });
+      }
+
+      if (request.method === "POST" && !workRequestRoute.requestId) {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const workRequest = await createWorkRequest(body);
+          return sendJson(response, 201, { workRequest });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create work request"
+          });
+        }
+      }
+
+      if (request.method === "PATCH" && workRequestRoute.requestId) {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const workRequest = await updateWorkRequest(
+            workRequestRoute.requestId,
+            body
+          );
+          return sendJson(response, 200, { workRequest });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update work request"
+          });
+        }
+      }
+
+      if (
+        request.method === "POST" &&
+        workRequestRoute.requestId &&
+        workRequestRoute.action === "convert"
+      ) {
+        try {
+          const result = await convertWorkRequestToProject(
+            workRequestRoute.requestId
+          );
+          return sendJson(response, 200, result);
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to convert work request"
+          });
+        }
+      }
+
+      if (
+        request.method === "POST" &&
+        workRequestRoute.requestId &&
+        workRequestRoute.action === "append-to-delivery"
+      ) {
+        try {
+          const result = await appendApprovedChangeRequestToDelivery(
+            workRequestRoute.requestId
+          );
+          return sendJson(response, 200, result);
+        } catch (error) {
+          return sendJson(
+            response,
+            error instanceof Error &&
+              [
+                "Change request not found",
+                "Change request is not linked to a project"
+              ].includes(error.message)
+              ? 404
+              : 400,
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to append change request to delivery"
+            }
+          );
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    if (url.pathname === "/api/industries") {
+      return sendJson(response, 200, {
+        industries: industryOptions
+      });
+    }
+
+    if (url.pathname === "/api/runs") {
+      return sendJson(response, 200, {
+        runs: await loadAllExecutionRecords(),
+        agentRuns: await loadAgentRuns()
+      });
+    }
+
+    const runRoute = matchRunRoute(url.pathname);
+    if (runRoute) {
+      if (request.method === "PATCH") {
+        try {
+          const body = (await readJsonBody(request)) as Record<string, unknown>;
+          const run = await updateAgentRun(runRoute.runId, body);
+          return sendJson(response, 200, { run });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update agent run"
+          });
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const projectTaskAgentRunRoute = matchProjectTaskAgentRunRoute(
+      url.pathname
+    );
+    if (projectTaskAgentRunRoute) {
+      if (request.method === "POST") {
+        try {
+          const run = await queueAgentRun(
+            projectTaskAgentRunRoute.projectId,
+            projectTaskAgentRunRoute.taskId
+          );
+          return sendJson(response, 201, { run });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to queue agent run"
+          });
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    if (url.pathname === "/api/projects") {
+      if (request.method === "POST") {
+        const body = (await readJsonBody(request)) as {
+          name: string;
+          clientName: string;
+          hubspotPortalId?: string;
+          selectedHubs: string[];
+          owner?: string;
+          ownerEmail?: string;
+          serviceFamily?: string;
+          implementationApproach?: string;
+          customerPlatformTier?: string;
+          platformTierSelections?: Record<string, string>;
+          problemStatement?: string;
+          solutionRecommendation?: string;
+          scopeExecutiveSummary?: string;
+          scopeType?: string;
+          deliveryTemplateId?: string;
+          commercialBrief?: string;
+          engagementType?: string;
+          industry?: string;
+          website?: string;
+          additionalWebsites?: string[];
+          linkedinUrl?: string;
+          facebookUrl?: string;
+          instagramUrl?: string;
+          xUrl?: string;
+          youtubeUrl?: string;
+          clientChampionFirstName?: string;
+          clientChampionLastName?: string;
+          clientChampionEmail?: string;
+        };
+
+        const scopeType =
+          typeof body.scopeType === "string" && body.scopeType.trim().length > 0
+            ? body.scopeType.trim()
+            : "discovery";
+
+        if (
+          !body.name ||
+          !body.clientName ||
+          (scopeType !== "standalone_quote" && !body.selectedHubs?.length)
+        ) {
+          return sendJson(response, 400, {
+            error:
+              scopeType === "standalone_quote"
+                ? "name and clientName are required"
+                : "name, clientName, and selectedHubs are required"
           });
         }
 
         if (
-          request.method === "POST" &&
-          projectTasksRoute.action === "generate-plan"
+          body.engagementType &&
+          !isValidEngagementType(body.engagementType)
         ) {
-          try {
-            await ensureProjectPlanGenerationAllowed(
-              projectTasksRoute.projectId
-            );
-          } catch (error) {
-            return sendJson(
-              response,
-              error instanceof Error && error.message === "Project not found"
-                ? 404
-                : 409,
-              {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to generate project plan"
-              }
-            );
-          }
-
-          const tasks = await generateProjectPlan(projectTasksRoute.projectId);
-
-          return sendJson(response, 200, {
-            tasks: tasks.map((task) => serializeTask(task))
+          return sendJson(response, 400, {
+            error: "Invalid engagement type"
           });
         }
 
-        if (request.method === "PATCH" && projectTasksRoute.taskId) {
-          const body = (await readJsonBody(request)) as {
-            status?: unknown;
-            title?: unknown;
-            description?: unknown;
-            category?: unknown;
-            executionType?: unknown;
-            priority?: unknown;
-            qaRequired?: unknown;
-            approvalRequired?: unknown;
-            assigneeType?: unknown;
-            executionReadiness?: unknown;
-            assignedAgentId?: unknown;
-            plannedHours?: unknown;
-            actualHours?: unknown;
-          };
-          const validStatuses = [
-            "todo",
-            "waiting_on_client",
-            "in_progress",
-            "blocked",
-            "done"
-          ];
-          const validAssigneeTypes = ["Human", "Agent", "Client"];
-          const validPriorities = ["low", "medium", "high"];
-          const validExecutionReadiness = [
-            "not_ready",
-            "assisted",
-            "ready_with_review",
-            "ready"
-          ];
+        const serviceFamily =
+          typeof body.serviceFamily === "string" &&
+          serviceFamilyOptions.includes(
+            body.serviceFamily.trim() as (typeof serviceFamilyOptions)[number]
+          )
+            ? body.serviceFamily.trim()
+            : "hubspot_architecture";
+        const implementationApproach =
+          typeof body.implementationApproach === "string" &&
+          isValidImplementationApproach(body.implementationApproach.trim())
+            ? body.implementationApproach.trim()
+            : "pragmatic_poc";
+        const customerPlatformTier =
+          typeof body.customerPlatformTier === "string" &&
+          isValidCustomerPlatformTier(
+            body.customerPlatformTier.trim().toLowerCase()
+          )
+            ? body.customerPlatformTier.trim().toLowerCase()
+            : null;
+        const platformTierSelections = normalizePlatformTierSelections(
+          body.platformTierSelections
+        );
 
-          const existingTask = await prisma.task.findFirst({
+        const slug = createSlug(body.clientName);
+        const client = await prisma.client.upsert({
+          where: { slug },
+          update: {
+            name: body.clientName,
+            industry: body.industry?.trim() || null,
+            website: body.website?.trim() || null,
+            additionalWebsites: normalizeStringArray(body.additionalWebsites),
+            linkedinUrl: body.linkedinUrl?.trim() || null,
+            facebookUrl: body.facebookUrl?.trim() || null,
+            instagramUrl: body.instagramUrl?.trim() || null,
+            xUrl: body.xUrl?.trim() || null,
+            youtubeUrl: body.youtubeUrl?.trim() || null
+          },
+          create: {
+            name: body.clientName,
+            slug,
+            industry: body.industry?.trim() || null,
+            website: body.website?.trim() || null,
+            additionalWebsites: normalizeStringArray(body.additionalWebsites),
+            linkedinUrl: body.linkedinUrl?.trim() || null,
+            facebookUrl: body.facebookUrl?.trim() || null,
+            instagramUrl: body.instagramUrl?.trim() || null,
+            xUrl: body.xUrl?.trim() || null,
+            youtubeUrl: body.youtubeUrl?.trim() || null
+          }
+        });
+
+        const requestedPortalId = body.hubspotPortalId?.trim() ?? "";
+        const portal = requestedPortalId
+          ? await prisma.hubSpotPortal.upsert({
+              where: { portalId: requestedPortalId },
+              update: {},
+              create: {
+                portalId: requestedPortalId,
+                displayName: body.clientName
+              }
+            })
+          : await prisma.hubSpotPortal.create({
+              data: {
+                portalId: createPendingPortalId(),
+                displayName: body.clientName
+              }
+            });
+
+        const project = await prisma.project.create({
+          data: {
+            name: body.name,
+            status: "draft",
+            engagementType: (body.engagementType ??
+              "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
+            ...(await resolveProjectOwner(body.owner, body.ownerEmail)),
+            serviceFamily,
+            implementationApproach,
+            customerPlatformTier,
+            platformTierSelections,
+            problemStatement: body.problemStatement?.trim() || null,
+            solutionRecommendation: body.solutionRecommendation?.trim() || null,
+            scopeExecutiveSummary: body.scopeExecutiveSummary?.trim() || null,
+            clientChampionFirstName:
+              body.clientChampionFirstName?.trim() || null,
+            clientChampionLastName: body.clientChampionLastName?.trim() || null,
+            clientChampionEmail: body.clientChampionEmail?.trim() || null,
+            scopeType,
+            deliveryTemplateId: body.deliveryTemplateId?.trim() || null,
+            commercialBrief: body.commercialBrief?.trim() || null,
+            selectedHubs: Array.isArray(body.selectedHubs)
+              ? body.selectedHubs
+              : [],
+            clientId: client.id,
+            portalId: portal.id
+          },
+          include: {
+            client: true,
+            portal: true
+          }
+        });
+
+        return sendJson(response, 201, {
+          project: serializeProject(project)
+        });
+      }
+
+      const projects = await prisma.project.findMany({
+        include: { client: true, portal: true },
+        orderBy: { updatedAt: "desc" }
+      });
+      return sendJson(response, 200, {
+        projects: projects.map((project) => serializeProject(project))
+      });
+    }
+
+    const discoveryRoute = matchDiscoveryRoute(url.pathname);
+    if (request.method === "GET" && discoveryRoute) {
+      const [submissions, evidenceItems] = await Promise.all([
+        prisma.discoverySubmission.findMany({
+          where: { projectId: discoveryRoute.projectId },
+          orderBy: { version: "asc" },
+          select: {
+            version: true,
+            status: true,
+            sections: true,
+            completedSections: true
+          }
+        }),
+        loadDiscoveryEvidence(discoveryRoute.projectId)
+      ]);
+
+      return sendJson(response, 200, {
+        sessions: buildDiscoverySessions(
+          submissions.map((submission) => ({
+            version: submission.version,
+            sections: submission.sections
+          }))
+        ),
+        sessionDetails: buildDiscoverySessionsWithStatus(submissions),
+        evidenceItems
+      });
+    }
+
+    const projectSessionRoute = matchProjectSessionRoute(url.pathname);
+    if (request.method === "PATCH" && projectSessionRoute) {
+      const project = await prisma.project.findUnique({
+        where: { id: projectSessionRoute.projectId },
+        select: { id: true, quoteApprovalStatus: true, scopeLockedAt: true }
+      });
+
+      if (!project) {
+        return sendJson(response, 404, { error: "Project not found" });
+      }
+
+      if (isProjectScopeLocked(project)) {
+        return sendJson(response, 409, {
+          error:
+            "Approved scope is locked. Use change management to revise this project."
+        });
+      }
+
+      const body = (await readJsonBody(request)) as { fields?: unknown };
+      const sessionDetail = await saveDiscoverySession(
+        projectSessionRoute.projectId,
+        projectSessionRoute.sessionId,
+        body.fields ?? body
+      );
+
+      return sendJson(response, 200, { sessionDetail });
+    }
+
+    const projectClientUsersRoute = matchProjectClientUsersRoute(url.pathname);
+    if (projectClientUsersRoute) {
+      if (request.method === "GET") {
+        return sendJson(response, 200, {
+          clientUsers: await loadClientUsersForProject(
+            projectClientUsersRoute.projectId
+          )
+        });
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = (await readJsonBody(request)) as {
+            firstName?: unknown;
+            lastName?: unknown;
+            email?: unknown;
+            password?: unknown;
+            role?: unknown;
+            questionnaireAccess?: unknown;
+            assignedInputSections?: unknown;
+          };
+
+          const clientUser = await createClientPortalUserForProject(
+            projectClientUsersRoute.projectId,
+            body
+          );
+
+          return sendJson(response, 201, { clientUser });
+        } catch (error) {
+          if (error instanceof Error) {
+            return sendJson(response, 400, { error: error.message });
+          }
+
+          throw error;
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const projectClientUserActionRoute = matchProjectClientUserActionRoute(
+      url.pathname
+    );
+    const projectClientUserRoute = matchProjectClientUserRoute(url.pathname);
+    if (projectClientUserRoute) {
+      if (request.method === "PATCH") {
+        try {
+          const body = (await readJsonBody(request)) as {
+            role?: unknown;
+            questionnaireAccess?: unknown;
+            assignedInputSections?: unknown;
+          };
+          const clientUser = await updateClientProjectAccess(
+            projectClientUserRoute.projectId,
+            projectClientUserRoute.userId,
+            body
+          );
+
+          return sendJson(response, 200, { clientUser });
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            error.message === "Client user not found for this project"
+          ) {
+            return sendJson(response, 404, { error: error.message });
+          }
+
+          if (error instanceof Error) {
+            return sendJson(response, 400, { error: error.message });
+          }
+
+          throw error;
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    if (projectClientUserActionRoute) {
+      if (request.method === "POST") {
+        try {
+          if (projectClientUserActionRoute.action === "reset-link") {
+            const result = await createClientResetLink(
+              projectClientUserActionRoute.userId,
+              projectClientUserActionRoute.projectId
+            );
+
+            return sendJson(response, 200, result);
+          }
+
+          const access = await prisma.clientProjectAccess.findUnique({
             where: {
-              id: projectTasksRoute.taskId,
-              projectId: projectTasksRoute.projectId
+              userId_projectId: {
+                userId: projectClientUserActionRoute.userId,
+                projectId: projectClientUserActionRoute.projectId
+              }
+            },
+            include: {
+              user: true
             }
           });
 
-          if (!existingTask) {
-            return sendJson(response, 404, { error: "Task not found" });
+          if (!access) {
+            return sendJson(response, 404, {
+              error: "Client user not found for this project"
+            });
           }
 
-          const projectLockState = await prisma.project.findUnique({
-            where: { id: projectTasksRoute.projectId },
+          const inviteToken = crypto.randomBytes(24).toString("hex");
+          const inviteTokenExpiresAt = new Date(
+            Date.now() + 1000 * 60 * 60 * 24 * 14
+          );
+
+          await prisma.clientPortalUser.update({
+            where: { id: access.user.id },
+            data: {
+              inviteToken,
+              inviteTokenExpiresAt
+            }
+          });
+
+          return sendJson(response, 200, {
+            user: serializeClientPortalUser(access.user),
+            inviteLink: buildClientAccessUrl("/client/activate", inviteToken)
+          });
+        } catch (error) {
+          if (error instanceof Error) {
+            return sendJson(response, 400, { error: error.message });
+          }
+
+          throw error;
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const projectMessagesRoute = matchProjectMessagesRoute(url.pathname);
+    if (projectMessagesRoute) {
+      const project = await prisma.project.findUnique({
+        where: { id: projectMessagesRoute.projectId },
+        select: { id: true }
+      });
+
+      if (!project) {
+        return sendJson(response, 404, { error: "Project not found" });
+      }
+
+      if (request.method === "GET") {
+        await markProjectMessagesSeenByInternal(projectMessagesRoute.projectId);
+        return sendJson(response, 200, {
+          messages: await loadProjectMessages(projectMessagesRoute.projectId)
+        });
+      }
+
+      if (request.method === "POST") {
+        try {
+          const body = (await readJsonBody(request)) as {
+            body?: unknown;
+            senderName?: unknown;
+          };
+          const message = await createProjectMessage({
+            projectId: projectMessagesRoute.projectId,
+            senderType: "internal",
+            senderName:
+              typeof body.senderName === "string" &&
+              body.senderName.trim().length > 0
+                ? body.senderName
+                : "Muloo",
+            body: body.body
+          });
+
+          return sendJson(response, 201, { message });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error ? error.message : "Failed to post message"
+          });
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const projectSessionEvidenceRoute = matchProjectSessionEvidenceRoute(
+      url.pathname
+    );
+    if (projectSessionEvidenceRoute) {
+      if (request.method === "GET") {
+        const project = await prisma.project.findUnique({
+          where: { id: projectSessionEvidenceRoute.projectId },
+          select: { id: true }
+        });
+
+        if (!project) {
+          return sendJson(response, 404, { error: "Project not found" });
+        }
+
+        const evidenceItems = await loadDiscoveryEvidence(
+          projectSessionEvidenceRoute.projectId,
+          projectSessionEvidenceRoute.sessionId
+        );
+        return sendJson(response, 200, { evidenceItems });
+      }
+
+      if (request.method === "POST") {
+        const project = await prisma.project.findUnique({
+          where: { id: projectSessionEvidenceRoute.projectId },
+          select: { id: true, quoteApprovalStatus: true, scopeLockedAt: true }
+        });
+
+        if (!project) {
+          return sendJson(response, 404, { error: "Project not found" });
+        }
+
+        if (isProjectScopeLocked(project)) {
+          return sendJson(response, 409, {
+            error:
+              "Approved scope is locked. Use change management to revise this project."
+          });
+        }
+
+        try {
+          const body = (await readJsonBody(request)) as {
+            evidenceType?: unknown;
+            sourceLabel?: unknown;
+            sourceUrl?: unknown;
+            content?: unknown;
+          };
+          const evidenceItem = await createDiscoveryEvidence(
+            projectSessionEvidenceRoute.projectId,
+            projectSessionEvidenceRoute.sessionId,
+            body
+          );
+
+          return sendJson(response, 201, { evidenceItem });
+        } catch (error) {
+          if (error instanceof Error) {
+            return sendJson(response, 400, { error: error.message });
+          }
+
+          throw error;
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const projectDiscoverySummaryRoute = matchProjectDiscoverySummaryRoute(
+      url.pathname
+    );
+    if (projectDiscoverySummaryRoute) {
+      if (request.method === "GET") {
+        const project = await prisma.project.findUnique({
+          where: { id: projectDiscoverySummaryRoute.projectId },
+          select: { id: true }
+        });
+
+        if (!project) {
+          return sendJson(response, 404, { error: "Project not found" });
+        }
+
+        const summary = await loadDiscoverySummary(
+          projectDiscoverySummaryRoute.projectId
+        );
+        return sendJson(response, 200, { summary });
+      }
+
+      if (request.method === "POST") {
+        let scopeUnlocked = false;
+
+        try {
+          await ensureProjectScopeUnlocked(
+            projectDiscoverySummaryRoute.projectId
+          );
+          scopeUnlocked = true;
+          const summary = await generateDiscoverySummary(
+            projectDiscoverySummaryRoute.projectId
+          );
+          return sendJson(response, 200, { summary });
+        } catch (error: unknown) {
+          if (scopeUnlocked) {
+            const recoveredSummary = await loadDiscoverySummaryWithRetry(
+              projectDiscoverySummaryRoute.projectId
+            ).catch(() => null);
+
+            if (recoveredSummary) {
+              return sendJson(response, 200, {
+                summary: recoveredSummary,
+                recovered: true
+              });
+            }
+          }
+
+          if (error instanceof Error && error.message === "Project not found") {
+            return sendJson(response, 404, { error: error.message });
+          }
+
+          if (
+            error instanceof Error &&
+            error.message ===
+              "Approved scope is locked. Use change management to revise this project."
+          ) {
+            return sendJson(response, 409, { error: error.message });
+          }
+
+          if (error instanceof ZodError) {
+            return sendJson(response, 502, {
+              error: "Discovery summary returned invalid JSON",
+              details: error.flatten()
+            });
+          }
+
+          if (error instanceof SyntaxError) {
+            return sendJson(response, 502, {
+              error: "Discovery summary returned invalid JSON"
+            });
+          }
+
+          if (error instanceof Error) {
+            return sendJson(response, 500, { error: error.message });
+          }
+
+          throw error;
+        }
+      }
+
+      if (request.method === "DELETE") {
+        try {
+          const project = await prisma.project.findUnique({
+            where: { id: projectDiscoverySummaryRoute.projectId },
             select: {
+              id: true,
               quoteApprovalStatus: true,
               scopeLockedAt: true
             }
           });
 
-          if (projectLockState && isProjectScopeLocked(projectLockState)) {
-            const blockedKeys = [
-              "title",
-              "description",
-              "category",
-              "executionType",
-              "priority",
-              "plannedHours",
-              "qaRequired",
-              "approvalRequired"
-            ].filter((key) => Object.prototype.hasOwnProperty.call(body, key));
-
-            if (blockedKeys.length > 0) {
-              return sendJson(response, 409, {
-                error:
-                  "Approved scope is locked. Use change management to revise scoped task details."
-              });
-            }
+          if (!project) {
+            return sendJson(response, 404, { error: "Project not found" });
           }
 
-          const data: Record<string, unknown> = {};
-
-          if (body.status !== undefined) {
-            const nextStatus =
-              typeof body.status === "string" ? body.status.trim() : "";
-
-            if (!validStatuses.includes(nextStatus)) {
-              return sendJson(response, 400, { error: "Invalid task status" });
-            }
-
-            data.status = nextStatus;
+          if (isProjectScopeLocked(project)) {
+            return sendJson(response, 409, {
+              error:
+                "Approved scope is locked. Use change management to revise this project."
+            });
           }
 
-          if (body.title !== undefined) {
-            data.title = normalizeRequiredTaskString(body.title, "title");
+          await resetDiscoverySummary(projectDiscoverySummaryRoute.projectId);
+          return sendJson(response, 200, { summary: null });
+        } catch (error: unknown) {
+          if (error instanceof Error) {
+            return sendJson(response, 500, { error: error.message });
           }
 
-          if (body.description !== undefined) {
-            data.description = normalizeOptionalTaskString(body.description);
+          throw error;
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const projectBlueprintRoute = matchProjectBlueprintRoute(url.pathname);
+    if (projectBlueprintRoute) {
+      if (
+        request.method === "POST" &&
+        projectBlueprintRoute.action === "generate"
+      ) {
+        try {
+          await ensureProjectScopeUnlocked(projectBlueprintRoute.projectId);
+          const blueprint = await generateBlueprintForProject(
+            projectBlueprintRoute.projectId
+          );
+          return sendJson(response, 200, { blueprint });
+        } catch (error: unknown) {
+          if (error instanceof Error && error.message === "Project not found") {
+            return sendJson(response, 404, { error: error.message });
           }
-
-          if (body.category !== undefined) {
-            data.category = normalizeOptionalTaskString(body.category);
-          }
-
-          if (body.executionType !== undefined) {
-            data.executionType =
-              normalizeOptionalTaskString(body.executionType) ?? "manual";
-          }
-
-          if (body.priority !== undefined) {
-            if (
-              typeof body.priority !== "string" ||
-              !validPriorities.includes(body.priority.toLowerCase())
-            ) {
-              return sendJson(response, 400, {
-                error: "Invalid task priority"
-              });
-            }
-
-            data.priority = body.priority.toLowerCase();
-          }
-
-          if (body.assigneeType !== undefined) {
-            if (
-              typeof body.assigneeType !== "string" ||
-              !validAssigneeTypes.includes(body.assigneeType)
-            ) {
-              return sendJson(response, 400, {
-                error: "Invalid assignee type"
-              });
-            }
-
-            data.assigneeType = body.assigneeType;
-            if (body.assigneeType !== "Agent") {
-              data.assignedAgentId = null;
-            }
-          }
-
-          if (body.executionReadiness !== undefined) {
-            if (
-              typeof body.executionReadiness !== "string" ||
-              !validExecutionReadiness.includes(body.executionReadiness)
-            ) {
-              return sendJson(response, 400, {
-                error: "Invalid execution readiness"
-              });
-            }
-
-            data.executionReadiness = body.executionReadiness;
-          }
-
-          if (body.assignedAgentId !== undefined) {
-            if (body.assignedAgentId === null || body.assignedAgentId === "") {
-              data.assignedAgentId = null;
-            } else if (typeof body.assignedAgentId === "string") {
-              data.assignedAgentId = body.assignedAgentId.trim();
-            } else {
-              return sendJson(response, 400, {
-                error: "Invalid assigned agent"
-              });
-            }
-          }
-
-          if (body.plannedHours !== undefined) {
-            const plannedHours =
-              typeof body.plannedHours === "number"
-                ? body.plannedHours
-                : Number(body.plannedHours);
-
-            if (!Number.isFinite(plannedHours) || plannedHours < 0) {
-              return sendJson(response, 400, {
-                error: "Invalid planned hours"
-              });
-            }
-
-            data.plannedHours = plannedHours;
-          }
-
-          if (body.actualHours !== undefined) {
-            const actualHours =
-              typeof body.actualHours === "number"
-                ? body.actualHours
-                : Number(body.actualHours);
-
-            if (!Number.isFinite(actualHours) || actualHours < 0) {
-              return sendJson(response, 400, {
-                error: "Invalid actual hours"
-              });
-            }
-
-            data.actualHours = actualHours;
-          }
-
-          if (body.qaRequired !== undefined) {
-            data.qaRequired = Boolean(body.qaRequired);
-          }
-
-          if (body.approvalRequired !== undefined) {
-            data.approvalRequired = Boolean(body.approvalRequired);
-          }
-
-          const nextTaskShape = {
-            title:
-              typeof data.title === "string" ? data.title : existingTask.title,
-            description:
-              typeof data.description === "string"
-                ? data.description
-                : (existingTask.description ?? ""),
-            category:
-              typeof data.category === "string"
-                ? data.category
-                : (existingTask.category ?? ""),
-            executionType:
-              typeof data.executionType === "string"
-                ? data.executionType
-                : existingTask.executionType,
-            assigneeType:
-              typeof data.assigneeType === "string"
-                ? data.assigneeType
-                : (existingTask.assigneeType ?? "Human")
-          };
 
           if (
-            nextTaskShape.assigneeType === "Agent" &&
-            !("assignedAgentId" in data)
+            error instanceof Error &&
+            error.message.includes("must be complete before generating")
           ) {
-            data.assignedAgentId = await resolveAssignedAgentIdForTask(
-              projectTasksRoute.projectId,
-              nextTaskShape,
-              existingTask.assignedAgentId
-            );
+            return sendJson(response, 400, { error: error.message });
           }
 
-          const task = await prisma.task.update({
-            where: { id: projectTasksRoute.taskId },
-            data,
-            include: { assignedAgent: { select: { name: true } } }
-          });
+          if (error instanceof ZodError) {
+            return sendJson(response, 502, {
+              error: "Blueprint generation returned invalid JSON",
+              details: error.flatten()
+            });
+          }
 
-          return sendJson(response, 200, {
-            task: serializeTask(task)
-          });
+          if (error instanceof SyntaxError) {
+            return sendJson(response, 502, {
+              error: "Blueprint generation returned invalid JSON"
+            });
+          }
+
+          throw error;
         }
-
-        if (request.method === "DELETE" && projectTasksRoute.taskId) {
-          try {
-            await ensureProjectScopeUnlocked(
-              projectTasksRoute.projectId,
-              "Approved scope is locked. Use change management to remove or replace project steps."
-            );
-          } catch (error) {
-            return sendJson(
-              response,
-              error instanceof Error && error.message === "Project not found"
-                ? 404
-                : 409,
-              {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to delete task"
-              }
-            );
-          }
-
-          const existingTask = await prisma.task.findFirst({
-            where: {
-              id: projectTasksRoute.taskId,
-              projectId: projectTasksRoute.projectId
-            }
-          });
-
-          if (!existingTask) {
-            return sendJson(response, 404, { error: "Task not found" });
-          }
-
-          await prisma.executionJob.deleteMany({
-            where: { taskId: projectTasksRoute.taskId }
-          });
-          await prisma.task.delete({
-            where: { id: projectTasksRoute.taskId }
-          });
-
-          return sendJson(response, 200, { success: true });
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
-      const projectQuoteRoute = matchProjectQuoteRoute(url.pathname);
-      if (projectQuoteRoute) {
-        if (request.method === "POST" && projectQuoteRoute.action === "share") {
-          try {
-            const result = await shareProjectQuote(
-              projectQuoteRoute.projectId,
-              await readJsonBody(request)
-            );
-            return sendJson(response, 200, {
-              project: result.project,
-              quote: result.quote,
-              shared: true
-            });
-          } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message === "Project not found"
-            ) {
-              return sendJson(response, 404, { error: error.message });
-            }
+      if (request.method === "GET" && !projectBlueprintRoute.action) {
+        const blueprint = await loadBlueprint(projectBlueprintRoute.projectId);
 
-            if (
-              error instanceof Error &&
-              error.message ===
-                "Approved scope is locked. Use change management to revise this project."
-            ) {
-              return sendJson(response, 409, { error: error.message });
-            }
+        if (!blueprint) {
+          return sendJson(response, 404, { error: "Blueprint not found" });
+        }
 
-            return sendJson(response, 400, {
+        return sendJson(response, 200, { blueprint });
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const projectTasksRoute = matchProjectTasksRoute(url.pathname);
+    if (projectTasksRoute) {
+      if (
+        request.method === "GET" &&
+        !projectTasksRoute.action &&
+        !projectTasksRoute.taskId
+      ) {
+        const tasks = await prisma.task.findMany({
+          where: { projectId: projectTasksRoute.projectId },
+          include: {
+            assignedAgent: { select: { name: true } },
+            executionJobs: {
+              select: {
+                id: true,
+                status: true,
+                resultStatus: true,
+                createdAt: true,
+                completedAt: true
+              },
+              orderBy: [{ createdAt: "desc" }],
+              take: 1
+            }
+          },
+          orderBy: [{ createdAt: "asc" }]
+        });
+
+        return sendJson(response, 200, {
+          tasks: tasks.map((task) => serializeTask(task))
+        });
+      }
+
+      if (
+        request.method === "POST" &&
+        !projectTasksRoute.action &&
+        !projectTasksRoute.taskId
+      ) {
+        try {
+          await ensureProjectScopeUnlocked(
+            projectTasksRoute.projectId,
+            "Approved scope is locked. Use change management to add more project steps."
+          );
+        } catch (error) {
+          return sendJson(
+            response,
+            error instanceof Error && error.message === "Project not found"
+              ? 404
+              : 409,
+            {
               error:
-                error instanceof Error ? error.message : "Failed to share quote"
+                error instanceof Error ? error.message : "Failed to create task"
+            }
+          );
+        }
+
+        const body = (await readJsonBody(request)) as {
+          title?: unknown;
+          description?: unknown;
+          category?: unknown;
+          executionType?: unknown;
+          priority?: unknown;
+          status?: unknown;
+          plannedHours?: unknown;
+          actualHours?: unknown;
+          qaRequired?: unknown;
+          approvalRequired?: unknown;
+          assigneeType?: unknown;
+          executionReadiness?: unknown;
+          assignedAgentId?: unknown;
+        };
+
+        const validStatuses = [
+          "todo",
+          "waiting_on_client",
+          "in_progress",
+          "blocked",
+          "done"
+        ];
+        const validAssigneeTypes = ["Human", "Agent", "Client"];
+        const validPriorities = ["low", "medium", "high"];
+        const validExecutionReadiness = [
+          "not_ready",
+          "assisted",
+          "ready_with_review",
+          "ready"
+        ];
+
+        const status =
+          typeof body.status === "string" && validStatuses.includes(body.status)
+            ? body.status
+            : "todo";
+        const assigneeType =
+          typeof body.assigneeType === "string" &&
+          validAssigneeTypes.includes(body.assigneeType)
+            ? body.assigneeType
+            : "Human";
+        const assignedAgentId =
+          assigneeType === "Agent" &&
+          typeof body.assignedAgentId === "string" &&
+          body.assignedAgentId.trim().length > 0
+            ? body.assignedAgentId.trim()
+            : null;
+        const executionReadiness =
+          typeof body.executionReadiness === "string" &&
+          validExecutionReadiness.includes(body.executionReadiness)
+            ? body.executionReadiness
+            : assigneeType === "Agent"
+              ? "ready_with_review"
+              : "not_ready";
+        const priority =
+          typeof body.priority === "string" &&
+          validPriorities.includes(body.priority.toLowerCase())
+            ? body.priority.toLowerCase()
+            : "medium";
+        const normalizedTitle = normalizeRequiredTaskString(
+          body.title,
+          "title"
+        );
+        const normalizedDescription =
+          normalizeOptionalTaskString(body.description) ?? "";
+        const normalizedCategory =
+          normalizeOptionalTaskString(body.category) ?? "";
+        const normalizedExecutionType =
+          normalizeOptionalTaskString(body.executionType) ?? "manual";
+        const resolvedAssignedAgentId = await resolveAssignedAgentIdForTask(
+          projectTasksRoute.projectId,
+          {
+            title: normalizedTitle,
+            description: normalizedDescription,
+            category: normalizedCategory,
+            executionType: normalizedExecutionType,
+            assigneeType
+          },
+          assignedAgentId
+        );
+
+        const task = await prisma.task.create({
+          data: {
+            projectId: projectTasksRoute.projectId,
+            title: normalizedTitle,
+            description: normalizedDescription || null,
+            category: normalizedCategory || null,
+            executionType: normalizedExecutionType,
+            priority,
+            status,
+            plannedHours:
+              typeof body.plannedHours === "number"
+                ? body.plannedHours
+                : Number.isFinite(Number(body.plannedHours))
+                  ? Number(body.plannedHours)
+                  : null,
+            actualHours:
+              typeof body.actualHours === "number"
+                ? body.actualHours
+                : Number.isFinite(Number(body.actualHours))
+                  ? Number(body.actualHours)
+                  : null,
+            qaRequired: Boolean(body.qaRequired),
+            approvalRequired: Boolean(body.approvalRequired),
+            assigneeType,
+            executionReadiness,
+            assignedAgentId: resolvedAssignedAgentId
+          },
+          include: { assignedAgent: { select: { name: true } } }
+        });
+
+        return sendJson(response, 201, {
+          task: serializeTask(task)
+        });
+      }
+
+      if (
+        request.method === "POST" &&
+        projectTasksRoute.action === "generate-plan"
+      ) {
+        try {
+          await ensureProjectPlanGenerationAllowed(projectTasksRoute.projectId);
+        } catch (error) {
+          return sendJson(
+            response,
+            error instanceof Error && error.message === "Project not found"
+              ? 404
+              : 409,
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to generate project plan"
+            }
+          );
+        }
+
+        const tasks = await generateProjectPlan(projectTasksRoute.projectId);
+
+        return sendJson(response, 200, {
+          tasks: tasks.map((task) => serializeTask(task))
+        });
+      }
+
+      if (request.method === "PATCH" && projectTasksRoute.taskId) {
+        const body = (await readJsonBody(request)) as {
+          status?: unknown;
+          title?: unknown;
+          description?: unknown;
+          category?: unknown;
+          executionType?: unknown;
+          priority?: unknown;
+          qaRequired?: unknown;
+          approvalRequired?: unknown;
+          assigneeType?: unknown;
+          executionReadiness?: unknown;
+          assignedAgentId?: unknown;
+          plannedHours?: unknown;
+          actualHours?: unknown;
+        };
+        const validStatuses = [
+          "todo",
+          "waiting_on_client",
+          "in_progress",
+          "blocked",
+          "done"
+        ];
+        const validAssigneeTypes = ["Human", "Agent", "Client"];
+        const validPriorities = ["low", "medium", "high"];
+        const validExecutionReadiness = [
+          "not_ready",
+          "assisted",
+          "ready_with_review",
+          "ready"
+        ];
+
+        const existingTask = await prisma.task.findFirst({
+          where: {
+            id: projectTasksRoute.taskId,
+            projectId: projectTasksRoute.projectId
+          }
+        });
+
+        if (!existingTask) {
+          return sendJson(response, 404, { error: "Task not found" });
+        }
+
+        const projectLockState = await prisma.project.findUnique({
+          where: { id: projectTasksRoute.projectId },
+          select: {
+            quoteApprovalStatus: true,
+            scopeLockedAt: true
+          }
+        });
+
+        if (projectLockState && isProjectScopeLocked(projectLockState)) {
+          const blockedKeys = [
+            "title",
+            "description",
+            "category",
+            "executionType",
+            "priority",
+            "plannedHours",
+            "qaRequired",
+            "approvalRequired"
+          ].filter((key) => Object.prototype.hasOwnProperty.call(body, key));
+
+          if (blockedKeys.length > 0) {
+            return sendJson(response, 409, {
+              error:
+                "Approved scope is locked. Use change management to revise scoped task details."
             });
           }
         }
 
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
+        const data: Record<string, unknown> = {};
 
-      if (request.method === "POST" && url.pathname === "/api/discovery/save") {
-        const body = (await readJsonBody(request)) as {
-          projectId?: string;
-          session?: number;
-          fields?: Record<string, unknown>;
+        if (body.status !== undefined) {
+          const nextStatus =
+            typeof body.status === "string" ? body.status.trim() : "";
+
+          if (!validStatuses.includes(nextStatus)) {
+            return sendJson(response, 400, { error: "Invalid task status" });
+          }
+
+          data.status = nextStatus;
+        }
+
+        if (body.title !== undefined) {
+          data.title = normalizeRequiredTaskString(body.title, "title");
+        }
+
+        if (body.description !== undefined) {
+          data.description = normalizeOptionalTaskString(body.description);
+        }
+
+        if (body.category !== undefined) {
+          data.category = normalizeOptionalTaskString(body.category);
+        }
+
+        if (body.executionType !== undefined) {
+          data.executionType =
+            normalizeOptionalTaskString(body.executionType) ?? "manual";
+        }
+
+        if (body.priority !== undefined) {
+          if (
+            typeof body.priority !== "string" ||
+            !validPriorities.includes(body.priority.toLowerCase())
+          ) {
+            return sendJson(response, 400, {
+              error: "Invalid task priority"
+            });
+          }
+
+          data.priority = body.priority.toLowerCase();
+        }
+
+        if (body.assigneeType !== undefined) {
+          if (
+            typeof body.assigneeType !== "string" ||
+            !validAssigneeTypes.includes(body.assigneeType)
+          ) {
+            return sendJson(response, 400, {
+              error: "Invalid assignee type"
+            });
+          }
+
+          data.assigneeType = body.assigneeType;
+          if (body.assigneeType !== "Agent") {
+            data.assignedAgentId = null;
+          }
+        }
+
+        if (body.executionReadiness !== undefined) {
+          if (
+            typeof body.executionReadiness !== "string" ||
+            !validExecutionReadiness.includes(body.executionReadiness)
+          ) {
+            return sendJson(response, 400, {
+              error: "Invalid execution readiness"
+            });
+          }
+
+          data.executionReadiness = body.executionReadiness;
+        }
+
+        if (body.assignedAgentId !== undefined) {
+          if (body.assignedAgentId === null || body.assignedAgentId === "") {
+            data.assignedAgentId = null;
+          } else if (typeof body.assignedAgentId === "string") {
+            data.assignedAgentId = body.assignedAgentId.trim();
+          } else {
+            return sendJson(response, 400, {
+              error: "Invalid assigned agent"
+            });
+          }
+        }
+
+        if (body.plannedHours !== undefined) {
+          const plannedHours =
+            typeof body.plannedHours === "number"
+              ? body.plannedHours
+              : Number(body.plannedHours);
+
+          if (!Number.isFinite(plannedHours) || plannedHours < 0) {
+            return sendJson(response, 400, {
+              error: "Invalid planned hours"
+            });
+          }
+
+          data.plannedHours = plannedHours;
+        }
+
+        if (body.actualHours !== undefined) {
+          const actualHours =
+            typeof body.actualHours === "number"
+              ? body.actualHours
+              : Number(body.actualHours);
+
+          if (!Number.isFinite(actualHours) || actualHours < 0) {
+            return sendJson(response, 400, {
+              error: "Invalid actual hours"
+            });
+          }
+
+          data.actualHours = actualHours;
+        }
+
+        if (body.qaRequired !== undefined) {
+          data.qaRequired = Boolean(body.qaRequired);
+        }
+
+        if (body.approvalRequired !== undefined) {
+          data.approvalRequired = Boolean(body.approvalRequired);
+        }
+
+        const nextTaskShape = {
+          title:
+            typeof data.title === "string" ? data.title : existingTask.title,
+          description:
+            typeof data.description === "string"
+              ? data.description
+              : (existingTask.description ?? ""),
+          category:
+            typeof data.category === "string"
+              ? data.category
+              : (existingTask.category ?? ""),
+          executionType:
+            typeof data.executionType === "string"
+              ? data.executionType
+              : existingTask.executionType,
+          assigneeType:
+            typeof data.assigneeType === "string"
+              ? data.assigneeType
+              : (existingTask.assigneeType ?? "Human")
         };
 
         if (
-          !body.projectId ||
-          !body.session ||
-          !sessionFieldLabels[body.session] ||
-          !body.fields ||
-          typeof body.fields !== "object" ||
-          Array.isArray(body.fields)
+          nextTaskShape.assigneeType === "Agent" &&
+          !("assignedAgentId" in data)
         ) {
-          return sendJson(response, 400, {
-            error: "Invalid discovery payload"
-          });
+          data.assignedAgentId = await resolveAssignedAgentIdForTask(
+            projectTasksRoute.projectId,
+            nextTaskShape,
+            existingTask.assignedAgentId
+          );
         }
 
-        await saveDiscoverySession(body.projectId, body.session, body.fields);
+        const task = await prisma.task.update({
+          where: { id: projectTasksRoute.taskId },
+          data,
+          include: { assignedAgent: { select: { name: true } } }
+        });
+
+        return sendJson(response, 200, {
+          task: serializeTask(task)
+        });
+      }
+
+      if (request.method === "DELETE" && projectTasksRoute.taskId) {
+        try {
+          await ensureProjectScopeUnlocked(
+            projectTasksRoute.projectId,
+            "Approved scope is locked. Use change management to remove or replace project steps."
+          );
+        } catch (error) {
+          return sendJson(
+            response,
+            error instanceof Error && error.message === "Project not found"
+              ? 404
+              : 409,
+            {
+              error:
+                error instanceof Error ? error.message : "Failed to delete task"
+            }
+          );
+        }
+
+        const existingTask = await prisma.task.findFirst({
+          where: {
+            id: projectTasksRoute.taskId,
+            projectId: projectTasksRoute.projectId
+          }
+        });
+
+        if (!existingTask) {
+          return sendJson(response, 404, { error: "Task not found" });
+        }
+
+        await prisma.executionJob.deleteMany({
+          where: { taskId: projectTasksRoute.taskId }
+        });
+        await prisma.task.delete({
+          where: { id: projectTasksRoute.taskId }
+        });
 
         return sendJson(response, 200, { success: true });
       }
 
-      if (
-        request.method === "POST" &&
-        url.pathname === "/api/discovery/extract"
-      ) {
-        const body = (await readJsonBody(request)) as {
-          text?: string;
-          session?: number;
-        };
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
 
-        if (!body.text || !body.session || !sessionFieldLabels[body.session]) {
-          return sendJson(response, 400, {
-            error: "Invalid extraction payload"
+    const projectQuoteRoute = matchProjectQuoteRoute(url.pathname);
+    if (projectQuoteRoute) {
+      if (request.method === "POST" && projectQuoteRoute.action === "share") {
+        try {
+          const result = await shareProjectQuote(
+            projectQuoteRoute.projectId,
+            await readJsonBody(request)
+          );
+          return sendJson(response, 200, {
+            project: result.project,
+            quote: result.quote,
+            shared: true
           });
-        }
+        } catch (error) {
+          if (error instanceof Error && error.message === "Project not found") {
+            return sendJson(response, 404, { error: error.message });
+          }
 
-        const extraction = await extractDiscoveryFields(
-          body.text,
-          body.session
-        );
-        return sendJson(response, 200, extraction);
-      }
+          if (
+            error instanceof Error &&
+            error.message ===
+              "Approved scope is locked. Use change management to revise this project."
+          ) {
+            return sendJson(response, 409, { error: error.message });
+          }
 
-      if (
-        request.method === "POST" &&
-        url.pathname === "/api/discovery/fetch-doc"
-      ) {
-        const body = (await readJsonBody(request)) as {
-          url?: string;
-          session?: number;
-        };
-
-        if (!body.url || !body.session || !sessionFieldLabels[body.session]) {
-          return sendJson(response, 400, { error: "Invalid document payload" });
-        }
-
-        const docIdMatch = body.url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
-        if (!docIdMatch) {
-          return sendJson(response, 400, {
-            error: "Invalid Google Doc URL"
-          });
-        }
-
-        const exportUrl = `https://docs.google.com/document/d/${docIdMatch[1]}/export?format=txt`;
-        const docResponse = await fetch(exportUrl);
-        if (!docResponse.ok) {
           return sendJson(response, 400, {
             error:
-              "Could not fetch document. Make sure it is set to public access."
+              error instanceof Error ? error.message : "Failed to share quote"
           });
         }
-
-        const docText = await docResponse.text();
-        const extraction = await extractDiscoveryFields(docText, body.session);
-        return sendJson(response, 200, extraction);
       }
 
-      const clientContactPortalAccessRoute =
-        matchClientContactPortalAccessRoute(url.pathname);
-      if (clientContactPortalAccessRoute) {
-        if (request.method === "POST") {
-          try {
-            const body = (await readJsonBody(request)) as {
-              projectIds?: unknown;
-              questionnaireAccess?: unknown;
-              sendEmail?: unknown;
-            };
-            const result = await inviteClientContactToProjects(
-              clientContactPortalAccessRoute.clientId,
-              clientContactPortalAccessRoute.contactId,
-              body
-            );
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
 
-            return sendJson(response, 200, result);
-          } catch (error) {
-            return sendJson(
-              response,
-              error instanceof Error &&
-                ["Client not found", "Client contact not found"].includes(
-                  error.message
-                )
-                ? 404
-                : 400,
-              {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to update client portal access"
-              }
-            );
-          }
-        }
+    if (request.method === "POST" && url.pathname === "/api/discovery/save") {
+      const body = (await readJsonBody(request)) as {
+        projectId?: string;
+        session?: number;
+        fields?: Record<string, unknown>;
+      };
 
-        return sendJson(response, 405, { error: "Method Not Allowed" });
+      if (
+        !body.projectId ||
+        !body.session ||
+        !sessionFieldLabels[body.session] ||
+        !body.fields ||
+        typeof body.fields !== "object" ||
+        Array.isArray(body.fields)
+      ) {
+        return sendJson(response, 400, {
+          error: "Invalid discovery payload"
+        });
       }
 
-      const clientEnrichmentRoute = matchClientEnrichmentRoute(url.pathname);
-      if (clientEnrichmentRoute) {
-        if (request.method === "POST") {
-          try {
-            const client = await refreshClientEnrichment(
-              clientEnrichmentRoute.clientId
-            );
-            return sendJson(response, 200, { client });
-          } catch (error) {
-            return sendJson(
-              response,
-              error instanceof Error && error.message === "Client not found"
-                ? 404
-                : 400,
-              {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to refresh client enrichment"
-              }
-            );
-          }
-        }
+      await saveDiscoverySession(body.projectId, body.session, body.fields);
 
-        return sendJson(response, 405, { error: "Method Not Allowed" });
+      return sendJson(response, 200, { success: true });
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/discovery/extract"
+    ) {
+      const body = (await readJsonBody(request)) as {
+        text?: string;
+        session?: number;
+      };
+
+      if (!body.text || !body.session || !sessionFieldLabels[body.session]) {
+        return sendJson(response, 400, {
+          error: "Invalid extraction payload"
+        });
       }
 
-      const clientDirectoryRoute = matchClientDirectoryRoute(url.pathname);
-      if (clientDirectoryRoute) {
-        if (
-          request.method === "GET" &&
-          !clientDirectoryRoute.clientId &&
-          !clientDirectoryRoute.resource
-        ) {
-          return sendJson(response, 200, {
-            clients: await loadClientsDirectory()
-          });
-        }
+      const extraction = await extractDiscoveryFields(body.text, body.session);
+      return sendJson(response, 200, extraction);
+    }
 
-        if (
-          request.method === "POST" &&
-          !clientDirectoryRoute.clientId &&
-          !clientDirectoryRoute.resource
-        ) {
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/discovery/fetch-doc"
+    ) {
+      const body = (await readJsonBody(request)) as {
+        url?: string;
+        session?: number;
+      };
+
+      if (!body.url || !body.session || !sessionFieldLabels[body.session]) {
+        return sendJson(response, 400, { error: "Invalid document payload" });
+      }
+
+      const docIdMatch = body.url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+      if (!docIdMatch) {
+        return sendJson(response, 400, {
+          error: "Invalid Google Doc URL"
+        });
+      }
+
+      const exportUrl = `https://docs.google.com/document/d/${docIdMatch[1]}/export?format=txt`;
+      const docResponse = await fetch(exportUrl);
+      if (!docResponse.ok) {
+        return sendJson(response, 400, {
+          error:
+            "Could not fetch document. Make sure it is set to public access."
+        });
+      }
+
+      const docText = await docResponse.text();
+      const extraction = await extractDiscoveryFields(docText, body.session);
+      return sendJson(response, 200, extraction);
+    }
+
+    const clientContactPortalAccessRoute = matchClientContactPortalAccessRoute(
+      url.pathname
+    );
+    if (clientContactPortalAccessRoute) {
+      if (request.method === "POST") {
+        try {
           const body = (await readJsonBody(request)) as {
-            name: string;
-            website?: string;
-            logoUrl?: string;
-            industry?: string;
-            region?: string;
-            additionalWebsites?: string[];
-            linkedinUrl?: string;
-            facebookUrl?: string;
-            instagramUrl?: string;
-            xUrl?: string;
-            youtubeUrl?: string;
-            clientRoles?: string[];
-            parentClientId?: string;
-            visibleToPartnerIds?: string[];
+            projectIds?: unknown;
+            questionnaireAccess?: unknown;
+            sendEmail?: unknown;
           };
+          const result = await inviteClientContactToProjects(
+            clientContactPortalAccessRoute.clientId,
+            clientContactPortalAccessRoute.contactId,
+            body
+          );
 
-          try {
-            const client = await prisma.client.create({
-              data: {
-                name: body.name,
-                slug: createSlug(body.name),
-                website: body.website ?? null,
-                logoUrl: body.logoUrl ?? null,
-                industry: body.industry ?? null,
-                region: normalizeClientRegion(body.region),
-                additionalWebsites: Array.isArray(body.additionalWebsites)
-                  ? body.additionalWebsites
-                      .filter(
-                        (entry): entry is string => typeof entry === "string"
-                      )
-                      .map((entry) => entry.trim())
-                      .filter(Boolean)
-                  : [],
-                linkedinUrl:
-                  typeof body.linkedinUrl === "string"
-                    ? body.linkedinUrl.trim() || null
-                    : null,
-                facebookUrl:
-                  typeof body.facebookUrl === "string"
-                    ? body.facebookUrl.trim() || null
-                    : null,
-                instagramUrl:
-                  typeof body.instagramUrl === "string"
-                    ? body.instagramUrl.trim() || null
-                    : null,
-                xUrl:
-                  typeof body.xUrl === "string"
-                    ? body.xUrl.trim() || null
-                    : null,
-                youtubeUrl:
-                  typeof body.youtubeUrl === "string"
-                    ? body.youtubeUrl.trim() || null
-                    : null,
-                clientRoles: normalizeClientRoleTags(body.clientRoles),
-                ...(typeof body.parentClientId === "string" &&
-                body.parentClientId.trim()
-                  ? {
-                      parentClient: {
-                        connect: {
-                          id: body.parentClientId.trim()
-                        }
-                      }
-                    }
-                  : {})
-              }
-            });
-
-            const partnerVisibilityIds = normalizeClientVisibilityIds(
-              body.visibleToPartnerIds
-            ).filter((partnerClientId) => partnerClientId !== client.id);
-
-            if (partnerVisibilityIds.length > 0) {
-              await syncPartnerVisibilityLinks(client.id, partnerVisibilityIds);
+          return sendJson(response, 200, result);
+        } catch (error) {
+          return sendJson(
+            response,
+            error instanceof Error &&
+              ["Client not found", "Client contact not found"].includes(
+                error.message
+              )
+              ? 404
+              : 400,
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update client portal access"
             }
+          );
+        }
+      }
 
-            const createdClient = await prisma.client.findUnique({
-              where: { id: client.id },
-              include: {
-                parentClient: {
-                  select: {
-                    id: true,
-                    name: true
-                  }
-                },
-                childClients: {
-                  select: {
-                    id: true,
-                    name: true
-                  }
-                },
-                visibleToPartners: {
-                  include: {
-                    partnerClient: {
-                      select: {
-                        id: true,
-                        name: true
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const clientEnrichmentRoute = matchClientEnrichmentRoute(url.pathname);
+    if (clientEnrichmentRoute) {
+      if (request.method === "POST") {
+        try {
+          const client = await refreshClientEnrichment(
+            clientEnrichmentRoute.clientId
+          );
+          return sendJson(response, 200, { client });
+        } catch (error) {
+          return sendJson(
+            response,
+            error instanceof Error && error.message === "Client not found"
+              ? 404
+              : 400,
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to refresh client enrichment"
+            }
+          );
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    const clientDirectoryRoute = matchClientDirectoryRoute(url.pathname);
+    if (clientDirectoryRoute) {
+      if (
+        request.method === "GET" &&
+        !clientDirectoryRoute.clientId &&
+        !clientDirectoryRoute.resource
+      ) {
+        return sendJson(response, 200, {
+          clients: await loadClientsDirectory()
+        });
+      }
+
+      if (
+        request.method === "POST" &&
+        !clientDirectoryRoute.clientId &&
+        !clientDirectoryRoute.resource
+      ) {
+        const body = (await readJsonBody(request)) as {
+          name: string;
+          website?: string;
+          logoUrl?: string;
+          industry?: string;
+          region?: string;
+          additionalWebsites?: string[];
+          linkedinUrl?: string;
+          facebookUrl?: string;
+          instagramUrl?: string;
+          xUrl?: string;
+          youtubeUrl?: string;
+          clientRoles?: string[];
+          parentClientId?: string;
+          visibleToPartnerIds?: string[];
+        };
+
+        try {
+          const client = await prisma.client.create({
+            data: {
+              name: body.name,
+              slug: createSlug(body.name),
+              website: body.website ?? null,
+              logoUrl: body.logoUrl ?? null,
+              industry: body.industry ?? null,
+              region: normalizeClientRegion(body.region),
+              additionalWebsites: Array.isArray(body.additionalWebsites)
+                ? body.additionalWebsites
+                    .filter(
+                      (entry): entry is string => typeof entry === "string"
+                    )
+                    .map((entry) => entry.trim())
+                    .filter(Boolean)
+                : [],
+              linkedinUrl:
+                typeof body.linkedinUrl === "string"
+                  ? body.linkedinUrl.trim() || null
+                  : null,
+              facebookUrl:
+                typeof body.facebookUrl === "string"
+                  ? body.facebookUrl.trim() || null
+                  : null,
+              instagramUrl:
+                typeof body.instagramUrl === "string"
+                  ? body.instagramUrl.trim() || null
+                  : null,
+              xUrl:
+                typeof body.xUrl === "string" ? body.xUrl.trim() || null : null,
+              youtubeUrl:
+                typeof body.youtubeUrl === "string"
+                  ? body.youtubeUrl.trim() || null
+                  : null,
+              clientRoles: normalizeClientRoleTags(body.clientRoles),
+              ...(typeof body.parentClientId === "string" &&
+              body.parentClientId.trim()
+                ? {
+                    parentClient: {
+                      connect: {
+                        id: body.parentClientId.trim()
                       }
                     }
                   }
-                },
-                visibleClients: {
-                  include: {
-                    client: {
-                      select: {
-                        id: true,
-                        name: true
-                      }
+                : {})
+            }
+          });
+
+          const partnerVisibilityIds = normalizeClientVisibilityIds(
+            body.visibleToPartnerIds
+          ).filter((partnerClientId) => partnerClientId !== client.id);
+
+          if (partnerVisibilityIds.length > 0) {
+            await syncPartnerVisibilityLinks(client.id, partnerVisibilityIds);
+          }
+
+          const createdClient = await prisma.client.findUnique({
+            where: { id: client.id },
+            include: {
+              parentClient: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              },
+              childClients: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              },
+              visibleToPartners: {
+                include: {
+                  partnerClient: {
+                    select: {
+                      id: true,
+                      name: true
+                    }
+                  }
+                }
+              },
+              visibleClients: {
+                include: {
+                  client: {
+                    select: {
+                      id: true,
+                      name: true
                     }
                   }
                 }
               }
-            });
-
-            if (!createdClient) {
-              throw new Error("Client not found");
-            }
-
-            return sendJson(response, 201, {
-              client: {
-                ...serializeClientDirectoryRecord(createdClient),
-                contacts: [],
-                projects: []
-              }
-            });
-          } catch (error: unknown) {
-            if (isUniqueConstraintError(error)) {
-              return sendJson(response, 409, {
-                error: "A client with that name already exists"
-              });
-            }
-
-            throw error;
-          }
-        }
-
-        if (
-          request.method === "PATCH" &&
-          clientDirectoryRoute.clientId &&
-          !clientDirectoryRoute.resource
-        ) {
-          try {
-            const body = (await readJsonBody(request)) as {
-              name?: unknown;
-              website?: unknown;
-              logoUrl?: unknown;
-              industry?: unknown;
-              region?: unknown;
-              additionalWebsites?: unknown;
-              linkedinUrl?: unknown;
-              facebookUrl?: unknown;
-              instagramUrl?: unknown;
-              xUrl?: unknown;
-              youtubeUrl?: unknown;
-              clientRoles?: unknown;
-              parentClientId?: unknown;
-              visibleToPartnerIds?: unknown;
-            };
-
-            const client = await updateClientDirectoryRecord(
-              clientDirectoryRoute.clientId,
-              body
-            );
-
-            return sendJson(response, 200, { client });
-          } catch (error: unknown) {
-            if (isUniqueConstraintError(error)) {
-              return sendJson(response, 409, {
-                error: "A client with that name already exists"
-              });
-            }
-
-            return sendJson(
-              response,
-              error instanceof Error && error.message === "Client not found"
-                ? 404
-                : 400,
-              {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to update client"
-              }
-            );
-          }
-        }
-
-        if (
-          request.method === "DELETE" &&
-          clientDirectoryRoute.clientId &&
-          !clientDirectoryRoute.resource
-        ) {
-          try {
-            await deleteClientDirectoryRecord(clientDirectoryRoute.clientId);
-            return sendJson(response, 200, { success: true });
-          } catch (error: unknown) {
-            return sendJson(
-              response,
-              error instanceof Error && error.message === "Client not found"
-                ? 404
-                : 400,
-              {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to delete client"
-              }
-            );
-          }
-        }
-
-        if (
-          request.method === "POST" &&
-          clientDirectoryRoute.clientId &&
-          clientDirectoryRoute.resource === "contacts" &&
-          !clientDirectoryRoute.contactId
-        ) {
-          try {
-            const body = (await readJsonBody(request)) as {
-              firstName?: unknown;
-              lastName?: unknown;
-              email?: unknown;
-              title?: unknown;
-              canApproveQuotes?: unknown;
-            };
-            const contact = await createClientContact(
-              clientDirectoryRoute.clientId,
-              body
-            );
-            return sendJson(response, 201, { contact });
-          } catch (error) {
-            if (isUniqueConstraintError(error)) {
-              return sendJson(response, 409, {
-                error:
-                  "A contact with that email already exists for this client"
-              });
-            }
-
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to create client contact"
-            });
-          }
-        }
-
-        if (
-          request.method === "PATCH" &&
-          clientDirectoryRoute.clientId &&
-          clientDirectoryRoute.resource === "contacts" &&
-          clientDirectoryRoute.contactId
-        ) {
-          try {
-            const body = (await readJsonBody(request)) as {
-              firstName?: unknown;
-              lastName?: unknown;
-              email?: unknown;
-              title?: unknown;
-              canApproveQuotes?: unknown;
-            };
-            const contact = await updateClientContact(
-              clientDirectoryRoute.clientId,
-              clientDirectoryRoute.contactId,
-              body
-            );
-            return sendJson(response, 200, { contact });
-          } catch (error) {
-            if (isUniqueConstraintError(error)) {
-              return sendJson(response, 409, {
-                error:
-                  "A contact with that email already exists for this client"
-              });
-            }
-
-            return sendJson(
-              response,
-              error instanceof Error &&
-                error.message === "Client contact not found"
-                ? 404
-                : 400,
-              {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to update client contact"
-              }
-            );
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      if (request.method === "GET" && url.pathname === "/api/portals") {
-        return sendJson(response, 200, {
-          portals: await loadHubSpotPortals()
-        });
-      }
-
-      if (request.method === "POST" && url.pathname === "/api/portals") {
-        const body = (await readJsonBody(request)) as {
-          portalId: string;
-          displayName: string;
-          region?: string;
-        };
-
-        try {
-          const portal = await prisma.hubSpotPortal.create({
-            data: {
-              portalId: body.portalId,
-              displayName: body.displayName,
-              region: body.region ?? null
             }
           });
 
-          return sendJson(response, 201, { portal });
+          if (!createdClient) {
+            throw new Error("Client not found");
+          }
+
+          return sendJson(response, 201, {
+            client: {
+              ...serializeClientDirectoryRecord(createdClient),
+              contacts: [],
+              projects: []
+            }
+          });
         } catch (error: unknown) {
           if (isUniqueConstraintError(error)) {
             return sendJson(response, 409, {
-              error: "A portal with that ID already exists"
+              error: "A client with that name already exists"
             });
           }
 
@@ -16471,1086 +16209,361 @@ export function createAppServer(config: BaseConfig): http.Server {
       }
 
       if (
-        request.method === "POST" &&
-        url.pathname === "/api/projects/from-template"
+        request.method === "PATCH" &&
+        clientDirectoryRoute.clientId &&
+        !clientDirectoryRoute.resource
       ) {
-        const payload = createProjectFromTemplateRequestSchema.parse(
-          await readJsonBody(request)
-        );
-        const project = await createProjectFromTemplate(payload);
-        return sendJson(response, 201, {
-          project,
-          summary: await summarizeProject(project)
-        });
+        try {
+          const body = (await readJsonBody(request)) as {
+            name?: unknown;
+            website?: unknown;
+            logoUrl?: unknown;
+            industry?: unknown;
+            region?: unknown;
+            additionalWebsites?: unknown;
+            linkedinUrl?: unknown;
+            facebookUrl?: unknown;
+            instagramUrl?: unknown;
+            xUrl?: unknown;
+            youtubeUrl?: unknown;
+            clientRoles?: unknown;
+            parentClientId?: unknown;
+            visibleToPartnerIds?: unknown;
+          };
+
+          const client = await updateClientDirectoryRecord(
+            clientDirectoryRoute.clientId,
+            body
+          );
+
+          return sendJson(response, 200, { client });
+        } catch (error: unknown) {
+          if (isUniqueConstraintError(error)) {
+            return sendJson(response, 409, {
+              error: "A client with that name already exists"
+            });
+          }
+
+          return sendJson(
+            response,
+            error instanceof Error && error.message === "Client not found"
+              ? 404
+              : 400,
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update client"
+            }
+          );
+        }
       }
 
-      if (url.pathname === "/api/projects/validation-summary") {
-        return sendJson(response, 200, {
-          validations: await validateAllProjects()
-        });
+      if (
+        request.method === "DELETE" &&
+        clientDirectoryRoute.clientId &&
+        !clientDirectoryRoute.resource
+      ) {
+        try {
+          await deleteClientDirectoryRecord(clientDirectoryRoute.clientId);
+          return sendJson(response, 200, { success: true });
+        } catch (error: unknown) {
+          return sendJson(
+            response,
+            error instanceof Error && error.message === "Client not found"
+              ? 404
+              : 400,
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to delete client"
+            }
+          );
+        }
       }
 
       if (
         request.method === "POST" &&
-        url.pathname === "/api/solution-options"
+        clientDirectoryRoute.clientId &&
+        clientDirectoryRoute.resource === "contacts" &&
+        !clientDirectoryRoute.contactId
       ) {
-        const body = (await readJsonBody(request)) as {
-          clientName?: string;
-          website?: string;
-          problemStatement?: string;
-          serviceFamily?: string;
-        };
+        try {
+          const body = (await readJsonBody(request)) as {
+            firstName?: unknown;
+            lastName?: unknown;
+            email?: unknown;
+            title?: unknown;
+            canApproveQuotes?: unknown;
+          };
+          const contact = await createClientContact(
+            clientDirectoryRoute.clientId,
+            body
+          );
+          return sendJson(response, 201, { contact });
+        } catch (error) {
+          if (isUniqueConstraintError(error)) {
+            return sendJson(response, 409, {
+              error: "A contact with that email already exists for this client"
+            });
+          }
 
-        if (
-          typeof body.problemStatement !== "string" ||
-          body.problemStatement.trim().length < 20
-        ) {
           return sendJson(response, 400, {
-            error: "problemStatement must be at least 20 characters"
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create client contact"
+          });
+        }
+      }
+
+      if (
+        request.method === "PATCH" &&
+        clientDirectoryRoute.clientId &&
+        clientDirectoryRoute.resource === "contacts" &&
+        clientDirectoryRoute.contactId
+      ) {
+        try {
+          const body = (await readJsonBody(request)) as {
+            firstName?: unknown;
+            lastName?: unknown;
+            email?: unknown;
+            title?: unknown;
+            canApproveQuotes?: unknown;
+          };
+          const contact = await updateClientContact(
+            clientDirectoryRoute.clientId,
+            clientDirectoryRoute.contactId,
+            body
+          );
+          return sendJson(response, 200, { contact });
+        } catch (error) {
+          if (isUniqueConstraintError(error)) {
+            return sendJson(response, 409, {
+              error: "A contact with that email already exists for this client"
+            });
+          }
+
+          return sendJson(
+            response,
+            error instanceof Error &&
+              error.message === "Client contact not found"
+              ? 404
+              : 400,
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update client contact"
+            }
+          );
+        }
+      }
+
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/portals") {
+      return sendJson(response, 200, {
+        portals: await loadHubSpotPortals()
+      });
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/portals") {
+      const body = (await readJsonBody(request)) as {
+        portalId: string;
+        displayName: string;
+        region?: string;
+      };
+
+      try {
+        const portal = await prisma.hubSpotPortal.create({
+          data: {
+            portalId: body.portalId,
+            displayName: body.displayName,
+            region: body.region ?? null
+          }
+        });
+
+        return sendJson(response, 201, { portal });
+      } catch (error: unknown) {
+        if (isUniqueConstraintError(error)) {
+          return sendJson(response, 409, {
+            error: "A portal with that ID already exists"
           });
         }
 
-        const options = await generateSolutionOptions({
-          problemStatement: body.problemStatement.trim(),
-          ...(typeof body.clientName === "string" &&
-          body.clientName.trim().length > 0
-            ? { clientName: body.clientName.trim() }
-            : {}),
-          ...(typeof body.website === "string" && body.website.trim().length > 0
-            ? { website: body.website.trim() }
-            : {}),
-          ...(typeof body.serviceFamily === "string" &&
-          body.serviceFamily.trim().length > 0
-            ? { serviceFamily: body.serviceFamily.trim() }
-            : {})
-        });
+        throw error;
+      }
+    }
 
-        return sendJson(response, 200, options);
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/projects/from-template"
+    ) {
+      const payload = createProjectFromTemplateRequestSchema.parse(
+        await readJsonBody(request)
+      );
+      const project = await createProjectFromTemplate(payload);
+      return sendJson(response, 201, {
+        project,
+        summary: await summarizeProject(project)
+      });
+    }
+
+    if (url.pathname === "/api/projects/validation-summary") {
+      return sendJson(response, 200, {
+        validations: await validateAllProjects()
+      });
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/solution-options") {
+      const body = (await readJsonBody(request)) as {
+        clientName?: string;
+        website?: string;
+        problemStatement?: string;
+        serviceFamily?: string;
+      };
+
+      if (
+        typeof body.problemStatement !== "string" ||
+        body.problemStatement.trim().length < 20
+      ) {
+        return sendJson(response, 400, {
+          error: "problemStatement must be at least 20 characters"
+        });
       }
 
-      const projectModuleRoute = matchProjectModuleRoute(url.pathname);
-      if (projectModuleRoute) {
+      const options = await generateSolutionOptions({
+        problemStatement: body.problemStatement.trim(),
+        ...(typeof body.clientName === "string" &&
+        body.clientName.trim().length > 0
+          ? { clientName: body.clientName.trim() }
+          : {}),
+        ...(typeof body.website === "string" && body.website.trim().length > 0
+          ? { website: body.website.trim() }
+          : {}),
+        ...(typeof body.serviceFamily === "string" &&
+        body.serviceFamily.trim().length > 0
+          ? { serviceFamily: body.serviceFamily.trim() }
+          : {})
+      });
+
+      return sendJson(response, 200, options);
+    }
+
+    const projectModuleRoute = matchProjectModuleRoute(url.pathname);
+    if (projectModuleRoute) {
+      return sendJson(response, 200, {
+        module: await loadProjectModuleDetail(
+          projectModuleRoute.projectId,
+          projectModuleRoute.moduleKey
+        )
+      });
+    }
+
+    const projectDesignRoute = matchProjectDesignRoute(url.pathname);
+    if (projectDesignRoute) {
+      if (request.method === "GET" && !projectDesignRoute.resource) {
+        const design = await loadProjectDesignById(
+          projectDesignRoute.projectId
+        );
         return sendJson(response, 200, {
-          module: await loadProjectModuleDetail(
-            projectModuleRoute.projectId,
-            projectModuleRoute.moduleKey
+          design,
+          validation: await validateProjectById(projectDesignRoute.projectId),
+          readiness: await loadProjectReadinessById(
+            projectDesignRoute.projectId
           )
         });
       }
 
-      const projectDesignRoute = matchProjectDesignRoute(url.pathname);
-      if (projectDesignRoute) {
-        if (request.method === "GET" && !projectDesignRoute.resource) {
-          const design = await loadProjectDesignById(
-            projectDesignRoute.projectId
-          );
-          return sendJson(response, 200, {
-            design,
-            validation: await validateProjectById(projectDesignRoute.projectId),
-            readiness: await loadProjectReadinessById(
-              projectDesignRoute.projectId
-            )
-          });
-        }
-
-        if (
-          request.method === "PUT" &&
-          projectDesignRoute.resource === "lifecycle"
-        ) {
-          const payload = updateProjectLifecycleDesignRequestSchema.parse(
-            await readJsonBody(request)
-          );
-          const project = await updateProjectLifecycleDesign(
-            projectDesignRoute.projectId,
-            payload
-          );
-          return sendJson(response, 200, {
-            project,
-            design: await loadProjectDesignById(project.id),
-            validation: await validateProjectById(project.id),
-            readiness: await loadProjectReadinessById(project.id),
-            summary: await summarizeProject(project)
-          });
-        }
-
-        if (
-          request.method === "PUT" &&
-          projectDesignRoute.resource === "properties"
-        ) {
-          const payload = updateProjectPropertiesDesignRequestSchema.parse(
-            await readJsonBody(request)
-          );
-          const project = await updateProjectPropertiesDesign(
-            projectDesignRoute.projectId,
-            payload
-          );
-          return sendJson(response, 200, {
-            project,
-            design: await loadProjectDesignById(project.id),
-            validation: await validateProjectById(project.id),
-            readiness: await loadProjectReadinessById(project.id),
-            summary: await summarizeProject(project)
-          });
-        }
-
-        if (
-          request.method === "PUT" &&
-          projectDesignRoute.resource === "pipelines"
-        ) {
-          const payload = updateProjectPipelinesDesignRequestSchema.parse(
-            await readJsonBody(request)
-          );
-          const project = await updateProjectPipelinesDesign(
-            projectDesignRoute.projectId,
-            payload
-          );
-          return sendJson(response, 200, {
-            project,
-            design: await loadProjectDesignById(project.id),
-            validation: await validateProjectById(project.id),
-            readiness: await loadProjectReadinessById(project.id),
-            summary: await summarizeProject(project)
-          });
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const executionRoute = matchExecutionRoute(url.pathname);
-      if (executionRoute) {
-        if (executionRoute.resource === "steps") {
-          return sendJson(response, 200, {
-            executionId: executionRoute.executionId,
-            steps: await loadExecutionSteps(executionRoute.executionId)
-          });
-        }
-
+      if (
+        request.method === "PUT" &&
+        projectDesignRoute.resource === "lifecycle"
+      ) {
+        const payload = updateProjectLifecycleDesignRequestSchema.parse(
+          await readJsonBody(request)
+        );
+        const project = await updateProjectLifecycleDesign(
+          projectDesignRoute.projectId,
+          payload
+        );
         return sendJson(response, 200, {
-          execution: await loadExecutionById(executionRoute.executionId)
+          project,
+          design: await loadProjectDesignById(project.id),
+          validation: await validateProjectById(project.id),
+          readiness: await loadProjectReadinessById(project.id),
+          summary: await summarizeProject(project)
         });
       }
 
-      const projectRoute = matchProjectRoute(url.pathname);
-      if (projectRoute) {
-        if (projectRoute.resource === "changes") {
-          if (request.method === "GET") {
-            try {
-              const result = await loadProjectChangeRequests(
-                projectRoute.projectId
-              );
-              return sendJson(response, 200, result);
-            } catch (error) {
-              return sendJson(
-                response,
-                error instanceof Error && error.message === "Project not found"
-                  ? 404
-                  : 400,
-                {
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : "Failed to load project change requests"
-                }
-              );
-            }
-          }
+      if (
+        request.method === "PUT" &&
+        projectDesignRoute.resource === "properties"
+      ) {
+        const payload = updateProjectPropertiesDesignRequestSchema.parse(
+          await readJsonBody(request)
+        );
+        const project = await updateProjectPropertiesDesign(
+          projectDesignRoute.projectId,
+          payload
+        );
+        return sendJson(response, 200, {
+          project,
+          design: await loadProjectDesignById(project.id),
+          validation: await validateProjectById(project.id),
+          readiness: await loadProjectReadinessById(project.id),
+          summary: await summarizeProject(project)
+        });
+      }
 
-          if (request.method === "POST") {
-            try {
-              const project = await prisma.project.findUnique({
-                where: { id: projectRoute.projectId },
-                include: {
-                  client: true
-                }
-              });
+      if (
+        request.method === "PUT" &&
+        projectDesignRoute.resource === "pipelines"
+      ) {
+        const payload = updateProjectPipelinesDesignRequestSchema.parse(
+          await readJsonBody(request)
+        );
+        const project = await updateProjectPipelinesDesign(
+          projectDesignRoute.projectId,
+          payload
+        );
+        return sendJson(response, 200, {
+          project,
+          design: await loadProjectDesignById(project.id),
+          validation: await validateProjectById(project.id),
+          readiness: await loadProjectReadinessById(project.id),
+          summary: await summarizeProject(project)
+        });
+      }
 
-              if (!project) {
-                return sendJson(response, 404, { error: "Project not found" });
-              }
+      return sendJson(response, 405, { error: "Method Not Allowed" });
+    }
 
-              const body = (await readJsonBody(request)) as Record<
-                string,
-                unknown
-              >;
-              const workRequest = await createWorkRequest({
-                ...body,
-                projectId: project.id,
-                serviceFamily: project.serviceFamily,
-                companyName: project.client.name,
-                contactName:
-                  typeof body.contactName === "string" &&
-                  body.contactName.trim().length > 0
-                    ? body.contactName
-                    : project.clientChampionFirstName ||
-                      project.owner ||
-                      project.client.name,
-                contactEmail:
-                  typeof body.contactEmail === "string" &&
-                  body.contactEmail.trim().length > 0
-                    ? body.contactEmail
-                    : project.clientChampionEmail ||
-                      project.ownerEmail ||
-                      "hello@muloo.co",
-                requestType: "change_request"
-              });
+    const executionRoute = matchExecutionRoute(url.pathname);
+    if (executionRoute) {
+      if (executionRoute.resource === "steps") {
+        return sendJson(response, 200, {
+          executionId: executionRoute.executionId,
+          steps: await loadExecutionSteps(executionRoute.executionId)
+        });
+      }
 
-              return sendJson(response, 201, { workRequest });
-            } catch (error) {
-              return sendJson(response, 400, {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to create project change request"
-              });
-            }
-          }
+      return sendJson(response, 200, {
+        execution: await loadExecutionById(executionRoute.executionId)
+      });
+    }
 
-          return sendJson(response, 405, { error: "Method Not Allowed" });
-        }
-
-        if (request.method === "GET" && !projectRoute.resource) {
-          const project = await prisma.project.findUnique({
-            where: { id: projectRoute.projectId },
-            include: {
-              client: true,
-              portal: true
-            }
-          });
-
-          if (!project) {
-            return sendJson(response, 404, { error: "Project not found" });
-          }
-
-          return sendJson(response, 200, {
-            project: serializeProject(project)
-          });
-        }
-        if (request.method === "PATCH" && !projectRoute.resource) {
+    const projectRoute = matchProjectRoute(url.pathname);
+    if (projectRoute) {
+      if (projectRoute.resource === "changes") {
+        if (request.method === "GET") {
           try {
-            await ensureProjectScopeUnlocked(projectRoute.projectId);
-          } catch (error) {
-            return sendJson(
-              response,
-              error instanceof Error && error.message === "Project not found"
-                ? 404
-                : 409,
-              {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to update project"
-              }
+            const result = await loadProjectChangeRequests(
+              projectRoute.projectId
             );
-          }
-
-          const body = (await readJsonBody(request)) as {
-            clientName?: unknown;
-            type?: unknown;
-            implementationApproach?: unknown;
-            customerPlatformTier?: unknown;
-            platformTierSelections?: unknown;
-            problemStatement?: unknown;
-            solutionRecommendation?: unknown;
-            scopeExecutiveSummary?: unknown;
-            clientQuestionnaireConfig?: unknown;
-            scopeType?: unknown;
-            deliveryTemplateId?: unknown;
-            commercialBrief?: unknown;
-            portalId?: unknown;
-            owner?: unknown;
-            ownerEmail?: unknown;
-            hubs?: unknown;
-            clientIndustry?: unknown;
-            clientWebsite?: unknown;
-            clientAdditionalWebsites?: unknown;
-            clientLinkedinUrl?: unknown;
-            clientFacebookUrl?: unknown;
-            clientInstagramUrl?: unknown;
-            clientXUrl?: unknown;
-            clientYoutubeUrl?: unknown;
-            clientChampionFirstName?: unknown;
-            clientChampionLastName?: unknown;
-            clientChampionEmail?: unknown;
-          };
-
-          const normalizedPayload: {
-            clientName?: string;
-            type?: EngagementType;
-            implementationApproach?: string;
-            customerPlatformTier?: string;
-            platformTierSelections?: Record<string, string>;
-            problemStatement?: string;
-            solutionRecommendation?: string;
-            scopeExecutiveSummary?: string;
-            clientQuestionnaireConfig?: ClientQuestionnaireConfig;
-            scopeType?: string;
-            deliveryTemplateId?: string;
-            commercialBrief?: string;
-            portalId?: string;
-            owner?: string;
-            ownerEmail?: string;
-            hubs?: ProjectHub[];
-            clientIndustry?: string;
-            clientWebsite?: string;
-            clientAdditionalWebsites?: string[];
-            clientLinkedinUrl?: string;
-            clientFacebookUrl?: string;
-            clientInstagramUrl?: string;
-            clientXUrl?: string;
-            clientYoutubeUrl?: string;
-            clientChampionFirstName?: string;
-            clientChampionLastName?: string;
-            clientChampionEmail?: string;
-          } = {};
-
-          if (body.clientName !== undefined) {
-            if (
-              typeof body.clientName !== "string" ||
-              body.clientName.trim().length === 0
-            ) {
-              return sendJson(response, 400, {
-                error: "clientName must be a non-empty string"
-              });
-            }
-
-            normalizedPayload.clientName = body.clientName.trim();
-          }
-
-          if (body.type !== undefined) {
-            if (
-              typeof body.type !== "string" ||
-              !isValidEngagementType(body.type)
-            ) {
-              return sendJson(response, 400, {
-                error: "Invalid engagement type"
-              });
-            }
-
-            normalizedPayload.type = body.type;
-          }
-
-          if (body.customerPlatformTier !== undefined) {
-            if (
-              body.customerPlatformTier !== null &&
-              (typeof body.customerPlatformTier !== "string" ||
-                (body.customerPlatformTier.trim().length > 0 &&
-                  !isValidCustomerPlatformTier(
-                    body.customerPlatformTier.trim().toLowerCase()
-                  )))
-            ) {
-              return sendJson(response, 400, {
-                error:
-                  "customerPlatformTier must be starter, professional, enterprise, or blank"
-              });
-            }
-
-            normalizedPayload.customerPlatformTier =
-              typeof body.customerPlatformTier === "string"
-                ? body.customerPlatformTier.trim().toLowerCase()
-                : "";
-          }
-
-          if (body.implementationApproach !== undefined) {
-            if (
-              typeof body.implementationApproach !== "string" ||
-              !isValidImplementationApproach(body.implementationApproach.trim())
-            ) {
-              return sendJson(response, 400, {
-                error:
-                  "implementationApproach must be pragmatic_poc or best_practice"
-              });
-            }
-
-            normalizedPayload.implementationApproach =
-              body.implementationApproach.trim();
-          }
-
-          if (body.platformTierSelections !== undefined) {
-            normalizedPayload.platformTierSelections =
-              normalizePlatformTierSelections(body.platformTierSelections);
-          }
-
-          if (body.problemStatement !== undefined) {
-            if (typeof body.problemStatement !== "string") {
-              return sendJson(response, 400, {
-                error: "problemStatement must be a string"
-              });
-            }
-
-            normalizedPayload.problemStatement = body.problemStatement.trim();
-          }
-
-          if (body.solutionRecommendation !== undefined) {
-            if (typeof body.solutionRecommendation !== "string") {
-              return sendJson(response, 400, {
-                error: "solutionRecommendation must be a string"
-              });
-            }
-
-            normalizedPayload.solutionRecommendation =
-              body.solutionRecommendation.trim();
-          }
-
-          if (body.scopeExecutiveSummary !== undefined) {
-            if (typeof body.scopeExecutiveSummary !== "string") {
-              return sendJson(response, 400, {
-                error: "scopeExecutiveSummary must be a string"
-              });
-            }
-
-            normalizedPayload.scopeExecutiveSummary =
-              body.scopeExecutiveSummary.trim();
-          }
-
-          if (body.clientQuestionnaireConfig !== undefined) {
-            normalizedPayload.clientQuestionnaireConfig =
-              normalizeClientQuestionnaireConfig(
-                body.clientQuestionnaireConfig
-              );
-          }
-
-          if (body.scopeType !== undefined) {
-            if (typeof body.scopeType !== "string") {
-              return sendJson(response, 400, {
-                error: "scopeType must be a string"
-              });
-            }
-
-            normalizedPayload.scopeType = body.scopeType.trim();
-          }
-
-          if (body.deliveryTemplateId !== undefined) {
-            if (
-              typeof body.deliveryTemplateId !== "string" &&
-              body.deliveryTemplateId !== null
-            ) {
-              return sendJson(response, 400, {
-                error: "deliveryTemplateId must be a string or null"
-              });
-            }
-
-            normalizedPayload.deliveryTemplateId =
-              typeof body.deliveryTemplateId === "string"
-                ? body.deliveryTemplateId.trim()
-                : "";
-          }
-
-          if (body.commercialBrief !== undefined) {
-            if (typeof body.commercialBrief !== "string") {
-              return sendJson(response, 400, {
-                error: "commercialBrief must be a string"
-              });
-            }
-
-            normalizedPayload.commercialBrief = body.commercialBrief.trim();
-          }
-
-          if (body.portalId !== undefined) {
-            if (typeof body.portalId !== "string") {
-              return sendJson(response, 400, {
-                error: "portalId must be a string"
-              });
-            }
-
-            normalizedPayload.portalId = body.portalId.trim();
-          }
-
-          if (body.owner !== undefined) {
-            if (typeof body.owner !== "string") {
-              return sendJson(response, 400, {
-                error: "owner must be a string"
-              });
-            }
-
-            normalizedPayload.owner = body.owner.trim();
-          }
-
-          if (body.ownerEmail !== undefined) {
-            if (typeof body.ownerEmail !== "string") {
-              return sendJson(response, 400, {
-                error: "ownerEmail must be a string"
-              });
-            }
-
-            normalizedPayload.ownerEmail = body.ownerEmail.trim();
-          }
-
-          if (body.clientIndustry !== undefined) {
-            if (typeof body.clientIndustry !== "string") {
-              return sendJson(response, 400, {
-                error: "clientIndustry must be a string"
-              });
-            }
-
-            normalizedPayload.clientIndustry = body.clientIndustry.trim();
-          }
-
-          if (body.clientWebsite !== undefined) {
-            if (typeof body.clientWebsite !== "string") {
-              return sendJson(response, 400, {
-                error: "clientWebsite must be a string"
-              });
-            }
-
-            normalizedPayload.clientWebsite = body.clientWebsite.trim();
-          }
-
-          if (body.clientAdditionalWebsites !== undefined) {
-            normalizedPayload.clientAdditionalWebsites = normalizeStringArray(
-              body.clientAdditionalWebsites
-            );
-          }
-
-          if (body.clientLinkedinUrl !== undefined) {
-            if (typeof body.clientLinkedinUrl !== "string") {
-              return sendJson(response, 400, {
-                error: "clientLinkedinUrl must be a string"
-              });
-            }
-
-            normalizedPayload.clientLinkedinUrl = body.clientLinkedinUrl.trim();
-          }
-
-          if (body.clientFacebookUrl !== undefined) {
-            if (typeof body.clientFacebookUrl !== "string") {
-              return sendJson(response, 400, {
-                error: "clientFacebookUrl must be a string"
-              });
-            }
-
-            normalizedPayload.clientFacebookUrl = body.clientFacebookUrl.trim();
-          }
-
-          if (body.clientInstagramUrl !== undefined) {
-            if (typeof body.clientInstagramUrl !== "string") {
-              return sendJson(response, 400, {
-                error: "clientInstagramUrl must be a string"
-              });
-            }
-
-            normalizedPayload.clientInstagramUrl =
-              body.clientInstagramUrl.trim();
-          }
-
-          if (body.clientXUrl !== undefined) {
-            if (typeof body.clientXUrl !== "string") {
-              return sendJson(response, 400, {
-                error: "clientXUrl must be a string"
-              });
-            }
-
-            normalizedPayload.clientXUrl = body.clientXUrl.trim();
-          }
-
-          if (body.clientYoutubeUrl !== undefined) {
-            if (typeof body.clientYoutubeUrl !== "string") {
-              return sendJson(response, 400, {
-                error: "clientYoutubeUrl must be a string"
-              });
-            }
-
-            normalizedPayload.clientYoutubeUrl = body.clientYoutubeUrl.trim();
-          }
-
-          if (body.hubs !== undefined) {
-            if (
-              !Array.isArray(body.hubs) ||
-              body.hubs.length === 0 ||
-              body.hubs.some((hub) => typeof hub !== "string")
-            ) {
-              return sendJson(response, 400, {
-                error: "hubs must be a non-empty array of hub keys"
-              });
-            }
-
-            const normalizedHubs = Array.from(
-              new Set(body.hubs.map((hub) => hub.trim().toLowerCase()))
-            );
-
-            if (normalizedHubs.some((hub) => !isValidProjectHub(hub))) {
-              return sendJson(response, 400, {
-                error: "Invalid hubs selection"
-              });
-            }
-
-            normalizedPayload.hubs = normalizedHubs;
-          }
-
-          if (body.clientChampionFirstName !== undefined) {
-            if (typeof body.clientChampionFirstName !== "string") {
-              return sendJson(response, 400, {
-                error: "clientChampionFirstName must be a string"
-              });
-            }
-
-            normalizedPayload.clientChampionFirstName =
-              body.clientChampionFirstName.trim();
-          }
-
-          if (body.clientChampionLastName !== undefined) {
-            if (typeof body.clientChampionLastName !== "string") {
-              return sendJson(response, 400, {
-                error: "clientChampionLastName must be a string"
-              });
-            }
-
-            normalizedPayload.clientChampionLastName =
-              body.clientChampionLastName.trim();
-          }
-
-          if (body.clientChampionEmail !== undefined) {
-            if (typeof body.clientChampionEmail !== "string") {
-              return sendJson(response, 400, {
-                error: "clientChampionEmail must be a string"
-              });
-            }
-
-            normalizedPayload.clientChampionEmail =
-              body.clientChampionEmail.trim();
-          }
-
-          if (
-            normalizedPayload.clientName === undefined &&
-            normalizedPayload.type === undefined &&
-            normalizedPayload.customerPlatformTier === undefined &&
-            normalizedPayload.implementationApproach === undefined &&
-            normalizedPayload.platformTierSelections === undefined &&
-            normalizedPayload.problemStatement === undefined &&
-            normalizedPayload.solutionRecommendation === undefined &&
-            normalizedPayload.scopeExecutiveSummary === undefined &&
-            normalizedPayload.clientQuestionnaireConfig === undefined &&
-            normalizedPayload.scopeType === undefined &&
-            normalizedPayload.deliveryTemplateId === undefined &&
-            normalizedPayload.commercialBrief === undefined &&
-            normalizedPayload.portalId === undefined &&
-            normalizedPayload.owner === undefined &&
-            normalizedPayload.ownerEmail === undefined &&
-            normalizedPayload.hubs === undefined &&
-            normalizedPayload.clientIndustry === undefined &&
-            normalizedPayload.clientWebsite === undefined &&
-            normalizedPayload.clientAdditionalWebsites === undefined &&
-            normalizedPayload.clientLinkedinUrl === undefined &&
-            normalizedPayload.clientFacebookUrl === undefined &&
-            normalizedPayload.clientInstagramUrl === undefined &&
-            normalizedPayload.clientXUrl === undefined &&
-            normalizedPayload.clientYoutubeUrl === undefined &&
-            normalizedPayload.clientChampionFirstName === undefined &&
-            normalizedPayload.clientChampionLastName === undefined &&
-            normalizedPayload.clientChampionEmail === undefined
-          ) {
-            return sendJson(response, 400, {
-              error: "At least one editable field is required"
-            });
-          }
-
-          const existingProject = await prisma.project.findUnique({
-            where: { id: projectRoute.projectId },
-            include: { client: true, portal: true }
-          });
-
-          if (!existingProject) {
-            return sendJson(response, 404, { error: "Project not found" });
-          }
-
-          const nextClientName =
-            normalizedPayload.clientName ?? existingProject.client.name;
-          const nextOwnerDetails =
-            normalizedPayload.owner !== undefined ||
-            normalizedPayload.ownerEmail !== undefined
-              ? await resolveProjectOwner(
-                  normalizedPayload.owner ?? existingProject.owner,
-                  normalizedPayload.ownerEmail ?? existingProject.ownerEmail
-                )
-              : null;
-
-          const project = await prisma.$transaction(async (transaction) => {
-            let nextClientId = existingProject.clientId;
-            let nextPortalId = existingProject.portalId;
-
-            if (normalizedPayload.clientName) {
-              const clientSlug = createSlug(normalizedPayload.clientName);
-              const client = await transaction.client.upsert({
-                where: { slug: clientSlug },
-                update: { name: normalizedPayload.clientName },
-                create: {
-                  name: normalizedPayload.clientName,
-                  slug: clientSlug
-                }
-              });
-
-              nextClientId = client.id;
-            }
-
-            if (
-              normalizedPayload.clientIndustry !== undefined ||
-              normalizedPayload.clientWebsite !== undefined ||
-              normalizedPayload.clientAdditionalWebsites !== undefined ||
-              normalizedPayload.clientLinkedinUrl !== undefined ||
-              normalizedPayload.clientFacebookUrl !== undefined ||
-              normalizedPayload.clientInstagramUrl !== undefined ||
-              normalizedPayload.clientXUrl !== undefined ||
-              normalizedPayload.clientYoutubeUrl !== undefined
-            ) {
-              await transaction.client.update({
-                where: { id: nextClientId },
-                data: {
-                  ...(normalizedPayload.clientIndustry !== undefined
-                    ? {
-                        industry: normalizedPayload.clientIndustry || null
-                      }
-                    : {}),
-                  ...(normalizedPayload.clientWebsite !== undefined
-                    ? {
-                        website: normalizedPayload.clientWebsite || null
-                      }
-                    : {}),
-                  ...(normalizedPayload.clientAdditionalWebsites !== undefined
-                    ? {
-                        additionalWebsites:
-                          normalizedPayload.clientAdditionalWebsites
-                      }
-                    : {}),
-                  ...(normalizedPayload.clientLinkedinUrl !== undefined
-                    ? {
-                        linkedinUrl: normalizedPayload.clientLinkedinUrl || null
-                      }
-                    : {}),
-                  ...(normalizedPayload.clientFacebookUrl !== undefined
-                    ? {
-                        facebookUrl: normalizedPayload.clientFacebookUrl || null
-                      }
-                    : {}),
-                  ...(normalizedPayload.clientInstagramUrl !== undefined
-                    ? {
-                        instagramUrl:
-                          normalizedPayload.clientInstagramUrl || null
-                      }
-                    : {}),
-                  ...(normalizedPayload.clientXUrl !== undefined
-                    ? {
-                        xUrl: normalizedPayload.clientXUrl || null
-                      }
-                    : {}),
-                  ...(normalizedPayload.clientYoutubeUrl !== undefined
-                    ? {
-                        youtubeUrl: normalizedPayload.clientYoutubeUrl || null
-                      }
-                    : {})
-                }
-              });
-            }
-
-            if (normalizedPayload.portalId !== undefined) {
-              const portal = normalizedPayload.portalId
-                ? await transaction.hubSpotPortal.upsert({
-                    where: { portalId: normalizedPayload.portalId },
-                    update: {},
-                    create: {
-                      portalId: normalizedPayload.portalId,
-                      displayName: nextClientName
-                    }
-                  })
-                : await transaction.hubSpotPortal.create({
-                    data: {
-                      portalId: createPendingPortalId(),
-                      displayName: nextClientName
-                    }
-                  });
-
-              nextPortalId = portal.id;
-            }
-
-            const updatedProject = await transaction.project.update({
-              where: { id: projectRoute.projectId },
-              data: {
-                ...(normalizedPayload.type
-                  ? {
-                      engagementType:
-                        normalizedPayload.type as Prisma.$Enums.EngagementType
-                    }
-                  : {}),
-                ...(normalizedPayload.customerPlatformTier !== undefined
-                  ? {
-                      customerPlatformTier:
-                        normalizedPayload.customerPlatformTier || null
-                    }
-                  : {}),
-                ...(normalizedPayload.implementationApproach !== undefined
-                  ? {
-                      implementationApproach:
-                        normalizedPayload.implementationApproach
-                    }
-                  : {}),
-                ...(normalizedPayload.platformTierSelections !== undefined
-                  ? {
-                      platformTierSelections:
-                        Object.keys(normalizedPayload.platformTierSelections)
-                          .length > 0
-                          ? normalizedPayload.platformTierSelections
-                          : Prisma.Prisma.JsonNull
-                    }
-                  : {}),
-                ...(normalizedPayload.problemStatement !== undefined
-                  ? {
-                      problemStatement:
-                        normalizedPayload.problemStatement || null
-                    }
-                  : {}),
-                ...(normalizedPayload.solutionRecommendation !== undefined
-                  ? {
-                      solutionRecommendation:
-                        normalizedPayload.solutionRecommendation || null
-                    }
-                  : {}),
-                ...(normalizedPayload.scopeExecutiveSummary !== undefined
-                  ? {
-                      scopeExecutiveSummary:
-                        normalizedPayload.scopeExecutiveSummary || null
-                    }
-                  : {}),
-                ...(normalizedPayload.clientQuestionnaireConfig !== undefined
-                  ? {
-                      clientQuestionnaireConfig:
-                        normalizedPayload.clientQuestionnaireConfig
-                    }
-                  : {}),
-                ...(normalizedPayload.scopeType !== undefined
-                  ? { scopeType: normalizedPayload.scopeType || "discovery" }
-                  : {}),
-                ...(normalizedPayload.deliveryTemplateId !== undefined
-                  ? {
-                      deliveryTemplateId:
-                        normalizedPayload.deliveryTemplateId || null
-                    }
-                  : {}),
-                ...(normalizedPayload.commercialBrief !== undefined
-                  ? {
-                      commercialBrief: normalizedPayload.commercialBrief || null
-                    }
-                  : {}),
-                ...(normalizedPayload.hubs
-                  ? { selectedHubs: normalizedPayload.hubs }
-                  : {}),
-                ...(nextOwnerDetails ? nextOwnerDetails : {}),
-                ...(nextClientId !== existingProject.clientId
-                  ? { clientId: nextClientId }
-                  : {}),
-                ...(nextPortalId !== existingProject.portalId
-                  ? { portalId: nextPortalId }
-                  : {}),
-                ...(normalizedPayload.clientChampionFirstName !== undefined
-                  ? {
-                      clientChampionFirstName:
-                        normalizedPayload.clientChampionFirstName || null
-                    }
-                  : {}),
-                ...(normalizedPayload.clientChampionLastName !== undefined
-                  ? {
-                      clientChampionLastName:
-                        normalizedPayload.clientChampionLastName || null
-                    }
-                  : {}),
-                ...(normalizedPayload.clientChampionEmail !== undefined
-                  ? {
-                      clientChampionEmail:
-                        normalizedPayload.clientChampionEmail || null
-                    }
-                  : {})
-              },
-              include: { client: true, portal: true, discovery: true }
-            });
-
-            if (nextClientId !== existingProject.clientId) {
-              const remainingClientProjects = await transaction.project.count({
-                where: { clientId: existingProject.clientId }
-              });
-
-              if (remainingClientProjects === 0) {
-                await transaction.client.delete({
-                  where: { id: existingProject.clientId }
-                });
-              }
-            }
-
-            if (nextPortalId !== existingProject.portalId) {
-              const remainingPortalProjects = await transaction.project.count({
-                where: { portalId: existingProject.portalId }
-              });
-
-              if (remainingPortalProjects === 0) {
-                await transaction.hubSpotPortal.delete({
-                  where: { id: existingProject.portalId }
-                });
-              }
-            }
-
-            return updatedProject;
-          });
-
-          return sendJson(response, 200, {
-            project: serializeProject(project)
-          });
-        }
-
-        if (request.method === "PATCH" && projectRoute.resource === "status") {
-          const body = (await readJsonBody(request)) as { status?: string };
-          const allowedStatuses = [
-            "active",
-            "complete",
-            "archived",
-            "draft",
-            "ready-for-execution",
-            "in-flight"
-          ];
-
-          if (!body.status || !allowedStatuses.includes(body.status)) {
-            return sendJson(response, 400, { error: "Invalid status" });
-          }
-
-          try {
-            const project = await prisma.project.update({
-              where: { id: projectRoute.projectId },
-              data: { status: body.status },
-              include: { client: true, portal: true, discovery: true }
-            });
-
-            return sendJson(response, 200, {
-              project: serializeProject(project)
-            });
-          } catch (error: unknown) {
-            if (
-              typeof error === "object" &&
-              error !== null &&
-              "code" in error &&
-              error.code === "P2025"
-            ) {
-              return sendJson(response, 404, { error: "Project not found" });
-            }
-
-            throw error;
-          }
-        }
-
-        if (request.method === "DELETE" && !projectRoute.resource) {
-          const existingProject = await prisma.project.findUnique({
-            where: { id: projectRoute.projectId },
-            select: { id: true, portalId: true }
-          });
-
-          if (!existingProject) {
-            return sendJson(response, 404, { error: "Project not found" });
-          }
-
-          await prisma.executionJob.deleteMany({
-            where: { projectId: projectRoute.projectId }
-          });
-          await prisma.task.deleteMany({
-            where: { projectId: projectRoute.projectId }
-          });
-          await prisma.blueprintTask.deleteMany({
-            where: { blueprint: { projectId: projectRoute.projectId } }
-          });
-          await prisma.blueprint.deleteMany({
-            where: { projectId: projectRoute.projectId }
-          });
-          await prisma.discoverySubmission.deleteMany({
-            where: { projectId: projectRoute.projectId }
-          });
-          await prisma.project.delete({
-            where: { id: projectRoute.projectId }
-          });
-
-          const remainingProjects = await prisma.project.count({
-            where: { portalId: existingProject.portalId }
-          });
-
-          if (remainingProjects === 0) {
-            await prisma.hubSpotPortal.delete({
-              where: { id: existingProject.portalId }
-            });
-          }
-
-          return sendJson(response, 200, { success: true });
-        }
-
-        if (request.method === "PUT" && !projectRoute.resource) {
-          const payload = updateProjectMetadataRequestSchema.parse(
-            await readJsonBody(request)
-          );
-          const project = await updateProjectMetadata(
-            projectRoute.projectId,
-            payload
-          );
-          return sendJson(response, 200, {
-            project,
-            summary: await summarizeProject(project)
-          });
-        }
-
-        if (request.method === "PUT" && projectRoute.resource === "scope") {
-          const payload = updateProjectScopeRequestSchema.parse(
-            await readJsonBody(request)
-          );
-          const project = await updateProjectScope(
-            projectRoute.projectId,
-            payload
-          );
-          return sendJson(response, 200, {
-            project,
-            summary: await summarizeProject(project)
-          });
-        }
-
-        if (
-          request.method === "POST" &&
-          projectRoute.resource === "email-draft"
-        ) {
-          try {
-            const body = (await readJsonBody(request)) as {
-              intent?: unknown;
-              mode?: unknown;
-              providerKey?: unknown;
-              modelOverride?: unknown;
-              sourceSubject?: unknown;
-              sourceBody?: unknown;
-              customInstructions?: unknown;
-            };
-
-            if (
-              typeof body.intent !== "string" ||
-              body.intent.trim().length === 0
-            ) {
-              return sendJson(response, 400, {
-                error: "intent must be a non-empty string"
-              });
-            }
-
-            const draft = await generateProjectEmailDraft({
-              projectId: projectRoute.projectId,
-              intent: body.intent.trim(),
-              mode:
-                body.mode === "cleanup" || body.mode === "generate"
-                  ? body.mode
-                  : "generate",
-              ...(typeof body.providerKey === "string" &&
-              body.providerKey.trim().length > 0
-                ? { providerKey: body.providerKey.trim() }
-                : {}),
-              ...(typeof body.modelOverride === "string"
-                ? { modelOverride: body.modelOverride.trim() }
-                : {}),
-              ...(typeof body.sourceSubject === "string"
-                ? { sourceSubject: body.sourceSubject }
-                : {}),
-              ...(typeof body.sourceBody === "string"
-                ? { sourceBody: body.sourceBody }
-                : {}),
-              ...(typeof body.customInstructions === "string"
-                ? { customInstructions: body.customInstructions.trim() }
-                : {})
-            });
-
-            return sendJson(response, 200, { draft });
+            return sendJson(response, 200, result);
           } catch (error) {
             return sendJson(
               response,
@@ -17561,150 +16574,1051 @@ export function createAppServer(config: BaseConfig): http.Server {
                 error:
                   error instanceof Error
                     ? error.message
-                    : "Failed to draft project email"
+                    : "Failed to load project change requests"
               }
             );
           }
         }
 
-        if (
-          request.method === "POST" &&
-          projectRoute.resource === "send-email"
-        ) {
+        if (request.method === "POST") {
           try {
-            const body = (await readJsonBody(request)) as {
-              to?: unknown;
-              cc?: unknown;
-              subject?: unknown;
-              body?: unknown;
-            };
-
-            const result = await sendWorkspaceEmail(body);
-            const toRecipients = (Array.isArray(body.to) ? body.to : [body.to])
-              .flatMap((entry) =>
-                typeof entry === "string" ? entry.split(/[,\n;]/) : []
-              )
-              .map((entry) => entry.trim())
-              .filter(Boolean);
-            const ccRecipients = (Array.isArray(body.cc) ? body.cc : [body.cc])
-              .flatMap((entry) =>
-                typeof entry === "string" ? entry.split(/[,\n;]/) : []
-              )
-              .map((entry) => entry.trim())
-              .filter(Boolean);
-            await createProjectMessage({
-              projectId: projectRoute.projectId,
-              senderType: "internal",
-              senderName: "Muloo Email Composer",
-              body: `Email sent\nTo: ${toRecipients.join(", ")}${
-                ccRecipients.length > 0
-                  ? `\nCc: ${ccRecipients.join(", ")}`
-                  : ""
-              }\nSubject: ${
-                typeof body.subject === "string" ? body.subject.trim() : ""
-              }\n\n${typeof body.body === "string" ? body.body.trim() : ""}`
+            const project = await prisma.project.findUnique({
+              where: { id: projectRoute.projectId },
+              include: {
+                client: true
+              }
             });
-            return sendJson(response, 200, { sent: true, result });
+
+            if (!project) {
+              return sendJson(response, 404, { error: "Project not found" });
+            }
+
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
+            const workRequest = await createWorkRequest({
+              ...body,
+              projectId: project.id,
+              serviceFamily: project.serviceFamily,
+              companyName: project.client.name,
+              contactName:
+                typeof body.contactName === "string" &&
+                body.contactName.trim().length > 0
+                  ? body.contactName
+                  : project.clientChampionFirstName ||
+                    project.owner ||
+                    project.client.name,
+              contactEmail:
+                typeof body.contactEmail === "string" &&
+                body.contactEmail.trim().length > 0
+                  ? body.contactEmail
+                  : project.clientChampionEmail ||
+                    project.ownerEmail ||
+                    "hello@muloo.co",
+              requestType: "change_request"
+            });
+
+            return sendJson(response, 201, { workRequest });
           } catch (error) {
             return sendJson(response, 400, {
               error:
-                error instanceof Error ? error.message : "Failed to send email"
+                error instanceof Error
+                  ? error.message
+                  : "Failed to create project change request"
             });
           }
         }
 
-        if (projectRoute.resource === "discovery") {
-          if (request.method === "GET") {
-            return sendJson(response, 200, {
-              projectId: projectRoute.projectId,
-              discovery: await loadProjectDiscoveryById(projectRoute.projectId)
-            });
-          }
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
 
-          if (request.method === "PUT") {
-            const payload = updateProjectDiscoverySectionRequestSchema.parse(
-              await readJsonBody(request)
-            );
-            const project = await updateProjectDiscoverySection(
-              projectRoute.projectId,
-              payload
-            );
-
-            return sendJson(response, 200, {
-              project,
-              discovery: await loadProjectDiscoveryById(project.id),
-              summary: await summarizeProject(project)
-            });
-          }
-        }
-
-        if (request.method !== "GET") {
-          return sendJson(response, 405, { error: "Method Not Allowed" });
-        }
-
-        if (projectRoute.resource === "modules") {
-          const project = await loadProjectById(projectRoute.projectId);
-          return sendJson(response, 200, {
-            projectId: project.id,
-            modules: summarizeProjectModules(project)
-          });
-        }
-
-        if (projectRoute.resource === "summary") {
-          return sendJson(response, 200, {
-            summary: await loadProjectSummaryById(projectRoute.projectId)
-          });
-        }
-
-        if (projectRoute.resource === "validation") {
-          return sendJson(response, 200, {
-            validation: await validateProjectById(projectRoute.projectId)
-          });
-        }
-
-        if (projectRoute.resource === "readiness") {
-          return sendJson(response, 200, {
-            readiness: await loadProjectReadinessById(projectRoute.projectId)
-          });
-        }
-
-        if (projectRoute.resource === "executions") {
-          return sendJson(response, 200, {
-            executions: await loadProjectExecutions(projectRoute.projectId)
-          });
-        }
-
+      if (request.method === "GET" && !projectRoute.resource) {
         const project = await prisma.project.findUnique({
           where: { id: projectRoute.projectId },
-          include: { client: true, portal: true, discovery: true }
+          include: {
+            client: true,
+            portal: true
+          }
         });
+
         if (!project) {
           return sendJson(response, 404, { error: "Project not found" });
         }
+
+        return sendJson(response, 200, {
+          project: serializeProject(project)
+        });
+      }
+      if (request.method === "PATCH" && !projectRoute.resource) {
+        try {
+          await ensureProjectScopeUnlocked(projectRoute.projectId);
+        } catch (error) {
+          return sendJson(
+            response,
+            error instanceof Error && error.message === "Project not found"
+              ? 404
+              : 409,
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update project"
+            }
+          );
+        }
+
+        const body = (await readJsonBody(request)) as {
+          clientName?: unknown;
+          type?: unknown;
+          implementationApproach?: unknown;
+          customerPlatformTier?: unknown;
+          platformTierSelections?: unknown;
+          problemStatement?: unknown;
+          solutionRecommendation?: unknown;
+          scopeExecutiveSummary?: unknown;
+          clientQuestionnaireConfig?: unknown;
+          scopeType?: unknown;
+          deliveryTemplateId?: unknown;
+          commercialBrief?: unknown;
+          portalId?: unknown;
+          owner?: unknown;
+          ownerEmail?: unknown;
+          hubs?: unknown;
+          clientIndustry?: unknown;
+          clientWebsite?: unknown;
+          clientAdditionalWebsites?: unknown;
+          clientLinkedinUrl?: unknown;
+          clientFacebookUrl?: unknown;
+          clientInstagramUrl?: unknown;
+          clientXUrl?: unknown;
+          clientYoutubeUrl?: unknown;
+          clientChampionFirstName?: unknown;
+          clientChampionLastName?: unknown;
+          clientChampionEmail?: unknown;
+        };
+
+        const normalizedPayload: {
+          clientName?: string;
+          type?: EngagementType;
+          implementationApproach?: string;
+          customerPlatformTier?: string;
+          platformTierSelections?: Record<string, string>;
+          problemStatement?: string;
+          solutionRecommendation?: string;
+          scopeExecutiveSummary?: string;
+          clientQuestionnaireConfig?: ClientQuestionnaireConfig;
+          scopeType?: string;
+          deliveryTemplateId?: string;
+          commercialBrief?: string;
+          portalId?: string;
+          owner?: string;
+          ownerEmail?: string;
+          hubs?: ProjectHub[];
+          clientIndustry?: string;
+          clientWebsite?: string;
+          clientAdditionalWebsites?: string[];
+          clientLinkedinUrl?: string;
+          clientFacebookUrl?: string;
+          clientInstagramUrl?: string;
+          clientXUrl?: string;
+          clientYoutubeUrl?: string;
+          clientChampionFirstName?: string;
+          clientChampionLastName?: string;
+          clientChampionEmail?: string;
+        } = {};
+
+        if (body.clientName !== undefined) {
+          if (
+            typeof body.clientName !== "string" ||
+            body.clientName.trim().length === 0
+          ) {
+            return sendJson(response, 400, {
+              error: "clientName must be a non-empty string"
+            });
+          }
+
+          normalizedPayload.clientName = body.clientName.trim();
+        }
+
+        if (body.type !== undefined) {
+          if (
+            typeof body.type !== "string" ||
+            !isValidEngagementType(body.type)
+          ) {
+            return sendJson(response, 400, {
+              error: "Invalid engagement type"
+            });
+          }
+
+          normalizedPayload.type = body.type;
+        }
+
+        if (body.customerPlatformTier !== undefined) {
+          if (
+            body.customerPlatformTier !== null &&
+            (typeof body.customerPlatformTier !== "string" ||
+              (body.customerPlatformTier.trim().length > 0 &&
+                !isValidCustomerPlatformTier(
+                  body.customerPlatformTier.trim().toLowerCase()
+                )))
+          ) {
+            return sendJson(response, 400, {
+              error:
+                "customerPlatformTier must be starter, professional, enterprise, or blank"
+            });
+          }
+
+          normalizedPayload.customerPlatformTier =
+            typeof body.customerPlatformTier === "string"
+              ? body.customerPlatformTier.trim().toLowerCase()
+              : "";
+        }
+
+        if (body.implementationApproach !== undefined) {
+          if (
+            typeof body.implementationApproach !== "string" ||
+            !isValidImplementationApproach(body.implementationApproach.trim())
+          ) {
+            return sendJson(response, 400, {
+              error:
+                "implementationApproach must be pragmatic_poc or best_practice"
+            });
+          }
+
+          normalizedPayload.implementationApproach =
+            body.implementationApproach.trim();
+        }
+
+        if (body.platformTierSelections !== undefined) {
+          normalizedPayload.platformTierSelections =
+            normalizePlatformTierSelections(body.platformTierSelections);
+        }
+
+        if (body.problemStatement !== undefined) {
+          if (typeof body.problemStatement !== "string") {
+            return sendJson(response, 400, {
+              error: "problemStatement must be a string"
+            });
+          }
+
+          normalizedPayload.problemStatement = body.problemStatement.trim();
+        }
+
+        if (body.solutionRecommendation !== undefined) {
+          if (typeof body.solutionRecommendation !== "string") {
+            return sendJson(response, 400, {
+              error: "solutionRecommendation must be a string"
+            });
+          }
+
+          normalizedPayload.solutionRecommendation =
+            body.solutionRecommendation.trim();
+        }
+
+        if (body.scopeExecutiveSummary !== undefined) {
+          if (typeof body.scopeExecutiveSummary !== "string") {
+            return sendJson(response, 400, {
+              error: "scopeExecutiveSummary must be a string"
+            });
+          }
+
+          normalizedPayload.scopeExecutiveSummary =
+            body.scopeExecutiveSummary.trim();
+        }
+
+        if (body.clientQuestionnaireConfig !== undefined) {
+          normalizedPayload.clientQuestionnaireConfig =
+            normalizeClientQuestionnaireConfig(body.clientQuestionnaireConfig);
+        }
+
+        if (body.scopeType !== undefined) {
+          if (typeof body.scopeType !== "string") {
+            return sendJson(response, 400, {
+              error: "scopeType must be a string"
+            });
+          }
+
+          normalizedPayload.scopeType = body.scopeType.trim();
+        }
+
+        if (body.deliveryTemplateId !== undefined) {
+          if (
+            typeof body.deliveryTemplateId !== "string" &&
+            body.deliveryTemplateId !== null
+          ) {
+            return sendJson(response, 400, {
+              error: "deliveryTemplateId must be a string or null"
+            });
+          }
+
+          normalizedPayload.deliveryTemplateId =
+            typeof body.deliveryTemplateId === "string"
+              ? body.deliveryTemplateId.trim()
+              : "";
+        }
+
+        if (body.commercialBrief !== undefined) {
+          if (typeof body.commercialBrief !== "string") {
+            return sendJson(response, 400, {
+              error: "commercialBrief must be a string"
+            });
+          }
+
+          normalizedPayload.commercialBrief = body.commercialBrief.trim();
+        }
+
+        if (body.portalId !== undefined) {
+          if (typeof body.portalId !== "string") {
+            return sendJson(response, 400, {
+              error: "portalId must be a string"
+            });
+          }
+
+          normalizedPayload.portalId = body.portalId.trim();
+        }
+
+        if (body.owner !== undefined) {
+          if (typeof body.owner !== "string") {
+            return sendJson(response, 400, {
+              error: "owner must be a string"
+            });
+          }
+
+          normalizedPayload.owner = body.owner.trim();
+        }
+
+        if (body.ownerEmail !== undefined) {
+          if (typeof body.ownerEmail !== "string") {
+            return sendJson(response, 400, {
+              error: "ownerEmail must be a string"
+            });
+          }
+
+          normalizedPayload.ownerEmail = body.ownerEmail.trim();
+        }
+
+        if (body.clientIndustry !== undefined) {
+          if (typeof body.clientIndustry !== "string") {
+            return sendJson(response, 400, {
+              error: "clientIndustry must be a string"
+            });
+          }
+
+          normalizedPayload.clientIndustry = body.clientIndustry.trim();
+        }
+
+        if (body.clientWebsite !== undefined) {
+          if (typeof body.clientWebsite !== "string") {
+            return sendJson(response, 400, {
+              error: "clientWebsite must be a string"
+            });
+          }
+
+          normalizedPayload.clientWebsite = body.clientWebsite.trim();
+        }
+
+        if (body.clientAdditionalWebsites !== undefined) {
+          normalizedPayload.clientAdditionalWebsites = normalizeStringArray(
+            body.clientAdditionalWebsites
+          );
+        }
+
+        if (body.clientLinkedinUrl !== undefined) {
+          if (typeof body.clientLinkedinUrl !== "string") {
+            return sendJson(response, 400, {
+              error: "clientLinkedinUrl must be a string"
+            });
+          }
+
+          normalizedPayload.clientLinkedinUrl = body.clientLinkedinUrl.trim();
+        }
+
+        if (body.clientFacebookUrl !== undefined) {
+          if (typeof body.clientFacebookUrl !== "string") {
+            return sendJson(response, 400, {
+              error: "clientFacebookUrl must be a string"
+            });
+          }
+
+          normalizedPayload.clientFacebookUrl = body.clientFacebookUrl.trim();
+        }
+
+        if (body.clientInstagramUrl !== undefined) {
+          if (typeof body.clientInstagramUrl !== "string") {
+            return sendJson(response, 400, {
+              error: "clientInstagramUrl must be a string"
+            });
+          }
+
+          normalizedPayload.clientInstagramUrl = body.clientInstagramUrl.trim();
+        }
+
+        if (body.clientXUrl !== undefined) {
+          if (typeof body.clientXUrl !== "string") {
+            return sendJson(response, 400, {
+              error: "clientXUrl must be a string"
+            });
+          }
+
+          normalizedPayload.clientXUrl = body.clientXUrl.trim();
+        }
+
+        if (body.clientYoutubeUrl !== undefined) {
+          if (typeof body.clientYoutubeUrl !== "string") {
+            return sendJson(response, 400, {
+              error: "clientYoutubeUrl must be a string"
+            });
+          }
+
+          normalizedPayload.clientYoutubeUrl = body.clientYoutubeUrl.trim();
+        }
+
+        if (body.hubs !== undefined) {
+          if (
+            !Array.isArray(body.hubs) ||
+            body.hubs.length === 0 ||
+            body.hubs.some((hub) => typeof hub !== "string")
+          ) {
+            return sendJson(response, 400, {
+              error: "hubs must be a non-empty array of hub keys"
+            });
+          }
+
+          const normalizedHubs = Array.from(
+            new Set(body.hubs.map((hub) => hub.trim().toLowerCase()))
+          );
+
+          if (normalizedHubs.some((hub) => !isValidProjectHub(hub))) {
+            return sendJson(response, 400, {
+              error: "Invalid hubs selection"
+            });
+          }
+
+          normalizedPayload.hubs = normalizedHubs;
+        }
+
+        if (body.clientChampionFirstName !== undefined) {
+          if (typeof body.clientChampionFirstName !== "string") {
+            return sendJson(response, 400, {
+              error: "clientChampionFirstName must be a string"
+            });
+          }
+
+          normalizedPayload.clientChampionFirstName =
+            body.clientChampionFirstName.trim();
+        }
+
+        if (body.clientChampionLastName !== undefined) {
+          if (typeof body.clientChampionLastName !== "string") {
+            return sendJson(response, 400, {
+              error: "clientChampionLastName must be a string"
+            });
+          }
+
+          normalizedPayload.clientChampionLastName =
+            body.clientChampionLastName.trim();
+        }
+
+        if (body.clientChampionEmail !== undefined) {
+          if (typeof body.clientChampionEmail !== "string") {
+            return sendJson(response, 400, {
+              error: "clientChampionEmail must be a string"
+            });
+          }
+
+          normalizedPayload.clientChampionEmail =
+            body.clientChampionEmail.trim();
+        }
+
+        if (
+          normalizedPayload.clientName === undefined &&
+          normalizedPayload.type === undefined &&
+          normalizedPayload.customerPlatformTier === undefined &&
+          normalizedPayload.implementationApproach === undefined &&
+          normalizedPayload.platformTierSelections === undefined &&
+          normalizedPayload.problemStatement === undefined &&
+          normalizedPayload.solutionRecommendation === undefined &&
+          normalizedPayload.scopeExecutiveSummary === undefined &&
+          normalizedPayload.clientQuestionnaireConfig === undefined &&
+          normalizedPayload.scopeType === undefined &&
+          normalizedPayload.deliveryTemplateId === undefined &&
+          normalizedPayload.commercialBrief === undefined &&
+          normalizedPayload.portalId === undefined &&
+          normalizedPayload.owner === undefined &&
+          normalizedPayload.ownerEmail === undefined &&
+          normalizedPayload.hubs === undefined &&
+          normalizedPayload.clientIndustry === undefined &&
+          normalizedPayload.clientWebsite === undefined &&
+          normalizedPayload.clientAdditionalWebsites === undefined &&
+          normalizedPayload.clientLinkedinUrl === undefined &&
+          normalizedPayload.clientFacebookUrl === undefined &&
+          normalizedPayload.clientInstagramUrl === undefined &&
+          normalizedPayload.clientXUrl === undefined &&
+          normalizedPayload.clientYoutubeUrl === undefined &&
+          normalizedPayload.clientChampionFirstName === undefined &&
+          normalizedPayload.clientChampionLastName === undefined &&
+          normalizedPayload.clientChampionEmail === undefined
+        ) {
+          return sendJson(response, 400, {
+            error: "At least one editable field is required"
+          });
+        }
+
+        const existingProject = await prisma.project.findUnique({
+          where: { id: projectRoute.projectId },
+          include: { client: true, portal: true }
+        });
+
+        if (!existingProject) {
+          return sendJson(response, 404, { error: "Project not found" });
+        }
+
+        const nextClientName =
+          normalizedPayload.clientName ?? existingProject.client.name;
+        const nextOwnerDetails =
+          normalizedPayload.owner !== undefined ||
+          normalizedPayload.ownerEmail !== undefined
+            ? await resolveProjectOwner(
+                normalizedPayload.owner ?? existingProject.owner,
+                normalizedPayload.ownerEmail ?? existingProject.ownerEmail
+              )
+            : null;
+
+        const project = await prisma.$transaction(async (transaction) => {
+          let nextClientId = existingProject.clientId;
+          let nextPortalId = existingProject.portalId;
+
+          if (normalizedPayload.clientName) {
+            const clientSlug = createSlug(normalizedPayload.clientName);
+            const client = await transaction.client.upsert({
+              where: { slug: clientSlug },
+              update: { name: normalizedPayload.clientName },
+              create: {
+                name: normalizedPayload.clientName,
+                slug: clientSlug
+              }
+            });
+
+            nextClientId = client.id;
+          }
+
+          if (
+            normalizedPayload.clientIndustry !== undefined ||
+            normalizedPayload.clientWebsite !== undefined ||
+            normalizedPayload.clientAdditionalWebsites !== undefined ||
+            normalizedPayload.clientLinkedinUrl !== undefined ||
+            normalizedPayload.clientFacebookUrl !== undefined ||
+            normalizedPayload.clientInstagramUrl !== undefined ||
+            normalizedPayload.clientXUrl !== undefined ||
+            normalizedPayload.clientYoutubeUrl !== undefined
+          ) {
+            await transaction.client.update({
+              where: { id: nextClientId },
+              data: {
+                ...(normalizedPayload.clientIndustry !== undefined
+                  ? {
+                      industry: normalizedPayload.clientIndustry || null
+                    }
+                  : {}),
+                ...(normalizedPayload.clientWebsite !== undefined
+                  ? {
+                      website: normalizedPayload.clientWebsite || null
+                    }
+                  : {}),
+                ...(normalizedPayload.clientAdditionalWebsites !== undefined
+                  ? {
+                      additionalWebsites:
+                        normalizedPayload.clientAdditionalWebsites
+                    }
+                  : {}),
+                ...(normalizedPayload.clientLinkedinUrl !== undefined
+                  ? {
+                      linkedinUrl: normalizedPayload.clientLinkedinUrl || null
+                    }
+                  : {}),
+                ...(normalizedPayload.clientFacebookUrl !== undefined
+                  ? {
+                      facebookUrl: normalizedPayload.clientFacebookUrl || null
+                    }
+                  : {}),
+                ...(normalizedPayload.clientInstagramUrl !== undefined
+                  ? {
+                      instagramUrl: normalizedPayload.clientInstagramUrl || null
+                    }
+                  : {}),
+                ...(normalizedPayload.clientXUrl !== undefined
+                  ? {
+                      xUrl: normalizedPayload.clientXUrl || null
+                    }
+                  : {}),
+                ...(normalizedPayload.clientYoutubeUrl !== undefined
+                  ? {
+                      youtubeUrl: normalizedPayload.clientYoutubeUrl || null
+                    }
+                  : {})
+              }
+            });
+          }
+
+          if (normalizedPayload.portalId !== undefined) {
+            const portal = normalizedPayload.portalId
+              ? await transaction.hubSpotPortal.upsert({
+                  where: { portalId: normalizedPayload.portalId },
+                  update: {},
+                  create: {
+                    portalId: normalizedPayload.portalId,
+                    displayName: nextClientName
+                  }
+                })
+              : await transaction.hubSpotPortal.create({
+                  data: {
+                    portalId: createPendingPortalId(),
+                    displayName: nextClientName
+                  }
+                });
+
+            nextPortalId = portal.id;
+          }
+
+          const updatedProject = await transaction.project.update({
+            where: { id: projectRoute.projectId },
+            data: {
+              ...(normalizedPayload.type
+                ? {
+                    engagementType:
+                      normalizedPayload.type as Prisma.$Enums.EngagementType
+                  }
+                : {}),
+              ...(normalizedPayload.customerPlatformTier !== undefined
+                ? {
+                    customerPlatformTier:
+                      normalizedPayload.customerPlatformTier || null
+                  }
+                : {}),
+              ...(normalizedPayload.implementationApproach !== undefined
+                ? {
+                    implementationApproach:
+                      normalizedPayload.implementationApproach
+                  }
+                : {}),
+              ...(normalizedPayload.platformTierSelections !== undefined
+                ? {
+                    platformTierSelections:
+                      Object.keys(normalizedPayload.platformTierSelections)
+                        .length > 0
+                        ? normalizedPayload.platformTierSelections
+                        : Prisma.Prisma.JsonNull
+                  }
+                : {}),
+              ...(normalizedPayload.problemStatement !== undefined
+                ? {
+                    problemStatement: normalizedPayload.problemStatement || null
+                  }
+                : {}),
+              ...(normalizedPayload.solutionRecommendation !== undefined
+                ? {
+                    solutionRecommendation:
+                      normalizedPayload.solutionRecommendation || null
+                  }
+                : {}),
+              ...(normalizedPayload.scopeExecutiveSummary !== undefined
+                ? {
+                    scopeExecutiveSummary:
+                      normalizedPayload.scopeExecutiveSummary || null
+                  }
+                : {}),
+              ...(normalizedPayload.clientQuestionnaireConfig !== undefined
+                ? {
+                    clientQuestionnaireConfig:
+                      normalizedPayload.clientQuestionnaireConfig
+                  }
+                : {}),
+              ...(normalizedPayload.scopeType !== undefined
+                ? { scopeType: normalizedPayload.scopeType || "discovery" }
+                : {}),
+              ...(normalizedPayload.deliveryTemplateId !== undefined
+                ? {
+                    deliveryTemplateId:
+                      normalizedPayload.deliveryTemplateId || null
+                  }
+                : {}),
+              ...(normalizedPayload.commercialBrief !== undefined
+                ? {
+                    commercialBrief: normalizedPayload.commercialBrief || null
+                  }
+                : {}),
+              ...(normalizedPayload.hubs
+                ? { selectedHubs: normalizedPayload.hubs }
+                : {}),
+              ...(nextOwnerDetails ? nextOwnerDetails : {}),
+              ...(nextClientId !== existingProject.clientId
+                ? { clientId: nextClientId }
+                : {}),
+              ...(nextPortalId !== existingProject.portalId
+                ? { portalId: nextPortalId }
+                : {}),
+              ...(normalizedPayload.clientChampionFirstName !== undefined
+                ? {
+                    clientChampionFirstName:
+                      normalizedPayload.clientChampionFirstName || null
+                  }
+                : {}),
+              ...(normalizedPayload.clientChampionLastName !== undefined
+                ? {
+                    clientChampionLastName:
+                      normalizedPayload.clientChampionLastName || null
+                  }
+                : {}),
+              ...(normalizedPayload.clientChampionEmail !== undefined
+                ? {
+                    clientChampionEmail:
+                      normalizedPayload.clientChampionEmail || null
+                  }
+                : {})
+            },
+            include: { client: true, portal: true, discovery: true }
+          });
+
+          if (nextClientId !== existingProject.clientId) {
+            const remainingClientProjects = await transaction.project.count({
+              where: { clientId: existingProject.clientId }
+            });
+
+            if (remainingClientProjects === 0) {
+              await transaction.client.delete({
+                where: { id: existingProject.clientId }
+              });
+            }
+          }
+
+          if (nextPortalId !== existingProject.portalId) {
+            const remainingPortalProjects = await transaction.project.count({
+              where: { portalId: existingProject.portalId }
+            });
+
+            if (remainingPortalProjects === 0) {
+              await transaction.hubSpotPortal.delete({
+                where: { id: existingProject.portalId }
+              });
+            }
+          }
+
+          return updatedProject;
+        });
+
         return sendJson(response, 200, {
           project: serializeProject(project)
         });
       }
 
-      if (url.pathname.startsWith("/api/")) {
-        return sendJson(response, 404, { error: "Not Found" });
+      if (request.method === "PATCH" && projectRoute.resource === "status") {
+        const body = (await readJsonBody(request)) as { status?: string };
+        const allowedStatuses = [
+          "active",
+          "complete",
+          "archived",
+          "draft",
+          "ready-for-execution",
+          "in-flight"
+        ];
+
+        if (!body.status || !allowedStatuses.includes(body.status)) {
+          return sendJson(response, 400, { error: "Invalid status" });
+        }
+
+        try {
+          const project = await prisma.project.update({
+            where: { id: projectRoute.projectId },
+            data: { status: body.status },
+            include: { client: true, portal: true, discovery: true }
+          });
+
+          return sendJson(response, 200, {
+            project: serializeProject(project)
+          });
+        } catch (error: unknown) {
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            error.code === "P2025"
+          ) {
+            return sendJson(response, 404, { error: "Project not found" });
+          }
+
+          throw error;
+        }
       }
 
-      response.writeHead(404, { "Content-Type": "text/plain" });
-      response.end("Not Found");
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Unexpected server error";
-      const statusCode =
-        error instanceof ZodError
-          ? 400
-          : (error instanceof Error &&
-                "code" in error &&
-                error.code === "ENOENT") ||
-              message.includes("was not found")
-            ? 404
-            : 500;
-      sendJson(response, statusCode, { error: message });
+      if (request.method === "DELETE" && !projectRoute.resource) {
+        const existingProject = await prisma.project.findUnique({
+          where: { id: projectRoute.projectId },
+          select: { id: true, portalId: true }
+        });
+
+        if (!existingProject) {
+          return sendJson(response, 404, { error: "Project not found" });
+        }
+
+        await prisma.executionJob.deleteMany({
+          where: { projectId: projectRoute.projectId }
+        });
+        await prisma.task.deleteMany({
+          where: { projectId: projectRoute.projectId }
+        });
+        await prisma.blueprintTask.deleteMany({
+          where: { blueprint: { projectId: projectRoute.projectId } }
+        });
+        await prisma.blueprint.deleteMany({
+          where: { projectId: projectRoute.projectId }
+        });
+        await prisma.discoverySubmission.deleteMany({
+          where: { projectId: projectRoute.projectId }
+        });
+        await prisma.project.delete({
+          where: { id: projectRoute.projectId }
+        });
+
+        const remainingProjects = await prisma.project.count({
+          where: { portalId: existingProject.portalId }
+        });
+
+        if (remainingProjects === 0) {
+          await prisma.hubSpotPortal.delete({
+            where: { id: existingProject.portalId }
+          });
+        }
+
+        return sendJson(response, 200, { success: true });
+      }
+
+      if (request.method === "PUT" && !projectRoute.resource) {
+        const payload = updateProjectMetadataRequestSchema.parse(
+          await readJsonBody(request)
+        );
+        const project = await updateProjectMetadata(
+          projectRoute.projectId,
+          payload
+        );
+        return sendJson(response, 200, {
+          project,
+          summary: await summarizeProject(project)
+        });
+      }
+
+      if (request.method === "PUT" && projectRoute.resource === "scope") {
+        const payload = updateProjectScopeRequestSchema.parse(
+          await readJsonBody(request)
+        );
+        const project = await updateProjectScope(
+          projectRoute.projectId,
+          payload
+        );
+        return sendJson(response, 200, {
+          project,
+          summary: await summarizeProject(project)
+        });
+      }
+
+      if (
+        request.method === "POST" &&
+        projectRoute.resource === "email-draft"
+      ) {
+        try {
+          const body = (await readJsonBody(request)) as {
+            intent?: unknown;
+            mode?: unknown;
+            providerKey?: unknown;
+            modelOverride?: unknown;
+            sourceSubject?: unknown;
+            sourceBody?: unknown;
+            customInstructions?: unknown;
+          };
+
+          if (
+            typeof body.intent !== "string" ||
+            body.intent.trim().length === 0
+          ) {
+            return sendJson(response, 400, {
+              error: "intent must be a non-empty string"
+            });
+          }
+
+          const draft = await generateProjectEmailDraft({
+            projectId: projectRoute.projectId,
+            intent: body.intent.trim(),
+            mode:
+              body.mode === "cleanup" || body.mode === "generate"
+                ? body.mode
+                : "generate",
+            ...(typeof body.providerKey === "string" &&
+            body.providerKey.trim().length > 0
+              ? { providerKey: body.providerKey.trim() }
+              : {}),
+            ...(typeof body.modelOverride === "string"
+              ? { modelOverride: body.modelOverride.trim() }
+              : {}),
+            ...(typeof body.sourceSubject === "string"
+              ? { sourceSubject: body.sourceSubject }
+              : {}),
+            ...(typeof body.sourceBody === "string"
+              ? { sourceBody: body.sourceBody }
+              : {}),
+            ...(typeof body.customInstructions === "string"
+              ? { customInstructions: body.customInstructions.trim() }
+              : {})
+          });
+
+          return sendJson(response, 200, { draft });
+        } catch (error) {
+          return sendJson(
+            response,
+            error instanceof Error && error.message === "Project not found"
+              ? 404
+              : 400,
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to draft project email"
+            }
+          );
+        }
+      }
+
+      if (request.method === "POST" && projectRoute.resource === "send-email") {
+        try {
+          const body = (await readJsonBody(request)) as {
+            to?: unknown;
+            cc?: unknown;
+            subject?: unknown;
+            body?: unknown;
+          };
+
+          const result = await sendWorkspaceEmail(body);
+          const toRecipients = (Array.isArray(body.to) ? body.to : [body.to])
+            .flatMap((entry) =>
+              typeof entry === "string" ? entry.split(/[,\n;]/) : []
+            )
+            .map((entry) => entry.trim())
+            .filter(Boolean);
+          const ccRecipients = (Array.isArray(body.cc) ? body.cc : [body.cc])
+            .flatMap((entry) =>
+              typeof entry === "string" ? entry.split(/[,\n;]/) : []
+            )
+            .map((entry) => entry.trim())
+            .filter(Boolean);
+          await createProjectMessage({
+            projectId: projectRoute.projectId,
+            senderType: "internal",
+            senderName: "Muloo Email Composer",
+            body: `Email sent\nTo: ${toRecipients.join(", ")}${
+              ccRecipients.length > 0 ? `\nCc: ${ccRecipients.join(", ")}` : ""
+            }\nSubject: ${
+              typeof body.subject === "string" ? body.subject.trim() : ""
+            }\n\n${typeof body.body === "string" ? body.body.trim() : ""}`
+          });
+          return sendJson(response, 200, { sent: true, result });
+        } catch (error) {
+          return sendJson(response, 400, {
+            error:
+              error instanceof Error ? error.message : "Failed to send email"
+          });
+        }
+      }
+
+      if (projectRoute.resource === "discovery") {
+        if (request.method === "GET") {
+          return sendJson(response, 200, {
+            projectId: projectRoute.projectId,
+            discovery: await loadProjectDiscoveryById(projectRoute.projectId)
+          });
+        }
+
+        if (request.method === "PUT") {
+          const payload = updateProjectDiscoverySectionRequestSchema.parse(
+            await readJsonBody(request)
+          );
+          const project = await updateProjectDiscoverySection(
+            projectRoute.projectId,
+            payload
+          );
+
+          return sendJson(response, 200, {
+            project,
+            discovery: await loadProjectDiscoveryById(project.id),
+            summary: await summarizeProject(project)
+          });
+        }
+      }
+
+      if (request.method !== "GET") {
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
+      if (projectRoute.resource === "modules") {
+        const project = await loadProjectById(projectRoute.projectId);
+        return sendJson(response, 200, {
+          projectId: project.id,
+          modules: summarizeProjectModules(project)
+        });
+      }
+
+      if (projectRoute.resource === "summary") {
+        return sendJson(response, 200, {
+          summary: await loadProjectSummaryById(projectRoute.projectId)
+        });
+      }
+
+      if (projectRoute.resource === "validation") {
+        return sendJson(response, 200, {
+          validation: await validateProjectById(projectRoute.projectId)
+        });
+      }
+
+      if (projectRoute.resource === "readiness") {
+        return sendJson(response, 200, {
+          readiness: await loadProjectReadinessById(projectRoute.projectId)
+        });
+      }
+
+      if (projectRoute.resource === "executions") {
+        return sendJson(response, 200, {
+          executions: await loadProjectExecutions(projectRoute.projectId)
+        });
+      }
+
+      const project = await prisma.project.findUnique({
+        where: { id: projectRoute.projectId },
+        include: { client: true, portal: true, discovery: true }
+      });
+      if (!project) {
+        return sendJson(response, 404, { error: "Project not found" });
+      }
+      return sendJson(response, 200, {
+        project: serializeProject(project)
+      });
     }
-  });
+
+    if (url.pathname.startsWith("/api/")) {
+      return sendJson(response, 404, { error: "Not Found" });
+    }
+
+    response.writeHead(404, { "Content-Type": "text/plain" });
+    response.end("Not Found");
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Unexpected server error";
+    const statusCode =
+      error instanceof ZodError
+        ? 400
+        : (error instanceof Error &&
+              "code" in error &&
+              error.code === "ENOENT") ||
+            message.includes("was not found")
+          ? 404
+          : 500;
+    sendJson(response, statusCode, { error: message });
+  }
 }
