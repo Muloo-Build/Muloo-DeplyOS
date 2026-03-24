@@ -17,6 +17,7 @@ import {
   createAgentDefinition,
   createDeliveryTemplate,
   createProductCatalogItem,
+  createWorkRequest,
   createWorkspaceUser,
   createClientAuthToken,
   createCookieHeader,
@@ -36,6 +37,7 @@ import {
   loadInternalInbox,
   loadProductCatalog,
   loadProviderConnections,
+  loadWorkRequests,
   loadWorkspaceEmailOAuthConnection,
   loadWorkspaceEmailSettings,
   loadWorkspaceUsers,
@@ -43,6 +45,8 @@ import {
   resolveSimpleAuthCredentials,
   serializeWorkspaceUser,
   serializeClientPortalUser,
+  convertWorkRequestToProject,
+  appendApprovedChangeRequestToDelivery,
   updateAgentDefinition,
   updateWorkspaceAiRouting,
   updateDeliveryTemplate,
@@ -50,6 +54,7 @@ import {
   updateWorkspaceEmailSettings,
   updateProductCatalogItem,
   updateWorkspaceProviderConnection,
+  updateWorkRequest,
   updateWorkspaceUser
 } from "./server";
 
@@ -114,6 +119,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/agents/*", internalAuth);
   app.use("/api/delivery-templates", internalAuth);
   app.use("/api/delivery-templates/*", internalAuth);
+  app.use("/api/work-requests", internalAuth);
+  app.use("/api/work-requests/*", internalAuth);
   app.use("/api/email-settings", internalAuth);
   app.use("/api/email-oauth/google", internalAuth);
   app.use("/api/email-oauth/google/*", internalAuth);
@@ -558,6 +565,95 @@ export function createApiApp(config: BaseConfig) {
               : "Failed to update delivery template"
         },
         400
+      );
+    }
+  });
+
+  app.get("/api/work-requests", async (c) =>
+    c.json({
+      workRequests: await loadWorkRequests()
+    })
+  );
+
+  app.post("/api/work-requests", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const workRequest = await createWorkRequest(body);
+      return c.json({ workRequest }, 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to create work request"
+        },
+        400
+      );
+    }
+  });
+
+  app.patch("/api/work-requests/:requestId", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const workRequest = await updateWorkRequest(
+        c.req.param("requestId"),
+        body
+      );
+      return c.json({ workRequest });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update work request"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/work-requests/:requestId/convert", async (c) => {
+    try {
+      const result = await convertWorkRequestToProject(
+        c.req.param("requestId")
+      );
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to convert work request"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/work-requests/:requestId/append-to-delivery", async (c) => {
+    try {
+      const result = await appendApprovedChangeRequestToDelivery(
+        c.req.param("requestId")
+      );
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to append change request to delivery"
+        },
+        error instanceof Error &&
+          [
+            "Change request not found",
+            "Change request is not linked to a project"
+          ].includes(error.message)
+          ? 404
+          : 400
       );
     }
   });
