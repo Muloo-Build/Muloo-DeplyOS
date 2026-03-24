@@ -114,7 +114,7 @@ export default function AiRoutingSettings() {
 
       <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
         <p className="text-sm text-text-secondary">
-          Each workflow can run on a different provider/model. This gives you room to test Claude, GPT, and Gemini against the kinds of jobs they handle best.
+          Each workflow can run on a different provider/model. This gives you room to test Claude, GPT, Gemini, and Perplexity against the kinds of jobs they handle best.
         </p>
       </div>
 

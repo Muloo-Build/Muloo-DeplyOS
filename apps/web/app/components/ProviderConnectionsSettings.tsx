@@ -134,11 +134,14 @@ export default function ProviderConnectionsSettings() {
         >
           {(() => {
             const isHubSpotOAuth = provider.providerKey === "hubspot_oauth";
+            const isPerplexity = provider.providerKey === "perplexity";
             const defaultModelLabel = isHubSpotOAuth
               ? "HubSpot app client ID"
               : "Default model";
             const defaultModelPlaceholder = isHubSpotOAuth
               ? "Paste the HubSpot public app client ID"
+              : isPerplexity
+                ? "e.g. sonar-pro or sonar-reasoning-pro"
               : "e.g. gpt-5.4 or claude-sonnet";
             const apiKeyLabel = isHubSpotOAuth
               ? "HubSpot app client secret"
@@ -189,6 +192,10 @@ export default function ProviderConnectionsSettings() {
                 <p className="mt-2 text-xs text-text-muted">
                   Use the client ID from your single HubSpot public app. Each client portal will install that app separately.
                 </p>
+              ) : isPerplexity ? (
+                <p className="mt-2 text-xs text-text-muted">
+                  Use a Perplexity API key here. Perplexity Pro helps on the product side, but API usage is still billed separately.
+                </p>
               ) : null}
             </label>
 
@@ -228,6 +235,10 @@ export default function ProviderConnectionsSettings() {
               {provider.providerKey === "hubspot_oauth" ? (
                 <p className="mt-2 text-xs text-text-muted">
                   Best first path for agent execution: use a HubSpot token for direct CRM schema and record APIs. Keep workflow, dashboard, and CMS work on the reviewed paths surfaced in Agent Studio.
+                </p>
+              ) : isPerplexity ? (
+                <p className="mt-2 text-xs text-text-muted">
+                  Best fit: current-state research, web-grounded answers, and source-backed drafting where citations matter.
                 </p>
               ) : null}
             </label>

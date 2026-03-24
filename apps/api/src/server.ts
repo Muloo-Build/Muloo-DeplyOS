@@ -302,6 +302,15 @@ const defaultProviderConnections = [
     isEnabled: false
   },
   {
+    providerKey: "perplexity",
+    label: "Perplexity / Sonar",
+    connectionType: "api_key",
+    defaultModel: "sonar-pro",
+    endpointUrl: null,
+    notes: "Web-grounded research, current-state synthesis, and source-backed drafting.",
+    isEnabled: false
+  },
+  {
     providerKey: "gemini",
     label: "Google Gemini",
     connectionType: "api_key",
@@ -7866,17 +7875,15 @@ async function ensureProductCatalogSeeded() {
 }
 
 async function ensureProviderConnectionsSeeded() {
-  const existingCount = await prisma.workspaceProviderConnection.count();
-
-  if (existingCount > 0) {
-    return;
+  for (const provider of defaultProviderConnections) {
+    await prisma.workspaceProviderConnection.upsert({
+      where: { providerKey: provider.providerKey },
+      update: {},
+      create: {
+        ...provider
+      }
+    });
   }
-
-  await prisma.workspaceProviderConnection.createMany({
-    data: defaultProviderConnections.map((provider) => ({
-      ...provider
-    }))
-  });
 }
 
 async function ensureAiRoutingSeeded() {
@@ -12046,6 +12053,8 @@ function getProviderApiKey(providerKey: string, storedApiKey: string | null) {
       return process.env.ANTHROPIC_API_KEY ?? null;
     case "openai":
       return process.env.OPENAI_API_KEY ?? null;
+    case "perplexity":
+      return process.env.PERPLEXITY_API_KEY ?? null;
     case "gemini":
       return process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? null;
     default:
@@ -12109,7 +12118,7 @@ async function resolveAiWorkflow(workflowKey: string) {
     };
   }
 
-  const fallbackOrder = ["anthropic", "openai", "gemini"];
+  const fallbackOrder = ["anthropic", "openai", "perplexity", "gemini"];
   for (const providerKey of fallbackOrder) {
     const fallbackCandidate = resolveProviderCandidate(
       providerMap,
@@ -12207,6 +12216,20 @@ function extractOpenAiText(payload: any) {
   return "";
 }
 
+function extractPerplexityErrorMessage(payload: any) {
+  const error = payload?.error;
+
+  if (typeof error === "string" && error.trim()) {
+    return error.trim();
+  }
+
+  if (typeof error?.message === "string" && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return null;
+}
+
 function extractGeminiText(payload: any) {
   const parts = payload?.candidates?.[0]?.content?.parts;
   if (!Array.isArray(parts)) {
@@ -12296,6 +12319,38 @@ async function callResolvedAiWorkflow(
     }
 
     return extractOpenAiText(await response.json());
+  }
+
+  if (resolved.providerKey === "perplexity") {
+    const response = await fetch(
+      resolved.endpointUrl || "https://api.perplexity.ai/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${resolved.apiKey}`
+        },
+        body: JSON.stringify({
+          model: resolved.model || "sonar-pro",
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user }
+          ],
+          max_tokens: maxTokens
+        })
+      }
+    );
+
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(
+        extractPerplexityErrorMessage(payload) ||
+          `Perplexity request failed with status ${response.status}`
+      );
+    }
+
+    return extractOpenAiText(payload);
   }
 
   if (resolved.providerKey === "gemini") {

@@ -697,7 +697,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       (provider: ProviderConnectionSummary) =>
         provider.isEnabled &&
         provider.hasApiKey &&
-        (provider.providerKey === "openai" || provider.providerKey === "anthropic")
+        (provider.providerKey === "openai" ||
+          provider.providerKey === "anthropic" ||
+          provider.providerKey === "perplexity")
     );
     setAiProviders(enabledDraftProviders);
     setEmailSettings(emailSettingsBody?.settings ?? null);
