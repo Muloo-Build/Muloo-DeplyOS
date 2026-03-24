@@ -14,7 +14,7 @@ Its purpose is to:
 - apply Muloo standards and reusable implementation logic
 - generate a recommended implementation blueprint
 - convert that blueprint into executable work
-- sync the work into Linear and track delivery state
+- manage the work on the internal project board and track delivery state
 
 In plain English:
 
@@ -47,7 +47,7 @@ Version 1 must do these six things well:
 3. Apply Muloo standard setup modules based on hubs, tiers, and use cases.
 4. Generate a blueprint of deliverables and recommended architecture.
 5. Turn the blueprint into clear tasks with dependencies and execution type.
-6. Sync those tasks into Linear and track execution status.
+6. Manage those tasks on the internal project board and track execution status.
 
 Supporting v1 capabilities:
 
@@ -67,7 +67,6 @@ To keep scope sane, v1 does not try to do the following:
 - deep custom UI automation from day one
 - complex multi-tenant client access
 - advanced reporting on day one
-- replacing Linear
 - replacing HubSpot
 - replacing human approval
 - becoming a full PSA, ERP, CRM, and PM tool in one

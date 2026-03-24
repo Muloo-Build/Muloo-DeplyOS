@@ -46,18 +46,18 @@ Exit criteria:
 
 - discovery plus standards produces a blueprint, deliverables, and execution-ready tasks
 
-### Phase 4: Linear integration
+### Phase 4: Internal execution board
 
 Build:
 
-- Linear project sync
-- Linear issue creation from tasks
-- status sync back into Muloo Deploy OS
-- owner, label, and milestone mapping
+- internal task board views
+- task state updates inside Muloo Deploy OS
+- owner, phase, and milestone mapping
+- dependency and blocker tracking on the internal board
 
 Exit criteria:
 
-- generated tasks can be pushed into Linear and tracked bi-directionally
+- generated tasks can be managed end-to-end inside Muloo Deploy OS without relying on an external PM system
 
 ### Phase 5: Execution router
 

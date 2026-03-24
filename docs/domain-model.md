@@ -109,7 +109,7 @@ erDiagram
       string category
       string execution_type
       json dependency_ids
-      string linear_issue_id
+      string board_card_id
       string assignee_type
       boolean qa_required
       boolean approval_required
@@ -157,7 +157,7 @@ erDiagram
 - A `Project` can have multiple `Discovery Submission` versions, but the approved blueprint should point to one discovery version.
 - A `Blueprint` can apply multiple `Standard Module` records.
 - `Deliverable` is the scoped output layer between blueprint design and execution tasks.
-- `Task` is the operational unit that gets synced to Linear and routed by execution type.
+- `Task` is the operational unit that gets tracked on the internal board and routed by execution type.
 - `Execution Job` is optional and only exists when a task is actually run through an API or agent path.
 - `QA Check` may attach to a task or a deliverable depending on the level being validated.
 - A `Deployment Log` closes the project and records approved outcomes and exceptions.

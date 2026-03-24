@@ -13,7 +13,7 @@ The system has one central flow:
 5. Generate blueprint.
 6. Generate deliverables and tasks.
 7. Classify execution type.
-8. Sync to Linear.
+8. Publish to the internal project board.
 9. Track execution, QA, approvals, and deployment state.
 
 ## Core layers
@@ -50,7 +50,7 @@ Primary responsibilities:
 - execution-type classification
 - approval and QA flow enforcement
 - audit logging
-- Linear sync orchestration
+- internal board orchestration and status management
 
 ### Data layer
 
@@ -72,7 +72,6 @@ Integrations should sit behind typed service boundaries.
 Initial integrations:
 
 - HubSpot API for portal context reads and safe configuration actions
-- Linear API for project and issue sync
 - future browser-agent or Symphony-style worker for UI-only execution gaps
 
 ## Core objects

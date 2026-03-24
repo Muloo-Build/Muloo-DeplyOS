@@ -25,7 +25,7 @@ Wireframe:
 | Apex Sales Rollout      Apex          Sam        In Execution        On Track     |
 | EPIUSE Service Setup    EPIUSE        Jarrud     Pending Approval    Review       |
 +----------------------------------------------------------------------------------+
-| Right rail: upcoming approvals | blocked projects | recent sync failures          |
+| Right rail: upcoming approvals | blocked projects | recent board failures         |
 +----------------------------------------------------------------------------------+
 ```
 
@@ -148,7 +148,7 @@ Purpose:
 
 - review generated tasks
 - edit priority, dependencies, and execution type
-- approve sync to Linear
+- approve publishing to the internal board
 
 ```text
 +----------------------------------------------------------------------------------+
@@ -159,7 +159,7 @@ Purpose:
 | Define lifecycle stage rules        Manual     None              No   Yes         |
 | Validate ticket routing in UI       Agent      Ticket setup      Yes  No          |
 +----------------------------------------------------------------------------------+
-| [Generate tasks] [Approve sync to Linear] [Export review]                         |
+| [Generate tasks] [Approve to board] [Export review]                               |
 +----------------------------------------------------------------------------------+
 ```
 
@@ -181,7 +181,7 @@ Purpose:
 | Selected task: Create contact properties                                           |
 | Payload preview | approval status | execution history                             |
 +----------------------------------------------------------------------------------+
-| [Queue job] [Request approval] [Open in Linear]                                   |
+| [Queue job] [Request approval] [Open on board]                                    |
 +----------------------------------------------------------------------------------+
 ```
 
@@ -210,7 +210,7 @@ Purpose:
 
 Purpose:
 
-- show sync history
+- show board history
 - show execution logs
 - show deployment completion record
 
@@ -219,7 +219,7 @@ Purpose:
 | Activity Log                                                                       |
 +----------------------------------------------------------------------------------+
 | Timestamp            Type             Object                Result                 |
-| 2026-03-11 09:14     Linear sync      Task batch 12         Succeeded              |
+| 2026-03-11 09:14     Board publish    Task batch 12         Succeeded              |
 | 2026-03-11 10:03     API execution    Contact properties    Succeeded              |
 | 2026-03-11 10:21     Approval         Blueprint             Pending                |
 | 2026-03-11 11:05     QA check         Deal pipelines        Failed                 |

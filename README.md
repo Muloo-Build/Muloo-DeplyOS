@@ -35,12 +35,12 @@ Start here before changing product code:
 3. Apply Muloo standard setup modules based on hubs, tiers, and use cases.
 4. Generate a blueprint of deliverables and recommended architecture.
 5. Convert the blueprint into clear tasks with dependencies and execution types.
-6. Sync those tasks into Linear and track execution status.
+6. Manage those tasks on the internal project board and track execution status.
 
 ## What v1 is not
 
 - not a client-facing product
-- not a replacement for Linear or HubSpot
+- not a replacement for HubSpot
 - not an all-purpose AI agent
 - not a full PSA, ERP, CRM, and PM suite
 - not broad end-to-end HubSpot automation on day one
