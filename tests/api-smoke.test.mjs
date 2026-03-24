@@ -284,6 +284,14 @@ test("guards internal Hono system routes without an auth cookie", async () => {
     await expectUnauthorized(baseUrl, "/api/email-oauth/google", {
       method: "DELETE"
     });
+    await expectUnauthorized(baseUrl, "/api/email-oauth/google/start", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/email-oauth/google/callback", {
+      method: "POST",
+      body: {}
+    });
   } finally {
     await stopServer(server);
   }

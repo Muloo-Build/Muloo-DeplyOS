@@ -17,7 +17,9 @@ import {
   createWorkspaceUser,
   createClientAuthToken,
   createCookieHeader,
+  createWorkspaceGoogleEmailOAuthStart,
   createSimpleAuthToken,
+  completeWorkspaceGoogleEmailOAuthCallback,
   disconnectWorkspaceGoogleEmailOAuthConnection,
   getAuthenticatedClientUserId,
   handleLegacyRequest,
@@ -99,6 +101,7 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/ai-routing/*", internalAuth);
   app.use("/api/email-settings", internalAuth);
   app.use("/api/email-oauth/google", internalAuth);
+  app.use("/api/email-oauth/google/*", internalAuth);
 
   app.all("/api/auth/session", (c) =>
     c.json({
@@ -507,6 +510,41 @@ export function createApiApp(config: BaseConfig) {
             error instanceof Error
               ? error.message
               : "Failed to disconnect Google mailbox"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/email-oauth/google/start", async (c) => {
+    try {
+      const result = await createWorkspaceGoogleEmailOAuthStart();
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to start Google OAuth"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/email-oauth/google/callback", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const connection = await completeWorkspaceGoogleEmailOAuthCallback(body);
+      return c.json({ connection });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to complete Google OAuth"
         },
         400
       );

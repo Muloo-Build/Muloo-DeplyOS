@@ -12371,7 +12371,7 @@ export async function updateWorkspaceEmailOAuthConnection(value: {
   });
 }
 
-async function createWorkspaceGoogleEmailOAuthStart() {
+export async function createWorkspaceGoogleEmailOAuthStart() {
   await ensureWorkspaceEmailOAuthConnectionsSeeded();
 
   const connection =
@@ -12416,7 +12416,7 @@ async function createWorkspaceGoogleEmailOAuthStart() {
   };
 }
 
-async function completeWorkspaceGoogleEmailOAuthCallback(value: {
+export async function completeWorkspaceGoogleEmailOAuthCallback(value: {
   code?: unknown;
   state?: unknown;
 }) {
@@ -13941,42 +13941,6 @@ export async function handleLegacyRequest(
             error instanceof Error
               ? error.message
               : "Failed to complete HubSpot OAuth"
-        });
-      }
-    }
-
-    if (
-      request.method === "POST" &&
-      url.pathname === "/api/email-oauth/google/start"
-    ) {
-      try {
-        const result = await createWorkspaceGoogleEmailOAuthStart();
-        return sendJson(response, 200, result);
-      } catch (error) {
-        return sendJson(response, 400, {
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to start Google OAuth"
-        });
-      }
-    }
-
-    if (
-      request.method === "POST" &&
-      url.pathname === "/api/email-oauth/google/callback"
-    ) {
-      try {
-        const body = (await readJsonBody(request)) as Record<string, unknown>;
-        const connection =
-          await completeWorkspaceGoogleEmailOAuthCallback(body);
-        return sendJson(response, 200, { connection });
-      } catch (error) {
-        return sendJson(response, 400, {
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to complete Google OAuth"
         });
       }
     }
