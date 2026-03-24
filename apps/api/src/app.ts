@@ -85,7 +85,7 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/inbox/*", internalAuth);
   app.use("/api/runs", internalAuth);
   app.use("/api/users", internalAuth);
-  app.use("/api/providers", internalAuth);
+  app.use("/api/provider-connections", internalAuth);
   app.use("/api/ai-routing", internalAuth);
   app.use("/api/email-settings", internalAuth);
   app.use("/api/email-oauth/google", internalAuth);
@@ -348,7 +348,7 @@ export function createApiApp(config: BaseConfig) {
     })
   );
 
-  app.get("/api/providers", async (c) =>
+  app.get("/api/provider-connections", async (c) =>
     c.json({
       providers: await loadProviderConnections()
     })
