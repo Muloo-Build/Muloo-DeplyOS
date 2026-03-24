@@ -1,6 +1,6 @@
 import { loadApiConfig } from "@muloo/config";
 
-import { createAppServer } from "./server";
+import { createAppServer } from "./app";
 
 async function main(): Promise<void> {
   const config = loadApiConfig({ cwd: process.cwd() });

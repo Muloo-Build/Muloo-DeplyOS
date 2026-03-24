@@ -12,6 +12,7 @@
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
   },
   "dependencies": {
+    "@hono/node-server": "^1.19.11",
     "@muloo/config": "workspace:*",
     "@muloo/executor": "workspace:*",
     "@muloo/file-system": "workspace:*",
@@ -19,6 +20,7 @@
     "@muloo/shared": "workspace:*",
     "@prisma/client": "5.22.0",
     "@types/nodemailer": "^7.0.11",
+    "hono": "^4.12.9",
     "nodemailer": "^8.0.3",
     "prisma": "5.22.0",
     "zod": "^3.24.2"
