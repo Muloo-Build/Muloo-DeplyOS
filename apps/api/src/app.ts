@@ -15,6 +15,8 @@ import { prisma } from "./prisma";
 import {
   clientAuthCookieName,
   createAgentDefinition,
+  createClientContact,
+  createClientDirectoryRecord,
   createDeliveryTemplate,
   createProductCatalogItem,
   createWorkRequest,
@@ -39,6 +41,7 @@ import {
   loadHubSpotPortals,
   loadInboxSummary,
   loadInternalInbox,
+  loadClientsDirectory,
   loadProductCatalog,
   loadProviderConnections,
   loadWorkRequests,
@@ -48,6 +51,7 @@ import {
   markAllProjectMessagesSeenByInternal,
   createHubSpotOAuthStart,
   buildHubSpotAgentCapabilitiesPayload,
+  inviteClientContactToProjects,
   resolveHubSpotAgentConnection,
   resolveSimpleAuthCredentials,
   serializeWorkspaceUser,
@@ -56,11 +60,15 @@ import {
   appendApprovedChangeRequestToDelivery,
   updateAgentDefinition,
   updateWorkspaceAiRouting,
+  updateClientContact,
+  updateClientDirectoryRecord,
   updateDeliveryTemplate,
   updateWorkspaceEmailOAuthConnection,
   updateWorkspaceEmailSettings,
   updateProductCatalogItem,
   updateWorkspaceProviderConnection,
+  deleteClientDirectoryRecord,
+  refreshClientEnrichment,
   updateWorkRequest,
   updateWorkspaceUser
 } from "./server";
@@ -131,6 +139,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/hubspot", internalAuth);
   app.use("/api/hubspot/*", internalAuth);
   app.use("/api/portals", internalAuth);
+  app.use("/api/clients", internalAuth);
+  app.use("/api/clients/*", internalAuth);
   app.use("/api/email-settings", internalAuth);
   app.use("/api/email-oauth/google", internalAuth);
   app.use("/api/email-oauth/google/*", internalAuth);
@@ -765,6 +775,237 @@ export function createApiApp(config: BaseConfig) {
       throw error;
     }
   });
+
+  app.get("/api/clients", async (c) =>
+    c.json({
+      clients: await loadClientsDirectory()
+    })
+  );
+
+  app.post("/api/clients", async (c) => {
+    const body = (await readJsonBodyOrEmpty(c)) as {
+      name: string;
+      website?: string;
+      logoUrl?: string;
+      industry?: string;
+      region?: string;
+      additionalWebsites?: string[];
+      linkedinUrl?: string;
+      facebookUrl?: string;
+      instagramUrl?: string;
+      xUrl?: string;
+      youtubeUrl?: string;
+      clientRoles?: string[];
+      parentClientId?: string;
+      visibleToPartnerIds?: string[];
+    };
+
+    try {
+      const client = await createClientDirectoryRecord(body);
+      return c.json({ client }, 201);
+    } catch (error: unknown) {
+      if (isUniqueConstraintError(error)) {
+        return c.json(
+          {
+            error: "A client with that name already exists"
+          },
+          409
+        );
+      }
+
+      throw error;
+    }
+  });
+
+  app.patch("/api/clients/:clientId", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        name?: unknown;
+        website?: unknown;
+        logoUrl?: unknown;
+        industry?: unknown;
+        region?: unknown;
+        additionalWebsites?: unknown;
+        linkedinUrl?: unknown;
+        facebookUrl?: unknown;
+        instagramUrl?: unknown;
+        xUrl?: unknown;
+        youtubeUrl?: unknown;
+        clientRoles?: unknown;
+        parentClientId?: unknown;
+        visibleToPartnerIds?: unknown;
+      };
+
+      const client = await updateClientDirectoryRecord(
+        c.req.param("clientId"),
+        body
+      );
+
+      return c.json({ client });
+    } catch (error: unknown) {
+      if (isUniqueConstraintError(error)) {
+        return c.json(
+          {
+            error: "A client with that name already exists"
+          },
+          409
+        );
+      }
+
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to update client"
+        },
+        error instanceof Error && error.message === "Client not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
+  app.delete("/api/clients/:clientId", async (c) => {
+    try {
+      await deleteClientDirectoryRecord(c.req.param("clientId"));
+      return c.json({ success: true });
+    } catch (error: unknown) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to delete client"
+        },
+        error instanceof Error && error.message === "Client not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
+  app.post("/api/clients/:clientId/enrich", async (c) => {
+    try {
+      const client = await refreshClientEnrichment(c.req.param("clientId"));
+      return c.json({ client });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to refresh client enrichment"
+        },
+        error instanceof Error && error.message === "Client not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
+  app.post("/api/clients/:clientId/contacts", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        firstName?: unknown;
+        lastName?: unknown;
+        email?: unknown;
+        title?: unknown;
+        canApproveQuotes?: unknown;
+      };
+      const contact = await createClientContact(c.req.param("clientId"), body);
+      return c.json({ contact }, 201);
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        return c.json(
+          {
+            error: "A contact with that email already exists for this client"
+          },
+          409
+        );
+      }
+
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to create client contact"
+        },
+        400
+      );
+    }
+  });
+
+  app.patch("/api/clients/:clientId/contacts/:contactId", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        firstName?: unknown;
+        lastName?: unknown;
+        email?: unknown;
+        title?: unknown;
+        canApproveQuotes?: unknown;
+      };
+      const contact = await updateClientContact(
+        c.req.param("clientId"),
+        c.req.param("contactId"),
+        body
+      );
+      return c.json({ contact });
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        return c.json(
+          {
+            error: "A contact with that email already exists for this client"
+          },
+          409
+        );
+      }
+
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update client contact"
+        },
+        error instanceof Error && error.message === "Client contact not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
+  app.post(
+    "/api/clients/:clientId/contacts/:contactId/portal-access",
+    async (c) => {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as {
+          projectIds?: unknown;
+          questionnaireAccess?: unknown;
+          sendEmail?: unknown;
+        };
+        const result = await inviteClientContactToProjects(
+          c.req.param("clientId"),
+          c.req.param("contactId"),
+          body
+        );
+
+        return c.json(result);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update client portal access"
+          },
+          error instanceof Error &&
+            ["Client not found", "Client contact not found"].includes(
+              error.message
+            )
+            ? 404
+            : 400
+        );
+      }
+    }
+  );
 
   app.post("/api/users", async (c) => {
     try {
