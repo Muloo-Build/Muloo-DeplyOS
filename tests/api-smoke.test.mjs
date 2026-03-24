@@ -8,6 +8,9 @@ process.env.DATABASE_URL =
 process.env.SIMPLE_AUTH_USERNAME = "smoke-user";
 process.env.SIMPLE_AUTH_PASSWORD = "smoke-pass";
 
+// These smoke tests intentionally stay on routes that do not execute Prisma queries.
+// The server instantiates Prisma at module load, but CI does not provision Postgres yet.
+// When we add DB-dependent smoke coverage, we should add a Postgres service container first.
 const { createAppServer } = await import("../apps/api/dist/server.js");
 
 const defaultConfig = {
