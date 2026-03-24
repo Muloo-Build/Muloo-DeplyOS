@@ -106,6 +106,13 @@ async function loginAndGetCookie(baseUrl) {
   return authCookie;
 }
 
+async function expectUnauthorized(baseUrl, path) {
+  const { response, body } = await requestJson(baseUrl, path);
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(body, { error: "Unauthorized" });
+}
+
 test("returns an unauthenticated internal session by default", async () => {
   const { server, baseUrl } = await startServer();
 
@@ -234,6 +241,17 @@ test("returns workspace settings from the Hono system routes", async () => {
   }
 });
 
+test("guards internal Hono system routes without an auth cookie", async () => {
+  const { server, baseUrl } = await startServer();
+
+  try {
+    await expectUnauthorized(baseUrl, "/api/settings");
+    await expectUnauthorized(baseUrl, "/api/industries");
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test("returns industry options from the Hono system routes", async () => {
   const { server, baseUrl } = await startServer();
 
@@ -248,6 +266,61 @@ test("returns industry options from the Hono system routes", async () => {
     assert.equal(response.status, 200);
     assert.equal(Array.isArray(body.industries), true);
     assert.equal(body.industries.includes("SaaS & Technology"), true);
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test("returns template list and detail from the Hono metadata routes", async () => {
+  const { server, baseUrl } = await startServer();
+
+  try {
+    const authCookie = await loginAndGetCookie(baseUrl);
+    const listResult = await requestJson(baseUrl, "/api/templates", {
+      headers: {
+        Cookie: authCookie
+      }
+    });
+
+    assert.equal(listResult.response.status, 200);
+    assert.equal(Array.isArray(listResult.body.templates), true);
+    assert.equal(listResult.body.templates.length > 0, true);
+
+    const firstTemplate = listResult.body.templates[0];
+    const detailResult = await requestJson(
+      baseUrl,
+      `/api/templates/${firstTemplate.id}`,
+      {
+        headers: {
+          Cookie: authCookie
+        }
+      }
+    );
+
+    assert.equal(detailResult.response.status, 200);
+    assert.equal(detailResult.body.template.id, firstTemplate.id);
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test("returns validation summary from the Hono metadata routes", async () => {
+  const { server, baseUrl } = await startServer();
+
+  try {
+    const authCookie = await loginAndGetCookie(baseUrl);
+    const { response, body } = await requestJson(
+      baseUrl,
+      "/api/projects/validation-summary",
+      {
+        headers: {
+          Cookie: authCookie
+        }
+      }
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(Array.isArray(body.validations), true);
   } finally {
     await stopServer(server);
   }

@@ -2,6 +2,11 @@ import type * as http from "node:http";
 import { createAdaptorServer, type HttpBindings } from "@hono/node-server";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import { type BaseConfig, getIntegrationStatus } from "@muloo/config";
+import {
+  loadAllTemplates,
+  loadTemplateById,
+  validateAllProjects
+} from "@muloo/file-system";
 import { moduleCatalog } from "@muloo/shared";
 import { type Context, Hono, type Next } from "hono";
 import { ZodError } from "zod";
@@ -62,6 +67,9 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/modules", internalAuth);
   app.use("/api/settings", internalAuth);
   app.use("/api/industries", internalAuth);
+  app.use("/api/templates", internalAuth);
+  app.use("/api/templates/*", internalAuth);
+  app.use("/api/projects/validation-summary", internalAuth);
 
   app.all("/api/auth/session", (c) =>
     c.json({
@@ -276,6 +284,24 @@ export function createApiApp(config: BaseConfig) {
       industries: industryOptions
     });
   });
+
+  app.get("/api/templates", async (c) =>
+    c.json({
+      templates: await loadAllTemplates()
+    })
+  );
+
+  app.get("/api/templates/:templateId", async (c) =>
+    c.json({
+      template: await loadTemplateById(c.req.param("templateId"))
+    })
+  );
+
+  app.get("/api/projects/validation-summary", async (c) =>
+    c.json({
+      validations: await validateAllProjects()
+    })
+  );
 
   app.all("*", async (c) => {
     await handleLegacyRequest(config, c.env.incoming, c.env.outgoing);
