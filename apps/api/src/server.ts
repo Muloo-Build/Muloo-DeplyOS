@@ -13952,19 +13952,6 @@ export async function handleLegacyRequest(
       return sendJson(response, 405, { error: "Method Not Allowed" });
     }
 
-    if (request.method === "GET" && url.pathname === "/api/templates") {
-      return sendJson(response, 200, {
-        templates: await loadAllTemplates()
-      });
-    }
-
-    const templateRoute = matchTemplateRoute(url.pathname);
-    if (request.method === "GET" && templateRoute) {
-      return sendJson(response, 200, {
-        template: await loadTemplateById(templateRoute.templateId)
-      });
-    }
-
     if (url.pathname === "/api/hubspot/agent-capabilities") {
       if (request.method === "GET") {
         const portalRecordId = url.searchParams.get("portalRecordId");
@@ -16211,12 +16198,6 @@ export async function handleLegacyRequest(
       return sendJson(response, 201, {
         project,
         summary: await summarizeProject(project)
-      });
-    }
-
-    if (url.pathname === "/api/projects/validation-summary") {
-      return sendJson(response, 200, {
-        validations: await validateAllProjects()
       });
     }
 
