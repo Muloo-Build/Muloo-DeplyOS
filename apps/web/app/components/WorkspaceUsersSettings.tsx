@@ -79,7 +79,9 @@ export default function WorkspaceUsersSettings() {
         throw new Error(body?.error ?? "Failed to save workspace user");
       }
       setUsers((current) =>
-        current.map((candidate) => (candidate.id === userId ? body.user : candidate))
+        current.map((candidate) =>
+          candidate.id === userId ? body.user : candidate
+        )
       );
     } catch (saveError) {
       setError(
@@ -113,7 +115,9 @@ export default function WorkspaceUsersSettings() {
         throw new Error(body?.error ?? "Failed to create workspace user");
       }
       setUsers((current) =>
-        [...current, body.user].sort((left, right) => left.sortOrder - right.sortOrder)
+        [...current, body.user].sort(
+          (left, right) => left.sortOrder - right.sortOrder
+        )
       );
       setDraft(emptyDraft);
     } catch (createError) {
@@ -165,7 +169,10 @@ export default function WorkspaceUsersSettings() {
           <input
             value={draft.sortOrder}
             onChange={(event) =>
-              setDraft((current) => ({ ...current, sortOrder: event.target.value }))
+              setDraft((current) => ({
+                ...current,
+                sortOrder: event.target.value
+              }))
             }
             placeholder="Sort order"
             className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"

@@ -62,15 +62,26 @@ export default function ClientLoginPage() {
                 Project visibility, documents, and approvals.
               </h1>
               <p className="mt-8 max-w-[36rem] text-base leading-8 text-text-secondary">
-                Access your Muloo project workspace to review scope, delivery progress, supporting documents, and any forms we specifically assign to your team.
+                Access your Muloo project workspace to review scope, delivery
+                progress, supporting documents, and any forms we specifically
+                assign to your team.
               </p>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
               {[
-                ["Review docs", "Discovery documents, quotes, and approved scope in one place."],
-                ["Track delivery", "See the current board and what is waiting on Muloo or your team."],
-                ["Respond only when needed", "Forms appear only when Muloo requests a specific client input."]
+                [
+                  "Review docs",
+                  "Discovery documents, quotes, and approved scope in one place."
+                ],
+                [
+                  "Track delivery",
+                  "See the current board and what is waiting on Muloo or your team."
+                ],
+                [
+                  "Respond only when needed",
+                  "Forms appear only when Muloo requests a specific client input."
+                ]
               ].map(([title, copy]) => (
                 <div
                   key={title}
@@ -86,7 +97,11 @@ export default function ClientLoginPage() {
           </section>
 
           <div className="w-full rounded-3xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
-            <img src="/muloo-logo.svg" alt="Muloo" className="h-10 w-auto lg:hidden" />
+            <img
+              src="/muloo-logo.svg"
+              alt="Muloo"
+              className="h-10 w-auto lg:hidden"
+            />
             <p className="mt-4 text-sm uppercase tracking-[0.3em] text-text-muted">
               Client sign in
             </p>
@@ -94,7 +109,8 @@ export default function ClientLoginPage() {
               Welcome to your Muloo project portal
             </h1>
             <p className="mt-3 text-text-secondary">
-              Sign in to review your projects, check delivery status, and complete any forms that have been assigned to you.
+              Sign in to review your projects, check delivery status, and
+              complete any forms that have been assigned to you.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">

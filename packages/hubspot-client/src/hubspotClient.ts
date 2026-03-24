@@ -211,7 +211,9 @@ export class HubSpotClient {
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(`${errorLabel} failed with status ${response.status}: ${body}`);
+      throw new Error(
+        `${errorLabel} failed with status ${response.status}: ${body}`
+      );
     }
 
     if (response.status === 204) {
@@ -471,9 +473,10 @@ export class HubSpotClient {
     input: HubSpotObjectRecordInput
   ): Promise<Record<string, unknown>> {
     const isUpdate = Boolean(input.id);
-    const query = input.id && input.idProperty
-      ? `?idProperty=${encodeURIComponent(input.idProperty)}`
-      : "";
+    const query =
+      input.id && input.idProperty
+        ? `?idProperty=${encodeURIComponent(input.idProperty)}`
+        : "";
     const path = isUpdate
       ? `/crm/v3/objects/${input.objectType}/${encodeURIComponent(input.id ?? "")}${query}`
       : `/crm/v3/objects/${input.objectType}`;

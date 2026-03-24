@@ -77,13 +77,16 @@ export default function WorkRequestsInbox() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/work-requests/${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ status })
-      });
+      const response = await fetch(
+        `/api/work-requests/${encodeURIComponent(id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ status })
+        }
+      );
       const body = await response.json().catch(() => null);
 
       if (!response.ok) {
@@ -239,12 +242,16 @@ export default function WorkRequestsInbox() {
                 </select>
               </div>
             </div>
-            <p className="mt-3 text-sm text-text-secondary">{request.summary}</p>
+            <p className="mt-3 text-sm text-text-secondary">
+              {request.summary}
+            </p>
             <div className="mt-3 flex flex-wrap gap-3 text-xs text-text-muted">
               <span>{request.contactName}</span>
               <span>{request.contactEmail}</span>
               {request.companyName ? <span>{request.companyName}</span> : null}
-              {request.project ? <span>Project: {request.project.name}</span> : null}
+              {request.project ? (
+                <span>Project: {request.project.name}</span>
+              ) : null}
               {request.urgency ? <span>Urgency: {request.urgency}</span> : null}
             </div>
           </div>

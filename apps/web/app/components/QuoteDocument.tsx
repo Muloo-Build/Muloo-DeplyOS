@@ -236,7 +236,11 @@ function parseNumber(value: string, fallbackValue: number) {
 }
 
 function formatDiscoveryOutcome(
-  label: "engagementTrack" | "platformFit" | "changeManagementRating" | "dataReadinessRating",
+  label:
+    | "engagementTrack"
+    | "platformFit"
+    | "changeManagementRating"
+    | "dataReadinessRating",
   value: string | undefined
 ) {
   if (!value) {
@@ -398,7 +402,9 @@ export default function QuoteDocument({
         }
 
         const sessionsBody = await sessionsResponse.json();
-        const summaryBody = summaryResponse ? await summaryResponse.json() : null;
+        const summaryBody = summaryResponse
+          ? await summaryResponse.json()
+          : null;
         const blueprintBody = blueprintResponse?.ok
           ? await blueprintResponse.json()
           : null;
@@ -530,10 +536,14 @@ export default function QuoteDocument({
     });
   }, [savedQuote]);
 
-  const session1 = sessions.find((session) => session.session === 1)?.fields ?? {};
-  const session2 = sessions.find((session) => session.session === 2)?.fields ?? {};
-  const session3 = sessions.find((session) => session.session === 3)?.fields ?? {};
-  const session4 = sessions.find((session) => session.session === 4)?.fields ?? {};
+  const session1 =
+    sessions.find((session) => session.session === 1)?.fields ?? {};
+  const session2 =
+    sessions.find((session) => session.session === 2)?.fields ?? {};
+  const session3 =
+    sessions.find((session) => session.session === 3)?.fields ?? {};
+  const session4 =
+    sessions.find((session) => session.session === 4)?.fields ?? {};
 
   const phaseCommercials = groupedPhases.map((phase) => {
     const phaseHumanHoursFromBlueprint = phase.tasks
@@ -545,7 +555,10 @@ export default function QuoteDocument({
       draft?.humanHours ?? String(phaseHumanHoursFromBlueprint),
       phaseHumanHoursFromBlueprint
     );
-    const rate = parseNumber(draft?.rate ?? defaultRate, parseNumber(defaultRate, 1500));
+    const rate = parseNumber(
+      draft?.rate ?? defaultRate,
+      parseNumber(defaultRate, 1500)
+    );
     const feeZar = humanHours * rate;
 
     return {
@@ -559,7 +572,9 @@ export default function QuoteDocument({
     };
   });
 
-  const selectedPhaseCommercials = phaseCommercials.filter((phase) => phase.included);
+  const selectedPhaseCommercials = phaseCommercials.filter(
+    (phase) => phase.included
+  );
   const totalHumanHours = selectedPhaseCommercials.reduce(
     (total, phase) => total + phase.humanHours,
     0
@@ -600,7 +615,9 @@ export default function QuoteDocument({
     "At start of Phase 4",
     "Before final handover"
   ];
-  const clientResponsibilities = splitIntoList(session4.client_responsibilities);
+  const clientResponsibilities = splitIntoList(
+    session4.client_responsibilities
+  );
   const isStandaloneQuote = project?.scopeType === "standalone_quote";
   const quoteApprovalStatus = project?.quoteApprovalStatus ?? "draft";
   const isApprovedQuote = quoteApprovalStatus === "approved";
@@ -614,7 +631,7 @@ export default function QuoteDocument({
       : splitIntoList(session4.out_of_scope);
   const supportingTools = isStandaloneQuote
     ? getDisplaySupportingTools(project, summary?.supportingTools)
-    : summary?.supportingTools ?? [];
+    : (summary?.supportingTools ?? []);
   const keyRisks = isStandaloneQuote
     ? getDisplayKeyRisks(project, summary?.keyRisks)
     : summary?.keyRisks?.length && summary.keyRisks.length > 0
@@ -622,7 +639,7 @@ export default function QuoteDocument({
       : splitIntoList(session4.risks_and_blockers);
   const nextQuestions = isStandaloneQuote
     ? getDisplayNextQuestions(project, summary?.recommendedNextQuestions)
-    : summary?.recommendedNextQuestions ?? [];
+    : (summary?.recommendedNextQuestions ?? []);
   const quoteContext = savedQuote?.context;
   const displayPhaseCommercials =
     isClientMode && savedQuote ? savedQuote.phaseLines : phaseCommercials;
@@ -643,7 +660,9 @@ export default function QuoteDocument({
   const displayInScopeItems =
     isClientMode && quoteContext ? quoteContext.inScopeItems : inScopeItems;
   const displayOutOfScopeItems =
-    isClientMode && quoteContext ? quoteContext.outOfScopeItems : outOfScopeItems;
+    isClientMode && quoteContext
+      ? quoteContext.outOfScopeItems
+      : outOfScopeItems;
   const displaySupportingTools =
     isClientMode && quoteContext
       ? quoteContext.supportingTools
@@ -660,37 +679,40 @@ export default function QuoteDocument({
     isClientMode && quoteContext
       ? quoteContext.quoteContextSummary
       : isStandaloneQuote
-        ? summary?.executiveSummary ??
+        ? (summary?.executiveSummary ??
           project?.scopeExecutiveSummary ??
           project?.solutionRecommendation ??
           project?.problemStatement ??
           project?.commercialBrief ??
-          "This standalone quote is based on the scoped job brief captured for the client."
-        : summary?.executiveSummary ??
+          "This standalone quote is based on the scoped job brief captured for the client.")
+        : (summary?.executiveSummary ??
           session1.business_overview ??
-          "No executive summary generated yet.";
+          "No executive summary generated yet.");
   const displayBlueprintGeneratedAt =
     isClientMode && quoteContext?.blueprintGeneratedAt
       ? quoteContext.blueprintGeneratedAt
-      : blueprint?.generatedAt ?? null;
+      : (blueprint?.generatedAt ?? null);
   const documentationProduct = products.find(
     (product) => product.slug === "documentation-sop-pack"
   );
   const recommendDocumentationPack =
     Boolean(documentationProduct?.isActive) &&
     (displayTotals.totalHumanHours >= 40 ||
-      displaySupportingTools.some((item) =>
-        item.toLowerCase().includes("documentation") ||
-        item.toLowerCase().includes("sop")
+      displaySupportingTools.some(
+        (item) =>
+          item.toLowerCase().includes("documentation") ||
+          item.toLowerCase().includes("sop")
       ) ||
-      displayInScopeItems.some((item) =>
-        item.toLowerCase().includes("documentation") ||
-        item.toLowerCase().includes("handover") ||
-        item.toLowerCase().includes("process")
+      displayInScopeItems.some(
+        (item) =>
+          item.toLowerCase().includes("documentation") ||
+          item.toLowerCase().includes("handover") ||
+          item.toLowerCase().includes("process")
       ) ||
-      displayOutOfScopeItems.some((item) =>
-        item.toLowerCase().includes("documentation") ||
-        item.toLowerCase().includes("sop")
+      displayOutOfScopeItems.some(
+        (item) =>
+          item.toLowerCase().includes("documentation") ||
+          item.toLowerCase().includes("sop")
       ));
 
   const clientChampionName = [
@@ -980,7 +1002,9 @@ export default function QuoteDocument({
                       </p>
                       <div className="mt-4 space-y-2 text-sm text-white">
                         <p className="font-semibold">{project.client.name}</p>
-                        {clientChampionName ? <p>{clientChampionName}</p> : null}
+                        {clientChampionName ? (
+                          <p>{clientChampionName}</p>
+                        ) : null}
                         {project.clientChampionEmail ? (
                           <p>{project.clientChampionEmail}</p>
                         ) : null}
@@ -1005,7 +1029,9 @@ export default function QuoteDocument({
 
                 <div className="border-l border-[rgba(255,255,255,0.07)] bg-[#10172f] p-8">
                   <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    {isClientMode ? "Commercial Snapshot" : "Commercial Controls"}
+                    {isClientMode
+                      ? "Commercial Snapshot"
+                      : "Commercial Controls"}
                   </p>
 
                   {isClientMode ? (
@@ -1045,7 +1071,9 @@ export default function QuoteDocument({
                           </span>
                           <input
                             value={defaultRate}
-                            onChange={(event) => setDefaultRate(event.target.value)}
+                            onChange={(event) =>
+                              setDefaultRate(event.target.value)
+                            }
                             className="w-full bg-transparent text-white outline-none"
                           />
                         </div>
@@ -1102,9 +1130,13 @@ export default function QuoteDocument({
             {!isClientMode && phaseCommercials.length > 0 ? (
               <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                 <SectionEyebrow>Commercial Composition</SectionEyebrow>
-                <SectionTitle>Select the phases to include in this quote</SectionTitle>
+                <SectionTitle>
+                  Select the phases to include in this quote
+                </SectionTitle>
                 <p className="mt-4 max-w-3xl text-sm leading-7 text-text-secondary">
-                  Use this to shape the commercial offer from the available implementation phases. This lets you quote the full plan or only the parts the client wants to proceed with now.
+                  Use this to shape the commercial offer from the available
+                  implementation phases. This lets you quote the full plan or
+                  only the parts the client wants to proceed with now.
                 </p>
 
                 <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -1136,7 +1168,12 @@ export default function QuoteDocument({
                           Phase {phase.phase} - {phase.phaseName}
                         </p>
                         <p className="mt-2 text-sm text-text-secondary">
-                          {phase.tasks.filter((task) => task.type !== "Client").length} implementation tasks · {phase.humanHours} hrs · {formatCurrency(phase.feeZar, currency)}
+                          {
+                            phase.tasks.filter((task) => task.type !== "Client")
+                              .length
+                          }{" "}
+                          implementation tasks · {phase.humanHours} hrs ·{" "}
+                          {formatCurrency(phase.feeZar, currency)}
                         </p>
                       </div>
                     </label>
@@ -1156,194 +1193,216 @@ export default function QuoteDocument({
                 </div>
 
                 {!isStandaloneQuote ? (
-                <>
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <SectionEyebrow>Commercial Framing</SectionEyebrow>
-                  <SectionTitle>Why this implementation is being quoted</SectionTitle>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                        Primary challenge
-                      </p>
-                      <p className="mt-3 text-sm leading-7 text-text-secondary">
-                        {session1.primary_pain_challenge || "To be confirmed"}
-                      </p>
+                  <>
+                    <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                      <SectionEyebrow>Commercial Framing</SectionEyebrow>
+                      <SectionTitle>
+                        Why this implementation is being quoted
+                      </SectionTitle>
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Primary challenge
+                          </p>
+                          <p className="mt-3 text-sm leading-7 text-text-secondary">
+                            {session1.primary_pain_challenge ||
+                              "To be confirmed"}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Success outcomes
+                          </p>
+                          <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                            {splitIntoLines(
+                              session1.goals_and_success_metrics
+                            ).map((line) => (
+                              <p key={line}>{line}</p>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                        Success outcomes
-                      </p>
-                      <div className="mt-3 space-y-2 text-sm text-text-secondary">
-                        {splitIntoLines(
-                          session1.goals_and_success_metrics
-                        ).map((line) => (
-                          <p key={line}>{line}</p>
+
+                    <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                      <SectionEyebrow>Discovery Outcomes</SectionEyebrow>
+                      <SectionTitle>
+                        Commercial assumptions from discovery
+                      </SectionTitle>
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        {[
+                          [
+                            "Engagement track",
+                            summary?.engagementTrack ?? "Not set"
+                          ],
+                          ["Platform fit", summary?.platformFit ?? "Not set"],
+                          [
+                            "Change management",
+                            summary?.changeManagementRating ?? "Not set"
+                          ],
+                          [
+                            "Data readiness",
+                            summary?.dataReadinessRating ?? "Not set"
+                          ]
+                        ].map(([label, value]) => (
+                          <div
+                            key={label}
+                            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                          >
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              {label}
+                            </p>
+                            <p className="mt-2 text-sm font-medium text-white">
+                              {formatDiscoveryOutcome(
+                                label === "Engagement track"
+                                  ? "engagementTrack"
+                                  : label === "Platform fit"
+                                    ? "platformFit"
+                                    : label === "Change management"
+                                      ? "changeManagementRating"
+                                      : "dataReadinessRating",
+                                value
+                              )}
+                            </p>
+                          </div>
                         ))}
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <SectionEyebrow>Discovery Outcomes</SectionEyebrow>
-                  <SectionTitle>Commercial assumptions from discovery</SectionTitle>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    {[
-                      ["Engagement track", summary?.engagementTrack ?? "Not set"],
-                      ["Platform fit", summary?.platformFit ?? "Not set"],
-                      [
-                        "Change management",
-                        summary?.changeManagementRating ?? "Not set"
-                      ],
-                      [
-                        "Data readiness",
-                        summary?.dataReadinessRating ?? "Not set"
-                      ]
-                    ].map(([label, value]) => (
-                      <div
-                        key={label}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
-                      >
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          {label}
-                        </p>
-                        <p className="mt-2 text-sm font-medium text-white">
-                          {formatDiscoveryOutcome(
-                            label === "Engagement track"
-                              ? "engagementTrack"
-                              : label === "Platform fit"
-                                ? "platformFit"
-                                : label === "Change management"
-                                  ? "changeManagementRating"
-                                  : "dataReadinessRating",
-                            value
-                          )}
-                        </p>
+                    <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                      <SectionEyebrow>Current State</SectionEyebrow>
+                      <SectionTitle>
+                        Commercially relevant current-state notes
+                      </SectionTitle>
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        {[
+                          ["Current stack", session2.current_tech_stack],
+                          ["HubSpot today", session2.current_hubspot_state],
+                          ["Data landscape", session2.data_landscape],
+                          ["Current processes", session2.current_processes]
+                        ].map(([label, value]) => (
+                          <div
+                            key={label}
+                            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                          >
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              {label}
+                            </p>
+                            <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                              {splitIntoLines(value).map((line) => (
+                                <p key={line}>{line}</p>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
 
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <SectionEyebrow>Current State</SectionEyebrow>
-                  <SectionTitle>Commercially relevant current-state notes</SectionTitle>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    {[
-                      ["Current stack", session2.current_tech_stack],
-                      ["HubSpot today", session2.current_hubspot_state],
-                      ["Data landscape", session2.data_landscape],
-                      ["Current processes", session2.current_processes]
-                    ].map(([label, value]) => (
-                      <div
-                        key={label}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
-                      >
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          {label}
-                        </p>
-                        <div className="mt-3 space-y-2 text-sm text-text-secondary">
-                          {splitIntoLines(value).map((line) => (
-                            <p key={line}>{line}</p>
-                          ))}
-                        </div>
+                    <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                      <SectionEyebrow>Recommended Future State</SectionEyebrow>
+                      <SectionTitle>
+                        What this quote is intended to deliver
+                      </SectionTitle>
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        {[
+                          [
+                            "Hubs & features",
+                            session3.hubs_and_features_required
+                          ],
+                          [
+                            "Pipeline & process",
+                            session3.pipeline_and_process_design
+                          ],
+                          ["Automation", session3.automation_requirements],
+                          ["Reporting", session3.reporting_requirements]
+                        ].map(([label, value]) => (
+                          <div
+                            key={label}
+                            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                          >
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              {label}
+                            </p>
+                            <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                              {splitIntoLines(value).map((line) => (
+                                <p key={line}>{line}</p>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
 
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <SectionEyebrow>Recommended Future State</SectionEyebrow>
-                  <SectionTitle>What this quote is intended to deliver</SectionTitle>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    {[
-                      ["Hubs & features", session3.hubs_and_features_required],
-                      ["Pipeline & process", session3.pipeline_and_process_design],
-                      ["Automation", session3.automation_requirements],
-                      ["Reporting", session3.reporting_requirements]
-                    ].map(([label, value]) => (
-                      <div
-                        key={label}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
-                      >
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          {label}
-                        </p>
-                        <div className="mt-3 space-y-2 text-sm text-text-secondary">
-                          {splitIntoLines(value).map((line) => (
-                            <p key={line}>{line}</p>
-                          ))}
-                        </div>
+                    <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                      <SectionEyebrow>Delivery Approach</SectionEyebrow>
+                      <SectionTitle>
+                        How the quoted work is expected to run
+                      </SectionTitle>
+                      <div className="mt-5 grid gap-4 md:grid-cols-3">
+                        {[
+                          [
+                            "How we will work",
+                            "We will deliver the implementation in phased onboarding blocks, each with a clear output, review point, and commercial boundary."
+                          ],
+                          [
+                            "How scope is controlled",
+                            "The approved phases below become the working implementation scope. Any material changes after approval should move through change control."
+                          ],
+                          [
+                            "How the client participates",
+                            "The client team provides access, confirms process decisions, reviews milestones, and signs off the agreed outputs."
+                          ]
+                        ].map(([label, value]) => (
+                          <div
+                            key={label}
+                            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                          >
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              {label}
+                            </p>
+                            <p className="mt-3 text-sm leading-7 text-text-secondary">
+                              {value}
+                            </p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <SectionEyebrow>Delivery Approach</SectionEyebrow>
-                  <SectionTitle>How the quoted work is expected to run</SectionTitle>
-                  <div className="mt-5 grid gap-4 md:grid-cols-3">
-                    {[
-                      [
-                        "How we will work",
-                        "We will deliver the implementation in phased onboarding blocks, each with a clear output, review point, and commercial boundary."
-                      ],
-                      [
-                        "How scope is controlled",
-                        "The approved phases below become the working implementation scope. Any material changes after approval should move through change control."
-                      ],
-                      [
-                        "How the client participates",
-                        "The client team provides access, confirms process decisions, reviews milestones, and signs off the agreed outputs."
-                      ]
-                    ].map(([label, value]) => (
-                      <div
-                        key={label}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
-                      >
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          {label}
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-text-secondary">
-                          {value}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                </>
+                    </div>
+                  </>
                 ) : (
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <SectionEyebrow>Commercial Framing</SectionEyebrow>
-                  <SectionTitle>How this standalone quote should be used</SectionTitle>
-                  <div className="mt-5 grid gap-4 md:grid-cols-3">
-                    {[
-                      [
-                        "What is being quoted",
-                        "The line items and optional products below describe the commercial offer for this standalone job."
-                      ],
-                      [
-                        "How scope is controlled",
-                        "The accepted products and any agreed notes become the commercial baseline. Changes should be added as new line items or a revised quote."
-                      ],
-                      [
-                        "What happens next",
-                        "If approved, this quote can move straight into delivery or be converted into a more detailed implementation plan."
-                      ]
-                    ].map(([label, value]) => (
-                      <div
-                        key={label}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
-                      >
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          {label}
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-text-secondary">
-                          {value}
-                        </p>
-                      </div>
-                    ))}
+                  <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <SectionEyebrow>Commercial Framing</SectionEyebrow>
+                    <SectionTitle>
+                      How this standalone quote should be used
+                    </SectionTitle>
+                    <div className="mt-5 grid gap-4 md:grid-cols-3">
+                      {[
+                        [
+                          "What is being quoted",
+                          "The line items and optional products below describe the commercial offer for this standalone job."
+                        ],
+                        [
+                          "How scope is controlled",
+                          "The accepted products and any agreed notes become the commercial baseline. Changes should be added as new line items or a revised quote."
+                        ],
+                        [
+                          "What happens next",
+                          "If approved, this quote can move straight into delivery or be converted into a more detailed implementation plan."
+                        ]
+                      ].map(([label, value]) => (
+                        <div
+                          key={label}
+                          className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                        >
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            {label}
+                          </p>
+                          <p className="mt-3 text-sm leading-7 text-text-secondary">
+                            {value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
                 )}
               </div>
 
@@ -1378,7 +1437,9 @@ export default function QuoteDocument({
                 {isStandaloneQuote ? (
                   <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                     <SectionEyebrow>Delivery Watch-Outs</SectionEyebrow>
-                    <SectionTitle>Tools, risks, and open questions</SectionTitle>
+                    <SectionTitle>
+                      Tools, risks, and open questions
+                    </SectionTitle>
                     <div className="mt-4 space-y-4">
                       <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
@@ -1387,11 +1448,12 @@ export default function QuoteDocument({
                         <ul className="mt-3 space-y-2 text-sm text-text-secondary">
                           {(displaySupportingTools.length
                             ? displaySupportingTools
-                            : ["No supporting tools recommended yet. Refresh the scoped summary after adding more source material."]).map(
-                            (item) => (
-                              <li key={item}>{item}</li>
-                            )
-                          )}
+                            : [
+                                "No supporting tools recommended yet. Refresh the scoped summary after adding more source material."
+                              ]
+                          ).map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
                         </ul>
                       </div>
                       <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
@@ -1401,11 +1463,12 @@ export default function QuoteDocument({
                         <ul className="mt-3 space-y-2 text-sm text-text-secondary">
                           {(displayKeyRisks.length
                             ? displayKeyRisks
-                            : ["No key risks surfaced yet. Refresh the scoped summary after adding more context."]).map(
-                            (item) => (
-                              <li key={item}>{item}</li>
-                            )
-                          )}
+                            : [
+                                "No key risks surfaced yet. Refresh the scoped summary after adding more context."
+                              ]
+                          ).map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
                         </ul>
                       </div>
                       <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
@@ -1415,25 +1478,29 @@ export default function QuoteDocument({
                         <ul className="mt-3 space-y-2 text-sm text-text-secondary">
                           {(displayNextQuestions.length
                             ? displayNextQuestions
-                            : ["No next questions generated yet. Refresh the scoped summary after adding more source material."]).map(
-                            (item) => (
-                              <li key={item}>{item}</li>
-                            )
-                          )}
+                            : [
+                                "No next questions generated yet. Refresh the scoped summary after adding more source material."
+                              ]
+                          ).map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
                         </ul>
                       </div>
                     </div>
                   </div>
                 ) : null}
 
-                {isStandaloneQuote && recommendDocumentationPack && documentationProduct ? (
+                {isStandaloneQuote &&
+                recommendDocumentationPack &&
+                documentationProduct ? (
                   <div className="document-card rounded-2xl border border-[rgba(73,205,225,0.16)] bg-[rgba(73,205,225,0.08)] p-6">
                     <SectionEyebrow>Recommended Add-On</SectionEyebrow>
                     <SectionTitle>Documentation & SOP Pack</SectionTitle>
                     <p className="mt-4 text-sm leading-7 text-text-secondary">
-                      This scoped job would benefit from a formal SOP and documentation
-                      layer so the agreed data model, process flow, handover notes, and
-                      operating guidance do not stay trapped in delivery conversations.
+                      This scoped job would benefit from a formal SOP and
+                      documentation layer so the agreed data model, process
+                      flow, handover notes, and operating guidance do not stay
+                      trapped in delivery conversations.
                     </p>
                     <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
                       <p className="text-sm font-medium text-white">
@@ -1446,7 +1513,10 @@ export default function QuoteDocument({
                       ) : null}
                       <p className="mt-3 text-sm text-white">
                         Recommended commercial add-on:{" "}
-                        {formatCurrency(documentationProduct.unitPrice, currency)}
+                        {formatCurrency(
+                          documentationProduct.unitPrice,
+                          currency
+                        )}
                       </p>
                     </div>
                   </div>
@@ -1455,7 +1525,9 @@ export default function QuoteDocument({
                 {project.packagingAssessment ? (
                   <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                     <SectionEyebrow>Platform Packaging</SectionEyebrow>
-                    <SectionTitle>HubSpot package fit for this scope</SectionTitle>
+                    <SectionTitle>
+                      HubSpot package fit for this scope
+                    </SectionTitle>
                     <div className="mt-4 space-y-4">
                       <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
@@ -1487,9 +1559,11 @@ export default function QuoteDocument({
                             Why this recommendation was made
                           </p>
                           <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-                            {project.packagingAssessment.reasoning.map((item) => (
-                              <li key={item}>{item}</li>
-                            ))}
+                            {project.packagingAssessment.reasoning.map(
+                              (item) => (
+                                <li key={item}>{item}</li>
+                              )
+                            )}
                           </ul>
                         </div>
                       ) : null}
@@ -1499,9 +1573,11 @@ export default function QuoteDocument({
                             Packaging watch-outs
                           </p>
                           <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-                            {project.packagingAssessment.warnings.map((warning) => (
-                              <li key={warning}>{warning}</li>
-                            ))}
+                            {project.packagingAssessment.warnings.map(
+                              (warning) => (
+                                <li key={warning}>{warning}</li>
+                              )
+                            )}
                           </ul>
                         </div>
                       ) : null}
@@ -1528,286 +1604,311 @@ export default function QuoteDocument({
                 ) : null}
 
                 {!isStandaloneQuote ? (
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <SectionEyebrow>Risks & Dependencies</SectionEyebrow>
-                  <SectionTitle>What could affect commercials or timing</SectionTitle>
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <p className="text-sm font-medium text-white">Key risks</p>
-                      <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                        {displayKeyRisks.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">
-                        Client responsibilities
-                      </p>
-                      <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                        {displayClientResponsibilities.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    {displayNextQuestions.length > 0 ? (
+                  <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <SectionEyebrow>Risks & Dependencies</SectionEyebrow>
+                    <SectionTitle>
+                      What could affect commercials or timing
+                    </SectionTitle>
+                    <div className="mt-4 space-y-4">
                       <div>
                         <p className="text-sm font-medium text-white">
-                          Open questions to resolve during approval
+                          Key risks
                         </p>
                         <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                          {displayNextQuestions.map((item) => (
+                          {displayKeyRisks.map((item) => (
                             <li key={item}>{item}</li>
                           ))}
                         </ul>
                       </div>
-                    ) : null}
+                      <div>
+                        <p className="text-sm font-medium text-white">
+                          Client responsibilities
+                        </p>
+                        <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                          {displayClientResponsibilities.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      {displayNextQuestions.length > 0 ? (
+                        <div>
+                          <p className="text-sm font-medium text-white">
+                            Open questions to resolve during approval
+                          </p>
+                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            {displayNextQuestions.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
                 ) : null}
               </div>
             </section>
 
             {displayPhaseCommercials.length > 0 ? (
-            <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <SectionEyebrow>Phased Implementation Scope</SectionEyebrow>
-                  <SectionTitle>
-                    Proposed onboarding phases and commercial split
-                  </SectionTitle>
+              <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div>
+                    <SectionEyebrow>Phased Implementation Scope</SectionEyebrow>
+                    <SectionTitle>
+                      Proposed onboarding phases and commercial split
+                    </SectionTitle>
+                  </div>
+                  {displayBlueprintGeneratedAt ? (
+                    <p className="text-sm text-text-secondary">
+                      Generated {formatDate(displayBlueprintGeneratedAt)}
+                    </p>
+                  ) : null}
                 </div>
-                {displayBlueprintGeneratedAt ? (
-                  <p className="text-sm text-text-secondary">
-                    Generated {formatDate(displayBlueprintGeneratedAt)}
-                  </p>
-                ) : null}
-              </div>
 
-              <div className="mt-6 space-y-5">
-                {displayPhaseCommercials.map((phase) => (
-                  <div
-                    key={phase.phase}
-                    className={`rounded-2xl border p-5 ${
-                      phase.included
-                        ? "border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
-                        : "border-[rgba(255,255,255,0.05)] bg-[rgba(11,17,38,0.55)] opacity-60"
-                    }`}
-                  >
-                    <div className="grid gap-4 lg:grid-cols-[1fr_140px_160px_180px]">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Phase {phase.phase}
-                          </p>
-                          <span
-                            className={`rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${
-                              phase.included
-                                ? "border border-[rgba(73,205,225,0.22)] bg-[rgba(73,205,225,0.12)] text-[#7be2ef]"
-                                : "border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] text-text-muted"
-                            }`}
-                          >
-                            {phase.included ? "Included in quote" : "Not included"}
-                          </span>
+                <div className="mt-6 space-y-5">
+                  {displayPhaseCommercials.map((phase) => (
+                    <div
+                      key={phase.phase}
+                      className={`rounded-2xl border p-5 ${
+                        phase.included
+                          ? "border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
+                          : "border-[rgba(255,255,255,0.05)] bg-[rgba(11,17,38,0.55)] opacity-60"
+                      }`}
+                    >
+                      <div className="grid gap-4 lg:grid-cols-[1fr_140px_160px_180px]">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Phase {phase.phase}
+                            </p>
+                            <span
+                              className={`rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${
+                                phase.included
+                                  ? "border border-[rgba(73,205,225,0.22)] bg-[rgba(73,205,225,0.12)] text-[#7be2ef]"
+                                  : "border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] text-text-muted"
+                              }`}
+                            >
+                              {phase.included
+                                ? "Included in quote"
+                                : "Not included"}
+                            </span>
+                          </div>
+                          <h3 className="mt-2 text-lg font-semibold text-white">
+                            {phase.phaseName}
+                          </h3>
+                          <ul className="mt-4 space-y-2 text-sm text-text-secondary">
+                            {phase.tasks
+                              .filter((task) => task.type !== "Client")
+                              .map((task) => (
+                                <li key={task.id}>{task.name}</li>
+                              ))}
+                          </ul>
                         </div>
-                        <h3 className="mt-2 text-lg font-semibold text-white">
-                          {phase.phaseName}
-                        </h3>
-                        <ul className="mt-4 space-y-2 text-sm text-text-secondary">
-                          {phase.tasks
-                            .filter((task) => task.type !== "Client")
-                            .map((task) => (
-                              <li key={task.id}>{task.name}</li>
-                            ))}
-                        </ul>
-                      </div>
 
-                      <label className="block">
-                        <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Human Hours
-                        </span>
-                        <input
-                          value={phaseDrafts[phase.phase]?.humanHours ?? String(phase.humanHours)}
-                          disabled={isClientMode}
-                          onChange={(event) =>
-                            setPhaseDrafts((currentDrafts) => ({
-                              ...currentDrafts,
-                              [phase.phase]: {
-                                included:
-                                  currentDrafts[phase.phase]?.included ?? true,
-                                humanHours: event.target.value,
-                                rate:
-                                  currentDrafts[phase.phase]?.rate ?? defaultRate
-                              }
-                            }))
-                          }
-                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none focus:border-accent-solid"
-                        />
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Hourly Rate
-                        </span>
-                        <div className="flex items-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2">
-                          <span className="mr-2 text-xs text-text-secondary">
-                            {currencySymbols[currency]}
+                        <label className="block">
+                          <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Human Hours
                           </span>
                           <input
-                            value={phaseDrafts[phase.phase]?.rate ?? defaultRate}
+                            value={
+                              phaseDrafts[phase.phase]?.humanHours ??
+                              String(phase.humanHours)
+                            }
                             disabled={isClientMode}
                             onChange={(event) =>
-                            setPhaseDrafts((currentDrafts) => ({
-                              ...currentDrafts,
-                              [phase.phase]: {
-                                included:
-                                  currentDrafts[phase.phase]?.included ?? true,
-                                humanHours:
-                                  currentDrafts[phase.phase]?.humanHours ??
-                                  String(phase.humanHours),
-                                  rate: event.target.value
+                              setPhaseDrafts((currentDrafts) => ({
+                                ...currentDrafts,
+                                [phase.phase]: {
+                                  included:
+                                    currentDrafts[phase.phase]?.included ??
+                                    true,
+                                  humanHours: event.target.value,
+                                  rate:
+                                    currentDrafts[phase.phase]?.rate ??
+                                    defaultRate
                                 }
                               }))
                             }
-                            className="w-full bg-transparent text-sm text-white outline-none"
+                            className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none focus:border-accent-solid"
                           />
-                        </div>
-                      </label>
+                        </label>
 
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Phase Fee
-                        </p>
-                        <p className="mt-2 text-xl font-semibold text-white">
-                          {formatCurrency(phase.feeZar, currency)}
-                        </p>
-                        <p className="mt-2 text-xs text-text-secondary">
-                          Client dependencies:{" "}
-                          {phase.tasks.filter((task) => task.type === "Client").length}
-                        </p>
+                        <label className="block">
+                          <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Hourly Rate
+                          </span>
+                          <div className="flex items-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2">
+                            <span className="mr-2 text-xs text-text-secondary">
+                              {currencySymbols[currency]}
+                            </span>
+                            <input
+                              value={
+                                phaseDrafts[phase.phase]?.rate ?? defaultRate
+                              }
+                              disabled={isClientMode}
+                              onChange={(event) =>
+                                setPhaseDrafts((currentDrafts) => ({
+                                  ...currentDrafts,
+                                  [phase.phase]: {
+                                    included:
+                                      currentDrafts[phase.phase]?.included ??
+                                      true,
+                                    humanHours:
+                                      currentDrafts[phase.phase]?.humanHours ??
+                                      String(phase.humanHours),
+                                    rate: event.target.value
+                                  }
+                                }))
+                              }
+                              className="w-full bg-transparent text-sm text-white outline-none"
+                            />
+                          </div>
+                        </label>
+
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Phase Fee
+                          </p>
+                          <p className="mt-2 text-xl font-semibold text-white">
+                            {formatCurrency(phase.feeZar, currency)}
+                          </p>
+                          <p className="mt-2 text-xs text-text-secondary">
+                            Client dependencies:{" "}
+                            {
+                              phase.tasks.filter(
+                                (task) => task.type === "Client"
+                              ).length
+                            }
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+                  ))}
+                </div>
+              </section>
             ) : null}
 
             {!isClientMode ? (
-            <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-              <SectionEyebrow>Additional Products</SectionEyebrow>
-              <SectionTitle>Retainers and add-on services</SectionTitle>
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-text-secondary">
-                Optional products can be added to the commercial quote without
-                changing the discovery document, which keeps the implementation
-                recommendation separate from the buying decision.
-              </p>
+              <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <SectionEyebrow>Additional Products</SectionEyebrow>
+                <SectionTitle>Retainers and add-on services</SectionTitle>
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-text-secondary">
+                  Optional products can be added to the commercial quote without
+                  changing the discovery document, which keeps the
+                  implementation recommendation separate from the buying
+                  decision.
+                </p>
 
-              <div className="mt-6 space-y-4">
-                {products
-                  .filter((product) => product.isActive)
-                  .map((product) => {
-                    const selection = selectedProducts[product.id] ?? {
-                      included: false,
-                      quantity: String(product.defaultQuantity),
-                      unitPrice: String(product.unitPrice)
-                    };
+                <div className="mt-6 space-y-4">
+                  {products
+                    .filter((product) => product.isActive)
+                    .map((product) => {
+                      const selection = selectedProducts[product.id] ?? {
+                        included: false,
+                        quantity: String(product.defaultQuantity),
+                        unitPrice: String(product.unitPrice)
+                      };
 
-                    return (
-                      <div
-                        key={product.id}
-                        className="grid gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 lg:grid-cols-[1fr_140px_140px_180px]"
-                      >
-                        <div>
-                          <div className="flex flex-wrap items-center gap-3">
-                            <p className="text-lg font-semibold text-white">
-                              {product.name}
-                            </p>
-                            <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
-                              {formatProductCategory(product.category)}
-                            </span>
-                            <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
-                              {formatBillingModel(product.billingModel)}
-                            </span>
+                      return (
+                        <div
+                          key={product.id}
+                          className="grid gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 lg:grid-cols-[1fr_140px_140px_180px]"
+                        >
+                          <div>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <p className="text-lg font-semibold text-white">
+                                {product.name}
+                              </p>
+                              <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                                {formatProductCategory(product.category)}
+                              </span>
+                              <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                                {formatBillingModel(product.billingModel)}
+                              </span>
+                            </div>
+                            {product.description ? (
+                              <p className="mt-3 text-sm leading-7 text-text-secondary">
+                                {product.description}
+                              </p>
+                            ) : null}
                           </div>
-                          {product.description ? (
-                            <p className="mt-3 text-sm leading-7 text-text-secondary">
-                              {product.description}
-                            </p>
-                          ) : null}
-                        </div>
 
-                        <label className="block">
-                          <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Quantity
-                          </span>
-                          <input
-                            value={selection.quantity}
-                            disabled={isClientMode}
-                            onChange={(event) =>
-                              setSelectedProducts((currentProducts) => ({
-                                ...currentProducts,
-                                [product.id]: {
-                                  ...selection,
-                                  quantity: event.target.value
-                                }
-                              }))
-                            }
-                            className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
-                          />
-                        </label>
-
-                        <label className="block">
-                          <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Unit Price
-                          </span>
-                          <input
-                            value={selection.unitPrice}
-                            disabled={isClientMode}
-                            onChange={(event) =>
-                              setSelectedProducts((currentProducts) => ({
-                                ...currentProducts,
-                                [product.id]: {
-                                  ...selection,
-                                  unitPrice: event.target.value
-                                }
-                              }))
-                            }
-                            className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
-                          />
-                        </label>
-
-                        <div className="flex flex-col justify-between rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-                          <label className="flex items-center gap-3 text-sm text-white">
+                          <label className="block">
+                            <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Quantity
+                            </span>
                             <input
-                              type="checkbox"
-                              checked={selection.included}
+                              value={selection.quantity}
                               disabled={isClientMode}
                               onChange={(event) =>
                                 setSelectedProducts((currentProducts) => ({
                                   ...currentProducts,
                                   [product.id]: {
                                     ...selection,
-                                    included: event.target.checked
+                                    quantity: event.target.value
                                   }
                                 }))
                               }
+                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
                             />
-                            Include in quote
                           </label>
-                          <p className="mt-4 text-sm text-text-secondary">
-                            {formatCurrency(
-                              parseNumber(selection.quantity, product.defaultQuantity) *
-                                parseNumber(selection.unitPrice, product.unitPrice),
-                              currency
-                            )}
-                          </p>
+
+                          <label className="block">
+                            <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Unit Price
+                            </span>
+                            <input
+                              value={selection.unitPrice}
+                              disabled={isClientMode}
+                              onChange={(event) =>
+                                setSelectedProducts((currentProducts) => ({
+                                  ...currentProducts,
+                                  [product.id]: {
+                                    ...selection,
+                                    unitPrice: event.target.value
+                                  }
+                                }))
+                              }
+                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                            />
+                          </label>
+
+                          <div className="flex flex-col justify-between rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+                            <label className="flex items-center gap-3 text-sm text-white">
+                              <input
+                                type="checkbox"
+                                checked={selection.included}
+                                disabled={isClientMode}
+                                onChange={(event) =>
+                                  setSelectedProducts((currentProducts) => ({
+                                    ...currentProducts,
+                                    [product.id]: {
+                                      ...selection,
+                                      included: event.target.checked
+                                    }
+                                  }))
+                                }
+                              />
+                              Include in quote
+                            </label>
+                            <p className="mt-4 text-sm text-text-secondary">
+                              {formatCurrency(
+                                parseNumber(
+                                  selection.quantity,
+                                  product.defaultQuantity
+                                ) *
+                                  parseNumber(
+                                    selection.unitPrice,
+                                    product.unitPrice
+                                  ),
+                                currency
+                              )}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </section>
+                      );
+                    })}
+                </div>
+              </section>
             ) : null}
 
             <section className="grid gap-6 xl:grid-cols-[0.72fr_0.28fr]">
@@ -1821,25 +1922,25 @@ export default function QuoteDocument({
                     <span>Rate</span>
                     <span className="text-right">Fee</span>
                   </div>
-                  {displayPhaseCommercials.map((phase) => (
+                  {displayPhaseCommercials.map((phase) =>
                     phase.included ? (
-                    <div
-                      key={phase.phase}
-                      className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-5 py-4 text-sm text-white last:border-b-0"
-                    >
-                      <span>
-                        Phase {phase.phase} - {phase.phaseName}
-                      </span>
-                      <span>{phase.humanHours} hrs</span>
-                      <span>
-                        {currencySymbols[currency]} {phase.rate}
-                      </span>
-                      <span className="text-right">
-                        {formatCurrency(phase.feeZar, currency)}
-                      </span>
-                    </div>
+                      <div
+                        key={phase.phase}
+                        className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-5 py-4 text-sm text-white last:border-b-0"
+                      >
+                        <span>
+                          Phase {phase.phase} - {phase.phaseName}
+                        </span>
+                        <span>{phase.humanHours} hrs</span>
+                        <span>
+                          {currencySymbols[currency]} {phase.rate}
+                        </span>
+                        <span className="text-right">
+                          {formatCurrency(phase.feeZar, currency)}
+                        </span>
+                      </div>
                     ) : null
-                  ))}
+                  )}
                   {displaySelectedProductLines.map((product) => (
                     <div
                       key={product.id}
@@ -1920,7 +2021,10 @@ export default function QuoteDocument({
                       <span>Payment {index + 1}</span>
                       <span>{due}</span>
                       <span className="text-right">
-                        {formatCurrency(displayTotals.paymentAmountZar, currency)}
+                        {formatCurrency(
+                          displayTotals.paymentAmountZar,
+                          currency
+                        )}
                       </span>
                     </div>
                   ))}

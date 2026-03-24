@@ -47,7 +47,11 @@ export default function AiRoutingSettings() {
         setProviders(providersBody.providers ?? []);
         setRoutes(routesBody.routes ?? []);
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load AI routing");
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load AI routing"
+        );
       } finally {
         setLoading(false);
       }
@@ -57,7 +61,8 @@ export default function AiRoutingSettings() {
   }, []);
 
   const enabledProviders = useMemo(
-    () => providers.filter((provider) => provider.isEnabled && provider.hasApiKey),
+    () =>
+      providers.filter((provider) => provider.isEnabled && provider.hasApiKey),
     [providers]
   );
 
@@ -77,31 +82,44 @@ export default function AiRoutingSettings() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/ai-routing/${encodeURIComponent(routeKey)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          providerKey: route.providerKey,
-          modelOverride: route.modelOverride ?? "",
-          notes: route.notes ?? ""
-        })
-      });
+      const response = await fetch(
+        `/api/ai-routing/${encodeURIComponent(routeKey)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            providerKey: route.providerKey,
+            modelOverride: route.modelOverride ?? "",
+            notes: route.notes ?? ""
+          })
+        }
+      );
       const body = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(body?.error ?? "Failed to save AI route");
       }
       setRoutes((current) =>
-        current.map((item) => (item.workflowKey === routeKey ? body.route : item))
+        current.map((item) =>
+          item.workflowKey === routeKey ? body.route : item
+        )
       );
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save AI route");
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save AI route"
+      );
     } finally {
       setSaving(null);
     }
   }
 
   if (loading) {
-    return <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">Loading AI routing...</div>;
+    return (
+      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+        Loading AI routing...
+      </div>
+    );
   }
 
   return (
@@ -114,22 +132,38 @@ export default function AiRoutingSettings() {
 
       <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
         <p className="text-sm text-text-secondary">
-          Each workflow can run on a different provider/model. This gives you room to test Claude, GPT, Gemini, and Perplexity against the kinds of jobs they handle best.
+          Each workflow can run on a different provider/model. This gives you
+          room to test Claude, GPT, Gemini, and Perplexity against the kinds of
+          jobs they handle best.
         </p>
       </div>
 
       {routes.map((route) => {
-        const provider = providers.find((item) => item.providerKey === route.providerKey) ?? null;
+        const provider =
+          providers.find((item) => item.providerKey === route.providerKey) ??
+          null;
         return (
-          <section key={route.id} className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+          <section
+            key={route.id}
+            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+          >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">Workflow</p>
-                <h2 className="mt-2 text-xl font-semibold text-white">{route.label}</h2>
-                <p className="mt-2 text-sm text-text-secondary">Route this workflow to the model/provider that performs best for it.</p>
+                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  Workflow
+                </p>
+                <h2 className="mt-2 text-xl font-semibold text-white">
+                  {route.label}
+                </h2>
+                <p className="mt-2 text-sm text-text-secondary">
+                  Route this workflow to the model/provider that performs best
+                  for it.
+                </p>
               </div>
               <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary">
-                {provider ? `${provider.label}${provider.defaultModel ? ` • ${provider.defaultModel}` : ""}` : "Unassigned"}
+                {provider
+                  ? `${provider.label}${provider.defaultModel ? ` • ${provider.defaultModel}` : ""}`
+                  : "Unassigned"}
               </div>
             </div>
 
@@ -138,7 +172,13 @@ export default function AiRoutingSettings() {
                 <span className="text-sm font-medium text-white">Provider</span>
                 <select
                   value={route.providerKey}
-                  onChange={(event) => updateRoute(route.workflowKey, "providerKey", event.target.value)}
+                  onChange={(event) =>
+                    updateRoute(
+                      route.workflowKey,
+                      "providerKey",
+                      event.target.value
+                    )
+                  }
                   className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                 >
                   {enabledProviders.map((item) => (
@@ -150,11 +190,21 @@ export default function AiRoutingSettings() {
               </label>
 
               <label className="block">
-                <span className="text-sm font-medium text-white">Model override</span>
+                <span className="text-sm font-medium text-white">
+                  Model override
+                </span>
                 <input
                   value={route.modelOverride ?? ""}
-                  onChange={(event) => updateRoute(route.workflowKey, "modelOverride", event.target.value)}
-                  placeholder={provider?.defaultModel ?? "Use provider default model"}
+                  onChange={(event) =>
+                    updateRoute(
+                      route.workflowKey,
+                      "modelOverride",
+                      event.target.value
+                    )
+                  }
+                  placeholder={
+                    provider?.defaultModel ?? "Use provider default model"
+                  }
                   className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                 />
               </label>
@@ -163,7 +213,9 @@ export default function AiRoutingSettings() {
                 <span className="text-sm font-medium text-white">Notes</span>
                 <textarea
                   value={route.notes ?? ""}
-                  onChange={(event) => updateRoute(route.workflowKey, "notes", event.target.value)}
+                  onChange={(event) =>
+                    updateRoute(route.workflowKey, "notes", event.target.value)
+                  }
                   className="mt-3 min-h-[96px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                   placeholder="Why this workflow uses this provider/model, testing notes, or known strengths."
                 />

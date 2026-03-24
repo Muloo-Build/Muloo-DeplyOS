@@ -249,7 +249,9 @@ export default function NewProjectPage() {
   const [solutionOptions, setSolutionOptions] = useState<SolutionOption[]>([]);
   const [solutionBusy, setSolutionBusy] = useState(false);
   const [solutionError, setSolutionError] = useState<string | null>(null);
-  const [selectedSolutionTitle, setSelectedSolutionTitle] = useState<string | null>(null);
+  const [selectedSolutionTitle, setSelectedSolutionTitle] = useState<
+    string | null
+  >(null);
   const [formData, setFormData] = useState<FormData>({
     projectName: "",
     clientName: "",
@@ -335,7 +337,9 @@ export default function NewProjectPage() {
     }
 
     const fullName = (contactName ?? "").trim();
-    const [firstName = "", ...lastNameParts] = fullName.split(/\s+/).filter(Boolean);
+    const [firstName = "", ...lastNameParts] = fullName
+      .split(/\s+/)
+      .filter(Boolean);
     const inferredScopeType =
       requestType === "project_brief" ? "discovery" : "standalone_quote";
 
@@ -349,12 +353,14 @@ export default function NewProjectPage() {
       clientChampionEmail: contactEmail ?? current.clientChampionEmail,
       website: portalOrWebsite ?? current.website,
       commercialBrief:
-        [summary, details].filter(Boolean).join("\n\n") || current.commercialBrief,
+        [summary, details].filter(Boolean).join("\n\n") ||
+        current.commercialBrief,
       problemStatement: summary ?? current.problemStatement,
-      serviceFamily:
-        serviceFamilies.some((family) => family.id === serviceFamily)
-          ? (serviceFamily as string)
-          : current.serviceFamily,
+      serviceFamily: serviceFamilies.some(
+        (family) => family.id === serviceFamily
+      )
+        ? (serviceFamily as string)
+        : current.serviceFamily,
       scopeType: inferredScopeType
     }));
   }, []);
@@ -386,7 +392,12 @@ export default function NewProjectPage() {
         deliveryTemplateId: matchingTemplates[0]?.id ?? ""
       }));
     }
-  }, [deliveryTemplates, formData.scopeType, formData.serviceFamily, formData.deliveryTemplateId]);
+  }, [
+    deliveryTemplates,
+    formData.scopeType,
+    formData.serviceFamily,
+    formData.deliveryTemplateId
+  ]);
 
   useEffect(() => {
     async function loadDeliveryTemplates() {
@@ -445,7 +456,9 @@ export default function NewProjectPage() {
 
   async function handleSuggestSolutions() {
     if (formData.problemStatement.trim().length < 20) {
-      setSolutionError('Add a more detailed pain point first so Deploy can suggest useful paths.');
+      setSolutionError(
+        "Add a more detailed pain point first so Deploy can suggest useful paths."
+      );
       return;
     }
 
@@ -454,9 +467,9 @@ export default function NewProjectPage() {
     setSelectedSolutionTitle(null);
 
     try {
-      const response = await fetch('/api/solution-options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/solution-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientName: formData.clientName.trim(),
           website: formData.website.trim(),
@@ -468,7 +481,7 @@ export default function NewProjectPage() {
       const body = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(body?.error ?? 'Failed to generate solution options');
+        throw new Error(body?.error ?? "Failed to generate solution options");
       }
 
       setSolutionOptions(body.options ?? []);
@@ -476,7 +489,7 @@ export default function NewProjectPage() {
       setSolutionError(
         suggestionError instanceof Error
           ? suggestionError.message
-          : 'Failed to generate solution options'
+          : "Failed to generate solution options"
       );
     } finally {
       setSolutionBusy(false);
@@ -734,7 +747,7 @@ export default function NewProjectPage() {
                   </p>
                 </label>
 
-              {formData.scopeType === "standalone_quote" ? (
+                {formData.scopeType === "standalone_quote" ? (
                   <>
                     <label className="block md:col-span-2">
                       <span className="mb-2 block text-sm text-text-secondary">
@@ -902,7 +915,9 @@ export default function NewProjectPage() {
                   </span>
                   <input
                     value={formData.xUrl}
-                    onChange={(event) => updateField("xUrl", event.target.value)}
+                    onChange={(event) =>
+                      updateField("xUrl", event.target.value)
+                    }
                     className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
                   />
                 </label>
@@ -970,13 +985,20 @@ export default function NewProjectPage() {
               </h2>
 
               <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5">
-                <p className="text-sm font-semibold text-white">Problem / pain point</p>
+                <p className="text-sm font-semibold text-white">
+                  Problem / pain point
+                </p>
                 <p className="mt-2 text-sm text-text-secondary">
-                  Capture the challenge in plain language first. Deploy can suggest three possible approaches, then push the selected path into the job spec, executive summary, hubs, and platform packaging.
+                  Capture the challenge in plain language first. Deploy can
+                  suggest three possible approaches, then push the selected path
+                  into the job spec, executive summary, hubs, and platform
+                  packaging.
                 </p>
                 <textarea
                   value={formData.problemStatement}
-                  onChange={(event) => updateField('problemStatement', event.target.value)}
+                  onChange={(event) =>
+                    updateField("problemStatement", event.target.value)
+                  }
                   placeholder="Example: We need a better way to consolidate event audience data across multiple brands into HubSpot without over-engineering the first phase."
                   className="mt-4 min-h-[160px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-white outline-none focus:border-accent-solid"
                 />
@@ -987,10 +1009,12 @@ export default function NewProjectPage() {
                     disabled={solutionBusy}
                     className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
                   >
-                    {solutionBusy ? 'Suggesting...' : 'Suggest 3 ways forward'}
+                    {solutionBusy ? "Suggesting..." : "Suggest 3 ways forward"}
                   </button>
                   {selectedSolutionTitle ? (
-                    <p className="text-sm text-[#49cde1]">Selected approach: {selectedSolutionTitle}</p>
+                    <p className="text-sm text-[#49cde1]">
+                      Selected approach: {selectedSolutionTitle}
+                    </p>
                   ) : null}
                 </div>
                 {solutionError ? (
@@ -1000,7 +1024,9 @@ export default function NewProjectPage() {
 
               {solutionOptions.length > 0 ? (
                 <div>
-                  <p className="mb-3 text-sm text-text-secondary">Suggested approaches</p>
+                  <p className="mb-3 text-sm text-text-secondary">
+                    Suggested approaches
+                  </p>
                   <div className="grid gap-4 xl:grid-cols-3">
                     {solutionOptions.map((option) => (
                       <button
@@ -1009,16 +1035,32 @@ export default function NewProjectPage() {
                         onClick={() => applySolutionOption(option)}
                         className={`rounded-2xl border p-5 text-left transition-colors ${
                           selectedSolutionTitle === option.title
-                            ? 'border-accent-solid bg-background-elevated'
-                            : 'border-[rgba(255,255,255,0.08)] bg-[#0b1126]'
+                            ? "border-accent-solid bg-background-elevated"
+                            : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
                         }`}
                       >
-                        <p className="text-base font-semibold text-white">{option.title}</p>
-                        <p className="mt-2 text-sm text-text-secondary">{option.summary}</p>
+                        <p className="text-base font-semibold text-white">
+                          {option.title}
+                        </p>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          {option.summary}
+                        </p>
                         <div className="mt-4 space-y-2 text-xs text-text-muted">
-                          <p><span className="text-white">Why:</span> {option.rationale}</p>
-                          <p><span className="text-white">Engagement:</span> {formatEngagementType(option.recommendedEngagementType)}</p>
-                          <p><span className="text-white">Platform tier:</span> {option.recommendedCustomerPlatformTier || 'Not set'}</p>
+                          <p>
+                            <span className="text-white">Why:</span>{" "}
+                            {option.rationale}
+                          </p>
+                          <p>
+                            <span className="text-white">Engagement:</span>{" "}
+                            {formatEngagementType(
+                              option.recommendedEngagementType
+                            )}
+                          </p>
+                          <p>
+                            <span className="text-white">Platform tier:</span>{" "}
+                            {option.recommendedCustomerPlatformTier ||
+                              "Not set"}
+                          </p>
                         </div>
                       </button>
                     ))}
@@ -1071,7 +1113,9 @@ export default function NewProjectPage() {
                               : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
                           }`}
                         >
-                          <p className="font-semibold text-white">{option.label}</p>
+                          <p className="font-semibold text-white">
+                            {option.label}
+                          </p>
                           <p className="mt-1 text-sm text-text-secondary">
                             {option.description}
                           </p>
@@ -1092,33 +1136,49 @@ export default function NewProjectPage() {
                       className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
                     >
                       {customerPlatformTierOptions.map((option) => (
-                        <option key={option.value || "blank"} value={option.value}>
+                        <option
+                          key={option.value || "blank"}
+                          value={option.value}
+                        >
                           {option.label}
                         </option>
                       ))}
                     </select>
                     <p className="mt-2 text-xs text-text-muted">
-                      Use this when the job depends on specific Starter / Professional / Enterprise tooling within the customer platform.
+                      Use this when the job depends on specific Starter /
+                      Professional / Enterprise tooling within the customer
+                      platform.
                     </p>
                   </label>
                 </div>
 
                 <div>
-                  <p className="mb-2 text-sm text-text-secondary">Customer platform includes</p>
+                  <p className="mb-2 text-sm text-text-secondary">
+                    Customer platform includes
+                  </p>
                   <div className="grid gap-3 md:grid-cols-2">
                     {platformProductOptions.map((product) => (
                       <label
                         key={product.key}
                         className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4"
                       >
-                        <span className="block text-sm font-semibold text-white">{product.label}</span>
+                        <span className="block text-sm font-semibold text-white">
+                          {product.label}
+                        </span>
                         <select
-                          value={formData.platformTierSelections[product.key] ?? ''}
-                          onChange={(event) => updatePlatformTier(product.key, event.target.value)}
+                          value={
+                            formData.platformTierSelections[product.key] ?? ""
+                          }
+                          onChange={(event) =>
+                            updatePlatformTier(product.key, event.target.value)
+                          }
                           className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none focus:border-accent-solid"
                         >
                           {hubTierOptions.map((option) => (
-                            <option key={`${product.key}-${option.value || 'blank'}`} value={option.value}>
+                            <option
+                              key={`${product.key}-${option.value || "blank"}`}
+                              value={option.value}
+                            >
                               {option.label}
                             </option>
                           ))}
@@ -1130,7 +1190,9 @@ export default function NewProjectPage() {
               </div>
 
               <div>
-                <p className="mb-3 text-sm text-text-secondary">Hubs in scope</p>
+                <p className="mb-3 text-sm text-text-secondary">
+                  Hubs in scope
+                </p>
                 <p className="mb-3 text-sm text-text-muted">
                   {formData.scopeType === "standalone_quote"
                     ? "Optional for standalone quotes. Use hubs only if they help frame the quoted work and delivery model."
@@ -1149,7 +1211,9 @@ export default function NewProjectPage() {
                       }`}
                     >
                       <p className="font-semibold text-white">{hub.label}</p>
-                      <p className="mt-1 text-sm text-text-secondary">{hub.id}</p>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        {hub.id}
+                      </p>
                     </button>
                   ))}
                 </div>
@@ -1161,7 +1225,9 @@ export default function NewProjectPage() {
                 </span>
                 <textarea
                   value={formData.solutionRecommendation}
-                  onChange={(event) => updateField('solutionRecommendation', event.target.value)}
+                  onChange={(event) =>
+                    updateField("solutionRecommendation", event.target.value)
+                  }
                   placeholder="Capture the recommended approach, architecture, or rollout path chosen for this job."
                   className="min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
                 />
@@ -1173,7 +1239,9 @@ export default function NewProjectPage() {
                 </span>
                 <textarea
                   value={formData.scopeExecutiveSummary}
-                  onChange={(event) => updateField('scopeExecutiveSummary', event.target.value)}
+                  onChange={(event) =>
+                    updateField("scopeExecutiveSummary", event.target.value)
+                  }
                   placeholder="Short executive summary used on the project and in the quote context instead of dumping the raw spec."
                   className="min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
                 />
@@ -1189,7 +1257,9 @@ export default function NewProjectPage() {
                         updateField("useTemplate", event.target.checked)
                       }
                     />
-                    <span className="text-white">Start from a Muloo template</span>
+                    <span className="text-white">
+                      Start from a Muloo template
+                    </span>
                   </label>
 
                   {formData.useTemplate ? (
@@ -1199,7 +1269,9 @@ export default function NewProjectPage() {
                       </span>
                       <select
                         value={formData.templateId}
-                        onChange={(event) => updateField("templateId", event.target.value)}
+                        onChange={(event) =>
+                          updateField("templateId", event.target.value)
+                        }
                         className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
                       >
                         <option value="">Select template</option>
@@ -1324,19 +1396,29 @@ export default function NewProjectPage() {
                     Platform products in use
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {platformProductOptions.filter((product) => formData.platformTierSelections[product.key]).length > 0 ? (
+                    {platformProductOptions.filter(
+                      (product) => formData.platformTierSelections[product.key]
+                    ).length > 0 ? (
                       platformProductOptions
-                        .filter((product) => formData.platformTierSelections[product.key])
+                        .filter(
+                          (product) =>
+                            formData.platformTierSelections[product.key]
+                        )
                         .map((product) => (
                           <span
                             key={product.key}
                             className="rounded bg-[rgba(73,205,225,0.12)] px-2 py-1 text-xs font-medium text-[#49cde1]"
                           >
-                            {product.label}: {formatTierLabel(formData.platformTierSelections[product.key])}
+                            {product.label}:{" "}
+                            {formatTierLabel(
+                              formData.platformTierSelections[product.key]
+                            )}
                           </span>
                         ))
                     ) : (
-                      <span className="text-text-secondary">No platform products selected</span>
+                      <span className="text-text-secondary">
+                        No platform products selected
+                      </span>
                     )}
                   </div>
                 </div>
@@ -1347,14 +1429,20 @@ export default function NewProjectPage() {
                   Hubs in scope
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {formData.hubsInScope.length > 0 ? formData.hubsInScope.map((hub) => (
-                    <span
-                      key={hub}
-                      className="rounded bg-[rgba(224,82,156,0.15)] px-2 py-1 text-xs font-medium text-accent-solid"
-                    >
-                      {hub}
+                  {formData.hubsInScope.length > 0 ? (
+                    formData.hubsInScope.map((hub) => (
+                      <span
+                        key={hub}
+                        className="rounded bg-[rgba(224,82,156,0.15)] px-2 py-1 text-xs font-medium text-accent-solid"
+                      >
+                        {hub}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-text-secondary">
+                      No hubs selected
                     </span>
-                  )) : <span className="text-text-secondary">No hubs selected</span>}
+                  )}
                 </div>
               </div>
 

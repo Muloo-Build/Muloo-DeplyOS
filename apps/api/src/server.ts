@@ -313,7 +313,8 @@ const defaultProviderConnections = [
     connectionType: "api_key",
     defaultModel: "gpt-5.4",
     endpointUrl: null,
-    notes: "Alternative agent workflows, QA passes, summarisation, and future assistants.",
+    notes:
+      "Alternative agent workflows, QA passes, summarisation, and future assistants.",
     isEnabled: false
   },
   {
@@ -322,7 +323,8 @@ const defaultProviderConnections = [
     connectionType: "api_key",
     defaultModel: "sonar-pro",
     endpointUrl: null,
-    notes: "Web-grounded research, current-state synthesis, and source-backed drafting.",
+    notes:
+      "Web-grounded research, current-state synthesis, and source-backed drafting.",
     isEnabled: false
   },
   {
@@ -331,7 +333,8 @@ const defaultProviderConnections = [
     connectionType: "api_key",
     defaultModel: "gemini-2.5-pro",
     endpointUrl: null,
-    notes: "Meeting-summary workflows and discovery ingestion from call outputs.",
+    notes:
+      "Meeting-summary workflows and discovery ingestion from call outputs.",
     isEnabled: false
   }
 ] as const;
@@ -341,14 +344,16 @@ const defaultAiWorkflowRouting = [
     label: "Discovery Extraction",
     providerKey: "gemini",
     modelOverride: "gemini-2.5-pro",
-    notes: "Session note extraction, transcript parsing, and first-pass field drafting."
+    notes:
+      "Session note extraction, transcript parsing, and first-pass field drafting."
   },
   {
     workflowKey: "discovery_summary",
     label: "Discovery Summary",
     providerKey: "anthropic",
     modelOverride: "claude-sonnet-4-20250514",
-    notes: "Project-level discovery synthesis, risks, and operator-friendly next questions."
+    notes:
+      "Project-level discovery synthesis, risks, and operator-friendly next questions."
   },
   {
     workflowKey: "blueprint_generation",
@@ -390,14 +395,16 @@ const defaultAiWorkflowRouting = [
     label: "Agent Execution Brief",
     providerKey: "anthropic",
     modelOverride: "claude-sonnet-4-20250514",
-    notes: "Prepare task-level execution briefs, checkpoints, and risk notes for queued agent delivery."
+    notes:
+      "Prepare task-level execution briefs, checkpoints, and risk notes for queued agent delivery."
   },
   {
     workflowKey: "project_email_drafting",
     label: "Project Email Drafting",
     providerKey: "openai",
     modelOverride: "gpt-5.4",
-    notes: "Draft internal-to-client emails from the saved project summary, quote status, and supporting context."
+    notes:
+      "Draft internal-to-client emails from the saved project summary, quote status, and supporting context."
   }
 ] as const;
 const defaultProductCatalog = [
@@ -866,7 +873,10 @@ type ClientQuestionnaireSessionConfig = {
   enabled?: boolean;
   questions: ClientQuestionnaireQuestion[];
 };
-type ClientQuestionnaireConfig = Record<number, ClientQuestionnaireSessionConfig>;
+type ClientQuestionnaireConfig = Record<
+  number,
+  ClientQuestionnaireSessionConfig
+>;
 type HubSpotAgentCapabilitySupport =
   | "supported"
   | "beta"
@@ -1326,7 +1336,9 @@ function isValidImplementationApproach(
 function isValidHubTier(
   value: string
 ): value is (typeof validHubTierValues)[number] {
-  return validHubTierValues.includes(value as (typeof validHubTierValues)[number]);
+  return validHubTierValues.includes(
+    value as (typeof validHubTierValues)[number]
+  );
 }
 
 function normalizePlatformTierSelections(value: unknown) {
@@ -1336,10 +1348,13 @@ function normalizePlatformTierSelections(value: unknown) {
 
   return Object.fromEntries(
     Object.entries(value)
-      .filter(([key, tier]) =>
-        validPlatformTierSelectionKeys.includes(
-          key as (typeof validPlatformTierSelectionKeys)[number]
-        ) && typeof tier === "string" && isValidHubTier(tier.trim().toLowerCase())
+      .filter(
+        ([key, tier]) =>
+          validPlatformTierSelectionKeys.includes(
+            key as (typeof validPlatformTierSelectionKeys)[number]
+          ) &&
+          typeof tier === "string" &&
+          isValidHubTier(tier.trim().toLowerCase())
       )
       .map(([key, tier]) => [key, (tier as string).trim().toLowerCase()])
   );
@@ -1609,9 +1624,12 @@ function derivePlatformPackagingAssessment(input: {
     );
   }
 
-  let fit: PackagingAssessment["fit"] = warnings.length > 0 ? "attention" : "good";
+  let fit: PackagingAssessment["fit"] =
+    warnings.length > 0 ? "attention" : "good";
 
-  for (const [productKey, requiredTier] of Object.entries(requiredProductTiers)) {
+  for (const [productKey, requiredTier] of Object.entries(
+    requiredProductTiers
+  )) {
     const selectedTier = getSelectedProductTier(
       productKey,
       customerPlatformTier,
@@ -1850,7 +1868,9 @@ async function convertWorkRequestToProject(requestId: string) {
   }
 
   const scopeType =
-    workRequest.requestType === "project_brief" ? "discovery" : "standalone_quote";
+    workRequest.requestType === "project_brief"
+      ? "discovery"
+      : "standalone_quote";
   const serviceFamily = workRequest.serviceFamily || "hubspot_architecture";
   const owner = await resolveProjectOwner();
   const defaultTemplate = await prisma.deliveryTemplate.findFirst({
@@ -1901,9 +1921,10 @@ async function convertWorkRequestToProject(requestId: string) {
       commercialBrief: [workRequest.summary, workRequest.details]
         .filter(Boolean)
         .join("\n\n"),
-      selectedHubs: scopeType === "standalone_quote"
-        ? inferDefaultHubsForServiceFamily(serviceFamily)
-        : [],
+      selectedHubs:
+        scopeType === "standalone_quote"
+          ? inferDefaultHubsForServiceFamily(serviceFamily)
+          : [],
       clientChampionFirstName: workRequest.contactName.split(/\s+/)[0] || null,
       clientChampionLastName:
         workRequest.contactName.split(/\s+/).slice(1).join(" ") || null,
@@ -2032,95 +2053,107 @@ function normalizeClientQuestionnaireConfig(
     defaultClientQuestionnaireConfig
   );
 
-  return [1, 2, 3, 4].reduce<ClientQuestionnaireConfig>((config, sessionNumber) => {
-    const rawSession = source[String(sessionNumber)] ?? source[sessionNumber];
-    const defaultSession = defaults[sessionNumber] ?? defaults[1]!;
-    if (!rawSession || typeof rawSession !== "object" || Array.isArray(rawSession)) {
-      config[sessionNumber] = defaultSession;
-      return config;
-    }
+  return [1, 2, 3, 4].reduce<ClientQuestionnaireConfig>(
+    (config, sessionNumber) => {
+      const rawSession = source[String(sessionNumber)] ?? source[sessionNumber];
+      const defaultSession = defaults[sessionNumber] ?? defaults[1]!;
+      if (
+        !rawSession ||
+        typeof rawSession !== "object" ||
+        Array.isArray(rawSession)
+      ) {
+        config[sessionNumber] = defaultSession;
+        return config;
+      }
 
-    const sessionRecord = rawSession as Record<string, unknown>;
-    const usedKeys = new Set<string>();
+      const sessionRecord = rawSession as Record<string, unknown>;
+      const usedKeys = new Set<string>();
 
-    const questions = Array.isArray(sessionRecord.questions)
-      ? sessionRecord.questions
-          .filter(
-            (
-              question
-            ): question is Record<string, unknown> =>
-              Boolean(question) &&
-              typeof question === "object" &&
-              !Array.isArray(question)
-          )
-          .map((question, index) => {
-            const baseKey =
-              typeof question.key === "string" && question.key.trim().length > 0
-                ? question.key.trim()
-                : createClientQuestionKey(
-                    typeof question.label === "string" ? question.label : "",
-                    index + 1
-                  );
-            let key = baseKey;
-            let suffix = 2;
-            while (usedKeys.has(key)) {
-              key = `${baseKey}_${suffix}`;
-              suffix += 1;
-            }
-            usedKeys.add(key);
+      const questions = Array.isArray(sessionRecord.questions)
+        ? sessionRecord.questions
+            .filter(
+              (question): question is Record<string, unknown> =>
+                Boolean(question) &&
+                typeof question === "object" &&
+                !Array.isArray(question)
+            )
+            .map((question, index) => {
+              const baseKey =
+                typeof question.key === "string" &&
+                question.key.trim().length > 0
+                  ? question.key.trim()
+                  : createClientQuestionKey(
+                      typeof question.label === "string" ? question.label : "",
+                      index + 1
+                    );
+              let key = baseKey;
+              let suffix = 2;
+              while (usedKeys.has(key)) {
+                key = `${baseKey}_${suffix}`;
+                suffix += 1;
+              }
+              usedKeys.add(key);
 
-            return {
-              key,
-              label:
-                typeof question.label === "string" && question.label.trim().length > 0
-                  ? question.label.trim()
-                  : `Question ${index + 1}`,
-              hint:
-                typeof question.hint === "string" ? question.hint.trim() : ""
-            };
-          })
-      : [];
+              return {
+                key,
+                label:
+                  typeof question.label === "string" &&
+                  question.label.trim().length > 0
+                    ? question.label.trim()
+                    : `Question ${index + 1}`,
+                hint:
+                  typeof question.hint === "string" ? question.hint.trim() : ""
+              };
+            })
+        : [];
 
-    config[sessionNumber] = {
-      title:
-        typeof sessionRecord.title === "string" && sessionRecord.title.trim().length > 0
-          ? sessionRecord.title.trim()
-          : defaultSession.title,
-      description:
-        typeof sessionRecord.description === "string" &&
-        sessionRecord.description.trim().length > 0
-          ? sessionRecord.description.trim()
-          : defaultSession.description,
-      enabled:
-        typeof sessionRecord.enabled === "boolean"
-          ? sessionRecord.enabled
-          : defaultSession.enabled ?? true,
-      questions: questions.length > 0 ? questions : defaultSession.questions
-    };
-
-    config[sessionNumber].questions = config[sessionNumber].questions.map((question, index) => {
-      const rawQuestion =
-        Array.isArray(sessionRecord.questions) &&
-        sessionRecord.questions[index] &&
-        typeof sessionRecord.questions[index] === "object" &&
-        !Array.isArray(sessionRecord.questions[index])
-          ? (sessionRecord.questions[index] as Record<string, unknown>)
-          : null;
-
-      return {
-        ...question,
+      config[sessionNumber] = {
+        title:
+          typeof sessionRecord.title === "string" &&
+          sessionRecord.title.trim().length > 0
+            ? sessionRecord.title.trim()
+            : defaultSession.title,
+        description:
+          typeof sessionRecord.description === "string" &&
+          sessionRecord.description.trim().length > 0
+            ? sessionRecord.description.trim()
+            : defaultSession.description,
         enabled:
-          rawQuestion && typeof rawQuestion.enabled === "boolean"
-            ? rawQuestion.enabled
-            : true
+          typeof sessionRecord.enabled === "boolean"
+            ? sessionRecord.enabled
+            : (defaultSession.enabled ?? true),
+        questions: questions.length > 0 ? questions : defaultSession.questions
       };
-    });
 
-    return config;
-  }, {} as ClientQuestionnaireConfig);
+      config[sessionNumber].questions = config[sessionNumber].questions.map(
+        (question, index) => {
+          const rawQuestion =
+            Array.isArray(sessionRecord.questions) &&
+            sessionRecord.questions[index] &&
+            typeof sessionRecord.questions[index] === "object" &&
+            !Array.isArray(sessionRecord.questions[index])
+              ? (sessionRecord.questions[index] as Record<string, unknown>)
+              : null;
+
+          return {
+            ...question,
+            enabled:
+              rawQuestion && typeof rawQuestion.enabled === "boolean"
+                ? rawQuestion.enabled
+                : true
+          };
+        }
+      );
+
+      return config;
+    },
+    {} as ClientQuestionnaireConfig
+  );
 }
 
-function getEnabledClientInputSections(config: ClientQuestionnaireConfig): number[] {
+function getEnabledClientInputSections(
+  config: ClientQuestionnaireConfig
+): number[] {
   return Object.entries(config)
     .map(([sessionNumberText, session]) => ({
       sessionNumber: Number(sessionNumberText),
@@ -2149,7 +2182,9 @@ function normalizeAssignedInputSections(
     : [];
 
   const normalizedSections = Array.from(
-    new Set(requestedSections.filter((section) => availableSections.includes(section)))
+    new Set(
+      requestedSections.filter((section) => availableSections.includes(section))
+    )
   ).sort((left, right) => left - right);
 
   return normalizedSections.length > 0 ? normalizedSections : availableSections;
@@ -2285,10 +2320,7 @@ function verifySignedStateToken(value: string) {
     Buffer.from(payload, "base64url").toString("utf8")
   ) as Record<string, unknown>;
 
-  if (
-    typeof decoded.expiresAt !== "number" ||
-    decoded.expiresAt < Date.now()
-  ) {
+  if (typeof decoded.expiresAt !== "number" || decoded.expiresAt < Date.now()) {
     throw new Error("OAuth state has expired");
   }
 
@@ -2416,7 +2448,9 @@ function matchClientContactPortalAccessRoute(pathname: string): {
   contactId: string;
 } | null {
   const match =
-    /^\/api\/clients\/([^/]+?)\/contacts\/([^/]+?)\/portal-access$/.exec(pathname);
+    /^\/api\/clients\/([^/]+?)\/contacts\/([^/]+?)\/portal-access$/.exec(
+      pathname
+    );
 
   if (!match?.[1] || !match[2]) {
     return null;
@@ -2446,8 +2480,9 @@ function matchProjectQuoteRoute(pathname: string): {
   projectId: string;
   action?: "share";
 } | null {
-  const match =
-    /^\/api\/projects\/([^/]+?)\/quote(?:\/(share))?$/.exec(pathname);
+  const match = /^\/api\/projects\/([^/]+?)\/quote(?:\/(share))?$/.exec(
+    pathname
+  );
 
   if (!match || !match[1]) {
     return null;
@@ -2567,9 +2602,10 @@ function matchWorkRequestRoute(pathname: string): {
   requestId?: string;
   action?: "convert" | "append-to-delivery";
 } | null {
-  const match = /^\/api\/work-requests(?:\/([^/]+?)(?:\/(convert|append-to-delivery))?)?$/.exec(
-    pathname
-  );
+  const match =
+    /^\/api\/work-requests(?:\/([^/]+?)(?:\/(convert|append-to-delivery))?)?$/.exec(
+      pathname
+    );
 
   if (!match) {
     return null;
@@ -2598,9 +2634,10 @@ function matchClientProjectRoute(pathname: string): {
     return {};
   }
 
-  const projectMatch = /^\/api\/client\/projects\/([^/]+?)(?:\/(tasks|messages|quote)|\/submissions\/([1-4]))?$/.exec(
-    pathname
-  );
+  const projectMatch =
+    /^\/api\/client\/projects\/([^/]+?)(?:\/(tasks|messages|quote)|\/submissions\/([1-4]))?$/.exec(
+      pathname
+    );
 
   if (!projectMatch || !projectMatch[1]) {
     return null;
@@ -2615,19 +2652,20 @@ function matchClientProjectRoute(pathname: string): {
           resource: projectMatch[2] as "tasks" | "messages" | "quote"
         }
       : projectMatch[3]
-      ? {
-          resource: "submissions" as const,
-          sessionId: Number(projectMatch[3])
-        }
-      : {})
+        ? {
+            resource: "submissions" as const,
+            sessionId: Number(projectMatch[3])
+          }
+        : {})
   };
 }
 
 function matchClientProjectQuoteApprovalRoute(pathname: string): {
   projectId: string;
 } | null {
-  const match =
-    /^\/api\/client\/projects\/([^/]+?)\/quote\/approve$/.exec(pathname);
+  const match = /^\/api\/client\/projects\/([^/]+?)\/quote\/approve$/.exec(
+    pathname
+  );
 
   if (!match || !match[1]) {
     return null;
@@ -2682,8 +2720,9 @@ function matchProjectClientUserRoute(pathname: string): {
   projectId: string;
   userId: string;
 } | null {
-  const match =
-    /^\/api\/projects\/([^/]+?)\/client-users\/([^/]+?)$/.exec(pathname);
+  const match = /^\/api\/projects\/([^/]+?)\/client-users\/([^/]+?)$/.exec(
+    pathname
+  );
 
   if (!match || !match[1] || !match[2]) {
     return null;
@@ -2833,7 +2872,10 @@ function matchProjectTaskAgentRunRoute(pathname: string): {
   projectId: string;
   taskId: string;
 } | null {
-  const match = /^\/api\/projects\/([^/]+?)\/tasks\/([^/]+?)\/queue-agent-run$/.exec(pathname);
+  const match =
+    /^\/api\/projects\/([^/]+?)\/tasks\/([^/]+?)\/queue-agent-run$/.exec(
+      pathname
+    );
 
   if (!match || !match[1] || !match[2]) {
     return null;
@@ -2893,8 +2935,9 @@ function matchProjectSessionEvidenceRoute(pathname: string): {
   projectId: string;
   sessionId: number;
 } | null {
-  const match =
-    /^\/api\/projects\/([^/]+?)\/sessions\/([0-4])\/evidence$/.exec(pathname);
+  const match = /^\/api\/projects\/([^/]+?)\/sessions\/([0-4])\/evidence$/.exec(
+    pathname
+  );
 
   if (!match || !match[1] || !match[2]) {
     return null;
@@ -3274,7 +3317,12 @@ function decodeHtmlEntities(value: string) {
 }
 
 function stripHtml(value: string) {
-  return decodeHtmlEntities(value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+  return decodeHtmlEntities(
+    value
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 function extractMetaContent(
@@ -3328,8 +3376,9 @@ function extractSocialLinksFromHtml(html: string, baseUrl: string) {
   ).filter(Boolean);
 
   const pick = (patterns: string[]) =>
-    links.find((link) => patterns.some((pattern) => link.toLowerCase().includes(pattern))) ??
-    "";
+    links.find((link) =>
+      patterns.some((pattern) => link.toLowerCase().includes(pattern))
+    ) ?? "";
 
   return {
     linkedinUrl: pick(["linkedin.com"]),
@@ -3432,7 +3481,8 @@ function mergeClientEnrichmentFields<
     enrichedLogoUrl: enrichment.enrichedLogoUrl,
     linkedinUrl: client.linkedinUrl?.trim() || enrichment.linkedinUrl || null,
     facebookUrl: client.facebookUrl?.trim() || enrichment.facebookUrl || null,
-    instagramUrl: client.instagramUrl?.trim() || enrichment.instagramUrl || null,
+    instagramUrl:
+      client.instagramUrl?.trim() || enrichment.instagramUrl || null,
     xUrl: client.xUrl?.trim() || enrichment.xUrl || null,
     youtubeUrl: client.youtubeUrl?.trim() || enrichment.youtubeUrl || null,
     lastEnrichedAt: new Date()
@@ -3596,9 +3646,9 @@ function serializeProjectQuote<
     currency: quote.currency,
     defaultRate: quote.defaultRate ?? null,
     phaseLines: z.array(projectQuotePhaseLineSchema).parse(quote.phaseLines),
-    productLines: z.array(projectQuoteProductLineSchema).parse(
-      quote.productLines
-    ),
+    productLines: z
+      .array(projectQuoteProductLineSchema)
+      .parse(quote.productLines),
     totals: projectQuoteTotalsSchema.parse(quote.totals),
     paymentSchedule: z.array(z.string()).parse(quote.paymentSchedule),
     context:
@@ -3614,10 +3664,7 @@ function serializeProjectQuote<
   };
 }
 
-async function loadLatestProjectQuote(
-  projectId: string,
-  statuses?: string[]
-) {
+async function loadLatestProjectQuote(projectId: string, statuses?: string[]) {
   const quote = await prisma.projectQuote.findFirst({
     where: {
       projectId,
@@ -3705,8 +3752,7 @@ function isProjectScopeLocked(value: {
   scopeLockedAt?: Date | string | null;
 }) {
   return (
-    value.quoteApprovalStatus === "approved" ||
-    Boolean(value.scopeLockedAt)
+    value.quoteApprovalStatus === "approved" || Boolean(value.scopeLockedAt)
   );
 }
 
@@ -3730,10 +3776,13 @@ function deriveTaskExecutionPath(input: {
     return {
       lane: "client_input",
       label: "Client input",
-      summary: "Best handled in the client portal or through direct client follow-up.",
+      summary:
+        "Best handled in the client portal or through direct client follow-up.",
       apiEligible: false,
       directActions: [] as string[],
-      notes: ["Keep this as a client-owned dependency rather than agent execution."]
+      notes: [
+        "Keep this as a client-owned dependency rather than agent execution."
+      ]
     };
   }
 
@@ -3754,7 +3803,8 @@ function deriveTaskExecutionPath(input: {
     return {
       lane: "direct_api",
       label: "Direct API",
-      summary: "This work is a good fit for deterministic HubSpot API execution.",
+      summary:
+        "This work is a good fit for deterministic HubSpot API execution.",
       apiEligible: true,
       directActions: [
         "create_property_group",
@@ -3834,7 +3884,9 @@ function deriveTaskExecutionPath(input: {
         "This is better as reviewed human work or QA support, not direct API execution.",
       apiEligible: false,
       directActions: [],
-      notes: ["Keep an operator in the loop before treating this as automated work."]
+      notes: [
+        "Keep an operator in the loop before treating this as automated work."
+      ]
     };
   }
 
@@ -3845,7 +3897,9 @@ function deriveTaskExecutionPath(input: {
       "Treat this as standard delivery work unless a more explicit API path is defined.",
     apiEligible: false,
     directActions: [],
-    notes: ["Refine the execution type if you want a tighter automation path later."]
+    notes: [
+      "Refine the execution type if you want a tighter automation path later."
+    ]
   };
 }
 
@@ -4020,7 +4074,11 @@ async function updateAgentRun(
       updateData.startedAt = new Date();
       updateData.completedAt = null;
     }
-    if (["completed", "failed", "cancelled", "review_ready"].includes(normalizedStatus)) {
+    if (
+      ["completed", "failed", "cancelled", "review_ready"].includes(
+        normalizedStatus
+      )
+    ) {
       updateData.completedAt = new Date();
       if (normalizedStatus !== "failed") {
         updateData.errorLog = null;
@@ -4032,21 +4090,26 @@ async function updateAgentRun(
     if (value.resultStatus !== null && typeof value.resultStatus !== "string") {
       throw new Error("resultStatus must be a string or null");
     }
-    updateData.resultStatus = typeof value.resultStatus === "string" ? value.resultStatus.trim() || null : null;
+    updateData.resultStatus =
+      typeof value.resultStatus === "string"
+        ? value.resultStatus.trim() || null
+        : null;
   }
 
   if (value.outputLog !== undefined) {
     if (value.outputLog !== null && typeof value.outputLog !== "string") {
       throw new Error("outputLog must be a string or null");
     }
-    updateData.outputLog = typeof value.outputLog === "string" ? value.outputLog : null;
+    updateData.outputLog =
+      typeof value.outputLog === "string" ? value.outputLog : null;
   }
 
   if (value.errorLog !== undefined) {
     if (value.errorLog !== null && typeof value.errorLog !== "string") {
       throw new Error("errorLog must be a string or null");
     }
-    updateData.errorLog = typeof value.errorLog === "string" ? value.errorLog : null;
+    updateData.errorLog =
+      typeof value.errorLog === "string" ? value.errorLog : null;
   }
 
   const run = await prisma.executionJob.update({
@@ -4054,7 +4117,9 @@ async function updateAgentRun(
     data: updateData,
     include: {
       project: { select: { name: true } },
-      task: { select: { id: true, title: true, plannedHours: true, actualHours: true } }
+      task: {
+        select: { id: true, title: true, plannedHours: true, actualHours: true }
+      }
     }
   });
 
@@ -4069,7 +4134,8 @@ async function updateAgentRun(
     }
 
     if (normalizedStatus === "completed") {
-      const resolvedActualHours = run.task?.actualHours ?? run.task?.plannedHours ?? null;
+      const resolvedActualHours =
+        run.task?.actualHours ?? run.task?.plannedHours ?? null;
       await prisma.task.update({
         where: { id: existingRun.taskId },
         data: {
@@ -4263,21 +4329,15 @@ Rules:
           : null,
         supportingContext.length > 0
           ? `Supporting context:
-${supportingContext
-              .map((item) => `- ${item}`)
-              .join("\n")}`
+${supportingContext.map((item) => `- ${item}`).join("\n")}`
           : "Supporting context: none attached",
         blueprintTasks.length > 0
           ? `Blueprint context:
-${blueprintTasks
-              .map((item) => `- ${item}`)
-              .join("\n")}`
+${blueprintTasks.map((item) => `- ${item}`).join("\n")}`
           : null,
         messageContext.length > 0
           ? `Recent project messages:
-${messageContext
-              .map((item) => `- ${item}`)
-              .join("\n")}`
+${messageContext.map((item) => `- ${item}`).join("\n")}`
           : null
       ]
         .filter(Boolean)
@@ -4537,22 +4597,31 @@ function normalizeRequiredTaskString(value: unknown, fieldName: string) {
   return value.trim();
 }
 
-function normalizeChangeDeliveryTasks(value: unknown): ChangeDeliveryTaskPlan[] {
+function normalizeChangeDeliveryTasks(
+  value: unknown
+): ChangeDeliveryTaskPlan[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value
-    .filter((task): task is Record<string, unknown> => Boolean(task) && typeof task === "object")
+    .filter(
+      (task): task is Record<string, unknown> =>
+        Boolean(task) && typeof task === "object"
+    )
     .map((task) => {
       const plannedHours =
         typeof task.plannedHours === "number"
           ? task.plannedHours
           : Number(task.plannedHours);
       const assigneeType =
-        typeof task.assigneeType === "string" ? task.assigneeType.trim() : "Human";
+        typeof task.assigneeType === "string"
+          ? task.assigneeType.trim()
+          : "Human";
       const normalizedAssigneeType =
-        assigneeType === "Agent" || assigneeType === "Client" ? assigneeType : "Human";
+        assigneeType === "Agent" || assigneeType === "Client"
+          ? assigneeType
+          : "Human";
       const priority =
         typeof task.priority === "string" && task.priority.trim().length > 0
           ? task.priority.trim().toLowerCase()
@@ -4563,10 +4632,12 @@ function normalizeChangeDeliveryTasks(value: unknown): ChangeDeliveryTaskPlan[] 
         description:
           typeof task.description === "string" ? task.description.trim() : "",
         category: typeof task.category === "string" ? task.category.trim() : "",
-        plannedHours: Number.isFinite(plannedHours) && plannedHours >= 0 ? plannedHours : 0,
+        plannedHours:
+          Number.isFinite(plannedHours) && plannedHours >= 0 ? plannedHours : 0,
         assigneeType: normalizedAssigneeType,
         executionType:
-          typeof task.executionType === "string" && task.executionType.trim().length > 0
+          typeof task.executionType === "string" &&
+          task.executionType.trim().length > 0
             ? task.executionType.trim()
             : "manual",
         priority:
@@ -4612,7 +4683,8 @@ async function parseModelJson<T>(
     return schema.parse(JSON.parse(normalizedJson) as unknown);
   } catch (initialError) {
     try {
-      const repairedText = await callAiWorkflow("json_repair", 
+      const repairedText = await callAiWorkflow(
+        "json_repair",
         `You repair malformed JSON for Muloo Deploy OS.
 
 Rules:
@@ -4641,7 +4713,10 @@ Rules:
         throw initialError;
       }
 
-      if (repairError instanceof SyntaxError || repairError instanceof ZodError) {
+      if (
+        repairError instanceof SyntaxError ||
+        repairError instanceof ZodError
+      ) {
         throw repairError;
       }
 
@@ -4695,18 +4770,48 @@ function buildFallbackBlueprint(
       phase: 1,
       phaseName: "Foundation & Alignment",
       tasks: [
-        createBlueprintTask("Validate discovery findings and confirm scope", "Human", 3, 1),
-        createBlueprintTask("Confirm client stakeholders, owners, and approvals", "Client", 1, 2),
-        createBlueprintTask("Set up project workspace, documentation, and governance", "Human", 2, 3)
+        createBlueprintTask(
+          "Validate discovery findings and confirm scope",
+          "Human",
+          3,
+          1
+        ),
+        createBlueprintTask(
+          "Confirm client stakeholders, owners, and approvals",
+          "Client",
+          1,
+          2
+        ),
+        createBlueprintTask(
+          "Set up project workspace, documentation, and governance",
+          "Human",
+          2,
+          3
+        )
       ]
     },
     {
       phase: 2,
       phaseName: "Data & Process Design",
       tasks: [
-        createBlueprintTask("Map current data sources and migration requirements", "Human", 4, 1),
-        createBlueprintTask("Prepare data cleanup list and import strategy", "Agent", 3, 2),
-        createBlueprintTask("Approve target lifecycle, pipeline, and process design", "Client", 1, 3)
+        createBlueprintTask(
+          "Map current data sources and migration requirements",
+          "Human",
+          4,
+          1
+        ),
+        createBlueprintTask(
+          "Prepare data cleanup list and import strategy",
+          "Agent",
+          3,
+          2
+        ),
+        createBlueprintTask(
+          "Approve target lifecycle, pipeline, and process design",
+          "Client",
+          1,
+          3
+        )
       ]
     }
   ];
@@ -4720,51 +4825,101 @@ function buildFallbackBlueprint(
 
   if (discovery.selectedHubs.includes("sales")) {
     buildTasks.push(
-      createBlueprintTask("Configure Sales Hub properties, pipelines, and handoff stages", "Human", 5, buildTasks.length + 1),
-      createBlueprintTask("Generate sales object and field checklist", "Agent", 2, buildTasks.length + 1)
+      createBlueprintTask(
+        "Configure Sales Hub properties, pipelines, and handoff stages",
+        "Human",
+        5,
+        buildTasks.length + 1
+      ),
+      createBlueprintTask(
+        "Generate sales object and field checklist",
+        "Agent",
+        2,
+        buildTasks.length + 1
+      )
     );
   }
 
   if (discovery.selectedHubs.includes("marketing")) {
     buildTasks.push(
-      createBlueprintTask("Configure marketing lifecycle, campaign, and lead routing setup", "Human", 4, buildTasks.length + 1),
-      createBlueprintTask("Draft marketing automation and nurture recommendations", "Agent", 2, buildTasks.length + 1)
+      createBlueprintTask(
+        "Configure marketing lifecycle, campaign, and lead routing setup",
+        "Human",
+        4,
+        buildTasks.length + 1
+      ),
+      createBlueprintTask(
+        "Draft marketing automation and nurture recommendations",
+        "Agent",
+        2,
+        buildTasks.length + 1
+      )
     );
   }
 
   if (discovery.selectedHubs.includes("service")) {
     buildTasks.push(
-      createBlueprintTask("Configure service pipelines, inbox, and support process foundations", "Human", 4, buildTasks.length + 1)
+      createBlueprintTask(
+        "Configure service pipelines, inbox, and support process foundations",
+        "Human",
+        4,
+        buildTasks.length + 1
+      )
     );
   }
 
   if (discovery.selectedHubs.includes("cms")) {
     buildTasks.push(
-      createBlueprintTask("Align CMS/content requirements with website rebuild dependencies", "Human", 3, buildTasks.length + 1)
+      createBlueprintTask(
+        "Align CMS/content requirements with website rebuild dependencies",
+        "Human",
+        3,
+        buildTasks.length + 1
+      )
     );
   }
 
   if (discovery.selectedHubs.includes("ops")) {
     buildTasks.push(
-      createBlueprintTask("Define RevOps governance, custom objects, and operational controls", "Human", 4, buildTasks.length + 1)
+      createBlueprintTask(
+        "Define RevOps governance, custom objects, and operational controls",
+        "Human",
+        4,
+        buildTasks.length + 1
+      )
     );
   }
 
   if (discovery.selectedHubs.includes("data")) {
     buildTasks.push(
-      createBlueprintTask("Configure data management, quality, and sync foundations", "Human", 4, buildTasks.length + 1)
+      createBlueprintTask(
+        "Configure data management, quality, and sync foundations",
+        "Human",
+        4,
+        buildTasks.length + 1
+      )
     );
   }
 
   if (discovery.selectedHubs.includes("commerce")) {
     buildTasks.push(
-      createBlueprintTask("Configure commerce, quote, and payment foundations", "Human", 4, buildTasks.length + 1)
+      createBlueprintTask(
+        "Configure commerce, quote, and payment foundations",
+        "Human",
+        4,
+        buildTasks.length + 1
+      )
     );
   }
 
   if ((session3.integration_requirements ?? "").trim().length > 0) {
     buildTasks.push(
-      createBlueprintTask("Assess and sequence required integrations", "Human", 3, buildTasks.length + 1)
+      createBlueprintTask(
+        "Assess and sequence required integrations",
+        "Human",
+        3,
+        buildTasks.length + 1
+      )
     );
   }
 
@@ -4775,8 +4930,18 @@ function buildFallbackBlueprint(
       buildTasks.length > 0
         ? buildTasks
         : [
-            createBlueprintTask("Configure core HubSpot setup based on approved future-state design", "Human", 6, 1),
-            createBlueprintTask("Prepare automation implementation checklist", "Agent", 2, 2)
+            createBlueprintTask(
+              "Configure core HubSpot setup based on approved future-state design",
+              "Human",
+              6,
+              1
+            ),
+            createBlueprintTask(
+              "Prepare automation implementation checklist",
+              "Agent",
+              2,
+              2
+            )
           ]
   });
 
@@ -4784,9 +4949,24 @@ function buildFallbackBlueprint(
     phase: 4,
     phaseName: "Testing, Enablement & Launch",
     tasks: [
-      createBlueprintTask("Run QA on records, workflows, and reporting outputs", "Human", 3, 1),
-      createBlueprintTask("Support user acceptance testing and change readiness", "Client", 2, 2),
-      createBlueprintTask("Prepare handover, adoption, and next-step recommendations", "Human", 3, 3)
+      createBlueprintTask(
+        "Run QA on records, workflows, and reporting outputs",
+        "Human",
+        3,
+        1
+      ),
+      createBlueprintTask(
+        "Support user acceptance testing and change readiness",
+        "Client",
+        2,
+        2
+      ),
+      createBlueprintTask(
+        "Prepare handover, adoption, and next-step recommendations",
+        "Human",
+        3,
+        3
+      )
     ]
   });
 
@@ -4800,9 +4980,24 @@ function buildFallbackBlueprint(
       phase: 3,
       phaseName: "Migration Readiness",
       tasks: [
-        createBlueprintTask("Audit legacy data structure and migration constraints", "Human", 4, 1),
-        createBlueprintTask("Prepare migration mapping and issue log", "Agent", 3, 2),
-        createBlueprintTask("Approve data owners and cutover responsibilities", "Client", 1, 3)
+        createBlueprintTask(
+          "Audit legacy data structure and migration constraints",
+          "Human",
+          4,
+          1
+        ),
+        createBlueprintTask(
+          "Prepare migration mapping and issue log",
+          "Agent",
+          3,
+          2
+        ),
+        createBlueprintTask(
+          "Approve data owners and cutover responsibilities",
+          "Client",
+          1,
+          3
+        )
       ]
     });
 
@@ -4819,7 +5014,10 @@ function buildFallbackBlueprint(
     .filter(Boolean)
     .join(" ");
 
-  if (/report/i.test(scopeText) || (session3.reporting_requirements ?? "").trim().length > 0) {
+  if (
+    /report/i.test(scopeText) ||
+    (session3.reporting_requirements ?? "").trim().length > 0
+  ) {
     const finalPhase = phases[phases.length - 1];
 
     if (finalPhase) {
@@ -5078,12 +5276,7 @@ function deriveKeyRisksFallback(input: {
   }
 
   if (
-    includesAny(evidenceText, [
-      "documentation",
-      "handover",
-      "sop",
-      "process"
-    ])
+    includesAny(evidenceText, ["documentation", "handover", "sop", "process"])
   ) {
     risks.push(
       "If documentation and SOP creation are not explicitly scoped, operational knowledge may stay trapped in delivery conversations and handover quality will vary."
@@ -5108,33 +5301,25 @@ function deriveNextQuestionsFallback(input: {
   const questions: string[] = [];
   const evidenceText = input.evidenceText.toLowerCase();
 
-  if (
-    includesAny(evidenceText, ["api", "export", "extract", "platform"])
-  ) {
+  if (includesAny(evidenceText, ["api", "export", "extract", "platform"])) {
     questions.push(
       "What access is available to the current platform: API, database, scheduled export, or manual extracts?"
     );
   }
 
-  if (
-    includesAny(evidenceText, ["attendance", "registration", "event"])
-  ) {
+  if (includesAny(evidenceText, ["attendance", "registration", "event"])) {
     questions.push(
       "How do the source records distinguish registration, attendance, cancellation, no-show, and CPD completion today?"
     );
   }
 
-  if (
-    includesAny(evidenceText, ["duplicate", "identity", "company"])
-  ) {
+  if (includesAny(evidenceText, ["duplicate", "identity", "company"])) {
     questions.push(
       "Which fields can be trusted most for identity resolution: email, phone, company, CRM ID, or another source key?"
     );
   }
 
-  if (
-    includesAny(evidenceText, ["dashboard", "reporting", "executive"])
-  ) {
+  if (includesAny(evidenceText, ["dashboard", "reporting", "executive"])) {
     questions.push(
       "What are the minimum dashboards leadership needs in the first 30 days to treat the POC as successful?"
     );
@@ -5160,12 +5345,7 @@ function deriveNextQuestionsFallback(input: {
   }
 
   if (
-    includesAny(evidenceText, [
-      "documentation",
-      "handover",
-      "sop",
-      "process"
-    ])
+    includesAny(evidenceText, ["documentation", "handover", "sop", "process"])
   ) {
     questions.push(
       "Does the client want Muloo to include a paid SOP and documentation pack covering the data model, operating process, and handover guidance?"
@@ -5272,9 +5452,7 @@ function deriveStandaloneSummaryFallback(input: {
   };
   const selectedHubs = discoveryPayload.discovery.selectedHubs;
   const selectedHubLabels = selectedHubs.length
-    ? selectedHubs
-        .map((hub) => hubLabelMap[hub] ?? hub)
-        .join(", ")
+    ? selectedHubs.map((hub) => hubLabelMap[hub] ?? hub).join(", ")
     : "the selected HubSpot workspace";
 
   const recommendedApproach =
@@ -5623,14 +5801,26 @@ function taskMatchesScope(
 
   if (
     !guidance.hasDataScope &&
-    includesAny(normalizedName, ["data", "dedupe", "duplicate", "enrichment", "sync"])
+    includesAny(normalizedName, [
+      "data",
+      "dedupe",
+      "duplicate",
+      "enrichment",
+      "sync"
+    ])
   ) {
     return false;
   }
 
   if (
     !guidance.hasCommerceScope &&
-    includesAny(normalizedName, ["commerce", "payment", "invoice", "checkout", "subscription"])
+    includesAny(normalizedName, [
+      "commerce",
+      "payment",
+      "invoice",
+      "checkout",
+      "subscription"
+    ])
   ) {
     return false;
   }
@@ -5692,7 +5882,12 @@ function normalizeGeneratedBlueprint(
     const firstPhase = normalizedPhases[0];
     if (firstPhase) {
       const alreadyHasPackagingTask = firstPhase.tasks.some((task) =>
-        includesAny(task.name.toLowerCase(), ["package", "tier", "upgrade", "licen"])
+        includesAny(task.name.toLowerCase(), [
+          "package",
+          "tier",
+          "upgrade",
+          "licen"
+        ])
       );
 
       if (!alreadyHasPackagingTask) {
@@ -5736,22 +5931,20 @@ type StandalonePlanSeedTask = {
   executionReadiness?: string;
 };
 
-function buildPlanSeedFromTemplate(
-  template: {
-    tasks: Array<{
-      title: string;
-      description: string | null;
-      category: string | null;
-      executionType: string;
-      assigneeType: string | null;
-      priority: string;
-      status: string;
-      qaRequired: boolean;
-      approvalRequired: boolean;
-      plannedHours: number | null;
-    }>;
-  }
-): StandalonePlanSeedTask[] {
+function buildPlanSeedFromTemplate(template: {
+  tasks: Array<{
+    title: string;
+    description: string | null;
+    category: string | null;
+    executionType: string;
+    assigneeType: string | null;
+    priority: string;
+    status: string;
+    qaRequired: boolean;
+    approvalRequired: boolean;
+    plannedHours: number | null;
+  }>;
+}): StandalonePlanSeedTask[] {
   return template.tasks.map((task) => ({
     title: task.title,
     description: task.description ?? "",
@@ -5763,7 +5956,8 @@ function buildPlanSeedFromTemplate(
     qaRequired: task.qaRequired,
     approvalRequired: task.approvalRequired,
     plannedHours: task.plannedHours ?? null,
-    executionReadiness: task.assigneeType === "Agent" ? "ready_with_review" : "not_ready"
+    executionReadiness:
+      task.assigneeType === "Agent" ? "ready_with_review" : "not_ready"
   }));
 }
 
@@ -5847,7 +6041,8 @@ function buildStandalonePlanSeed(
               packagingAssessment.fit === "upgrade_needed"
                 ? "Resolve HubSpot packaging gap before implementation"
                 : "Confirm HubSpot packaging assumptions before delivery",
-            description: `${packagingAssessment.summary} ${packagingAssessment.warnings.join(" ")}`.trim(),
+            description:
+              `${packagingAssessment.summary} ${packagingAssessment.warnings.join(" ")}`.trim(),
             category: "00 Platform Packaging",
             executionType: "manual",
             assigneeType: "Human",
@@ -6038,7 +6233,9 @@ function buildStandalonePlanSeed(
       status: "todo",
       qaRequired: true,
       executionReadiness: "ready_with_review",
-      dependsOn: ["Implement page templates, linking, and technical configuration"]
+      dependsOn: [
+        "Implement page templates, linking, and technical configuration"
+      ]
     },
     {
       title: "Prepare launch checklist and go-live plan",
@@ -6088,7 +6285,12 @@ async function loadPreferredAgentIdsByServiceFamily(serviceFamily: string) {
 
 function scoreAgentForTask(
   agent: { allowedActions: string[]; purpose: string; name: string },
-  task: { title: string; description: string; category: string; executionType: string }
+  task: {
+    title: string;
+    description: string;
+    category: string;
+    executionType: string;
+  }
 ) {
   const searchableText = [
     task.title,
@@ -6119,7 +6321,8 @@ function scoreAgentForTask(
           ...(normalizedAction.includes("workflow")
             ? ["automation", "trigger", "enrollment"]
             : []),
-          ...(normalizedAction.includes("qa") || normalizedAction.includes("review")
+          ...(normalizedAction.includes("qa") ||
+          normalizedAction.includes("review")
             ? ["validate", "audit", "check"]
             : [])
         ].filter((keyword) => keyword.length > 2)
@@ -6144,8 +6347,19 @@ function scoreAgentForTask(
 }
 
 function pickAgentForTask(
-  agents: Array<{ id: string; allowedActions: string[]; purpose: string; name: string }>,
-  task: { title: string; description: string; category: string; executionType: string; assigneeType: string }
+  agents: Array<{
+    id: string;
+    allowedActions: string[];
+    purpose: string;
+    name: string;
+  }>,
+  task: {
+    title: string;
+    description: string;
+    category: string;
+    executionType: string;
+    assigneeType: string;
+  }
 ) {
   if (task.assigneeType !== "Agent" || agents.length === 0) {
     return null;
@@ -6223,7 +6437,9 @@ async function generateStandaloneProjectPlan(projectId: string) {
   }
 
   if (project.scopeType !== "standalone_quote") {
-    throw new Error("Generated project plans are currently only available for standalone scoped jobs");
+    throw new Error(
+      "Generated project plans are currently only available for standalone scoped jobs"
+    );
   }
 
   const [evidenceItems, availableAgents] = await Promise.all([
@@ -6258,7 +6474,9 @@ async function generateStandaloneProjectPlan(projectId: string) {
     where: { projectId }
   });
 
-  const createdTasks = [] as Array<Awaited<ReturnType<typeof prisma.task.create>>>;
+  const createdTasks = [] as Array<
+    Awaited<ReturnType<typeof prisma.task.create>>
+  >;
 
   for (const task of taskSeed) {
     const createdTask = await prisma.task.create({
@@ -6275,7 +6493,9 @@ async function generateStandaloneProjectPlan(projectId: string) {
         approvalRequired: task.approvalRequired ?? false,
         assigneeType: task.assigneeType,
         assignedAgentId: pickAgentForTask(availableAgents, task),
-        executionReadiness: task.executionReadiness ?? (task.assigneeType === "Agent" ? "ready_with_review" : "not_ready")
+        executionReadiness:
+          task.executionReadiness ??
+          (task.assigneeType === "Agent" ? "ready_with_review" : "not_ready")
       }
     });
 
@@ -6377,7 +6597,9 @@ async function generateBlueprintProjectPlan(projectId: string) {
         })()
       : project.blueprint.tasks;
 
-  const availableAgents = await loadPreferredAgentIdsByServiceFamily(project.serviceFamily);
+  const availableAgents = await loadPreferredAgentIdsByServiceFamily(
+    project.serviceFamily
+  );
 
   await prisma.executionJob.deleteMany({
     where: {
@@ -6391,7 +6613,9 @@ async function generateBlueprintProjectPlan(projectId: string) {
     where: { projectId }
   });
 
-  const createdTasks = [] as Array<Awaited<ReturnType<typeof prisma.task.create>>>;
+  const createdTasks = [] as Array<
+    Awaited<ReturnType<typeof prisma.task.create>>
+  >;
 
   for (const blueprintTask of sourceTasks) {
     const status =
@@ -6560,8 +6784,7 @@ async function loadProjectDiscoveryForBlueprint(projectId: string) {
     platformFit: session4?.fields.platform_fit?.trim() ?? "",
     changeManagementRating:
       session4?.fields.change_management_rating?.trim() ?? "",
-    dataReadinessRating:
-      session4?.fields.data_readiness_rating?.trim() ?? "",
+    dataReadinessRating: session4?.fields.data_readiness_rating?.trim() ?? "",
     scopeVolatilityRating:
       session4?.fields.scope_volatility_rating?.trim() ?? ""
   };
@@ -6710,19 +6933,17 @@ async function generateProjectEmailDraft(input: {
     throw new Error("Project not found");
   }
 
-  const contextPreview = evidenceItems
-    .slice(0, 8)
-    .map((item) => {
-      const content = (item.content ?? "").trim();
-      const contentPreview =
-        content.length > 240 ? `${content.slice(0, 240).trim()}...` : content;
-      return {
-        sourceLabel: item.sourceLabel,
-        evidenceType: item.evidenceType,
-        sourceUrl: item.sourceUrl,
-        content: contentPreview
-      };
-    });
+  const contextPreview = evidenceItems.slice(0, 8).map((item) => {
+    const content = (item.content ?? "").trim();
+    const contentPreview =
+      content.length > 240 ? `${content.slice(0, 240).trim()}...` : content;
+    return {
+      sourceLabel: item.sourceLabel,
+      evidenceType: item.evidenceType,
+      sourceUrl: item.sourceUrl,
+      content: contentPreview
+    };
+  });
 
   const resolvedWorkflow = await resolveAiWorkflowSelection(
     "project_email_drafting",
@@ -6813,11 +7034,17 @@ Rules:
     { maxTokens: 2200 }
   );
 
-  return parseModelJson(rawDraft, projectEmailDraftSchema, "project-email-draft");
+  return parseModelJson(
+    rawDraft,
+    projectEmailDraftSchema,
+    "project-email-draft"
+  );
 }
 
 async function generateStandaloneScopeSummary(
-  discoveryPayload: NonNullable<Awaited<ReturnType<typeof loadProjectDiscoveryForBlueprint>>>
+  discoveryPayload: NonNullable<
+    Awaited<ReturnType<typeof loadProjectDiscoveryForBlueprint>>
+  >
 ) {
   const evidenceText = getDiscoveryEvidenceText(discoveryPayload);
   const packagingAssessment = derivePlatformPackagingAssessment({
@@ -6914,10 +7141,7 @@ Rules:
       "scoped-summary"
     );
   } catch (parseError) {
-    if (
-      parseError instanceof SyntaxError ||
-      parseError instanceof ZodError
-    ) {
+    if (parseError instanceof SyntaxError || parseError instanceof ZodError) {
       try {
         partialSummary = discoverySummaryLooseSchema.parse(
           JSON.parse(extractJsonBlock(rawSummary)) as unknown
@@ -6943,7 +7167,8 @@ Rules:
         ? [...partialSummary.inScopeItems]
         : [...fallbackSummary.inScopeItems];
     const outOfScopeItems: string[] =
-      partialSummary?.outOfScopeItems && partialSummary.outOfScopeItems.length > 0
+      partialSummary?.outOfScopeItems &&
+      partialSummary.outOfScopeItems.length > 0
         ? [...partialSummary.outOfScopeItems]
         : [...fallbackSummary.outOfScopeItems];
     const supportingTools: string[] = partialSummary?.supportingTools
@@ -6972,8 +7197,7 @@ Rules:
       phaseOneFocus:
         partialSummary?.phaseOneFocus || fallbackSummary.phaseOneFocus,
       futureUpgradePath:
-        partialSummary?.futureUpgradePath ||
-        fallbackSummary.futureUpgradePath,
+        partialSummary?.futureUpgradePath || fallbackSummary.futureUpgradePath,
       inScopeItems,
       outOfScopeItems,
       supportingTools,
@@ -7092,7 +7316,8 @@ async function generateDiscoverySummary(projectId: string) {
     evidenceText
   });
 
-  const rawSummary = await callAiWorkflow("discovery_summary",
+  const rawSummary = await callAiWorkflow(
+    "discovery_summary",
     `You are Muloo Deploy OS's Discovery Structuring Agent.
 Given a structured HubSpot discovery project, create a clear project-level discovery recommendation.
 
@@ -7366,7 +7591,8 @@ async function shareProjectQuote(projectId: string, payload: unknown) {
               totals: normalizedPayload.totals as Prisma.Prisma.InputJsonValue,
               paymentSchedule:
                 normalizedPayload.paymentSchedule as Prisma.Prisma.InputJsonValue,
-              context: normalizedPayload.context as Prisma.Prisma.InputJsonValue,
+              context:
+                normalizedPayload.context as Prisma.Prisma.InputJsonValue,
               sharedAt
             }
           })
@@ -7398,8 +7624,7 @@ async function shareProjectQuote(projectId: string, payload: unknown) {
     projectId,
     senderType: "internal",
     senderName: "Muloo",
-    body:
-      "Your quote is now available in the client portal. Open this project and use the Open Quote button to review the latest commercial scope and approval pack."
+    body: "Your quote is now available in the client portal. Open this project and use the Open Quote button to review the latest commercial scope and approval pack."
   });
 
   return {
@@ -7436,10 +7661,13 @@ async function approveProjectQuote(projectId: string, clientUserId: string) {
   }
 
   if (access.project.quoteApprovalStatus === "draft") {
-    throw new Error("Quote must be shared to the client portal before approval.");
+    throw new Error(
+      "Quote must be shared to the client portal before approval."
+    );
   }
 
-  const approverName = `${access.user.firstName} ${access.user.lastName}`.trim();
+  const approverName =
+    `${access.user.firstName} ${access.user.lastName}`.trim();
   const approvedAt = access.project.quoteApprovedAt ?? new Date();
   const lockedAt = access.project.scopeLockedAt ?? approvedAt;
 
@@ -7456,7 +7684,9 @@ async function approveProjectQuote(projectId: string, clientUserId: string) {
       });
 
       if (!latestQuote) {
-        throw new Error("Quote has not yet been published to the client portal.");
+        throw new Error(
+          "Quote has not yet been published to the client portal."
+        );
       }
 
       const approvedQuote = await transaction.projectQuote.update({
@@ -7496,8 +7726,7 @@ async function approveProjectQuote(projectId: string, clientUserId: string) {
     projectId,
     senderType: "client",
     senderName: approverName || access.user.email,
-    body:
-      "Approved the quote in the client portal. The project scope is now locked for delivery."
+    body: "Approved the quote in the client portal. The project scope is now locked for delivery."
   });
 
   return {
@@ -7571,7 +7800,8 @@ async function generateBlueprintFromDiscovery(projectId: string) {
 
   try {
     const discoverySummary = await loadDiscoverySummary(projectId);
-    const rawBlueprint = await callAiWorkflow("blueprint_generation",
+    const rawBlueprint = await callAiWorkflow(
+      "blueprint_generation",
       `You are a HubSpot implementation planning assistant for Muloo, a technical HubSpot delivery company.
 Given structured discovery data from a client project, generate a phased implementation blueprint.
 
@@ -7772,7 +8002,8 @@ async function generateBlueprintFromScope(projectId: string) {
   });
 
   try {
-    const rawBlueprint = await callAiWorkflow("scope_blueprint_generation",
+    const rawBlueprint = await callAiWorkflow(
+      "scope_blueprint_generation",
       `You are a HubSpot technical scoping assistant for Muloo, a HubSpot delivery company.
 Given a standalone scoped job brief, supporting documentation, and project context, generate a phased technical implementation blueprint.
 
@@ -7813,8 +8044,7 @@ Rules:
               discoveryPayload.project.scopeExecutiveSummary,
             implementationApproach:
               discoveryPayload.project.implementationApproach,
-            customerPlatformTier:
-              discoveryPayload.project.customerPlatformTier,
+            customerPlatformTier: discoveryPayload.project.customerPlatformTier,
             platformTierSelections: normalizePlatformTierSelections(
               discoveryPayload.project.platformTierSelections
             )
@@ -7846,8 +8076,7 @@ Rules:
       {
         name: discoveryPayload.project.name,
         commercialBrief: discoveryPayload.project.commercialBrief,
-        implementationApproach:
-          discoveryPayload.project.implementationApproach,
+        implementationApproach: discoveryPayload.project.implementationApproach,
         customerPlatformTier: discoveryPayload.project.customerPlatformTier,
         platformTierSelections: normalizePlatformTierSelections(
           discoveryPayload.project.platformTierSelections
@@ -7920,14 +8149,20 @@ async function generateBlueprintForProject(projectId: string) {
   if (project.scopeType === "standalone_quote") {
     const blueprint = await generateBlueprintFromScope(projectId);
     await generateProjectPlan(projectId).catch((error) => {
-      console.error("Failed to refresh project plan after blueprint generation", error);
+      console.error(
+        "Failed to refresh project plan after blueprint generation",
+        error
+      );
     });
     return blueprint;
   }
 
   const blueprint = await generateBlueprintFromDiscovery(projectId);
   await generateProjectPlan(projectId).catch((error) => {
-    console.error("Failed to refresh project plan after blueprint generation", error);
+    console.error(
+      "Failed to refresh project plan after blueprint generation",
+      error
+    );
   });
   return blueprint;
 }
@@ -8252,9 +8487,10 @@ async function ensureWorkspaceEmailSettingsSeeded() {
 }
 
 async function ensureWorkspaceEmailOAuthConnectionsSeeded() {
-  const existingConnection = await prisma.workspaceEmailOAuthConnection.findUnique({
-    where: { providerKey: "google_workspace" }
-  });
+  const existingConnection =
+    await prisma.workspaceEmailOAuthConnection.findUnique({
+      where: { providerKey: "google_workspace" }
+    });
 
   if (existingConnection) {
     return;
@@ -8376,7 +8612,11 @@ async function loadHubSpotPortals() {
         }
       }
     },
-    orderBy: [{ connected: "desc" }, { updatedAt: "desc" }, { displayName: "asc" }]
+    orderBy: [
+      { connected: "desc" },
+      { updatedAt: "desc" },
+      { displayName: "asc" }
+    ]
   });
 
   return portals.map((portal) => serializeHubSpotPortal(portal));
@@ -8391,20 +8631,20 @@ async function fetchHubSpotOAuthAccessTokenInfo(input: {
       input.accessToken
     )}`
   );
-  const body = (await response.json().catch(() => null)) as
-    | {
-        hub_id?: number | string;
-        hub_domain?: string;
-        user?: string;
-        user_id?: number | string;
-        app_id?: number | string;
-        scopes?: string[];
-        token_type?: string;
-      }
-    | null;
+  const body = (await response.json().catch(() => null)) as {
+    hub_id?: number | string;
+    hub_domain?: string;
+    user?: string;
+    user_id?: number | string;
+    app_id?: number | string;
+    scopes?: string[];
+    token_type?: string;
+  } | null;
 
   if (!response.ok || !body?.hub_id) {
-    throw new Error("Failed to load HubSpot portal details from the OAuth token");
+    throw new Error(
+      "Failed to load HubSpot portal details from the OAuth token"
+    );
   }
 
   return body;
@@ -8448,20 +8688,20 @@ async function refreshHubSpotPortalAccessTokenIfNeeded(portalRecordId: string) {
     }).toString()
   });
 
-  const refreshBody = (await refreshResponse.json().catch(() => null)) as
-    | {
-        access_token?: string;
-        refresh_token?: string;
-        token_type?: string;
-        expires_in?: number;
-        error?: string;
-        message?: string;
-      }
-    | null;
+  const refreshBody = (await refreshResponse.json().catch(() => null)) as {
+    access_token?: string;
+    refresh_token?: string;
+    token_type?: string;
+    expires_in?: number;
+    error?: string;
+    message?: string;
+  } | null;
 
   if (!refreshResponse.ok || !refreshBody?.access_token) {
     throw new Error(
-      refreshBody?.message || refreshBody?.error || "HubSpot access token refresh failed"
+      refreshBody?.message ||
+        refreshBody?.error ||
+        "HubSpot access token refresh failed"
     );
   }
 
@@ -8620,16 +8860,14 @@ async function completeHubSpotOAuthCallback(value: {
     }).toString()
   });
 
-  const tokenBody = (await tokenResponse.json().catch(() => null)) as
-    | {
-        access_token?: string;
-        refresh_token?: string;
-        token_type?: string;
-        expires_in?: number;
-        error?: string;
-        message?: string;
-      }
-    | null;
+  const tokenBody = (await tokenResponse.json().catch(() => null)) as {
+    access_token?: string;
+    refresh_token?: string;
+    token_type?: string;
+    expires_in?: number;
+    error?: string;
+    message?: string;
+  } | null;
 
   if (!tokenResponse.ok || !tokenBody?.access_token) {
     throw new Error(
@@ -8646,17 +8884,18 @@ async function completeHubSpotOAuthCallback(value: {
   const resolvedPortalId = `${accessTokenInfo.hub_id}`;
   const scopeValues = Array.isArray(accessTokenInfo.scopes)
     ? accessTokenInfo.scopes.filter(
-        (scope): scope is string => typeof scope === "string" && scope.trim().length > 0
+        (scope): scope is string =>
+          typeof scope === "string" && scope.trim().length > 0
       )
     : [
         ...defaultHubSpotOAuthRequiredScopes,
         ...defaultHubSpotOAuthOptionalScopes
       ];
   const displayName =
-    accessTokenInfo.hub_domain?.trim() ||
-    `HubSpot Portal ${resolvedPortalId}`;
+    accessTokenInfo.hub_domain?.trim() || `HubSpot Portal ${resolvedPortalId}`;
   const connectedEmail =
-    typeof accessTokenInfo.user === "string" && accessTokenInfo.user.includes("@")
+    typeof accessTokenInfo.user === "string" &&
+    accessTokenInfo.user.includes("@")
       ? accessTokenInfo.user.trim().toLowerCase()
       : null;
   const connectedName =
@@ -8737,9 +8976,11 @@ async function completeHubSpotOAuthCallback(value: {
           });
 
           if (remainingPortalProjects === 0) {
-            await transaction.hubSpotPortal.delete({
-              where: { id: previousPortalId }
-            }).catch(() => null);
+            await transaction.hubSpotPortal
+              .delete({
+                where: { id: previousPortalId }
+              })
+              .catch(() => null);
           }
         }
       }
@@ -8822,19 +9063,25 @@ async function resolveHubSpotAgentConnection(portalRecordId?: string | null) {
         }
       }
     },
-    orderBy: [{ connected: "desc" }, { updatedAt: "desc" }, { displayName: "asc" }]
+    orderBy: [
+      { connected: "desc" },
+      { updatedAt: "desc" },
+      { displayName: "asc" }
+    ]
   });
 
   if (requestedPortalId) {
-    const portal = await refreshHubSpotPortalAccessTokenIfNeeded(requestedPortalId);
+    const portal =
+      await refreshHubSpotPortalAccessTokenIfNeeded(requestedPortalId);
 
     if (!portal) {
       throw new Error("Selected HubSpot portal was not found");
     }
 
-    const portalAccessToken = portal.connected && portal.accessToken?.trim()
-      ? portal.accessToken.trim()
-      : "";
+    const portalAccessToken =
+      portal.connected && portal.accessToken?.trim()
+        ? portal.accessToken.trim()
+        : "";
 
     return {
       ready: portalAccessToken.length > 0,
@@ -8921,7 +9168,9 @@ async function executeHubSpotAgentAction(value: {
       ? value.portalRecordId.trim()
       : null;
   const input =
-    value.input && typeof value.input === "object" && !Array.isArray(value.input)
+    value.input &&
+    typeof value.input === "object" &&
+    !Array.isArray(value.input)
       ? (value.input as Record<string, unknown>)
       : {};
 
@@ -9073,7 +9322,9 @@ async function executeHubSpotAgentAction(value: {
     case "create_custom_object": {
       const name = typeof input.name === "string" ? input.name.trim() : "";
       const singularLabel =
-        typeof input.singularLabel === "string" ? input.singularLabel.trim() : "";
+        typeof input.singularLabel === "string"
+          ? input.singularLabel.trim()
+          : "";
       const pluralLabel =
         typeof input.pluralLabel === "string" ? input.pluralLabel.trim() : "";
       const primaryDisplayProperty =
@@ -9137,7 +9388,9 @@ async function executeHubSpotAgentAction(value: {
       }
 
       if (properties.length === 0) {
-        throw new Error("At least one property is required for a custom object");
+        throw new Error(
+          "At least one property is required for a custom object"
+        );
       }
 
       const result = await client.createCustomObjectSchema({
@@ -9202,7 +9455,9 @@ async function executeHubSpotAgentAction(value: {
         : [];
 
       if ((objectType !== "deals" && objectType !== "tickets") || !label) {
-        throw new Error("objectType must be deals or tickets, and label is required");
+        throw new Error(
+          "objectType must be deals or tickets, and label is required"
+        );
       }
 
       const result = await client.createPipeline(objectType, {
@@ -9228,7 +9483,10 @@ async function executeHubSpotAgentAction(value: {
         input.properties &&
         typeof input.properties === "object" &&
         !Array.isArray(input.properties)
-          ? (input.properties as Record<string, string | number | boolean | null>)
+          ? (input.properties as Record<
+              string,
+              string | number | boolean | null
+            >)
           : null;
 
       if (!objectType || !properties) {
@@ -9272,7 +9530,9 @@ async function loadWorkspaceEmailSettings() {
   return serializeWorkspaceEmailSettings(settings);
 }
 
-function resolveGoogleWorkspaceEmailOAuthRedirectUri(explicitRedirectUri?: string | null) {
+function resolveGoogleWorkspaceEmailOAuthRedirectUri(
+  explicitRedirectUri?: string | null
+) {
   const trimmedExplicitRedirectUri = explicitRedirectUri?.trim() ?? "";
 
   if (trimmedExplicitRedirectUri) {
@@ -9290,13 +9550,16 @@ function resolveGoogleWorkspaceEmailOAuthRedirectUri(explicitRedirectUri?: strin
 async function loadWorkspaceEmailOAuthConnection() {
   await ensureWorkspaceEmailOAuthConnectionsSeeded();
 
-  const connection = await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
-    where: { providerKey: "google_workspace" }
-  });
+  const connection =
+    await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
+      where: { providerKey: "google_workspace" }
+    });
 
   return serializeWorkspaceEmailOAuthConnection({
     ...connection,
-    redirectUri: resolveGoogleWorkspaceEmailOAuthRedirectUri(connection.redirectUri)
+    redirectUri: resolveGoogleWorkspaceEmailOAuthRedirectUri(
+      connection.redirectUri
+    )
   });
 }
 
@@ -9386,7 +9649,8 @@ async function createProductCatalogItem(value: {
   const name = typeof value.name === "string" ? value.name.trim() : "";
   const serviceFamily =
     typeof value.serviceFamily === "string" ? value.serviceFamily.trim() : "";
-  const category = typeof value.category === "string" ? value.category.trim() : "";
+  const category =
+    typeof value.category === "string" ? value.category.trim() : "";
   const billingModel =
     typeof value.billingModel === "string" ? value.billingModel.trim() : "";
   const description =
@@ -9459,8 +9723,11 @@ async function createAgentDefinition(value: {
   const name = typeof value.name === "string" ? value.name.trim() : "";
   const purpose = typeof value.purpose === "string" ? value.purpose.trim() : "";
   const serviceFamily =
-    typeof value.serviceFamily === "string" ? value.serviceFamily.trim() : "hubspot_architecture";
-  const provider = typeof value.provider === "string" ? value.provider.trim() : "";
+    typeof value.serviceFamily === "string"
+      ? value.serviceFamily.trim()
+      : "hubspot_architecture";
+  const provider =
+    typeof value.provider === "string" ? value.provider.trim() : "";
   const model = typeof value.model === "string" ? value.model.trim() : "";
   const triggerType =
     typeof value.triggerType === "string" ? value.triggerType.trim() : "manual";
@@ -9485,7 +9752,11 @@ async function createAgentDefinition(value: {
     throw new Error("name, purpose, provider, and model are required");
   }
 
-  if (!serviceFamilyOptions.includes(serviceFamily as (typeof serviceFamilyOptions)[number])) {
+  if (
+    !serviceFamilyOptions.includes(
+      serviceFamily as (typeof serviceFamilyOptions)[number]
+    )
+  ) {
     throw new Error("serviceFamily must be a valid service family");
   }
 
@@ -9526,7 +9797,8 @@ async function createDeliveryTemplate(value: {
     typeof value.description === "string" ? value.description.trim() : "";
   const serviceFamily =
     typeof value.serviceFamily === "string" ? value.serviceFamily.trim() : "";
-  const category = typeof value.category === "string" ? value.category.trim() : "";
+  const category =
+    typeof value.category === "string" ? value.category.trim() : "";
   const scopeType =
     typeof value.scopeType === "string" ? value.scopeType.trim() : "";
   const defaultPlannedHours =
@@ -9569,7 +9841,10 @@ async function createDeliveryTemplate(value: {
       sortOrder: Number.isFinite(sortOrder) ? Math.round(sortOrder) : 999,
       tasks: {
         create: tasks
-          .filter((task): task is Record<string, unknown> => Boolean(task) && typeof task === "object")
+          .filter(
+            (task): task is Record<string, unknown> =>
+              Boolean(task) && typeof task === "object"
+          )
           .map((task, index) => ({
             title: normalizeRequiredTaskString(task.title, "task title"),
             description: normalizeOptionalTaskString(task.description),
@@ -9656,7 +9931,10 @@ async function updateDeliveryTemplate(
   }
 
   if (value.category !== undefined) {
-    if (typeof value.category !== "string" || value.category.trim().length === 0) {
+    if (
+      typeof value.category !== "string" ||
+      value.category.trim().length === 0
+    ) {
       throw new Error("category must be a non-empty string");
     }
 
@@ -9664,7 +9942,10 @@ async function updateDeliveryTemplate(
   }
 
   if (value.scopeType !== undefined) {
-    if (typeof value.scopeType !== "string" || value.scopeType.trim().length === 0) {
+    if (
+      typeof value.scopeType !== "string" ||
+      value.scopeType.trim().length === 0
+    ) {
       throw new Error("scopeType must be a non-empty string");
     }
 
@@ -9719,7 +10000,10 @@ async function updateDeliveryTemplate(
     if (value.tasks.length > 0) {
       await prisma.deliveryTemplateTask.createMany({
         data: value.tasks
-          .filter((task): task is Record<string, unknown> => Boolean(task) && typeof task === "object")
+          .filter(
+            (task): task is Record<string, unknown> =>
+              Boolean(task) && typeof task === "object"
+          )
           .map((task, index) => ({
             templateId,
             title: normalizeRequiredTaskString(task.title, "task title"),
@@ -9824,7 +10108,9 @@ async function createWorkRequest(value: {
     typeof value.status === "string" ? value.status.trim() : "";
 
   if (!title || !contactName || !contactEmail || !summary) {
-    throw new Error("title, contactName, contactEmail, and summary are required");
+    throw new Error(
+      "title, contactName, contactEmail, and summary are required"
+    );
   }
 
   if (
@@ -9891,11 +10177,13 @@ async function createWorkRequest(value: {
           ? new Date()
           : null,
       approvedAt:
-        requestedStatus === "approved" || requestedStatus === "appended_to_delivery"
+        requestedStatus === "approved" ||
+        requestedStatus === "appended_to_delivery"
           ? new Date()
           : null,
       approvedByName:
-        requestedStatus === "approved" || requestedStatus === "appended_to_delivery"
+        requestedStatus === "approved" ||
+        requestedStatus === "appended_to_delivery"
           ? approvedByName || "Muloo"
           : null,
       rejectedAt: requestedStatus === "rejected" ? new Date() : null,
@@ -9974,9 +10262,14 @@ async function updateWorkRequest(
 
     if (
       existingRequest.requestType === "change_request" &&
-      ["under_review", "priced", "approved", "rejected", "appended_to_delivery", "closed"].includes(
-        nextStatus
-      )
+      [
+        "under_review",
+        "priced",
+        "approved",
+        "rejected",
+        "appended_to_delivery",
+        "closed"
+      ].includes(nextStatus)
     ) {
       updateData.reviewedAt = existingRequest.reviewedAt ?? new Date();
     }
@@ -9989,10 +10282,13 @@ async function updateWorkRequest(
       updateData.approvedByName =
         typeof value.approvedByName === "string" && value.approvedByName.trim()
           ? value.approvedByName.trim()
-          : existingRequest.approvedByName ?? "Muloo";
+          : (existingRequest.approvedByName ?? "Muloo");
     }
 
-    if (existingRequest.requestType === "change_request" && nextStatus === "rejected") {
+    if (
+      existingRequest.requestType === "change_request" &&
+      nextStatus === "rejected"
+    ) {
       updateData.rejectedAt = existingRequest.rejectedAt ?? new Date();
     }
 
@@ -10014,7 +10310,10 @@ async function updateWorkRequest(
   }
 
   if (value.summary !== undefined) {
-    if (typeof value.summary !== "string" || value.summary.trim().length === 0) {
+    if (
+      typeof value.summary !== "string" ||
+      value.summary.trim().length === 0
+    ) {
       throw new Error("summary must be a non-empty string");
     }
 
@@ -10031,7 +10330,10 @@ async function updateWorkRequest(
   }
 
   if (value.internalNotes !== undefined) {
-    if (value.internalNotes !== null && typeof value.internalNotes !== "string") {
+    if (
+      value.internalNotes !== null &&
+      typeof value.internalNotes !== "string"
+    ) {
       throw new Error("internalNotes must be a string or null");
     }
 
@@ -10042,45 +10344,66 @@ async function updateWorkRequest(
   }
 
   if (value.commercialImpactHours !== undefined) {
-    if (value.commercialImpactHours === null || value.commercialImpactHours === "") {
+    if (
+      value.commercialImpactHours === null ||
+      value.commercialImpactHours === ""
+    ) {
       updateData.commercialImpactHours = null;
     } else {
-    const commercialImpactHours =
-      typeof value.commercialImpactHours === "number"
-        ? value.commercialImpactHours
-        : Number(value.commercialImpactHours);
+      const commercialImpactHours =
+        typeof value.commercialImpactHours === "number"
+          ? value.commercialImpactHours
+          : Number(value.commercialImpactHours);
 
-    if (!Number.isFinite(commercialImpactHours) || commercialImpactHours < 0) {
-      throw new Error("commercialImpactHours must be a valid non-negative number");
-    }
+      if (
+        !Number.isFinite(commercialImpactHours) ||
+        commercialImpactHours < 0
+      ) {
+        throw new Error(
+          "commercialImpactHours must be a valid non-negative number"
+        );
+      }
 
-    updateData.commercialImpactHours = commercialImpactHours;
+      updateData.commercialImpactHours = commercialImpactHours;
     }
   }
 
   if (value.commercialImpactFeeZar !== undefined) {
-    if (value.commercialImpactFeeZar === null || value.commercialImpactFeeZar === "") {
+    if (
+      value.commercialImpactFeeZar === null ||
+      value.commercialImpactFeeZar === ""
+    ) {
       updateData.commercialImpactFeeZar = null;
     } else {
-    const commercialImpactFeeZar =
-      typeof value.commercialImpactFeeZar === "number"
-        ? value.commercialImpactFeeZar
-        : Number(value.commercialImpactFeeZar);
+      const commercialImpactFeeZar =
+        typeof value.commercialImpactFeeZar === "number"
+          ? value.commercialImpactFeeZar
+          : Number(value.commercialImpactFeeZar);
 
-    if (!Number.isFinite(commercialImpactFeeZar) || commercialImpactFeeZar < 0) {
-      throw new Error("commercialImpactFeeZar must be a valid non-negative number");
-    }
+      if (
+        !Number.isFinite(commercialImpactFeeZar) ||
+        commercialImpactFeeZar < 0
+      ) {
+        throw new Error(
+          "commercialImpactFeeZar must be a valid non-negative number"
+        );
+      }
 
-    updateData.commercialImpactFeeZar = commercialImpactFeeZar;
+      updateData.commercialImpactFeeZar = commercialImpactFeeZar;
     }
   }
 
   if (value.deliveryTasks !== undefined) {
-    updateData.deliveryTasks = normalizeChangeDeliveryTasks(value.deliveryTasks);
+    updateData.deliveryTasks = normalizeChangeDeliveryTasks(
+      value.deliveryTasks
+    );
   }
 
   if (value.approvedByName !== undefined) {
-    if (value.approvedByName !== null && typeof value.approvedByName !== "string") {
+    if (
+      value.approvedByName !== null &&
+      typeof value.approvedByName !== "string"
+    ) {
       throw new Error("approvedByName must be a string or null");
     }
 
@@ -10135,15 +10458,21 @@ async function appendApprovedChangeRequestToDelivery(requestId: string) {
   }
 
   if (!isProjectScopeLocked(workRequest.project)) {
-    throw new Error("Approve and lock the project scope before appending change work");
+    throw new Error(
+      "Approve and lock the project scope before appending change work"
+    );
   }
 
   if (!["approved", "appended_to_delivery"].includes(workRequest.status)) {
-    throw new Error("Approve the change request before pushing it into delivery");
+    throw new Error(
+      "Approve the change request before pushing it into delivery"
+    );
   }
 
   if (workRequest.deliveryAppendedAt) {
-    throw new Error("This change request has already been appended to delivery");
+    throw new Error(
+      "This change request has already been appended to delivery"
+    );
   }
 
   const plannedTasks = normalizeChangeDeliveryTasks(workRequest.deliveryTasks);
@@ -10152,7 +10481,9 @@ async function appendApprovedChangeRequestToDelivery(requestId: string) {
   );
 
   if (plannedTasks.length === 0) {
-    throw new Error("Add at least one delivery task before appending this change");
+    throw new Error(
+      "Add at least one delivery task before appending this change"
+    );
   }
 
   const createdTasks = [] as Awaited<ReturnType<typeof prisma.task.create>>[];
@@ -10186,7 +10517,9 @@ async function appendApprovedChangeRequestToDelivery(requestId: string) {
               })
             : null,
         executionReadiness:
-          plannedTask.assigneeType === "Agent" ? "ready_with_review" : "not_ready"
+          plannedTask.assigneeType === "Agent"
+            ? "ready_with_review"
+            : "not_ready"
       },
       include: {
         assignedAgent: { select: { name: true } }
@@ -10468,19 +10801,23 @@ async function updateClientDirectoryRecord(
 
   if (value.parentClientId !== undefined) {
     const parentClientId =
-      typeof value.parentClientId === "string" ? value.parentClientId.trim() : "";
+      typeof value.parentClientId === "string"
+        ? value.parentClientId.trim()
+        : "";
 
     if (parentClientId && parentClientId === clientId) {
       throw new Error("A client cannot be its own parent");
     }
 
-    updateData.parentClient = parentClientId ? { connect: { id: parentClientId } } : { disconnect: true };
+    updateData.parentClient = parentClientId
+      ? { connect: { id: parentClientId } }
+      : { disconnect: true };
   }
 
   if (value.visibleToPartnerIds !== undefined) {
-    nextPartnerVisibilityIds = normalizeClientVisibilityIds(value.visibleToPartnerIds).filter(
-      (partnerClientId) => partnerClientId !== clientId
-    );
+    nextPartnerVisibilityIds = normalizeClientVisibilityIds(
+      value.visibleToPartnerIds
+    ).filter((partnerClientId) => partnerClientId !== clientId);
   }
 
   const updatedClient = await prisma.client.update({
@@ -10676,7 +11013,10 @@ async function updateClientContact(
   const updateData: Prisma.Prisma.ClientContactUpdateInput = {};
 
   if (value.firstName !== undefined) {
-    if (typeof value.firstName !== "string" || value.firstName.trim().length === 0) {
+    if (
+      typeof value.firstName !== "string" ||
+      value.firstName.trim().length === 0
+    ) {
       throw new Error("firstName must be a non-empty string");
     }
 
@@ -10734,8 +11074,10 @@ async function createClientPortalUserForProject(
     typeof value.firstName === "string" ? value.firstName.trim() : "";
   const lastName =
     typeof value.lastName === "string" ? value.lastName.trim() : "";
-  const email = typeof value.email === "string" ? value.email.trim().toLowerCase() : "";
-  const role = typeof value.role === "string" ? value.role.trim() : "contributor";
+  const email =
+    typeof value.email === "string" ? value.email.trim().toLowerCase() : "";
+  const role =
+    typeof value.role === "string" ? value.role.trim() : "contributor";
   const questionnaireAccess =
     value.questionnaireAccess === undefined
       ? true
@@ -10756,7 +11098,10 @@ async function createClientPortalUserForProject(
   );
   const availableInputSections = getEnabledClientInputSections(inputConfig);
   const assignedInputSections = questionnaireAccess
-    ? normalizeAssignedInputSections(value.assignedInputSections, availableInputSections)
+    ? normalizeAssignedInputSections(
+        value.assignedInputSections,
+        availableInputSections
+      )
     : [];
 
   if (!firstName || !email) {
@@ -10856,7 +11201,9 @@ function buildClientPortalInviteEmail(input: {
   questionnaireAccess: boolean;
 }) {
   const greetingName = input.contact.firstName.trim() || "there";
-  const projectLines = input.projects.map((project) => `- ${project.name}`).join("\n");
+  const projectLines = input.projects
+    .map((project) => `- ${project.name}`)
+    .join("\n");
   const subject =
     input.projects.length === 1
       ? `Action required: access your Muloo portal for ${input.projects[0]?.name ?? "your project"}`
@@ -10982,7 +11329,9 @@ async function inviteClientContactToProjects(
     throw new Error("Client not found");
   }
 
-  const contact = client.contacts.find((candidate) => candidate.id === contactId);
+  const contact = client.contacts.find(
+    (candidate) => candidate.id === contactId
+  );
 
   if (!contact) {
     throw new Error("Client contact not found");
@@ -11045,14 +11394,17 @@ async function inviteClientContactToProjects(
   );
 
   if (selectedProjects.length !== requestedProjectIds.length) {
-    throw new Error("One or more selected projects are no longer linked to this client");
+    throw new Error(
+      "One or more selected projects are no longer linked to this client"
+    );
   }
 
   const questionnaireAccess =
     value.questionnaireAccess === undefined
       ? true
       : Boolean(value.questionnaireAccess);
-  const sendEmail = value.sendEmail === undefined ? true : Boolean(value.sendEmail);
+  const sendEmail =
+    value.sendEmail === undefined ? true : Boolean(value.sendEmail);
   const role = contact.canApproveQuotes ? "approver" : "contributor";
   const contactName =
     [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim() ||
@@ -11110,7 +11462,9 @@ async function inviteClientContactToProjects(
       emailSent = true;
     } catch (error) {
       emailError =
-        error instanceof Error ? error.message : "Failed to send onboarding email";
+        error instanceof Error
+          ? error.message
+          : "Failed to send onboarding email";
     }
   }
 
@@ -11120,7 +11474,8 @@ async function inviteClientContactToProjects(
         projectId: project.id,
         senderType: "internal",
         senderName: "Muloo Client Workspace",
-        body: `Portal access updated for ${contactName}` +
+        body:
+          `Portal access updated for ${contactName}` +
           ` (${contact.email}). ${
             questionnaireAccess
               ? "Assigned to project inputs."
@@ -11180,7 +11535,10 @@ async function updateClientProjectAccess(
     updateData.questionnaireAccess = Boolean(value.questionnaireAccess);
   }
 
-  if (value.assignedInputSections !== undefined || value.questionnaireAccess !== undefined) {
+  if (
+    value.assignedInputSections !== undefined ||
+    value.questionnaireAccess !== undefined
+  ) {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       select: {
@@ -11308,11 +11666,12 @@ async function loadClientProjectDetail(projectId: string, userId: string) {
       ...serializeClientProject(access.project),
       clientQuestionnaireConfig: Object.fromEntries(
         Object.entries(normalizedInputConfig)
-          .filter(([sessionNumberText, session]) =>
-            access.questionnaireAccess &&
-            assignedInputSections.includes(Number(sessionNumberText)) &&
-            session.enabled !== false &&
-            session.questions.some((question) => question.enabled !== false)
+          .filter(
+            ([sessionNumberText, session]) =>
+              access.questionnaireAccess &&
+              assignedInputSections.includes(Number(sessionNumberText)) &&
+              session.enabled !== false &&
+              session.questions.some((question) => question.enabled !== false)
           )
           .map(([sessionNumberText, session]) => [
             Number(sessionNumberText),
@@ -11490,8 +11849,7 @@ async function createProjectMessage(value: {
       senderType,
       senderName,
       body,
-      internalSeenAt:
-        senderType === "internal" ? new Date() : null,
+      internalSeenAt: senderType === "internal" ? new Date() : null,
       clientSeenAt: senderType === "client" ? new Date() : null
     }
   });
@@ -11524,9 +11882,7 @@ async function markAllProjectMessagesSeenByInternal() {
   });
 }
 
-async function markProjectMessagesSeenByClient(
-  projectIds: string[] | string
-) {
+async function markProjectMessagesSeenByClient(projectIds: string[] | string) {
   const normalizedProjectIds = Array.isArray(projectIds)
     ? projectIds
     : [projectIds];
@@ -11581,21 +11937,23 @@ async function loadClientInbox(userId: string) {
   const projectIds = accessRecords.map((record) => record.projectId);
 
   const [workRequests, messages] = await Promise.all([
-    prisma.clientPortalUser.findUnique({
-      where: { id: userId },
-      select: { email: true }
-    }).then((user) =>
-      loadWorkRequests(
-        user?.email
-          ? {
-              projectIds,
-              contactEmail: user.email
-            }
-          : {
-              projectIds
-            }
-      )
-    ),
+    prisma.clientPortalUser
+      .findUnique({
+        where: { id: userId },
+        select: { email: true }
+      })
+      .then((user) =>
+        loadWorkRequests(
+          user?.email
+            ? {
+                projectIds,
+                contactEmail: user.email
+              }
+            : {
+                projectIds
+              }
+        )
+      ),
     prisma.projectMessage.findMany({
       where: {
         projectId: { in: projectIds }
@@ -11708,7 +12066,10 @@ async function updateProductCatalogItem(
   }
 
   if (value.category !== undefined) {
-    if (typeof value.category !== "string" || value.category.trim().length === 0) {
+    if (
+      typeof value.category !== "string" ||
+      value.category.trim().length === 0
+    ) {
       throw new Error("category must be a non-empty string");
     }
 
@@ -11774,7 +12135,10 @@ async function updateProductCatalogItem(
   }
 
   if (value.unitLabel !== undefined) {
-    if (typeof value.unitLabel !== "string" || value.unitLabel.trim().length === 0) {
+    if (
+      typeof value.unitLabel !== "string" ||
+      value.unitLabel.trim().length === 0
+    ) {
       throw new Error("unitLabel must be a non-empty string");
     }
 
@@ -11924,7 +12288,8 @@ async function updateWorkspaceEmailSettings(value: {
     if (value.port === null || value.port === "") {
       updateData.port = null;
     } else {
-      const port = typeof value.port === "number" ? value.port : Number(value.port);
+      const port =
+        typeof value.port === "number" ? value.port : Number(value.port);
       if (!Number.isFinite(port) || port <= 0) {
         throw new Error("port must be a valid positive number");
       }
@@ -11992,9 +12357,10 @@ async function updateWorkspaceEmailOAuthConnection(value: {
 }) {
   await ensureWorkspaceEmailOAuthConnectionsSeeded();
 
-  const connection = await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
-    where: { providerKey: "google_workspace" }
-  });
+  const connection =
+    await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
+      where: { providerKey: "google_workspace" }
+    });
 
   const updateData: Prisma.Prisma.WorkspaceEmailOAuthConnectionUpdateInput = {};
 
@@ -12061,9 +12427,10 @@ async function updateWorkspaceEmailOAuthConnection(value: {
 async function createWorkspaceGoogleEmailOAuthStart() {
   await ensureWorkspaceEmailOAuthConnectionsSeeded();
 
-  const connection = await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
-    where: { providerKey: "google_workspace" }
-  });
+  const connection =
+    await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
+      where: { providerKey: "google_workspace" }
+    });
 
   if (!connection.clientId?.trim()) {
     throw new Error("Google OAuth client ID is not configured yet");
@@ -12125,9 +12492,10 @@ async function completeWorkspaceGoogleEmailOAuthCallback(value: {
 
   await ensureWorkspaceEmailOAuthConnectionsSeeded();
 
-  const connection = await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
-    where: { providerKey: "google_workspace" }
-  });
+  const connection =
+    await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
+      where: { providerKey: "google_workspace" }
+    });
 
   if (!connection.clientId?.trim() || !connection.clientSecret?.trim()) {
     throw new Error("Google OAuth client credentials are incomplete");
@@ -12147,16 +12515,14 @@ async function completeWorkspaceGoogleEmailOAuthCallback(value: {
     }).toString()
   });
 
-  const tokenBody = (await tokenResponse.json().catch(() => null)) as
-    | {
-        access_token?: string;
-        refresh_token?: string;
-        token_type?: string;
-        expires_in?: number;
-        error?: string;
-        error_description?: string;
-      }
-    | null;
+  const tokenBody = (await tokenResponse.json().catch(() => null)) as {
+    access_token?: string;
+    refresh_token?: string;
+    token_type?: string;
+    expires_in?: number;
+    error?: string;
+    error_description?: string;
+  } | null;
 
   if (!tokenResponse.ok || !tokenBody?.access_token) {
     throw new Error(
@@ -12174,12 +12540,10 @@ async function completeWorkspaceGoogleEmailOAuthCallback(value: {
       }
     }
   );
-  const profileBody = (await profileResponse.json().catch(() => null)) as
-    | {
-        email?: string;
-        name?: string;
-      }
-    | null;
+  const profileBody = (await profileResponse.json().catch(() => null)) as {
+    email?: string;
+    name?: string;
+  } | null;
 
   if (!profileResponse.ok || !profileBody?.email) {
     throw new Error("Could not load the connected Google profile");
@@ -12213,9 +12577,10 @@ async function completeWorkspaceGoogleEmailOAuthCallback(value: {
 async function disconnectWorkspaceGoogleEmailOAuthConnection() {
   await ensureWorkspaceEmailOAuthConnectionsSeeded();
 
-  const connection = await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
-    where: { providerKey: "google_workspace" }
-  });
+  const connection =
+    await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
+      where: { providerKey: "google_workspace" }
+    });
 
   if (connection.accessToken) {
     await fetch(
@@ -12292,15 +12657,13 @@ async function refreshGoogleWorkspaceEmailAccessTokenIfNeeded() {
     }).toString()
   });
 
-  const refreshBody = (await refreshResponse.json().catch(() => null)) as
-    | {
-        access_token?: string;
-        expires_in?: number;
-        token_type?: string;
-        error?: string;
-        error_description?: string;
-      }
-    | null;
+  const refreshBody = (await refreshResponse.json().catch(() => null)) as {
+    access_token?: string;
+    expires_in?: number;
+    token_type?: string;
+    error?: string;
+    error_description?: string;
+  } | null;
 
   if (!refreshResponse.ok || !refreshBody?.access_token) {
     throw new Error(
@@ -12395,9 +12758,10 @@ async function sendWorkspaceEmailViaGoogleMailbox(value: {
     }
   );
 
-  const body = (await response.json().catch(() => null)) as
-    | { id?: string; error?: { message?: string } }
-    | null;
+  const body = (await response.json().catch(() => null)) as {
+    id?: string;
+    error?: { message?: string };
+  } | null;
 
   if (!response.ok || !body?.id) {
     throw new Error(body?.error?.message || "Failed to send email via Gmail");
@@ -12509,7 +12873,10 @@ async function updateWorkspaceAiRouting(
   const updateData: Prisma.Prisma.WorkspaceAiRoutingUpdateInput = {};
 
   if (value.providerKey !== undefined) {
-    if (typeof value.providerKey !== "string" || value.providerKey.trim().length === 0) {
+    if (
+      typeof value.providerKey !== "string" ||
+      value.providerKey.trim().length === 0
+    ) {
       throw new Error("providerKey must be a non-empty string");
     }
 
@@ -12560,13 +12927,16 @@ function getProviderApiKey(providerKey: string, storedApiKey: string | null) {
 }
 
 function resolveProviderCandidate(
-  providerMap: Map<string, {
-    providerKey: string;
-    apiKey: string | null;
-    defaultModel: string | null;
-    endpointUrl: string | null;
-    isEnabled: boolean;
-  }>,
+  providerMap: Map<
+    string,
+    {
+      providerKey: string;
+      apiKey: string | null;
+      defaultModel: string | null;
+      endpointUrl: string | null;
+      isEnabled: boolean;
+    }
+  >,
   providerKey: string | null | undefined,
   modelOverride?: string | null
 ) {
@@ -12593,7 +12963,10 @@ function resolveProviderCandidate(
 }
 
 async function resolveAiWorkflow(workflowKey: string) {
-  await Promise.all([ensureProviderConnectionsSeeded(), ensureAiRoutingSeeded()]);
+  await Promise.all([
+    ensureProviderConnectionsSeeded(),
+    ensureAiRoutingSeeded()
+  ]);
 
   const [routing, providers] = await Promise.all([
     prisma.workspaceAiRouting.findUnique({ where: { workflowKey } }),
@@ -12604,7 +12977,11 @@ async function resolveAiWorkflow(workflowKey: string) {
     providers.map((provider) => [provider.providerKey, provider])
   );
   const routedCandidate = routing
-    ? resolveProviderCandidate(providerMap, routing.providerKey, routing.modelOverride)
+    ? resolveProviderCandidate(
+        providerMap,
+        routing.providerKey,
+        routing.modelOverride
+      )
     : null;
 
   if (routing && routedCandidate) {
@@ -12620,7 +12997,9 @@ async function resolveAiWorkflow(workflowKey: string) {
     const fallbackCandidate = resolveProviderCandidate(
       providerMap,
       providerKey,
-      routing?.providerKey === providerKey ? routing?.modelOverride ?? null : null
+      routing?.providerKey === providerKey
+        ? (routing?.modelOverride ?? null)
+        : null
     );
     if (fallbackCandidate) {
       return {
@@ -12645,7 +13024,10 @@ async function resolveAiWorkflowSelection(
     return resolveAiWorkflow(workflowKey);
   }
 
-  await Promise.all([ensureProviderConnectionsSeeded(), ensureAiRoutingSeeded()]);
+  await Promise.all([
+    ensureProviderConnectionsSeeded(),
+    ensureAiRoutingSeeded()
+  ]);
 
   const providers = await prisma.workspaceProviderConnection.findMany();
   const providerMap = new Map(
@@ -12673,7 +13055,10 @@ async function resolveAiWorkflowForAgent(
   preferredProviderKey: string | null | undefined,
   preferredModel: string | null | undefined
 ) {
-  await Promise.all([ensureProviderConnectionsSeeded(), ensureAiRoutingSeeded()]);
+  await Promise.all([
+    ensureProviderConnectionsSeeded(),
+    ensureAiRoutingSeeded()
+  ]);
 
   const providers = await prisma.workspaceProviderConnection.findMany();
   const providerMap = new Map(
@@ -12784,10 +13169,14 @@ async function callResolvedAiWorkflow(
     );
 
     if (!response.ok) {
-      throw new Error(`Anthropic request failed with status ${response.status}`);
+      throw new Error(
+        `Anthropic request failed with status ${response.status}`
+      );
     }
 
-    const payload = (await response.json()) as { content?: Array<{ text?: string }> };
+    const payload = (await response.json()) as {
+      content?: Array<{ text?: string }>;
+    };
     return payload?.content?.[0]?.text?.trim() ?? "";
   }
 
@@ -12915,7 +13304,10 @@ async function updateAgentDefinition(
   }
 
   if (value.purpose !== undefined) {
-    if (typeof value.purpose !== "string" || value.purpose.trim().length === 0) {
+    if (
+      typeof value.purpose !== "string" ||
+      value.purpose.trim().length === 0
+    ) {
       throw new Error("purpose must be a non-empty string");
     }
 
@@ -12923,7 +13315,12 @@ async function updateAgentDefinition(
   }
 
   if (value.serviceFamily !== undefined) {
-    if (typeof value.serviceFamily !== "string" || !serviceFamilyOptions.includes(value.serviceFamily.trim() as (typeof serviceFamilyOptions)[number])) {
+    if (
+      typeof value.serviceFamily !== "string" ||
+      !serviceFamilyOptions.includes(
+        value.serviceFamily.trim() as (typeof serviceFamilyOptions)[number]
+      )
+    ) {
       throw new Error("serviceFamily must be a valid service family");
     }
 
@@ -12931,7 +13328,10 @@ async function updateAgentDefinition(
   }
 
   if (value.provider !== undefined) {
-    if (typeof value.provider !== "string" || value.provider.trim().length === 0) {
+    if (
+      typeof value.provider !== "string" ||
+      value.provider.trim().length === 0
+    ) {
       throw new Error("provider must be a non-empty string");
     }
 
@@ -13167,7 +13567,11 @@ Example format:
 }`;
   const userPrompt = `Meeting notes:\n\n${text}\n\nExtract the fields now.`;
 
-  const rawText = await callAiWorkflow("discovery_extract", systemPrompt, userPrompt).catch(() => "{}");
+  const rawText = await callAiWorkflow(
+    "discovery_extract",
+    systemPrompt,
+    userPrompt
+  ).catch(() => "{}");
   console.log(
     "[discovery/extract] Claude raw response:",
     rawText.substring(0, 500)
@@ -13241,7 +13645,10 @@ export function createAppServer(config: BaseConfig): http.Server {
         });
       }
 
-      if (request.method === "POST" && url.pathname === "/api/client-auth/login") {
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/client-auth/login"
+      ) {
         const body = (await readJsonBody(request)) as {
           email?: string;
           password?: string;
@@ -13256,7 +13663,9 @@ export function createAppServer(config: BaseConfig): http.Server {
           : null;
 
         if (!user || user.password !== password) {
-          return sendJson(response, 401, { error: "Invalid client credentials" });
+          return sendJson(response, 401, {
+            error: "Invalid client credentials"
+          });
         }
 
         setCookie(response, createClientAuthToken(user.id), {
@@ -13270,7 +13679,10 @@ export function createAppServer(config: BaseConfig): http.Server {
         });
       }
 
-      if (request.method === "POST" && url.pathname === "/api/client-auth/set-password") {
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/client-auth/set-password"
+      ) {
         const body = (await readJsonBody(request)) as {
           token?: string;
           password?: string;
@@ -13280,7 +13692,8 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (!token || password.length < 8) {
           return sendJson(response, 400, {
-            error: "A valid token and password of at least 8 characters are required"
+            error:
+              "A valid token and password of at least 8 characters are required"
           });
         }
 
@@ -13367,7 +13780,10 @@ export function createAppServer(config: BaseConfig): http.Server {
         const clientInboxRoute = matchClientInboxRoute(url.pathname);
 
         if (clientInboxRoute) {
-          if (request.method === "GET" && clientInboxRoute.resource === "summary") {
+          if (
+            request.method === "GET" &&
+            clientInboxRoute.resource === "summary"
+          ) {
             return sendJson(response, 200, {
               summary: await loadClientInboxSummary(clientUserId)
             });
@@ -13389,7 +13805,9 @@ export function createAppServer(config: BaseConfig): http.Server {
           return sendJson(response, 405, { error: "Method Not Allowed" });
         }
 
-        const clientWorkRequestRoute = matchClientWorkRequestRoute(url.pathname);
+        const clientWorkRequestRoute = matchClientWorkRequestRoute(
+          url.pathname
+        );
 
         if (clientWorkRequestRoute) {
           const clientUser = await prisma.clientPortalUser.findUnique({
@@ -13416,10 +13834,14 @@ export function createAppServer(config: BaseConfig): http.Server {
 
           if (request.method === "POST") {
             try {
-              const body = (await readJsonBody(request)) as Record<string, unknown>;
+              const body = (await readJsonBody(request)) as Record<
+                string,
+                unknown
+              >;
               const workRequest = await createWorkRequest({
                 ...body,
-                contactName: `${clientUser.firstName} ${clientUser.lastName}`.trim(),
+                contactName:
+                  `${clientUser.firstName} ${clientUser.lastName}`.trim(),
                 contactEmail: clientUser.email
               });
               return sendJson(response, 201, { workRequest });
@@ -13505,7 +13927,9 @@ export function createAppServer(config: BaseConfig): http.Server {
             clientProjectRoute.sessionId
           ) {
             try {
-              const body = (await readJsonBody(request)) as { answers?: unknown };
+              const body = (await readJsonBody(request)) as {
+                answers?: unknown;
+              };
               const submission = await saveClientInputSubmission(
                 clientProjectRoute.projectId,
                 clientUserId,
@@ -13620,9 +14044,13 @@ export function createAppServer(config: BaseConfig): http.Server {
             }
 
             if (request.method === "GET") {
-              await markProjectMessagesSeenByClient(clientProjectRoute.projectId);
+              await markProjectMessagesSeenByClient(
+                clientProjectRoute.projectId
+              );
               return sendJson(response, 200, {
-                messages: await loadProjectMessages(clientProjectRoute.projectId)
+                messages: await loadProjectMessages(
+                  clientProjectRoute.projectId
+                )
               });
             }
 
@@ -13632,15 +14060,20 @@ export function createAppServer(config: BaseConfig): http.Server {
               });
 
               if (!clientUser) {
-                return sendJson(response, 401, { error: "Client unauthorized" });
+                return sendJson(response, 401, {
+                  error: "Client unauthorized"
+                });
               }
 
               try {
-                const body = (await readJsonBody(request)) as { body?: unknown };
+                const body = (await readJsonBody(request)) as {
+                  body?: unknown;
+                };
                 const message = await createProjectMessage({
                   projectId: clientProjectRoute.projectId,
                   senderType: "client",
-                  senderName: `${clientUser.firstName} ${clientUser.lastName}`.trim(),
+                  senderName:
+                    `${clientUser.firstName} ${clientUser.lastName}`.trim(),
                   body: body.body
                 });
 
@@ -13723,7 +14156,8 @@ export function createAppServer(config: BaseConfig): http.Server {
       if (url.pathname === "/api/hubspot/agent-capabilities") {
         if (request.method === "GET") {
           const portalRecordId = url.searchParams.get("portalRecordId");
-          const connection = await resolveHubSpotAgentConnection(portalRecordId);
+          const connection =
+            await resolveHubSpotAgentConnection(portalRecordId);
           return sendJson(
             response,
             200,
@@ -13737,7 +14171,10 @@ export function createAppServer(config: BaseConfig): http.Server {
       if (url.pathname === "/api/hubspot/agent-execute") {
         if (request.method === "POST") {
           try {
-            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
             const result = await executeHubSpotAgentAction(body);
             return sendJson(response, 200, result);
           } catch (error) {
@@ -13753,7 +14190,10 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
-      if (request.method === "POST" && url.pathname === "/api/hubspot/oauth/start") {
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/hubspot/oauth/start"
+      ) {
         try {
           const body = (await readJsonBody(request)) as Record<string, unknown>;
           const result = await createHubSpotOAuthStart(body);
@@ -13768,7 +14208,10 @@ export function createAppServer(config: BaseConfig): http.Server {
         }
       }
 
-      if (request.method === "POST" && url.pathname === "/api/hubspot/oauth/callback") {
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/hubspot/oauth/callback"
+      ) {
         try {
           const body = (await readJsonBody(request)) as Record<string, unknown>;
           const result = await completeHubSpotOAuthCallback(body);
@@ -13795,7 +14238,10 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (request.method === "POST" && !workspaceUserRoute.userId) {
           try {
-            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
             const user = await createWorkspaceUser(body);
             return sendJson(response, 201, { user });
           } catch (error) {
@@ -13810,8 +14256,14 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (request.method === "PATCH" && workspaceUserRoute.userId) {
           try {
-            const body = (await readJsonBody(request)) as Record<string, unknown>;
-            const user = await updateWorkspaceUser(workspaceUserRoute.userId, body);
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
+            const user = await updateWorkspaceUser(
+              workspaceUserRoute.userId,
+              body
+            );
             return sendJson(response, 200, { user });
           } catch (error) {
             return sendJson(response, 400, {
@@ -13826,7 +14278,9 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
-      const providerConnectionRoute = matchProviderConnectionRoute(url.pathname);
+      const providerConnectionRoute = matchProviderConnectionRoute(
+        url.pathname
+      );
       if (providerConnectionRoute) {
         if (request.method === "GET" && !providerConnectionRoute.providerKey) {
           return sendJson(response, 200, {
@@ -13836,7 +14290,10 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (request.method === "PATCH" && providerConnectionRoute.providerKey) {
           try {
-            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
             const provider = await updateWorkspaceProviderConnection(
               providerConnectionRoute.providerKey,
               body
@@ -13865,7 +14322,10 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (request.method === "PATCH" && aiRoutingRoute.workflowKey) {
           try {
-            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
             const route = await updateWorkspaceAiRouting(
               aiRoutingRoute.workflowKey,
               body
@@ -13893,7 +14353,10 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (request.method === "PATCH") {
           try {
-            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
             const settings = await updateWorkspaceEmailSettings(body);
             return sendJson(response, 200, { settings });
           } catch (error) {
@@ -13918,7 +14381,10 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (request.method === "PATCH") {
           try {
-            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
             const connection = await updateWorkspaceEmailOAuthConnection(body);
             return sendJson(response, 200, { connection });
           } catch (error) {
@@ -13949,7 +14415,10 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
-      if (request.method === "POST" && url.pathname === "/api/email-oauth/google/start") {
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/email-oauth/google/start"
+      ) {
         try {
           const result = await createWorkspaceGoogleEmailOAuthStart();
           return sendJson(response, 200, result);
@@ -13963,10 +14432,14 @@ export function createAppServer(config: BaseConfig): http.Server {
         }
       }
 
-      if (request.method === "POST" && url.pathname === "/api/email-oauth/google/callback") {
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/email-oauth/google/callback"
+      ) {
         try {
           const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const connection = await completeWorkspaceGoogleEmailOAuthCallback(body);
+          const connection =
+            await completeWorkspaceGoogleEmailOAuthCallback(body);
           return sendJson(response, 200, { connection });
         } catch (error) {
           return sendJson(response, 400, {
@@ -14097,7 +14570,9 @@ export function createAppServer(config: BaseConfig): http.Server {
           } catch (error) {
             return sendJson(response, 400, {
               error:
-                error instanceof Error ? error.message : "Failed to update agent"
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update agent"
             });
           }
         }
@@ -14115,7 +14590,10 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (request.method === "POST" && !deliveryTemplateRoute.templateId) {
           try {
-            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
             const template = await createDeliveryTemplate(body);
             return sendJson(response, 201, { template });
           } catch (error) {
@@ -14130,7 +14608,10 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (request.method === "PATCH" && deliveryTemplateRoute.templateId) {
           try {
-            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
             const template = await updateDeliveryTemplate(
               deliveryTemplateRoute.templateId,
               body
@@ -14159,7 +14640,10 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (request.method === "POST" && !workRequestRoute.requestId) {
           try {
-            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
             const workRequest = await createWorkRequest(body);
             return sendJson(response, 201, { workRequest });
           } catch (error) {
@@ -14174,7 +14658,10 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         if (request.method === "PATCH" && workRequestRoute.requestId) {
           try {
-            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
             const workRequest = await updateWorkRequest(
               workRequestRoute.requestId,
               body
@@ -14224,9 +14711,10 @@ export function createAppServer(config: BaseConfig): http.Server {
             return sendJson(
               response,
               error instanceof Error &&
-              ["Change request not found", "Change request is not linked to a project"].includes(
-                error.message
-              )
+                [
+                  "Change request not found",
+                  "Change request is not linked to a project"
+                ].includes(error.message)
                 ? 404
                 : 400,
               {
@@ -14259,7 +14747,10 @@ export function createAppServer(config: BaseConfig): http.Server {
       if (runRoute) {
         if (request.method === "PATCH") {
           try {
-            const body = (await readJsonBody(request)) as Record<string, unknown>;
+            const body = (await readJsonBody(request)) as Record<
+              string,
+              unknown
+            >;
             const run = await updateAgentRun(runRoute.runId, body);
             return sendJson(response, 200, { run });
           } catch (error) {
@@ -14275,7 +14766,9 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
-      const projectTaskAgentRunRoute = matchProjectTaskAgentRunRoute(url.pathname);
+      const projectTaskAgentRunRoute = matchProjectTaskAgentRunRoute(
+        url.pathname
+      );
       if (projectTaskAgentRunRoute) {
         if (request.method === "POST") {
           try {
@@ -14286,7 +14779,10 @@ export function createAppServer(config: BaseConfig): http.Server {
             return sendJson(response, 201, { run });
           } catch (error) {
             return sendJson(response, 400, {
-              error: error instanceof Error ? error.message : "Failed to queue agent run"
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to queue agent run"
             });
           }
         }
@@ -14328,7 +14824,8 @@ export function createAppServer(config: BaseConfig): http.Server {
           };
 
           const scopeType =
-            typeof body.scopeType === "string" && body.scopeType.trim().length > 0
+            typeof body.scopeType === "string" &&
+            body.scopeType.trim().length > 0
               ? body.scopeType.trim()
               : "discovery";
 
@@ -14436,14 +14933,12 @@ export function createAppServer(config: BaseConfig): http.Server {
               problemStatement: body.problemStatement?.trim() || null,
               solutionRecommendation:
                 body.solutionRecommendation?.trim() || null,
-              scopeExecutiveSummary:
-                body.scopeExecutiveSummary?.trim() || null,
+              scopeExecutiveSummary: body.scopeExecutiveSummary?.trim() || null,
               clientChampionFirstName:
                 body.clientChampionFirstName?.trim() || null,
               clientChampionLastName:
                 body.clientChampionLastName?.trim() || null,
-              clientChampionEmail:
-                body.clientChampionEmail?.trim() || null,
+              clientChampionEmail: body.clientChampionEmail?.trim() || null,
               scopeType,
               deliveryTemplateId: body.deliveryTemplateId?.trim() || null,
               commercialBrief: body.commercialBrief?.trim() || null,
@@ -14529,7 +15024,9 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 200, { sessionDetail });
       }
 
-      const projectClientUsersRoute = matchProjectClientUsersRoute(url.pathname);
+      const projectClientUsersRoute = matchProjectClientUsersRoute(
+        url.pathname
+      );
       if (projectClientUsersRoute) {
         if (request.method === "GET") {
           return sendJson(response, 200, {
@@ -14678,7 +15175,9 @@ export function createAppServer(config: BaseConfig): http.Server {
         }
 
         if (request.method === "GET") {
-          await markProjectMessagesSeenByInternal(projectMessagesRoute.projectId);
+          await markProjectMessagesSeenByInternal(
+            projectMessagesRoute.projectId
+          );
           return sendJson(response, 200, {
             messages: await loadProjectMessages(projectMessagesRoute.projectId)
           });
@@ -14694,7 +15193,8 @@ export function createAppServer(config: BaseConfig): http.Server {
               projectId: projectMessagesRoute.projectId,
               senderType: "internal",
               senderName:
-                typeof body.senderName === "string" && body.senderName.trim().length > 0
+                typeof body.senderName === "string" &&
+                body.senderName.trim().length > 0
                   ? body.senderName
                   : "Muloo",
               body: body.body
@@ -14864,7 +15364,11 @@ export function createAppServer(config: BaseConfig): http.Server {
           try {
             const project = await prisma.project.findUnique({
               where: { id: projectDiscoverySummaryRoute.projectId },
-              select: { id: true, quoteApprovalStatus: true, scopeLockedAt: true }
+              select: {
+                id: true,
+                quoteApprovalStatus: true,
+                scopeLockedAt: true
+              }
             });
 
             if (!project) {
@@ -15032,10 +15536,16 @@ export function createAppServer(config: BaseConfig): http.Server {
           ];
           const validAssigneeTypes = ["Human", "Agent", "Client"];
           const validPriorities = ["low", "medium", "high"];
-          const validExecutionReadiness = ["not_ready", "assisted", "ready_with_review", "ready"];
+          const validExecutionReadiness = [
+            "not_ready",
+            "assisted",
+            "ready_with_review",
+            "ready"
+          ];
 
           const status =
-            typeof body.status === "string" && validStatuses.includes(body.status)
+            typeof body.status === "string" &&
+            validStatuses.includes(body.status)
               ? body.status
               : "todo";
           const assigneeType =
@@ -15044,7 +15554,9 @@ export function createAppServer(config: BaseConfig): http.Server {
               ? body.assigneeType
               : "Human";
           const assignedAgentId =
-            assigneeType === "Agent" && typeof body.assignedAgentId === "string" && body.assignedAgentId.trim().length > 0
+            assigneeType === "Agent" &&
+            typeof body.assignedAgentId === "string" &&
+            body.assignedAgentId.trim().length > 0
               ? body.assignedAgentId.trim()
               : null;
           const executionReadiness =
@@ -15059,7 +15571,10 @@ export function createAppServer(config: BaseConfig): http.Server {
             validPriorities.includes(body.priority.toLowerCase())
               ? body.priority.toLowerCase()
               : "medium";
-          const normalizedTitle = normalizeRequiredTaskString(body.title, "title");
+          const normalizedTitle = normalizeRequiredTaskString(
+            body.title,
+            "title"
+          );
           const normalizedDescription =
             normalizeOptionalTaskString(body.description) ?? "";
           const normalizedCategory =
@@ -15168,7 +15683,12 @@ export function createAppServer(config: BaseConfig): http.Server {
           ];
           const validAssigneeTypes = ["Human", "Agent", "Client"];
           const validPriorities = ["low", "medium", "high"];
-          const validExecutionReadiness = ["not_ready", "assisted", "ready_with_review", "ready"];
+          const validExecutionReadiness = [
+            "not_ready",
+            "assisted",
+            "ready_with_review",
+            "ready"
+          ];
 
           const existingTask = await prisma.task.findFirst({
             where: {
@@ -15199,9 +15719,7 @@ export function createAppServer(config: BaseConfig): http.Server {
               "plannedHours",
               "qaRequired",
               "approvalRequired"
-            ].filter((key) =>
-              Object.prototype.hasOwnProperty.call(body, key)
-            );
+            ].filter((key) => Object.prototype.hasOwnProperty.call(body, key));
 
             if (blockedKeys.length > 0) {
               return sendJson(response, 409, {
@@ -15246,7 +15764,9 @@ export function createAppServer(config: BaseConfig): http.Server {
               typeof body.priority !== "string" ||
               !validPriorities.includes(body.priority.toLowerCase())
             ) {
-              return sendJson(response, 400, { error: "Invalid task priority" });
+              return sendJson(response, 400, {
+                error: "Invalid task priority"
+              });
             }
 
             data.priority = body.priority.toLowerCase();
@@ -15269,8 +15789,13 @@ export function createAppServer(config: BaseConfig): http.Server {
           }
 
           if (body.executionReadiness !== undefined) {
-            if (typeof body.executionReadiness !== "string" || !validExecutionReadiness.includes(body.executionReadiness)) {
-              return sendJson(response, 400, { error: "Invalid execution readiness" });
+            if (
+              typeof body.executionReadiness !== "string" ||
+              !validExecutionReadiness.includes(body.executionReadiness)
+            ) {
+              return sendJson(response, 400, {
+                error: "Invalid execution readiness"
+              });
             }
 
             data.executionReadiness = body.executionReadiness;
@@ -15282,7 +15807,9 @@ export function createAppServer(config: BaseConfig): http.Server {
             } else if (typeof body.assignedAgentId === "string") {
               data.assignedAgentId = body.assignedAgentId.trim();
             } else {
-              return sendJson(response, 400, { error: "Invalid assigned agent" });
+              return sendJson(response, 400, {
+                error: "Invalid assigned agent"
+              });
             }
           }
 
@@ -15326,17 +15853,15 @@ export function createAppServer(config: BaseConfig): http.Server {
 
           const nextTaskShape = {
             title:
-              typeof data.title === "string"
-                ? data.title
-                : existingTask.title,
+              typeof data.title === "string" ? data.title : existingTask.title,
             description:
               typeof data.description === "string"
                 ? data.description
-                : existingTask.description ?? "",
+                : (existingTask.description ?? ""),
             category:
               typeof data.category === "string"
                 ? data.category
-                : existingTask.category ?? "",
+                : (existingTask.category ?? ""),
             executionType:
               typeof data.executionType === "string"
                 ? data.executionType
@@ -15344,7 +15869,7 @@ export function createAppServer(config: BaseConfig): http.Server {
             assigneeType:
               typeof data.assigneeType === "string"
                 ? data.assigneeType
-                : existingTask.assigneeType ?? "Human"
+                : (existingTask.assigneeType ?? "Human")
           };
 
           if (
@@ -15445,9 +15970,7 @@ export function createAppServer(config: BaseConfig): http.Server {
 
             return sendJson(response, 400, {
               error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to share quote"
+                error instanceof Error ? error.message : "Failed to share quote"
             });
           }
         }
@@ -15536,9 +16059,8 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 200, extraction);
       }
 
-      const clientContactPortalAccessRoute = matchClientContactPortalAccessRoute(
-        url.pathname
-      );
+      const clientContactPortalAccessRoute =
+        matchClientContactPortalAccessRoute(url.pathname);
       if (clientContactPortalAccessRoute) {
         if (request.method === "POST") {
           try {
@@ -15558,7 +16080,9 @@ export function createAppServer(config: BaseConfig): http.Server {
             return sendJson(
               response,
               error instanceof Error &&
-              ["Client not found", "Client contact not found"].includes(error.message)
+                ["Client not found", "Client contact not found"].includes(
+                  error.message
+                )
                 ? 404
                 : 400,
               {
@@ -15578,7 +16102,9 @@ export function createAppServer(config: BaseConfig): http.Server {
       if (clientEnrichmentRoute) {
         if (request.method === "POST") {
           try {
-            const client = await refreshClientEnrichment(clientEnrichmentRoute.clientId);
+            const client = await refreshClientEnrichment(
+              clientEnrichmentRoute.clientId
+            );
             return sendJson(response, 200, { client });
           } catch (error) {
             return sendJson(
@@ -15644,7 +16170,9 @@ export function createAppServer(config: BaseConfig): http.Server {
                 region: normalizeClientRegion(body.region),
                 additionalWebsites: Array.isArray(body.additionalWebsites)
                   ? body.additionalWebsites
-                      .filter((entry): entry is string => typeof entry === "string")
+                      .filter(
+                        (entry): entry is string => typeof entry === "string"
+                      )
                       .map((entry) => entry.trim())
                       .filter(Boolean)
                   : [],
@@ -15661,13 +16189,16 @@ export function createAppServer(config: BaseConfig): http.Server {
                     ? body.instagramUrl.trim() || null
                     : null,
                 xUrl:
-                  typeof body.xUrl === "string" ? body.xUrl.trim() || null : null,
+                  typeof body.xUrl === "string"
+                    ? body.xUrl.trim() || null
+                    : null,
                 youtubeUrl:
                   typeof body.youtubeUrl === "string"
                     ? body.youtubeUrl.trim() || null
                     : null,
                 clientRoles: normalizeClientRoleTags(body.clientRoles),
-                ...(typeof body.parentClientId === "string" && body.parentClientId.trim()
+                ...(typeof body.parentClientId === "string" &&
+                body.parentClientId.trim()
                   ? {
                       parentClient: {
                         connect: {
@@ -15844,7 +16375,8 @@ export function createAppServer(config: BaseConfig): http.Server {
           } catch (error) {
             if (isUniqueConstraintError(error)) {
               return sendJson(response, 409, {
-                error: "A contact with that email already exists for this client"
+                error:
+                  "A contact with that email already exists for this client"
               });
             }
 
@@ -15880,13 +16412,15 @@ export function createAppServer(config: BaseConfig): http.Server {
           } catch (error) {
             if (isUniqueConstraintError(error)) {
               return sendJson(response, 409, {
-                error: "A contact with that email already exists for this client"
+                error:
+                  "A contact with that email already exists for this client"
               });
             }
 
             return sendJson(
               response,
-              error instanceof Error && error.message === "Client contact not found"
+              error instanceof Error &&
+                error.message === "Client contact not found"
                 ? 404
                 : 400,
               {
@@ -15956,7 +16490,10 @@ export function createAppServer(config: BaseConfig): http.Server {
         });
       }
 
-      if (request.method === "POST" && url.pathname === "/api/solution-options") {
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/solution-options"
+      ) {
         const body = (await readJsonBody(request)) as {
           clientName?: string;
           website?: string;
@@ -15964,7 +16501,10 @@ export function createAppServer(config: BaseConfig): http.Server {
           serviceFamily?: string;
         };
 
-        if (typeof body.problemStatement !== "string" || body.problemStatement.trim().length < 20) {
+        if (
+          typeof body.problemStatement !== "string" ||
+          body.problemStatement.trim().length < 20
+        ) {
           return sendJson(response, 400, {
             error: "problemStatement must be at least 20 characters"
           });
@@ -15972,13 +16512,15 @@ export function createAppServer(config: BaseConfig): http.Server {
 
         const options = await generateSolutionOptions({
           problemStatement: body.problemStatement.trim(),
-          ...(typeof body.clientName === "string" && body.clientName.trim().length > 0
+          ...(typeof body.clientName === "string" &&
+          body.clientName.trim().length > 0
             ? { clientName: body.clientName.trim() }
             : {}),
           ...(typeof body.website === "string" && body.website.trim().length > 0
             ? { website: body.website.trim() }
             : {}),
-          ...(typeof body.serviceFamily === "string" && body.serviceFamily.trim().length > 0
+          ...(typeof body.serviceFamily === "string" &&
+          body.serviceFamily.trim().length > 0
             ? { serviceFamily: body.serviceFamily.trim() }
             : {})
         });
@@ -16093,7 +16635,9 @@ export function createAppServer(config: BaseConfig): http.Server {
         if (projectRoute.resource === "changes") {
           if (request.method === "GET") {
             try {
-              const result = await loadProjectChangeRequests(projectRoute.projectId);
+              const result = await loadProjectChangeRequests(
+                projectRoute.projectId
+              );
               return sendJson(response, 200, result);
             } catch (error) {
               return sendJson(
@@ -16124,20 +16668,29 @@ export function createAppServer(config: BaseConfig): http.Server {
                 return sendJson(response, 404, { error: "Project not found" });
               }
 
-              const body = (await readJsonBody(request)) as Record<string, unknown>;
+              const body = (await readJsonBody(request)) as Record<
+                string,
+                unknown
+              >;
               const workRequest = await createWorkRequest({
                 ...body,
                 projectId: project.id,
                 serviceFamily: project.serviceFamily,
                 companyName: project.client.name,
                 contactName:
-                  typeof body.contactName === "string" && body.contactName.trim().length > 0
+                  typeof body.contactName === "string" &&
+                  body.contactName.trim().length > 0
                     ? body.contactName
-                    : project.clientChampionFirstName || project.owner || project.client.name,
+                    : project.clientChampionFirstName ||
+                      project.owner ||
+                      project.client.name,
                 contactEmail:
-                  typeof body.contactEmail === "string" && body.contactEmail.trim().length > 0
+                  typeof body.contactEmail === "string" &&
+                  body.contactEmail.trim().length > 0
                     ? body.contactEmail
-                    : project.clientChampionEmail || project.ownerEmail || "hello@muloo.co",
+                    : project.clientChampionEmail ||
+                      project.ownerEmail ||
+                      "hello@muloo.co",
                 requestType: "change_request"
               });
 
@@ -16286,7 +16839,8 @@ export function createAppServer(config: BaseConfig): http.Server {
                   )))
             ) {
               return sendJson(response, 400, {
-                error: "customerPlatformTier must be starter, professional, enterprise, or blank"
+                error:
+                  "customerPlatformTier must be starter, professional, enterprise, or blank"
               });
             }
 
@@ -16312,9 +16866,8 @@ export function createAppServer(config: BaseConfig): http.Server {
           }
 
           if (body.platformTierSelections !== undefined) {
-            normalizedPayload.platformTierSelections = normalizePlatformTierSelections(
-              body.platformTierSelections
-            );
+            normalizedPayload.platformTierSelections =
+              normalizePlatformTierSelections(body.platformTierSelections);
           }
 
           if (body.problemStatement !== undefined) {
@@ -16351,7 +16904,9 @@ export function createAppServer(config: BaseConfig): http.Server {
 
           if (body.clientQuestionnaireConfig !== undefined) {
             normalizedPayload.clientQuestionnaireConfig =
-              normalizeClientQuestionnaireConfig(body.clientQuestionnaireConfig);
+              normalizeClientQuestionnaireConfig(
+                body.clientQuestionnaireConfig
+              );
           }
 
           if (body.scopeType !== undefined) {
@@ -16657,14 +17212,12 @@ export function createAppServer(config: BaseConfig): http.Server {
                     : {}),
                   ...(normalizedPayload.clientLinkedinUrl !== undefined
                     ? {
-                        linkedinUrl:
-                          normalizedPayload.clientLinkedinUrl || null
+                        linkedinUrl: normalizedPayload.clientLinkedinUrl || null
                       }
                     : {}),
                   ...(normalizedPayload.clientFacebookUrl !== undefined
                     ? {
-                        facebookUrl:
-                          normalizedPayload.clientFacebookUrl || null
+                        facebookUrl: normalizedPayload.clientFacebookUrl || null
                       }
                     : {}),
                   ...(normalizedPayload.clientInstagramUrl !== undefined
@@ -16680,8 +17233,7 @@ export function createAppServer(config: BaseConfig): http.Server {
                     : {}),
                   ...(normalizedPayload.clientYoutubeUrl !== undefined
                     ? {
-                        youtubeUrl:
-                          normalizedPayload.clientYoutubeUrl || null
+                        youtubeUrl: normalizedPayload.clientYoutubeUrl || null
                       }
                     : {})
                 }
@@ -16773,8 +17325,7 @@ export function createAppServer(config: BaseConfig): http.Server {
                   : {}),
                 ...(normalizedPayload.commercialBrief !== undefined
                   ? {
-                      commercialBrief:
-                        normalizedPayload.commercialBrief || null
+                      commercialBrief: normalizedPayload.commercialBrief || null
                     }
                   : {}),
                 ...(normalizedPayload.hubs
@@ -16965,7 +17516,10 @@ export function createAppServer(config: BaseConfig): http.Server {
               customInstructions?: unknown;
             };
 
-            if (typeof body.intent !== "string" || body.intent.trim().length === 0) {
+            if (
+              typeof body.intent !== "string" ||
+              body.intent.trim().length === 0
+            ) {
               return sendJson(response, 400, {
                 error: "intent must be a non-empty string"
               });
@@ -17048,17 +17602,13 @@ export function createAppServer(config: BaseConfig): http.Server {
                   : ""
               }\nSubject: ${
                 typeof body.subject === "string" ? body.subject.trim() : ""
-              }\n\n${
-                typeof body.body === "string" ? body.body.trim() : ""
-              }`
+              }\n\n${typeof body.body === "string" ? body.body.trim() : ""}`
             });
             return sendJson(response, 200, { sent: true, result });
           } catch (error) {
             return sendJson(response, 400, {
               error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to send email"
+                error instanceof Error ? error.message : "Failed to send email"
             });
           }
         }

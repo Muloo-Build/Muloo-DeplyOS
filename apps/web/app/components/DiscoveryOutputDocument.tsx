@@ -101,7 +101,11 @@ function splitIntoList(value: string | undefined) {
 }
 
 function formatDiscoveryOutcome(
-  label: "engagementTrack" | "platformFit" | "changeManagementRating" | "dataReadinessRating",
+  label:
+    | "engagementTrack"
+    | "platformFit"
+    | "changeManagementRating"
+    | "dataReadinessRating",
   value: string | undefined
 ) {
   if (!value) {
@@ -218,28 +222,34 @@ export default function DiscoveryOutputDocument({
   }, [projectId]);
 
   const groupedPhases = (blueprint?.tasks ?? []).reduce<
-      Array<{ phase: number; phaseName: string; tasks: BlueprintTask[] }>
-    >((groups, task) => {
-      const existingGroup = groups.find((group) => group.phase === task.phase);
+    Array<{ phase: number; phaseName: string; tasks: BlueprintTask[] }>
+  >((groups, task) => {
+    const existingGroup = groups.find((group) => group.phase === task.phase);
 
-      if (existingGroup) {
-        existingGroup.tasks.push(task);
-        return groups;
-      }
-
-      groups.push({
-        phase: task.phase,
-        phaseName: task.phaseName,
-        tasks: [task]
-      });
+    if (existingGroup) {
+      existingGroup.tasks.push(task);
       return groups;
-    }, []);
+    }
 
-  const session1 = sessions.find((session) => session.session === 1)?.fields ?? {};
-  const session2 = sessions.find((session) => session.session === 2)?.fields ?? {};
-  const session3 = sessions.find((session) => session.session === 3)?.fields ?? {};
-  const session4 = sessions.find((session) => session.session === 4)?.fields ?? {};
-  const clientResponsibilities = splitIntoList(session4.client_responsibilities);
+    groups.push({
+      phase: task.phase,
+      phaseName: task.phaseName,
+      tasks: [task]
+    });
+    return groups;
+  }, []);
+
+  const session1 =
+    sessions.find((session) => session.session === 1)?.fields ?? {};
+  const session2 =
+    sessions.find((session) => session.session === 2)?.fields ?? {};
+  const session3 =
+    sessions.find((session) => session.session === 3)?.fields ?? {};
+  const session4 =
+    sessions.find((session) => session.session === 4)?.fields ?? {};
+  const clientResponsibilities = splitIntoList(
+    session4.client_responsibilities
+  );
   const inScopeItems =
     project?.scopeType === "standalone_quote" && summary?.inScopeItems.length
       ? summary.inScopeItems
@@ -345,53 +355,53 @@ export default function DiscoveryOutputDocument({
 
             <section className="document-card overflow-hidden rounded-[32px] border border-[rgba(255,255,255,0.07)] bg-background-card">
               <div className="bg-[#0c1329] p-10">
-                  <div className="flex items-center gap-4">
-                    <img
-                      src="/muloo-logo.svg"
-                      alt="Muloo"
-                      className="h-8 w-auto"
-                    />
-                    <p className="text-xs uppercase tracking-[0.35em] text-text-muted">
-                      Discovery Document
-                    </p>
-                  </div>
-                  <h2 className="mt-10 max-w-3xl text-5xl font-bold font-heading leading-tight text-white">
-                    {project.client.name.toUpperCase()} - Discovery Document &
-                    Implementation Plan
-                  </h2>
-                  <p className="mt-6 text-lg text-text-secondary">
-                    {formatEngagementType(project.engagementType)} discovery-led
-                    implementation plan generated from structured discovery.
+                <div className="flex items-center gap-4">
+                  <img
+                    src="/muloo-logo.svg"
+                    alt="Muloo"
+                    className="h-8 w-auto"
+                  />
+                  <p className="text-xs uppercase tracking-[0.35em] text-text-muted">
+                    Discovery Document
                   </p>
+                </div>
+                <h2 className="mt-10 max-w-3xl text-5xl font-bold font-heading leading-tight text-white">
+                  {project.client.name.toUpperCase()} - Discovery Document &
+                  Implementation Plan
+                </h2>
+                <p className="mt-6 text-lg text-text-secondary">
+                  {formatEngagementType(project.engagementType)} discovery-led
+                  implementation plan generated from structured discovery.
+                </p>
 
-                  <div className="mt-10 grid gap-8 md:grid-cols-2">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                        Prepared For
-                      </p>
-                      <div className="mt-4 space-y-2 text-sm text-white">
-                        <p className="font-semibold">{project.client.name}</p>
-                        {clientChampionName ? <p>{clientChampionName}</p> : null}
-                        {project.clientChampionEmail ? (
-                          <p>{project.clientChampionEmail}</p>
-                        ) : null}
-                        {project.client.website ? (
-                          <p>{project.client.website}</p>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                        Prepared By
-                      </p>
-                      <div className="mt-4 space-y-2 text-sm text-white">
-                        <p className="font-semibold">{project.owner}</p>
-                        <p>{project.ownerEmail}</p>
-                        <p>Muloo</p>
-                      </div>
+                <div className="mt-10 grid gap-8 md:grid-cols-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                      Prepared For
+                    </p>
+                    <div className="mt-4 space-y-2 text-sm text-white">
+                      <p className="font-semibold">{project.client.name}</p>
+                      {clientChampionName ? <p>{clientChampionName}</p> : null}
+                      {project.clientChampionEmail ? (
+                        <p>{project.clientChampionEmail}</p>
+                      ) : null}
+                      {project.client.website ? (
+                        <p>{project.client.website}</p>
+                      ) : null}
                     </div>
                   </div>
+
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                      Prepared By
+                    </p>
+                    <div className="mt-4 space-y-2 text-sm text-white">
+                      <p className="font-semibold">{project.owner}</p>
+                      <p>{project.ownerEmail}</p>
+                      <p>Muloo</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -443,11 +453,11 @@ export default function DiscoveryOutputDocument({
                         Success outcomes
                       </p>
                       <div className="mt-3 space-y-2 text-sm text-text-secondary">
-                        {splitIntoLines(
-                          session1.goals_and_success_metrics
-                        ).map((line) => (
-                          <p key={line}>{line}</p>
-                        ))}
+                        {splitIntoLines(session1.goals_and_success_metrics).map(
+                          (line) => (
+                            <p key={line}>{line}</p>
+                          )
+                        )}
                       </div>
                     </div>
                   </div>
@@ -462,9 +472,18 @@ export default function DiscoveryOutputDocument({
                         "Recommended engagement model",
                         summary?.engagementTrack ?? "Not set"
                       ],
-                      ["Platform recommendation", summary?.platformFit ?? "Not set"],
-                      ["Change readiness", summary?.changeManagementRating ?? "Not set"],
-                      ["Data readiness", summary?.dataReadinessRating ?? "Not set"]
+                      [
+                        "Platform recommendation",
+                        summary?.platformFit ?? "Not set"
+                      ],
+                      [
+                        "Change readiness",
+                        summary?.changeManagementRating ?? "Not set"
+                      ],
+                      [
+                        "Data readiness",
+                        summary?.dataReadinessRating ?? "Not set"
+                      ]
                     ].map(([label, value]) => (
                       <div
                         key={label}
@@ -519,11 +538,16 @@ export default function DiscoveryOutputDocument({
 
                 <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <SectionEyebrow>Recommended Future State</SectionEyebrow>
-                  <SectionTitle>What the target solution should look like</SectionTitle>
+                  <SectionTitle>
+                    What the target solution should look like
+                  </SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     {[
                       ["Hubs & features", session3.hubs_and_features_required],
-                      ["Pipeline & process", session3.pipeline_and_process_design],
+                      [
+                        "Pipeline & process",
+                        session3.pipeline_and_process_design
+                      ],
                       ["Automation", session3.automation_requirements],
                       ["Reporting", session3.reporting_requirements]
                     ].map(([label, value]) => (
@@ -611,7 +635,9 @@ export default function DiscoveryOutputDocument({
                   <SectionTitle>What could affect delivery</SectionTitle>
                   <div className="mt-4 space-y-4">
                     <div>
-                      <p className="text-sm font-medium text-white">Key risks</p>
+                      <p className="text-sm font-medium text-white">
+                        Key risks
+                      </p>
                       <ul className="mt-2 space-y-2 text-sm text-text-secondary">
                         {keyRisks.map((item) => (
                           <li key={item}>{item}</li>
@@ -665,56 +691,57 @@ export default function DiscoveryOutputDocument({
                     .map((task) => task.name);
 
                   return (
-                  <div
-                    key={phase.phase}
-                    className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
-                  >
-                    <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Phase {phase.phase}
-                        </p>
-                        <h3 className="mt-2 text-lg font-semibold text-white">
-                          {phase.phaseName}
-                        </h3>
-                        <ul className="mt-4 space-y-2 text-sm text-text-secondary">
-                          {phase.tasks
-                            .filter((task) => task.type !== "Client")
-                            .map((task) => (
-                              <li key={task.id}>{task.name}</li>
-                            ))}
-                        </ul>
-                      </div>
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-                        <div className="grid gap-3 text-sm">
-                          <div>
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                              Phase purpose
-                            </p>
-                            <p className="mt-2 text-sm text-white">
-                              {phase.tasks[0]?.name ?? "Implementation phase"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                              Client inputs needed
-                            </p>
-                            {clientDependencies.length > 0 ? (
-                              <ul className="mt-2 space-y-2 text-sm text-white">
-                                {clientDependencies.map((dependency) => (
-                                  <li key={dependency}>{dependency}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p className="mt-2 text-sm text-white">
-                                No major client dependencies flagged for this phase.
+                    <div
+                      key={phase.phase}
+                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
+                    >
+                      <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Phase {phase.phase}
+                          </p>
+                          <h3 className="mt-2 text-lg font-semibold text-white">
+                            {phase.phaseName}
+                          </h3>
+                          <ul className="mt-4 space-y-2 text-sm text-text-secondary">
+                            {phase.tasks
+                              .filter((task) => task.type !== "Client")
+                              .map((task) => (
+                                <li key={task.id}>{task.name}</li>
+                              ))}
+                          </ul>
+                        </div>
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+                          <div className="grid gap-3 text-sm">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Phase purpose
                               </p>
-                            )}
+                              <p className="mt-2 text-sm text-white">
+                                {phase.tasks[0]?.name ?? "Implementation phase"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Client inputs needed
+                              </p>
+                              {clientDependencies.length > 0 ? (
+                                <ul className="mt-2 space-y-2 text-sm text-white">
+                                  {clientDependencies.map((dependency) => (
+                                    <li key={dependency}>{dependency}</li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="mt-2 text-sm text-white">
+                                  No major client dependencies flagged for this
+                                  phase.
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
                   );
                 })}
               </div>

@@ -166,7 +166,8 @@ export default function HubSpotAgentWorkbench() {
     useState<HubSpotCapabilitiesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [action, setAction] = useState<HubSpotAgentActionKey>("create_property");
+  const [action, setAction] =
+    useState<HubSpotAgentActionKey>("create_property");
   const [payloadText, setPayloadText] = useState<string>(
     actionExamples.create_property
   );
@@ -315,7 +316,8 @@ export default function HubSpotAgentWorkbench() {
                 Active target
               </p>
               <p className="mt-2 text-sm font-semibold text-white">
-                {capabilities.connection.portalDisplayName ?? "Global fallback token"}
+                {capabilities.connection.portalDisplayName ??
+                  "Global fallback token"}
               </p>
             </div>
           </div>
@@ -323,7 +325,8 @@ export default function HubSpotAgentWorkbench() {
           <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
             <p className="text-sm font-medium text-white">Execution target</p>
             <p className="mt-2 text-sm text-text-secondary">
-              Pick a connected HubSpot portal for agent execution. Leave it on the fallback only if you still need the older single-token path.
+              Pick a connected HubSpot portal for agent execution. Leave it on
+              the fallback only if you still need the older single-token path.
             </p>
             <select
               value={portalRecordId}
@@ -457,7 +460,9 @@ export default function HubSpotAgentWorkbench() {
                       : "Execute action"}
                 </button>
                 <p className="text-xs text-text-muted">
-                  Live execution now prefers the selected connected HubSpot portal. If no portal is selected, it falls back to the legacy global token path.
+                  Live execution now prefers the selected connected HubSpot
+                  portal. If no portal is selected, it falls back to the legacy
+                  global token path.
                 </p>
               </div>
 

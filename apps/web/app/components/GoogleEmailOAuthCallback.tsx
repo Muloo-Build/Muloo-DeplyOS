@@ -14,7 +14,9 @@ export default function GoogleEmailOAuthCallback({
   error?: string;
 }) {
   const router = useRouter();
-  const [message, setMessage] = useState("Completing Google mailbox connection...");
+  const [message, setMessage] = useState(
+    "Completing Google mailbox connection..."
+  );
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {

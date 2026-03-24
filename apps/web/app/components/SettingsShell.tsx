@@ -38,7 +38,8 @@ export default function SettingsShell({
               const active =
                 item.href === "/settings"
                   ? pathname === "/settings"
-                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  : pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`);
 
               return (
                 <Link

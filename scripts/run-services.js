@@ -3,7 +3,8 @@ const { spawn } = require("node:child_process");
 const mode = process.argv[2] === "dev" ? "dev" : "start";
 const nextCli = require.resolve("next/dist/bin/next");
 const publicPort = process.env.PORT || "3000";
-const publicHost = process.env.HOST || (mode === "start" ? "0.0.0.0" : "localhost");
+const publicHost =
+  process.env.HOST || (mode === "start" ? "0.0.0.0" : "localhost");
 
 const children = [];
 let shuttingDown = false;
@@ -57,14 +58,19 @@ function shutdown(signal) {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-launch("web", process.execPath, [nextCli, mode, "-H", publicHost, "-p", publicPort], {
-  cwd: "apps/web",
-  env: {
-    ...process.env,
-    PORT: publicPort,
-    HOST: publicHost
+launch(
+  "web",
+  process.execPath,
+  [nextCli, mode, "-H", publicHost, "-p", publicPort],
+  {
+    cwd: "apps/web",
+    env: {
+      ...process.env,
+      PORT: publicPort,
+      HOST: publicHost
+    }
   }
-});
+);
 
 function runCommand(name, command, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -100,15 +106,10 @@ async function startApi() {
   const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
 
   if (mode === "dev") {
-    await runCommand(
-      "prisma generate",
-      npxCommand,
-      ["prisma", "generate"],
-      {
-        cwd: "apps/api",
-        env: apiEnv
-      }
-    );
+    await runCommand("prisma generate", npxCommand, ["prisma", "generate"], {
+      cwd: "apps/api",
+      env: apiEnv
+    });
 
     await runCommand(
       "typescript build",

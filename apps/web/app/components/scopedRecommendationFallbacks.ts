@@ -1,11 +1,14 @@
-type PackagingAssessment = {
-  fit: "good" | "attention" | "upgrade_needed";
-  summary: string;
-  warnings: string[];
-  recommendedNextStep: string;
-  reasoning: string[];
-  workaroundPath?: string | null;
-} | null | undefined;
+type PackagingAssessment =
+  | {
+      fit: "good" | "attention" | "upgrade_needed";
+      summary: string;
+      warnings: string[];
+      recommendedNextStep: string;
+      reasoning: string[];
+      workaroundPath?: string | null;
+    }
+  | null
+  | undefined;
 
 type RecommendationProject = {
   selectedHubs?: string[] | null;
@@ -33,7 +36,10 @@ export function getDisplaySupportingTools(
     "Databox for executive and operational dashboards layered over HubSpot once the core CRM views are live."
   ];
 
-  if (selectedHubs.has("data") || project?.packagingAssessment?.fit !== "good") {
+  if (
+    selectedHubs.has("data") ||
+    project?.packagingAssessment?.fit !== "good"
+  ) {
     fallback.push(
       "A lightweight staging database such as Railway Postgres, Supabase, or Azure SQL to keep normalization and auditability outside HubSpot."
     );

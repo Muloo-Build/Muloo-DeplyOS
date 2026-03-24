@@ -144,9 +144,12 @@ export default function ProjectsDashboard() {
     setDeletingProjectId(project.id);
 
     try {
-      const response = await fetch(`/api/projects/${encodeURIComponent(project.id)}`, {
-        method: "DELETE"
-      });
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}`,
+        {
+          method: "DELETE"
+        }
+      );
 
       if (!response.ok) {
         const body = await response.json().catch(() => null);
@@ -208,7 +211,9 @@ export default function ProjectsDashboard() {
     }
   }
 
-  const activeProjects = projects.filter((project) => project.status !== "archived");
+  const activeProjects = projects.filter(
+    (project) => project.status !== "archived"
+  );
   const archivedProjects = projects.filter(
     (project) => project.status === "archived"
   );
@@ -282,7 +287,9 @@ export default function ProjectsDashboard() {
                   disabled={updatingProjectId === project.id}
                   className="text-[#8bd5ff] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {updatingProjectId === project.id ? "Restoring..." : "Restore"}
+                  {updatingProjectId === project.id
+                    ? "Restoring..."
+                    : "Restore"}
                 </button>
               ) : (
                 <button
@@ -291,7 +298,9 @@ export default function ProjectsDashboard() {
                   disabled={updatingProjectId === project.id}
                   className="text-[#ffd38b] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {updatingProjectId === project.id ? "Archiving..." : "Archive"}
+                  {updatingProjectId === project.id
+                    ? "Archiving..."
+                    : "Archive"}
                 </button>
               )}
               <button
@@ -395,7 +404,9 @@ export default function ProjectsDashboard() {
           <div className="space-y-8">
             <div>
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white">Active Projects</h2>
+                <h2 className="text-lg font-semibold text-white">
+                  Active Projects
+                </h2>
                 <p className="text-sm text-text-secondary">
                   {activeProjects.length} on the main board
                 </p>
@@ -411,7 +422,9 @@ export default function ProjectsDashboard() {
 
             <div>
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white">Archived Projects</h2>
+                <h2 className="text-lg font-semibold text-white">
+                  Archived Projects
+                </h2>
                 <p className="text-sm text-text-secondary">
                   {archivedProjects.length} tucked away
                 </p>

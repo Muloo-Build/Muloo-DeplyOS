@@ -14,7 +14,9 @@ export default function HubSpotOAuthCallback({
   error?: string;
 }) {
   const router = useRouter();
-  const [message, setMessage] = useState("Completing HubSpot portal connection...");
+  const [message, setMessage] = useState(
+    "Completing HubSpot portal connection..."
+  );
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
