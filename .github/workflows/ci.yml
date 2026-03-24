@@ -19,5 +19,6 @@ jobs:
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm build
+      - run: corepack pnpm test:smoke
       - run: corepack pnpm lint
       - run: corepack pnpm format:check

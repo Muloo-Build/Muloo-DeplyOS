@@ -7,6 +7,7 @@
   "scripts": {
     "build": "cd apps/api && npx prisma generate && cd ../.. && node node_modules/typescript/lib/tsc.js -b tsconfig.json && cd apps/web && next build",
     "typecheck": "node node_modules/typescript/lib/tsc.js -b tsconfig.json",
+    "test:smoke": "node node_modules/typescript/lib/tsc.js -b apps/api && node --test --test-timeout=10000 tests/*.test.mjs",
     "clean": "node node_modules/typescript/lib/tsc.js -b tsconfig.json --clean",
     "db:generate": "cd apps/api && npx prisma generate",
     "db:migrate": "cd apps/api && node ../../scripts/run-with-root-env.mjs npx prisma migrate deploy",
