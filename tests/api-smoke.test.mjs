@@ -213,3 +213,42 @@ test("returns module catalog metadata from the Hono system routes", async () => 
     await stopServer(server);
   }
 });
+
+test("returns workspace settings from the Hono system routes", async () => {
+  const { server, baseUrl } = await startServer();
+
+  try {
+    const authCookie = await loginAndGetCookie(baseUrl);
+    const { response, body } = await requestJson(baseUrl, "/api/settings", {
+      headers: {
+        Cookie: authCookie
+      }
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(body.environment, "test");
+    assert.equal(body.executionMode, "dry-run");
+    assert.equal(body.applyEnabled, false);
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test("returns industry options from the Hono system routes", async () => {
+  const { server, baseUrl } = await startServer();
+
+  try {
+    const authCookie = await loginAndGetCookie(baseUrl);
+    const { response, body } = await requestJson(baseUrl, "/api/industries", {
+      headers: {
+        Cookie: authCookie
+      }
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(Array.isArray(body.industries), true);
+    assert.equal(body.industries.includes("SaaS & Technology"), true);
+  } finally {
+    await stopServer(server);
+  }
+});
