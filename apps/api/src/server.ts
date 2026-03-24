@@ -1837,7 +1837,7 @@ function inferDefaultHubsForServiceFamily(serviceFamily: string) {
   }
 }
 
-async function convertWorkRequestToProject(requestId: string) {
+export async function convertWorkRequestToProject(requestId: string) {
   const workRequest = await prisma.workRequest.findUnique({
     where: { id: requestId },
     include: {
@@ -2521,31 +2521,6 @@ function matchProjectDesignRoute(pathname: string): {
     projectId: decodeURIComponent(match[1]),
     ...(resource ? { resource } : {})
   };
-}
-
-function matchWorkRequestRoute(pathname: string): {
-  requestId?: string;
-  action?: "convert" | "append-to-delivery";
-} | null {
-  const match =
-    /^\/api\/work-requests(?:\/([^/]+?)(?:\/(convert|append-to-delivery))?)?$/.exec(
-      pathname
-    );
-
-  if (!match) {
-    return null;
-  }
-
-  return match[1]
-    ? {
-        requestId: decodeURIComponent(match[1]),
-        ...(match[2] === "convert"
-          ? { action: "convert" as const }
-          : match[2] === "append-to-delivery"
-            ? { action: "append-to-delivery" as const }
-            : {})
-      }
-    : {};
 }
 
 function matchClientProjectRoute(pathname: string): {
@@ -9493,7 +9468,7 @@ export async function loadDeliveryTemplates() {
   return templates.map((template) => serializeDeliveryTemplate(template));
 }
 
-async function loadWorkRequests(filters?: {
+export async function loadWorkRequests(filters?: {
   projectIds?: string[];
   contactEmail?: string;
   requestType?: string;
@@ -9962,7 +9937,7 @@ export async function updateDeliveryTemplate(
   return serializeDeliveryTemplate(template);
 }
 
-async function createWorkRequest(value: {
+export async function createWorkRequest(value: {
   projectId?: unknown;
   title?: unknown;
   serviceFamily?: unknown;
@@ -10123,7 +10098,7 @@ async function createWorkRequest(value: {
   return serializeWorkRequest(request);
 }
 
-async function updateWorkRequest(
+export async function updateWorkRequest(
   requestId: string,
   value: {
     status?: unknown;
@@ -10344,7 +10319,7 @@ async function updateWorkRequest(
   return serializeWorkRequest(request);
 }
 
-async function appendApprovedChangeRequestToDelivery(requestId: string) {
+export async function appendApprovedChangeRequestToDelivery(requestId: string) {
   const workRequest = await prisma.workRequest.findUnique({
     where: { id: requestId },
     include: {
@@ -13911,100 +13886,6 @@ export async function handleLegacyRequest(
               : "Failed to complete HubSpot OAuth"
         });
       }
-    }
-
-    const workRequestRoute = matchWorkRequestRoute(url.pathname);
-    if (workRequestRoute) {
-      if (request.method === "GET" && !workRequestRoute.requestId) {
-        return sendJson(response, 200, {
-          workRequests: await loadWorkRequests()
-        });
-      }
-
-      if (request.method === "POST" && !workRequestRoute.requestId) {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const workRequest = await createWorkRequest(body);
-          return sendJson(response, 201, { workRequest });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to create work request"
-          });
-        }
-      }
-
-      if (request.method === "PATCH" && workRequestRoute.requestId) {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const workRequest = await updateWorkRequest(
-            workRequestRoute.requestId,
-            body
-          );
-          return sendJson(response, 200, { workRequest });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to update work request"
-          });
-        }
-      }
-
-      if (
-        request.method === "POST" &&
-        workRequestRoute.requestId &&
-        workRequestRoute.action === "convert"
-      ) {
-        try {
-          const result = await convertWorkRequestToProject(
-            workRequestRoute.requestId
-          );
-          return sendJson(response, 200, result);
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to convert work request"
-          });
-        }
-      }
-
-      if (
-        request.method === "POST" &&
-        workRequestRoute.requestId &&
-        workRequestRoute.action === "append-to-delivery"
-      ) {
-        try {
-          const result = await appendApprovedChangeRequestToDelivery(
-            workRequestRoute.requestId
-          );
-          return sendJson(response, 200, result);
-        } catch (error) {
-          return sendJson(
-            response,
-            error instanceof Error &&
-              [
-                "Change request not found",
-                "Change request is not linked to a project"
-              ].includes(error.message)
-              ? 404
-              : 400,
-            {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to append change request to delivery"
-            }
-          );
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
     }
 
     const runRoute = matchRunRoute(url.pathname);
