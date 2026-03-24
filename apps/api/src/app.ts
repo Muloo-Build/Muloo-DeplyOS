@@ -24,15 +24,19 @@ import {
   createWorkspaceGoogleEmailOAuthStart,
   createSimpleAuthToken,
   completeWorkspaceGoogleEmailOAuthCallback,
+  completeHubSpotOAuthCallback,
   disconnectWorkspaceGoogleEmailOAuthConnection,
+  executeHubSpotAgentAction,
   getAuthenticatedClientUserId,
   handleLegacyRequest,
   industryOptions,
   isAuthenticated,
+  isUniqueConstraintError,
   loadAgentRuns,
   loadAgentCatalog,
   loadAiRouting,
   loadDeliveryTemplates,
+  loadHubSpotPortals,
   loadInboxSummary,
   loadInternalInbox,
   loadProductCatalog,
@@ -42,6 +46,9 @@ import {
   loadWorkspaceEmailSettings,
   loadWorkspaceUsers,
   markAllProjectMessagesSeenByInternal,
+  createHubSpotOAuthStart,
+  buildHubSpotAgentCapabilitiesPayload,
+  resolveHubSpotAgentConnection,
   resolveSimpleAuthCredentials,
   serializeWorkspaceUser,
   serializeClientPortalUser,
@@ -121,6 +128,9 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/delivery-templates/*", internalAuth);
   app.use("/api/work-requests", internalAuth);
   app.use("/api/work-requests/*", internalAuth);
+  app.use("/api/hubspot", internalAuth);
+  app.use("/api/hubspot/*", internalAuth);
+  app.use("/api/portals", internalAuth);
   app.use("/api/email-settings", internalAuth);
   app.use("/api/email-oauth/google", internalAuth);
   app.use("/api/email-oauth/google/*", internalAuth);
@@ -655,6 +665,104 @@ export function createApiApp(config: BaseConfig) {
           ? 404
           : 400
       );
+    }
+  });
+
+  app.get("/api/hubspot/agent-capabilities", async (c) => {
+    const portalRecordId = c.req.query("portalRecordId");
+    const connection = await resolveHubSpotAgentConnection(portalRecordId);
+
+    return c.json(buildHubSpotAgentCapabilitiesPayload(connection));
+  });
+
+  app.post("/api/hubspot/agent-execute", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const result = await executeHubSpotAgentAction(body);
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to execute HubSpot agent action"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/hubspot/oauth/start", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const result = await createHubSpotOAuthStart(body);
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to start HubSpot OAuth"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/hubspot/oauth/callback", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const result = await completeHubSpotOAuthCallback(body);
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to complete HubSpot OAuth"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/portals", async (c) =>
+    c.json({
+      portals: await loadHubSpotPortals()
+    })
+  );
+
+  app.post("/api/portals", async (c) => {
+    const body = (await readJsonBodyOrEmpty(c)) as {
+      portalId: string;
+      displayName: string;
+      region?: string;
+    };
+
+    try {
+      const portal = await prisma.hubSpotPortal.create({
+        data: {
+          portalId: body.portalId,
+          displayName: body.displayName,
+          region: body.region ?? null
+        }
+      });
+
+      return c.json({ portal }, 201);
+    } catch (error: unknown) {
+      if (isUniqueConstraintError(error)) {
+        return c.json(
+          {
+            error: "A portal with that ID already exists"
+          },
+          409
+        );
+      }
+
+      throw error;
     }
   });
 

@@ -344,6 +344,24 @@ test("guards internal Hono system routes without an auth cookie", async () => {
         body: {}
       }
     );
+    await expectUnauthorized(baseUrl, "/api/hubspot/agent-capabilities");
+    await expectUnauthorized(baseUrl, "/api/hubspot/agent-execute", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/hubspot/oauth/start", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/hubspot/oauth/callback", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/portals");
+    await expectUnauthorized(baseUrl, "/api/portals", {
+      method: "POST",
+      body: {}
+    });
   } finally {
     await stopServer(server);
   }

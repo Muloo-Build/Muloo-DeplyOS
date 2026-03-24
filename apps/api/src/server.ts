@@ -2000,7 +2000,7 @@ function createSlug(value: string): string {
     .replace(/[^a-z0-9-]/g, "");
 }
 
-function isUniqueConstraintError(error: unknown): boolean {
+export function isUniqueConstraintError(error: unknown): boolean {
   return (
     typeof error === "object" &&
     error !== null &&
@@ -8493,7 +8493,7 @@ export async function loadProviderConnections() {
   );
 }
 
-async function loadHubSpotPortals() {
+export async function loadHubSpotPortals() {
   const portals = await prisma.hubSpotPortal.findMany({
     where: {
       NOT: {
@@ -8612,7 +8612,7 @@ async function refreshHubSpotPortalAccessTokenIfNeeded(portalRecordId: string) {
   return refreshedPortal;
 }
 
-async function createHubSpotOAuthStart(value: {
+export async function createHubSpotOAuthStart(value: {
   projectId?: unknown;
   portalRecordId?: unknown;
   installProfile?: unknown;
@@ -8697,7 +8697,7 @@ async function createHubSpotOAuthStart(value: {
   };
 }
 
-async function completeHubSpotOAuthCallback(value: {
+export async function completeHubSpotOAuthCallback(value: {
   code?: unknown;
   state?: unknown;
 }) {
@@ -8938,7 +8938,9 @@ async function loadHubSpotOAuthProviderConfig() {
   };
 }
 
-async function resolveHubSpotAgentConnection(portalRecordId?: string | null) {
+export async function resolveHubSpotAgentConnection(
+  portalRecordId?: string | null
+) {
   await ensureProviderConnectionsSeeded();
 
   const provider = await prisma.workspaceProviderConnection.findUnique({
@@ -9013,7 +9015,7 @@ async function resolveHubSpotAgentConnection(portalRecordId?: string | null) {
   };
 }
 
-function buildHubSpotAgentCapabilitiesPayload(input: {
+export function buildHubSpotAgentCapabilitiesPayload(input: {
   ready: boolean;
   source: string;
   baseUrl: string;
@@ -9045,12 +9047,12 @@ function buildHubSpotAgentCapabilitiesPayload(input: {
   };
 }
 
-async function executeHubSpotAgentAction(value: {
+export async function executeHubSpotAgentAction(value: {
   action?: unknown;
   input?: unknown;
   dryRun?: unknown;
   portalRecordId?: unknown;
-}) {
+}): Promise<unknown> {
   const action = typeof value.action === "string" ? value.action.trim() : "";
   const dryRun = value.dryRun !== false;
   const portalRecordId =
@@ -13819,75 +13821,6 @@ export async function handleLegacyRequest(
       return sendJson(response, 404, { error: "Client route not found" });
     }
 
-    if (url.pathname === "/api/hubspot/agent-capabilities") {
-      if (request.method === "GET") {
-        const portalRecordId = url.searchParams.get("portalRecordId");
-        const connection = await resolveHubSpotAgentConnection(portalRecordId);
-        return sendJson(
-          response,
-          200,
-          buildHubSpotAgentCapabilitiesPayload(connection)
-        );
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    if (url.pathname === "/api/hubspot/agent-execute") {
-      if (request.method === "POST") {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const result = await executeHubSpotAgentAction(body);
-          return sendJson(response, 200, result);
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to execute HubSpot agent action"
-          });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    if (
-      request.method === "POST" &&
-      url.pathname === "/api/hubspot/oauth/start"
-    ) {
-      try {
-        const body = (await readJsonBody(request)) as Record<string, unknown>;
-        const result = await createHubSpotOAuthStart(body);
-        return sendJson(response, 200, result);
-      } catch (error) {
-        return sendJson(response, 400, {
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to start HubSpot OAuth"
-        });
-      }
-    }
-
-    if (
-      request.method === "POST" &&
-      url.pathname === "/api/hubspot/oauth/callback"
-    ) {
-      try {
-        const body = (await readJsonBody(request)) as Record<string, unknown>;
-        const result = await completeHubSpotOAuthCallback(body);
-        return sendJson(response, 200, result);
-      } catch (error) {
-        return sendJson(response, 400, {
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to complete HubSpot OAuth"
-        });
-      }
-    }
-
     const runRoute = matchRunRoute(url.pathname);
     if (runRoute) {
       if (request.method === "PATCH") {
@@ -15543,40 +15476,6 @@ export async function handleLegacyRequest(
       }
 
       return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    if (request.method === "GET" && url.pathname === "/api/portals") {
-      return sendJson(response, 200, {
-        portals: await loadHubSpotPortals()
-      });
-    }
-
-    if (request.method === "POST" && url.pathname === "/api/portals") {
-      const body = (await readJsonBody(request)) as {
-        portalId: string;
-        displayName: string;
-        region?: string;
-      };
-
-      try {
-        const portal = await prisma.hubSpotPortal.create({
-          data: {
-            portalId: body.portalId,
-            displayName: body.displayName,
-            region: body.region ?? null
-          }
-        });
-
-        return sendJson(response, 201, { portal });
-      } catch (error: unknown) {
-        if (isUniqueConstraintError(error)) {
-          return sendJson(response, 409, {
-            error: "A portal with that ID already exists"
-          });
-        }
-
-        throw error;
-      }
     }
 
     if (
