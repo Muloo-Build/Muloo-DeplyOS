@@ -210,8 +210,13 @@ export default function EmailSettings() {
         nextConnection = await saveGoogleSettings();
       }
 
-      if (!nextConnection?.clientId?.trim() || !nextConnection.hasClientSecret) {
-        throw new Error("Save the Google client ID and client secret before connecting.");
+      if (
+        !nextConnection?.clientId?.trim() ||
+        !nextConnection.hasClientSecret
+      ) {
+        throw new Error(
+          "Save the Google client ID and client secret before connecting."
+        );
       }
 
       const response = await fetch("/api/email-oauth/google/start", {
@@ -302,7 +307,9 @@ export default function EmailSettings() {
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="text-sm font-medium text-white">Provider label</span>
+            <span className="text-sm font-medium text-white">
+              Provider label
+            </span>
             <input
               value={settings.providerLabel ?? ""}
               onChange={(event) =>
@@ -390,7 +397,9 @@ export default function EmailSettings() {
             />
           </label>
           <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-white">Reply-to email</span>
+            <span className="text-sm font-medium text-white">
+              Reply-to email
+            </span>
             <input
               value={settings.replyToEmail ?? ""}
               onChange={(event) =>
@@ -422,16 +431,21 @@ export default function EmailSettings() {
       </section>
 
       <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-        <h2 className="text-xl font-semibold text-white">Google mailbox connect</h2>
+        <h2 className="text-xl font-semibold text-white">
+          Google mailbox connect
+        </h2>
         <p className="mt-2 text-sm text-text-secondary">
-          This is the OAuth setup for connecting a real Google Workspace mailbox.
-          It is separate from SMTP relay, so we can support mailbox-level sending
-          and future inbox history without disturbing the system mail path.
+          This is the OAuth setup for connecting a real Google Workspace
+          mailbox. It is separate from SMTP relay, so we can support
+          mailbox-level sending and future inbox history without disturbing the
+          system mail path.
         </p>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="text-sm font-medium text-white">Google OAuth client ID</span>
+            <span className="text-sm font-medium text-white">
+              Google OAuth client ID
+            </span>
             <input
               value={googleConnection.clientId ?? ""}
               onChange={(event) =>
@@ -441,11 +455,15 @@ export default function EmailSettings() {
             />
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-white">Google OAuth client secret</span>
+            <span className="text-sm font-medium text-white">
+              Google OAuth client secret
+            </span>
             <input
               type="password"
               value={googleClientSecretDraft}
-              onChange={(event) => setGoogleClientSecretDraft(event.target.value)}
+              onChange={(event) =>
+                setGoogleClientSecretDraft(event.target.value)
+              }
               placeholder={
                 googleConnection.hasClientSecret
                   ? "Leave blank to keep stored secret"
@@ -500,15 +518,19 @@ export default function EmailSettings() {
               : "No Google mailbox connected yet."}
           </p>
           <p className="mt-2 text-xs text-text-muted">
-            Add this redirect URI in Google Cloud: {googleConnection.redirectUri}
+            Add this redirect URI in Google Cloud:{" "}
+            {googleConnection.redirectUri}
           </p>
           {googleConnection.tokenExpiresAt ? (
             <p className="mt-2 text-xs text-text-muted">
               Current token expiry:{" "}
-              {new Date(googleConnection.tokenExpiresAt).toLocaleString("en-ZA", {
-                dateStyle: "medium",
-                timeStyle: "short"
-              })}
+              {new Date(googleConnection.tokenExpiresAt).toLocaleString(
+                "en-ZA",
+                {
+                  dateStyle: "medium",
+                  timeStyle: "short"
+                }
+              )}
             </p>
           ) : null}
         </div>
@@ -519,8 +541,8 @@ export default function EmailSettings() {
           <p className="mt-4 text-sm text-status-success">{feedback}</p>
         ) : (
           <p className="mt-4 text-sm text-text-secondary">
-            Save the Google client values first, then connect the mailbox when the
-            Google Cloud OAuth app is ready.
+            Save the Google client values first, then connect the mailbox when
+            the Google Cloud OAuth app is ready.
           </p>
         )}
 
@@ -539,7 +561,10 @@ export default function EmailSettings() {
             disabled={
               connectingGoogle ||
               !googleConnection.clientId?.trim() ||
-              !(googleClientSecretDraft.trim() || googleConnection.hasClientSecret)
+              !(
+                googleClientSecretDraft.trim() ||
+                googleConnection.hasClientSecret
+              )
             }
             className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
           >

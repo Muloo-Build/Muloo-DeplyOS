@@ -58,7 +58,9 @@ function createDrafts(
   submissions: ClientProjectDetail["submissions"],
   definitions: ClientQuestionnaireDefinitionMap
 ): Record<number, Record<string, string>> {
-  return Object.keys(definitions).reduce<Record<number, Record<string, string>>>(
+  return Object.keys(definitions).reduce<
+    Record<number, Record<string, string>>
+  >(
     (drafts, sessionNumberText) => {
       const sessionNumber = Number(sessionNumberText);
       const submission = submissions.find(
@@ -67,13 +69,19 @@ function createDrafts(
       const questions = definitions[sessionNumber]?.questions ?? [];
 
       drafts[sessionNumber] = Object.fromEntries(
-        questions.map((question) => [question.key, submission?.answers?.[question.key] ?? ""])
+        questions.map((question) => [
+          question.key,
+          submission?.answers?.[question.key] ?? ""
+        ])
       );
 
       return drafts;
     },
     Object.fromEntries(
-      Object.keys(definitions).map((sessionNumberText) => [Number(sessionNumberText), {}])
+      Object.keys(definitions).map((sessionNumberText) => [
+        Number(sessionNumberText),
+        {}
+      ])
     ) as Record<number, Record<string, string>>
   );
 }
@@ -81,7 +89,10 @@ function createDrafts(
 function statusForDraft(answers: Record<string, string>) {
   const values = Object.values(answers);
 
-  if (values.length === 0 || values.every((value) => value.trim().length === 0)) {
+  if (
+    values.length === 0 ||
+    values.every((value) => value.trim().length === 0)
+  ) {
     return "Not started";
   }
 
@@ -95,15 +106,18 @@ function statusForDraft(answers: Record<string, string>) {
 function createSessionSaveStateMap(
   submissions: ClientProjectDetail["submissions"]
 ): Record<number, SessionSaveState> {
-  return submissions.reduce<Record<number, SessionSaveState>>((state, submission) => {
-    state[submission.sessionNumber] = {
-      status: "saved",
-      message: formatTimestamp(submission.updatedAt)
-        ? `Saved ${formatTimestamp(submission.updatedAt)}`
-        : "Saved"
-    };
-    return state;
-  }, {});
+  return submissions.reduce<Record<number, SessionSaveState>>(
+    (state, submission) => {
+      state[submission.sessionNumber] = {
+        status: "saved",
+        message: formatTimestamp(submission.updatedAt)
+          ? `Saved ${formatTimestamp(submission.updatedAt)}`
+          : "Saved"
+      };
+      return state;
+    },
+    {}
+  );
 }
 
 function formatTimestamp(value?: string | null) {
@@ -154,9 +168,12 @@ export default function ClientProjectWorkspace({
   useEffect(() => {
     async function loadProject() {
       try {
-        const response = await fetch(`/api/client/projects/${encodeURIComponent(projectId)}`, {
-          credentials: "include"
-        });
+        const response = await fetch(
+          `/api/client/projects/${encodeURIComponent(projectId)}`,
+          {
+            credentials: "include"
+          }
+        );
 
         if (!response.ok) {
           throw new Error("Failed to load client project");
@@ -172,7 +189,9 @@ export default function ClientProjectWorkspace({
         dirtySessionsRef.current = {};
       } catch (loadError) {
         setPageError(
-          loadError instanceof Error ? loadError.message : "Failed to load client project"
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load client project"
         );
       } finally {
         setLoading(false);
@@ -196,8 +215,9 @@ export default function ClientProjectWorkspace({
   );
   const completedCount = useMemo(
     () =>
-      Object.values(drafts).filter((answers) => statusForDraft(answers) === "Complete")
-        .length,
+      Object.values(drafts).filter(
+        (answers) => statusForDraft(answers) === "Complete"
+      ).length,
     [drafts]
   );
   const totalInputSections = sessionNumbers.length;
@@ -265,7 +285,8 @@ export default function ClientProjectWorkspace({
     }
   ) {
     const mode = options?.mode ?? "manual";
-    const answers = options?.answersOverride ?? draftsRef.current[sessionNumber] ?? {};
+    const answers =
+      options?.answersOverride ?? draftsRef.current[sessionNumber] ?? {};
 
     clearAutosaveTimer(sessionNumber);
     setSaveError(null);
@@ -431,21 +452,21 @@ export default function ClientProjectWorkspace({
                 Open Quote
               </Link>
             )}
+            <Link
+              href={`/client/projects/${detail.project.id}/delivery`}
+              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+            >
+              Open Delivery Board
+            </Link>
+            {isStandaloneQuote ? null : (
               <Link
-                href={`/client/projects/${detail.project.id}/delivery`}
+                href={`/client/projects/${detail.project.id}`}
                 className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
               >
-                Open Delivery Board
+                Project Inputs
               </Link>
-              {isStandaloneQuote ? null : (
-                <Link
-                  href={`/client/projects/${detail.project.id}`}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
-                >
-                  Project Inputs
-                </Link>
-              )}
-            </div>
+            )}
+          </div>
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
@@ -593,7 +614,9 @@ export default function ClientProjectWorkspace({
                     If Muloo needs client input
                   </p>
                   <p className="mt-3 text-sm text-text-secondary">
-                    We’ll surface a specific input pack or request here only when information is required from your team for this project.
+                    We’ll surface a specific input pack or request here only
+                    when information is required from your team for this
+                    project.
                   </p>
                 </div>
               </div>
@@ -625,8 +648,8 @@ export default function ClientProjectWorkspace({
                         {definition.description}
                       </p>
                       <p className="mt-3 text-sm text-text-muted">
-                        Your progress saves automatically as you work, so you can
-                        leave and come back later.
+                        Your progress saves automatically as you work, so you
+                        can leave and come back later.
                       </p>
                     </div>
                     <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3 text-sm text-white">
@@ -646,7 +669,11 @@ export default function ClientProjectWorkspace({
                         <textarea
                           value={answers[question.key] ?? ""}
                           onChange={(event) =>
-                            updateDraft(sessionNumber, question.key, event.target.value)
+                            updateDraft(
+                              sessionNumber,
+                              question.key,
+                              event.target.value
+                            )
                           }
                           onBlur={() =>
                             void saveSession(sessionNumber, {
@@ -681,7 +708,9 @@ export default function ClientProjectWorkspace({
                       disabled={saveState?.status === "saving"}
                       className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
                     >
-                      {saveState?.status === "saving" ? "Saving..." : "Save Now"}
+                      {saveState?.status === "saving"
+                        ? "Saving..."
+                        : "Save Now"}
                     </button>
                   </div>
                 </section>

@@ -24,7 +24,8 @@ export default function ProjectDeliveryBoardPage({
               Delivery Board
             </h1>
             <p className="mt-2 text-text-secondary">
-              Generated project plan and working delivery board for this project.
+              Generated project plan and working delivery board for this
+              project.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">

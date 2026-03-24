@@ -49,11 +49,7 @@ export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 flex h-screen w-sidebar flex-col border-r border-[rgba(255,255,255,0.07)] bg-[#0a0f24]">
       <div className="border-b border-[rgba(255,255,255,0.07)] px-6 py-5">
-        <img
-          src="/muloo-logo.svg"
-          alt="Muloo"
-          className="h-10 w-auto"
-        />
+        <img src="/muloo-logo.svg" alt="Muloo" className="h-10 w-auto" />
         <p className="mt-3 text-sm font-medium text-text-secondary">
           Deploy OS
         </p>

@@ -177,7 +177,9 @@ function createPortalInviteDraft(
         : client.projects.map((project) => project.id),
     questionnaireAccess:
       contact.portalAssignments.length > 0
-        ? contact.portalAssignments.every((assignment) => assignment.questionnaireAccess)
+        ? contact.portalAssignments.every(
+            (assignment) => assignment.questionnaireAccess
+          )
         : true,
     sendEmail: true
   };
@@ -267,7 +269,12 @@ function deriveClientLogoUrl(client: ClientRecord) {
 
 function getClientInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "CL";
+  return (
+    parts
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "CL"
+  );
 }
 
 function matchesClientSearch(client: ClientRecord, query: string) {
@@ -321,7 +328,9 @@ function getClientLastActivity(client: ClientRecord) {
 
 function getPrimaryContact(client: ClientRecord) {
   return (
-    client.contacts.find((contact) => contact.canApproveQuotes) ?? client.contacts[0] ?? null
+    client.contacts.find((contact) => contact.canApproveQuotes) ??
+    client.contacts[0] ??
+    null
   );
 }
 
@@ -405,21 +414,29 @@ export default function ClientsWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [creatingClient, setCreatingClient] = useState(false);
-  const [savingContactForClient, setSavingContactForClient] = useState<string | null>(
+  const [savingContactForClient, setSavingContactForClient] = useState<
+    string | null
+  >(null);
+  const [savingProfileForClient, setSavingProfileForClient] = useState<
+    string | null
+  >(null);
+  const [enrichingClientId, setEnrichingClientId] = useState<string | null>(
     null
   );
-  const [savingProfileForClient, setSavingProfileForClient] = useState<string | null>(
+  const [updatingContactId, setUpdatingContactId] = useState<string | null>(
     null
   );
-  const [enrichingClientId, setEnrichingClientId] = useState<string | null>(null);
-  const [updatingContactId, setUpdatingContactId] = useState<string | null>(null);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
-  const [confirmingDeleteClientId, setConfirmingDeleteClientId] = useState<string | null>(
-    null
-  );
+  const [confirmingDeleteClientId, setConfirmingDeleteClientId] = useState<
+    string | null
+  >(null);
   const [expandedClientIds, setExpandedClientIds] = useState<string[]>([]);
-  const [showingContactFormIds, setShowingContactFormIds] = useState<string[]>([]);
-  const [showingPortalInviteIds, setShowingPortalInviteIds] = useState<string[]>([]);
+  const [showingContactFormIds, setShowingContactFormIds] = useState<string[]>(
+    []
+  );
+  const [showingPortalInviteIds, setShowingPortalInviteIds] = useState<
+    string[]
+  >([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [alphabetFilter, setAlphabetFilter] = useState("All");
   const [clientDraft, setClientDraft] = useState({
@@ -438,16 +455,18 @@ export default function ClientsWorkspace() {
     parentClientId: "",
     visibleToPartnerIds: [] as string[]
   });
-  const [contactDrafts, setContactDrafts] = useState<Record<string, ContactDraft>>(
-    {}
-  );
+  const [contactDrafts, setContactDrafts] = useState<
+    Record<string, ContactDraft>
+  >({});
   const [profileDrafts, setProfileDrafts] = useState<
     Record<string, ClientProfileDraft>
   >({});
   const [portalInviteDrafts, setPortalInviteDrafts] = useState<
     Record<string, PortalInviteDraft>
   >({});
-  const [invitingContactId, setInvitingContactId] = useState<string | null>(null);
+  const [invitingContactId, setInvitingContactId] = useState<string | null>(
+    null
+  );
 
   async function refreshClients(options?: { background?: boolean }) {
     if (options?.background) {
@@ -478,7 +497,9 @@ export default function ClientsWorkspace() {
       });
     } catch (loadError) {
       setError(
-        loadError instanceof Error ? loadError.message : "Failed to load clients"
+        loadError instanceof Error
+          ? loadError.message
+          : "Failed to load clients"
       );
     } finally {
       if (options?.background) {
@@ -501,7 +522,9 @@ export default function ClientsWorkspace() {
     (total, client) => total + client.contacts.length,
     0
   );
-  const activeClientCount = clients.filter((client) => client.projects.length > 0).length;
+  const activeClientCount = clients.filter(
+    (client) => client.projects.length > 0
+  ).length;
 
   const filteredClients = useMemo(
     () =>
@@ -519,7 +542,9 @@ export default function ClientsWorkspace() {
         new Date(getClientLastActivity(right)).getTime() -
         new Date(getClientLastActivity(left)).getTime()
     );
-  const otherClients = filteredClients.filter((client) => client.projects.length === 0);
+  const otherClients = filteredClients.filter(
+    (client) => client.projects.length === 0
+  );
   const groupedOtherClients = groupClientsByInitial(otherClients);
   const otherClientInitials = Object.keys(groupedOtherClients).sort();
   const groupClientOptions = clients
@@ -537,7 +562,9 @@ export default function ClientsWorkspace() {
     }
 
     const client = clients.find((item) => item.id === clientId);
-    return client ? createClientProfileDraft(client) : createFallbackClientProfileDraft();
+    return client
+      ? createClientProfileDraft(client)
+      : createFallbackClientProfileDraft();
   }
 
   function updateContactDraft(
@@ -582,25 +609,36 @@ export default function ClientsWorkspace() {
     const nextRoles = currentDraft.clientRoles.includes(role)
       ? currentDraft.clientRoles.filter((entry) => entry !== role)
       : [...currentDraft.clientRoles, role];
-    updateProfileDraft(clientId, "clientRoles", nextRoles.length > 0 ? nextRoles : ["client"]);
+    updateProfileDraft(
+      clientId,
+      "clientRoles",
+      nextRoles.length > 0 ? nextRoles : ["client"]
+    );
   }
 
   function toggleClientDraftVisiblePartner(partnerId: string) {
     setClientDraft((currentDraft) => ({
       ...currentDraft,
       visibleToPartnerIds: currentDraft.visibleToPartnerIds.includes(partnerId)
-        ? currentDraft.visibleToPartnerIds.filter((entry) => entry !== partnerId)
+        ? currentDraft.visibleToPartnerIds.filter(
+            (entry) => entry !== partnerId
+          )
         : [...currentDraft.visibleToPartnerIds, partnerId]
     }));
   }
 
-  function toggleProfileDraftVisiblePartner(clientId: string, partnerId: string) {
+  function toggleProfileDraftVisiblePartner(
+    clientId: string,
+    partnerId: string
+  ) {
     const currentDraft = getProfileDraftForClient(clientId);
     updateProfileDraft(
       clientId,
       "visibleToPartnerIds",
       currentDraft.visibleToPartnerIds.includes(partnerId)
-        ? currentDraft.visibleToPartnerIds.filter((entry) => entry !== partnerId)
+        ? currentDraft.visibleToPartnerIds.filter(
+            (entry) => entry !== partnerId
+          )
         : [...currentDraft.visibleToPartnerIds, partnerId]
     );
   }
@@ -635,7 +673,8 @@ export default function ClientsWorkspace() {
     );
     setPortalInviteDrafts((currentDrafts) => ({
       ...currentDrafts,
-      [contact.id]: currentDrafts[contact.id] ?? createPortalInviteDraft(client, contact)
+      [contact.id]:
+        currentDrafts[contact.id] ?? createPortalInviteDraft(client, contact)
     }));
   }
 
@@ -703,7 +742,9 @@ export default function ClientsWorkspace() {
       await refreshClients({ background: true });
     } catch (createError) {
       setError(
-        createError instanceof Error ? createError.message : "Failed to create client"
+        createError instanceof Error
+          ? createError.message
+          : "Failed to create client"
       );
     } finally {
       setCreatingClient(false);
@@ -723,11 +764,14 @@ export default function ClientsWorkspace() {
     setFeedback(null);
 
     try {
-      const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildClientPayload(draft))
-      });
+      const response = await fetch(
+        `/api/clients/${encodeURIComponent(clientId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildClientPayload(draft))
+        }
+      );
 
       const body = await response.json().catch(() => null);
 
@@ -744,7 +788,9 @@ export default function ClientsWorkspace() {
       await refreshClients({ background: true });
     } catch (saveError) {
       setError(
-        saveError instanceof Error ? saveError.message : "Failed to update client"
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to update client"
       );
     } finally {
       setSavingProfileForClient(null);
@@ -757,9 +803,12 @@ export default function ClientsWorkspace() {
     setFeedback(null);
 
     try {
-      const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}/enrich`, {
-        method: "POST"
-      });
+      const response = await fetch(
+        `/api/clients/${encodeURIComponent(clientId)}/enrich`,
+        {
+          method: "POST"
+        }
+      );
       const body = await response.json().catch(() => null);
 
       if (!response.ok) {
@@ -866,18 +915,25 @@ export default function ClientsWorkspace() {
       setFeedback("Contact approval authority updated.");
     } catch (updateError) {
       setError(
-        updateError instanceof Error ? updateError.message : "Failed to update contact"
+        updateError instanceof Error
+          ? updateError.message
+          : "Failed to update contact"
       );
     } finally {
       setUpdatingContactId(null);
     }
   }
 
-  async function inviteContactToProjects(client: ClientRecord, contact: ClientContact) {
+  async function inviteContactToProjects(
+    client: ClientRecord,
+    contact: ClientContact
+  ) {
     const draft = getPortalInviteDraft(client, contact);
 
     if (draft.projectIds.length === 0) {
-      setError("Select at least one linked project before sending portal access.");
+      setError(
+        "Select at least one linked project before sending portal access."
+      );
       return;
     }
 
@@ -922,7 +978,9 @@ export default function ClientsWorkspace() {
 
   async function deleteClient(client: ClientRecord) {
     if (client.projects.length > 0) {
-      setError("This client still has linked projects and cannot be deleted yet.");
+      setError(
+        "This client still has linked projects and cannot be deleted yet."
+      );
       return;
     }
 
@@ -931,9 +989,12 @@ export default function ClientsWorkspace() {
     setFeedback(null);
 
     try {
-      const response = await fetch(`/api/clients/${encodeURIComponent(client.id)}`, {
-        method: "DELETE"
-      });
+      const response = await fetch(
+        `/api/clients/${encodeURIComponent(client.id)}`,
+        {
+          method: "DELETE"
+        }
+      );
 
       const body = await response.json().catch(() => null);
 
@@ -942,7 +1003,9 @@ export default function ClientsWorkspace() {
       }
 
       setClients((currentClients) =>
-        currentClients.filter((existingClient) => existingClient.id !== client.id)
+        currentClients.filter(
+          (existingClient) => existingClient.id !== client.id
+        )
       );
       setExpandedClientIds((currentIds) =>
         currentIds.filter((existingId) => existingId !== client.id)
@@ -977,7 +1040,9 @@ export default function ClientsWorkspace() {
       setFeedback("Client deleted from the workspace.");
     } catch (deleteError) {
       setError(
-        deleteError instanceof Error ? deleteError.message : "Failed to delete client"
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Failed to delete client"
       );
     } finally {
       setDeletingClientId(null);
@@ -988,7 +1053,8 @@ export default function ClientsWorkspace() {
     const isExpanded = expandedClientIds.includes(client.id);
     const showContactForm = showingContactFormIds.includes(client.id);
     const recommendedContact = getPrimaryContact(client);
-    const profileDraft = profileDrafts[client.id] ?? createClientProfileDraft(client);
+    const profileDraft =
+      profileDrafts[client.id] ?? createClientProfileDraft(client);
     const contactDraft = contactDrafts[client.id] ?? createEmptyContactDraft();
     const logoUrl = deriveClientLogoUrl(client);
     const websiteHost = getWebsiteHost(client.website);
@@ -1044,7 +1110,8 @@ export default function ClientsWorkspace() {
                     key={role}
                     className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-[11px] font-medium text-text-secondary"
                   >
-                    {clientRoleOptions.find((option) => option.value === role)?.label ?? role}
+                    {clientRoleOptions.find((option) => option.value === role)
+                      ?.label ?? role}
                   </span>
                 ))}
               </div>
@@ -1053,9 +1120,13 @@ export default function ClientsWorkspace() {
                 <span>{websiteHost || client.region || "No website yet"}</span>
                 <span>{client.contacts.length} contacts</span>
                 <span>{client.projects.length} linked projects</span>
-                {client.parentClientName ? <span>Group: {client.parentClientName}</span> : null}
+                {client.parentClientName ? (
+                  <span>Group: {client.parentClientName}</span>
+                ) : null}
                 {client.visibleClients.length > 0 ? (
-                  <span>{client.visibleClients.length} visible downstream clients</span>
+                  <span>
+                    {client.visibleClients.length} visible downstream clients
+                  </span>
                 ) : null}
                 <span>Updated {formatDate(getClientLastActivity(client))}</span>
               </div>
@@ -1063,7 +1134,8 @@ export default function ClientsWorkspace() {
               <div className="mt-2 flex flex-wrap gap-2 text-xs text-text-muted">
                 {recommendedContact ? (
                   <span>
-                    Primary: {[recommendedContact.firstName, recommendedContact.lastName]
+                    Primary:{" "}
+                    {[recommendedContact.firstName, recommendedContact.lastName]
                       .filter(Boolean)
                       .join(" ")}{" "}
                     · {recommendedContact.email}
@@ -1124,13 +1196,15 @@ export default function ClientsWorkspace() {
                         Company Profile
                       </p>
                       <p className="mt-2 text-sm text-text-secondary">
-                        Use role tags for partner/client/group behavior, keep region controlled,
-                        and refresh enrichment from the website when you want overview, socials,
-                        and a detected logo candidate.
+                        Use role tags for partner/client/group behavior, keep
+                        region controlled, and refresh enrichment from the
+                        website when you want overview, socials, and a detected
+                        logo candidate.
                       </p>
                       {!canDeleteClient ? (
                         <p className="mt-3 text-xs text-text-muted">
-                          Delete is only available once this client has no linked projects.
+                          Delete is only available once this client has no
+                          linked projects.
                         </p>
                       ) : null}
                     </div>
@@ -1146,28 +1220,42 @@ export default function ClientsWorkspace() {
 
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <label className="block">
-                      <span className="text-sm font-medium text-white">Client name</span>
+                      <span className="text-sm font-medium text-white">
+                        Client name
+                      </span>
                       <input
                         value={profileDraft.name}
                         onChange={(event) =>
-                          updateProfileDraft(client.id, "name", event.target.value)
+                          updateProfileDraft(
+                            client.id,
+                            "name",
+                            event.target.value
+                          )
                         }
                         className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block">
-                      <span className="text-sm font-medium text-white">Website</span>
+                      <span className="text-sm font-medium text-white">
+                        Website
+                      </span>
                       <input
                         value={profileDraft.website}
                         onChange={(event) =>
-                          updateProfileDraft(client.id, "website", event.target.value)
+                          updateProfileDraft(
+                            client.id,
+                            "website",
+                            event.target.value
+                          )
                         }
                         placeholder="client.com"
                         className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block md:col-span-2">
-                      <span className="text-sm font-medium text-white">Additional websites</span>
+                      <span className="text-sm font-medium text-white">
+                        Additional websites
+                      </span>
                       <textarea
                         value={profileDraft.additionalWebsitesText}
                         onChange={(event) =>
@@ -1182,11 +1270,17 @@ export default function ClientsWorkspace() {
                       />
                     </label>
                     <label className="block md:col-span-2">
-                      <span className="text-sm font-medium text-white">Manual logo URL</span>
+                      <span className="text-sm font-medium text-white">
+                        Manual logo URL
+                      </span>
                       <input
                         value={profileDraft.logoUrl}
                         onChange={(event) =>
-                          updateProfileDraft(client.id, "logoUrl", event.target.value)
+                          updateProfileDraft(
+                            client.id,
+                            "logoUrl",
+                            event.target.value
+                          )
                         }
                         placeholder="https://..."
                         className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
@@ -1196,18 +1290,26 @@ export default function ClientsWorkspace() {
                       </p>
                     </label>
                     <label className="block">
-                      <span className="text-sm font-medium text-white">Industry</span>
+                      <span className="text-sm font-medium text-white">
+                        Industry
+                      </span>
                       <select
                         value={profileDraft.industry}
                         onChange={(event) =>
-                          updateProfileDraft(client.id, "industry", event.target.value)
+                          updateProfileDraft(
+                            client.id,
+                            "industry",
+                            event.target.value
+                          )
                         }
                         className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
                       >
                         <option value="">Select industry</option>
                         {!industryOptions.includes(profileDraft.industry) &&
                         profileDraft.industry ? (
-                          <option value={profileDraft.industry}>{profileDraft.industry}</option>
+                          <option value={profileDraft.industry}>
+                            {profileDraft.industry}
+                          </option>
                         ) : null}
                         {industryOptions.map((industry) => (
                           <option key={industry} value={industry}>
@@ -1217,18 +1319,26 @@ export default function ClientsWorkspace() {
                       </select>
                     </label>
                     <label className="block">
-                      <span className="text-sm font-medium text-white">Region</span>
+                      <span className="text-sm font-medium text-white">
+                        Region
+                      </span>
                       <select
                         value={profileDraft.region}
                         onChange={(event) =>
-                          updateProfileDraft(client.id, "region", event.target.value)
+                          updateProfileDraft(
+                            client.id,
+                            "region",
+                            event.target.value
+                          )
                         }
                         className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
                       >
                         <option value="">Select region</option>
                         {!clientRegionOptions.includes(profileDraft.region) &&
                         profileDraft.region ? (
-                          <option value={profileDraft.region}>{profileDraft.region}</option>
+                          <option value={profileDraft.region}>
+                            {profileDraft.region}
+                          </option>
                         ) : null}
                         {clientRegionOptions.map((region) => (
                           <option key={region} value={region}>
@@ -1241,7 +1351,9 @@ export default function ClientsWorkspace() {
 
                   <div className="mt-5 grid gap-4 lg:grid-cols-2">
                     <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
-                      <p className="text-sm font-medium text-white">Client roles</p>
+                      <p className="text-sm font-medium text-white">
+                        Client roles
+                      </p>
                       <div className="mt-3 flex flex-wrap gap-3">
                         {clientRoleOptions.map((role) => (
                           <label
@@ -1250,8 +1362,12 @@ export default function ClientsWorkspace() {
                           >
                             <input
                               type="checkbox"
-                              checked={profileDraft.clientRoles.includes(role.value)}
-                              onChange={() => toggleProfileDraftRole(client.id, role.value)}
+                              checked={profileDraft.clientRoles.includes(
+                                role.value
+                              )}
+                              onChange={() =>
+                                toggleProfileDraftRole(client.id, role.value)
+                              }
                             />
                             {role.label}
                           </label>
@@ -1261,11 +1377,17 @@ export default function ClientsWorkspace() {
 
                     <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
                       <label className="block">
-                        <span className="text-sm font-medium text-white">Parent group</span>
+                        <span className="text-sm font-medium text-white">
+                          Parent group
+                        </span>
                         <select
                           value={profileDraft.parentClientId}
                           onChange={(event) =>
-                            updateProfileDraft(client.id, "parentClientId", event.target.value)
+                            updateProfileDraft(
+                              client.id,
+                              "parentClientId",
+                              event.target.value
+                            )
                           }
                           className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                         >
@@ -1293,10 +1415,12 @@ export default function ClientsWorkspace() {
                   </div>
 
                   <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
-                    <p className="text-sm font-medium text-white">Partner visibility</p>
+                    <p className="text-sm font-medium text-white">
+                      Partner visibility
+                    </p>
                     <p className="mt-2 text-sm text-text-secondary">
-                      Choose which partner-tagged companies should be able to see this
-                      client’s downstream work.
+                      Choose which partner-tagged companies should be able to
+                      see this client’s downstream work.
                     </p>
                     <div className="mt-4 flex flex-wrap gap-3">
                       {availablePartnerOptions.length > 0 ? (
@@ -1311,7 +1435,10 @@ export default function ClientsWorkspace() {
                                 partnerClient.id
                               )}
                               onChange={() =>
-                                toggleProfileDraftVisiblePartner(client.id, partnerClient.id)
+                                toggleProfileDraftVisiblePartner(
+                                  client.id,
+                                  partnerClient.id
+                                )
                               }
                             />
                             {partnerClient.name}
@@ -1319,7 +1446,8 @@ export default function ClientsWorkspace() {
                         ))
                       ) : (
                         <p className="text-sm text-text-muted">
-                          Tag another company as a partner first to enable visibility links.
+                          Tag another company as a partner first to enable
+                          visibility links.
                         </p>
                       )}
                     </div>
@@ -1338,61 +1466,94 @@ export default function ClientsWorkspace() {
                   </div>
 
                   <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
-                    <p className="text-sm font-medium text-white">Enrichment overview</p>
+                    <p className="text-sm font-medium text-white">
+                      Enrichment overview
+                    </p>
                     <p className="mt-2 text-sm text-text-secondary">
-                      {client.companyOverview ?? "No enriched company overview yet. Refresh enrichment after adding a website."}
+                      {client.companyOverview ??
+                        "No enriched company overview yet. Refresh enrichment after adding a website."}
                     </p>
                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                       <label className="block">
-                        <span className="text-sm font-medium text-white">LinkedIn</span>
+                        <span className="text-sm font-medium text-white">
+                          LinkedIn
+                        </span>
                         <input
                           value={profileDraft.linkedinUrl}
                           onChange={(event) =>
-                            updateProfileDraft(client.id, "linkedinUrl", event.target.value)
+                            updateProfileDraft(
+                              client.id,
+                              "linkedinUrl",
+                              event.target.value
+                            )
                           }
                           placeholder="https://linkedin.com/..."
                           className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                         />
                       </label>
                       <label className="block">
-                        <span className="text-sm font-medium text-white">Facebook</span>
+                        <span className="text-sm font-medium text-white">
+                          Facebook
+                        </span>
                         <input
                           value={profileDraft.facebookUrl}
                           onChange={(event) =>
-                            updateProfileDraft(client.id, "facebookUrl", event.target.value)
+                            updateProfileDraft(
+                              client.id,
+                              "facebookUrl",
+                              event.target.value
+                            )
                           }
                           placeholder="https://facebook.com/..."
                           className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                         />
                       </label>
                       <label className="block">
-                        <span className="text-sm font-medium text-white">Instagram</span>
+                        <span className="text-sm font-medium text-white">
+                          Instagram
+                        </span>
                         <input
                           value={profileDraft.instagramUrl}
                           onChange={(event) =>
-                            updateProfileDraft(client.id, "instagramUrl", event.target.value)
+                            updateProfileDraft(
+                              client.id,
+                              "instagramUrl",
+                              event.target.value
+                            )
                           }
                           placeholder="https://instagram.com/..."
                           className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                         />
                       </label>
                       <label className="block">
-                        <span className="text-sm font-medium text-white">X</span>
+                        <span className="text-sm font-medium text-white">
+                          X
+                        </span>
                         <input
                           value={profileDraft.xUrl}
                           onChange={(event) =>
-                            updateProfileDraft(client.id, "xUrl", event.target.value)
+                            updateProfileDraft(
+                              client.id,
+                              "xUrl",
+                              event.target.value
+                            )
                           }
                           placeholder="https://x.com/..."
                           className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                         />
                       </label>
                       <label className="block md:col-span-2">
-                        <span className="text-sm font-medium text-white">YouTube</span>
+                        <span className="text-sm font-medium text-white">
+                          YouTube
+                        </span>
                         <input
                           value={profileDraft.youtubeUrl}
                           onChange={(event) =>
-                            updateProfileDraft(client.id, "youtubeUrl", event.target.value)
+                            updateProfileDraft(
+                              client.id,
+                              "youtubeUrl",
+                              event.target.value
+                            )
                           }
                           placeholder="https://youtube.com/..."
                           className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
@@ -1401,14 +1562,17 @@ export default function ClientsWorkspace() {
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-text-muted">
                       {client.lastEnrichedAt ? (
-                        <span>Last enriched {formatDate(client.lastEnrichedAt)}</span>
+                        <span>
+                          Last enriched {formatDate(client.lastEnrichedAt)}
+                        </span>
                       ) : (
                         <span>No enrichment run yet</span>
                       )}
                       {client.visibleClients.length > 0 ? (
                         <span>
-                          This partner-linked record can see {client.visibleClients.length} downstream
-                          client{client.visibleClients.length === 1 ? "" : "s"}.
+                          This partner-linked record can see{" "}
+                          {client.visibleClients.length} downstream client
+                          {client.visibleClients.length === 1 ? "" : "s"}.
                         </span>
                       ) : null}
                     </div>
@@ -1417,12 +1581,13 @@ export default function ClientsWorkspace() {
                   <div className="mt-5 flex items-center justify-between gap-4">
                     <div className="space-y-2">
                       <p className="text-xs text-text-muted">
-                        We’ll use the website or first contact domain for a logo when no
-                        manual URL is set.
+                        We’ll use the website or first contact domain for a logo
+                        when no manual URL is set.
                       </p>
                       {canDeleteClient ? (
                         <p className="text-xs text-[#ff8f9c]">
-                          This client has no linked projects, so it can be removed if it is junk or old test data.
+                          This client has no linked projects, so it can be
+                          removed if it is junk or old test data.
                         </p>
                       ) : null}
                     </div>
@@ -1463,10 +1628,14 @@ export default function ClientsWorkspace() {
                       <button
                         type="button"
                         onClick={() => void saveClientProfile(client.id)}
-                        disabled={savingProfileForClient === client.id || isDeleting}
+                        disabled={
+                          savingProfileForClient === client.id || isDeleting
+                        }
                         className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                       >
-                        {savingProfileForClient === client.id ? "Saving..." : "Save client"}
+                        {savingProfileForClient === client.id
+                          ? "Saving..."
+                          : "Save client"}
                       </button>
                     </div>
                   </div>
@@ -1479,8 +1648,8 @@ export default function ClientsWorkspace() {
                         Contacts
                       </p>
                       <p className="mt-2 text-sm text-text-secondary">
-                        Keep the approver and key stakeholders here, then pull them
-                        straight into projects and portal access.
+                        Keep the approver and key stakeholders here, then pull
+                        them straight into projects and portal access.
                       </p>
                     </div>
                     <button
@@ -1495,8 +1664,12 @@ export default function ClientsWorkspace() {
                   <div className="mt-4 space-y-3">
                     {client.contacts.length > 0 ? (
                       client.contacts.map((contact) => {
-                        const showPortalInvite = showingPortalInviteIds.includes(contact.id);
-                        const portalInviteDraft = getPortalInviteDraft(client, contact);
+                        const showPortalInvite =
+                          showingPortalInviteIds.includes(contact.id);
+                        const portalInviteDraft = getPortalInviteDraft(
+                          client,
+                          contact
+                        );
 
                         return (
                           <div
@@ -1522,8 +1695,11 @@ export default function ClientsWorkspace() {
                                   ) : null}
                                   {contact.portalAssignments.length > 0 ? (
                                     <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-2 text-[11px] font-medium text-text-secondary">
-                                      {contact.portalAssignments.length} portal project
-                                      {contact.portalAssignments.length === 1 ? "" : "s"}
+                                      {contact.portalAssignments.length} portal
+                                      project
+                                      {contact.portalAssignments.length === 1
+                                        ? ""
+                                        : "s"}
                                     </span>
                                   ) : null}
                                 </div>
@@ -1531,7 +1707,9 @@ export default function ClientsWorkspace() {
                               <div className="flex flex-wrap gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => void toggleApprover(client.id, contact)}
+                                  onClick={() =>
+                                    void toggleApprover(client.id, contact)
+                                  }
                                   disabled={updatingContactId === contact.id}
                                   className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                                 >
@@ -1543,10 +1721,14 @@ export default function ClientsWorkspace() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => togglePortalInvite(client, contact)}
+                                  onClick={() =>
+                                    togglePortalInvite(client, contact)
+                                  }
                                   className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
                                 >
-                                  {showPortalInvite ? "Hide portal access" : "Portal access"}
+                                  {showPortalInvite
+                                    ? "Hide portal access"
+                                    : "Portal access"}
                                 </button>
                                 <Link
                                   href={buildProjectLink(client, contact)}
@@ -1565,13 +1747,17 @@ export default function ClientsWorkspace() {
                                       Portal access and onboarding
                                     </p>
                                     <p className="mt-2 max-w-2xl text-sm text-text-secondary">
-                                      Choose which linked projects this contact should see,
-                                      whether they need to complete the active project
-                                      inputs, and send the onboarding email in one step.
+                                      Choose which linked projects this contact
+                                      should see, whether they need to complete
+                                      the active project inputs, and send the
+                                      onboarding email in one step.
                                     </p>
                                   </div>
                                   <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-2 text-[11px] font-medium text-text-secondary">
-                                    Role: {contact.canApproveQuotes ? "Approver" : "Contributor"}
+                                    Role:{" "}
+                                    {contact.canApproveQuotes
+                                      ? "Approver"
+                                      : "Contributor"}
                                   </div>
                                 </div>
 
@@ -1580,11 +1766,13 @@ export default function ClientsWorkspace() {
                                     client.projects.map((project) => {
                                       const existingAssignment =
                                         contact.portalAssignments.find(
-                                          (assignment) => assignment.projectId === project.id
+                                          (assignment) =>
+                                            assignment.projectId === project.id
                                         ) ?? null;
-                                      const isSelected = portalInviteDraft.projectIds.includes(
-                                        project.id
-                                      );
+                                      const isSelected =
+                                        portalInviteDraft.projectIds.includes(
+                                          project.id
+                                        );
 
                                       return (
                                         <label
@@ -1600,7 +1788,8 @@ export default function ClientsWorkspace() {
                                                   contact.id,
                                                   (currentDraft) => ({
                                                     ...currentDraft,
-                                                    projectIds: event.target.checked
+                                                    projectIds: event.target
+                                                      .checked
                                                       ? Array.from(
                                                           new Set([
                                                             ...currentDraft.projectIds,
@@ -1609,7 +1798,8 @@ export default function ClientsWorkspace() {
                                                         )
                                                       : currentDraft.projectIds.filter(
                                                           (projectId) =>
-                                                            projectId !== project.id
+                                                            projectId !==
+                                                            project.id
                                                         )
                                                   })
                                                 )
@@ -1621,15 +1811,19 @@ export default function ClientsWorkspace() {
                                                 {project.name}
                                               </p>
                                               <p className="mt-1 text-xs text-text-secondary">
-                                                {project.scopeType.replace(/_/g, " ")} ·{" "}
-                                                {project.quoteApprovalStatus}
+                                                {project.scopeType.replace(
+                                                  /_/g,
+                                                  " "
+                                                )}{" "}
+                                                · {project.quoteApprovalStatus}
                                               </p>
                                             </div>
                                           </div>
                                           {existingAssignment ? (
                                             <div className="text-right text-xs text-text-secondary">
                                               <p>
-                                                {existingAssignment.authStatus === "active"
+                                                {existingAssignment.authStatus ===
+                                                "active"
                                                   ? "Portal active"
                                                   : "Invite pending"}
                                               </p>
@@ -1649,7 +1843,8 @@ export default function ClientsWorkspace() {
                                     })
                                   ) : (
                                     <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-4 py-4 text-sm text-text-secondary">
-                                      This client does not have any linked projects yet.
+                                      This client does not have any linked
+                                      projects yet.
                                     </div>
                                   )}
                                 </div>
@@ -1658,12 +1853,18 @@ export default function ClientsWorkspace() {
                                   <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4 text-sm text-white">
                                     <input
                                       type="checkbox"
-                                      checked={portalInviteDraft.questionnaireAccess}
+                                      checked={
+                                        portalInviteDraft.questionnaireAccess
+                                      }
                                       onChange={(event) =>
-                                        updatePortalInviteDraft(contact.id, (currentDraft) => ({
-                                          ...currentDraft,
-                                          questionnaireAccess: event.target.checked
-                                        }))
+                                        updatePortalInviteDraft(
+                                          contact.id,
+                                          (currentDraft) => ({
+                                            ...currentDraft,
+                                            questionnaireAccess:
+                                              event.target.checked
+                                          })
+                                        )
                                       }
                                     />
                                     This contact should complete project inputs
@@ -1673,10 +1874,13 @@ export default function ClientsWorkspace() {
                                       type="checkbox"
                                       checked={portalInviteDraft.sendEmail}
                                       onChange={(event) =>
-                                        updatePortalInviteDraft(contact.id, (currentDraft) => ({
-                                          ...currentDraft,
-                                          sendEmail: event.target.checked
-                                        }))
+                                        updatePortalInviteDraft(
+                                          contact.id,
+                                          (currentDraft) => ({
+                                            ...currentDraft,
+                                            sendEmail: event.target.checked
+                                          })
+                                        )
                                       }
                                     />
                                     Send the Muloo onboarding email now
@@ -1684,19 +1888,29 @@ export default function ClientsWorkspace() {
                                 </div>
 
                                 <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4 text-sm text-text-secondary">
-                                  The onboarding email explains the portal, required next
-                                  step, and that project inputs save automatically so the
-                                  client can stop and resume later.
+                                  The onboarding email explains the portal,
+                                  required next step, and that project inputs
+                                  save automatically so the client can stop and
+                                  resume later.
                                 </div>
 
                                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                                   <p className="text-sm text-text-secondary">
-                                    {portalInviteDraft.projectIds.length} project
-                                    {portalInviteDraft.projectIds.length === 1 ? "" : "s"} selected
+                                    {portalInviteDraft.projectIds.length}{" "}
+                                    project
+                                    {portalInviteDraft.projectIds.length === 1
+                                      ? ""
+                                      : "s"}{" "}
+                                    selected
                                   </p>
                                   <button
                                     type="button"
-                                    onClick={() => void inviteContactToProjects(client, contact)}
+                                    onClick={() =>
+                                      void inviteContactToProjects(
+                                        client,
+                                        contact
+                                      )
+                                    }
                                     disabled={
                                       invitingContactId === contact.id ||
                                       portalInviteDraft.projectIds.length === 0
@@ -1726,41 +1940,65 @@ export default function ClientsWorkspace() {
                     <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
                       <div className="grid gap-4 md:grid-cols-2">
                         <label className="block">
-                          <span className="text-sm font-medium text-white">First name</span>
+                          <span className="text-sm font-medium text-white">
+                            First name
+                          </span>
                           <input
                             value={contactDraft.firstName}
                             onChange={(event) =>
-                              updateContactDraft(client.id, "firstName", event.target.value)
+                              updateContactDraft(
+                                client.id,
+                                "firstName",
+                                event.target.value
+                              )
                             }
                             className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                           />
                         </label>
                         <label className="block">
-                          <span className="text-sm font-medium text-white">Last name</span>
+                          <span className="text-sm font-medium text-white">
+                            Last name
+                          </span>
                           <input
                             value={contactDraft.lastName}
                             onChange={(event) =>
-                              updateContactDraft(client.id, "lastName", event.target.value)
+                              updateContactDraft(
+                                client.id,
+                                "lastName",
+                                event.target.value
+                              )
                             }
                             className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                           />
                         </label>
                         <label className="block">
-                          <span className="text-sm font-medium text-white">Email</span>
+                          <span className="text-sm font-medium text-white">
+                            Email
+                          </span>
                           <input
                             value={contactDraft.email}
                             onChange={(event) =>
-                              updateContactDraft(client.id, "email", event.target.value)
+                              updateContactDraft(
+                                client.id,
+                                "email",
+                                event.target.value
+                              )
                             }
                             className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                           />
                         </label>
                         <label className="block">
-                          <span className="text-sm font-medium text-white">Title / role</span>
+                          <span className="text-sm font-medium text-white">
+                            Title / role
+                          </span>
                           <input
                             value={contactDraft.title}
                             onChange={(event) =>
-                              updateContactDraft(client.id, "title", event.target.value)
+                              updateContactDraft(
+                                client.id,
+                                "title",
+                                event.target.value
+                              )
                             }
                             className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                           />
@@ -1787,7 +2025,9 @@ export default function ClientsWorkspace() {
                           disabled={savingContactForClient === client.id}
                           className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                         >
-                          {savingContactForClient === client.id ? "Saving..." : "Add contact"}
+                          {savingContactForClient === client.id
+                            ? "Saving..."
+                            : "Add contact"}
                         </button>
                       </div>
                     </div>
@@ -1802,8 +2042,9 @@ export default function ClientsWorkspace() {
                       Linked Projects
                     </p>
                     <p className="mt-2 text-sm text-text-secondary">
-                      We pull projects in from the direct client link plus any matching
-                      contact emails already used in portal access or client champion fields.
+                      We pull projects in from the direct client link plus any
+                      matching contact emails already used in portal access or
+                      client champion fields.
                     </p>
                   </div>
                 </div>
@@ -1822,7 +2063,8 @@ export default function ClientsWorkspace() {
                               {project.name}
                             </p>
                             <p className="mt-1 text-xs text-text-secondary">
-                              {project.scopeType.replace(/_/g, " ")} · {project.status}
+                              {project.scopeType.replace(/_/g, " ")} ·{" "}
+                              {project.status}
                             </p>
                           </div>
                           <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-1 text-[11px] font-medium text-text-secondary">
@@ -1862,9 +2104,9 @@ export default function ClientsWorkspace() {
                   Clients and key contacts
                 </h1>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">
-                  A tighter CRM-lite directory: active clients first, fast search,
-                  expandable company records, linked contacts, and linked projects
-                  without turning this into a full CRM.
+                  A tighter CRM-lite directory: active clients first, fast
+                  search, expandable company records, linked contacts, and
+                  linked projects without turning this into a full CRM.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -1902,17 +2144,21 @@ export default function ClientsWorkspace() {
           <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-white">Add client company</h2>
+                <h2 className="text-xl font-semibold text-white">
+                  Add client company
+                </h2>
                 <p className="mt-2 text-sm text-text-secondary">
-                  Add the company once, then keep everything else inside the client
-                  record when you need it.
+                  Add the company once, then keep everything else inside the
+                  client record when you need it.
                 </p>
               </div>
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="block">
-                <span className="text-sm font-medium text-white">Client name</span>
+                <span className="text-sm font-medium text-white">
+                  Client name
+                </span>
                 <input
                   value={clientDraft.name}
                   onChange={(event) =>
@@ -1993,7 +2239,9 @@ export default function ClientsWorkspace() {
                 </select>
               </label>
               <label className="block md:col-span-2">
-                <span className="text-sm font-medium text-white">Additional websites</span>
+                <span className="text-sm font-medium text-white">
+                  Additional websites
+                </span>
                 <textarea
                   value={clientDraft.additionalWebsitesText}
                   onChange={(event) =>
@@ -2029,7 +2277,9 @@ export default function ClientsWorkspace() {
               </div>
 
               <label className="block rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-                <span className="text-sm font-medium text-white">Parent group</span>
+                <span className="text-sm font-medium text-white">
+                  Parent group
+                </span>
                 <select
                   value={clientDraft.parentClientId}
                   onChange={(event) =>
@@ -2051,7 +2301,9 @@ export default function ClientsWorkspace() {
             </div>
 
             <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-              <p className="text-sm font-medium text-white">Visible to partners</p>
+              <p className="text-sm font-medium text-white">
+                Visible to partners
+              </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 {partnerClientOptions.length > 0 ? (
                   partnerClientOptions.map((partnerClient) => (
@@ -2061,8 +2313,12 @@ export default function ClientsWorkspace() {
                     >
                       <input
                         type="checkbox"
-                        checked={clientDraft.visibleToPartnerIds.includes(partnerClient.id)}
-                        onChange={() => toggleClientDraftVisiblePartner(partnerClient.id)}
+                        checked={clientDraft.visibleToPartnerIds.includes(
+                          partnerClient.id
+                        )}
+                        onChange={() =>
+                          toggleClientDraftVisiblePartner(partnerClient.id)
+                        }
                       />
                       {partnerClient.name}
                     </label>
@@ -2105,7 +2361,9 @@ export default function ClientsWorkspace() {
                 />
               </label>
               <label className="block">
-                <span className="text-sm font-medium text-white">Instagram</span>
+                <span className="text-sm font-medium text-white">
+                  Instagram
+                </span>
                 <input
                   value={clientDraft.instagramUrl}
                   onChange={(event) =>
@@ -2157,8 +2415,8 @@ export default function ClientsWorkspace() {
                 ) : (
                   <p className="text-sm text-text-secondary">
                     Search keeps the directory clean, regions stay controlled,
-                    and profiles can now model partner/group relationships without
-                    flattening everything into one client type.
+                    and profiles can now model partner/group relationships
+                    without flattening everything into one client type.
                   </p>
                 )}
               </div>
@@ -2178,8 +2436,8 @@ export default function ClientsWorkspace() {
               <div>
                 <h2 className="text-xl font-semibold text-white">Directory</h2>
                 <p className="mt-2 text-sm text-text-secondary">
-                  Search by company, contact, email, or project. Use A-Z when you
-                  need to jump fast through the longer tail of clients.
+                  Search by company, contact, email, or project. Use A-Z when
+                  you need to jump fast through the longer tail of clients.
                 </p>
               </div>
               {refreshing ? (
@@ -2234,10 +2492,12 @@ export default function ClientsWorkspace() {
               <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-white">Active Clients</h2>
+                    <h2 className="text-xl font-semibold text-white">
+                      Active Clients
+                    </h2>
                     <p className="mt-2 text-sm text-text-secondary">
-                      Clients with linked projects stay at the top so current work
-                      is always easier to reach.
+                      Clients with linked projects stay at the top so current
+                      work is always easier to reach.
                     </p>
                   </div>
                   <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-4 py-2 text-xs font-medium text-text-secondary">
@@ -2250,17 +2510,21 @@ export default function ClientsWorkspace() {
                     No active clients match the current search or filter.
                   </div>
                 ) : (
-                  <div className="mt-5 space-y-4">{activeClients.map(renderClientRow)}</div>
+                  <div className="mt-5 space-y-4">
+                    {activeClients.map(renderClientRow)}
+                  </div>
                 )}
               </section>
 
               <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-white">Other Clients</h2>
+                    <h2 className="text-xl font-semibold text-white">
+                      Other Clients
+                    </h2>
                     <p className="mt-2 text-sm text-text-secondary">
-                      The rest of the directory stays lighter and alphabetised so it
-                      does not drown the active work.
+                      The rest of the directory stays lighter and alphabetised
+                      so it does not drown the active work.
                     </p>
                   </div>
                   <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-4 py-2 text-xs font-medium text-text-secondary">

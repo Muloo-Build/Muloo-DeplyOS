@@ -181,7 +181,9 @@ export default function DeliveryTemplatesStudio() {
                 />
               </label>
               <label className="block">
-                <span className="text-sm text-text-secondary">Service family</span>
+                <span className="text-sm text-text-secondary">
+                  Service family
+                </span>
                 <select
                   value={template.serviceFamily}
                   onChange={(event) =>

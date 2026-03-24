@@ -35,7 +35,9 @@ const command = process.argv[2];
 const args = process.argv.slice(3);
 
 if (!command) {
-  console.error("Usage: node scripts/run-with-root-env.mjs <command> [args...]");
+  console.error(
+    "Usage: node scripts/run-with-root-env.mjs <command> [args...]"
+  );
   process.exit(1);
 }
 

@@ -347,9 +347,9 @@ function createProjectDraft(project: Project) {
     ownerEmail: project.ownerEmail,
     clientIndustry: project.client.industry ?? "",
     clientWebsite: project.client.website ?? "",
-    clientAdditionalWebsitesText: (project.client.additionalWebsites ?? []).join(
-      "\n"
-    ),
+    clientAdditionalWebsitesText: (
+      project.client.additionalWebsites ?? []
+    ).join("\n"),
     clientLinkedinUrl: project.client.linkedinUrl ?? "",
     clientFacebookUrl: project.client.facebookUrl ?? "",
     clientInstagramUrl: project.client.instagramUrl ?? "",
@@ -563,18 +563,21 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       createDefaultClientQuestionnaireDefinitionMap()
     );
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
-  const [aiProviders, setAiProviders] = useState<ProviderConnectionSummary[]>([]);
-  const [emailSettings, setEmailSettings] = useState<EmailSettingsSummary | null>(
-    null
-  );
-  const [clientUsers, setClientUsers] = useState<ClientPortalUser[]>([]);
-  const [savedClientContacts, setSavedClientContacts] = useState<SavedClientContact[]>(
+  const [aiProviders, setAiProviders] = useState<ProviderConnectionSummary[]>(
     []
   );
+  const [emailSettings, setEmailSettings] =
+    useState<EmailSettingsSummary | null>(null);
+  const [clientUsers, setClientUsers] = useState<ClientPortalUser[]>([]);
+  const [savedClientContacts, setSavedClientContacts] = useState<
+    SavedClientContact[]
+  >([]);
   const [portalOptions, setPortalOptions] = useState<HubSpotPortalOption[]>([]);
   const [hubSpotInstallProfile, setHubSpotInstallProfile] =
     useState<HubSpotInstallProfile>("core_crm");
-  const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
+  const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>(
+    []
+  );
   const [contextDraft, setContextDraft] = useState({
     evidenceType: "uploaded-doc" as EvidenceItem["evidenceType"],
     sourceLabel: "",
@@ -591,13 +594,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     questionnaireAccess: true
   });
   const [clientAccessSaving, setClientAccessSaving] = useState(false);
-  const [clientAccessUpdatingId, setClientAccessUpdatingId] = useState<string | null>(
-    null
-  );
+  const [clientAccessUpdatingId, setClientAccessUpdatingId] = useState<
+    string | null
+  >(null);
   const [clientPortalPushBusy, setClientPortalPushBusy] = useState(false);
-  const [clientAccessFeedback, setClientAccessFeedback] = useState<string | null>(
-    null
-  );
+  const [clientAccessFeedback, setClientAccessFeedback] = useState<
+    string | null
+  >(null);
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [savingField, setSavingField] = useState<EditableField>(null);
   const [projectEditError, setProjectEditError] = useState<string | null>(null);
@@ -612,10 +615,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [showFullBrief, setShowFullBrief] = useState(false);
   const [showSupportingContext, setShowSupportingContext] = useState(false);
   const [questionnaireSaving, setQuestionnaireSaving] = useState(false);
-  const [questionnaireError, setQuestionnaireError] = useState<string | null>(null);
-  const [questionnaireFeedback, setQuestionnaireFeedback] = useState<string | null>(
+  const [questionnaireError, setQuestionnaireError] = useState<string | null>(
     null
   );
+  const [questionnaireFeedback, setQuestionnaireFeedback] = useState<
+    string | null
+  >(null);
   const [emailIntent, setEmailIntent] = useState("next_steps");
   const [emailProviderKey, setEmailProviderKey] = useState("openai");
   const [emailModelOverride, setEmailModelOverride] = useState("");
@@ -653,7 +658,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       fetch("/api/provider-connections"),
       fetch("/api/email-settings"),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`),
-      fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`),
+      fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`
+      ),
       fetch("/api/clients"),
       fetch("/api/portals")
     ]);
@@ -688,7 +695,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     setProject(projectBody.project);
     setProjectDraft(createProjectDraft(projectBody.project));
     setQuestionnaireDraft(
-      cloneQuestionnaireDefinitions(projectBody.project.clientQuestionnaireConfig)
+      cloneQuestionnaireDefinitions(
+        projectBody.project.clientQuestionnaireConfig
+      )
     );
     setSessions(sessionsBody.sessionDetails ?? []);
     setDiscoverySummary(summaryBody.summary ?? null);
@@ -714,7 +723,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     setPortalOptions(portalsBody?.portals ?? []);
     if (enabledDraftProviders.length > 0) {
       setEmailProviderKey((currentKey) =>
-        enabledDraftProviders.some((provider) => provider.providerKey === currentKey)
+        enabledDraftProviders.some(
+          (provider) => provider.providerKey === currentKey
+        )
           ? currentKey
           : enabledDraftProviders[0].providerKey
       );
@@ -726,7 +737,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         return (
           enabledDraftProviders.find(
             (provider) => provider.providerKey === emailProviderKey
-          )?.defaultModel ?? enabledDraftProviders[0].defaultModel ?? ""
+          )?.defaultModel ??
+          enabledDraftProviders[0].defaultModel ??
+          ""
         );
       });
     }
@@ -765,8 +778,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }
 
     const selectedProvider =
-      aiProviders.find((provider) => provider.providerKey === emailProviderKey) ??
-      aiProviders[0];
+      aiProviders.find(
+        (provider) => provider.providerKey === emailProviderKey
+      ) ?? aiProviders[0];
 
     if (selectedProvider && selectedProvider.providerKey !== emailProviderKey) {
       setEmailProviderKey(selectedProvider.providerKey);
@@ -824,8 +838,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const canGenerateBlueprint = isStandaloneQuote
     ? Boolean(
         project?.commercialBrief?.trim().length ||
-          supportingContext.length ||
-          discoverySummary
+        supportingContext.length ||
+        discoverySummary
       )
     : session1Complete && session3Complete;
   const totalHumanHours =
@@ -836,7 +850,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     project,
     discoverySummary?.supportingTools
   );
-  const scopedKeyRisks = getDisplayKeyRisks(project, discoverySummary?.keyRisks);
+  const scopedKeyRisks = getDisplayKeyRisks(
+    project,
+    discoverySummary?.keyRisks
+  );
   const scopedNextQuestions = getDisplayNextQuestions(
     project,
     discoverySummary?.recommendedNextQuestions
@@ -919,7 +936,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       const body = await response.json().catch(() => null);
 
       if (!response.ok || !body?.authUrl) {
-        throw new Error(body?.error ?? "Failed to start HubSpot portal connection");
+        throw new Error(
+          body?.error ?? "Failed to start HubSpot portal connection"
+        );
       }
 
       window.location.href = body.authUrl;
@@ -1170,7 +1189,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           })}.`
         );
       } catch (reloadError) {
-        console.error("Summary refreshed but project reload failed", reloadError);
+        console.error(
+          "Summary refreshed but project reload failed",
+          reloadError
+        );
         setSummaryFeedback(
           `Summary refreshed, but the page could not fully reload. Please refresh the browser.`
         );
@@ -1223,7 +1245,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         scopeExecutiveSummary: null
       }));
       await loadProjectData();
-      setSummaryFeedback("Summary reset. You can now generate a clean overview.");
+      setSummaryFeedback(
+        "Summary reset. You can now generate a clean overview."
+      );
     } catch (resetError) {
       setSummaryError(
         resetError instanceof Error
@@ -1280,7 +1304,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         await navigator.clipboard.writeText(nextClientUser.inviteLink);
         setClientAccessFeedback("Invite link copied to clipboard.");
       } else if (nextClientUser?.authStatus === "active") {
-        setClientAccessFeedback("Client user linked to this project. Access is already active.");
+        setClientAccessFeedback(
+          "Client user linked to this project. Access is already active."
+        );
       } else {
         setClientAccessFeedback("Client user created.");
       }
@@ -1489,20 +1515,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     );
   }
 
-  function addRecipient(
-    target: "to" | "cc",
-    email: string,
-    label?: string
-  ) {
+  function addRecipient(target: "to" | "cc", email: string, label?: string) {
     if (target === "to") {
       setEmailTo((currentValue) => appendRecipientList(currentValue, email));
     } else {
       setEmailCc((currentValue) => appendRecipientList(currentValue, email));
     }
 
-    setEmailFeedback(
-      `${label || email} added to ${target.toUpperCase()}.`
-    );
+    setEmailFeedback(`${label || email} added to ${target.toUpperCase()}.`);
     setEmailError(null);
   }
 
@@ -1544,7 +1564,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       const response = await fetch(
         `/api/projects/${encodeURIComponent(project.id)}/quote/share`,
         {
-          method: "POST",
+          method: "POST"
         }
       );
 
@@ -1644,18 +1664,19 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       ...currentDraft,
       [sessionNumber]: {
         ...currentDraft[sessionNumber],
-        questions: currentDraft[sessionNumber].questions.map((question, index) =>
-          index === questionIndex
-            ? {
-                ...question,
-                [field]: value,
-                ...(field === "label" && !question.key.trim()
-                  ? {
-                      key: createQuestionKey(value, questionIndex + 1)
-                    }
-                  : {})
-              }
-            : question
+        questions: currentDraft[sessionNumber].questions.map(
+          (question, index) =>
+            index === questionIndex
+              ? {
+                  ...question,
+                  [field]: value,
+                  ...(field === "label" && !question.key.trim()
+                    ? {
+                        key: createQuestionKey(value, questionIndex + 1)
+                      }
+                    : {})
+                }
+              : question
         )
       }
     }));
@@ -1682,7 +1703,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     });
   }
 
-  function removeQuestionnaireQuestion(sessionNumber: number, questionIndex: number) {
+  function removeQuestionnaireQuestion(
+    sessionNumber: number,
+    questionIndex: number
+  ) {
     setQuestionnaireDraft((currentDraft) => ({
       ...currentDraft,
       [sessionNumber]: {
@@ -1697,7 +1721,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   function resetQuestionnaireDefaults() {
     setQuestionnaireDraft(createDefaultClientQuestionnaireDefinitionMap());
     setQuestionnaireError(null);
-    setQuestionnaireFeedback("Project inputs reset to the default Muloo structure.");
+    setQuestionnaireFeedback(
+      "Project inputs reset to the default Muloo structure."
+    );
   }
 
   async function saveQuestionnaireConfig() {
@@ -1716,8 +1742,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         session.questions = session.questions.map((question, index) => ({
           ...question,
           key:
-            question.key.trim() ||
-            createQuestionKey(question.label, index + 1)
+            question.key.trim() || createQuestionKey(question.label, index + 1)
         }));
         payload[Number(sessionNumberText)] = session;
       });
@@ -1797,7 +1822,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       );
     } catch (draftError) {
       setEmailError(
-        draftError instanceof Error ? draftError.message : "Failed to draft email"
+        draftError instanceof Error
+          ? draftError.message
+          : "Failed to draft email"
       );
     } finally {
       setEmailBusy(false);
@@ -1817,14 +1844,18 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
   function toggleVoiceDictation() {
     const recognitionApi =
-      (window as typeof window & {
-        SpeechRecognition?: new () => any;
-        webkitSpeechRecognition?: new () => any;
-      }).SpeechRecognition ??
-      (window as typeof window & {
-        SpeechRecognition?: new () => any;
-        webkitSpeechRecognition?: new () => any;
-      }).webkitSpeechRecognition;
+      (
+        window as typeof window & {
+          SpeechRecognition?: new () => any;
+          webkitSpeechRecognition?: new () => any;
+        }
+      ).SpeechRecognition ??
+      (
+        window as typeof window & {
+          SpeechRecognition?: new () => any;
+          webkitSpeechRecognition?: new () => any;
+        }
+      ).webkitSpeechRecognition;
 
     if (!recognitionApi) {
       setEmailError("Voice dictation is not available in this browser.");
@@ -1856,9 +1887,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         .trim();
 
       setEmailBody(
-        [startingBody.trim(), transcript].filter(Boolean).join(
-          startingBody.trim() ? "\n\n" : ""
-        )
+        [startingBody.trim(), transcript]
+          .filter(Boolean)
+          .join(startingBody.trim() ? "\n\n" : "")
       );
     };
 
@@ -2324,7 +2355,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                     key={portalOption.id}
                                     value={portalOption.portalId}
                                   >
-                                    {portalOption.displayName} · {portalOption.portalId}
+                                    {portalOption.displayName} ·{" "}
+                                    {portalOption.portalId}
                                     {portalOption.connected
                                       ? " · Connected"
                                       : " · Needs reconnect"}
@@ -2332,14 +2364,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 ))}
                               </select>
                               <p className="mt-3 text-xs text-text-secondary">
-                                Pick an installed HubSpot portal or connect a new one for this project.
+                                Pick an installed HubSpot portal or connect a
+                                new one for this project.
                               </p>
                               {renderActions("portalId")}
                             </>
                           ) : (
                             <>
                               <p className="mt-2 text-sm text-white">
-                                {project.portal?.displayName ?? "Not linked yet"}
+                                {project.portal?.displayName ??
+                                  "Not linked yet"}
                               </p>
                               <p className="mt-1 text-xs leading-5 text-text-secondary">
                                 {project.portal?.portalId
@@ -2391,11 +2425,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             disabled={portalConnectBusy}
                             className="w-full rounded-xl border border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.12)] px-4 py-2.5 text-sm font-medium text-[#51d0b0] disabled:cursor-not-allowed lg:w-auto"
                           >
-                            {portalConnectBusy ? "Connecting..." : "Connect portal"}
+                            {portalConnectBusy
+                              ? "Connecting..."
+                              : "Connect portal"}
                           </button>
                         </div>
                         <p className="mt-3 text-xs leading-5 text-text-secondary">
-                          Start with `Core CRM install` for most client portals. Use the add-on profiles only when that project genuinely needs those HubSpot products.
+                          Start with `Core CRM install` for most client portals.
+                          Use the add-on profiles only when that project
+                          genuinely needs those HubSpot products.
                         </p>
                       </div>
                     </div>
@@ -2411,7 +2449,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           <>
                             <select
                               value={projectDraft.owner}
-                              onChange={(event) => selectOwner(event.target.value)}
+                              onChange={(event) =>
+                                selectOwner(event.target.value)
+                              }
                               className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                             >
                               {teamUsers.map((user) => (
@@ -2587,7 +2627,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             </div>
                             <div>
                               <p className="text-sm text-text-secondary">
-                                {(project.client.additionalWebsites ?? []).length > 0
+                                {(project.client.additionalWebsites ?? [])
+                                  .length > 0
                                   ? `${project.client.additionalWebsites?.length} additional website(s)`
                                   : "No additional websites"}
                               </p>
@@ -2800,14 +2841,17 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                               >
                                 {customerPlatformTierOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
+                                  <option
+                                    key={option.value}
+                                    value={option.value}
+                                  >
                                     {option.label}
                                   </option>
                                 ))}
                               </select>
                               <p className="mt-2 text-xs text-text-secondary">
-                                Set the overall customer platform level first, then
-                                tune the individual Hub products below.
+                                Set the overall customer platform level first,
+                                then tune the individual Hub products below.
                               </p>
                             </div>
                             <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3 md:col-span-2">
@@ -2825,8 +2869,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 ))}
                               </div>
                               <p className="mt-2 text-xs text-text-secondary">
-                                Edit the hub list above, then set the matching HubSpot
-                                product tiers here.
+                                Edit the hub list above, then set the matching
+                                HubSpot product tiers here.
                               </p>
                             </div>
                           </div>
@@ -2855,7 +2899,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                   className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                                 >
                                   {hubTierOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
+                                    <option
+                                      key={option.value}
+                                      value={option.value}
+                                    >
                                       {option.label}
                                     </option>
                                   ))}
@@ -2879,9 +2926,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           </p>
                           <div className="mt-3 flex flex-wrap gap-2">
                             {project.platformTierSelections &&
-                            Object.entries(project.platformTierSelections).filter(
-                              ([, tier]) => Boolean(tier)
-                            ).length > 0 ? (
+                            Object.entries(
+                              project.platformTierSelections
+                            ).filter(([, tier]) => Boolean(tier)).length > 0 ? (
                               Object.entries(project.platformTierSelections)
                                 .filter(([, tier]) => Boolean(tier))
                                 .map(([key, tier]) => (
@@ -2945,17 +2992,23 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                               {showFullBrief
                                 ? project.commercialBrief ||
                                   "No scoped brief captured yet."
-                                : getPreviewText(project.commercialBrief, 700) ||
-                                  "No scoped brief captured yet."}
+                                : getPreviewText(
+                                    project.commercialBrief,
+                                    700
+                                  ) || "No scoped brief captured yet."}
                             </p>
                             {project.commercialBrief &&
                             project.commercialBrief.trim().length > 700 ? (
                               <button
                                 type="button"
-                                onClick={() => setShowFullBrief((current) => !current)}
+                                onClick={() =>
+                                  setShowFullBrief((current) => !current)
+                                }
                                 className="mt-3 text-sm font-medium text-[#49cde1]"
                               >
-                                {showFullBrief ? "Collapse full brief" : "Show full brief"}
+                                {showFullBrief
+                                  ? "Collapse full brief"
+                                  : "Show full brief"}
                               </button>
                             ) : null}
                           </>
@@ -2992,151 +3045,166 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         }
                         className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm font-medium text-white"
                       >
-                        {showSupportingContext ? "Hide source material" : "Show source material"}
+                        {showSupportingContext
+                          ? "Hide source material"
+                          : "Show source material"}
                       </button>
                     </div>
 
                     {showSupportingContext ? (
                       <>
-                    <div className="mt-5 grid gap-4 md:grid-cols-2">
-                      <label className="block">
-                        <span className="text-sm font-medium text-white">
-                          Context type
-                        </span>
-                        <select
-                          value={contextDraft.evidenceType}
-                          onChange={(event) =>
-                            setContextDraft((currentDraft) => ({
-                              ...currentDraft,
-                              evidenceType:
-                                event.target.value as EvidenceItem["evidenceType"]
-                            }))
-                          }
-                          className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
-                        >
-                          <option value="uploaded-doc">Document / PDF</option>
-                          <option value="website-link">Website link</option>
-                          <option value="screen-grab">Screen grab reference</option>
-                          <option value="transcript">Meeting transcript</option>
-                          <option value="summary">Meeting summary</option>
-                          <option value="operator-note">Operator note</option>
-                          <option value="miro-note">Miro note</option>
-                        </select>
-                      </label>
+                        <div className="mt-5 grid gap-4 md:grid-cols-2">
+                          <label className="block">
+                            <span className="text-sm font-medium text-white">
+                              Context type
+                            </span>
+                            <select
+                              value={contextDraft.evidenceType}
+                              onChange={(event) =>
+                                setContextDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  evidenceType: event.target
+                                    .value as EvidenceItem["evidenceType"]
+                                }))
+                              }
+                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                            >
+                              <option value="uploaded-doc">
+                                Document / PDF
+                              </option>
+                              <option value="website-link">Website link</option>
+                              <option value="screen-grab">
+                                Screen grab reference
+                              </option>
+                              <option value="transcript">
+                                Meeting transcript
+                              </option>
+                              <option value="summary">Meeting summary</option>
+                              <option value="operator-note">
+                                Operator note
+                              </option>
+                              <option value="miro-note">Miro note</option>
+                            </select>
+                          </label>
 
-                      <label className="block">
-                        <span className="text-sm font-medium text-white">
-                          Label
-                        </span>
-                        <input
-                          value={contextDraft.sourceLabel}
-                          onChange={(event) =>
-                            setContextDraft((currentDraft) => ({
-                              ...currentDraft,
-                              sourceLabel: event.target.value
-                            }))
-                          }
-                          placeholder="Example: Google Meet summary 18 Mar"
-                          className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
-                        />
-                      </label>
+                          <label className="block">
+                            <span className="text-sm font-medium text-white">
+                              Label
+                            </span>
+                            <input
+                              value={contextDraft.sourceLabel}
+                              onChange={(event) =>
+                                setContextDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  sourceLabel: event.target.value
+                                }))
+                              }
+                              placeholder="Example: Google Meet summary 18 Mar"
+                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                            />
+                          </label>
 
-                      <label className="block md:col-span-2">
-                        <span className="text-sm font-medium text-white">
-                          Link or file reference
-                        </span>
-                        <input
-                          value={contextDraft.sourceUrl}
-                          onChange={(event) =>
-                            setContextDraft((currentDraft) => ({
-                              ...currentDraft,
-                              sourceUrl: event.target.value
-                            }))
-                          }
-                          placeholder="Paste a URL, Google Doc link, Drive file link, or file reference"
-                          className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
-                        />
-                      </label>
+                          <label className="block md:col-span-2">
+                            <span className="text-sm font-medium text-white">
+                              Link or file reference
+                            </span>
+                            <input
+                              value={contextDraft.sourceUrl}
+                              onChange={(event) =>
+                                setContextDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  sourceUrl: event.target.value
+                                }))
+                              }
+                              placeholder="Paste a URL, Google Doc link, Drive file link, or file reference"
+                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                            />
+                          </label>
 
-                      <label className="block md:col-span-2">
-                        <span className="text-sm font-medium text-white">
-                          Notes or extracted content
-                        </span>
-                        <textarea
-                          value={contextDraft.content}
-                          onChange={(event) =>
-                            setContextDraft((currentDraft) => ({
-                              ...currentDraft,
-                              content: event.target.value
-                            }))
-                          }
-                          placeholder="Paste notes, transcript excerpts, PDF takeaways, technical requirements, or implementation constraints here."
-                          className="mt-3 min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
-                        />
-                      </label>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between gap-4">
-                      {contextError ? (
-                        <p className="text-sm text-[#ff8f9c]">{contextError}</p>
-                      ) : (
-                        <p className="text-sm text-text-secondary">
-                          Tip: use the link field for websites, Google Docs, Drive
-                          files, or screenshot references, and the notes field for
-                          pasted content.
-                        </p>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => void addSupportingContext()}
-                        disabled={savingContext}
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                      >
-                        {savingContext ? "Adding..." : "Add Context"}
-                      </button>
-                    </div>
-
-                    <div className="mt-5 space-y-3">
-                      {supportingContext.length > 0 ? (
-                        supportingContext.map((item) => (
-                          <div
-                            key={item.id}
-                            className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card px-4 py-4"
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-white">
-                                  {item.sourceLabel}
-                                </p>
-                                <p className="mt-1 text-xs text-text-secondary">
-                                  {formatEvidenceTypeLabel(item.evidenceType)} ·{" "}
-                                  {new Intl.DateTimeFormat("en-ZA", {
-                                    dateStyle: "medium",
-                                    timeStyle: "short"
-                                  }).format(new Date(item.createdAt))}
-                                </p>
-                                {item.sourceUrl ? (
-                                  <p className="mt-3 break-all text-sm text-[#49cde1]">
-                                    {item.sourceUrl}
-                                  </p>
-                                ) : null}
-                                {item.content ? (
-                                  <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
-                                    {item.content}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] bg-background-card px-4 py-4 text-sm text-text-secondary">
-                          No supporting context added yet. Add links, notes, or
-                          references so the summary and quote can work from better
-                          source material.
+                          <label className="block md:col-span-2">
+                            <span className="text-sm font-medium text-white">
+                              Notes or extracted content
+                            </span>
+                            <textarea
+                              value={contextDraft.content}
+                              onChange={(event) =>
+                                setContextDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  content: event.target.value
+                                }))
+                              }
+                              placeholder="Paste notes, transcript excerpts, PDF takeaways, technical requirements, or implementation constraints here."
+                              className="mt-3 min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                            />
+                          </label>
                         </div>
-                      )}
-                    </div>
+
+                        <div className="mt-4 flex items-center justify-between gap-4">
+                          {contextError ? (
+                            <p className="text-sm text-[#ff8f9c]">
+                              {contextError}
+                            </p>
+                          ) : (
+                            <p className="text-sm text-text-secondary">
+                              Tip: use the link field for websites, Google Docs,
+                              Drive files, or screenshot references, and the
+                              notes field for pasted content.
+                            </p>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => void addSupportingContext()}
+                            disabled={savingContext}
+                            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                          >
+                            {savingContext ? "Adding..." : "Add Context"}
+                          </button>
+                        </div>
+
+                        <div className="mt-5 space-y-3">
+                          {supportingContext.length > 0 ? (
+                            supportingContext.map((item) => (
+                              <div
+                                key={item.id}
+                                className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card px-4 py-4"
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium text-white">
+                                      {item.sourceLabel}
+                                    </p>
+                                    <p className="mt-1 text-xs text-text-secondary">
+                                      {formatEvidenceTypeLabel(
+                                        item.evidenceType
+                                      )}{" "}
+                                      ·{" "}
+                                      {new Intl.DateTimeFormat("en-ZA", {
+                                        dateStyle: "medium",
+                                        timeStyle: "short"
+                                      }).format(new Date(item.createdAt))}
+                                    </p>
+                                    {item.sourceUrl ? (
+                                      <p className="mt-3 break-all text-sm text-[#49cde1]">
+                                        {item.sourceUrl}
+                                      </p>
+                                    ) : null}
+                                    {item.content ? (
+                                      <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
+                                        {item.content}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] bg-background-card px-4 py-4 text-sm text-text-secondary">
+                              No supporting context added yet. Add links, notes,
+                              or references so the summary and quote can work
+                              from better source material.
+                            </div>
+                          )}
+                        </div>
                       </>
                     ) : (
                       <div className="mt-5 rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] bg-background-card px-4 py-4 text-sm text-text-secondary">
@@ -3183,7 +3251,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       <option value="questionnaire_invite">
                         Project inputs invite
                       </option>
-                      <option value="quote_ready">Quote ready for review</option>
+                      <option value="quote_ready">
+                        Quote ready for review
+                      </option>
                       <option value="approval_follow_up">
                         Approval follow-up
                       </option>
@@ -3247,7 +3317,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </label>
                 </div>
 
-                {(savedClientContacts.length > 0 || clientUsers.length > 0) ? (
+                {savedClientContacts.length > 0 || clientUsers.length > 0 ? (
                   <div className="mt-5 rounded-2xl bg-[#0b1126] p-4">
                     <p className="text-sm font-medium text-white">
                       Quick recipients
@@ -3288,7 +3358,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      addRecipient("to", contact.email, contactLabel)
+                                      addRecipient(
+                                        "to",
+                                        contact.email,
+                                        contactLabel
+                                      )
                                     }
                                     className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
                                   >
@@ -3297,7 +3371,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      addRecipient("cc", contact.email, contactLabel)
+                                      addRecipient(
+                                        "cc",
+                                        contact.email,
+                                        contactLabel
+                                      )
                                     }
                                     className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
                                   >
@@ -3340,7 +3418,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      addRecipient("to", clientUser.email, contactLabel)
+                                      addRecipient(
+                                        "to",
+                                        clientUser.email,
+                                        contactLabel
+                                      )
                                     }
                                     className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
                                   >
@@ -3349,7 +3431,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      addRecipient("cc", clientUser.email, contactLabel)
+                                      addRecipient(
+                                        "cc",
+                                        clientUser.email,
+                                        contactLabel
+                                      )
                                     }
                                     className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
                                   >
@@ -3387,7 +3473,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 </div>
 
                 <label className="mt-5 block">
-                  <span className="text-sm font-medium text-white">Subject</span>
+                  <span className="text-sm font-medium text-white">
+                    Subject
+                  </span>
                   <input
                     value={emailSubject}
                     onChange={(event) => setEmailSubject(event.target.value)}
@@ -3542,11 +3630,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           <ul className="mt-2 space-y-2 text-sm text-text-secondary">
                             {(discoverySummary?.inScopeItems?.length
                               ? discoverySummary.inScopeItems
-                              : ["The recommended Phase 1 / POC items will appear here after the summary is refreshed."]).map(
-                              (item) => (
-                                <li key={item}>{item}</li>
-                              )
-                            )}
+                              : [
+                                  "The recommended Phase 1 / POC items will appear here after the summary is refreshed."
+                                ]
+                            ).map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
                           </ul>
                         </div>
                         <div className="rounded-xl bg-[#0b1126] px-4 py-4">
@@ -3556,11 +3645,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           <ul className="mt-2 space-y-2 text-sm text-text-secondary">
                             {(discoverySummary?.outOfScopeItems?.length
                               ? discoverySummary.outOfScopeItems
-                              : ["Future-state expansion, broader transformation, or optional extras will appear here once the summary is refreshed."]).map(
-                              (item) => (
-                                <li key={item}>{item}</li>
-                              )
-                            )}
+                              : [
+                                  "Future-state expansion, broader transformation, or optional extras will appear here once the summary is refreshed."
+                                ]
+                            ).map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
                           </ul>
                         </div>
                       </div>
@@ -3571,10 +3661,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             Supporting tools
                           </p>
                           <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                            {scopedSupportingTools.slice(
-                              0,
-                              3
-                            ).map((item) => (
+                            {scopedSupportingTools.slice(0, 3).map((item) => (
                               <li key={item}>{item}</li>
                             ))}
                           </ul>
@@ -3584,10 +3671,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             Key risks
                           </p>
                           <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                            {scopedKeyRisks.slice(
-                              0,
-                              3
-                            ).map((item) => (
+                            {scopedKeyRisks.slice(0, 3).map((item) => (
                               <li key={item}>{item}</li>
                             ))}
                           </ul>
@@ -3597,10 +3681,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             Next questions
                           </p>
                           <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                            {scopedNextQuestions.slice(
-                              0,
-                              3
-                            ).map((item) => (
+                            {scopedNextQuestions.slice(0, 3).map((item) => (
                               <li key={item}>{item}</li>
                             ))}
                           </ul>
@@ -3646,7 +3727,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                               </span>
                               <span className="mt-1 block text-xs text-text-secondary">
                                 {contact.email}
-                                {contact.canApproveQuotes ? " · Quote approver" : ""}
+                                {contact.canApproveQuotes
+                                  ? " · Quote approver"
+                                  : ""}
                               </span>
                               <div className="mt-3 flex flex-wrap gap-2">
                                 <button
@@ -3659,7 +3742,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 <button
                                   type="button"
                                   className="rounded-lg border border-[rgba(81,208,176,0.18)] bg-[rgba(81,208,176,0.12)] px-3 py-2 text-xs font-medium text-[#51d0b0]"
-                                  onClick={() => void inviteSavedClientContact(contact)}
+                                  onClick={() =>
+                                    void inviteSavedClientContact(contact)
+                                  }
                                   disabled={clientAccessSaving}
                                 >
                                   Invite now
@@ -3817,12 +3902,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             <div className="flex flex-wrap gap-2">
                               <button
                                 type="button"
-                                disabled={clientAccessUpdatingId === clientUser.id}
+                                disabled={
+                                  clientAccessUpdatingId === clientUser.id
+                                }
                                 onClick={() =>
                                   void updateClientPortalUser(clientUser.id, {
-                                    role: clientUser.role === "approver"
-                                      ? "contributor"
-                                      : "approver"
+                                    role:
+                                      clientUser.role === "approver"
+                                        ? "contributor"
+                                        : "approver"
                                   })
                                 }
                                 className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
@@ -3834,8 +3922,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                               <label className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white">
                                 <input
                                   type="checkbox"
-                                  checked={clientUser.questionnaireAccess !== false}
-                                  disabled={clientAccessUpdatingId === clientUser.id}
+                                  checked={
+                                    clientUser.questionnaireAccess !== false
+                                  }
+                                  disabled={
+                                    clientAccessUpdatingId === clientUser.id
+                                  }
                                   onChange={(event) =>
                                     void updateClientPortalUser(clientUser.id, {
                                       questionnaireAccess: event.target.checked
@@ -3906,9 +3998,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           Why use the builder
                         </p>
                         <p className="mt-3 text-sm text-text-secondary">
-                          Choose which sections are active, add ad hoc questions,
-                          and stop generic defaults leaking into the client
-                          experience.
+                          Choose which sections are active, add ad hoc
+                          questions, and stop generic defaults leaking into the
+                          client experience.
                         </p>
                       </div>
                       <div className="rounded-2xl bg-[#0b1126] p-5">
@@ -3966,8 +4058,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                     (value) => value.trim().length > 0
                                   ).length
                                 }
-                                /
-                                {Object.keys(session.fields).length} fields completed
+                                /{Object.keys(session.fields).length} fields
+                                completed
                               </p>
                             </div>
                             <span
@@ -4007,9 +4099,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           Scoped Job Summary
                         </h2>
                         <p className="mt-2 text-sm text-text-secondary">
-                          Standalone jobs skip the four-session discovery flow and
-                          rely on the captured brief, supporting documentation,
-                          and commercial shaping.
+                          Standalone jobs skip the four-session discovery flow
+                          and rely on the captured brief, supporting
+                          documentation, and commercial shaping.
                         </p>
                       </div>
                     </div>
@@ -4060,11 +4152,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             <ul className="mt-2 space-y-2 text-sm text-text-secondary">
                               {(discoverySummary?.inScopeItems?.length
                                 ? discoverySummary.inScopeItems
-                                : ["The summary should define the boxed scope for this phase here."]).map(
-                                (item) => (
-                                  <li key={item}>{item}</li>
-                                )
-                              )}
+                                : [
+                                    "The summary should define the boxed scope for this phase here."
+                                  ]
+                              ).map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
                             </ul>
                           </div>
                           <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-4 py-4">
@@ -4074,11 +4167,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             <ul className="mt-2 space-y-2 text-sm text-text-secondary">
                               {(discoverySummary?.outOfScopeItems?.length
                                 ? discoverySummary.outOfScopeItems
-                                : ["The summary should call out what stays outside this phase so the work remains controlled."]).map(
-                                (item) => (
-                                  <li key={item}>{item}</li>
-                                )
-                              )}
+                                : [
+                                    "The summary should call out what stays outside this phase so the work remains controlled."
+                                  ]
+                              ).map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
                             </ul>
                           </div>
                         </div>
@@ -4111,8 +4205,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                               </ul>
                             ) : (
                               <p className="mt-2 text-sm text-text-secondary">
-                                No supporting tools recommended yet. Refresh the job
-                                summary to generate architecture-aware tool
+                                No supporting tools recommended yet. Refresh the
+                                job summary to generate architecture-aware tool
                                 suggestions around HubSpot.
                               </p>
                             )}
@@ -4123,11 +4217,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 Key risks
                               </p>
                               <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                                {scopedKeyRisks.map(
-                                  (item) => (
-                                    <li key={item}>{item}</li>
-                                  )
-                                )}
+                                {scopedKeyRisks.map((item) => (
+                                  <li key={item}>{item}</li>
+                                ))}
                               </ul>
                             </div>
                             <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-4 py-4">
@@ -4135,11 +4227,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 Recommended next questions
                               </p>
                               <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                                {scopedNextQuestions.map(
-                                  (item) => (
-                                    <li key={item}>{item}</li>
-                                  )
-                                )}
+                                {scopedNextQuestions.map((item) => (
+                                  <li key={item}>{item}</li>
+                                ))}
                               </ul>
                             </div>
                           </div>
@@ -4172,86 +4262,98 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           )}
                         </div>
                         <div className="mt-4 rounded-xl bg-background px-4 py-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Platform packaging
-                        </p>
-                        <p className="mt-2 text-sm text-white">
-                          {project.customerPlatformTier
-                            ? `${project.customerPlatformTier.charAt(0).toUpperCase()}${project.customerPlatformTier.slice(1)} customer platform`
-                            : "No customer platform tier recorded yet."}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {project.platformTierSelections &&
-                          Object.entries(project.platformTierSelections).length > 0 ? (
-                            Object.entries(project.platformTierSelections).map(([key, tier]) => (
-                              <span
-                                key={key}
-                                className="rounded bg-[rgba(73,205,225,0.12)] px-2 py-1 text-xs font-medium text-[#49cde1]"
-                              >
-                                {key.replace(/_/g, " ")}: {tier}
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Platform packaging
+                          </p>
+                          <p className="mt-2 text-sm text-white">
+                            {project.customerPlatformTier
+                              ? `${project.customerPlatformTier.charAt(0).toUpperCase()}${project.customerPlatformTier.slice(1)} customer platform`
+                              : "No customer platform tier recorded yet."}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {project.platformTierSelections &&
+                            Object.entries(project.platformTierSelections)
+                              .length > 0 ? (
+                              Object.entries(
+                                project.platformTierSelections
+                              ).map(([key, tier]) => (
+                                <span
+                                  key={key}
+                                  className="rounded bg-[rgba(73,205,225,0.12)] px-2 py-1 text-xs font-medium text-[#49cde1]"
+                                >
+                                  {key.replace(/_/g, " ")}: {tier}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-sm text-text-secondary">
+                                No product tiers selected yet.
                               </span>
-                            ))
-                          ) : (
-                            <span className="text-sm text-text-secondary">
-                              No product tiers selected yet.
-                            </span>
-                          )}
-                        </div>
-                        {project.packagingAssessment ? (
-                          <div className="mt-4 rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-3 py-3">
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                              Packaging decision
-                            </p>
-                            <p
-                              className={`mt-2 text-sm font-medium ${
-                                getPackagingOutcome(project.packagingAssessment.fit)
-                                  .className
-                              }`}
-                            >
-                              {
-                                getPackagingOutcome(project.packagingAssessment.fit)
-                                  .label
-                              }
-                            </p>
-                            <p className="mt-2 text-sm text-text-secondary">
-                              {project.packagingAssessment.summary}
-                            </p>
-                            {project.packagingAssessment.reasoning.length > 0 ? (
-                              <div className="mt-3">
-                                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                                  Why
-                                </p>
-                                <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                                  {project.packagingAssessment.reasoning
-                                    .slice(0, 3)
-                                    .map((item) => (
-                                    <li key={item}>{item}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ) : null}
-                            {project.packagingAssessment.warnings.length > 0 ? (
-                              <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-                                {project.packagingAssessment.warnings.map((warning) => (
-                                  <li key={warning}>{warning}</li>
-                                ))}
-                              </ul>
-                            ) : null}
-                            {project.packagingAssessment.workaroundPath ? (
-                              <div className="mt-3 rounded-xl border border-[rgba(73,205,225,0.16)] bg-[rgba(73,205,225,0.08)] px-3 py-3">
-                                <p className="text-xs uppercase tracking-[0.18em] text-[#49cde1]">
-                                  Pragmatic workaround path
-                                </p>
-                                <p className="mt-2 text-sm text-white">
-                                  {project.packagingAssessment.workaroundPath}
-                                </p>
-                              </div>
-                            ) : null}
-                            <p className="mt-3 text-sm text-white">
-                              {project.packagingAssessment.recommendedNextStep}
-                            </p>
+                            )}
                           </div>
-                        ) : null}
+                          {project.packagingAssessment ? (
+                            <div className="mt-4 rounded-xl border border-[rgba(255,255,255,0.07)] bg-background px-3 py-3">
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Packaging decision
+                              </p>
+                              <p
+                                className={`mt-2 text-sm font-medium ${
+                                  getPackagingOutcome(
+                                    project.packagingAssessment.fit
+                                  ).className
+                                }`}
+                              >
+                                {
+                                  getPackagingOutcome(
+                                    project.packagingAssessment.fit
+                                  ).label
+                                }
+                              </p>
+                              <p className="mt-2 text-sm text-text-secondary">
+                                {project.packagingAssessment.summary}
+                              </p>
+                              {project.packagingAssessment.reasoning.length >
+                              0 ? (
+                                <div className="mt-3">
+                                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                    Why
+                                  </p>
+                                  <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                                    {project.packagingAssessment.reasoning
+                                      .slice(0, 3)
+                                      .map((item) => (
+                                        <li key={item}>{item}</li>
+                                      ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                              {project.packagingAssessment.warnings.length >
+                              0 ? (
+                                <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                                  {project.packagingAssessment.warnings.map(
+                                    (warning) => (
+                                      <li key={warning}>{warning}</li>
+                                    )
+                                  )}
+                                </ul>
+                              ) : null}
+                              {project.packagingAssessment.workaroundPath ? (
+                                <div className="mt-3 rounded-xl border border-[rgba(73,205,225,0.16)] bg-[rgba(73,205,225,0.08)] px-3 py-3">
+                                  <p className="text-xs uppercase tracking-[0.18em] text-[#49cde1]">
+                                    Pragmatic workaround path
+                                  </p>
+                                  <p className="mt-2 text-sm text-white">
+                                    {project.packagingAssessment.workaroundPath}
+                                  </p>
+                                </div>
+                              ) : null}
+                              <p className="mt-3 text-sm text-white">
+                                {
+                                  project.packagingAssessment
+                                    .recommendedNextStep
+                                }
+                              </p>
+                            </div>
+                          ) : null}
                         </div>
                       </details>
                     </div>
@@ -4284,7 +4386,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
                       <div className="mt-5 grid gap-4 md:grid-cols-2">
                         {[
-                          ["Engagement Track", discoverySummary.engagementTrack],
+                          [
+                            "Engagement Track",
+                            discoverySummary.engagementTrack
+                          ],
                           ["Platform Fit", discoverySummary.platformFit],
                           [
                             "Change Management",
@@ -4321,9 +4426,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           </summary>
                           <ul className="mt-4 space-y-3 text-sm text-text-secondary">
                             {discoverySummary.missingInformation.length > 0 ? (
-                              discoverySummary.missingInformation.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))
+                              discoverySummary.missingInformation.map(
+                                (item) => <li key={item}>{item}</li>
+                              )
                             ) : (
                               <li>No major gaps flagged.</li>
                             )}
@@ -4351,9 +4456,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           </summary>
                           <ul className="mt-4 space-y-3 text-sm text-text-secondary">
                             {scopedNextQuestions.length > 0 ? (
-                              scopedNextQuestions.map(
-                                (item) => <li key={item}>{item}</li>
-                              )
+                              scopedNextQuestions.map((item) => (
+                                <li key={item}>{item}</li>
+                              ))
                             ) : (
                               <li>No follow-up questions suggested yet.</li>
                             )}
@@ -4373,7 +4478,6 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 </section>
               </div>
             </div>
-
           </>
         )}
       </div>

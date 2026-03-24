@@ -149,5 +149,7 @@ export const clientSessionDefinitions: ClientQuestionnaireDefinitionMap = {
 };
 
 export function createDefaultClientQuestionnaireDefinitionMap(): ClientQuestionnaireDefinitionMap {
-  return JSON.parse(JSON.stringify(clientSessionDefinitions)) as ClientQuestionnaireDefinitionMap;
+  return JSON.parse(
+    JSON.stringify(clientSessionDefinitions)
+  ) as ClientQuestionnaireDefinitionMap;
 }

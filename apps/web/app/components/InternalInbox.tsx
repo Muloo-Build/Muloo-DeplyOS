@@ -45,12 +45,18 @@ export default function InternalInbox() {
         ]);
 
         setMessages(inboxBody.messages ?? []);
-        setProjects((projectsBody.projects ?? []).map((project: InboxProject) => ({
-          id: project.id,
-          name: project.name
-        })));
+        setProjects(
+          (projectsBody.projects ?? []).map((project: InboxProject) => ({
+            id: project.id,
+            name: project.name
+          }))
+        );
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load inbox");
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load inbox"
+        );
       }
     }
 
@@ -106,7 +112,11 @@ export default function InternalInbox() {
       ]);
       setDraft("");
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : "Failed to send message");
+      setError(
+        sendError instanceof Error
+          ? sendError.message
+          : "Failed to send message"
+      );
     } finally {
       setSaving(false);
     }
@@ -204,7 +214,9 @@ export default function InternalInbox() {
                     {new Date(message.createdAt).toLocaleString("en-ZA")}
                   </span>
                 </div>
-                <p className="mt-3 text-sm text-text-secondary">{message.body}</p>
+                <p className="mt-3 text-sm text-text-secondary">
+                  {message.body}
+                </p>
               </div>
             ))
           )}

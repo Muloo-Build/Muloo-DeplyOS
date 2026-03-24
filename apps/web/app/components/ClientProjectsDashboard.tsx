@@ -102,7 +102,9 @@ export default function ClientProjectsDashboard() {
                 </div>
                 <div className="text-right text-sm text-text-secondary">
                   <p>Updated</p>
-                  <p className="mt-2 text-white">{formatDate(project.updatedAt)}</p>
+                  <p className="mt-2 text-white">
+                    {formatDate(project.updatedAt)}
+                  </p>
                 </div>
               </div>
             </Link>

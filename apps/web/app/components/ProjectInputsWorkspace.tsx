@@ -94,7 +94,9 @@ export default function ProjectInputsWorkspace({
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [savingConfig, setSavingConfig] = useState(false);
-  const [savingAssignmentId, setSavingAssignmentId] = useState<string | null>(null);
+  const [savingAssignmentId, setSavingAssignmentId] = useState<string | null>(
+    null
+  );
 
   async function loadWorkspace() {
     setLoading(true);
@@ -121,7 +123,8 @@ export default function ProjectInputsWorkspace({
         nextProject.clientQuestionnaireConfig
       );
       const enabledSections = getEnabledSessionNumbers(nextQuestionnaireDraft);
-      const nextClientUsers = (clientUsersBody.clientUsers ?? []) as ClientUser[];
+      const nextClientUsers = (clientUsersBody.clientUsers ??
+        []) as ClientUser[];
 
       setProject(nextProject);
       setQuestionnaireDraft(nextQuestionnaireDraft);
@@ -135,16 +138,18 @@ export default function ProjectInputsWorkspace({
               assignedInputSections:
                 clientUser.questionnaireAccess === false
                   ? []
-                  : (clientUser.assignedInputSections?.length
-                      ? clientUser.assignedInputSections
-                      : enabledSections)
+                  : clientUser.assignedInputSections?.length
+                    ? clientUser.assignedInputSections
+                    : enabledSections
             }
           ])
         )
       );
     } catch (loadError) {
       setError(
-        loadError instanceof Error ? loadError.message : "Failed to load project inputs"
+        loadError instanceof Error
+          ? loadError.message
+          : "Failed to load project inputs"
       );
     } finally {
       setLoading(false);
@@ -189,8 +194,9 @@ export default function ProjectInputsWorkspace({
       ...currentDraft,
       [sessionNumber]: {
         ...currentDraft[sessionNumber],
-        questions: currentDraft[sessionNumber].questions.map((question, index) =>
-          index === questionIndex ? { ...question, [field]: value } : question
+        questions: currentDraft[sessionNumber].questions.map(
+          (question, index) =>
+            index === questionIndex ? { ...question, [field]: value } : question
         )
       }
     }));
@@ -247,19 +253,23 @@ export default function ProjectInputsWorkspace({
         const session = payload[sessionNumber];
         session.questions = session.questions.map((question, index) => ({
           ...question,
-          key: question.key.trim() || createQuestionKey(question.label, index + 1),
+          key:
+            question.key.trim() || createQuestionKey(question.label, index + 1),
           enabled: question.enabled !== false
         }));
         session.enabled = session.enabled !== false;
       }
 
-      const response = await fetch(`/api/projects/${encodeURIComponent(project.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientQuestionnaireConfig: payload
-        })
-      });
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientQuestionnaireConfig: payload
+          })
+        }
+      );
 
       const body = await response.json().catch(() => null);
 
@@ -291,7 +301,9 @@ export default function ProjectInputsWorkspace({
       );
     } catch (saveError) {
       setError(
-        saveError instanceof Error ? saveError.message : "Failed to save project inputs"
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save project inputs"
       );
     } finally {
       setSavingConfig(false);
@@ -351,7 +363,9 @@ export default function ProjectInputsWorkspace({
 
       setClientUsers((currentUsers) =>
         currentUsers.map((clientUser) =>
-          clientUser.id === user.id ? { ...clientUser, ...body.clientUser } : clientUser
+          clientUser.id === user.id
+            ? { ...clientUser, ...body.clientUser }
+            : clientUser
         )
       );
       setAssignmentDrafts((currentDrafts) => ({
@@ -401,10 +415,10 @@ export default function ProjectInputsWorkspace({
                       {project.name}
                     </h1>
                     <p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">
-                      Build the exact client input pack for this project, then assign
-                      sections to the people who should answer them. This is where we
-                      make the discovery or requirements flow fit the real job, not a
-                      generic template.
+                      Build the exact client input pack for this project, then
+                      assign sections to the people who should answer them. This
+                      is where we make the discovery or requirements flow fit
+                      the real job, not a generic template.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-3">
@@ -420,7 +434,10 @@ export default function ProjectInputsWorkspace({
                 <div className="mt-6 grid gap-4 md:grid-cols-4">
                   {[
                     { label: "Client", value: project.client.name },
-                    { label: "Hubs", value: project.selectedHubs.join(", ") || "None set" },
+                    {
+                      label: "Hubs",
+                      value: project.selectedHubs.join(", ") || "None set"
+                    },
                     {
                       label: "Enabled Sections",
                       value: `${enabledSessionNumbers.length}/${sessionNumbers.length}`
@@ -428,15 +445,22 @@ export default function ProjectInputsWorkspace({
                     {
                       label: "Portal Contributors",
                       value: String(
-                        clientUsers.filter((user) => user.questionnaireAccess !== false).length
+                        clientUsers.filter(
+                          (user) => user.questionnaireAccess !== false
+                        ).length
                       )
                     }
                   ].map((item) => (
-                    <div key={item.label} className="rounded-2xl bg-[#0b1126] px-5 py-5">
+                    <div
+                      key={item.label}
+                      className="rounded-2xl bg-[#0b1126] px-5 py-5"
+                    >
                       <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                         {item.label}
                       </p>
-                      <p className="mt-3 text-lg font-semibold text-white">{item.value}</p>
+                      <p className="mt-3 text-lg font-semibold text-white">
+                        {item.value}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -457,11 +481,14 @@ export default function ProjectInputsWorkspace({
               <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-white">Input Pack Builder</h2>
+                    <h2 className="text-xl font-semibold text-white">
+                      Input Pack Builder
+                    </h2>
                     <p className="mt-2 max-w-3xl text-sm text-text-secondary">
-                      Turn sections on or off, refine the questions, and add one-off
-                      prompts for this specific project. If a section is disabled or
-                      all its questions are off, clients will not see it.
+                      Turn sections on or off, refine the questions, and add
+                      one-off prompts for this specific project. If a section is
+                      disabled or all its questions are off, clients will not
+                      see it.
                     </p>
                   </div>
                   <button
@@ -494,7 +521,11 @@ export default function ProjectInputsWorkspace({
                             <input
                               value={session.title}
                               onChange={(event) =>
-                                updateSession(sessionNumber, "title", event.target.value)
+                                updateSession(
+                                  sessionNumber,
+                                  "title",
+                                  event.target.value
+                                )
                               }
                               className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-lg font-semibold text-white outline-none"
                             />
@@ -515,7 +546,11 @@ export default function ProjectInputsWorkspace({
                               type="checkbox"
                               checked={session.enabled !== false}
                               onChange={(event) =>
-                                updateSession(sessionNumber, "enabled", event.target.checked)
+                                updateSession(
+                                  sessionNumber,
+                                  "enabled",
+                                  event.target.checked
+                                )
                               }
                             />
                             Use this section
@@ -575,7 +610,12 @@ export default function ProjectInputsWorkspace({
                                   </label>
                                   <button
                                     type="button"
-                                    onClick={() => removeQuestion(sessionNumber, questionIndex)}
+                                    onClick={() =>
+                                      removeQuestion(
+                                        sessionNumber,
+                                        questionIndex
+                                      )
+                                    }
                                     className="rounded-xl border border-[rgba(255,143,156,0.22)] bg-[rgba(255,143,156,0.08)] px-3 py-2 text-xs font-medium text-[#ffb1ba]"
                                   >
                                     Remove
@@ -604,12 +644,15 @@ export default function ProjectInputsWorkspace({
               <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-white">Per-Contact Assignment</h2>
+                    <h2 className="text-xl font-semibold text-white">
+                      Per-Contact Assignment
+                    </h2>
                     <p className="mt-2 max-w-3xl text-sm text-text-secondary">
                       Decide who should answer what. A client contact can stay
-                      visibility-only, or be assigned only the sections relevant to
-                      them. This keeps executive stakeholders out of operational
-                      questions and gives each person a cleaner portal experience.
+                      visibility-only, or be assigned only the sections relevant
+                      to them. This keeps executive stakeholders out of
+                      operational questions and gives each person a cleaner
+                      portal experience.
                     </p>
                   </div>
                 </div>
@@ -620,9 +663,11 @@ export default function ProjectInputsWorkspace({
                       const assignmentDraft =
                         assignmentDrafts[clientUser.id] ??
                         ({
-                          questionnaireAccess: clientUser.questionnaireAccess !== false,
+                          questionnaireAccess:
+                            clientUser.questionnaireAccess !== false,
                           assignedInputSections:
-                            clientUser.assignedInputSections ?? enabledSessionNumbers
+                            clientUser.assignedInputSections ??
+                            enabledSessionNumbers
                         } satisfies ClientUserAssignmentDraft);
 
                       return (
@@ -649,17 +694,25 @@ export default function ProjectInputsWorkspace({
                                 type="checkbox"
                                 checked={assignmentDraft.questionnaireAccess}
                                 onChange={(event) =>
-                                  updateAssignmentDraft(clientUser.id, (currentDraft) => ({
-                                    ...currentDraft,
-                                    questionnaireAccess: event.target.checked,
-                                    assignedInputSections: event.target.checked
-                                      ? currentDraft.assignedInputSections.length > 0
-                                        ? currentDraft.assignedInputSections.filter((section) =>
-                                            enabledSessionNumbers.includes(section)
-                                          )
-                                        : enabledSessionNumbers
-                                      : []
-                                  }))
+                                  updateAssignmentDraft(
+                                    clientUser.id,
+                                    (currentDraft) => ({
+                                      ...currentDraft,
+                                      questionnaireAccess: event.target.checked,
+                                      assignedInputSections: event.target
+                                        .checked
+                                        ? currentDraft.assignedInputSections
+                                            .length > 0
+                                          ? currentDraft.assignedInputSections.filter(
+                                              (section) =>
+                                                enabledSessionNumbers.includes(
+                                                  section
+                                                )
+                                            )
+                                          : enabledSessionNumbers
+                                        : []
+                                    })
+                                  )
                                 }
                               />
                               This contact answers project inputs
@@ -687,30 +740,44 @@ export default function ProjectInputsWorkspace({
                                     checked={assignmentDraft.assignedInputSections.includes(
                                       sessionNumber
                                     )}
-                                    disabled={!assignmentDraft.questionnaireAccess}
+                                    disabled={
+                                      !assignmentDraft.questionnaireAccess
+                                    }
                                     onChange={(event) =>
-                                      updateAssignmentDraft(clientUser.id, (currentDraft) => ({
-                                        ...currentDraft,
-                                        assignedInputSections: event.target.checked
-                                          ? Array.from(
-                                              new Set([
-                                                ...currentDraft.assignedInputSections,
-                                                sessionNumber
-                                              ])
-                                            ).sort((left, right) => left - right)
-                                          : currentDraft.assignedInputSections.filter(
-                                              (section) => section !== sessionNumber
-                                            )
-                                      }))
+                                      updateAssignmentDraft(
+                                        clientUser.id,
+                                        (currentDraft) => ({
+                                          ...currentDraft,
+                                          assignedInputSections: event.target
+                                            .checked
+                                            ? Array.from(
+                                                new Set([
+                                                  ...currentDraft.assignedInputSections,
+                                                  sessionNumber
+                                                ])
+                                              ).sort(
+                                                (left, right) => left - right
+                                              )
+                                            : currentDraft.assignedInputSections.filter(
+                                                (section) =>
+                                                  section !== sessionNumber
+                                              )
+                                        })
+                                      )
                                     }
                                     className="mt-1"
                                   />
                                   <div>
-                                    <p className="font-medium">{session.title}</p>
+                                    <p className="font-medium">
+                                      {session.title}
+                                    </p>
                                     <p className="mt-1 text-xs text-text-secondary">
-                                      {session.questions.filter(
-                                        (question) => question.enabled !== false
-                                      ).length}{" "}
+                                      {
+                                        session.questions.filter(
+                                          (question) =>
+                                            question.enabled !== false
+                                        ).length
+                                      }{" "}
                                       active questions
                                     </p>
                                   </div>
@@ -723,7 +790,8 @@ export default function ProjectInputsWorkspace({
                             <p className="text-sm text-text-secondary">
                               {assignmentDraft.questionnaireAccess
                                 ? `${assignmentDraft.assignedInputSections.length} section${
-                                    assignmentDraft.assignedInputSections.length === 1
+                                    assignmentDraft.assignedInputSections
+                                      .length === 1
                                       ? ""
                                       : "s"
                                   } assigned`
@@ -735,7 +803,8 @@ export default function ProjectInputsWorkspace({
                               disabled={
                                 savingAssignmentId === clientUser.id ||
                                 (assignmentDraft.questionnaireAccess &&
-                                  assignmentDraft.assignedInputSections.length === 0)
+                                  assignmentDraft.assignedInputSections
+                                    .length === 0)
                               }
                               className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                             >

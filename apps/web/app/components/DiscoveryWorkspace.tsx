@@ -216,8 +216,14 @@ const sessionDefinitions: Record<
         options: [
           { value: "", label: "Select track" },
           { value: "new-crm-greenfield", label: "New CRM / Greenfield" },
-          { value: "hubspot-onboarding-new-build", label: "HubSpot Onboarding / New Build" },
-          { value: "hubspot-optimisation-revamp", label: "HubSpot Optimisation / Revamp" },
+          {
+            value: "hubspot-onboarding-new-build",
+            label: "HubSpot Onboarding / New Build"
+          },
+          {
+            value: "hubspot-optimisation-revamp",
+            label: "HubSpot Optimisation / Revamp"
+          },
           { value: "migration-to-hubspot", label: "Migration to HubSpot" }
         ]
       },
@@ -229,7 +235,10 @@ const sessionDefinitions: Record<
         options: [
           { value: "", label: "Select platform fit" },
           { value: "fit-confirmed", label: "Fit confirmed" },
-          { value: "fit-possible-with-caveats", label: "Fit possible with caveats" },
+          {
+            value: "fit-possible-with-caveats",
+            label: "Fit possible with caveats"
+          },
           { value: "fit-not-recommended", label: "Fit not recommended" }
         ]
       },
@@ -411,7 +420,9 @@ export default function DiscoveryWorkspace({
     createSessionFlags(false)
   );
   const [sessionErrors, setSessionErrors] = useState(createSessionErrors());
-  const [assistantNotes, setAssistantNotes] = useState(createSessionTextState());
+  const [assistantNotes, setAssistantNotes] = useState(
+    createSessionTextState()
+  );
   const [assistantDocUrls, setAssistantDocUrls] = useState(
     createSessionTextState()
   );
@@ -441,12 +452,12 @@ export default function DiscoveryWorkspace({
       try {
         const [projectResponse, sessionsResponse, summaryResponse] =
           await Promise.all([
-          fetch(`/api/projects/${encodeURIComponent(projectId)}`),
-          fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
-          fetch(
-            `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
-          )
-        ]);
+            fetch(`/api/projects/${encodeURIComponent(projectId)}`),
+            fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
+            fetch(
+              `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
+            )
+          ]);
 
         if (
           !projectResponse.ok ||
@@ -521,11 +532,7 @@ export default function DiscoveryWorkspace({
 
   function updateEvidenceDraft(
     sessionNumber: number,
-    field:
-      | "evidenceType"
-      | "sourceLabel"
-      | "sourceUrl"
-      | "content",
+    field: "evidenceType" | "sourceLabel" | "sourceUrl" | "content",
     value: string
   ) {
     setEvidenceDrafts((currentDrafts) => ({
@@ -1017,9 +1024,9 @@ export default function DiscoveryWorkspace({
                     </p>
                     <ul className="mt-4 space-y-3 text-sm text-text-secondary">
                       {discoverySummary.recommendedNextQuestions.length > 0 ? (
-                        discoverySummary.recommendedNextQuestions.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))
+                        discoverySummary.recommendedNextQuestions.map(
+                          (item) => <li key={item}>{item}</li>
+                        )
                       ) : (
                         <li>No immediate follow-up questions suggested.</li>
                       )}
@@ -1047,7 +1054,7 @@ export default function DiscoveryWorkspace({
                   </p>
                 </div>
 
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-5 py-4">
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-5 py-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                     Required sessions
                   </p>
@@ -1058,15 +1065,15 @@ export default function DiscoveryWorkspace({
                         className={statusClass(
                           session1Complete
                             ? "complete"
-                            : sessions.find((session) => session.session === 1)
-                                ?.status ?? "draft"
+                            : (sessions.find((session) => session.session === 1)
+                                ?.status ?? "draft")
                         )}
                       >
                         {statusLabel(
                           session1Complete
                             ? "complete"
-                            : sessions.find((session) => session.session === 1)
-                                ?.status ?? "draft"
+                            : (sessions.find((session) => session.session === 1)
+                                ?.status ?? "draft")
                         )}
                       </span>
                     </div>
@@ -1076,15 +1083,15 @@ export default function DiscoveryWorkspace({
                         className={statusClass(
                           session3Complete
                             ? "complete"
-                            : sessions.find((session) => session.session === 3)
-                                ?.status ?? "draft"
+                            : (sessions.find((session) => session.session === 3)
+                                ?.status ?? "draft")
                         )}
                       >
                         {statusLabel(
                           session3Complete
                             ? "complete"
-                            : sessions.find((session) => session.session === 3)
-                                ?.status ?? "draft"
+                            : (sessions.find((session) => session.session === 3)
+                                ?.status ?? "draft")
                         )}
                       </span>
                     </div>
@@ -1102,8 +1109,7 @@ export default function DiscoveryWorkspace({
                 const sessionEvidenceItems = evidenceItems.filter(
                   (item) => item.sessionNumber === session.session
                 );
-                const totalFieldCount =
-                  sessionDefinition?.fields?.length ?? 0;
+                const totalFieldCount = sessionDefinition?.fields?.length ?? 0;
                 const completedFieldCount = (
                   sessionDefinition?.fields ?? []
                 ).filter(
@@ -1127,11 +1133,15 @@ export default function DiscoveryWorkspace({
 
                       <span
                         className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
-                          isSessionComplete(session) ? "complete" : session.status
+                          isSessionComplete(session)
+                            ? "complete"
+                            : session.status
                         )}`}
                       >
                         {statusLabel(
-                          isSessionComplete(session) ? "complete" : session.status
+                          isSessionComplete(session)
+                            ? "complete"
+                            : session.status
                         )}
                       </span>
                     </div>
@@ -1169,12 +1179,13 @@ export default function DiscoveryWorkspace({
                             Session Evidence
                           </p>
                           <h3 className="mt-2 text-lg font-semibold text-white">
-                            Add multiple notes, transcripts, docs, or client inputs
+                            Add multiple notes, transcripts, docs, or client
+                            inputs
                           </h3>
                           <p className="mt-2 max-w-3xl text-sm text-text-secondary">
-                            Keep the four discovery sessions, but support as many
-                            meetings and supporting artifacts as needed under each
-                            one.
+                            Keep the four discovery sessions, but support as
+                            many meetings and supporting artifacts as needed
+                            under each one.
                           </p>
                         </div>
                         <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card px-4 py-3">
@@ -1296,8 +1307,8 @@ export default function DiscoveryWorkspace({
                                     {item.sourceLabel}
                                   </p>
                                   <p className="mt-1 text-xs uppercase tracking-[0.16em] text-text-muted">
-                                    {formatEvidenceTypeLabel(item.evidenceType)} ·{" "}
-                                    {formatDateTime(item.createdAt)}
+                                    {formatEvidenceTypeLabel(item.evidenceType)}{" "}
+                                    · {formatDateTime(item.createdAt)}
                                   </p>
                                 </div>
                                 {item.sourceUrl ? (
@@ -1334,12 +1345,13 @@ export default function DiscoveryWorkspace({
                               AI Assist
                             </p>
                             <h3 className="mt-2 text-lg font-semibold text-white">
-                              Draft this session from notes or a public Google Doc
+                              Draft this session from notes or a public Google
+                              Doc
                             </h3>
                             <p className="mt-2 max-w-3xl text-sm text-text-secondary">
-                              Paste your Gemini summary or meeting notes, or point
-                              DeployOS at a public Google Doc, and it will prefill
-                              the fields below for review.
+                              Paste your Gemini summary or meeting notes, or
+                              point DeployOS at a public Google Doc, and it will
+                              prefill the fields below for review.
                             </p>
                           </div>
                         </div>
@@ -1388,7 +1400,8 @@ export default function DiscoveryWorkspace({
                               className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                             />
                             <p className="mt-2 text-xs text-text-muted">
-                              The document must be accessible for export to work.
+                              The document must be accessible for export to
+                              work.
                             </p>
                             <button
                               type="button"

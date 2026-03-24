@@ -122,7 +122,9 @@ function createEmptyTask(): ChangeDeliveryTaskPlan {
   };
 }
 
-function createNewRequestDraft(project: ProjectDetail | null): ChangeRequestDraft {
+function createNewRequestDraft(
+  project: ProjectDetail | null
+): ChangeRequestDraft {
   return {
     title: "",
     summary: "",
@@ -207,7 +209,10 @@ export default function ProjectChangeManagementWorkspace({
       setRequests(loadedRequests);
       setDrafts(
         Object.fromEntries(
-          loadedRequests.map((request) => [request.id, createDraftFromRequest(request)])
+          loadedRequests.map((request) => [
+            request.id,
+            createDraftFromRequest(request)
+          ])
         )
       );
       setNewDraft(createNewRequestDraft(loadedProject));
@@ -277,16 +282,14 @@ export default function ProjectChangeManagementWorkspace({
       ...current,
       [requestId]: {
         ...current[requestId],
-        deliveryTasks: current[requestId].deliveryTasks.map((task, taskIndex) =>
-          taskIndex === index
-            ? {
-                ...task,
-                [field]:
-                  field === "plannedHours"
-                    ? Number(value) || 0
-                    : value
-              }
-            : task
+        deliveryTasks: current[requestId].deliveryTasks.map(
+          (task, taskIndex) =>
+            taskIndex === index
+              ? {
+                  ...task,
+                  [field]: field === "plannedHours" ? Number(value) || 0 : value
+                }
+              : task
         )
       }
     }));
@@ -339,10 +342,7 @@ export default function ProjectChangeManagementWorkspace({
         taskIndex === index
           ? {
               ...task,
-              [field]:
-                field === "plannedHours"
-                  ? Number(value) || 0
-                  : value
+              [field]: field === "plannedHours" ? Number(value) || 0 : value
             }
           : task
       )
@@ -488,7 +488,9 @@ export default function ProjectChangeManagementWorkspace({
 
       const nextRequest = body.workRequest as WorkRequest;
       setRequests((current) =>
-        current.map((request) => (request.id === requestId ? nextRequest : request))
+        current.map((request) =>
+          request.id === requestId ? nextRequest : request
+        )
       );
       setDrafts((current) => ({
         ...current,
@@ -526,7 +528,9 @@ export default function ProjectChangeManagementWorkspace({
 
       const nextRequest = body.workRequest as WorkRequest;
       setRequests((current) =>
-        current.map((request) => (request.id === requestId ? nextRequest : request))
+        current.map((request) =>
+          request.id === requestId ? nextRequest : request
+        )
       );
       setDrafts((current) => ({
         ...current,
@@ -550,15 +554,19 @@ export default function ProjectChangeManagementWorkspace({
         <ProjectWorkflowNav projectId={projectId} />
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <Link href={`/projects/${projectId}`} className="text-sm text-text-muted">
+            <Link
+              href={`/projects/${projectId}`}
+              className="text-sm text-text-muted"
+            >
               Back to project overview
             </Link>
             <h1 className="mt-3 text-3xl font-bold font-heading text-white">
               Change Management
             </h1>
             <p className="mt-2 max-w-3xl text-text-secondary">
-              Keep the approved baseline intact, price scope changes cleanly, and
-              only push approved additions into delivery when they are ready.
+              Keep the approved baseline intact, price scope changes cleanly,
+              and only push approved additions into delivery when they are
+              ready.
             </p>
           </div>
           <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-4 text-sm text-text-secondary">
@@ -583,19 +591,25 @@ export default function ProjectChangeManagementWorkspace({
             <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
               Change Requests
             </p>
-            <p className="mt-2 text-2xl font-semibold text-white">{requests.length}</p>
+            <p className="mt-2 text-2xl font-semibold text-white">
+              {requests.length}
+            </p>
           </div>
           <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
               Approved
             </p>
-            <p className="mt-2 text-2xl font-semibold text-white">{metrics.approvedCount}</p>
+            <p className="mt-2 text-2xl font-semibold text-white">
+              {metrics.approvedCount}
+            </p>
           </div>
           <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
               Added Hours
             </p>
-            <p className="mt-2 text-2xl font-semibold text-white">{metrics.pricedHours}h</p>
+            <p className="mt-2 text-2xl font-semibold text-white">
+              {metrics.pricedHours}h
+            </p>
           </div>
           <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
@@ -619,7 +633,8 @@ export default function ProjectChangeManagementWorkspace({
           </p>
           {isApproved ? null : (
             <p className="mt-2 text-[#7be2ef]">
-              Quote approval is not locked yet, so this is currently a staging area for future scope changes.
+              Quote approval is not locked yet, so this is currently a staging
+              area for future scope changes.
             </p>
           )}
         </div>
@@ -640,7 +655,9 @@ export default function ProjectChangeManagementWorkspace({
               <span className="text-sm text-white">Title</span>
               <input
                 value={newDraft.title}
-                onChange={(event) => updateNewDraft("title", event.target.value)}
+                onChange={(event) =>
+                  updateNewDraft("title", event.target.value)
+                }
                 className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
               />
             </label>
@@ -649,7 +666,10 @@ export default function ProjectChangeManagementWorkspace({
               <select
                 value={newDraft.status}
                 onChange={(event) =>
-                  updateNewDraft("status", event.target.value as ChangeRequestStatus)
+                  updateNewDraft(
+                    "status",
+                    event.target.value as ChangeRequestStatus
+                  )
                 }
                 className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
               >
@@ -664,7 +684,9 @@ export default function ProjectChangeManagementWorkspace({
               <span className="text-sm text-white">Client-facing summary</span>
               <textarea
                 value={newDraft.summary}
-                onChange={(event) => updateNewDraft("summary", event.target.value)}
+                onChange={(event) =>
+                  updateNewDraft("summary", event.target.value)
+                }
                 className="mt-2 min-h-[96px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
               />
             </label>
@@ -672,7 +694,9 @@ export default function ProjectChangeManagementWorkspace({
               <span className="text-sm text-white">Delivery detail</span>
               <textarea
                 value={newDraft.details}
-                onChange={(event) => updateNewDraft("details", event.target.value)}
+                onChange={(event) =>
+                  updateNewDraft("details", event.target.value)
+                }
                 className="mt-2 min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
               />
             </label>
@@ -680,7 +704,9 @@ export default function ProjectChangeManagementWorkspace({
               <span className="text-sm text-white">Internal notes</span>
               <textarea
                 value={newDraft.internalNotes}
-                onChange={(event) => updateNewDraft("internalNotes", event.target.value)}
+                onChange={(event) =>
+                  updateNewDraft("internalNotes", event.target.value)
+                }
                 className="mt-2 min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
               />
             </label>
@@ -710,7 +736,9 @@ export default function ProjectChangeManagementWorkspace({
               <span className="text-sm text-white">Approved by</span>
               <input
                 value={newDraft.approvedByName}
-                onChange={(event) => updateNewDraft("approvedByName", event.target.value)}
+                onChange={(event) =>
+                  updateNewDraft("approvedByName", event.target.value)
+                }
                 className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
               />
             </label>
@@ -719,9 +747,12 @@ export default function ProjectChangeManagementWorkspace({
           <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-white">Delivery additions</p>
+                <p className="text-sm font-semibold text-white">
+                  Delivery additions
+                </p>
                 <p className="mt-1 text-sm text-text-secondary">
-                  Define the extra delivery tasks this change would add once approved.
+                  Define the extra delivery tasks this change would add once
+                  approved.
                 </p>
               </div>
               <button
@@ -750,7 +781,11 @@ export default function ProjectChangeManagementWorkspace({
                     <input
                       value={task.category}
                       onChange={(event) =>
-                        updateNewDraftTask(index, "category", event.target.value)
+                        updateNewDraftTask(
+                          index,
+                          "category",
+                          event.target.value
+                        )
                       }
                       placeholder="Category"
                       className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
@@ -759,7 +794,11 @@ export default function ProjectChangeManagementWorkspace({
                       type="number"
                       value={task.plannedHours}
                       onChange={(event) =>
-                        updateNewDraftTask(index, "plannedHours", event.target.value)
+                        updateNewDraftTask(
+                          index,
+                          "plannedHours",
+                          event.target.value
+                        )
                       }
                       placeholder="Hours"
                       className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
@@ -767,7 +806,11 @@ export default function ProjectChangeManagementWorkspace({
                     <textarea
                       value={task.description}
                       onChange={(event) =>
-                        updateNewDraftTask(index, "description", event.target.value)
+                        updateNewDraftTask(
+                          index,
+                          "description",
+                          event.target.value
+                        )
                       }
                       placeholder="Task description"
                       className="min-h-[90px] rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none md:col-span-2"
@@ -775,7 +818,11 @@ export default function ProjectChangeManagementWorkspace({
                     <input
                       value={task.executionType}
                       onChange={(event) =>
-                        updateNewDraftTask(index, "executionType", event.target.value)
+                        updateNewDraftTask(
+                          index,
+                          "executionType",
+                          event.target.value
+                        )
                       }
                       placeholder="Execution type"
                       className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
@@ -783,7 +830,11 @@ export default function ProjectChangeManagementWorkspace({
                     <select
                       value={task.assigneeType}
                       onChange={(event) =>
-                        updateNewDraftTask(index, "assigneeType", event.target.value)
+                        updateNewDraftTask(
+                          index,
+                          "assigneeType",
+                          event.target.value
+                        )
                       }
                       className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
                     >
@@ -794,7 +845,11 @@ export default function ProjectChangeManagementWorkspace({
                     <select
                       value={task.priority}
                       onChange={(event) =>
-                        updateNewDraftTask(index, "priority", event.target.value)
+                        updateNewDraftTask(
+                          index,
+                          "priority",
+                          event.target.value
+                        )
                       }
                       className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
                     >
@@ -810,7 +865,11 @@ export default function ProjectChangeManagementWorkspace({
                           type="checkbox"
                           checked={task.qaRequired}
                           onChange={(event) =>
-                            updateNewDraftTask(index, "qaRequired", event.target.checked)
+                            updateNewDraftTask(
+                              index,
+                              "qaRequired",
+                              event.target.checked
+                            )
                           }
                         />
                         QA required
@@ -869,7 +928,8 @@ export default function ProjectChangeManagementWorkspace({
             </div>
           ) : requests.length === 0 ? (
             <div className="rounded-3xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
-              No change requests yet. Capture any post-approval additions here instead of editing the approved baseline.
+              No change requests yet. Capture any post-approval additions here
+              instead of editing the approved baseline.
             </div>
           ) : (
             requests.map((request) => {
@@ -896,7 +956,10 @@ export default function ProjectChangeManagementWorkspace({
                         </span>
                         {request.deliveryAppendedAt ? (
                           <span className="text-xs text-text-muted">
-                            Added to delivery {new Date(request.deliveryAppendedAt).toLocaleString()}
+                            Added to delivery{" "}
+                            {new Date(
+                              request.deliveryAppendedAt
+                            ).toLocaleString()}
                           </span>
                         ) : null}
                       </div>
@@ -938,14 +1001,19 @@ export default function ProjectChangeManagementWorkspace({
                         className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
                       >
                         {changeStatuses.map((statusOption) => (
-                          <option key={statusOption.value} value={statusOption.value}>
+                          <option
+                            key={statusOption.value}
+                            value={statusOption.value}
+                          >
                             {statusOption.label}
                           </option>
                         ))}
                       </select>
                     </label>
                     <label className="block md:col-span-2">
-                      <span className="text-sm text-white">Client-facing summary</span>
+                      <span className="text-sm text-white">
+                        Client-facing summary
+                      </span>
                       <textarea
                         value={draft.summary}
                         onChange={(event) =>
@@ -955,7 +1023,9 @@ export default function ProjectChangeManagementWorkspace({
                       />
                     </label>
                     <label className="block md:col-span-2">
-                      <span className="text-sm text-white">Delivery detail</span>
+                      <span className="text-sm text-white">
+                        Delivery detail
+                      </span>
                       <textarea
                         value={draft.details}
                         onChange={(event) =>
@@ -969,7 +1039,11 @@ export default function ProjectChangeManagementWorkspace({
                       <textarea
                         value={draft.internalNotes}
                         onChange={(event) =>
-                          updateDraft(request.id, "internalNotes", event.target.value)
+                          updateDraft(
+                            request.id,
+                            "internalNotes",
+                            event.target.value
+                          )
                         }
                         className="mt-2 min-h-[90px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
                       />
@@ -990,7 +1064,9 @@ export default function ProjectChangeManagementWorkspace({
                       />
                     </label>
                     <label className="block">
-                      <span className="text-sm text-white">Added fee (ZAR)</span>
+                      <span className="text-sm text-white">
+                        Added fee (ZAR)
+                      </span>
                       <input
                         type="number"
                         value={draft.commercialImpactFeeZar}
@@ -1009,7 +1085,11 @@ export default function ProjectChangeManagementWorkspace({
                       <input
                         value={draft.approvedByName}
                         onChange={(event) =>
-                          updateDraft(request.id, "approvedByName", event.target.value)
+                          updateDraft(
+                            request.id,
+                            "approvedByName",
+                            event.target.value
+                          )
                         }
                         className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
                       />
@@ -1023,7 +1103,8 @@ export default function ProjectChangeManagementWorkspace({
                           Delivery additions
                         </p>
                         <p className="mt-1 text-sm text-text-secondary">
-                          These tasks only land on the delivery board once the change is approved and pushed through.
+                          These tasks only land on the delivery board once the
+                          change is approved and pushed through.
                         </p>
                       </div>
                       <button
@@ -1197,7 +1278,9 @@ export default function ProjectChangeManagementWorkspace({
                     </button>
                     <button
                       type="button"
-                      onClick={() => void saveRequest(request.id, { status: "approved" })}
+                      onClick={() =>
+                        void saveRequest(request.id, { status: "approved" })
+                      }
                       disabled={savingId === request.id}
                       className="rounded-xl border border-[rgba(45,212,160,0.35)] px-4 py-3 text-sm font-medium text-[#78f0c8] disabled:opacity-60"
                     >
@@ -1205,7 +1288,9 @@ export default function ProjectChangeManagementWorkspace({
                     </button>
                     <button
                       type="button"
-                      onClick={() => void saveRequest(request.id, { status: "rejected" })}
+                      onClick={() =>
+                        void saveRequest(request.id, { status: "rejected" })
+                      }
                       disabled={savingId === request.id}
                       className="rounded-xl border border-[rgba(224,80,96,0.35)] px-4 py-3 text-sm font-medium text-[#ff98a7] disabled:opacity-60"
                     >

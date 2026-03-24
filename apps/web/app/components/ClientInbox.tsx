@@ -69,7 +69,11 @@ export default function ClientInbox() {
         setRequests(inboxBody.workRequests ?? []);
         setProjects(projectsBody.projects ?? []);
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load inbox");
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load inbox"
+        );
       }
     }
 
@@ -112,18 +116,27 @@ export default function ClientInbox() {
         throw new Error(body?.error ?? "Failed to send message");
       }
 
-      const project = projects.find((item) => item.project.id === selectedProjectId);
+      const project = projects.find(
+        (item) => item.project.id === selectedProjectId
+      );
 
       setMessages((current) => [
         {
           ...body.message,
-          project: project?.project ?? { id: selectedProjectId, name: "Project" }
+          project: project?.project ?? {
+            id: selectedProjectId,
+            name: "Project"
+          }
         },
         ...current
       ]);
       setDraft("");
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : "Failed to send message");
+      setError(
+        sendError instanceof Error
+          ? sendError.message
+          : "Failed to send message"
+      );
     } finally {
       setSaving(false);
     }
@@ -209,7 +222,9 @@ export default function ClientInbox() {
                       {new Date(message.createdAt).toLocaleString("en-ZA")}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm text-text-secondary">{message.body}</p>
+                  <p className="mt-3 text-sm text-text-secondary">
+                    {message.body}
+                  </p>
                 </div>
               ))
             )}

@@ -143,11 +143,12 @@ export default function BlueprintWorkspace({
     setError(null);
 
     try {
-      const [projectResponse, blueprintResponse, summaryResponse] = await Promise.all([
-        fetch(`/api/projects/${encodeURIComponent(projectId)}`),
-        fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
-        fetch(`/api/projects/${encodeURIComponent(projectId)}/summary`)
-      ]);
+      const [projectResponse, blueprintResponse, summaryResponse] =
+        await Promise.all([
+          fetch(`/api/projects/${encodeURIComponent(projectId)}`),
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/summary`)
+        ]);
 
       if (!projectResponse.ok) {
         const body = await projectResponse.json().catch(() => null);
@@ -283,7 +284,10 @@ export default function BlueprintWorkspace({
   );
   const totalFeeZar = totalHumanHours * rateTiers[rateTier].hourlyRateZar;
   const isStandaloneQuote = project?.scopeType === "standalone_quote";
-  const supportingTools = getDisplaySupportingTools(project, summary?.supportingTools);
+  const supportingTools = getDisplaySupportingTools(
+    project,
+    summary?.supportingTools
+  );
   const keyRisks = getDisplayKeyRisks(project, summary?.keyRisks);
   const nextQuestions = getDisplayNextQuestions(
     project,
@@ -291,13 +295,15 @@ export default function BlueprintWorkspace({
   );
   const recommendDocumentationPack =
     totalHumanHours >= 40 ||
-    supportingTools.some((item) =>
-      item.toLowerCase().includes("documentation") ||
-      item.toLowerCase().includes("sop")
+    supportingTools.some(
+      (item) =>
+        item.toLowerCase().includes("documentation") ||
+        item.toLowerCase().includes("sop")
     ) ||
-    humanTasks.some((task) =>
-      task.name.toLowerCase().includes("handover") ||
-      task.name.toLowerCase().includes("document")
+    humanTasks.some(
+      (task) =>
+        task.name.toLowerCase().includes("handover") ||
+        task.name.toLowerCase().includes("document")
     );
 
   return (
@@ -426,7 +432,9 @@ export default function BlueprintWorkspace({
                       className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
                     >
                       <p className="text-sm text-text-muted">{label}</p>
-                      <p className={`mt-3 text-2xl font-semibold ${valueClass}`}>
+                      <p
+                        className={`mt-3 text-2xl font-semibold ${valueClass}`}
+                      >
                         {value}
                       </p>
                       <p className="mt-2 text-sm text-text-secondary">
@@ -493,7 +501,10 @@ export default function BlueprintWorkspace({
                           <ul className="mt-2 space-y-2 text-sm text-text-secondary">
                             {(supportingTools.length
                               ? supportingTools
-                              : ["No supporting tool recommendations loaded yet."]).map((item) => (
+                              : [
+                                  "No supporting tool recommendations loaded yet."
+                                ]
+                            ).map((item) => (
                               <li key={item}>{item}</li>
                             ))}
                           </ul>
@@ -504,9 +515,10 @@ export default function BlueprintWorkspace({
                               Optional bolt-on
                             </p>
                             <p className="mt-2 text-sm text-white">
-                              Add a paid Documentation & SOP Pack if the client needs the agreed
-                              data model, process flow, handover notes, and operating guidance
-                              captured formally at the end of delivery.
+                              Add a paid Documentation & SOP Pack if the client
+                              needs the agreed data model, process flow,
+                              handover notes, and operating guidance captured
+                              formally at the end of delivery.
                             </p>
                           </div>
                         ) : null}
@@ -516,7 +528,10 @@ export default function BlueprintWorkspace({
                               Key risks
                             </p>
                             <ul className="mt-2 space-y-2 text-sm text-text-secondary">
-                              {(keyRisks.length ? keyRisks : ["No key risks loaded yet."]).map((item) => (
+                              {(keyRisks.length
+                                ? keyRisks
+                                : ["No key risks loaded yet."]
+                              ).map((item) => (
                                 <li key={item}>{item}</li>
                               ))}
                             </ul>
@@ -528,7 +543,8 @@ export default function BlueprintWorkspace({
                             <ul className="mt-2 space-y-2 text-sm text-text-secondary">
                               {(nextQuestions.length
                                 ? nextQuestions
-                                : ["No follow-up questions loaded yet."]).map((item) => (
+                                : ["No follow-up questions loaded yet."]
+                              ).map((item) => (
                                 <li key={item}>{item}</li>
                               ))}
                             </ul>
@@ -540,191 +556,194 @@ export default function BlueprintWorkspace({
                 ) : null}
 
                 <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
-                <section className="space-y-6">
-                  {groupedPhases.map((phaseGroup) => {
-                    const phaseTotalHours = phaseGroup.tasks.reduce(
-                      (total, task) => total + task.effortHours,
-                      0
-                    );
-                    const phaseHumanHours = phaseGroup.tasks
-                      .filter((task) => task.type === "Human")
-                      .reduce((total, task) => total + task.effortHours, 0);
+                  <section className="space-y-6">
+                    {groupedPhases.map((phaseGroup) => {
+                      const phaseTotalHours = phaseGroup.tasks.reduce(
+                        (total, task) => total + task.effortHours,
+                        0
+                      );
+                      const phaseHumanHours = phaseGroup.tasks
+                        .filter((task) => task.type === "Human")
+                        .reduce((total, task) => total + task.effortHours, 0);
 
-                    return (
-                      <div
-                        key={phaseGroup.phase}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card"
-                      >
-                        <div className="border-b border-[rgba(255,255,255,0.07)] px-6 py-5">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Phase {phaseGroup.phase}
-                          </p>
-                          <h2 className="mt-2 text-xl font-semibold text-white">
-                            {phaseGroup.phaseName}
-                          </h2>
-                        </div>
-
-                        <div className="grid grid-cols-[1.6fr_120px_120px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-6 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
-                          <span>Task Name</span>
-                          <span>Type</span>
-                          <span className="text-right">Effort</span>
-                        </div>
-
-                        {phaseGroup.tasks.map((task) => (
-                          <div
-                            key={task.id}
-                            className="grid grid-cols-[1.6fr_120px_120px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-6 py-4 last:border-b-0"
-                          >
-                            <span className="text-sm text-white">
-                              {task.name}
-                            </span>
-                            <span
-                              className={`inline-flex w-fit rounded-full px-2 py-1 text-xs font-medium ${typeBadgeClass(
-                                task.type
-                              )}`}
-                            >
-                              {task.type}
-                            </span>
-                            <span className="text-right text-sm text-white">
-                              {formatHours(task.effortHours)} hrs
-                            </span>
+                      return (
+                        <div
+                          key={phaseGroup.phase}
+                          className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card"
+                        >
+                          <div className="border-b border-[rgba(255,255,255,0.07)] px-6 py-5">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Phase {phaseGroup.phase}
+                            </p>
+                            <h2 className="mt-2 text-xl font-semibold text-white">
+                              {phaseGroup.phaseName}
+                            </h2>
                           </div>
-                        ))}
 
-                        <div className="grid grid-cols-[1.6fr_120px_120px] gap-4 border-t border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.02)] px-6 py-4 text-sm">
-                          <span className="font-medium text-white">
-                            Phase total
-                          </span>
-                          <span className="text-text-secondary">
-                            {formatHours(phaseHumanHours)} human hrs
-                          </span>
-                          <span className="text-right font-medium text-white">
-                            {formatHours(phaseTotalHours)} hrs
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                          <div className="grid grid-cols-[1.6fr_120px_120px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-6 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
+                            <span>Task Name</span>
+                            <span>Type</span>
+                            <span className="text-right">Effort</span>
+                          </div>
 
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-5">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                        Grand total human hours
-                      </span>
-                      <span className="text-2xl font-semibold text-white">
-                        {formatHours(totalHumanHours)} hrs
-                      </span>
-                    </div>
-                  </div>
-                </section>
-
-                <aside className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                        Fee Calculator
-                      </p>
-                      <h2 className="mt-2 text-xl font-semibold text-white">
-                        Internal estimate
-                      </h2>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 grid gap-4">
-                    <label className="block">
-                      <span className="mb-2 block text-sm text-text-secondary">
-                        Currency
-                      </span>
-                      <select
-                        value={currency}
-                        onChange={(event) =>
-                          setCurrency(event.target.value as CurrencyCode)
-                        }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                      >
-                        {Object.keys(exchangeRatesToZar).map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-2 block text-sm text-text-secondary">
-                        Rate tier
-                      </span>
-                      <select
-                        value={rateTier}
-                        onChange={(event) =>
-                          setRateTier(event.target.value as RateTierKey)
-                        }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                      >
-                        {Object.entries(rateTiers).map(([key, tier]) => (
-                          <option key={key} value={key}>
-                            {tier.label} (ZAR {tier.hourlyRateZar}/hr)
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="mt-6 grid gap-4">
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-sm text-text-secondary">
-                        Total Human Hours
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold text-white">
-                        {formatHours(totalHumanHours)} hrs
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-sm text-text-secondary">
-                        Estimated Fee
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold text-white">
-                        {formatCurrency(totalFeeZar, currency)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                      Breakdown by phase
-                    </p>
-                    <div className="mt-4 space-y-3">
-                      {groupedPhases.map((phaseGroup) => {
-                        const phaseHumanHours = phaseGroup.tasks
-                          .filter((task) => task.type === "Human")
-                          .reduce((total, task) => total + task.effortHours, 0);
-                        const phaseFeeZar =
-                          phaseHumanHours * rateTiers[rateTier].hourlyRateZar;
-
-                        return (
-                          <div
-                            key={phaseGroup.phase}
-                            className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
-                          >
-                            <div className="flex items-center justify-between gap-4">
+                          {phaseGroup.tasks.map((task) => (
+                            <div
+                              key={task.id}
+                              className="grid grid-cols-[1.6fr_120px_120px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-6 py-4 last:border-b-0"
+                            >
                               <span className="text-sm text-white">
-                                Phase {phaseGroup.phase} -{" "}
-                                {phaseGroup.phaseName}
+                                {task.name}
                               </span>
-                              <span className="text-sm text-text-secondary">
-                                {formatHours(phaseHumanHours)} hrs
+                              <span
+                                className={`inline-flex w-fit rounded-full px-2 py-1 text-xs font-medium ${typeBadgeClass(
+                                  task.type
+                                )}`}
+                              >
+                                {task.type}
+                              </span>
+                              <span className="text-right text-sm text-white">
+                                {formatHours(task.effortHours)} hrs
                               </span>
                             </div>
-                            <p className="mt-2 text-sm font-medium text-white">
-                              {formatCurrency(phaseFeeZar, currency)}
-                            </p>
+                          ))}
+
+                          <div className="grid grid-cols-[1.6fr_120px_120px] gap-4 border-t border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.02)] px-6 py-4 text-sm">
+                            <span className="font-medium text-white">
+                              Phase total
+                            </span>
+                            <span className="text-text-secondary">
+                              {formatHours(phaseHumanHours)} human hrs
+                            </span>
+                            <span className="text-right font-medium text-white">
+                              {formatHours(phaseTotalHours)} hrs
+                            </span>
                           </div>
-                        );
-                      })}
+                        </div>
+                      );
+                    })}
+
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-5">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                          Grand total human hours
+                        </span>
+                        <span className="text-2xl font-semibold text-white">
+                          {formatHours(totalHumanHours)} hrs
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </aside>
+                  </section>
+
+                  <aside className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                          Fee Calculator
+                        </p>
+                        <h2 className="mt-2 text-xl font-semibold text-white">
+                          Internal estimate
+                        </h2>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 grid gap-4">
+                      <label className="block">
+                        <span className="mb-2 block text-sm text-text-secondary">
+                          Currency
+                        </span>
+                        <select
+                          value={currency}
+                          onChange={(event) =>
+                            setCurrency(event.target.value as CurrencyCode)
+                          }
+                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        >
+                          {Object.keys(exchangeRatesToZar).map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-2 block text-sm text-text-secondary">
+                          Rate tier
+                        </span>
+                        <select
+                          value={rateTier}
+                          onChange={(event) =>
+                            setRateTier(event.target.value as RateTierKey)
+                          }
+                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        >
+                          {Object.entries(rateTiers).map(([key, tier]) => (
+                            <option key={key} value={key}>
+                              {tier.label} (ZAR {tier.hourlyRateZar}/hr)
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    <div className="mt-6 grid gap-4">
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                        <p className="text-sm text-text-secondary">
+                          Total Human Hours
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-white">
+                          {formatHours(totalHumanHours)} hrs
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                        <p className="text-sm text-text-secondary">
+                          Estimated Fee
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-white">
+                          {formatCurrency(totalFeeZar, currency)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-6">
+                      <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                        Breakdown by phase
+                      </p>
+                      <div className="mt-4 space-y-3">
+                        {groupedPhases.map((phaseGroup) => {
+                          const phaseHumanHours = phaseGroup.tasks
+                            .filter((task) => task.type === "Human")
+                            .reduce(
+                              (total, task) => total + task.effortHours,
+                              0
+                            );
+                          const phaseFeeZar =
+                            phaseHumanHours * rateTiers[rateTier].hourlyRateZar;
+
+                          return (
+                            <div
+                              key={phaseGroup.phase}
+                              className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
+                            >
+                              <div className="flex items-center justify-between gap-4">
+                                <span className="text-sm text-white">
+                                  Phase {phaseGroup.phase} -{" "}
+                                  {phaseGroup.phaseName}
+                                </span>
+                                <span className="text-sm text-text-secondary">
+                                  {formatHours(phaseHumanHours)} hrs
+                                </span>
+                              </div>
+                              <p className="mt-2 text-sm font-medium text-white">
+                                {formatCurrency(phaseFeeZar, currency)}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </aside>
                 </div>
 
                 <section className="grid gap-6 xl:grid-cols-3">

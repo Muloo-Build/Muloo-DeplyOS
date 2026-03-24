@@ -57,7 +57,9 @@ const serviceFamilies = [
 ];
 
 export default function ClientWorkRequestPortal() {
-  const [sessionUser, setSessionUser] = useState<ClientSessionUser | null>(null);
+  const [sessionUser, setSessionUser] = useState<ClientSessionUser | null>(
+    null
+  );
   const [projects, setProjects] = useState<ClientProjectOption[]>([]);
   const [requests, setRequests] = useState<WorkRequest[]>([]);
   const [saving, setSaving] = useState(false);
@@ -80,13 +82,18 @@ export default function ClientWorkRequestPortal() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [projectsResponse, sessionResponse, requestsResponse] = await Promise.all([
-          fetch("/api/client/projects", { credentials: "include" }),
-          fetch("/api/client-auth/session", { credentials: "include" }),
-          fetch("/api/client/work-requests", { credentials: "include" })
-        ]);
+        const [projectsResponse, sessionResponse, requestsResponse] =
+          await Promise.all([
+            fetch("/api/client/projects", { credentials: "include" }),
+            fetch("/api/client-auth/session", { credentials: "include" }),
+            fetch("/api/client/work-requests", { credentials: "include" })
+          ]);
 
-        if (!projectsResponse.ok || !sessionResponse.ok || !requestsResponse.ok) {
+        if (
+          !projectsResponse.ok ||
+          !sessionResponse.ok ||
+          !requestsResponse.ok
+        ) {
           throw new Error("Failed to load work request workspace");
         }
 
@@ -210,14 +217,19 @@ export default function ClientWorkRequestPortal() {
               <input
                 value={form.title}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, title: event.target.value }))
+                  setForm((current) => ({
+                    ...current,
+                    title: event.target.value
+                  }))
                 }
                 className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
               />
             </label>
 
             <label className="block">
-              <span className="text-sm text-text-secondary">Service family</span>
+              <span className="text-sm text-text-secondary">
+                Service family
+              </span>
               <select
                 value={form.serviceFamily}
                 onChange={(event) =>
@@ -451,9 +463,15 @@ export default function ClientWorkRequestPortal() {
                     {request.summary}
                   </p>
                   <div className="mt-4 flex flex-wrap gap-3 text-xs text-text-muted">
-                    <span>{new Date(request.createdAt).toLocaleString("en-ZA")}</span>
-                    {request.project ? <span>Project: {request.project.name}</span> : null}
-                    {request.urgency ? <span>Urgency: {request.urgency}</span> : null}
+                    <span>
+                      {new Date(request.createdAt).toLocaleString("en-ZA")}
+                    </span>
+                    {request.project ? (
+                      <span>Project: {request.project.name}</span>
+                    ) : null}
+                    {request.urgency ? (
+                      <span>Urgency: {request.urgency}</span>
+                    ) : null}
                   </div>
                 </div>
               ))
