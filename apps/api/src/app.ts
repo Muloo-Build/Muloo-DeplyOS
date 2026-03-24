@@ -14,6 +14,9 @@ import { ZodError } from "zod";
 import { prisma } from "./prisma";
 import {
   clientAuthCookieName,
+  createAgentDefinition,
+  createDeliveryTemplate,
+  createProductCatalogItem,
   createWorkspaceUser,
   createClientAuthToken,
   createCookieHeader,
@@ -26,9 +29,12 @@ import {
   industryOptions,
   isAuthenticated,
   loadAgentRuns,
+  loadAgentCatalog,
   loadAiRouting,
+  loadDeliveryTemplates,
   loadInboxSummary,
   loadInternalInbox,
+  loadProductCatalog,
   loadProviderConnections,
   loadWorkspaceEmailOAuthConnection,
   loadWorkspaceEmailSettings,
@@ -37,9 +43,12 @@ import {
   resolveSimpleAuthCredentials,
   serializeWorkspaceUser,
   serializeClientPortalUser,
+  updateAgentDefinition,
   updateWorkspaceAiRouting,
+  updateDeliveryTemplate,
   updateWorkspaceEmailOAuthConnection,
   updateWorkspaceEmailSettings,
+  updateProductCatalogItem,
   updateWorkspaceProviderConnection,
   updateWorkspaceUser
 } from "./server";
@@ -99,6 +108,12 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/provider-connections/*", internalAuth);
   app.use("/api/ai-routing", internalAuth);
   app.use("/api/ai-routing/*", internalAuth);
+  app.use("/api/products", internalAuth);
+  app.use("/api/products/*", internalAuth);
+  app.use("/api/agents", internalAuth);
+  app.use("/api/agents/*", internalAuth);
+  app.use("/api/delivery-templates", internalAuth);
+  app.use("/api/delivery-templates/*", internalAuth);
   app.use("/api/email-settings", internalAuth);
   app.use("/api/email-oauth/google", internalAuth);
   app.use("/api/email-oauth/google/*", internalAuth);
@@ -384,6 +399,168 @@ export function createApiApp(config: BaseConfig) {
       connection: await loadWorkspaceEmailOAuthConnection()
     })
   );
+
+  app.get("/api/products", async (c) =>
+    c.json({
+      products: await loadProductCatalog()
+    })
+  );
+
+  app.post("/api/products", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        name?: unknown;
+        category?: unknown;
+        billingModel?: unknown;
+        description?: unknown;
+        unitPrice?: unknown;
+        defaultQuantity?: unknown;
+        unitLabel?: unknown;
+        isActive?: unknown;
+        sortOrder?: unknown;
+      };
+      const product = await createProductCatalogItem(body);
+      return c.json({ product }, 201);
+    } catch (error) {
+      if (error instanceof Error) {
+        return c.json({ error: error.message }, 400);
+      }
+
+      throw error;
+    }
+  });
+
+  app.patch("/api/products/:productId", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        name?: unknown;
+        category?: unknown;
+        billingModel?: unknown;
+        description?: unknown;
+        unitPrice?: unknown;
+        defaultQuantity?: unknown;
+        unitLabel?: unknown;
+        isActive?: unknown;
+        sortOrder?: unknown;
+      };
+      const product = await updateProductCatalogItem(
+        c.req.param("productId"),
+        body
+      );
+      return c.json({ product });
+    } catch (error) {
+      if (error instanceof Error) {
+        return c.json({ error: error.message }, 400);
+      }
+
+      throw error;
+    }
+  });
+
+  app.get("/api/agents", async (c) =>
+    c.json({
+      agents: await loadAgentCatalog()
+    })
+  );
+
+  app.post("/api/agents", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        name?: unknown;
+        purpose?: unknown;
+        provider?: unknown;
+        model?: unknown;
+        triggerType?: unknown;
+        approvalMode?: unknown;
+        allowedActions?: unknown;
+        systemPrompt?: unknown;
+        isActive?: unknown;
+        sortOrder?: unknown;
+      };
+      const agent = await createAgentDefinition(body);
+      return c.json({ agent }, 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to create agent"
+        },
+        400
+      );
+    }
+  });
+
+  app.patch("/api/agents/:agentId", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        name?: unknown;
+        purpose?: unknown;
+        provider?: unknown;
+        model?: unknown;
+        triggerType?: unknown;
+        approvalMode?: unknown;
+        allowedActions?: unknown;
+        systemPrompt?: unknown;
+        isActive?: unknown;
+        sortOrder?: unknown;
+      };
+      const agent = await updateAgentDefinition(c.req.param("agentId"), body);
+      return c.json({ agent });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to update agent"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/delivery-templates", async (c) =>
+    c.json({
+      templates: await loadDeliveryTemplates()
+    })
+  );
+
+  app.post("/api/delivery-templates", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const template = await createDeliveryTemplate(body);
+      return c.json({ template }, 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to create delivery template"
+        },
+        400
+      );
+    }
+  });
+
+  app.patch("/api/delivery-templates/:templateId", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const template = await updateDeliveryTemplate(
+        c.req.param("templateId"),
+        body
+      );
+      return c.json({ template });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update delivery template"
+        },
+        400
+      );
+    }
+  });
 
   app.post("/api/users", async (c) => {
     try {
