@@ -22,10 +22,16 @@ import {
   industryOptions,
   isAuthenticated,
   loadAgentRuns,
+  loadAiRouting,
   loadInboxSummary,
   loadInternalInbox,
+  loadProviderConnections,
+  loadWorkspaceEmailOAuthConnection,
+  loadWorkspaceEmailSettings,
+  loadWorkspaceUsers,
   markAllProjectMessagesSeenByInternal,
   resolveSimpleAuthCredentials,
+  serializeWorkspaceUser,
   serializeClientPortalUser
 } from "./server";
 
@@ -78,6 +84,11 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/inbox", internalAuth);
   app.use("/api/inbox/*", internalAuth);
   app.use("/api/runs", internalAuth);
+  app.use("/api/users", internalAuth);
+  app.use("/api/providers", internalAuth);
+  app.use("/api/ai-routing", internalAuth);
+  app.use("/api/email-settings", internalAuth);
+  app.use("/api/email-oauth/google", internalAuth);
 
   app.all("/api/auth/session", (c) =>
     c.json({
@@ -326,6 +337,38 @@ export function createApiApp(config: BaseConfig) {
     c.json({
       runs: await loadAllExecutionRecords(),
       agentRuns: await loadAgentRuns()
+    })
+  );
+
+  app.get("/api/users", async (c) =>
+    c.json({
+      users: (await loadWorkspaceUsers()).map((user) =>
+        serializeWorkspaceUser(user)
+      )
+    })
+  );
+
+  app.get("/api/providers", async (c) =>
+    c.json({
+      providers: await loadProviderConnections()
+    })
+  );
+
+  app.get("/api/ai-routing", async (c) =>
+    c.json({
+      routes: await loadAiRouting()
+    })
+  );
+
+  app.get("/api/email-settings", async (c) =>
+    c.json({
+      settings: await loadWorkspaceEmailSettings()
+    })
+  );
+
+  app.get("/api/email-oauth/google", async (c) =>
+    c.json({
+      connection: await loadWorkspaceEmailOAuthConnection()
     })
   );
 

@@ -1728,7 +1728,7 @@ async function ensureWorkspaceUsersSeeded() {
   });
 }
 
-async function loadWorkspaceUsers() {
+export async function loadWorkspaceUsers() {
   await ensureWorkspaceUsersSeeded();
 
   return prisma.workspaceUser.findMany({
@@ -8233,7 +8233,7 @@ function serializeAgentDefinition<
   };
 }
 
-function serializeWorkspaceUser<
+export function serializeWorkspaceUser<
   T extends {
     id: string;
     name: string;
@@ -8572,7 +8572,7 @@ async function loadAgentCatalog() {
   return agents.map((agent) => serializeAgentDefinition(agent));
 }
 
-async function loadProviderConnections() {
+export async function loadProviderConnections() {
   await ensureProviderConnectionsSeeded();
 
   const providers = await prisma.workspaceProviderConnection.findMany({
@@ -9491,7 +9491,7 @@ async function executeHubSpotAgentAction(value: {
   }
 }
 
-async function loadAiRouting() {
+export async function loadAiRouting() {
   await ensureAiRoutingSeeded();
 
   const routes = await prisma.workspaceAiRouting.findMany({
@@ -9501,7 +9501,7 @@ async function loadAiRouting() {
   return routes.map((routing) => serializeWorkspaceAiRouting(routing));
 }
 
-async function loadWorkspaceEmailSettings() {
+export async function loadWorkspaceEmailSettings() {
   await ensureWorkspaceEmailSettingsSeeded();
 
   const settings = await prisma.workspaceEmailSettings.findFirstOrThrow({
@@ -9528,7 +9528,7 @@ function resolveGoogleWorkspaceEmailOAuthRedirectUri(
   return `${baseUrl}/settings/email/google/callback`;
 }
 
-async function loadWorkspaceEmailOAuthConnection() {
+export async function loadWorkspaceEmailOAuthConnection() {
   await ensureWorkspaceEmailOAuthConnectionsSeeded();
 
   const connection =
@@ -13981,14 +13981,6 @@ export async function handleLegacyRequest(
 
     const workspaceUserRoute = matchWorkspaceUserRoute(url.pathname);
     if (workspaceUserRoute) {
-      if (request.method === "GET" && !workspaceUserRoute.userId) {
-        return sendJson(response, 200, {
-          users: (await loadWorkspaceUsers()).map((user) =>
-            serializeWorkspaceUser(user)
-          )
-        });
-      }
-
       if (request.method === "POST" && !workspaceUserRoute.userId) {
         try {
           const body = (await readJsonBody(request)) as Record<string, unknown>;
@@ -14027,12 +14019,6 @@ export async function handleLegacyRequest(
 
     const providerConnectionRoute = matchProviderConnectionRoute(url.pathname);
     if (providerConnectionRoute) {
-      if (request.method === "GET" && !providerConnectionRoute.providerKey) {
-        return sendJson(response, 200, {
-          providers: await loadProviderConnections()
-        });
-      }
-
       if (request.method === "PATCH" && providerConnectionRoute.providerKey) {
         try {
           const body = (await readJsonBody(request)) as Record<string, unknown>;
@@ -14056,12 +14042,6 @@ export async function handleLegacyRequest(
 
     const aiRoutingRoute = matchAiRoutingRoute(url.pathname);
     if (aiRoutingRoute) {
-      if (request.method === "GET" && !aiRoutingRoute.workflowKey) {
-        return sendJson(response, 200, {
-          routes: await loadAiRouting()
-        });
-      }
-
       if (request.method === "PATCH" && aiRoutingRoute.workflowKey) {
         try {
           const body = (await readJsonBody(request)) as Record<string, unknown>;
@@ -14084,12 +14064,6 @@ export async function handleLegacyRequest(
     }
 
     if (url.pathname === "/api/email-settings") {
-      if (request.method === "GET") {
-        return sendJson(response, 200, {
-          settings: await loadWorkspaceEmailSettings()
-        });
-      }
-
       if (request.method === "PATCH") {
         try {
           const body = (await readJsonBody(request)) as Record<string, unknown>;
@@ -14109,12 +14083,6 @@ export async function handleLegacyRequest(
     }
 
     if (url.pathname === "/api/email-oauth/google") {
-      if (request.method === "GET") {
-        return sendJson(response, 200, {
-          connection: await loadWorkspaceEmailOAuthConnection()
-        });
-      }
-
       if (request.method === "PATCH") {
         try {
           const body = (await readJsonBody(request)) as Record<string, unknown>;
