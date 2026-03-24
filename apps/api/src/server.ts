@@ -86,14 +86,22 @@ const validHubTierValues = [
   "included"
 ] as const;
 const defaultHubSpotOAuthRequiredScopes = [
+  "oauth",
   "crm.objects.contacts.read",
   "crm.objects.contacts.write",
   "crm.objects.companies.read",
   "crm.objects.companies.write",
   "crm.objects.deals.read",
   "crm.objects.deals.write",
-  "crm.objects.tickets.read",
-  "crm.objects.tickets.write",
+  "crm.objects.owners.read",
+  "crm.schemas.contacts.read",
+  "crm.schemas.contacts.write",
+  "crm.schemas.companies.read",
+  "crm.schemas.companies.write",
+  "crm.schemas.deals.read",
+  "crm.schemas.deals.write"
+] as const;
+const defaultHubSpotOAuthOptionalScopes = [
   "crm.objects.line_items.read",
   "crm.objects.line_items.write",
   "crm.objects.products.read",
@@ -108,7 +116,6 @@ const defaultHubSpotOAuthRequiredScopes = [
   "crm.objects.services.write",
   "crm.objects.users.read",
   "crm.objects.users.write",
-  "crm.objects.owners.read",
   "crm.objects.marketing_events.read",
   "crm.objects.marketing_events.write",
   "crm.objects.custom.read",
@@ -117,14 +124,6 @@ const defaultHubSpotOAuthRequiredScopes = [
   "crm.objects.partner-clients.write",
   "crm.objects.partner-services.read",
   "crm.objects.partner-services.write",
-  "crm.schemas.contacts.read",
-  "crm.schemas.contacts.write",
-  "crm.schemas.companies.read",
-  "crm.schemas.companies.write",
-  "crm.schemas.deals.read",
-  "crm.schemas.deals.write",
-  "crm.schemas.tickets.read",
-  "crm.schemas.tickets.write",
   "crm.schemas.line_items.read",
   "crm.schemas.quotes.read",
   "crm.schemas.quotes.write",
@@ -159,45 +158,15 @@ const defaultHubSpotOAuthRequiredScopes = [
   "marketing.campaigns.write",
   "automation"
 ] as const;
-const defaultHubSpotOAuthOptionalScopes = [
-  "crm.objects.custom.read",
-  "crm.objects.custom.write",
-  "crm.schemas.custom.read",
-  "crm.schemas.custom.write"
-] as const;
 const hubSpotScopeProfiles = {
   core_crm: {
     label: "Core CRM",
-    requiredScopes: [
-      "crm.objects.contacts.read",
-      "crm.objects.contacts.write",
-      "crm.objects.companies.read",
-      "crm.objects.companies.write",
-      "crm.objects.deals.read",
-      "crm.objects.deals.write",
-      "crm.objects.tickets.read",
-      "crm.objects.tickets.write",
-      "crm.objects.line_items.read",
-      "crm.objects.line_items.write",
-      "crm.objects.products.read",
-      "crm.objects.products.write",
-      "crm.schemas.contacts.read",
-      "crm.schemas.contacts.write",
-      "crm.schemas.companies.read",
-      "crm.schemas.companies.write",
-      "crm.schemas.deals.read",
-      "crm.schemas.deals.write",
-      "crm.schemas.tickets.read",
-      "crm.schemas.tickets.write",
-      "crm.schemas.line_items.read",
-      "crm.objects.owners.read",
-      "settings.currencies.read"
-    ],
+    requiredScopes: [...defaultHubSpotOAuthRequiredScopes],
     optionalScopes: []
   },
   automation: {
     label: "Automation",
-    requiredScopes: ["automation"],
+    requiredScopes: [...defaultHubSpotOAuthRequiredScopes],
     optionalScopes: [
       "crm.objects.marketing_events.read",
       "crm.objects.marketing_events.write",
@@ -209,12 +178,13 @@ const hubSpotScopeProfiles = {
   },
   cms_content: {
     label: "CMS & Content",
-    requiredScopes: ["content", "files"],
-    optionalScopes: ["hubdb"]
+    requiredScopes: [...defaultHubSpotOAuthRequiredScopes],
+    optionalScopes: ["content", "files", "hubdb"]
   },
   commercial_objects: {
     label: "Commercial Objects",
-    requiredScopes: [
+    requiredScopes: [...defaultHubSpotOAuthRequiredScopes],
+    optionalScopes: [
       "crm.objects.quotes.read",
       "crm.objects.quotes.write",
       "crm.schemas.quotes.read",
@@ -224,13 +194,13 @@ const hubSpotScopeProfiles = {
       "crm.schemas.orders.read",
       "crm.schemas.orders.write",
       "crm.schemas.subscriptions.read",
-      "crm.schemas.subscriptions.write"
-    ],
-    optionalScopes: ["crm.dealsplits.read_write"]
+      "crm.schemas.subscriptions.write",
+      "crm.dealsplits.read_write"
+    ]
   },
   advanced_admin: {
     label: "Advanced Admin",
-    requiredScopes: [],
+    requiredScopes: [...defaultHubSpotOAuthRequiredScopes],
     optionalScopes: [
       "settings.currencies.write",
       "settings.users.read",

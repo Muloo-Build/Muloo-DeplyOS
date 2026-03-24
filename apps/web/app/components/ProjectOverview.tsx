@@ -288,6 +288,14 @@ const implementationApproachOptions = [
   { value: "best_practice", label: "Best-practice / scalable" }
 ] as const;
 
+const hubSpotInstallProfileOptions = [
+  { value: "core_crm", label: "Core CRM install" },
+  { value: "automation", label: "Automation add-on" },
+  { value: "cms_content", label: "CMS / content add-on" },
+  { value: "commercial_objects", label: "Commercial objects add-on" },
+  { value: "advanced_admin", label: "Advanced admin add-on" }
+] as const;
+
 const hubTierOptions = [
   { value: "", label: "Not in use" },
   { value: "free", label: "Free" },
@@ -2290,81 +2298,60 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </div>
 
                   <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          HubSpot Portal
-                        </p>
-                        {editingField === "portalId" ? (
-                          <>
-                            <select
-                              value={projectDraft.portalId}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  portalId: event.target.value
-                                }))
-                              }
-                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            >
-                              <option value="">Not linked yet</option>
-                              {portalOptions.map((portalOption) => (
-                                <option
-                                  key={portalOption.id}
-                                  value={portalOption.portalId}
-                                >
-                                  {portalOption.displayName} · {portalOption.portalId}
-                                  {portalOption.connected ? " · Connected" : " · Needs reconnect"}
-                                </option>
-                              ))}
-                            </select>
-                            <p className="mt-3 text-xs text-text-secondary">
-                              Pick an installed HubSpot portal or connect a new one for this project.
-                            </p>
-                            {renderActions("portalId")}
-                          </>
-                        ) : (
-                          <>
-                            <p className="mt-2 text-sm text-white">
-                              {project.portal?.displayName ?? "Not linked yet"}
-                            </p>
-                            <p className="mt-1 text-xs text-text-secondary">
-                              {project.portal?.portalId
-                                ? `${project.portal.portalId}${project.portal.connected ? " · Connected" : " · Needs reconnect"}`
-                                : "Connect the client’s HubSpot portal before running live agent work."}
-                            </p>
-                            {project.portal?.connectedEmail ? (
-                              <p className="mt-1 text-xs text-text-secondary">
-                                Connected as {project.portal.connectedEmail}
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            HubSpot Portal
+                          </p>
+                          {editingField === "portalId" ? (
+                            <>
+                              <select
+                                value={projectDraft.portalId}
+                                onChange={(event) =>
+                                  setProjectDraft((currentDraft) => ({
+                                    ...currentDraft,
+                                    portalId: event.target.value
+                                  }))
+                                }
+                                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                              >
+                                <option value="">Not linked yet</option>
+                                {portalOptions.map((portalOption) => (
+                                  <option
+                                    key={portalOption.id}
+                                    value={portalOption.portalId}
+                                  >
+                                    {portalOption.displayName} · {portalOption.portalId}
+                                    {portalOption.connected
+                                      ? " · Connected"
+                                      : " · Needs reconnect"}
+                                  </option>
+                                ))}
+                              </select>
+                              <p className="mt-3 text-xs text-text-secondary">
+                                Pick an installed HubSpot portal or connect a new one for this project.
                               </p>
-                            ) : null}
-                          </>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <select
-                          value={hubSpotInstallProfile}
-                          onChange={(event) =>
-                            setHubSpotInstallProfile(
-                              event.target.value as HubSpotInstallProfile
-                            )
-                          }
-                          className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-xs font-medium text-white outline-none"
-                        >
-                          <option value="core_crm">Core CRM install</option>
-                          <option value="automation">Automation add-on</option>
-                          <option value="cms_content">CMS / content add-on</option>
-                          <option value="commercial_objects">Commercial objects add-on</option>
-                          <option value="advanced_admin">Advanced admin add-on</option>
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => void connectHubSpotPortal()}
-                          disabled={portalConnectBusy}
-                          className="rounded-lg border border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.12)] px-3 py-2 text-xs font-medium text-[#51d0b0] disabled:cursor-not-allowed"
-                        >
-                          {portalConnectBusy ? "Connecting..." : "Connect portal"}
-                        </button>
+                              {renderActions("portalId")}
+                            </>
+                          ) : (
+                            <>
+                              <p className="mt-2 text-sm text-white">
+                                {project.portal?.displayName ?? "Not linked yet"}
+                              </p>
+                              <p className="mt-1 text-xs leading-5 text-text-secondary">
+                                {project.portal?.portalId
+                                  ? `${project.portal.portalId}${project.portal.connected ? " · Connected" : " · Needs reconnect"}`
+                                  : "Connect the client’s HubSpot portal before running live agent work."}
+                              </p>
+                              {project.portal?.connectedEmail ? (
+                                <p className="mt-1 text-xs text-text-secondary">
+                                  Connected as {project.portal.connectedEmail}
+                                </p>
+                              ) : null}
+                            </>
+                          )}
+                        </div>
                         {editingField !== "portalId" ? (
                           <EditButton
                             label="Select linked HubSpot portal"
@@ -2372,10 +2359,44 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           />
                         ) : null}
                       </div>
+
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.06)] bg-background-card/60 p-3">
+                        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                          <label className="block">
+                            <span className="text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                              Install profile
+                            </span>
+                            <select
+                              value={hubSpotInstallProfile}
+                              onChange={(event) =>
+                                setHubSpotInstallProfile(
+                                  event.target.value as HubSpotInstallProfile
+                                )
+                              }
+                              className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(81,208,176,0.45)]"
+                            >
+                              {hubSpotInstallProfileOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={() => void connectHubSpotPortal()}
+                            disabled={portalConnectBusy}
+                            className="w-full rounded-xl border border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.12)] px-4 py-2.5 text-sm font-medium text-[#51d0b0] disabled:cursor-not-allowed lg:w-auto"
+                          >
+                            {portalConnectBusy ? "Connecting..." : "Connect portal"}
+                          </button>
+                        </div>
+                        <p className="mt-3 text-xs leading-5 text-text-secondary">
+                          Start with `Core CRM install` for most client portals. Use the add-on profiles only when that project genuinely needs those HubSpot products.
+                        </p>
+                      </div>
                     </div>
-                    <p className="mt-3 text-xs text-text-secondary">
-                      Start with `Core CRM install` for most client portals. Use the add-on profiles only when that project genuinely needs those HubSpot products.
-                    </p>
                     {renderError("portalId")}
                   </div>
                   <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
