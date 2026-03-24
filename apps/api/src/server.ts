@@ -267,6 +267,21 @@ const industryOptions = [
   "Travel & Hospitality",
   "Other"
 ] as const;
+const clientRegionOptions = [
+  "Global",
+  "UK",
+  "ZA",
+  "AUS",
+  "USA West",
+  "Brazil",
+  "Spain",
+  "DACH",
+  "Europe",
+  "North America",
+  "LATAM",
+  "Other"
+] as const;
+const clientRoleTagOptions = ["client", "partner", "group"] as const;
 const serviceFamilyOptions = [
   "hubspot_architecture",
   "custom_engineering",
@@ -2413,6 +2428,20 @@ function matchClientContactPortalAccessRoute(pathname: string): {
   };
 }
 
+function matchClientEnrichmentRoute(pathname: string): {
+  clientId: string;
+} | null {
+  const match = /^\/api\/clients\/([^/]+?)\/enrich$/.exec(pathname);
+
+  if (!match?.[1]) {
+    return null;
+  }
+
+  return {
+    clientId: decodeURIComponent(match[1])
+  };
+}
+
 function matchProjectQuoteRoute(pathname: string): {
   projectId: string;
   action?: "share";
@@ -3169,6 +3198,312 @@ function serializeClientContact<
     canApproveQuotes: contact.canApproveQuotes,
     createdAt: contact.createdAt.toISOString(),
     updatedAt: contact.updatedAt.toISOString()
+  };
+}
+
+function normalizeClientRoleTags(value: unknown) {
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/[\n,]+/)
+      : [];
+
+  const normalizedValues = Array.from(
+    new Set(
+      values
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim().toLowerCase())
+        .filter((entry): entry is (typeof clientRoleTagOptions)[number] =>
+          (clientRoleTagOptions as readonly string[]).includes(entry)
+        )
+    )
+  );
+
+  return normalizedValues.length > 0 ? normalizedValues : ["client"];
+}
+
+function normalizeClientRegion(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  return trimmedValue;
+}
+
+function normalizeClientVisibilityIds(value: unknown) {
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/[\n,]+/)
+      : [];
+
+  return Array.from(
+    new Set(
+      values
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function normalizeWebsiteUrl(value: string | null | undefined) {
+  const trimmedValue = value?.trim() ?? "";
+
+  if (!trimmedValue) {
+    return "";
+  }
+
+  return /^https?:\/\//i.test(trimmedValue)
+    ? trimmedValue
+    : `https://${trimmedValue}`;
+}
+
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
+function stripHtml(value: string) {
+  return decodeHtmlEntities(value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+}
+
+function extractMetaContent(
+  html: string,
+  attributeName: "name" | "property",
+  attributeValue: string
+) {
+  const pattern = new RegExp(
+    `<meta[^>]+${attributeName}=["']${attributeValue}["'][^>]+content=["']([^"']+)["'][^>]*>`,
+    "i"
+  );
+  const reversePattern = new RegExp(
+    `<meta[^>]+content=["']([^"']+)["'][^>]+${attributeName}=["']${attributeValue}["'][^>]*>`,
+    "i"
+  );
+
+  const match = pattern.exec(html) ?? reversePattern.exec(html);
+  return match?.[1]?.trim() ?? "";
+}
+
+function extractLinkHref(html: string, relValue: string) {
+  const pattern = new RegExp(
+    `<link[^>]+rel=["'][^"']*${relValue}[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>`,
+    "i"
+  );
+  const reversePattern = new RegExp(
+    `<link[^>]+href=["']([^"']+)["'][^>]+rel=["'][^"']*${relValue}[^"']*["'][^>]*>`,
+    "i"
+  );
+  const match = pattern.exec(html) ?? reversePattern.exec(html);
+  return match?.[1]?.trim() ?? "";
+}
+
+function resolveUrlFromPage(baseUrl: string, value: string) {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return "";
+  }
+
+  try {
+    return new URL(trimmedValue, baseUrl).toString();
+  } catch {
+    return trimmedValue;
+  }
+}
+
+function extractSocialLinksFromHtml(html: string, baseUrl: string) {
+  const links = Array.from(
+    html.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi),
+    (match) => resolveUrlFromPage(baseUrl, match[1] ?? "")
+  ).filter(Boolean);
+
+  const pick = (patterns: string[]) =>
+    links.find((link) => patterns.some((pattern) => link.toLowerCase().includes(pattern))) ??
+    "";
+
+  return {
+    linkedinUrl: pick(["linkedin.com"]),
+    facebookUrl: pick(["facebook.com"]),
+    instagramUrl: pick(["instagram.com"]),
+    xUrl: pick(["x.com/", "twitter.com/"]),
+    youtubeUrl: pick(["youtube.com/", "youtu.be/"])
+  };
+}
+
+async function fetchClientWebsiteEnrichment(client: {
+  website: string | null;
+  additionalWebsites: string[];
+}) {
+  const candidateUrls = [
+    normalizeWebsiteUrl(client.website),
+    ...client.additionalWebsites.map((website) => normalizeWebsiteUrl(website))
+  ].filter(Boolean);
+
+  const targetUrl = candidateUrls[0] ?? "";
+  if (!targetUrl) {
+    throw new Error("Add a website before refreshing enrichment");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    const response = await fetch(targetUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; MulooDeployOS/1.0; +https://deploy.wearemuloo.com)"
+      },
+      redirect: "follow",
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`Website returned status ${response.status}`);
+    }
+
+    const html = await response.text();
+    const finalUrl = response.url || targetUrl;
+    const titleMatch = /<title[^>]*>(.*?)<\/title>/is.exec(html);
+    const title = stripHtml(titleMatch?.[1] ?? "");
+    const companyOverview =
+      extractMetaContent(html, "property", "og:description") ||
+      extractMetaContent(html, "name", "description") ||
+      extractMetaContent(html, "name", "twitter:description") ||
+      stripHtml(/<p[^>]*>(.*?)<\/p>/is.exec(html)?.[1] ?? "");
+    const enrichedLogoUrl = resolveUrlFromPage(
+      finalUrl,
+      extractMetaContent(html, "property", "og:image") ||
+        extractMetaContent(html, "name", "twitter:image") ||
+        extractLinkHref(html, "apple-touch-icon") ||
+        extractLinkHref(html, "icon")
+    );
+    const socialLinks = extractSocialLinksFromHtml(html, finalUrl);
+
+    return {
+      finalUrl,
+      title,
+      companyOverview: companyOverview || null,
+      enrichedLogoUrl: enrichedLogoUrl || null,
+      ...socialLinks
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Website enrichment timed out");
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function mergeClientEnrichmentFields<
+  T extends {
+    linkedinUrl: string | null;
+    facebookUrl: string | null;
+    instagramUrl: string | null;
+    xUrl: string | null;
+    youtubeUrl: string | null;
+  }
+>(
+  client: T,
+  enrichment: {
+    companyOverview: string | null;
+    enrichedLogoUrl: string | null;
+    linkedinUrl: string;
+    facebookUrl: string;
+    instagramUrl: string;
+    xUrl: string;
+    youtubeUrl: string;
+  }
+) {
+  return {
+    companyOverview: enrichment.companyOverview,
+    enrichedLogoUrl: enrichment.enrichedLogoUrl,
+    linkedinUrl: client.linkedinUrl?.trim() || enrichment.linkedinUrl || null,
+    facebookUrl: client.facebookUrl?.trim() || enrichment.facebookUrl || null,
+    instagramUrl: client.instagramUrl?.trim() || enrichment.instagramUrl || null,
+    xUrl: client.xUrl?.trim() || enrichment.xUrl || null,
+    youtubeUrl: client.youtubeUrl?.trim() || enrichment.youtubeUrl || null,
+    lastEnrichedAt: new Date()
+  };
+}
+
+function serializeClientDirectoryRecord<
+  T extends {
+    id: string;
+    name: string;
+    slug: string;
+    clientRoles: string[];
+    parentClientId: string | null;
+    industry: string | null;
+    region: string | null;
+    website: string | null;
+    logoUrl: string | null;
+    enrichedLogoUrl: string | null;
+    companyOverview: string | null;
+    additionalWebsites: string[];
+    linkedinUrl: string | null;
+    facebookUrl: string | null;
+    instagramUrl: string | null;
+    xUrl: string | null;
+    youtubeUrl: string | null;
+    lastEnrichedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    parentClient?: { id: string; name: string } | null;
+    childClients?: Array<{ id: string; name: string }>;
+    visibleToPartners?: Array<{ partnerClient: { id: string; name: string } }>;
+    visibleClients?: Array<{ client: { id: string; name: string } }>;
+  }
+>(client: T) {
+  return {
+    id: client.id,
+    name: client.name,
+    slug: client.slug,
+    clientRoles: client.clientRoles,
+    parentClientId: client.parentClientId ?? null,
+    parentClientName: client.parentClient?.name ?? null,
+    industry: client.industry,
+    region: client.region,
+    website: client.website,
+    logoUrl: client.logoUrl,
+    enrichedLogoUrl: client.enrichedLogoUrl,
+    companyOverview: client.companyOverview,
+    additionalWebsites: client.additionalWebsites,
+    linkedinUrl: client.linkedinUrl,
+    facebookUrl: client.facebookUrl,
+    instagramUrl: client.instagramUrl,
+    xUrl: client.xUrl,
+    youtubeUrl: client.youtubeUrl,
+    lastEnrichedAt: client.lastEnrichedAt?.toISOString() ?? null,
+    createdAt: client.createdAt.toISOString(),
+    updatedAt: client.updatedAt.toISOString(),
+    childClients:
+      client.childClients?.map((childClient) => ({
+        id: childClient.id,
+        name: childClient.name
+      })) ?? [],
+    visibleToPartners:
+      client.visibleToPartners?.map((record) => ({
+        id: record.partnerClient.id,
+        name: record.partnerClient.name
+      })) ?? [],
+    visibleClients:
+      client.visibleClients?.map((record) => ({
+        id: record.client.id,
+        name: record.client.name
+      })) ?? []
   };
 }
 
@@ -9897,6 +10232,39 @@ async function loadClientsDirectory() {
   const [clients, projects] = await Promise.all([
     prisma.client.findMany({
       include: {
+        parentClient: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        childClients: {
+          select: {
+            id: true,
+            name: true
+          },
+          orderBy: [{ name: "asc" }]
+        },
+        visibleToPartners: {
+          include: {
+            partnerClient: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        visibleClients: {
+          include: {
+            client: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
         contacts: {
           orderBy: [{ canApproveQuotes: "desc" }, { firstName: "asc" }]
         }
@@ -9923,9 +10291,16 @@ async function loadClientsDirectory() {
         .map((contact) => contact.email.trim().toLowerCase())
         .filter(Boolean)
     );
+    const visibleClientIds = new Set(
+      client.visibleClients.map((record) => record.client.id)
+    );
 
     const linkedProjects = projects.filter((project) => {
       if (project.clientId === client.id) {
+        return true;
+      }
+
+      if (visibleClientIds.has(project.clientId)) {
         return true;
       }
 
@@ -9942,21 +10317,7 @@ async function loadClientsDirectory() {
     });
 
     return {
-      id: client.id,
-      name: client.name,
-      slug: client.slug,
-      industry: client.industry,
-      region: client.region,
-      website: client.website,
-      logoUrl: client.logoUrl,
-      additionalWebsites: client.additionalWebsites,
-      linkedinUrl: client.linkedinUrl,
-      facebookUrl: client.facebookUrl,
-      instagramUrl: client.instagramUrl,
-      xUrl: client.xUrl,
-      youtubeUrl: client.youtubeUrl,
-      createdAt: client.createdAt.toISOString(),
-      updatedAt: client.updatedAt.toISOString(),
+      ...serializeClientDirectoryRecord(client),
       contacts: client.contacts.map((contact) => ({
         ...serializeClientContact(contact),
         portalAssignments: linkedProjects.flatMap((project) =>
@@ -9989,14 +10350,43 @@ async function loadClientsDirectory() {
   });
 }
 
+async function syncPartnerVisibilityLinks(
+  clientId: string,
+  partnerClientIds: string[]
+) {
+  await prisma.partnerClientVisibility.deleteMany({
+    where: { clientId }
+  });
+
+  if (partnerClientIds.length === 0) {
+    return;
+  }
+
+  await prisma.partnerClientVisibility.createMany({
+    data: partnerClientIds.map((partnerClientId) => ({
+      partnerClientId,
+      clientId
+    }))
+  });
+}
+
 async function updateClientDirectoryRecord(
   clientId: string,
   value: {
     name?: unknown;
     website?: unknown;
+    additionalWebsites?: unknown;
     industry?: unknown;
     region?: unknown;
     logoUrl?: unknown;
+    linkedinUrl?: unknown;
+    facebookUrl?: unknown;
+    instagramUrl?: unknown;
+    xUrl?: unknown;
+    youtubeUrl?: unknown;
+    clientRoles?: unknown;
+    parentClientId?: unknown;
+    visibleToPartnerIds?: unknown;
   }
 ) {
   const client = await prisma.client.findUnique({
@@ -10008,6 +10398,7 @@ async function updateClientDirectoryRecord(
   }
 
   const updateData: Prisma.Prisma.ClientUpdateInput = {};
+  let nextPartnerVisibilityIds: string[] | null = null;
 
   if (typeof value.name === "string") {
     const name = value.name.trim();
@@ -10026,16 +10417,70 @@ async function updateClientDirectoryRecord(
     updateData.website = value.website.trim() || null;
   }
 
+  if (value.additionalWebsites !== undefined) {
+    const additionalWebsites = Array.isArray(value.additionalWebsites)
+      ? value.additionalWebsites
+      : typeof value.additionalWebsites === "string"
+        ? value.additionalWebsites.split(/\r?\n|,/)
+        : [];
+
+    updateData.additionalWebsites = additionalWebsites
+      .filter((entry): entry is string => typeof entry === "string")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
   if (typeof value.industry === "string") {
     updateData.industry = value.industry.trim() || null;
   }
 
-  if (typeof value.region === "string") {
-    updateData.region = value.region.trim() || null;
+  if (value.region !== undefined) {
+    updateData.region = normalizeClientRegion(value.region);
   }
 
   if (typeof value.logoUrl === "string") {
     updateData.logoUrl = value.logoUrl.trim() || null;
+  }
+
+  if (typeof value.linkedinUrl === "string") {
+    updateData.linkedinUrl = value.linkedinUrl.trim() || null;
+  }
+
+  if (typeof value.facebookUrl === "string") {
+    updateData.facebookUrl = value.facebookUrl.trim() || null;
+  }
+
+  if (typeof value.instagramUrl === "string") {
+    updateData.instagramUrl = value.instagramUrl.trim() || null;
+  }
+
+  if (typeof value.xUrl === "string") {
+    updateData.xUrl = value.xUrl.trim() || null;
+  }
+
+  if (typeof value.youtubeUrl === "string") {
+    updateData.youtubeUrl = value.youtubeUrl.trim() || null;
+  }
+
+  if (value.clientRoles !== undefined) {
+    updateData.clientRoles = normalizeClientRoleTags(value.clientRoles);
+  }
+
+  if (value.parentClientId !== undefined) {
+    const parentClientId =
+      typeof value.parentClientId === "string" ? value.parentClientId.trim() : "";
+
+    if (parentClientId && parentClientId === clientId) {
+      throw new Error("A client cannot be its own parent");
+    }
+
+    updateData.parentClient = parentClientId ? { connect: { id: parentClientId } } : { disconnect: true };
+  }
+
+  if (value.visibleToPartnerIds !== undefined) {
+    nextPartnerVisibilityIds = normalizeClientVisibilityIds(value.visibleToPartnerIds).filter(
+      (partnerClientId) => partnerClientId !== clientId
+    );
   }
 
   const updatedClient = await prisma.client.update({
@@ -10043,22 +10488,55 @@ async function updateClientDirectoryRecord(
     data: updateData
   });
 
+  if (nextPartnerVisibilityIds) {
+    await syncPartnerVisibilityLinks(clientId, nextPartnerVisibilityIds);
+  }
+
+  const refreshedClient = await prisma.client.findUnique({
+    where: { id: clientId },
+    include: {
+      parentClient: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      childClients: {
+        select: {
+          id: true,
+          name: true
+        },
+        orderBy: [{ name: "asc" }]
+      },
+      visibleToPartners: {
+        include: {
+          partnerClient: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      },
+      visibleClients: {
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (!refreshedClient) {
+    throw new Error("Client not found");
+  }
+
   return {
-    id: updatedClient.id,
-    name: updatedClient.name,
-    slug: updatedClient.slug,
-    industry: updatedClient.industry,
-    region: updatedClient.region,
-    website: updatedClient.website,
-    logoUrl: updatedClient.logoUrl,
-    additionalWebsites: updatedClient.additionalWebsites,
-    linkedinUrl: updatedClient.linkedinUrl,
-    facebookUrl: updatedClient.facebookUrl,
-    instagramUrl: updatedClient.instagramUrl,
-    xUrl: updatedClient.xUrl,
-    youtubeUrl: updatedClient.youtubeUrl,
-    createdAt: updatedClient.createdAt.toISOString(),
-    updatedAt: updatedClient.updatedAt.toISOString()
+    ...serializeClientDirectoryRecord(refreshedClient)
   };
 }
 
@@ -10118,6 +10596,25 @@ async function deleteClientDirectoryRecord(clientId: string) {
   await prisma.client.delete({
     where: { id: clientId }
   });
+}
+
+async function refreshClientEnrichment(clientId: string) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId }
+  });
+
+  if (!client) {
+    throw new Error("Client not found");
+  }
+
+  const enrichment = await fetchClientWebsiteEnrichment(client);
+
+  const updatedClient = await prisma.client.update({
+    where: { id: clientId },
+    data: mergeClientEnrichmentFields(client, enrichment)
+  });
+
+  return serializeClientDirectoryRecord(updatedClient);
 }
 
 async function createClientContact(
@@ -15077,6 +15574,31 @@ export function createAppServer(config: BaseConfig): http.Server {
         return sendJson(response, 405, { error: "Method Not Allowed" });
       }
 
+      const clientEnrichmentRoute = matchClientEnrichmentRoute(url.pathname);
+      if (clientEnrichmentRoute) {
+        if (request.method === "POST") {
+          try {
+            const client = await refreshClientEnrichment(clientEnrichmentRoute.clientId);
+            return sendJson(response, 200, { client });
+          } catch (error) {
+            return sendJson(
+              response,
+              error instanceof Error && error.message === "Client not found"
+                ? 404
+                : 400,
+              {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to refresh client enrichment"
+              }
+            );
+          }
+        }
+
+        return sendJson(response, 405, { error: "Method Not Allowed" });
+      }
+
       const clientDirectoryRoute = matchClientDirectoryRoute(url.pathname);
       if (clientDirectoryRoute) {
         if (
@@ -15100,6 +15622,15 @@ export function createAppServer(config: BaseConfig): http.Server {
             logoUrl?: string;
             industry?: string;
             region?: string;
+            additionalWebsites?: string[];
+            linkedinUrl?: string;
+            facebookUrl?: string;
+            instagramUrl?: string;
+            xUrl?: string;
+            youtubeUrl?: string;
+            clientRoles?: string[];
+            parentClientId?: string;
+            visibleToPartnerIds?: string[];
           };
 
           try {
@@ -15110,27 +15641,97 @@ export function createAppServer(config: BaseConfig): http.Server {
                 website: body.website ?? null,
                 logoUrl: body.logoUrl ?? null,
                 industry: body.industry ?? null,
-                region: body.region ?? null
+                region: normalizeClientRegion(body.region),
+                additionalWebsites: Array.isArray(body.additionalWebsites)
+                  ? body.additionalWebsites
+                      .filter((entry): entry is string => typeof entry === "string")
+                      .map((entry) => entry.trim())
+                      .filter(Boolean)
+                  : [],
+                linkedinUrl:
+                  typeof body.linkedinUrl === "string"
+                    ? body.linkedinUrl.trim() || null
+                    : null,
+                facebookUrl:
+                  typeof body.facebookUrl === "string"
+                    ? body.facebookUrl.trim() || null
+                    : null,
+                instagramUrl:
+                  typeof body.instagramUrl === "string"
+                    ? body.instagramUrl.trim() || null
+                    : null,
+                xUrl:
+                  typeof body.xUrl === "string" ? body.xUrl.trim() || null : null,
+                youtubeUrl:
+                  typeof body.youtubeUrl === "string"
+                    ? body.youtubeUrl.trim() || null
+                    : null,
+                clientRoles: normalizeClientRoleTags(body.clientRoles),
+                ...(typeof body.parentClientId === "string" && body.parentClientId.trim()
+                  ? {
+                      parentClient: {
+                        connect: {
+                          id: body.parentClientId.trim()
+                        }
+                      }
+                    }
+                  : {})
               }
             });
 
+            const partnerVisibilityIds = normalizeClientVisibilityIds(
+              body.visibleToPartnerIds
+            ).filter((partnerClientId) => partnerClientId !== client.id);
+
+            if (partnerVisibilityIds.length > 0) {
+              await syncPartnerVisibilityLinks(client.id, partnerVisibilityIds);
+            }
+
+            const createdClient = await prisma.client.findUnique({
+              where: { id: client.id },
+              include: {
+                parentClient: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                },
+                childClients: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                },
+                visibleToPartners: {
+                  include: {
+                    partnerClient: {
+                      select: {
+                        id: true,
+                        name: true
+                      }
+                    }
+                  }
+                },
+                visibleClients: {
+                  include: {
+                    client: {
+                      select: {
+                        id: true,
+                        name: true
+                      }
+                    }
+                  }
+                }
+              }
+            });
+
+            if (!createdClient) {
+              throw new Error("Client not found");
+            }
+
             return sendJson(response, 201, {
               client: {
-                id: client.id,
-                name: client.name,
-                slug: client.slug,
-                industry: client.industry,
-                region: client.region,
-                website: client.website,
-                logoUrl: client.logoUrl,
-                additionalWebsites: client.additionalWebsites,
-                linkedinUrl: client.linkedinUrl,
-                facebookUrl: client.facebookUrl,
-                instagramUrl: client.instagramUrl,
-                xUrl: client.xUrl,
-                youtubeUrl: client.youtubeUrl,
-                createdAt: client.createdAt.toISOString(),
-                updatedAt: client.updatedAt.toISOString(),
+                ...serializeClientDirectoryRecord(createdClient),
                 contacts: [],
                 projects: []
               }
@@ -15158,6 +15759,15 @@ export function createAppServer(config: BaseConfig): http.Server {
               logoUrl?: unknown;
               industry?: unknown;
               region?: unknown;
+              additionalWebsites?: unknown;
+              linkedinUrl?: unknown;
+              facebookUrl?: unknown;
+              instagramUrl?: unknown;
+              xUrl?: unknown;
+              youtubeUrl?: unknown;
+              clientRoles?: unknown;
+              parentClientId?: unknown;
+              visibleToPartnerIds?: unknown;
             };
 
             const client = await updateClientDirectoryRecord(

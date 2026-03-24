@@ -19,20 +19,44 @@ model Client {
   id                 String    @id @default(cuid())
   name               String
   slug               String    @unique
+  clientRoles        String[]  @default(["client"])
+  parentClientId     String?
   industry           String?
   region             String?
   website            String?
   logoUrl            String?
+  enrichedLogoUrl    String?
+  companyOverview    String?
   additionalWebsites String[]
   linkedinUrl        String?
   facebookUrl        String?
   instagramUrl       String?
   xUrl               String?
   youtubeUrl         String?
+  lastEnrichedAt     DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+  parentClient       Client?   @relation("ClientHierarchy", fields: [parentClientId], references: [id], onDelete: SetNull)
+  childClients       Client[]  @relation("ClientHierarchy")
   contacts           ClientContact[]
   projects           Project[]
+  visibleToPartners  PartnerClientVisibility[] @relation("VisibilityTarget")
+  visibleClients     PartnerClientVisibility[] @relation("VisibilityPartner")
+}
+
+model PartnerClientVisibility {
+  id              String   @id @default(cuid())
+  partnerClientId String
+  clientId        String
+  visibilityScope String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  partnerClient   Client   @relation("VisibilityPartner", fields: [partnerClientId], references: [id], onDelete: Cascade)
+  client          Client   @relation("VisibilityTarget", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerClientId, clientId])
+  @@index([partnerClientId])
+  @@index([clientId])
 }
 
 model ClientContact {

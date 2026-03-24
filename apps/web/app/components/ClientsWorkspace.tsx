@@ -36,10 +36,34 @@ interface ClientRecord {
   id: string;
   name: string;
   slug: string;
+  clientRoles: string[];
+  parentClientId?: string | null;
+  parentClientName?: string | null;
   industry?: string | null;
   region?: string | null;
   website?: string | null;
   logoUrl?: string | null;
+  enrichedLogoUrl?: string | null;
+  companyOverview?: string | null;
+  additionalWebsites: string[];
+  linkedinUrl?: string | null;
+  facebookUrl?: string | null;
+  instagramUrl?: string | null;
+  xUrl?: string | null;
+  youtubeUrl?: string | null;
+  lastEnrichedAt?: string | null;
+  childClients: Array<{
+    id: string;
+    name: string;
+  }>;
+  visibleToPartners: Array<{
+    id: string;
+    name: string;
+  }>;
+  visibleClients: Array<{
+    id: string;
+    name: string;
+  }>;
   contacts: ClientContact[];
   projects: ClientProjectSummary[];
   createdAt: string;
@@ -58,8 +82,17 @@ interface ClientProfileDraft {
   name: string;
   website: string;
   logoUrl: string;
+  additionalWebsitesText: string;
   industry: string;
   region: string;
+  linkedinUrl: string;
+  facebookUrl: string;
+  instagramUrl: string;
+  xUrl: string;
+  youtubeUrl: string;
+  clientRoles: string[];
+  parentClientId: string;
+  visibleToPartnerIds: string[];
 }
 
 interface PortalInviteDraft {
@@ -69,6 +102,40 @@ interface PortalInviteDraft {
 }
 
 const alphabet = ["All", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
+const industryOptions = [
+  "Accounting & Advisory",
+  "Agency & Professional Services",
+  "Construction & Property",
+  "Education & Training",
+  "Financial Services",
+  "Healthcare",
+  "Legal",
+  "Manufacturing",
+  "Nonprofit",
+  "Retail & Ecommerce",
+  "SaaS & Technology",
+  "Travel & Hospitality",
+  "Other"
+];
+const clientRegionOptions = [
+  "Global",
+  "UK",
+  "ZA",
+  "AUS",
+  "USA West",
+  "Brazil",
+  "Spain",
+  "DACH",
+  "Europe",
+  "North America",
+  "LATAM",
+  "Other"
+];
+const clientRoleOptions = [
+  { value: "client", label: "Client" },
+  { value: "partner", label: "Partner" },
+  { value: "group", label: "Group" }
+] as const;
 
 function createEmptyContactDraft(): ContactDraft {
   return {
@@ -85,8 +152,17 @@ function createClientProfileDraft(client: ClientRecord): ClientProfileDraft {
     name: client.name,
     website: client.website ?? "",
     logoUrl: client.logoUrl ?? "",
+    additionalWebsitesText: (client.additionalWebsites ?? []).join("\n"),
     industry: client.industry ?? "",
-    region: client.region ?? ""
+    region: client.region ?? "",
+    linkedinUrl: client.linkedinUrl ?? "",
+    facebookUrl: client.facebookUrl ?? "",
+    instagramUrl: client.instagramUrl ?? "",
+    xUrl: client.xUrl ?? "",
+    youtubeUrl: client.youtubeUrl ?? "",
+    clientRoles: client.clientRoles ?? ["client"],
+    parentClientId: client.parentClientId ?? "",
+    visibleToPartnerIds: client.visibleToPartners.map((partner) => partner.id)
   };
 }
 
@@ -165,6 +241,12 @@ function deriveClientLogoUrl(client: ClientRecord) {
     return manualLogoUrl;
   }
 
+  const enrichedLogoUrl = client.enrichedLogoUrl?.trim() ?? "";
+
+  if (enrichedLogoUrl) {
+    return enrichedLogoUrl;
+  }
+
   const websiteHost = getWebsiteHost(client.website);
 
   if (websiteHost) {
@@ -199,6 +281,12 @@ function matchesClientSearch(client: ClientRecord, query: string) {
     client.website ?? "",
     client.industry ?? "",
     client.region ?? "",
+    client.companyOverview ?? "",
+    client.parentClientName ?? "",
+    ...(client.additionalWebsites ?? []),
+    ...(client.visibleClients ?? []).map((item) => item.name),
+    ...(client.visibleToPartners ?? []).map((item) => item.name),
+    ...client.clientRoles,
     ...client.contacts.flatMap((contact) => [
       contact.firstName,
       contact.lastName,
@@ -255,8 +343,58 @@ function createFallbackClientProfileDraft(): ClientProfileDraft {
     name: "",
     website: "",
     logoUrl: "",
+    additionalWebsitesText: "",
     industry: "",
-    region: ""
+    region: "",
+    linkedinUrl: "",
+    facebookUrl: "",
+    instagramUrl: "",
+    xUrl: "",
+    youtubeUrl: "",
+    clientRoles: ["client"],
+    parentClientId: "",
+    visibleToPartnerIds: []
+  };
+}
+
+function buildClientPayload(
+  draft:
+    | ClientProfileDraft
+    | {
+        name: string;
+        website: string;
+        logoUrl: string;
+        additionalWebsitesText: string;
+        industry: string;
+        region: string;
+        linkedinUrl: string;
+        facebookUrl: string;
+        instagramUrl: string;
+        xUrl: string;
+        youtubeUrl: string;
+        clientRoles: string[];
+        parentClientId: string;
+        visibleToPartnerIds: string[];
+      }
+) {
+  return {
+    name: draft.name,
+    website: draft.website,
+    logoUrl: draft.logoUrl,
+    additionalWebsites: draft.additionalWebsitesText
+      .split(/\r?\n|,/)
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+    industry: draft.industry,
+    region: draft.region,
+    linkedinUrl: draft.linkedinUrl,
+    facebookUrl: draft.facebookUrl,
+    instagramUrl: draft.instagramUrl,
+    xUrl: draft.xUrl,
+    youtubeUrl: draft.youtubeUrl,
+    clientRoles: draft.clientRoles,
+    parentClientId: draft.parentClientId,
+    visibleToPartnerIds: draft.visibleToPartnerIds
   };
 }
 
@@ -273,6 +411,7 @@ export default function ClientsWorkspace() {
   const [savingProfileForClient, setSavingProfileForClient] = useState<string | null>(
     null
   );
+  const [enrichingClientId, setEnrichingClientId] = useState<string | null>(null);
   const [updatingContactId, setUpdatingContactId] = useState<string | null>(null);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
   const [confirmingDeleteClientId, setConfirmingDeleteClientId] = useState<string | null>(
@@ -287,8 +426,17 @@ export default function ClientsWorkspace() {
     name: "",
     website: "",
     logoUrl: "",
+    additionalWebsitesText: "",
     industry: "",
-    region: ""
+    region: "",
+    linkedinUrl: "",
+    facebookUrl: "",
+    instagramUrl: "",
+    xUrl: "",
+    youtubeUrl: "",
+    clientRoles: ["client"] as string[],
+    parentClientId: "",
+    visibleToPartnerIds: [] as string[]
   });
   const [contactDrafts, setContactDrafts] = useState<Record<string, ContactDraft>>(
     {}
@@ -374,6 +522,12 @@ export default function ClientsWorkspace() {
   const otherClients = filteredClients.filter((client) => client.projects.length === 0);
   const groupedOtherClients = groupClientsByInitial(otherClients);
   const otherClientInitials = Object.keys(groupedOtherClients).sort();
+  const groupClientOptions = clients
+    .filter((client) => client.clientRoles.includes("group"))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const partnerClientOptions = clients
+    .filter((client) => client.clientRoles.includes("partner"))
+    .sort((left, right) => left.name.localeCompare(right.name));
 
   function getProfileDraftForClient(clientId: string) {
     const existingDraft = profileDrafts[clientId];
@@ -403,7 +557,7 @@ export default function ClientsWorkspace() {
   function updateProfileDraft(
     clientId: string,
     field: keyof ClientProfileDraft,
-    value: string
+    value: string | string[]
   ) {
     setProfileDrafts((currentDrafts) => ({
       ...currentDrafts,
@@ -412,6 +566,43 @@ export default function ClientsWorkspace() {
         [field]: value
       }
     }));
+  }
+
+  function toggleClientDraftRole(role: string) {
+    setClientDraft((currentDraft) => ({
+      ...currentDraft,
+      clientRoles: currentDraft.clientRoles.includes(role)
+        ? currentDraft.clientRoles.filter((entry) => entry !== role)
+        : [...currentDraft.clientRoles, role]
+    }));
+  }
+
+  function toggleProfileDraftRole(clientId: string, role: string) {
+    const currentDraft = getProfileDraftForClient(clientId);
+    const nextRoles = currentDraft.clientRoles.includes(role)
+      ? currentDraft.clientRoles.filter((entry) => entry !== role)
+      : [...currentDraft.clientRoles, role];
+    updateProfileDraft(clientId, "clientRoles", nextRoles.length > 0 ? nextRoles : ["client"]);
+  }
+
+  function toggleClientDraftVisiblePartner(partnerId: string) {
+    setClientDraft((currentDraft) => ({
+      ...currentDraft,
+      visibleToPartnerIds: currentDraft.visibleToPartnerIds.includes(partnerId)
+        ? currentDraft.visibleToPartnerIds.filter((entry) => entry !== partnerId)
+        : [...currentDraft.visibleToPartnerIds, partnerId]
+    }));
+  }
+
+  function toggleProfileDraftVisiblePartner(clientId: string, partnerId: string) {
+    const currentDraft = getProfileDraftForClient(clientId);
+    updateProfileDraft(
+      clientId,
+      "visibleToPartnerIds",
+      currentDraft.visibleToPartnerIds.includes(partnerId)
+        ? currentDraft.visibleToPartnerIds.filter((entry) => entry !== partnerId)
+        : [...currentDraft.visibleToPartnerIds, partnerId]
+    );
   }
 
   function toggleExpanded(clientId: string) {
@@ -482,7 +673,7 @@ export default function ClientsWorkspace() {
       const response = await fetch("/api/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(clientDraft)
+        body: JSON.stringify(buildClientPayload(clientDraft))
       });
 
       const body = await response.json().catch(() => null);
@@ -495,8 +686,17 @@ export default function ClientsWorkspace() {
         name: "",
         website: "",
         logoUrl: "",
+        additionalWebsitesText: "",
         industry: "",
-        region: ""
+        region: "",
+        linkedinUrl: "",
+        facebookUrl: "",
+        instagramUrl: "",
+        xUrl: "",
+        youtubeUrl: "",
+        clientRoles: ["client"],
+        parentClientId: "",
+        visibleToPartnerIds: []
       });
       setExpandedClientIds((currentIds) => [body.client.id, ...currentIds]);
       setFeedback("Client added to the workspace.");
@@ -526,7 +726,7 @@ export default function ClientsWorkspace() {
       const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft)
+        body: JSON.stringify(buildClientPayload(draft))
       });
 
       const body = await response.json().catch(() => null);
@@ -548,6 +748,34 @@ export default function ClientsWorkspace() {
       );
     } finally {
       setSavingProfileForClient(null);
+    }
+  }
+
+  async function refreshClientEnrichment(clientId: string) {
+    setEnrichingClientId(clientId);
+    setError(null);
+    setFeedback(null);
+
+    try {
+      const response = await fetch(`/api/clients/${encodeURIComponent(clientId)}/enrich`, {
+        method: "POST"
+      });
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to refresh enrichment");
+      }
+
+      setFeedback("Client enrichment refreshed.");
+      await refreshClients({ background: true });
+    } catch (refreshError) {
+      setError(
+        refreshError instanceof Error
+          ? refreshError.message
+          : "Failed to refresh enrichment"
+      );
+    } finally {
+      setEnrichingClientId(null);
     }
   }
 
@@ -767,6 +995,13 @@ export default function ClientsWorkspace() {
     const canDeleteClient = client.projects.length === 0;
     const isConfirmingDelete = confirmingDeleteClientId === client.id;
     const isDeleting = deletingClientId === client.id;
+    const isEnriching = enrichingClientId === client.id;
+    const availableParentGroups = groupClientOptions.filter(
+      (groupClient) => groupClient.id !== client.id
+    );
+    const availablePartnerOptions = partnerClientOptions.filter(
+      (partnerClient) => partnerClient.id !== client.id
+    );
 
     return (
       <div
@@ -804,12 +1039,24 @@ export default function ClientsWorkspace() {
                     {client.industry}
                   </span>
                 ) : null}
+                {client.clientRoles.map((role) => (
+                  <span
+                    key={role}
+                    className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-[11px] font-medium text-text-secondary"
+                  >
+                    {clientRoleOptions.find((option) => option.value === role)?.label ?? role}
+                  </span>
+                ))}
               </div>
 
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
                 <span>{websiteHost || client.region || "No website yet"}</span>
                 <span>{client.contacts.length} contacts</span>
                 <span>{client.projects.length} linked projects</span>
+                {client.parentClientName ? <span>Group: {client.parentClientName}</span> : null}
+                {client.visibleClients.length > 0 ? (
+                  <span>{client.visibleClients.length} visible downstream clients</span>
+                ) : null}
                 <span>Updated {formatDate(getClientLastActivity(client))}</span>
               </div>
 
@@ -876,17 +1123,26 @@ export default function ClientsWorkspace() {
                       <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                         Company Profile
                       </p>
-                    <p className="mt-2 text-sm text-text-secondary">
-                      Manual logo URL overrides the domain-based icon. Projects
-                      auto-link when client contacts match portal or champion emails.
-                    </p>
-                    {!canDeleteClient ? (
-                      <p className="mt-3 text-xs text-text-muted">
-                        Delete is only available once this client has no linked projects.
+                      <p className="mt-2 text-sm text-text-secondary">
+                        Use role tags for partner/client/group behavior, keep region controlled,
+                        and refresh enrichment from the website when you want overview, socials,
+                        and a detected logo candidate.
                       </p>
-                    ) : null}
+                      {!canDeleteClient ? (
+                        <p className="mt-3 text-xs text-text-muted">
+                          Delete is only available once this client has no linked projects.
+                        </p>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void refreshClientEnrichment(client.id)}
+                      disabled={isEnriching || isDeleting}
+                      className="rounded-2xl border border-[rgba(81,208,176,0.22)] bg-[rgba(81,208,176,0.08)] px-4 py-3 text-sm font-medium text-[#8de7d1] disabled:cursor-not-allowed disabled:text-text-muted"
+                    >
+                      {isEnriching ? "Refreshing..." : "Refresh enrichment"}
+                    </button>
                   </div>
-                </div>
 
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <label className="block">
@@ -911,7 +1167,22 @@ export default function ClientsWorkspace() {
                       />
                     </label>
                     <label className="block md:col-span-2">
-                      <span className="text-sm font-medium text-white">Logo URL</span>
+                      <span className="text-sm font-medium text-white">Additional websites</span>
+                      <textarea
+                        value={profileDraft.additionalWebsitesText}
+                        onChange={(event) =>
+                          updateProfileDraft(
+                            client.id,
+                            "additionalWebsitesText",
+                            event.target.value
+                          )
+                        }
+                        placeholder="One per line"
+                        className="mt-3 min-h-[88px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                    <label className="block md:col-span-2">
+                      <span className="text-sm font-medium text-white">Manual logo URL</span>
                       <input
                         value={profileDraft.logoUrl}
                         onChange={(event) =>
@@ -920,27 +1191,227 @@ export default function ClientsWorkspace() {
                         placeholder="https://..."
                         className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
                       />
+                      <p className="mt-2 text-xs text-text-muted">
+                        Manual logo always wins over the enriched logo.
+                      </p>
                     </label>
                     <label className="block">
                       <span className="text-sm font-medium text-white">Industry</span>
-                      <input
+                      <select
                         value={profileDraft.industry}
                         onChange={(event) =>
                           updateProfileDraft(client.id, "industry", event.target.value)
                         }
                         className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
-                      />
+                      >
+                        <option value="">Select industry</option>
+                        {!industryOptions.includes(profileDraft.industry) &&
+                        profileDraft.industry ? (
+                          <option value={profileDraft.industry}>{profileDraft.industry}</option>
+                        ) : null}
+                        {industryOptions.map((industry) => (
+                          <option key={industry} value={industry}>
+                            {industry}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                     <label className="block">
                       <span className="text-sm font-medium text-white">Region</span>
-                      <input
+                      <select
                         value={profileDraft.region}
                         onChange={(event) =>
                           updateProfileDraft(client.id, "region", event.target.value)
                         }
                         className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
-                      />
+                      >
+                        <option value="">Select region</option>
+                        {!clientRegionOptions.includes(profileDraft.region) &&
+                        profileDraft.region ? (
+                          <option value={profileDraft.region}>{profileDraft.region}</option>
+                        ) : null}
+                        {clientRegionOptions.map((region) => (
+                          <option key={region} value={region}>
+                            {region}
+                          </option>
+                        ))}
+                      </select>
                     </label>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
+                      <p className="text-sm font-medium text-white">Client roles</p>
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        {clientRoleOptions.map((role) => (
+                          <label
+                            key={role.value}
+                            className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={profileDraft.clientRoles.includes(role.value)}
+                              onChange={() => toggleProfileDraftRole(client.id, role.value)}
+                            />
+                            {role.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
+                      <label className="block">
+                        <span className="text-sm font-medium text-white">Parent group</span>
+                        <select
+                          value={profileDraft.parentClientId}
+                          onChange={(event) =>
+                            updateProfileDraft(client.id, "parentClientId", event.target.value)
+                          }
+                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        >
+                          <option value="">No parent group</option>
+                          {availableParentGroups.map((groupClient) => (
+                            <option key={groupClient.id} value={groupClient.id}>
+                              {groupClient.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {client.childClients.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {client.childClients.map((childClient) => (
+                            <span
+                              key={childClient.id}
+                              className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary"
+                            >
+                              {childClient.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
+                    <p className="text-sm font-medium text-white">Partner visibility</p>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      Choose which partner-tagged companies should be able to see this
+                      client’s downstream work.
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      {availablePartnerOptions.length > 0 ? (
+                        availablePartnerOptions.map((partnerClient) => (
+                          <label
+                            key={partnerClient.id}
+                            className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={profileDraft.visibleToPartnerIds.includes(
+                                partnerClient.id
+                              )}
+                              onChange={() =>
+                                toggleProfileDraftVisiblePartner(client.id, partnerClient.id)
+                              }
+                            />
+                            {partnerClient.name}
+                          </label>
+                        ))
+                      ) : (
+                        <p className="text-sm text-text-muted">
+                          Tag another company as a partner first to enable visibility links.
+                        </p>
+                      )}
+                    </div>
+                    {client.visibleToPartners.length > 0 ? (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {client.visibleToPartners.map((partnerClient) => (
+                          <span
+                            key={partnerClient.id}
+                            className="rounded-full bg-[rgba(81,208,176,0.14)] px-3 py-1 text-xs text-[#8de7d1]"
+                          >
+                            Visible to {partnerClient.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
+                    <p className="text-sm font-medium text-white">Enrichment overview</p>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      {client.companyOverview ?? "No enriched company overview yet. Refresh enrichment after adding a website."}
+                    </p>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <label className="block">
+                        <span className="text-sm font-medium text-white">LinkedIn</span>
+                        <input
+                          value={profileDraft.linkedinUrl}
+                          onChange={(event) =>
+                            updateProfileDraft(client.id, "linkedinUrl", event.target.value)
+                          }
+                          placeholder="https://linkedin.com/..."
+                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-sm font-medium text-white">Facebook</span>
+                        <input
+                          value={profileDraft.facebookUrl}
+                          onChange={(event) =>
+                            updateProfileDraft(client.id, "facebookUrl", event.target.value)
+                          }
+                          placeholder="https://facebook.com/..."
+                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-sm font-medium text-white">Instagram</span>
+                        <input
+                          value={profileDraft.instagramUrl}
+                          onChange={(event) =>
+                            updateProfileDraft(client.id, "instagramUrl", event.target.value)
+                          }
+                          placeholder="https://instagram.com/..."
+                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-sm font-medium text-white">X</span>
+                        <input
+                          value={profileDraft.xUrl}
+                          onChange={(event) =>
+                            updateProfileDraft(client.id, "xUrl", event.target.value)
+                          }
+                          placeholder="https://x.com/..."
+                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        />
+                      </label>
+                      <label className="block md:col-span-2">
+                        <span className="text-sm font-medium text-white">YouTube</span>
+                        <input
+                          value={profileDraft.youtubeUrl}
+                          onChange={(event) =>
+                            updateProfileDraft(client.id, "youtubeUrl", event.target.value)
+                          }
+                          placeholder="https://youtube.com/..."
+                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        />
+                      </label>
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-text-muted">
+                      {client.lastEnrichedAt ? (
+                        <span>Last enriched {formatDate(client.lastEnrichedAt)}</span>
+                      ) : (
+                        <span>No enrichment run yet</span>
+                      )}
+                      {client.visibleClients.length > 0 ? (
+                        <span>
+                          This partner-linked record can see {client.visibleClients.length} downstream
+                          client{client.visibleClients.length === 1 ? "" : "s"}.
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="mt-5 flex items-center justify-between gap-4">
@@ -1439,7 +1910,7 @@ export default function ClientsWorkspace() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="block">
                 <span className="text-sm font-medium text-white">Client name</span>
                 <input
@@ -1483,7 +1954,7 @@ export default function ClientsWorkspace() {
               </label>
               <label className="block">
                 <span className="text-sm font-medium text-white">Industry</span>
-                <input
+                <select
                   value={clientDraft.industry}
                   onChange={(event) =>
                     setClientDraft((currentDraft) => ({
@@ -1492,11 +1963,18 @@ export default function ClientsWorkspace() {
                     }))
                   }
                   className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
+                >
+                  <option value="">Select industry</option>
+                  {industryOptions.map((industry) => (
+                    <option key={industry} value={industry}>
+                      {industry}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="block">
                 <span className="text-sm font-medium text-white">Region</span>
-                <input
+                <select
                   value={clientDraft.region}
                   onChange={(event) =>
                     setClientDraft((currentDraft) => ({
@@ -1504,6 +1982,167 @@ export default function ClientsWorkspace() {
                       region: event.target.value
                     }))
                   }
+                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                >
+                  <option value="">Select region</option>
+                  {clientRegionOptions.map((region) => (
+                    <option key={region} value={region}>
+                      {region}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block md:col-span-2">
+                <span className="text-sm font-medium text-white">Additional websites</span>
+                <textarea
+                  value={clientDraft.additionalWebsitesText}
+                  onChange={(event) =>
+                    setClientDraft((currentDraft) => ({
+                      ...currentDraft,
+                      additionalWebsitesText: event.target.value
+                    }))
+                  }
+                  placeholder="One per line"
+                  className="mt-3 min-h-[88px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                />
+              </label>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+                <p className="text-sm font-medium text-white">Client roles</p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {clientRoleOptions.map((role) => (
+                    <label
+                      key={role.value}
+                      className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={clientDraft.clientRoles.includes(role.value)}
+                        onChange={() => toggleClientDraftRole(role.value)}
+                      />
+                      {role.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <label className="block rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+                <span className="text-sm font-medium text-white">Parent group</span>
+                <select
+                  value={clientDraft.parentClientId}
+                  onChange={(event) =>
+                    setClientDraft((currentDraft) => ({
+                      ...currentDraft,
+                      parentClientId: event.target.value
+                    }))
+                  }
+                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                >
+                  <option value="">No parent group</option>
+                  {groupClientOptions.map((groupClient) => (
+                    <option key={groupClient.id} value={groupClient.id}>
+                      {groupClient.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+              <p className="text-sm font-medium text-white">Visible to partners</p>
+              <div className="mt-3 flex flex-wrap gap-3">
+                {partnerClientOptions.length > 0 ? (
+                  partnerClientOptions.map((partnerClient) => (
+                    <label
+                      key={partnerClient.id}
+                      className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={clientDraft.visibleToPartnerIds.includes(partnerClient.id)}
+                        onChange={() => toggleClientDraftVisiblePartner(partnerClient.id)}
+                      />
+                      {partnerClient.name}
+                    </label>
+                  ))
+                ) : (
+                  <p className="text-sm text-text-muted">
+                    No partner-tagged companies yet.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <label className="block">
+                <span className="text-sm font-medium text-white">LinkedIn</span>
+                <input
+                  value={clientDraft.linkedinUrl}
+                  onChange={(event) =>
+                    setClientDraft((currentDraft) => ({
+                      ...currentDraft,
+                      linkedinUrl: event.target.value
+                    }))
+                  }
+                  placeholder="https://linkedin.com/..."
+                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-white">Facebook</span>
+                <input
+                  value={clientDraft.facebookUrl}
+                  onChange={(event) =>
+                    setClientDraft((currentDraft) => ({
+                      ...currentDraft,
+                      facebookUrl: event.target.value
+                    }))
+                  }
+                  placeholder="https://facebook.com/..."
+                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-white">Instagram</span>
+                <input
+                  value={clientDraft.instagramUrl}
+                  onChange={(event) =>
+                    setClientDraft((currentDraft) => ({
+                      ...currentDraft,
+                      instagramUrl: event.target.value
+                    }))
+                  }
+                  placeholder="https://instagram.com/..."
+                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-white">X</span>
+                <input
+                  value={clientDraft.xUrl}
+                  onChange={(event) =>
+                    setClientDraft((currentDraft) => ({
+                      ...currentDraft,
+                      xUrl: event.target.value
+                    }))
+                  }
+                  placeholder="https://x.com/..."
+                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                />
+              </label>
+              <label className="block md:col-span-2">
+                <span className="text-sm font-medium text-white">YouTube</span>
+                <input
+                  value={clientDraft.youtubeUrl}
+                  onChange={(event) =>
+                    setClientDraft((currentDraft) => ({
+                      ...currentDraft,
+                      youtubeUrl: event.target.value
+                    }))
+                  }
+                  placeholder="https://youtube.com/..."
                   className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                 />
               </label>
@@ -1517,9 +2156,9 @@ export default function ClientsWorkspace() {
                   <p className="text-sm text-status-success">{feedback}</p>
                 ) : (
                   <p className="text-sm text-text-secondary">
-                    Search keeps the directory clean, active clients stay pinned
-                    to the top, and logos can come from website, email domain, or
-                    a manual brand URL.
+                    Search keeps the directory clean, regions stay controlled,
+                    and profiles can now model partner/group relationships without
+                    flattening everything into one client type.
                   </p>
                 )}
               </div>
