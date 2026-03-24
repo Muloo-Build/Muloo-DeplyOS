@@ -2523,38 +2523,6 @@ function matchProjectDesignRoute(pathname: string): {
   };
 }
 
-function matchProductRoute(pathname: string): { productId?: string } | null {
-  const match = /^\/api\/products(?:\/([^/]+))?$/.exec(pathname);
-
-  if (!match) {
-    return null;
-  }
-
-  return match[1] ? { productId: decodeURIComponent(match[1]) } : {};
-}
-
-function matchAgentRoute(pathname: string): { agentId?: string } | null {
-  const match = /^\/api\/agents(?:\/([^/]+))?$/.exec(pathname);
-
-  if (!match) {
-    return null;
-  }
-
-  return match[1] ? { agentId: decodeURIComponent(match[1]) } : {};
-}
-
-function matchDeliveryTemplateRoute(pathname: string): {
-  templateId?: string;
-} | null {
-  const match = /^\/api\/delivery-templates(?:\/([^/]+))?$/.exec(pathname);
-
-  if (!match) {
-    return null;
-  }
-
-  return match[1] ? { templateId: decodeURIComponent(match[1]) } : {};
-}
-
 function matchWorkRequestRoute(pathname: string): {
   requestId?: string;
   action?: "convert" | "append-to-delivery";
@@ -8518,7 +8486,7 @@ async function ensureDeliveryTemplatesSeeded() {
   }
 }
 
-async function loadProductCatalog() {
+export async function loadProductCatalog() {
   await ensureProductCatalogSeeded();
 
   const products = await prisma.productCatalogItem.findMany({
@@ -8528,7 +8496,7 @@ async function loadProductCatalog() {
   return products.map((product) => serializeProductCatalogItem(product));
 }
 
-async function loadAgentCatalog() {
+export async function loadAgentCatalog() {
   await ensureAgentCatalogSeeded();
 
   const agents = await prisma.agentDefinition.findMany({
@@ -9510,7 +9478,7 @@ export async function loadWorkspaceEmailOAuthConnection() {
   });
 }
 
-async function loadDeliveryTemplates() {
+export async function loadDeliveryTemplates() {
   await ensureDeliveryTemplatesSeeded();
 
   const templates = await prisma.deliveryTemplate.findMany({
@@ -9581,7 +9549,7 @@ async function loadProjectChangeRequests(projectId: string) {
   };
 }
 
-async function createProductCatalogItem(value: {
+export async function createProductCatalogItem(value: {
   name?: unknown;
   serviceFamily?: unknown;
   category?: unknown;
@@ -9654,7 +9622,7 @@ async function createProductCatalogItem(value: {
   return serializeProductCatalogItem(product);
 }
 
-async function createAgentDefinition(value: {
+export async function createAgentDefinition(value: {
   name?: unknown;
   purpose?: unknown;
   serviceFamily?: unknown;
@@ -9727,7 +9695,7 @@ async function createAgentDefinition(value: {
   return serializeAgentDefinition(agent);
 }
 
-async function createDeliveryTemplate(value: {
+export async function createDeliveryTemplate(value: {
   name?: unknown;
   description?: unknown;
   serviceFamily?: unknown;
@@ -9830,7 +9798,7 @@ async function createDeliveryTemplate(value: {
   return serializeDeliveryTemplate(template);
 }
 
-async function updateDeliveryTemplate(
+export async function updateDeliveryTemplate(
   templateId: string,
   value: {
     name?: unknown;
@@ -11986,7 +11954,7 @@ async function loadClientInboxSummary(userId: string) {
   };
 }
 
-async function updateProductCatalogItem(
+export async function updateProductCatalogItem(
   productId: string,
   value: {
     name?: unknown;
@@ -13223,7 +13191,7 @@ async function callResolvedAiWorkflow(
   throw new Error(`Unsupported AI provider: ${resolved.providerKey}`);
 }
 
-async function updateAgentDefinition(
+export async function updateAgentDefinition(
   agentId: string,
   value: {
     name?: unknown;
@@ -13943,175 +13911,6 @@ export async function handleLegacyRequest(
               : "Failed to complete HubSpot OAuth"
         });
       }
-    }
-
-    const productRoute = matchProductRoute(url.pathname);
-    if (productRoute) {
-      if (request.method === "GET" && !productRoute.productId) {
-        return sendJson(response, 200, {
-          products: await loadProductCatalog()
-        });
-      }
-
-      if (request.method === "POST" && !productRoute.productId) {
-        try {
-          const body = (await readJsonBody(request)) as {
-            name?: unknown;
-            category?: unknown;
-            billingModel?: unknown;
-            description?: unknown;
-            unitPrice?: unknown;
-            defaultQuantity?: unknown;
-            unitLabel?: unknown;
-            isActive?: unknown;
-            sortOrder?: unknown;
-          };
-
-          const product = await createProductCatalogItem(body);
-          return sendJson(response, 201, { product });
-        } catch (error) {
-          if (error instanceof Error) {
-            return sendJson(response, 400, { error: error.message });
-          }
-
-          throw error;
-        }
-      }
-
-      if (request.method === "PATCH" && productRoute.productId) {
-        try {
-          const body = (await readJsonBody(request)) as {
-            name?: unknown;
-            category?: unknown;
-            billingModel?: unknown;
-            description?: unknown;
-            unitPrice?: unknown;
-            defaultQuantity?: unknown;
-            unitLabel?: unknown;
-            isActive?: unknown;
-            sortOrder?: unknown;
-          };
-
-          const product = await updateProductCatalogItem(
-            productRoute.productId,
-            body
-          );
-          return sendJson(response, 200, { product });
-        } catch (error) {
-          if (error instanceof Error) {
-            return sendJson(response, 400, { error: error.message });
-          }
-
-          throw error;
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const agentRoute = matchAgentRoute(url.pathname);
-    if (agentRoute) {
-      if (request.method === "GET" && !agentRoute.agentId) {
-        return sendJson(response, 200, {
-          agents: await loadAgentCatalog()
-        });
-      }
-
-      if (request.method === "POST" && !agentRoute.agentId) {
-        try {
-          const body = (await readJsonBody(request)) as {
-            name?: unknown;
-            purpose?: unknown;
-            provider?: unknown;
-            model?: unknown;
-            triggerType?: unknown;
-            approvalMode?: unknown;
-            allowedActions?: unknown;
-            systemPrompt?: unknown;
-            isActive?: unknown;
-            sortOrder?: unknown;
-          };
-
-          const agent = await createAgentDefinition(body);
-          return sendJson(response, 201, { agent });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error ? error.message : "Failed to create agent"
-          });
-        }
-      }
-
-      if (request.method === "PATCH" && agentRoute.agentId) {
-        try {
-          const body = (await readJsonBody(request)) as {
-            name?: unknown;
-            purpose?: unknown;
-            provider?: unknown;
-            model?: unknown;
-            triggerType?: unknown;
-            approvalMode?: unknown;
-            allowedActions?: unknown;
-            systemPrompt?: unknown;
-            isActive?: unknown;
-            sortOrder?: unknown;
-          };
-
-          const agent = await updateAgentDefinition(agentRoute.agentId, body);
-          return sendJson(response, 200, { agent });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error ? error.message : "Failed to update agent"
-          });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const deliveryTemplateRoute = matchDeliveryTemplateRoute(url.pathname);
-    if (deliveryTemplateRoute) {
-      if (request.method === "GET" && !deliveryTemplateRoute.templateId) {
-        return sendJson(response, 200, {
-          templates: await loadDeliveryTemplates()
-        });
-      }
-
-      if (request.method === "POST" && !deliveryTemplateRoute.templateId) {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const template = await createDeliveryTemplate(body);
-          return sendJson(response, 201, { template });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to create delivery template"
-          });
-        }
-      }
-
-      if (request.method === "PATCH" && deliveryTemplateRoute.templateId) {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const template = await updateDeliveryTemplate(
-            deliveryTemplateRoute.templateId,
-            body
-          );
-          return sendJson(response, 200, { template });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to update delivery template"
-          });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
     }
 
     const workRequestRoute = matchWorkRequestRoute(url.pathname);
