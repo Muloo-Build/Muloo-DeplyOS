@@ -7,7 +7,7 @@ Muloo Deploy OS should be built as an internal orchestration platform, not as a 
 The system has one central flow:
 
 1. Create project.
-2. Link client and HubSpot portal.
+2. Link the operational client and HubSpot portal.
 3. Capture or import discovery.
 4. Apply Muloo standards.
 5. Generate blueprint.
@@ -44,6 +44,7 @@ The backend should own orchestration logic rather than pushing product logic int
 Primary responsibilities:
 
 - project lifecycle state management
+- partner, client group, client, and portal relationship management
 - standards recommendation and application
 - blueprint generation
 - task generation and dependency mapping
@@ -61,6 +62,8 @@ Recommended v1 persistence:
 Key requirements:
 
 - strong relational modeling
+- support for partner visibility across selected downstream clients
+- support for client groups that contain multiple operational clients with separate portals
 - versioned discovery submissions
 - durable task and execution logs
 - traceability from project to blueprint to task to execution job
@@ -78,6 +81,8 @@ Initial integrations:
 
 The target system centers on these objects:
 
+- Partner
+- Client Group
 - Client
 - HubSpot Portal
 - Project
@@ -91,6 +96,21 @@ The target system centers on these objects:
 - Deployment Log
 
 The relationship model is defined in [Domain Model](./domain-model.md).
+
+## Account and access model
+
+Deploy OS should distinguish between:
+
+- the `partner` Muloo may be delivering through
+- the operational `client` the work is actually for
+- the `client group` that may contain multiple client entities
+- the specific `HubSpot portal` targeted by the project
+
+Important rule:
+
+- a `Project` should target one operational client and one HubSpot portal
+- partner visibility should be granted through explicit relationship/access rules, not by pretending the partner is the client
+- separate HubSpot portals should normally be modeled as separate operational clients even when they roll up to one parent group
 
 ## Execution model
 

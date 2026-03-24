@@ -13,6 +13,12 @@ The client workspace is where the client contributes inputs, reviews outputs, an
 
 This split is required because sharing internal pages directly is not enough. Clients need a safe, branded experience with access only to their own projects and documents.
 
+Deploy OS should also recognize a third access nuance:
+
+- an implementation `partner` may need visibility into selected downstream client accounts or projects
+
+That partner visibility is not the same thing as treating the partner as the client.
+
 ## Core product rule
 
 Deploy OS must treat discovery, quote, and delivery as separate but connected artifacts.
@@ -78,6 +84,8 @@ The client workspace should support:
 - separate quotes / agreements view
 - later: delivery board and status tracking
 
+Where needed later, Deploy OS may also support a partner-safe workspace or partner-specific visibility rules for selected client accounts. Example: `Tusk` may need visibility into `Magnisol` and specific `EPIUSE` regional entities delivered through that relationship.
+
 The client workspace should not expose internal-only controls such as:
 
 - blueprint internals
@@ -85,6 +93,8 @@ The client workspace should not expose internal-only controls such as:
 - internal notes
 - execution logs
 - internal agent controls
+
+Partner-facing visibility, if added, should also remain constrained to the downstream clients and projects explicitly linked to that partner.
 
 ## Document split
 
@@ -145,6 +155,21 @@ This matters because discovery may recommend more than the client is ready to bu
 
 Deploy OS should support these concepts explicitly:
 
+- `Partner`
+  - name
+  - relationship type
+  - notes
+
+- `ClientGroup`
+  - name
+  - notes
+
+- `PartnerClientLink`
+  - partner id
+  - client id
+  - visibility scope
+  - notes
+
 - `ClientWorkspaceUser`
   - name
   - email
@@ -203,3 +228,4 @@ Deploy OS should support these concepts explicitly:
 8. unlock planning board from approved scope
 9. expose client-safe delivery tracking
 10. add change request flows after approved delivery begins
+11. add partner-safe visibility for linked downstream clients where required

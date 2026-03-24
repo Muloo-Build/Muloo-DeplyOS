@@ -4,6 +4,9 @@
 
 ```mermaid
 erDiagram
+    PARTNER ||--o{ PARTNER_CLIENT_LINK : can_access
+    CLIENT_GROUP ||--o{ CLIENT : contains
+    CLIENT ||--o{ PARTNER_CLIENT_LINK : visible_to
     CLIENT ||--o{ PROJECT : owns
     HUBSPOT_PORTAL ||--o{ PROJECT : targets
     PROJECT ||--o{ DISCOVERY_SUBMISSION : captures
@@ -18,8 +21,22 @@ erDiagram
     DELIVERABLE ||--o{ QA_CHECK : may_require
     PROJECT ||--|| DEPLOYMENT_LOG : closes_with
 
+    PARTNER {
+      string partner_id PK
+      string name
+      string relationship_type
+      string notes
+    }
+
+    CLIENT_GROUP {
+      string client_group_id PK
+      string name
+      string notes
+    }
+
     CLIENT {
       string client_id PK
+      string client_group_id FK
       string name
       string industry
       string region
@@ -27,6 +44,14 @@ erDiagram
       string current_stack
       string hubspot_relationship_status
       string linked_hubspot_company_record
+    }
+
+    PARTNER_CLIENT_LINK {
+      string partner_client_link_id PK
+      string partner_id FK
+      string client_id FK
+      string visibility_scope
+      string notes
     }
 
     HUBSPOT_PORTAL {
@@ -153,7 +178,11 @@ erDiagram
 
 ## Relationship notes
 
+- A `Partner` is not the same thing as a `Client`. It represents an intermediary, implementation partner, or commercial route to the work.
+- A `Client Group` can contain multiple operational `Client` entities that should still be modeled separately when they have distinct businesses or HubSpot portals.
 - A `Project` belongs to exactly one `Client` and one target `HubSpot Portal`.
+- A `Project` should not be reclassified to the partner just because the work is being delivered through that partner.
+- Partner visibility should be granted through explicit partner-client relationships or access rules.
 - A `Project` can have multiple `Discovery Submission` versions, but the approved blueprint should point to one discovery version.
 - A `Blueprint` can apply multiple `Standard Module` records.
 - `Deliverable` is the scoped output layer between blueprint design and execution tasks.
@@ -161,3 +190,11 @@ erDiagram
 - `Execution Job` is optional and only exists when a task is actually run through an API or agent path.
 - `QA Check` may attach to a task or a deliverable depending on the level being validated.
 - A `Deployment Log` closes the project and records approved outcomes and exceptions.
+
+## Modeling examples
+
+- `Tusk` can be modeled as a `Partner`
+- `Magnisol` can be modeled as a `Client`
+- `Tusk -> Magnisol` visibility should be represented through a partner-client link, not by making `Tusk` the client
+- `EPIUSE` can be modeled as a `Client Group`
+- `EPIUSE UK`, `EPIUSE ZA`, `EPIUSE AUS`, `EPIUSE USA West`, `EPIUSE Brazil`, `EPIUSE Spain`, and `EPIUSE DACH` should be modeled as separate `Client` entities linked to the `EPIUSE` client group because they have separate HubSpot portals and operate as distinct businesses

@@ -16,6 +16,32 @@ Its purpose is to:
 - convert that blueprint into executable work
 - manage the work on the internal project board and track delivery state
 
+## Account model nuance
+
+Deploy OS must not assume that:
+
+- one brand name equals one operational client
+- one client equals one HubSpot portal
+- the commercial partner is always the end client
+
+In Muloo's operating model there are at least three account concepts:
+
+- `Partner`
+  - an intermediary or implementation partner Muloo works through
+  - example: `Tusk`
+- `Client`
+  - the actual delivery account/project context
+  - example: `Magnisol`
+- `Client group`
+  - a parent commercial umbrella containing multiple operational client entities
+  - example: `EPIUSE`
+
+Examples:
+
+- Muloo may deliver work for `Magnisol` on behalf of `Tusk`
+- `Tusk` may need visibility into selected downstream clients such as `Magnisol` and `EPIUSE` entities
+- `EPIUSE UK`, `EPIUSE ZA`, `EPIUSE AUS`, `EPIUSE USA West`, `EPIUSE Brazil`, `EPIUSE Spain`, and `EPIUSE DACH` should be treated as separate clients because they operate as distinct businesses with separate HubSpot portals, even though they roll up under the broader `EPIUSE` group
+
 In plain English:
 
 > Muloo Deploy OS turns discovery into delivery.
@@ -52,6 +78,7 @@ Version 1 must do these six things well:
 Supporting v1 capabilities:
 
 - project setup and project states
+- partner-aware client and portal model
 - structured discovery versioning
 - reusable Muloo standards library
 - blueprint generation with risks and dependencies
@@ -65,7 +92,7 @@ To keep scope sane, v1 does not try to do the following:
 
 - full end-to-end HubSpot execution for every task
 - deep custom UI automation from day one
-- complex multi-tenant client access
+- full self-serve multi-tenant external administration
 - advanced reporting on day one
 - replacing HubSpot
 - replacing human approval
