@@ -3,7 +3,8 @@ import { createAdaptorServer, type HttpBindings } from "@hono/node-server";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import { type BaseConfig, getIntegrationStatus } from "@muloo/config";
 import { moduleCatalog } from "@muloo/shared";
-import { type Context, Hono } from "hono";
+import { type Context, Hono, type Next } from "hono";
+import { ZodError } from "zod";
 import { prisma } from "./prisma";
 import {
   clientAuthCookieName,
@@ -19,7 +20,6 @@ import {
 } from "./server";
 
 type HonoBindings = { Bindings: HttpBindings };
-type ApiApp = Hono<HonoBindings>;
 
 async function readJsonBodyOrEmpty(context: {
   req: {
@@ -35,15 +35,35 @@ async function readJsonBodyOrEmpty(context: {
 
 export function createApiApp(config: BaseConfig) {
   const app = new Hono<HonoBindings>();
-  const requireInternalAuth = (c: Context<HonoBindings>) => {
-    if (isAuthenticated(c.env.incoming)) {
-      return null;
+  const internalAuth = async (c: Context<HonoBindings>, next: Next) => {
+    if (!isAuthenticated(c.env.incoming)) {
+      return c.json({ error: "Unauthorized" }, 401);
     }
 
-    return c.json({ error: "Unauthorized" }, 401);
+    await next();
   };
 
-  app.get("/api/auth/session", (c) =>
+  app.onError((error, c) => {
+    const message =
+      error instanceof Error ? error.message : "Unexpected server error";
+    const statusCode =
+      error instanceof ZodError
+        ? 400
+        : (error instanceof Error &&
+              "code" in error &&
+              error.code === "ENOENT") ||
+            message.includes("was not found")
+          ? 404
+          : 500;
+
+    return c.json({ error: message }, statusCode);
+  });
+
+  app.use("/api/modules", internalAuth);
+  app.use("/api/settings", internalAuth);
+  app.use("/api/industries", internalAuth);
+
+  app.all("/api/auth/session", (c) =>
     c.json({
       authenticated: isAuthenticated(c.env.incoming)
     })
@@ -84,7 +104,7 @@ export function createApiApp(config: BaseConfig) {
     return c.json({ authenticated: false });
   });
 
-  app.get("/api/client-auth/session", async (c) => {
+  app.all("/api/client-auth/session", async (c) => {
     const clientUserId = getAuthenticatedClientUserId(c.env.incoming);
 
     if (!clientUserId) {
@@ -219,7 +239,7 @@ export function createApiApp(config: BaseConfig) {
     return c.json({ authenticated: false });
   });
 
-  app.get("/api/health", async (c) => {
+  app.all("/api/health", async (c) => {
     await prisma.$queryRaw`SELECT 1`;
 
     return c.json({
@@ -234,23 +254,13 @@ export function createApiApp(config: BaseConfig) {
     });
   });
 
-  app.get("/api/modules", (c) => {
-    const unauthorizedResponse = requireInternalAuth(c);
-    if (unauthorizedResponse) {
-      return unauthorizedResponse;
-    }
-
+  app.all("/api/modules", (c) => {
     return c.json({
       modules: moduleCatalog
     });
   });
 
-  app.get("/api/settings", (c) => {
-    const unauthorizedResponse = requireInternalAuth(c);
-    if (unauthorizedResponse) {
-      return unauthorizedResponse;
-    }
-
+  app.all("/api/settings", (c) => {
     return c.json({
       environment: config.nodeEnv,
       appBaseUrl: config.appBaseUrl,
@@ -261,12 +271,7 @@ export function createApiApp(config: BaseConfig) {
     });
   });
 
-  app.get("/api/industries", (c) => {
-    const unauthorizedResponse = requireInternalAuth(c);
-    if (unauthorizedResponse) {
-      return unauthorizedResponse;
-    }
-
+  app.all("/api/industries", (c) => {
     return c.json({
       industries: industryOptions
     });
