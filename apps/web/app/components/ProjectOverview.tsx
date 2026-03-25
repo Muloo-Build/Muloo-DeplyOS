@@ -691,6 +691,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [clientAccessFeedback, setClientAccessFeedback] = useState<
     string | null
   >(null);
+  const [portalConnectionFeedback, setPortalConnectionFeedback] = useState<
+    string | null
+  >(null);
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [savingField, setSavingField] = useState<EditableField>(null);
   const [projectEditError, setProjectEditError] = useState<string | null>(null);
@@ -905,6 +908,39 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }
 
     void loadProject();
+  }, [projectId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const storedFeedback = window.sessionStorage.getItem(
+      "hubspot-oauth-feedback"
+    );
+
+    if (!storedFeedback) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(storedFeedback) as {
+        returnTo?: string;
+        message?: string;
+      };
+
+      if (
+        parsed.returnTo === `/projects/${projectId}` &&
+        typeof parsed.message === "string" &&
+        parsed.message.trim().length > 0
+      ) {
+        setPortalConnectionFeedback(parsed.message.trim());
+      }
+    } catch {
+      // Ignore malformed session storage data and clear it below.
+    }
+
+    window.sessionStorage.removeItem("hubspot-oauth-feedback");
   }, [projectId]);
 
   useEffect(() => {
@@ -2724,9 +2760,28 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 >
                                   {portalConnectBusy
                                     ? "Connecting..."
-                                    : "Connect client portal"}
+                                    : project.portal?.connected
+                                      ? "Reconnect client portal"
+                                      : "Connect client portal"}
                                 </button>
                               </div>
+                              {project.portal?.connected ? (
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                  <span className="rounded-full border border-[rgba(81,208,176,0.35)] bg-[rgba(81,208,176,0.12)] px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-[#51d0b0]">
+                                    Connected
+                                  </span>
+                                  <span className="text-xs text-text-secondary">
+                                    {project.portal.connectedEmail
+                                      ? `Signed in as ${project.portal.connectedEmail}.`
+                                      : "This client portal is linked and ready to use."}
+                                  </span>
+                                </div>
+                              ) : null}
+                              {portalConnectionFeedback ? (
+                                <p className="mt-3 text-sm text-status-success">
+                                  {portalConnectionFeedback}
+                                </p>
+                              ) : null}
                               <p className="mt-3 text-xs leading-5 text-text-secondary">
                                 Start with `Core CRM install` for most client
                                 portals. This is a client-level connection, so

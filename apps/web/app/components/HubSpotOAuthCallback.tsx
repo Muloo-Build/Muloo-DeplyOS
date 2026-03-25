@@ -51,6 +51,16 @@ export default function HubSpotOAuthCallback({
           return;
         }
 
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(
+            "hubspot-oauth-feedback",
+            JSON.stringify({
+              returnTo: body.returnTo ?? "/settings/providers",
+              message: `HubSpot portal ${body.portal?.displayName ?? body.portal?.portalId ?? "connected"} connected successfully.`
+            })
+          );
+        }
+
         setMessage(
           `HubSpot portal ${body.portal?.displayName ?? body.portal?.portalId ?? "connected"} is ready. Redirecting back...`
         );
