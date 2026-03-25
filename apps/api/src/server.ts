@@ -2164,6 +2164,59 @@ function normalizeProject<T extends { portal: { portalId: string } | null }>(
     : project;
 }
 
+async function reconcileProjectClientPortal(projectId: string) {
+  return prisma.$transaction(async (transaction) => {
+    const project = await transaction.project.findUnique({
+      where: { id: projectId },
+      include: {
+        client: true,
+        portal: true
+      }
+    });
+
+    if (!project) {
+      return null;
+    }
+
+    const clientPortalId = project.client.hubSpotPortalId;
+    const projectPortalIsPending = project.portal.portalId.startsWith(
+      pendingPortalPrefix
+    );
+
+    if (clientPortalId && clientPortalId !== project.portalId) {
+      const previousPortalId = project.portalId;
+
+      await syncClientHubSpotPortal(transaction, project.clientId, clientPortalId);
+
+      if (previousPortalId !== clientPortalId) {
+        await deleteHubSpotPortalIfUnused(transaction, previousPortalId);
+      }
+
+      return transaction.project.findUnique({
+        where: { id: projectId },
+        include: {
+          client: true,
+          portal: true
+        }
+      });
+    }
+
+    if (!clientPortalId && !projectPortalIsPending) {
+      await syncClientHubSpotPortal(transaction, project.clientId, project.portalId);
+
+      return transaction.project.findUnique({
+        where: { id: projectId },
+        include: {
+          client: true,
+          portal: true
+        }
+      });
+    }
+
+    return project;
+  });
+}
+
 function cloneClientQuestionnaireConfig(
   value: ClientQuestionnaireConfig
 ): ClientQuestionnaireConfig {
@@ -9687,13 +9740,7 @@ export async function loadProjectsDirectory() {
 }
 
 export async function loadProjectRecord(projectId: string) {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      client: true,
-      portal: true
-    }
-  });
+  const project = await reconcileProjectClientPortal(projectId);
 
   if (!project) {
     throw new Error("Project not found");
