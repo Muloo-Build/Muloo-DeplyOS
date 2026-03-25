@@ -2698,6 +2698,7 @@ function serializeProject<
     clientChampionEmail?: string | null;
     selectedHubs: string[];
     engagementType: Prisma.$Enums.EngagementType;
+    includesPortalAudit?: boolean;
     createdAt: Date;
     updatedAt: Date;
     client: {
@@ -8544,6 +8545,98 @@ function serializeWorkspaceEmailOAuthConnection<
   };
 }
 
+function serializeWorkspaceTodo<
+  T extends {
+    id: string;
+    title: string;
+    notes: string | null;
+    completed: boolean;
+    completedAt: Date | null;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(todo: T) {
+  return {
+    id: todo.id,
+    title: todo.title,
+    notes: todo.notes ?? undefined,
+    completed: todo.completed,
+    completedAt: todo.completedAt?.toISOString(),
+    sortOrder: todo.sortOrder,
+    createdAt: todo.createdAt.toISOString(),
+    updatedAt: todo.updatedAt.toISOString()
+  };
+}
+
+function serializeWorkspaceCalendarConnection<
+  T extends {
+    id: string;
+    providerKey: string;
+    label: string;
+    connectedEmail: string | null;
+    connectedName: string | null;
+    tokenExpiresAt: Date | null;
+    enabled: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(connection: T) {
+  return {
+    id: connection.id,
+    providerKey: connection.providerKey,
+    label: connection.label,
+    connectedEmail: connection.connectedEmail,
+    connectedName: connection.connectedName,
+    tokenExpiresAt: connection.tokenExpiresAt?.toISOString() ?? null,
+    enabled: connection.enabled,
+    createdAt: connection.createdAt.toISOString(),
+    updatedAt: connection.updatedAt.toISOString()
+  };
+}
+
+function serializeWorkspaceXeroConnection<
+  T extends {
+    id: string;
+    tenantId: string | null;
+    tenantName: string | null;
+    connectedEmail: string | null;
+    tokenExpiresAt: Date | null;
+    enabled: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(connection: T) {
+  return {
+    id: connection.id,
+    tenantId: connection.tenantId,
+    tenantName: connection.tenantName,
+    connectedEmail: connection.connectedEmail,
+    tokenExpiresAt: connection.tokenExpiresAt?.toISOString() ?? null,
+    enabled: connection.enabled,
+    createdAt: connection.createdAt.toISOString(),
+    updatedAt: connection.updatedAt.toISOString()
+  };
+}
+
+function serializeWorkspaceDailySummary<
+  T extends {
+    id: string;
+    summaryDate: Date;
+    content: string;
+    generatedBy: string;
+    createdAt: Date;
+  }
+>(summary: T) {
+  return {
+    id: summary.id,
+    summaryDate: summary.summaryDate.toISOString(),
+    content: summary.content,
+    generatedBy: summary.generatedBy,
+    createdAt: summary.createdAt.toISOString()
+  };
+}
+
 function serializeHubSpotPortal<
   T extends {
     id: string;
@@ -8847,7 +8940,8 @@ async function ensureWorkspaceEmailOAuthConnectionsSeeded() {
         "openid",
         "email",
         "profile",
-        "https://www.googleapis.com/auth/gmail.send"
+        "https://www.googleapis.com/auth/gmail.send",
+        "https://www.googleapis.com/auth/gmail.readonly"
       ],
       enabled: false
     }
@@ -9624,6 +9718,7 @@ export async function createProjectRecord(value: {
   deliveryTemplateId?: unknown;
   commercialBrief?: unknown;
   engagementType?: unknown;
+  includesPortalAudit?: unknown;
   industry?: unknown;
   website?: unknown;
   additionalWebsites?: unknown;
@@ -9668,6 +9763,25 @@ export async function createProjectRecord(value: {
   ) {
     throw new Error("Invalid engagement type");
   }
+
+  if (
+    value.includesPortalAudit !== undefined &&
+    typeof value.includesPortalAudit !== "boolean"
+  ) {
+    throw new Error("includesPortalAudit must be a boolean");
+  }
+
+  const engagementType = (
+    typeof value.engagementType === "string"
+      ? value.engagementType
+      : "IMPLEMENTATION"
+  ) as Prisma.$Enums.EngagementType;
+  const autoAudit =
+    engagementType === "OPTIMISATION" || engagementType === "AUDIT";
+  const includesPortalAudit =
+    value.includesPortalAudit !== undefined
+      ? value.includesPortalAudit
+      : autoAudit;
 
   const serviceFamily =
     typeof value.serviceFamily === "string" &&
@@ -9772,9 +9886,8 @@ export async function createProjectRecord(value: {
       data: {
         name,
         status: "draft",
-        engagementType: (typeof value.engagementType === "string"
-          ? value.engagementType
-          : "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
+        engagementType,
+        includesPortalAudit,
         ...(await resolveProjectOwner(
           typeof value.owner === "string" ? value.owner : undefined,
           typeof value.ownerEmail === "string" ? value.ownerEmail : undefined
@@ -9849,6 +9962,7 @@ export async function updateProjectRecord(
     owner?: unknown;
     ownerEmail?: unknown;
     hubs?: unknown;
+    includesPortalAudit?: unknown;
     clientIndustry?: unknown;
     clientWebsite?: unknown;
     clientAdditionalWebsites?: unknown;
@@ -9881,6 +9995,7 @@ export async function updateProjectRecord(
     owner?: string;
     ownerEmail?: string;
     hubs?: ProjectHub[];
+    includesPortalAudit?: boolean;
     clientIndustry?: string;
     clientWebsite?: string;
     clientAdditionalWebsites?: string[];
@@ -9909,6 +10024,13 @@ export async function updateProjectRecord(
       throw new Error("Invalid engagement type");
     }
     normalizedPayload.type = value.type;
+  }
+
+  if (value.includesPortalAudit !== undefined) {
+    if (typeof value.includesPortalAudit !== "boolean") {
+      throw new Error("includesPortalAudit must be a boolean");
+    }
+    normalizedPayload.includesPortalAudit = value.includesPortalAudit;
   }
 
   if (value.customerPlatformTier !== undefined) {
@@ -10096,6 +10218,7 @@ export async function updateProjectRecord(
     normalizedPayload.owner === undefined &&
     normalizedPayload.ownerEmail === undefined &&
     normalizedPayload.hubs === undefined &&
+    normalizedPayload.includesPortalAudit === undefined &&
     normalizedPayload.clientIndustry === undefined &&
     normalizedPayload.clientWebsite === undefined &&
     normalizedPayload.clientAdditionalWebsites === undefined &&
@@ -10214,12 +10337,32 @@ export async function updateProjectRecord(
     const updatedProject = await transaction.project.update({
       where: { id: projectId },
       data: {
-        ...(normalizedPayload.type
-          ? {
-              engagementType:
-                normalizedPayload.type as Prisma.$Enums.EngagementType
-            }
-          : {}),
+        ...(() => {
+          if (
+            normalizedPayload.type === undefined &&
+            normalizedPayload.includesPortalAudit === undefined
+          ) {
+            return {};
+          }
+
+          const autoAudit =
+            normalizedPayload.type === "OPTIMISATION" ||
+            normalizedPayload.type === "AUDIT";
+          const includesPortalAudit =
+            normalizedPayload.includesPortalAudit !== undefined
+              ? normalizedPayload.includesPortalAudit
+              : autoAudit;
+
+          return {
+            ...(normalizedPayload.type
+              ? {
+                  engagementType:
+                    normalizedPayload.type as Prisma.$Enums.EngagementType
+                }
+              : {}),
+            includesPortalAudit
+          };
+        })(),
         ...(normalizedPayload.customerPlatformTier !== undefined
           ? {
               customerPlatformTier:
@@ -10922,6 +11065,18 @@ export async function loadWorkspaceEmailSettings() {
   return serializeWorkspaceEmailSettings(settings);
 }
 
+function resolveAppBaseUrl() {
+  return (
+    process.env.APP_BASE_URL ??
+    process.env.NEXT_PUBLIC_APP_BASE_URL ??
+    "https://deploy.wearemuloo.com"
+  );
+}
+
+function ensureScope(values: string[], scope: string) {
+  return values.includes(scope) ? values : [...values, scope];
+}
+
 function resolveGoogleWorkspaceEmailOAuthRedirectUri(
   explicitRedirectUri?: string | null
 ) {
@@ -10931,12 +11086,111 @@ function resolveGoogleWorkspaceEmailOAuthRedirectUri(
     return trimmedExplicitRedirectUri;
   }
 
-  const baseUrl =
-    process.env.APP_BASE_URL ??
-    process.env.NEXT_PUBLIC_APP_BASE_URL ??
-    "https://deploy.wearemuloo.com";
+  return `${resolveAppBaseUrl()}/settings/email/google/callback`;
+}
 
-  return `${baseUrl}/settings/email/google/callback`;
+function resolveWorkspaceCalendarRedirectUri() {
+  return `${resolveAppBaseUrl()}/api/workspace/calendar/callback`;
+}
+
+function resolveWorkspaceXeroRedirectUri() {
+  return `${resolveAppBaseUrl()}/api/workspace/xero/callback`;
+}
+
+function normalizeDateInput(
+  value: string | Date | null | undefined
+): Date | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return null;
+  }
+
+  const microsoftDateMatch = value.match(/\/Date\((\d+)(?:[+-]\d+)?\)\//);
+
+  if (microsoftDateMatch?.[1]) {
+    const timestamp = Number(microsoftDateMatch[1]);
+    return Number.isFinite(timestamp) ? new Date(timestamp) : null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatWorkflowLabel(workflowKey: string) {
+  return workflowKey
+    .split("_")
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
+async function refreshGoogleWorkspaceEmailAccessTokenIfNeeded(
+  minimumValidityMs = 60_000
+) {
+  const connection = await getGoogleWorkspaceEmailOAuthConnectionRecord();
+
+  if (
+    !connection?.enabled ||
+    !connection.connectedEmail ||
+    !connection.refreshToken ||
+    !connection.clientId ||
+    !connection.clientSecret
+  ) {
+    return null;
+  }
+
+  const tokenStillValid =
+    connection.accessToken &&
+    connection.tokenExpiresAt &&
+    connection.tokenExpiresAt.getTime() > Date.now() + minimumValidityMs;
+
+  if (tokenStillValid) {
+    return connection;
+  }
+
+  const refreshResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      client_id: connection.clientId,
+      client_secret: connection.clientSecret,
+      refresh_token: connection.refreshToken,
+      grant_type: "refresh_token"
+    }).toString()
+  });
+
+  const refreshBody = (await refreshResponse.json().catch(() => null)) as {
+    access_token?: string;
+    expires_in?: number;
+    token_type?: string;
+    error?: string;
+    error_description?: string;
+  } | null;
+
+  if (!refreshResponse.ok || !refreshBody?.access_token) {
+    throw new Error(
+      refreshBody?.error_description ||
+        refreshBody?.error ||
+        "Google access token refresh failed"
+    );
+  }
+
+  return prisma.workspaceEmailOAuthConnection.update({
+    where: { id: connection.id },
+    data: {
+      accessToken: refreshBody.access_token,
+      tokenType: refreshBody.token_type ?? connection.tokenType ?? "Bearer",
+      tokenExpiresAt:
+        typeof refreshBody.expires_in === "number"
+          ? new Date(Date.now() + refreshBody.expires_in * 1000)
+          : connection.tokenExpiresAt
+    }
+  });
 }
 
 export async function loadWorkspaceEmailOAuthConnection() {
@@ -10949,10 +11203,1227 @@ export async function loadWorkspaceEmailOAuthConnection() {
 
   return serializeWorkspaceEmailOAuthConnection({
     ...connection,
+    scopes: ensureScope(
+      connection.scopes,
+      "https://www.googleapis.com/auth/gmail.readonly"
+    ),
     redirectUri: resolveGoogleWorkspaceEmailOAuthRedirectUri(
       connection.redirectUri
     )
   });
+}
+
+export async function loadWorkspaceTodos() {
+  const todos = await prisma.workspaceTodo.findMany({
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+  });
+
+  return todos.map((todo) => serializeWorkspaceTodo(todo));
+}
+
+export async function createWorkspaceTodo(value: {
+  title?: unknown;
+  notes?: unknown;
+}) {
+  const title = typeof value.title === "string" ? value.title.trim() : "";
+  const notes =
+    typeof value.notes === "string" ? value.notes.trim() || null : null;
+
+  if (!title) {
+    throw new Error("title is required");
+  }
+
+  const todo = await prisma.workspaceTodo.create({
+    data: { title, notes }
+  });
+
+  return serializeWorkspaceTodo(todo);
+}
+
+export async function updateWorkspaceTodo(
+  todoId: string,
+  value: {
+    title?: unknown;
+    notes?: unknown;
+    completed?: unknown;
+    sortOrder?: unknown;
+  }
+) {
+  const data: Prisma.Prisma.WorkspaceTodoUpdateInput = {};
+
+  if (value.title !== undefined) {
+    if (typeof value.title !== "string" || value.title.trim().length === 0) {
+      throw new Error("title must be a non-empty string");
+    }
+
+    data.title = value.title.trim();
+  }
+
+  if (value.notes !== undefined) {
+    if (typeof value.notes !== "string" && value.notes !== null) {
+      throw new Error("notes must be a string");
+    }
+
+    data.notes =
+      typeof value.notes === "string" ? value.notes.trim() || null : null;
+  }
+
+  if (value.sortOrder !== undefined) {
+    const sortOrder =
+      typeof value.sortOrder === "number"
+        ? value.sortOrder
+        : Number(value.sortOrder);
+
+    if (!Number.isFinite(sortOrder)) {
+      throw new Error("sortOrder must be a valid number");
+    }
+
+    data.sortOrder = Math.round(sortOrder);
+  }
+
+  if (value.completed === true) {
+    data.completed = true;
+    data.completedAt = new Date();
+  } else if (value.completed === false) {
+    data.completed = false;
+    data.completedAt = null;
+  } else if (value.completed !== undefined) {
+    throw new Error("completed must be a boolean");
+  }
+
+  const todo = await prisma.workspaceTodo.update({
+    where: { id: todoId },
+    data
+  });
+
+  return serializeWorkspaceTodo(todo);
+}
+
+export async function deleteWorkspaceTodo(todoId: string) {
+  const todo = await prisma.workspaceTodo.delete({
+    where: { id: todoId }
+  });
+
+  return serializeWorkspaceTodo(todo);
+}
+
+export async function clearCompletedWorkspaceTodos() {
+  return prisma.workspaceTodo.deleteMany({
+    where: { completed: true }
+  });
+}
+
+export async function getGmailActionRequired() {
+  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+
+  const connection = await prisma.workspaceEmailOAuthConnection.findUnique({
+    where: { providerKey: "google_workspace" }
+  });
+
+  if (!connection?.enabled) {
+    return { connected: false as const };
+  }
+
+  const refreshedConnection =
+    await refreshGoogleWorkspaceEmailAccessTokenIfNeeded(5 * 60_000);
+
+  if (!refreshedConnection?.accessToken) {
+    return { connected: false as const };
+  }
+
+  const messagesResponse = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages?" +
+      new URLSearchParams({
+        q: "is:unread OR is:starred",
+        maxResults: "20"
+      }).toString(),
+    {
+      headers: {
+        Authorization: `Bearer ${refreshedConnection.accessToken}`
+      }
+    }
+  );
+
+  const messagesBody = (await messagesResponse.json().catch(() => null)) as {
+    messages?: Array<{ id?: string }>;
+    error?: { message?: string };
+  } | null;
+
+  if (!messagesResponse.ok) {
+    throw new Error(
+      messagesBody?.error?.message || "Failed to load Gmail messages"
+    );
+  }
+
+  const emails = await Promise.all(
+    (messagesBody?.messages ?? [])
+      .map((message) => message.id?.trim())
+      .filter((messageId): messageId is string => Boolean(messageId))
+      .map(async (messageId) => {
+        const detailParams = new URLSearchParams({
+          format: "metadata"
+        });
+        detailParams.append("metadataHeaders", "subject");
+        detailParams.append("metadataHeaders", "from");
+        detailParams.append("metadataHeaders", "date");
+
+        const detailResponse = await fetch(
+          "https://gmail.googleapis.com/gmail/v1/users/me/messages/" +
+            encodeURIComponent(messageId) +
+            `?${detailParams.toString()}`,
+          {
+            headers: {
+              Authorization: `Bearer ${refreshedConnection.accessToken}`
+            }
+          }
+        );
+
+        const detailBody = (await detailResponse.json().catch(() => null)) as {
+          id?: string;
+          snippet?: string;
+          payload?: {
+            headers?: Array<{ name?: string; value?: string }>;
+          };
+          error?: { message?: string };
+        } | null;
+
+        if (!detailResponse.ok || !detailBody?.id) {
+          throw new Error(
+            detailBody?.error?.message || "Failed to load Gmail message detail"
+          );
+        }
+
+        const headers = new Map(
+          (detailBody.payload?.headers ?? [])
+            .filter(
+              (header): header is { name: string; value: string } =>
+                typeof header.name === "string" &&
+                typeof header.value === "string"
+            )
+            .map((header) => [header.name.toLowerCase(), header.value])
+        );
+
+        return {
+          id: detailBody.id,
+          subject: headers.get("subject") ?? "(No subject)",
+          from: headers.get("from") ?? "",
+          date: headers.get("date") ?? "",
+          snippet: detailBody.snippet ?? "",
+          gmailUrl: `https://mail.google.com/mail/u/0/#inbox/${detailBody.id}`
+        };
+      })
+  );
+
+  return {
+    connected: true as const,
+    emails
+  };
+}
+
+async function refreshWorkspaceCalendarAccessTokenIfNeeded(
+  minimumValidityMs = 5 * 60_000
+) {
+  const connection = await prisma.workspaceCalendarConnection.findUnique({
+    where: { providerKey: "google_calendar" }
+  });
+
+  if (
+    !connection?.enabled ||
+    !connection.refreshToken ||
+    !connection.clientId ||
+    !connection.clientSecret
+  ) {
+    return null;
+  }
+
+  const tokenStillValid =
+    connection.accessToken &&
+    connection.tokenExpiresAt &&
+    connection.tokenExpiresAt.getTime() > Date.now() + minimumValidityMs;
+
+  if (tokenStillValid) {
+    return connection;
+  }
+
+  const refreshResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      client_id: connection.clientId,
+      client_secret: connection.clientSecret,
+      refresh_token: connection.refreshToken,
+      grant_type: "refresh_token"
+    }).toString()
+  });
+
+  const refreshBody = (await refreshResponse.json().catch(() => null)) as {
+    access_token?: string;
+    expires_in?: number;
+    token_type?: string;
+    error?: string;
+    error_description?: string;
+  } | null;
+
+  if (!refreshResponse.ok || !refreshBody?.access_token) {
+    throw new Error(
+      refreshBody?.error_description ||
+        refreshBody?.error ||
+        "Google Calendar token refresh failed"
+    );
+  }
+
+  return prisma.workspaceCalendarConnection.update({
+    where: { id: connection.id },
+    data: {
+      accessToken: refreshBody.access_token,
+      tokenType: refreshBody.token_type ?? connection.tokenType ?? "Bearer",
+      tokenExpiresAt:
+        typeof refreshBody.expires_in === "number"
+          ? new Date(Date.now() + refreshBody.expires_in * 1000)
+          : connection.tokenExpiresAt
+    }
+  });
+}
+
+export async function createWorkspaceCalendarOAuthStart() {
+  const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID?.trim() ?? "";
+  const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET?.trim() ?? "";
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Google Calendar OAuth credentials are not configured");
+  }
+
+  const redirectUri = resolveWorkspaceCalendarRedirectUri();
+  const scopes = [
+    "https://www.googleapis.com/auth/calendar.readonly",
+    "openid",
+    "email",
+    "profile"
+  ];
+  const state = createSignedStateToken({
+    providerKey: "google_calendar",
+    redirectUri,
+    expiresAt: Date.now() + 1000 * 60 * 10
+  });
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: scopes.join(" "),
+    access_type: "offline",
+    prompt: "consent",
+    state
+  });
+
+  return {
+    authUrl: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+  };
+}
+
+export async function completeWorkspaceCalendarOAuthCallback(value: {
+  code?: unknown;
+  state?: unknown;
+}) {
+  const code = typeof value.code === "string" ? value.code.trim() : "";
+  const state = typeof value.state === "string" ? value.state.trim() : "";
+
+  if (!code || !state) {
+    throw new Error("Google Calendar OAuth callback is missing code or state");
+  }
+
+  const verifiedState = verifySignedStateToken(state);
+  const redirectUri =
+    typeof verifiedState.redirectUri === "string"
+      ? verifiedState.redirectUri
+      : resolveWorkspaceCalendarRedirectUri();
+  const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID?.trim() ?? "";
+  const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET?.trim() ?? "";
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Google Calendar OAuth credentials are not configured");
+  }
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code"
+    }).toString()
+  });
+
+  const tokenBody = (await tokenResponse.json().catch(() => null)) as {
+    access_token?: string;
+    refresh_token?: string;
+    token_type?: string;
+    expires_in?: number;
+    error?: string;
+    error_description?: string;
+  } | null;
+
+  if (!tokenResponse.ok || !tokenBody?.access_token) {
+    throw new Error(
+      tokenBody?.error_description ||
+        tokenBody?.error ||
+        "Google Calendar token exchange failed"
+    );
+  }
+
+  const profileResponse = await fetch(
+    "https://www.googleapis.com/oauth2/v3/userinfo",
+    {
+      headers: {
+        Authorization: `Bearer ${tokenBody.access_token}`
+      }
+    }
+  );
+  const profileBody = (await profileResponse.json().catch(() => null)) as {
+    email?: string;
+    name?: string;
+  } | null;
+
+  if (!profileResponse.ok || !profileBody?.email) {
+    throw new Error("Could not load the connected Google Calendar profile");
+  }
+
+  const scopes = [
+    "https://www.googleapis.com/auth/calendar.readonly",
+    "openid",
+    "email",
+    "profile"
+  ];
+  const updateData: Prisma.Prisma.WorkspaceCalendarConnectionUpdateInput = {
+    label: "Google Calendar",
+    clientId,
+    clientSecret,
+    redirectUri,
+    scopes,
+    accessToken: tokenBody.access_token,
+    tokenType: tokenBody.token_type ?? "Bearer",
+    tokenExpiresAt:
+      typeof tokenBody.expires_in === "number"
+        ? new Date(Date.now() + tokenBody.expires_in * 1000)
+        : null,
+    connectedEmail: profileBody.email.trim().toLowerCase(),
+    connectedName: profileBody.name?.trim() || null,
+    enabled: true
+  };
+
+  if (tokenBody.refresh_token) {
+    updateData.refreshToken = tokenBody.refresh_token;
+  }
+
+  const connection = await prisma.workspaceCalendarConnection.upsert({
+    where: { providerKey: "google_calendar" },
+    update: updateData,
+    create: {
+      providerKey: "google_calendar",
+      label: "Google Calendar",
+      clientId,
+      clientSecret,
+      redirectUri,
+      scopes,
+      accessToken: tokenBody.access_token,
+      refreshToken: tokenBody.refresh_token ?? null,
+      tokenType: tokenBody.token_type ?? "Bearer",
+      tokenExpiresAt:
+        typeof tokenBody.expires_in === "number"
+          ? new Date(Date.now() + tokenBody.expires_in * 1000)
+          : null,
+      connectedEmail: profileBody.email.trim().toLowerCase(),
+      connectedName: profileBody.name?.trim() || null,
+      enabled: true
+    }
+  });
+
+  return serializeWorkspaceCalendarConnection(connection);
+}
+
+export async function getCalendarEvents() {
+  const connection = await prisma.workspaceCalendarConnection.findUnique({
+    where: { providerKey: "google_calendar" }
+  });
+
+  if (!connection?.enabled) {
+    return { connected: false as const };
+  }
+
+  const refreshedConnection = await refreshWorkspaceCalendarAccessTokenIfNeeded(
+    5 * 60_000
+  );
+
+  if (!refreshedConnection?.accessToken) {
+    return { connected: false as const };
+  }
+
+  const now = new Date();
+  const calendarResponse = await fetch(
+    "https://www.googleapis.com/calendar/v3/calendars/primary/events?" +
+      new URLSearchParams({
+        timeMin: now.toISOString(),
+        timeMax: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        singleEvents: "true",
+        orderBy: "startTime",
+        maxResults: "20"
+      }).toString(),
+    {
+      headers: {
+        Authorization: `Bearer ${refreshedConnection.accessToken}`
+      }
+    }
+  );
+
+  const calendarBody = (await calendarResponse.json().catch(() => null)) as {
+    items?: Array<{
+      id?: string;
+      summary?: string;
+      start?: { dateTime?: string; date?: string };
+      end?: { dateTime?: string; date?: string };
+      location?: string;
+      hangoutLink?: string;
+      attendees?: Array<{ email?: string; displayName?: string }>;
+    }>;
+    error?: { message?: string };
+  } | null;
+
+  if (!calendarResponse.ok) {
+    throw new Error(
+      calendarBody?.error?.message || "Failed to load Google Calendar events"
+    );
+  }
+
+  return {
+    connected: true as const,
+    connectedEmail: refreshedConnection.connectedEmail,
+    connectedName: refreshedConnection.connectedName,
+    events: (calendarBody?.items ?? [])
+      .filter(
+        (
+          event
+        ): event is {
+          id: string;
+          summary?: string;
+          start?: { dateTime?: string; date?: string };
+          end?: { dateTime?: string; date?: string };
+          location?: string;
+          hangoutLink?: string;
+          attendees?: Array<{ email?: string; displayName?: string }>;
+        } => typeof event?.id === "string"
+      )
+      .map((event) => ({
+        id: event.id ?? "",
+        summary: event.summary ?? "Untitled meeting",
+        start: {
+          ...(event.start?.dateTime ? { dateTime: event.start.dateTime } : {}),
+          ...(event.start?.date ? { date: event.start.date } : {})
+        },
+        end: {
+          ...(event.end?.dateTime ? { dateTime: event.end.dateTime } : {}),
+          ...(event.end?.date ? { date: event.end.date } : {})
+        },
+        ...(event.location ? { location: event.location } : {}),
+        ...(event.hangoutLink ? { hangoutLink: event.hangoutLink } : {}),
+        ...(Array.isArray(event.attendees)
+          ? {
+              attendees: event.attendees
+                .filter(
+                  (
+                    attendee
+                  ): attendee is {
+                    email: string;
+                    displayName?: string;
+                  } => typeof attendee.email === "string"
+                )
+                .map((attendee: { email: string; displayName?: string }) => ({
+                  email: attendee.email,
+                  ...(attendee.displayName
+                    ? { displayName: attendee.displayName }
+                    : {})
+                }))
+            }
+          : {})
+      }))
+  };
+}
+
+export async function disconnectWorkspaceCalendarConnection() {
+  await prisma.workspaceCalendarConnection.deleteMany({
+    where: { providerKey: "google_calendar" }
+  });
+
+  return { success: true };
+}
+
+function buildXeroBasicAuth(clientId: string, clientSecret: string) {
+  return Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+}
+
+async function refreshWorkspaceXeroAccessTokenIfNeeded(
+  minimumValidityMs = 5 * 60_000
+) {
+  const connection = await prisma.workspaceXeroConnection.findFirst({
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  if (
+    !connection?.enabled ||
+    !connection.refreshToken ||
+    !connection.clientId ||
+    !connection.clientSecret
+  ) {
+    return null;
+  }
+
+  const tokenStillValid =
+    connection.accessToken &&
+    connection.tokenExpiresAt &&
+    connection.tokenExpiresAt.getTime() > Date.now() + minimumValidityMs;
+
+  if (tokenStillValid) {
+    return connection;
+  }
+
+  const refreshResponse = await fetch(
+    "https://identity.xero.com/connect/token",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${buildXeroBasicAuth(
+          connection.clientId,
+          connection.clientSecret
+        )}`
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: connection.refreshToken
+      }).toString()
+    }
+  );
+
+  const refreshBody = (await refreshResponse.json().catch(() => null)) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+    error?: string;
+    error_description?: string;
+  } | null;
+
+  if (!refreshResponse.ok || !refreshBody?.access_token) {
+    throw new Error(
+      refreshBody?.error_description ||
+        refreshBody?.error ||
+        "Xero token refresh failed"
+    );
+  }
+
+  return prisma.workspaceXeroConnection.update({
+    where: { id: connection.id },
+    data: {
+      accessToken: refreshBody.access_token,
+      refreshToken: refreshBody.refresh_token ?? connection.refreshToken,
+      tokenExpiresAt:
+        typeof refreshBody.expires_in === "number"
+          ? new Date(Date.now() + refreshBody.expires_in * 1000)
+          : connection.tokenExpiresAt
+    }
+  });
+}
+
+export async function createWorkspaceXeroOAuthStart() {
+  const clientId = process.env.XERO_CLIENT_ID?.trim() ?? "";
+  const clientSecret = process.env.XERO_CLIENT_SECRET?.trim() ?? "";
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Xero OAuth credentials are not configured");
+  }
+
+  const redirectUri = resolveWorkspaceXeroRedirectUri();
+  const scopes = [
+    "openid",
+    "profile",
+    "email",
+    "accounting.transactions.read",
+    "accounting.contacts.read",
+    "offline_access"
+  ];
+  const state = createSignedStateToken({
+    providerKey: "xero",
+    redirectUri,
+    expiresAt: Date.now() + 1000 * 60 * 10
+  });
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: scopes.join(" "),
+    state
+  });
+
+  return {
+    authUrl:
+      "https://login.xero.com/identity/connect/authorize?" + params.toString()
+  };
+}
+
+export async function completeWorkspaceXeroOAuthCallback(value: {
+  code?: unknown;
+  state?: unknown;
+}) {
+  const code = typeof value.code === "string" ? value.code.trim() : "";
+  const state = typeof value.state === "string" ? value.state.trim() : "";
+
+  if (!code || !state) {
+    throw new Error("Xero OAuth callback is missing code or state");
+  }
+
+  const verifiedState = verifySignedStateToken(state);
+  const redirectUri =
+    typeof verifiedState.redirectUri === "string"
+      ? verifiedState.redirectUri
+      : resolveWorkspaceXeroRedirectUri();
+  const clientId = process.env.XERO_CLIENT_ID?.trim() ?? "";
+  const clientSecret = process.env.XERO_CLIENT_SECRET?.trim() ?? "";
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Xero OAuth credentials are not configured");
+  }
+
+  const tokenResponse = await fetch("https://identity.xero.com/connect/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${buildXeroBasicAuth(clientId, clientSecret)}`
+    },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: redirectUri
+    }).toString()
+  });
+
+  const tokenBody = (await tokenResponse.json().catch(() => null)) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+    id_token?: string;
+    error?: string;
+    error_description?: string;
+  } | null;
+
+  if (!tokenResponse.ok || !tokenBody?.access_token) {
+    throw new Error(
+      tokenBody?.error_description ||
+        tokenBody?.error ||
+        "Xero token exchange failed"
+    );
+  }
+
+  const connectionsResponse = await fetch("https://api.xero.com/connections", {
+    headers: {
+      Authorization: `Bearer ${tokenBody.access_token}`
+    }
+  });
+  const connectionsBody = (await connectionsResponse
+    .json()
+    .catch(() => null)) as
+    | Array<{
+        tenantId?: string;
+        tenantName?: string;
+      }>
+    | { Message?: string }
+    | null;
+
+  if (
+    !connectionsResponse.ok ||
+    !Array.isArray(connectionsBody) ||
+    !connectionsBody[0]?.tenantId
+  ) {
+    throw new Error("Could not load the connected Xero tenant");
+  }
+
+  let connectedEmail: string | null = null;
+
+  if (typeof tokenBody.id_token === "string") {
+    const payload = tokenBody.id_token.split(".")[1];
+
+    if (payload) {
+      try {
+        const decoded = JSON.parse(
+          Buffer.from(payload, "base64url").toString("utf8")
+        ) as { email?: string };
+        connectedEmail =
+          typeof decoded.email === "string" ? decoded.email : null;
+      } catch {
+        connectedEmail = null;
+      }
+    }
+  }
+
+  const scopes = [
+    "openid",
+    "profile",
+    "email",
+    "accounting.transactions.read",
+    "accounting.contacts.read",
+    "offline_access"
+  ];
+  const existingConnection = await prisma.workspaceXeroConnection.findFirst({
+    orderBy: [{ createdAt: "asc" }]
+  });
+  const connection = existingConnection
+    ? await prisma.workspaceXeroConnection.update({
+        where: { id: existingConnection.id },
+        data: {
+          tenantId: connectionsBody[0].tenantId,
+          tenantName: connectionsBody[0].tenantName ?? null,
+          clientId,
+          clientSecret,
+          redirectUri,
+          scopes,
+          accessToken: tokenBody.access_token,
+          refreshToken:
+            tokenBody.refresh_token ?? existingConnection.refreshToken,
+          tokenExpiresAt:
+            typeof tokenBody.expires_in === "number"
+              ? new Date(Date.now() + tokenBody.expires_in * 1000)
+              : null,
+          connectedEmail,
+          enabled: true
+        }
+      })
+    : await prisma.workspaceXeroConnection.create({
+        data: {
+          tenantId: connectionsBody[0].tenantId,
+          tenantName: connectionsBody[0].tenantName ?? null,
+          clientId,
+          clientSecret,
+          redirectUri,
+          scopes,
+          accessToken: tokenBody.access_token,
+          refreshToken: tokenBody.refresh_token ?? null,
+          tokenExpiresAt:
+            typeof tokenBody.expires_in === "number"
+              ? new Date(Date.now() + tokenBody.expires_in * 1000)
+              : null,
+          connectedEmail,
+          enabled: true
+        }
+      });
+
+  return serializeWorkspaceXeroConnection(connection);
+}
+
+export async function getWorkspaceXeroInvoices() {
+  const connection = await prisma.workspaceXeroConnection.findFirst({
+    where: { enabled: true },
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  if (!connection) {
+    return { connected: false as const };
+  }
+
+  const refreshedConnection = await refreshWorkspaceXeroAccessTokenIfNeeded(
+    5 * 60_000
+  );
+
+  if (!refreshedConnection?.accessToken || !refreshedConnection.tenantId) {
+    return { connected: false as const };
+  }
+
+  const invoicesResponse = await fetch(
+    "https://api.xero.com/api.xro/2.0/Invoices?" +
+      new URLSearchParams({
+        where: 'Status=="AUTHORISED"||Status=="SUBMITTED"',
+        order: "DueDate ASC"
+      }).toString(),
+    {
+      headers: {
+        Authorization: `Bearer ${refreshedConnection.accessToken}`,
+        "Xero-tenant-id": refreshedConnection.tenantId,
+        Accept: "application/json"
+      }
+    }
+  );
+
+  const invoicesBody = (await invoicesResponse.json().catch(() => null)) as {
+    Invoices?: Array<{
+      InvoiceNumber?: string;
+      Contact?: { Name?: string };
+      DueDate?: string;
+      AmountDue?: number;
+      Status?: string;
+      CurrencyCode?: string;
+    }>;
+    Message?: string;
+  } | null;
+
+  if (!invoicesResponse.ok) {
+    throw new Error(invoicesBody?.Message || "Failed to load Xero invoices");
+  }
+
+  const now = new Date();
+  const invoices = (invoicesBody?.Invoices ?? []).map((invoice) => {
+    const dueDate = normalizeDateInput(invoice.DueDate);
+    const amountDue = Number(invoice.AmountDue ?? 0);
+    return {
+      invoiceNumber: invoice.InvoiceNumber ?? "",
+      contact: invoice.Contact?.Name ?? "",
+      dueDate: dueDate?.toISOString() ?? invoice.DueDate ?? "",
+      amountDue,
+      status: invoice.Status ?? "",
+      isOverdue: Boolean(dueDate && dueDate < now && amountDue > 0)
+    };
+  });
+  const totalOutstanding = invoices.reduce(
+    (sum, invoice) => sum + invoice.amountDue,
+    0
+  );
+  const totalOverdue = invoices
+    .filter((invoice) => invoice.isOverdue)
+    .reduce((sum, invoice) => sum + invoice.amountDue, 0);
+
+  return {
+    connected: true as const,
+    tenantName: refreshedConnection.tenantName,
+    summary: {
+      totalOutstanding,
+      totalOverdue,
+      currency: invoicesBody?.Invoices?.[0]?.CurrencyCode ?? "NZD",
+      invoices
+    }
+  };
+}
+
+export async function disconnectWorkspaceXeroConnection() {
+  await prisma.workspaceXeroConnection.deleteMany({});
+  return { success: true };
+}
+
+export async function getActiveProjects(options?: { take?: number }) {
+  const projects = await prisma.project.findMany({
+    where: {
+      status: { notIn: ["completed", "draft"] }
+    },
+    include: {
+      client: { select: { name: true } },
+      portal: { select: { displayName: true } },
+      tasks: {
+        where: { status: { not: "done" } },
+        select: { title: true, status: true, executionType: true }
+      }
+    },
+    orderBy: { updatedAt: "desc" },
+    ...(options?.take ? { take: options.take } : { take: 10 })
+  });
+
+  return projects.map((project) => ({
+    id: project.id,
+    name: project.name,
+    status: project.status,
+    engagementType: project.engagementType,
+    client: project.client,
+    portal: project.portal,
+    tasks: project.tasks
+  }));
+}
+
+export async function getQuotesPipeline() {
+  const quotes = await prisma.projectQuote.findMany({
+    where: { status: { in: ["shared", "pending"] } },
+    include: {
+      project: {
+        select: {
+          name: true,
+          client: { select: { name: true } }
+        }
+      }
+    },
+    orderBy: { sharedAt: "desc" }
+  });
+
+  return quotes.map((quote) => ({
+    id: quote.id,
+    projectId: quote.projectId,
+    projectName: quote.project.name,
+    clientName: quote.project.client?.name ?? "",
+    version: quote.version,
+    status: quote.status,
+    totals: quote.totals as Prisma.Prisma.JsonObject,
+    sharedAt: quote.sharedAt.toISOString(),
+    currency: quote.currency
+  }));
+}
+
+function settledValue<T>(result: PromiseSettledResult<T>, fallback: T) {
+  return result.status === "fulfilled" ? result.value : fallback;
+}
+
+function selectSummaryCalendarEvents(
+  payload: Awaited<ReturnType<typeof getCalendarEvents>>
+) {
+  if (!payload.connected) {
+    return payload;
+  }
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfTomorrow = new Date(startOfToday);
+  endOfTomorrow.setDate(endOfTomorrow.getDate() + 2);
+
+  return {
+    connected: true as const,
+    events: payload.events.filter((event) => {
+      const start = normalizeDateInput(
+        event.start.dateTime ?? event.start.date
+      );
+      return Boolean(start && start >= startOfToday && start < endOfTomorrow);
+    })
+  };
+}
+
+function stringifyPromptData(value: unknown) {
+  return JSON.stringify(value, null, 2);
+}
+
+export async function generateWorkspaceDailySummary() {
+  const [todos, emails, calendarEvents, projects, quotes] =
+    await Promise.allSettled([
+      prisma.workspaceTodo.findMany({
+        where: { completed: false },
+        orderBy: { sortOrder: "asc" },
+        take: 20
+      }),
+      getGmailActionRequired(),
+      getCalendarEvents(),
+      getActiveProjects({ take: 5 }),
+      getQuotesPipeline()
+    ]);
+
+  const routing =
+    (await prisma.workspaceAiRouting.findFirst({
+      where: { workflowKey: "daily_summary" }
+    })) ??
+    (await prisma.workspaceProviderConnection.findFirst({
+      where: { isEnabled: true }
+    }));
+
+  if (!routing) {
+    throw new Error("No AI provider configured");
+  }
+
+  const provider =
+    "workflowKey" in routing
+      ? await prisma.workspaceProviderConnection.findUnique({
+          where: { providerKey: routing.providerKey }
+        })
+      : routing;
+
+  if (!provider) {
+    throw new Error("No AI provider configured");
+  }
+
+  const apiKey = getProviderApiKey(provider.providerKey, provider.apiKey);
+  const model =
+    "workflowKey" in routing
+      ? routing.modelOverride?.trim() || provider.defaultModel?.trim() || null
+      : provider.defaultModel?.trim() || null;
+
+  if (!apiKey || !model) {
+    throw new Error("No AI provider configured");
+  }
+
+  const prompt = `You are a sharp executive assistant. Generate a concise daily briefing for Jarrud, owner of Muloo (a HubSpot implementation and RevOps agency).
+
+DATA:
+- Open todos: ${stringifyPromptData(
+    settledValue(
+      todos,
+      [] as Array<{
+        title: string;
+        notes: string | null;
+        sortOrder: number;
+      }>
+    )
+  )}
+- Emails needing action (top 5): ${stringifyPromptData(
+    (() => {
+      const emailPayload = settledValue(emails, {
+        connected: false as const
+      } as Awaited<ReturnType<typeof getGmailActionRequired>>);
+
+      return emailPayload.connected
+        ? { connected: true, emails: emailPayload.emails.slice(0, 5) }
+        : emailPayload;
+    })()
+  )}
+- Calendar events today and tomorrow: ${stringifyPromptData(
+    selectSummaryCalendarEvents(
+      settledValue(calendarEvents, { connected: false as const } as Awaited<
+        ReturnType<typeof getCalendarEvents>
+      >)
+    )
+  )}
+- Active projects (top 5): ${stringifyPromptData(
+    settledValue(projects, [] as Awaited<ReturnType<typeof getActiveProjects>>)
+  )}
+- Quotes awaiting approval: ${stringifyPromptData(
+    settledValue(quotes, [] as Awaited<ReturnType<typeof getQuotesPipeline>>)
+  )}
+
+INSTRUCTIONS:
+Be direct. Flag anything urgent. Format as clean markdown with clear sections. Use ## headings for each section. No fluff. No preamble. Start with the most time-sensitive items.`;
+
+  let aiResponse = "";
+
+  if (provider.providerKey === "anthropic") {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1024,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    const body = (await response.json().catch(() => null)) as {
+      content?: Array<{ text?: string }>;
+      error?: { message?: string };
+    } | null;
+
+    if (!response.ok || !body?.content?.[0]?.text) {
+      throw new Error(
+        body?.error?.message || "Anthropic daily summary generation failed"
+      );
+    }
+
+    aiResponse = body.content[0].text;
+  } else if (provider.providerKey === "openai") {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    const body = (await response.json().catch(() => null)) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      error?: { message?: string };
+    } | null;
+
+    if (!response.ok || !body?.choices?.[0]?.message?.content) {
+      throw new Error(
+        body?.error?.message || "OpenAI daily summary generation failed"
+      );
+    }
+
+    aiResponse = body.choices[0].message.content;
+  } else {
+    throw new Error("Daily summary currently supports OpenAI or Anthropic");
+  }
+
+  const summary = await prisma.workspaceDailySummary.create({
+    data: {
+      content: aiResponse,
+      generatedBy: provider.providerKey,
+      summaryDate: new Date()
+    }
+  });
+
+  return {
+    content: summary.content,
+    generatedBy: summary.generatedBy,
+    createdAt: summary.createdAt.toISOString()
+  };
+}
+
+export async function getLatestWorkspaceDailySummary() {
+  const summary = await prisma.workspaceDailySummary.findFirst({
+    orderBy: { createdAt: "desc" }
+  });
+
+  return summary ? serializeWorkspaceDailySummary(summary) : { content: null };
+}
+
+export async function getWorkspaceAiRouting(workflowKey: string) {
+  const route = await prisma.workspaceAiRouting.findFirst({
+    where: { workflowKey }
+  });
+
+  if (!route) {
+    return null;
+  }
+
+  return {
+    ...serializeWorkspaceAiRouting(route),
+    model: route.modelOverride
+  };
+}
+
+export async function saveWorkspaceAiRouting(
+  workflowKey: string,
+  value: {
+    providerKey?: unknown;
+    model?: unknown;
+  }
+) {
+  if (
+    typeof value.providerKey !== "string" ||
+    value.providerKey.trim().length === 0
+  ) {
+    throw new Error("providerKey must be a non-empty string");
+  }
+
+  const providerKey = value.providerKey.trim();
+  const provider = await prisma.workspaceProviderConnection.findUnique({
+    where: { providerKey }
+  });
+
+  if (!provider) {
+    throw new Error("Provider connection not found");
+  }
+
+  const modelInput = typeof value.model === "string" ? value.model.trim() : "";
+  const model = modelInput || provider.defaultModel?.trim() || "";
+
+  if (!model) {
+    throw new Error("model must be provided");
+  }
+
+  const route = await prisma.workspaceAiRouting.upsert({
+    where: { workflowKey },
+    update: {
+      providerKey,
+      modelOverride: model
+    },
+    create: {
+      workflowKey,
+      label: formatWorkflowLabel(workflowKey),
+      providerKey,
+      modelOverride: model
+    }
+  });
+
+  return {
+    ...serializeWorkspaceAiRouting(route),
+    model: route.modelOverride
+  };
 }
 
 export async function loadDeliveryTemplates() {
@@ -14051,11 +15522,16 @@ export async function updateWorkspaceEmailOAuthConnection(value: {
       .map((scope) => scope.trim())
       .filter(Boolean);
 
-    if (normalizedScopes.length === 0) {
+    const nextScopes = ensureScope(
+      normalizedScopes,
+      "https://www.googleapis.com/auth/gmail.readonly"
+    );
+
+    if (nextScopes.length === 0) {
       throw new Error("At least one OAuth scope is required");
     }
 
-    updateData.scopes = normalizedScopes;
+    updateData.scopes = nextScopes;
   }
 
   const updatedConnection = await prisma.workspaceEmailOAuthConnection.update({
@@ -14091,14 +15567,17 @@ export async function createWorkspaceGoogleEmailOAuthStart() {
     redirectUri,
     expiresAt: Date.now() + 1000 * 60 * 10
   });
-  const scopes = connection.scopes.length
-    ? connection.scopes
-    : [
-        "openid",
-        "email",
-        "profile",
-        "https://www.googleapis.com/auth/gmail.send"
-      ];
+  const scopes = ensureScope(
+    connection.scopes.length
+      ? connection.scopes
+      : [
+          "openid",
+          "email",
+          "profile",
+          "https://www.googleapis.com/auth/gmail.send"
+        ],
+    "https://www.googleapis.com/auth/gmail.readonly"
+  );
 
   const params = new URLSearchParams({
     client_id: connection.clientId,
@@ -14199,6 +15678,17 @@ export async function completeWorkspaceGoogleEmailOAuthCallback(value: {
   const updatedConnection = await prisma.workspaceEmailOAuthConnection.update({
     where: { id: connection.id },
     data: {
+      scopes: ensureScope(
+        connection.scopes.length
+          ? connection.scopes
+          : [
+              "openid",
+              "email",
+              "profile",
+              "https://www.googleapis.com/auth/gmail.send"
+            ],
+        "https://www.googleapis.com/auth/gmail.readonly"
+      ),
       accessToken: tokenBody.access_token,
       refreshToken: tokenBody.refresh_token ?? connection.refreshToken,
       tokenType: tokenBody.token_type ?? "Bearer",
@@ -14266,70 +15756,6 @@ async function getGoogleWorkspaceEmailOAuthConnectionRecord() {
 
   return prisma.workspaceEmailOAuthConnection.findUnique({
     where: { providerKey: "google_workspace" }
-  });
-}
-
-async function refreshGoogleWorkspaceEmailAccessTokenIfNeeded() {
-  const connection = await getGoogleWorkspaceEmailOAuthConnectionRecord();
-
-  if (
-    !connection?.enabled ||
-    !connection.connectedEmail ||
-    !connection.refreshToken ||
-    !connection.clientId ||
-    !connection.clientSecret
-  ) {
-    return null;
-  }
-
-  const tokenStillValid =
-    connection.accessToken &&
-    connection.tokenExpiresAt &&
-    connection.tokenExpiresAt.getTime() > Date.now() + 60_000;
-
-  if (tokenStillValid) {
-    return connection;
-  }
-
-  const refreshResponse = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: new URLSearchParams({
-      client_id: connection.clientId,
-      client_secret: connection.clientSecret,
-      refresh_token: connection.refreshToken,
-      grant_type: "refresh_token"
-    }).toString()
-  });
-
-  const refreshBody = (await refreshResponse.json().catch(() => null)) as {
-    access_token?: string;
-    expires_in?: number;
-    token_type?: string;
-    error?: string;
-    error_description?: string;
-  } | null;
-
-  if (!refreshResponse.ok || !refreshBody?.access_token) {
-    throw new Error(
-      refreshBody?.error_description ||
-        refreshBody?.error ||
-        "Google access token refresh failed"
-    );
-  }
-
-  return prisma.workspaceEmailOAuthConnection.update({
-    where: { id: connection.id },
-    data: {
-      accessToken: refreshBody.access_token,
-      tokenType: refreshBody.token_type ?? connection.tokenType ?? "Bearer",
-      tokenExpiresAt:
-        typeof refreshBody.expires_in === "number"
-          ? new Date(Date.now() + refreshBody.expires_in * 1000)
-          : connection.tokenExpiresAt
-    }
   });
 }
 

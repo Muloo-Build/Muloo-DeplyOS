@@ -59,11 +59,19 @@ import {
   createCookieHeader,
   createWorkspaceUserAuthToken,
   createWorkspaceGoogleEmailOAuthStart,
+  createWorkspaceCalendarOAuthStart,
+  createWorkspaceTodo,
+  createWorkspaceXeroOAuthStart,
   createSimpleAuthToken,
+  clearCompletedWorkspaceTodos,
+  completeWorkspaceCalendarOAuthCallback,
   completeWorkspaceGoogleEmailOAuthCallback,
+  completeWorkspaceXeroOAuthCallback,
   completeHubSpotOAuthCallback,
   createDiscoveryEvidence,
   disconnectWorkspaceGoogleEmailOAuthConnection,
+  disconnectWorkspaceCalendarConnection,
+  disconnectWorkspaceXeroConnection,
   ensureProjectScopeUnlocked,
   executeHubSpotAgentAction,
   extractDiscoveryFields,
@@ -86,6 +94,7 @@ import {
   loadWorkRequests,
   loadWorkspaceEmailOAuthConnection,
   loadWorkspaceEmailSettings,
+  loadWorkspaceTodos,
   loadWorkspaceUsers,
   markAllProjectMessagesSeenByInternal,
   createHubSpotOAuthStart,
@@ -98,6 +107,7 @@ import {
   convertWorkRequestToProject,
   appendApprovedChangeRequestToDelivery,
   updateAgentDefinition,
+  updateWorkspaceTodo,
   updateWorkspaceAiRouting,
   approveProjectQuote,
   createProjectMessage,
@@ -154,7 +164,17 @@ import {
   updateProjectTaskRecord,
   updateWorkRequest,
   updateWorkspaceUser,
-  ensureProjectPlanGenerationAllowed
+  ensureProjectPlanGenerationAllowed,
+  deleteWorkspaceTodo,
+  generateWorkspaceDailySummary,
+  getActiveProjects,
+  getCalendarEvents,
+  getGmailActionRequired,
+  getLatestWorkspaceDailySummary,
+  getQuotesPipeline,
+  getWorkspaceAiRouting,
+  getWorkspaceXeroInvoices,
+  saveWorkspaceAiRouting
 } from "./server";
 
 type HonoBindings = {
@@ -260,6 +280,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/email-settings", internalAuth);
   app.use("/api/email-oauth/google", internalAuth);
   app.use("/api/email-oauth/google/*", internalAuth);
+  app.use("/api/workspace", internalAuth);
+  app.use("/api/workspace/*", internalAuth);
   app.use("/api/client", clientAuth);
   app.use("/api/client/*", clientAuth);
 
@@ -1875,6 +1897,200 @@ export function createApiApp(config: BaseConfig) {
       connection: await loadWorkspaceEmailOAuthConnection()
     })
   );
+
+  app.get("/api/workspace/todos", async (c) =>
+    c.json(await loadWorkspaceTodos())
+  );
+
+  app.post("/api/workspace/todos", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      return c.json(await createWorkspaceTodo(body), 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to create todo"
+        },
+        400
+      );
+    }
+  });
+
+  app.patch("/api/workspace/todos/:todoId", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      return c.json(await updateWorkspaceTodo(c.req.param("todoId"), body));
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to update todo"
+        },
+        400
+      );
+    }
+  });
+
+  app.delete("/api/workspace/todos/:todoId", async (c) => {
+    try {
+      return c.json(await deleteWorkspaceTodo(c.req.param("todoId")));
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to delete todo"
+        },
+        400
+      );
+    }
+  });
+
+  app.delete("/api/workspace/todos", async (c) =>
+    c.json(await clearCompletedWorkspaceTodos())
+  );
+
+  app.get("/api/workspace/emails/action-required", async (c) =>
+    c.json(await getGmailActionRequired())
+  );
+
+  app.get("/api/workspace/calendar/auth", async (c) => {
+    try {
+      const { authUrl } = await createWorkspaceCalendarOAuthStart();
+      return c.redirect(authUrl);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to start Google Calendar OAuth"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/workspace/calendar/callback", async (c) => {
+    try {
+      await completeWorkspaceCalendarOAuthCallback({
+        code: c.req.query("code"),
+        state: c.req.query("state")
+      });
+      return c.redirect("/workspace?calendarConnected=true");
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to complete Google Calendar OAuth"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/workspace/calendar/events", async (c) =>
+    c.json(await getCalendarEvents())
+  );
+
+  app.delete("/api/workspace/calendar/connection", async (c) =>
+    c.json(await disconnectWorkspaceCalendarConnection())
+  );
+
+  app.get("/api/workspace/xero/auth", async (c) => {
+    try {
+      const { authUrl } = await createWorkspaceXeroOAuthStart();
+      return c.redirect(authUrl);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to start Xero OAuth"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/workspace/xero/callback", async (c) => {
+    try {
+      await completeWorkspaceXeroOAuthCallback({
+        code: c.req.query("code"),
+        state: c.req.query("state")
+      });
+      return c.redirect("/workspace?xeroConnected=true");
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to complete Xero OAuth"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/workspace/xero/invoices", async (c) =>
+    c.json(await getWorkspaceXeroInvoices())
+  );
+
+  app.delete("/api/workspace/xero/connection", async (c) =>
+    c.json(await disconnectWorkspaceXeroConnection())
+  );
+
+  app.get("/api/workspace/projects/active", async (c) =>
+    c.json(await getActiveProjects())
+  );
+
+  app.get("/api/workspace/quotes/pipeline", async (c) =>
+    c.json(await getQuotesPipeline())
+  );
+
+  app.post("/api/workspace/summary/generate", async (c) => {
+    try {
+      return c.json(await generateWorkspaceDailySummary());
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to generate summary";
+      return c.json(
+        { error: message },
+        message === "No AI provider configured" ? 400 : 500
+      );
+    }
+  });
+
+  app.get("/api/workspace/summary/latest", async (c) =>
+    c.json(await getLatestWorkspaceDailySummary())
+  );
+
+  app.get("/api/workspace/ai-routing/:workflowKey", async (c) =>
+    c.json(await getWorkspaceAiRouting(c.req.param("workflowKey")))
+  );
+
+  app.patch("/api/workspace/ai-routing/:workflowKey", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      return c.json(
+        await saveWorkspaceAiRouting(c.req.param("workflowKey"), body)
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update workspace AI routing"
+        },
+        400
+      );
+    }
+  });
 
   app.get("/api/products", async (c) =>
     c.json({

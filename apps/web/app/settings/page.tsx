@@ -11,6 +11,13 @@ export default function SettingsPage() {
       <div className="grid gap-6 xl:grid-cols-2">
         {[
           {
+            label: "Workspace",
+            title: "Command Centre connections",
+            description:
+              "Manage Google Calendar, Xero, and the AI routing that powers the daily Command Centre briefing.",
+            href: "/settings/workspace"
+          },
+          {
             label: "Team",
             title: "Users and access levels",
             description:

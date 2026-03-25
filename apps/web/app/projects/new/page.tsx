@@ -32,6 +32,7 @@ interface FormData {
   clientChampionLastName: string;
   clientChampionEmail: string;
   engagementType: string;
+  includesPortalAudit: boolean;
   hubsInScope: string[];
   useTemplate: boolean;
   templateId: string;
@@ -432,6 +433,7 @@ export default function NewProjectPage() {
     clientChampionLastName: "",
     clientChampionEmail: "",
     engagementType: "IMPLEMENTATION",
+    includesPortalAudit: false,
     hubsInScope: [],
     useTemplate: false,
     templateId: ""
@@ -701,6 +703,10 @@ export default function NewProjectPage() {
       ...current,
       scopeType,
       engagementType: selectedOption?.engagementType ?? current.engagementType,
+      ...(selectedOption?.engagementType === "OPTIMISATION" ||
+      selectedOption?.engagementType === "AUDIT"
+        ? { includesPortalAudit: true }
+        : {}),
       ...(scopeType === "standalone_quote"
         ? { useTemplate: false, templateId: "" }
         : {})
@@ -776,6 +782,10 @@ export default function NewProjectPage() {
       implementationApproach: current.implementationApproach,
       engagementType:
         option.recommendedEngagementType || current.engagementType,
+      ...(option.recommendedEngagementType === "OPTIMISATION" ||
+      option.recommendedEngagementType === "AUDIT"
+        ? { includesPortalAudit: true }
+        : {}),
       hubsInScope:
         option.recommendedHubs?.length > 0
           ? option.recommendedHubs
@@ -815,6 +825,7 @@ export default function NewProjectPage() {
       clientName: formData.clientName.trim(),
       selectedHubs: formData.hubsInScope,
       engagementType: formData.engagementType,
+      includesPortalAudit: formData.includesPortalAudit,
       owner: formData.owner,
       ownerEmail: formData.ownerEmail,
       serviceFamily: formData.serviceFamily,
@@ -1343,7 +1354,15 @@ export default function NewProjectPage() {
                     <button
                       key={type.id}
                       type="button"
-                      onClick={() => updateField("engagementType", type.id)}
+                      onClick={() =>
+                        setFormData((current) => ({
+                          ...current,
+                          engagementType: type.id,
+                          ...(type.id === "OPTIMISATION" || type.id === "AUDIT"
+                            ? { includesPortalAudit: true }
+                            : {})
+                        }))
+                      }
                       className={`rounded-2xl border p-4 text-left transition-colors ${
                         formData.engagementType === type.id
                           ? "border-accent-solid bg-background-elevated"
@@ -1358,6 +1377,17 @@ export default function NewProjectPage() {
                   ))}
                 </div>
               </div>
+
+              <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-4 text-sm text-white">
+                <input
+                  type="checkbox"
+                  checked={formData.includesPortalAudit}
+                  onChange={(event) =>
+                    updateField("includesPortalAudit", event.target.checked)
+                  }
+                />
+                Include portal audit
+              </label>
 
               <div className="grid gap-6 lg:grid-cols-[0.42fr_0.58fr]">
                 <div className="space-y-4">

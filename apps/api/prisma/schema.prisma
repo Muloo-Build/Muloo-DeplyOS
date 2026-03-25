@@ -151,6 +151,61 @@ model WorkspaceEmailOAuthConnection {
   updatedAt      DateTime  @updatedAt
 }
 
+model WorkspaceTodo {
+  id          String    @id @default(cuid())
+  title       String
+  notes       String?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model WorkspaceCalendarConnection {
+  id             String    @id @default(cuid())
+  providerKey    String    @unique // "google_calendar"
+  label          String
+  clientId       String?
+  clientSecret   String?
+  redirectUri    String?
+  scopes         String[]
+  accessToken    String?
+  refreshToken   String?
+  tokenType      String?
+  connectedEmail String?
+  connectedName  String?
+  tokenExpiresAt DateTime?
+  enabled        Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model WorkspaceXeroConnection {
+  id             String    @id @default(cuid())
+  tenantId       String?
+  tenantName     String?
+  clientId       String?
+  clientSecret   String?
+  redirectUri    String?
+  scopes         String[]
+  accessToken    String?
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  connectedEmail String?
+  enabled        Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model WorkspaceDailySummary {
+  id          String   @id @default(cuid())
+  summaryDate DateTime @default(now())
+  content     String   // AI-generated markdown summary
+  generatedBy String   // providerKey used
+  createdAt   DateTime @default(now())
+}
+
 model HubSpotPortal {
   id             String           @id @default(cuid())
   portalId       String           @unique
@@ -184,6 +239,7 @@ model Project {
   quoteApprovedByEmail      String?
   scopeLockedAt             DateTime?
   engagementType            EngagementType          @default(IMPLEMENTATION)
+  includesPortalAudit       Boolean                 @default(false)
   owner                     String
   ownerEmail                String
   serviceFamily             String                  @default("hubspot_architecture")

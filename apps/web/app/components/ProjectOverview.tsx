@@ -21,6 +21,8 @@ interface Project {
   id: string;
   name: string;
   status: string;
+  portalId?: string | null;
+  includesPortalAudit?: boolean;
   quoteApprovalStatus?: string | null;
   quoteSharedAt?: string | null;
   quoteApprovedAt?: string | null;
@@ -294,6 +296,16 @@ type EditableField =
   | "clientChampion"
   | null;
 
+type SectionKey =
+  | "context"
+  | "email"
+  | "sessions"
+  | "portal"
+  | "inputs"
+  | "discovery"
+  | "agent"
+  | "quickWins";
+
 const engagementOptions = [
   { value: "IMPLEMENTATION", label: "Implementation" },
   { value: "MIGRATION", label: "Migration" },
@@ -564,6 +576,40 @@ function EditButton({
   );
 }
 
+function ExpandableText({
+  text,
+  emptyText,
+  className = "text-sm text-text-secondary"
+}: {
+  text: string | null | undefined;
+  emptyText: string;
+  className?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const normalizedText = text?.trim() ?? "";
+
+  if (!normalizedText) {
+    return <p className={className}>{emptyText}</p>;
+  }
+
+  return (
+    <div>
+      <p className={`${className} ${expanded ? "" : "line-clamp-3"}`}>
+        {normalizedText}
+      </p>
+      {normalizedText.length > 200 ? (
+        <button
+          type="button"
+          className="mt-1 text-xs text-zinc-400 hover:text-white"
+          onClick={() => setExpanded((current) => !current)}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function ProjectOverview({ projectId }: { projectId: string }) {
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
@@ -680,6 +726,29 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [emailFeedback, setEmailFeedback] = useState<string | null>(null);
   const [dictationActive, setDictationActive] = useState(false);
   const speechRecognitionRef = useRef<any>(null);
+  const sectionRefs = {
+    context: useRef<HTMLDivElement>(null),
+    email: useRef<HTMLDivElement>(null),
+    sessions: useRef<HTMLDivElement>(null),
+    portal: useRef<HTMLDivElement>(null),
+    inputs: useRef<HTMLDivElement>(null),
+    discovery: useRef<HTMLDivElement>(null),
+    agent: useRef<HTMLDivElement>(null),
+    quickWins: useRef<HTMLDivElement>(null)
+  };
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>(
+    {
+      context: true,
+      email: false,
+      sessions: false,
+      portal: true,
+      inputs: false,
+      discovery: false,
+      agent: false,
+      quickWins: true
+    }
+  );
+  const [activeSection, setActiveSection] = useState<SectionKey>("context");
 
   async function loadProjectData() {
     const [
@@ -888,6 +957,28 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     };
   }, []);
 
+  function toggleSection(key: SectionKey) {
+    setOpenSections((current) => ({
+      ...current,
+      [key]: !current[key]
+    }));
+    setActiveSection(key);
+  }
+
+  function scrollToSection(key: SectionKey) {
+    setOpenSections((current) => ({
+      ...current,
+      [key]: true
+    }));
+    setActiveSection(key);
+    window.setTimeout(() => {
+      sectionRefs[key].current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }, 20);
+  }
+
   const completedSessions = sessions.filter((session) =>
     isSessionComplete(session)
   ).length;
@@ -933,6 +1024,48 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     project,
     discoverySummary?.recommendedNextQuestions
   );
+  const sectionPills = [
+    {
+      key: "context" as SectionKey,
+      label: "Project",
+      show: Boolean(project)
+    },
+    {
+      key: "email" as SectionKey,
+      label: "Emails",
+      show: Boolean(project)
+    },
+    {
+      key: "sessions" as SectionKey,
+      label: "Sessions",
+      show: !isStandaloneQuote && sessions.length > 0
+    },
+    {
+      key: "portal" as SectionKey,
+      label: "Portal",
+      show: Boolean(project)
+    },
+    {
+      key: "inputs" as SectionKey,
+      label: "Inputs",
+      show: !isStandaloneQuote
+    },
+    {
+      key: "discovery" as SectionKey,
+      label: "Discovery",
+      show: !isStandaloneQuote || Boolean(project?.commercialBrief?.trim())
+    },
+    {
+      key: "agent" as SectionKey,
+      label: "Agent",
+      show: Boolean(discoverySummary || project?.packagingAssessment)
+    },
+    {
+      key: "quickWins" as SectionKey,
+      label: "Quick Wins",
+      show: quickWins.length > 0
+    }
+  ].filter((section) => section.show);
 
   async function refreshPortalSnapshot() {
     if (!project?.portal?.id) {
@@ -2161,6 +2294,24 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               showDiscovery={!isStandaloneQuote}
               engagementType={project.engagementType}
             />
+            <div className="sticky top-6 z-20 mb-6 rounded-2xl border border-zinc-700 bg-zinc-900/90 px-4 py-3 backdrop-blur">
+              <div className="flex flex-wrap gap-2">
+                {sectionPills.map((section) => (
+                  <button
+                    key={section.key}
+                    type="button"
+                    onClick={() => scrollToSection(section.key)}
+                    className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      activeSection === section.key
+                        ? "bg-zinc-500 text-white"
+                        : "bg-zinc-700 text-zinc-200 hover:bg-zinc-600"
+                    }`}
+                  >
+                    {section.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
               <div>
                 <Link href="/" className="text-sm text-text-muted">
@@ -2348,1437 +2499,1558 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               ))}
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-[1fr_0.95fr]">
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <h2 className="text-lg font-semibold text-white">
-                  Project Context
-                </h2>
-
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Client Name
-                        </p>
-                        {editingField === "clientName" ? (
-                          <>
-                            <input
-                              value={projectDraft.clientName}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  clientName: event.target.value
-                                }))
-                              }
-                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            />
-                            {renderActions("clientName")}
-                          </>
-                        ) : (
-                          <p className="mt-2 text-sm text-white">
-                            {project.client.name}
-                          </p>
-                        )}
-                      </div>
-                      {editingField !== "clientName" ? (
-                        <EditButton
-                          label="Edit client name"
-                          onClick={() => startEditing("clientName")}
-                        />
-                      ) : null}
-                    </div>
-                    {renderError("clientName")}
-                  </div>
-
-                  <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Project Type
-                        </p>
-                        {editingField === "type" ? (
-                          <>
-                            <select
-                              value={projectDraft.type}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  type: event.target.value
-                                }))
-                              }
-                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            >
-                              {engagementOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                            {renderActions("type")}
-                          </>
-                        ) : (
-                          <>
-                            <p className="mt-2 text-sm text-white">
-                              {formatEngagementType(project.engagementType)}
-                            </p>
-                            <p className="mt-1 text-xs text-text-secondary">
-                              {isStandaloneQuote
-                                ? "Standalone quote workflow"
-                                : "Discovery-led implementation workflow"}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                      {editingField !== "type" ? (
-                        <EditButton
-                          label="Edit project type"
-                          onClick={() => startEditing("type")}
-                        />
-                      ) : null}
-                    </div>
-                    {renderError("type")}
-                  </div>
-
-                  <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <div className="space-y-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Client HubSpot Portal
-                          </p>
-                          {editingField === "portalId" ? (
-                            <>
-                              <select
-                                value={projectDraft.portalId}
-                                onChange={(event) =>
-                                  setProjectDraft((currentDraft) => ({
-                                    ...currentDraft,
-                                    portalId: event.target.value
-                                  }))
-                                }
-                                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                              >
-                                <option value="">Not linked yet</option>
-                                {portalOptions.map((portalOption) => (
-                                  <option
-                                    key={portalOption.id}
-                                    value={portalOption.portalId}
-                                  >
-                                    {portalOption.displayName} ·{" "}
-                                    {portalOption.portalId}
-                                    {portalOption.connected
-                                      ? " · Connected"
-                                      : " · Needs reconnect"}
-                                  </option>
-                                ))}
-                              </select>
-                              <p className="mt-3 text-xs text-text-secondary">
-                                Pick the client’s installed HubSpot portal.
-                                Saving here updates every project for this
-                                client.
-                              </p>
-                              {renderActions("portalId")}
-                            </>
-                          ) : (
-                            <>
-                              <p className="mt-2 text-sm text-white">
-                                {project.portal?.displayName ??
-                                  "Not linked yet"}
-                              </p>
-                              <p className="mt-1 text-xs leading-5 text-text-secondary">
-                                {project.portal?.portalId
-                                  ? `${project.portal.portalId}${project.portal.connected ? " · Connected" : " · Needs reconnect"}`
-                                  : "Connect the client’s HubSpot portal once here and every project for this client will inherit it."}
-                              </p>
-                              {project.portal?.connectedEmail ? (
-                                <p className="mt-1 text-xs text-text-secondary">
-                                  Connected as {project.portal.connectedEmail}
-                                </p>
-                              ) : null}
-                            </>
-                          )}
-                        </div>
-                        {editingField !== "portalId" ? (
-                          <EditButton
-                            label="Select client HubSpot portal"
-                            onClick={() => startEditing("portalId")}
-                          />
-                        ) : null}
-                      </div>
-
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.06)] bg-background-card/60 p-3">
-                        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                          <label className="block">
-                            <span className="text-[11px] uppercase tracking-[0.2em] text-text-muted">
-                              Install profile
-                            </span>
-                            <select
-                              value={hubSpotInstallProfile}
-                              onChange={(event) =>
-                                setHubSpotInstallProfile(
-                                  event.target.value as HubSpotInstallProfile
-                                )
-                              }
-                              className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(81,208,176,0.45)]"
-                            >
-                              {hubSpotInstallProfileOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-
-                          <button
-                            type="button"
-                            onClick={() => void connectHubSpotPortal()}
-                            disabled={portalConnectBusy}
-                            className="w-full rounded-xl border border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.12)] px-4 py-2.5 text-sm font-medium text-[#51d0b0] disabled:cursor-not-allowed lg:w-auto"
-                          >
-                            {portalConnectBusy
-                              ? "Connecting..."
-                              : "Connect client portal"}
-                          </button>
-                        </div>
-                        <p className="mt-3 text-xs leading-5 text-text-secondary">
-                          Start with `Core CRM install` for most client portals.
-                          This is a client-level connection, so once it is
-                          linked here the rest of that client’s projects will
-                          use the same portal automatically.
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.06)] bg-background-card/60 p-3">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-text-muted">
-                              Portal Snapshot
-                            </p>
-                            <p className="mt-2 text-sm text-white">
-                              {portalSnapshot?.hubTier
-                                ? `Hub tier: ${portalSnapshot.hubTier}`
-                                : "No portal snapshot captured yet"}
-                            </p>
-                            {portalSnapshot?.capturedAt ? (
-                              <p className="mt-1 text-xs text-text-secondary">
-                                Captured {formatDate(portalSnapshot.capturedAt)}
-                              </p>
-                            ) : (
-                              <p className="mt-1 text-xs text-text-secondary">
-                                Capture the current portal footprint here before
-                                the audit work starts.
-                              </p>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => void refreshPortalSnapshot()}
-                            disabled={portalSnapshotBusy || !project.portal?.id}
-                            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                          >
-                            {portalSnapshotBusy
-                              ? "Refreshing..."
-                              : "Refresh Snapshot"}
-                          </button>
-                        </div>
-
-                        {portalSnapshot ? (
-                          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                            <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-3">
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
-                                Active Hubs
-                              </p>
-                              <p className="mt-2 text-sm text-white">
-                                {portalSnapshot.activeHubs.length > 0
-                                  ? portalSnapshot.activeHubs
-                                      .map((hub) => formatLabel(hub))
-                                      .join(", ")
-                                  : "Not detected"}
-                              </p>
-                            </div>
-                            <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-3">
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
-                                Pipelines
-                              </p>
-                              <p className="mt-2 text-sm text-white">
-                                Deals{" "}
-                                {formatStatCount(
-                                  portalSnapshot.dealPipelineCount
-                                )}{" "}
-                                / Stages{" "}
-                                {formatStatCount(portalSnapshot.dealStageCount)}{" "}
-                                / Tickets{" "}
-                                {formatStatCount(
-                                  portalSnapshot.ticketPipelineCount
-                                )}
-                              </p>
-                            </div>
-                            <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-3">
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
-                                Property Counts
-                              </p>
-                              <p className="mt-2 text-sm text-white">
-                                Contacts{" "}
-                                {formatStatCount(
-                                  portalSnapshot.contactPropertyCount
-                                )}{" "}
-                                · Companies{" "}
-                                {formatStatCount(
-                                  portalSnapshot.companyPropertyCount
-                                )}{" "}
-                                · Deals{" "}
-                                {formatStatCount(
-                                  portalSnapshot.dealPropertyCount
-                                )}{" "}
-                                · Tickets{" "}
-                                {formatStatCount(
-                                  portalSnapshot.ticketPropertyCount
-                                )}
-                              </p>
-                            </div>
-                            <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-3">
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
-                                Custom Objects
-                              </p>
-                              <p className="mt-2 text-sm text-white">
-                                {formatStatCount(
-                                  portalSnapshot.customObjectCount
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                    {renderError("portalId")}
-                  </div>
-                  <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Owner
-                        </p>
-                        {editingField === "owner" ? (
-                          <>
-                            <select
-                              value={projectDraft.owner}
-                              onChange={(event) =>
-                                selectOwner(event.target.value)
-                              }
-                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            >
-                              {teamUsers.map((user) => (
-                                <option key={user.id} value={user.name}>
-                                  {user.name} - {user.role}
-                                </option>
-                              ))}
-                            </select>
-                            <p className="mt-3 text-sm text-text-secondary">
-                              {projectDraft.ownerEmail}
-                            </p>
-                            {renderActions("owner")}
-                          </>
-                        ) : (
-                          <>
-                            <p className="mt-2 text-sm text-white">
-                              {project.owner}
-                            </p>
-                            <p className="mt-1 text-sm text-text-secondary">
-                              {project.ownerEmail}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                      {editingField !== "owner" ? (
-                        <EditButton
-                          label="Edit owner"
-                          onClick={() => startEditing("owner")}
-                        />
-                      ) : null}
-                    </div>
-                    {renderError("owner")}
-                  </div>
-                  {[
-                    ["Portal", project.portal?.displayName ?? "Pending"],
-                    [
-                      "Quick Wins",
-                      `${quickWinStats.total} total · ${quickWinStats.open} open · ${quickWinStats.inProgress} in progress · ${quickWinStats.resolved} resolved`
-                    ],
-                    [
-                      isStandaloneQuote
-                        ? "Technical Blueprint Generated"
-                        : "Blueprint Generated",
-                      blueprint ? "Yes" : "No"
-                    ]
-                  ].map(([label, value]) => (
-                    <div
-                      key={label}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
-                    >
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                        {label}
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <section
+                  ref={sectionRefs.context}
+                  className="scroll-mt-32 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/60"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("context")}
+                    className="flex w-full items-center justify-between gap-3 bg-zinc-800 px-5 py-4 text-left"
+                  >
+                    <div>
+                      <p className="font-semibold text-sm text-white">
+                        Project Context
                       </p>
-                      <p className="mt-2 text-sm text-white">{value}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                        Client Profile
+                      <p className="text-xs text-zinc-400">
+                        {project.selectedHubs.length} hubs in scope
                       </p>
-                      {editingField === "clientProfile" ? (
-                        <>
-                          <div className="mt-3 grid gap-3 md:grid-cols-2">
-                            <select
-                              value={projectDraft.clientIndustry}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  clientIndustry: event.target.value
-                                }))
-                              }
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            >
-                              <option value="">Select industry</option>
-                              {industryOptions.map((industry) => (
-                                <option key={industry} value={industry}>
-                                  {industry}
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              value={projectDraft.clientWebsite}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  clientWebsite: event.target.value
-                                }))
-                              }
-                              placeholder="Primary website"
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            />
-                          </div>
-                          <textarea
-                            value={projectDraft.clientAdditionalWebsitesText}
-                            onChange={(event) =>
-                              setProjectDraft((currentDraft) => ({
-                                ...currentDraft,
-                                clientAdditionalWebsitesText: event.target.value
-                              }))
-                            }
-                            placeholder="Additional websites, one per line"
-                            className="mt-3 min-h-[110px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                          />
-                          <div className="mt-3 grid gap-3 md:grid-cols-2">
-                            <input
-                              value={projectDraft.clientLinkedinUrl}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  clientLinkedinUrl: event.target.value
-                                }))
-                              }
-                              placeholder="LinkedIn URL"
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            />
-                            <input
-                              value={projectDraft.clientFacebookUrl}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  clientFacebookUrl: event.target.value
-                                }))
-                              }
-                              placeholder="Facebook URL"
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            />
-                            <input
-                              value={projectDraft.clientInstagramUrl}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  clientInstagramUrl: event.target.value
-                                }))
-                              }
-                              placeholder="Instagram URL"
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            />
-                            <input
-                              value={projectDraft.clientXUrl}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  clientXUrl: event.target.value
-                                }))
-                              }
-                              placeholder="X / Twitter URL"
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            />
-                            <input
-                              value={projectDraft.clientYoutubeUrl}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  clientYoutubeUrl: event.target.value
-                                }))
-                              }
-                              placeholder="YouTube URL"
-                              className="md:col-span-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            />
-                          </div>
-                          {renderActions("clientProfile")}
-                        </>
-                      ) : (
-                        <>
-                          <div className="mt-2 grid gap-3 md:grid-cols-2">
-                            <div>
-                              <p className="text-sm text-white">
-                                {project.client.industry ?? "Industry not set"}
-                              </p>
-                              <p className="mt-1 text-sm text-text-secondary">
-                                {project.client.website ?? "No primary website"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-text-secondary">
-                                {(project.client.additionalWebsites ?? [])
-                                  .length > 0
-                                  ? `${project.client.additionalWebsites?.length} additional website(s)`
-                                  : "No additional websites"}
-                              </p>
-                              <p className="mt-1 text-sm text-text-secondary">
-                                {[
-                                  project.client.linkedinUrl && "LinkedIn",
-                                  project.client.facebookUrl && "Facebook",
-                                  project.client.instagramUrl && "Instagram",
-                                  project.client.xUrl && "X",
-                                  project.client.youtubeUrl && "YouTube"
-                                ]
-                                  .filter(Boolean)
-                                  .join(", ") || "No social profiles"}
-                              </p>
-                            </div>
-                          </div>
-                        </>
-                      )}
                     </div>
-                    {editingField !== "clientProfile" ? (
-                      <EditButton
-                        label="Edit client profile"
-                        onClick={() => startEditing("clientProfile")}
-                      />
-                    ) : null}
-                  </div>
-                  {renderError("clientProfile")}
-                </div>
-
-                <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                        Client Champion
-                      </p>
-                      {editingField === "clientChampion" ? (
-                        <>
-                          <div className="mt-3 grid gap-3 md:grid-cols-2">
-                            <input
-                              value={projectDraft.clientChampionFirstName}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  clientChampionFirstName: event.target.value
-                                }))
-                              }
-                              placeholder="First name"
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            />
-                            <input
-                              value={projectDraft.clientChampionLastName}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  clientChampionLastName: event.target.value
-                                }))
-                              }
-                              placeholder="Last name"
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                            />
-                          </div>
-                          <input
-                            value={projectDraft.clientChampionEmail}
-                            onChange={(event) =>
-                              setProjectDraft((currentDraft) => ({
-                                ...currentDraft,
-                                clientChampionEmail: event.target.value
-                              }))
-                            }
-                            placeholder="Email"
-                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                          />
-                          {renderActions("clientChampion")}
-                        </>
-                      ) : (
-                        <>
-                          <p className="mt-2 text-sm text-white">
-                            {[
-                              project.clientChampionFirstName,
-                              project.clientChampionLastName
-                            ]
-                              .filter(Boolean)
-                              .join(" ") || "Not set"}
-                          </p>
-                          <p className="mt-1 text-sm text-text-secondary">
-                            {project.clientChampionEmail ?? "No email recorded"}
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    {editingField !== "clientChampion" ? (
-                      <EditButton
-                        label="Edit client champion"
-                        onClick={() => startEditing("clientChampion")}
-                      />
-                    ) : null}
-                  </div>
-                  {renderError("clientChampion")}
-                </div>
-
-                <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                        Hubs In Scope
-                      </p>
-                      {editingField === "hubs" ? (
-                        <>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {hubOptions.map((hub) => {
-                              const selected = projectDraft.hubs.includes(
-                                hub.value
-                              );
-
-                              return (
-                                <button
-                                  key={hub.value}
-                                  type="button"
-                                  onClick={() => toggleHubSelection(hub.value)}
-                                  className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
-                                    selected
-                                      ? "border-[rgba(240,130,74,0.55)] bg-[rgba(240,130,74,0.18)] text-white"
-                                      : "border-[rgba(255,255,255,0.08)] text-text-secondary hover:text-white"
-                                  }`}
-                                >
-                                  {hub.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {renderActions("hubs")}
-                        </>
-                      ) : (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {project.selectedHubs.map((hub) => (
-                            <span
-                              key={hub}
-                              className="rounded bg-[rgba(255,255,255,0.06)] px-2 py-1 text-xs font-medium text-white"
-                            >
-                              {formatHubLabel(hub)}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {editingField !== "hubs" ? (
-                      <EditButton
-                        label="Edit hubs in scope"
-                        onClick={() => startEditing("hubs")}
-                      />
-                    ) : null}
-                  </div>
-                  {renderError("hubs")}
-                </div>
-
-                <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                        Platform Packaging
-                      </p>
-                      {editingField === "platformPackaging" ? (
-                        <>
-                          <div className="mt-3 grid gap-3 md:grid-cols-2">
-                            <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3">
-                              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                                Delivery approach
+                    <span className="text-sm text-zinc-400">
+                      {openSections.context ? "▴" : "▾"}
+                    </span>
+                  </button>
+                  <div
+                    className={`overflow-hidden transition-all duration-200 ${
+                      openSections.context ? "max-h-[12000px]" : "max-h-0"
+                    }`}
+                  >
+                    <div className="p-6">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Client Name
                               </p>
-                              <div className="mt-3 grid gap-2">
-                                {implementationApproachOptions.map((option) => (
-                                  <button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() =>
+                              {editingField === "clientName" ? (
+                                <>
+                                  <input
+                                    value={projectDraft.clientName}
+                                    onChange={(event) =>
                                       setProjectDraft((currentDraft) => ({
                                         ...currentDraft,
-                                        implementationApproach: option.value
+                                        clientName: event.target.value
                                       }))
                                     }
-                                    className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
-                                      projectDraft.implementationApproach ===
-                                      option.value
-                                        ? "border-[rgba(240,130,74,0.55)] bg-[rgba(240,130,74,0.14)] text-white"
-                                        : "border-[rgba(255,255,255,0.08)] text-text-secondary hover:text-white"
-                                    }`}
+                                    className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                  />
+                                  {renderActions("clientName")}
+                                </>
+                              ) : (
+                                <p className="mt-2 text-sm text-white">
+                                  {project.client.name}
+                                </p>
+                              )}
+                            </div>
+                            {editingField !== "clientName" ? (
+                              <EditButton
+                                label="Edit client name"
+                                onClick={() => startEditing("clientName")}
+                              />
+                            ) : null}
+                          </div>
+                          {renderError("clientName")}
+                        </div>
+
+                        <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Project Type
+                              </p>
+                              {editingField === "type" ? (
+                                <>
+                                  <select
+                                    value={projectDraft.type}
+                                    onChange={(event) =>
+                                      setProjectDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        type: event.target.value
+                                      }))
+                                    }
+                                    className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                                   >
-                                    {option.label}
-                                  </button>
-                                ))}
+                                    {engagementOptions.map((option) => (
+                                      <option
+                                        key={option.value}
+                                        value={option.value}
+                                      >
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {renderActions("type")}
+                                </>
+                              ) : (
+                                <>
+                                  <p className="mt-2 text-sm text-white">
+                                    {formatEngagementType(
+                                      project.engagementType
+                                    )}
+                                  </p>
+                                  <p className="mt-1 text-xs text-text-secondary">
+                                    {isStandaloneQuote
+                                      ? "Standalone quote workflow"
+                                      : "Discovery-led implementation workflow"}
+                                  </p>
+                                </>
+                              )}
+                            </div>
+                            {editingField !== "type" ? (
+                              <EditButton
+                                label="Edit project type"
+                                onClick={() => startEditing("type")}
+                              />
+                            ) : null}
+                          </div>
+                          {renderError("type")}
+                        </div>
+
+                        <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <div className="space-y-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                  Client HubSpot Portal
+                                </p>
+                                {editingField === "portalId" ? (
+                                  <>
+                                    <select
+                                      value={projectDraft.portalId}
+                                      onChange={(event) =>
+                                        setProjectDraft((currentDraft) => ({
+                                          ...currentDraft,
+                                          portalId: event.target.value
+                                        }))
+                                      }
+                                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                    >
+                                      <option value="">Not linked yet</option>
+                                      {portalOptions.map((portalOption) => (
+                                        <option
+                                          key={portalOption.id}
+                                          value={portalOption.portalId}
+                                        >
+                                          {portalOption.displayName} ·{" "}
+                                          {portalOption.portalId}
+                                          {portalOption.connected
+                                            ? " · Connected"
+                                            : " · Needs reconnect"}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <p className="mt-3 text-xs text-text-secondary">
+                                      Pick the client’s installed HubSpot
+                                      portal. Saving here updates every project
+                                      for this client.
+                                    </p>
+                                    {renderActions("portalId")}
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className="mt-2 text-sm text-white">
+                                      {project.portal?.displayName ??
+                                        "Not linked yet"}
+                                    </p>
+                                    <p className="mt-1 text-xs leading-5 text-text-secondary">
+                                      {project.portal?.portalId
+                                        ? `${project.portal.portalId}${project.portal.connected ? " · Connected" : " · Needs reconnect"}`
+                                        : "Connect the client’s HubSpot portal once here and every project for this client will inherit it."}
+                                    </p>
+                                    {project.portal?.connectedEmail ? (
+                                      <p className="mt-1 text-xs text-text-secondary">
+                                        Connected as{" "}
+                                        {project.portal.connectedEmail}
+                                      </p>
+                                    ) : null}
+                                  </>
+                                )}
                               </div>
-                              <p className="mt-2 text-xs text-text-secondary">
-                                Choose whether the plan should favor a lean
-                                workaround-led Phase 1 or a cleaner long-term
-                                architecture.
+                              {editingField !== "portalId" ? (
+                                <EditButton
+                                  label="Select client HubSpot portal"
+                                  onClick={() => startEditing("portalId")}
+                                />
+                              ) : null}
+                            </div>
+
+                            <div className="rounded-2xl border border-[rgba(255,255,255,0.06)] bg-background-card/60 p-3">
+                              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                                <label className="block">
+                                  <span className="text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                                    Install profile
+                                  </span>
+                                  <select
+                                    value={hubSpotInstallProfile}
+                                    onChange={(event) =>
+                                      setHubSpotInstallProfile(
+                                        event.target
+                                          .value as HubSpotInstallProfile
+                                      )
+                                    }
+                                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(81,208,176,0.45)]"
+                                  >
+                                    {hubSpotInstallProfileOptions.map(
+                                      (option) => (
+                                        <option
+                                          key={option.value}
+                                          value={option.value}
+                                        >
+                                          {option.label}
+                                        </option>
+                                      )
+                                    )}
+                                  </select>
+                                </label>
+
+                                <button
+                                  type="button"
+                                  onClick={() => void connectHubSpotPortal()}
+                                  disabled={portalConnectBusy}
+                                  className="w-full rounded-xl border border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.12)] px-4 py-2.5 text-sm font-medium text-[#51d0b0] disabled:cursor-not-allowed lg:w-auto"
+                                >
+                                  {portalConnectBusy
+                                    ? "Connecting..."
+                                    : "Connect client portal"}
+                                </button>
+                              </div>
+                              <p className="mt-3 text-xs leading-5 text-text-secondary">
+                                Start with `Core CRM install` for most client
+                                portals. This is a client-level connection, so
+                                once it is linked here the rest of that client’s
+                                projects will use the same portal automatically.
                               </p>
                             </div>
 
-                            <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3">
-                              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                                Customer platform
-                              </p>
-                              <select
-                                value={projectDraft.customerPlatformTier}
-                                onChange={(event) =>
-                                  setProjectDraft((currentDraft) => ({
-                                    ...currentDraft,
-                                    customerPlatformTier: event.target.value
-                                  }))
-                                }
-                                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                              >
-                                {customerPlatformTierOptions.map((option) => (
-                                  <option
-                                    key={option.value}
-                                    value={option.value}
-                                  >
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                              <p className="mt-2 text-xs text-text-secondary">
-                                Set the overall customer platform level first,
-                                then tune the individual Hub products below.
-                              </p>
+                            <div className="rounded-2xl border border-[rgba(255,255,255,0.06)] bg-background-card/60 p-3">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                                    Portal Snapshot
+                                  </p>
+                                  <p className="mt-2 text-sm text-white">
+                                    {portalSnapshot?.hubTier
+                                      ? `Hub tier: ${portalSnapshot.hubTier}`
+                                      : "No portal snapshot captured yet"}
+                                  </p>
+                                  {portalSnapshot?.capturedAt ? (
+                                    <p className="mt-1 text-xs text-text-secondary">
+                                      Captured{" "}
+                                      {formatDate(portalSnapshot.capturedAt)}
+                                    </p>
+                                  ) : (
+                                    <p className="mt-1 text-xs text-text-secondary">
+                                      Capture the current portal footprint here
+                                      before the audit work starts.
+                                    </p>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => void refreshPortalSnapshot()}
+                                  disabled={
+                                    portalSnapshotBusy || !project.portal?.id
+                                  }
+                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                                >
+                                  {portalSnapshotBusy
+                                    ? "Refreshing..."
+                                    : "Refresh Snapshot"}
+                                </button>
+                              </div>
+
+                              {portalSnapshot ? (
+                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                  <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-3">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                                      Active Hubs
+                                    </p>
+                                    <p className="mt-2 text-sm text-white">
+                                      {portalSnapshot.activeHubs.length > 0
+                                        ? portalSnapshot.activeHubs
+                                            .map((hub) => formatLabel(hub))
+                                            .join(", ")
+                                        : "Not detected"}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-3">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                                      Pipelines
+                                    </p>
+                                    <p className="mt-2 text-sm text-white">
+                                      Deals{" "}
+                                      {formatStatCount(
+                                        portalSnapshot.dealPipelineCount
+                                      )}{" "}
+                                      / Stages{" "}
+                                      {formatStatCount(
+                                        portalSnapshot.dealStageCount
+                                      )}{" "}
+                                      / Tickets{" "}
+                                      {formatStatCount(
+                                        portalSnapshot.ticketPipelineCount
+                                      )}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-3">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                                      Property Counts
+                                    </p>
+                                    <p className="mt-2 text-sm text-white">
+                                      Contacts{" "}
+                                      {formatStatCount(
+                                        portalSnapshot.contactPropertyCount
+                                      )}{" "}
+                                      · Companies{" "}
+                                      {formatStatCount(
+                                        portalSnapshot.companyPropertyCount
+                                      )}{" "}
+                                      · Deals{" "}
+                                      {formatStatCount(
+                                        portalSnapshot.dealPropertyCount
+                                      )}{" "}
+                                      · Tickets{" "}
+                                      {formatStatCount(
+                                        portalSnapshot.ticketPropertyCount
+                                      )}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-3">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                                      Custom Objects
+                                    </p>
+                                    <p className="mt-2 text-sm text-white">
+                                      {formatStatCount(
+                                        portalSnapshot.customObjectCount
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : null}
                             </div>
-                            <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3 md:col-span-2">
-                              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                                Hubs in scope
+                          </div>
+                          {renderError("portalId")}
+                        </div>
+                        <div className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Owner
                               </p>
+                              {editingField === "owner" ? (
+                                <>
+                                  <select
+                                    value={projectDraft.owner}
+                                    onChange={(event) =>
+                                      selectOwner(event.target.value)
+                                    }
+                                    className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                  >
+                                    {teamUsers.map((user) => (
+                                      <option key={user.id} value={user.name}>
+                                        {user.name} - {user.role}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <p className="mt-3 text-sm text-text-secondary">
+                                    {projectDraft.ownerEmail}
+                                  </p>
+                                  {renderActions("owner")}
+                                </>
+                              ) : (
+                                <>
+                                  <p className="mt-2 text-sm text-white">
+                                    {project.owner}
+                                  </p>
+                                  <p className="mt-1 text-sm text-text-secondary">
+                                    {project.ownerEmail}
+                                  </p>
+                                </>
+                              )}
+                            </div>
+                            {editingField !== "owner" ? (
+                              <EditButton
+                                label="Edit owner"
+                                onClick={() => startEditing("owner")}
+                              />
+                            ) : null}
+                          </div>
+                          {renderError("owner")}
+                        </div>
+                        {[
+                          ["Portal", project.portal?.displayName ?? "Pending"],
+                          [
+                            "Quick Wins",
+                            `${quickWinStats.total} total · ${quickWinStats.open} open · ${quickWinStats.inProgress} in progress · ${quickWinStats.resolved} resolved`
+                          ],
+                          [
+                            isStandaloneQuote
+                              ? "Technical Blueprint Generated"
+                              : "Blueprint Generated",
+                            blueprint ? "Yes" : "No"
+                          ]
+                        ].map(([label, value]) => (
+                          <div
+                            key={label}
+                            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                          >
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              {label}
+                            </p>
+                            <p className="mt-2 text-sm text-white">{value}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Client Profile
+                            </p>
+                            {editingField === "clientProfile" ? (
+                              <>
+                                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                                  <select
+                                    value={projectDraft.clientIndustry}
+                                    onChange={(event) =>
+                                      setProjectDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        clientIndustry: event.target.value
+                                      }))
+                                    }
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                  >
+                                    <option value="">Select industry</option>
+                                    {industryOptions.map((industry) => (
+                                      <option key={industry} value={industry}>
+                                        {industry}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input
+                                    value={projectDraft.clientWebsite}
+                                    onChange={(event) =>
+                                      setProjectDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        clientWebsite: event.target.value
+                                      }))
+                                    }
+                                    placeholder="Primary website"
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                  />
+                                </div>
+                                <textarea
+                                  value={
+                                    projectDraft.clientAdditionalWebsitesText
+                                  }
+                                  onChange={(event) =>
+                                    setProjectDraft((currentDraft) => ({
+                                      ...currentDraft,
+                                      clientAdditionalWebsitesText:
+                                        event.target.value
+                                    }))
+                                  }
+                                  placeholder="Additional websites, one per line"
+                                  className="mt-3 min-h-[110px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                />
+                                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                                  <input
+                                    value={projectDraft.clientLinkedinUrl}
+                                    onChange={(event) =>
+                                      setProjectDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        clientLinkedinUrl: event.target.value
+                                      }))
+                                    }
+                                    placeholder="LinkedIn URL"
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                  />
+                                  <input
+                                    value={projectDraft.clientFacebookUrl}
+                                    onChange={(event) =>
+                                      setProjectDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        clientFacebookUrl: event.target.value
+                                      }))
+                                    }
+                                    placeholder="Facebook URL"
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                  />
+                                  <input
+                                    value={projectDraft.clientInstagramUrl}
+                                    onChange={(event) =>
+                                      setProjectDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        clientInstagramUrl: event.target.value
+                                      }))
+                                    }
+                                    placeholder="Instagram URL"
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                  />
+                                  <input
+                                    value={projectDraft.clientXUrl}
+                                    onChange={(event) =>
+                                      setProjectDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        clientXUrl: event.target.value
+                                      }))
+                                    }
+                                    placeholder="X / Twitter URL"
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                  />
+                                  <input
+                                    value={projectDraft.clientYoutubeUrl}
+                                    onChange={(event) =>
+                                      setProjectDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        clientYoutubeUrl: event.target.value
+                                      }))
+                                    }
+                                    placeholder="YouTube URL"
+                                    className="md:col-span-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                  />
+                                </div>
+                                {renderActions("clientProfile")}
+                              </>
+                            ) : (
+                              <>
+                                <div className="mt-2 grid gap-3 md:grid-cols-2">
+                                  <div>
+                                    <p className="text-sm text-white">
+                                      {project.client.industry ??
+                                        "Industry not set"}
+                                    </p>
+                                    <p className="mt-1 text-sm text-text-secondary">
+                                      {project.client.website ??
+                                        "No primary website"}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-text-secondary">
+                                      {(project.client.additionalWebsites ?? [])
+                                        .length > 0
+                                        ? `${project.client.additionalWebsites?.length} additional website(s)`
+                                        : "No additional websites"}
+                                    </p>
+                                    <p className="mt-1 text-sm text-text-secondary">
+                                      {[
+                                        project.client.linkedinUrl &&
+                                          "LinkedIn",
+                                        project.client.facebookUrl &&
+                                          "Facebook",
+                                        project.client.instagramUrl &&
+                                          "Instagram",
+                                        project.client.xUrl && "X",
+                                        project.client.youtubeUrl && "YouTube"
+                                      ]
+                                        .filter(Boolean)
+                                        .join(", ") || "No social profiles"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                          {editingField !== "clientProfile" ? (
+                            <EditButton
+                              label="Edit client profile"
+                              onClick={() => startEditing("clientProfile")}
+                            />
+                          ) : null}
+                        </div>
+                        {renderError("clientProfile")}
+                      </div>
+
+                      <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Client Champion
+                            </p>
+                            {editingField === "clientChampion" ? (
+                              <>
+                                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                                  <input
+                                    value={projectDraft.clientChampionFirstName}
+                                    onChange={(event) =>
+                                      setProjectDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        clientChampionFirstName:
+                                          event.target.value
+                                      }))
+                                    }
+                                    placeholder="First name"
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                  />
+                                  <input
+                                    value={projectDraft.clientChampionLastName}
+                                    onChange={(event) =>
+                                      setProjectDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        clientChampionLastName:
+                                          event.target.value
+                                      }))
+                                    }
+                                    placeholder="Last name"
+                                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                  />
+                                </div>
+                                <input
+                                  value={projectDraft.clientChampionEmail}
+                                  onChange={(event) =>
+                                    setProjectDraft((currentDraft) => ({
+                                      ...currentDraft,
+                                      clientChampionEmail: event.target.value
+                                    }))
+                                  }
+                                  placeholder="Email"
+                                  className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                />
+                                {renderActions("clientChampion")}
+                              </>
+                            ) : (
+                              <>
+                                <p className="mt-2 text-sm text-white">
+                                  {[
+                                    project.clientChampionFirstName,
+                                    project.clientChampionLastName
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ") || "Not set"}
+                                </p>
+                                <p className="mt-1 text-sm text-text-secondary">
+                                  {project.clientChampionEmail ??
+                                    "No email recorded"}
+                                </p>
+                              </>
+                            )}
+                          </div>
+                          {editingField !== "clientChampion" ? (
+                            <EditButton
+                              label="Edit client champion"
+                              onClick={() => startEditing("clientChampion")}
+                            />
+                          ) : null}
+                        </div>
+                        {renderError("clientChampion")}
+                      </div>
+
+                      <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Hubs In Scope
+                            </p>
+                            {editingField === "hubs" ? (
+                              <>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {hubOptions.map((hub) => {
+                                    const selected = projectDraft.hubs.includes(
+                                      hub.value
+                                    );
+
+                                    return (
+                                      <button
+                                        key={hub.value}
+                                        type="button"
+                                        onClick={() =>
+                                          toggleHubSelection(hub.value)
+                                        }
+                                        className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                                          selected
+                                            ? "border-[rgba(240,130,74,0.55)] bg-[rgba(240,130,74,0.18)] text-white"
+                                            : "border-[rgba(255,255,255,0.08)] text-text-secondary hover:text-white"
+                                        }`}
+                                      >
+                                        {hub.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                {renderActions("hubs")}
+                              </>
+                            ) : (
                               <div className="mt-3 flex flex-wrap gap-2">
-                                {projectDraft.hubs.map((hub) => (
+                                {project.selectedHubs.map((hub) => (
                                   <span
                                     key={hub}
-                                    className="rounded bg-[rgba(73,205,225,0.12)] px-2 py-1 text-xs font-medium text-[#49cde1]"
+                                    className="rounded bg-[rgba(255,255,255,0.06)] px-2 py-1 text-xs font-medium text-white"
                                   >
                                     {formatHubLabel(hub)}
                                   </span>
                                 ))}
                               </div>
-                              <p className="mt-2 text-xs text-text-secondary">
-                                Edit the hub list above, then set the matching
-                                HubSpot product tiers here.
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 grid gap-3 md:grid-cols-2">
-                            {visiblePlatformProducts.map((productKey) => (
-                              <div
-                                key={productKey}
-                                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3"
-                              >
-                                <p className="text-sm font-medium text-white">
-                                  {formatPlatformProductLabel(productKey)}
-                                </p>
-                                <select
-                                  value={
-                                    projectDraft.platformTierSelections?.[
-                                      productKey
-                                    ] ?? ""
-                                  }
-                                  onChange={(event) =>
-                                    updatePlatformTierSelection(
-                                      productKey,
-                                      event.target.value
-                                    )
-                                  }
-                                  className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
-                                >
-                                  {hubTierOptions.map((option) => (
-                                    <option
-                                      key={option.value}
-                                      value={option.value}
-                                    >
-                                      {option.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            ))}
-                          </div>
-                          {renderActions("platformPackaging")}
-                        </>
-                      ) : (
-                        <>
-                          <p className="mt-2 text-sm text-white">
-                            {project.implementationApproach === "best_practice"
-                              ? "Best-practice / scalable approach"
-                              : "Pragmatic / POC approach"}
-                          </p>
-                          <p className="mt-2 text-sm text-white">
-                            {project.customerPlatformTier
-                              ? `${formatTierLabel(project.customerPlatformTier)} customer platform`
-                              : "No customer platform tier recorded yet."}
-                          </p>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {project.platformTierSelections &&
-                            Object.entries(
-                              project.platformTierSelections
-                            ).filter(([, tier]) => Boolean(tier)).length > 0 ? (
-                              Object.entries(project.platformTierSelections)
-                                .filter(([, tier]) => Boolean(tier))
-                                .map(([key, tier]) => (
-                                  <span
-                                    key={key}
-                                    className="rounded bg-[rgba(73,205,225,0.12)] px-2 py-1 text-xs font-medium text-[#49cde1]"
-                                  >
-                                    {formatPlatformProductLabel(key)}:{" "}
-                                    {formatTierLabel(tier)}
-                                  </span>
-                                ))
-                            ) : (
-                              <span className="text-sm text-text-secondary">
-                                No product tiers selected yet.
-                              </span>
                             )}
                           </div>
-                        </>
-                      )}
-                    </div>
-                    {editingField !== "platformPackaging" ? (
-                      <EditButton
-                        label="Edit platform packaging"
-                        onClick={() => startEditing("platformPackaging")}
-                      />
-                    ) : null}
-                  </div>
-                  {renderError("platformPackaging")}
-                </div>
-
-                {isStandaloneQuote ? (
-                  <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Job Brief
-                        </p>
-                        {editingField === "brief" ? (
-                          <>
-                            <textarea
-                              value={projectDraft.commercialBrief}
-                              onChange={(event) =>
-                                setProjectDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  commercialBrief: event.target.value
-                                }))
-                              }
-                              placeholder="Describe the scoped technical work, requirements, complexity, and any supporting context."
-                              className="mt-3 min-h-[160px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                          {editingField !== "hubs" ? (
+                            <EditButton
+                              label="Edit hubs in scope"
+                              onClick={() => startEditing("hubs")}
                             />
-                            {renderActions("brief")}
-                          </>
-                        ) : (
-                          <>
-                            <p className="mt-2 text-sm text-text-secondary">
-                              Raw source brief retained for reference. Use the
-                              scoped summary and recommendation as the working
-                              interpretation.
-                            </p>
-                            <p className="mt-3 whitespace-pre-wrap text-sm text-white">
-                              {showFullBrief
-                                ? project.commercialBrief ||
-                                  "No scoped brief captured yet."
-                                : getPreviewText(
-                                    project.commercialBrief,
-                                    700
-                                  ) || "No scoped brief captured yet."}
-                            </p>
-                            {project.commercialBrief &&
-                            project.commercialBrief.trim().length > 700 ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setShowFullBrief((current) => !current)
-                                }
-                                className="mt-3 text-sm font-medium text-[#49cde1]"
-                              >
-                                {showFullBrief
-                                  ? "Collapse full brief"
-                                  : "Show full brief"}
-                              </button>
-                            ) : null}
-                          </>
-                        )}
+                          ) : null}
+                        </div>
+                        {renderError("hubs")}
                       </div>
-                      {editingField !== "brief" ? (
-                        <EditButton
-                          label="Edit job brief"
-                          onClick={() => startEditing("brief")}
-                        />
+
+                      <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Platform Packaging
+                            </p>
+                            {editingField === "platformPackaging" ? (
+                              <>
+                                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                                  <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3">
+                                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                      Delivery approach
+                                    </p>
+                                    <div className="mt-3 grid gap-2">
+                                      {implementationApproachOptions.map(
+                                        (option) => (
+                                          <button
+                                            key={option.value}
+                                            type="button"
+                                            onClick={() =>
+                                              setProjectDraft(
+                                                (currentDraft) => ({
+                                                  ...currentDraft,
+                                                  implementationApproach:
+                                                    option.value
+                                                })
+                                              )
+                                            }
+                                            className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                                              projectDraft.implementationApproach ===
+                                              option.value
+                                                ? "border-[rgba(240,130,74,0.55)] bg-[rgba(240,130,74,0.14)] text-white"
+                                                : "border-[rgba(255,255,255,0.08)] text-text-secondary hover:text-white"
+                                            }`}
+                                          >
+                                            {option.label}
+                                          </button>
+                                        )
+                                      )}
+                                    </div>
+                                    <p className="mt-2 text-xs text-text-secondary">
+                                      Choose whether the plan should favor a
+                                      lean workaround-led Phase 1 or a cleaner
+                                      long-term architecture.
+                                    </p>
+                                  </div>
+
+                                  <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3">
+                                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                      Customer platform
+                                    </p>
+                                    <select
+                                      value={projectDraft.customerPlatformTier}
+                                      onChange={(event) =>
+                                        setProjectDraft((currentDraft) => ({
+                                          ...currentDraft,
+                                          customerPlatformTier:
+                                            event.target.value
+                                        }))
+                                      }
+                                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                    >
+                                      {customerPlatformTierOptions.map(
+                                        (option) => (
+                                          <option
+                                            key={option.value}
+                                            value={option.value}
+                                          >
+                                            {option.label}
+                                          </option>
+                                        )
+                                      )}
+                                    </select>
+                                    <p className="mt-2 text-xs text-text-secondary">
+                                      Set the overall customer platform level
+                                      first, then tune the individual Hub
+                                      products below.
+                                    </p>
+                                  </div>
+                                  <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3 md:col-span-2">
+                                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                      Hubs in scope
+                                    </p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                      {projectDraft.hubs.map((hub) => (
+                                        <span
+                                          key={hub}
+                                          className="rounded bg-[rgba(73,205,225,0.12)] px-2 py-1 text-xs font-medium text-[#49cde1]"
+                                        >
+                                          {formatHubLabel(hub)}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    <p className="mt-2 text-xs text-text-secondary">
+                                      Edit the hub list above, then set the
+                                      matching HubSpot product tiers here.
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                  {visiblePlatformProducts.map((productKey) => (
+                                    <div
+                                      key={productKey}
+                                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background px-3 py-3"
+                                    >
+                                      <p className="text-sm font-medium text-white">
+                                        {formatPlatformProductLabel(productKey)}
+                                      </p>
+                                      <select
+                                        value={
+                                          projectDraft.platformTierSelections?.[
+                                            productKey
+                                          ] ?? ""
+                                        }
+                                        onChange={(event) =>
+                                          updatePlatformTierSelection(
+                                            productKey,
+                                            event.target.value
+                                          )
+                                        }
+                                        className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                      >
+                                        {hubTierOptions.map((option) => (
+                                          <option
+                                            key={option.value}
+                                            value={option.value}
+                                          >
+                                            {option.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  ))}
+                                </div>
+                                {renderActions("platformPackaging")}
+                              </>
+                            ) : (
+                              <>
+                                <p className="mt-2 text-sm text-white">
+                                  {project.implementationApproach ===
+                                  "best_practice"
+                                    ? "Best-practice / scalable approach"
+                                    : "Pragmatic / POC approach"}
+                                </p>
+                                <p className="mt-2 text-sm text-white">
+                                  {project.customerPlatformTier
+                                    ? `${formatTierLabel(project.customerPlatformTier)} customer platform`
+                                    : "No customer platform tier recorded yet."}
+                                </p>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {project.platformTierSelections &&
+                                  Object.entries(
+                                    project.platformTierSelections
+                                  ).filter(([, tier]) => Boolean(tier)).length >
+                                    0 ? (
+                                    Object.entries(
+                                      project.platformTierSelections
+                                    )
+                                      .filter(([, tier]) => Boolean(tier))
+                                      .map(([key, tier]) => (
+                                        <span
+                                          key={key}
+                                          className="rounded bg-[rgba(73,205,225,0.12)] px-2 py-1 text-xs font-medium text-[#49cde1]"
+                                        >
+                                          {formatPlatformProductLabel(key)}:{" "}
+                                          {formatTierLabel(tier)}
+                                        </span>
+                                      ))
+                                  ) : (
+                                    <span className="text-sm text-text-secondary">
+                                      No product tiers selected yet.
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                          {editingField !== "platformPackaging" ? (
+                            <EditButton
+                              label="Edit platform packaging"
+                              onClick={() => startEditing("platformPackaging")}
+                            />
+                          ) : null}
+                        </div>
+                        {renderError("platformPackaging")}
+                      </div>
+
+                      {isStandaloneQuote ? (
+                        <div className="group mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Job Brief
+                              </p>
+                              {editingField === "brief" ? (
+                                <>
+                                  <textarea
+                                    value={projectDraft.commercialBrief}
+                                    onChange={(event) =>
+                                      setProjectDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        commercialBrief: event.target.value
+                                      }))
+                                    }
+                                    placeholder="Describe the scoped technical work, requirements, complexity, and any supporting context."
+                                    className="mt-3 min-h-[160px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                                  />
+                                  {renderActions("brief")}
+                                </>
+                              ) : (
+                                <>
+                                  <p className="mt-2 text-sm text-text-secondary">
+                                    Raw source brief retained for reference. Use
+                                    the scoped summary and recommendation as the
+                                    working interpretation.
+                                  </p>
+                                  <p className="mt-3 whitespace-pre-wrap text-sm text-white">
+                                    {showFullBrief
+                                      ? project.commercialBrief ||
+                                        "No scoped brief captured yet."
+                                      : getPreviewText(
+                                          project.commercialBrief,
+                                          700
+                                        ) || "No scoped brief captured yet."}
+                                  </p>
+                                  {project.commercialBrief &&
+                                  project.commercialBrief.trim().length >
+                                    700 ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setShowFullBrief((current) => !current)
+                                      }
+                                      className="mt-3 text-sm font-medium text-[#49cde1]"
+                                    >
+                                      {showFullBrief
+                                        ? "Collapse full brief"
+                                        : "Show full brief"}
+                                    </button>
+                                  ) : null}
+                                </>
+                              )}
+                            </div>
+                            {editingField !== "brief" ? (
+                              <EditButton
+                                label="Edit job brief"
+                                onClick={() => startEditing("brief")}
+                              />
+                            ) : null}
+                          </div>
+                          {renderError("brief")}
+                        </div>
+                      ) : null}
+
+                      {isStandaloneQuote ? (
+                        <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Supporting Context
+                              </p>
+                              <p className="mt-2 text-sm text-text-secondary">
+                                Add Google Meet notes, PDF references,
+                                screenshots, website links, and technical notes
+                                that should inform the scoped summary and quote.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowSupportingContext((current) => !current)
+                              }
+                              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm font-medium text-white"
+                            >
+                              {showSupportingContext
+                                ? "Hide source material"
+                                : "Show source material"}
+                            </button>
+                          </div>
+
+                          {showSupportingContext ? (
+                            <>
+                              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                                <label className="block">
+                                  <span className="text-sm font-medium text-white">
+                                    Context type
+                                  </span>
+                                  <select
+                                    value={contextDraft.evidenceType}
+                                    onChange={(event) =>
+                                      setContextDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        evidenceType: event.target
+                                          .value as EvidenceItem["evidenceType"]
+                                      }))
+                                    }
+                                    className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                                  >
+                                    <option value="uploaded-doc">
+                                      Document / PDF
+                                    </option>
+                                    <option value="website-link">
+                                      Website link
+                                    </option>
+                                    <option value="screen-grab">
+                                      Screen grab reference
+                                    </option>
+                                    <option value="transcript">
+                                      Meeting transcript
+                                    </option>
+                                    <option value="summary">
+                                      Meeting summary
+                                    </option>
+                                    <option value="operator-note">
+                                      Operator note
+                                    </option>
+                                    <option value="miro-note">Miro note</option>
+                                  </select>
+                                </label>
+
+                                <label className="block">
+                                  <span className="text-sm font-medium text-white">
+                                    Label
+                                  </span>
+                                  <input
+                                    value={contextDraft.sourceLabel}
+                                    onChange={(event) =>
+                                      setContextDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        sourceLabel: event.target.value
+                                      }))
+                                    }
+                                    placeholder="Example: Google Meet summary 18 Mar"
+                                    className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                                  />
+                                </label>
+
+                                <label className="block md:col-span-2">
+                                  <span className="text-sm font-medium text-white">
+                                    Link or file reference
+                                  </span>
+                                  <input
+                                    value={contextDraft.sourceUrl}
+                                    onChange={(event) =>
+                                      setContextDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        sourceUrl: event.target.value
+                                      }))
+                                    }
+                                    placeholder="Paste a URL, Google Doc link, Drive file link, or file reference"
+                                    className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                                  />
+                                </label>
+
+                                <label className="block md:col-span-2">
+                                  <span className="text-sm font-medium text-white">
+                                    Notes or extracted content
+                                  </span>
+                                  <textarea
+                                    value={contextDraft.content}
+                                    onChange={(event) =>
+                                      setContextDraft((currentDraft) => ({
+                                        ...currentDraft,
+                                        content: event.target.value
+                                      }))
+                                    }
+                                    placeholder="Paste notes, transcript excerpts, PDF takeaways, technical requirements, or implementation constraints here."
+                                    className="mt-3 min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                                  />
+                                </label>
+                              </div>
+
+                              <div className="mt-4 flex items-center justify-between gap-4">
+                                {contextError ? (
+                                  <p className="text-sm text-[#ff8f9c]">
+                                    {contextError}
+                                  </p>
+                                ) : (
+                                  <p className="text-sm text-text-secondary">
+                                    Tip: use the link field for websites, Google
+                                    Docs, Drive files, or screenshot references,
+                                    and the notes field for pasted content.
+                                  </p>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => void addSupportingContext()}
+                                  disabled={savingContext}
+                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                                >
+                                  {savingContext ? "Adding..." : "Add Context"}
+                                </button>
+                              </div>
+
+                              <div className="mt-5 space-y-3">
+                                {supportingContext.length > 0 ? (
+                                  supportingContext.map((item) => (
+                                    <div
+                                      key={item.id}
+                                      className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card px-4 py-4"
+                                    >
+                                      <div className="flex items-start justify-between gap-4">
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-sm font-medium text-white">
+                                            {item.sourceLabel}
+                                          </p>
+                                          <p className="mt-1 text-xs text-text-secondary">
+                                            {formatEvidenceTypeLabel(
+                                              item.evidenceType
+                                            )}{" "}
+                                            ·{" "}
+                                            {new Intl.DateTimeFormat("en-ZA", {
+                                              dateStyle: "medium",
+                                              timeStyle: "short"
+                                            }).format(new Date(item.createdAt))}
+                                          </p>
+                                          {item.sourceUrl ? (
+                                            <p className="mt-3 break-all text-sm text-[#49cde1]">
+                                              {item.sourceUrl}
+                                            </p>
+                                          ) : null}
+                                          {item.content ? (
+                                            <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
+                                              {item.content}
+                                            </p>
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] bg-background-card px-4 py-4 text-sm text-text-secondary">
+                                    No supporting context added yet. Add links,
+                                    notes, or references so the summary and
+                                    quote can work from better source material.
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="mt-5 rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] bg-background-card px-4 py-4 text-sm text-text-secondary">
+                              {supportingContext.length > 0
+                                ? `${supportingContext.length} source item${supportingContext.length === 1 ? "" : "s"} attached. Expand this section to review links, notes, transcripts, and documents.`
+                                : "No source material added yet. Expand this section to add links, notes, transcripts, or documents."}
+                            </div>
+                          )}
+                        </div>
                       ) : null}
                     </div>
-                    {renderError("brief")}
                   </div>
-                ) : null}
+                </section>
 
-                {isStandaloneQuote ? (
-                  <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Supporting Context
-                        </p>
-                        <p className="mt-2 text-sm text-text-secondary">
-                          Add Google Meet notes, PDF references, screenshots,
-                          website links, and technical notes that should inform
-                          the scoped summary and quote.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowSupportingContext((current) => !current)
-                        }
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm font-medium text-white"
-                      >
-                        {showSupportingContext
-                          ? "Hide source material"
-                          : "Show source material"}
-                      </button>
+                <section
+                  ref={sectionRefs.email}
+                  className="scroll-mt-32 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/60"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("email")}
+                    className="flex w-full items-center justify-between gap-3 bg-zinc-800 px-5 py-4 text-left"
+                  >
+                    <div>
+                      <p className="font-semibold text-sm text-white">
+                        Project Email Context
+                      </p>
+                      <p className="text-xs text-zinc-400">
+                        {emailSettings?.enabled && emailSettings.fromEmail
+                          ? `Sending from ${emailSettings.fromEmail}`
+                          : "Draft workspace"}
+                      </p>
                     </div>
-
-                    {showSupportingContext ? (
-                      <>
-                        <div className="mt-5 grid gap-4 md:grid-cols-2">
-                          <label className="block">
-                            <span className="text-sm font-medium text-white">
-                              Context type
-                            </span>
-                            <select
-                              value={contextDraft.evidenceType}
-                              onChange={(event) =>
-                                setContextDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  evidenceType: event.target
-                                    .value as EvidenceItem["evidenceType"]
-                                }))
-                              }
-                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
-                            >
-                              <option value="uploaded-doc">
-                                Document / PDF
-                              </option>
-                              <option value="website-link">Website link</option>
-                              <option value="screen-grab">
-                                Screen grab reference
-                              </option>
-                              <option value="transcript">
-                                Meeting transcript
-                              </option>
-                              <option value="summary">Meeting summary</option>
-                              <option value="operator-note">
-                                Operator note
-                              </option>
-                              <option value="miro-note">Miro note</option>
-                            </select>
-                          </label>
-
-                          <label className="block">
-                            <span className="text-sm font-medium text-white">
-                              Label
-                            </span>
-                            <input
-                              value={contextDraft.sourceLabel}
-                              onChange={(event) =>
-                                setContextDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  sourceLabel: event.target.value
-                                }))
-                              }
-                              placeholder="Example: Google Meet summary 18 Mar"
-                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
-                            />
-                          </label>
-
-                          <label className="block md:col-span-2">
-                            <span className="text-sm font-medium text-white">
-                              Link or file reference
-                            </span>
-                            <input
-                              value={contextDraft.sourceUrl}
-                              onChange={(event) =>
-                                setContextDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  sourceUrl: event.target.value
-                                }))
-                              }
-                              placeholder="Paste a URL, Google Doc link, Drive file link, or file reference"
-                              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
-                            />
-                          </label>
-
-                          <label className="block md:col-span-2">
-                            <span className="text-sm font-medium text-white">
-                              Notes or extracted content
-                            </span>
-                            <textarea
-                              value={contextDraft.content}
-                              onChange={(event) =>
-                                setContextDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  content: event.target.value
-                                }))
-                              }
-                              placeholder="Paste notes, transcript excerpts, PDF takeaways, technical requirements, or implementation constraints here."
-                              className="mt-3 min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
-                            />
-                          </label>
+                    <span className="text-sm text-zinc-400">
+                      {openSections.email ? "▴" : "▾"}
+                    </span>
+                  </button>
+                  <div
+                    className={`overflow-hidden transition-all duration-200 ${
+                      openSections.email ? "max-h-[9000px]" : "max-h-0"
+                    }`}
+                  >
+                    <div className="p-6">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <h2 className="text-lg font-semibold text-white">
+                            Project Email Composer
+                          </h2>
+                          <p className="mt-2 text-sm text-text-secondary">
+                            Plain-text project emails with dictation, AI
+                            cleanup, and AI drafting. Use this as a copy-first
+                            drafting space, then paste into your own email tool
+                            when that suits your workflow better.
+                          </p>
                         </div>
+                        <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs text-text-secondary">
+                          {emailSettings?.enabled && emailSettings.fromEmail
+                            ? `Sending from ${emailSettings.fromEmail}`
+                            : "Outbound email not connected yet"}
+                        </div>
+                      </div>
 
-                        <div className="mt-4 flex items-center justify-between gap-4">
-                          {contextError ? (
+                      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Email intent
+                          </span>
+                          <select
+                            value={emailIntent}
+                            onChange={(event) =>
+                              setEmailIntent(event.target.value)
+                            }
+                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          >
+                            <option value="next_steps">Next steps</option>
+                            <option value="questionnaire_invite">
+                              Project inputs invite
+                            </option>
+                            <option value="quote_ready">
+                              Quote ready for review
+                            </option>
+                            <option value="approval_follow_up">
+                              Approval follow-up
+                            </option>
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            AI provider
+                          </span>
+                          <select
+                            value={emailProviderKey}
+                            onChange={(event) => {
+                              const nextProviderKey = event.target.value;
+                              setEmailProviderKey(nextProviderKey);
+                              const nextProvider = aiProviders.find(
+                                (provider) =>
+                                  provider.providerKey === nextProviderKey
+                              );
+                              setEmailModelOverride(
+                                nextProvider?.defaultModel ?? ""
+                              );
+                            }}
+                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          >
+                            {aiProviders.length > 0 ? (
+                              aiProviders.map((provider) => (
+                                <option
+                                  key={provider.providerKey}
+                                  value={provider.providerKey}
+                                >
+                                  {provider.label}
+                                </option>
+                              ))
+                            ) : (
+                              <option value="">No enabled AI providers</option>
+                            )}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Model
+                          </span>
+                          <input
+                            value={emailModelOverride}
+                            onChange={(event) =>
+                              setEmailModelOverride(event.target.value)
+                            }
+                            placeholder="Use provider default model"
+                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Extra instruction
+                          </span>
+                          <textarea
+                            value={emailInstructions}
+                            onChange={(event) =>
+                              setEmailInstructions(event.target.value)
+                            }
+                            placeholder="Example: mention that Magnusol should nominate one operations lead and one sales owner for discovery."
+                            className="mt-3 min-h-[88px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          />
+                        </label>
+                      </div>
+
+                      {savedClientContacts.length > 0 ||
+                      clientUsers.length > 0 ? (
+                        <div className="mt-5 rounded-2xl bg-[#0b1126] p-4">
+                          <p className="text-sm font-medium text-white">
+                            Quick recipients
+                          </p>
+                          <p className="mt-2 text-sm text-text-secondary">
+                            Pull people into the email without typing addresses
+                            again.
+                          </p>
+
+                          {savedClientContacts.length > 0 ? (
+                            <div className="mt-4">
+                              <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                                Saved client contacts
+                              </p>
+                              <div className="mt-3 flex flex-wrap gap-3">
+                                {savedClientContacts.map((contact) => {
+                                  const contactLabel = [
+                                    contact.firstName,
+                                    contact.lastName
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ");
+
+                                  return (
+                                    <div
+                                      key={`email-contact-${contact.id}`}
+                                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-3"
+                                    >
+                                      <p className="text-sm font-medium text-white">
+                                        {contactLabel || contact.email}
+                                      </p>
+                                      <p className="mt-1 text-xs text-text-secondary">
+                                        {contact.email}
+                                        {contact.canApproveQuotes
+                                          ? " · Quote approver"
+                                          : ""}
+                                      </p>
+                                      <div className="mt-3 flex flex-wrap gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            addRecipient(
+                                              "to",
+                                              contact.email,
+                                              contactLabel
+                                            )
+                                          }
+                                          className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                        >
+                                          Add to To
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            addRecipient(
+                                              "cc",
+                                              contact.email,
+                                              contactLabel
+                                            )
+                                          }
+                                          className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                        >
+                                          Add to Cc
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {clientUsers.length > 0 ? (
+                            <div className="mt-4">
+                              <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                                Portal users
+                              </p>
+                              <div className="mt-3 flex flex-wrap gap-3">
+                                {clientUsers.map((clientUser) => {
+                                  const contactLabel = [
+                                    clientUser.firstName,
+                                    clientUser.lastName
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ");
+
+                                  return (
+                                    <div
+                                      key={`email-client-user-${clientUser.id}`}
+                                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-3"
+                                    >
+                                      <p className="text-sm font-medium text-white">
+                                        {contactLabel || clientUser.email}
+                                      </p>
+                                      <p className="mt-1 text-xs text-text-secondary">
+                                        {clientUser.email} · {clientUser.role}
+                                      </p>
+                                      <div className="mt-3 flex flex-wrap gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            addRecipient(
+                                              "to",
+                                              clientUser.email,
+                                              contactLabel
+                                            )
+                                          }
+                                          className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                        >
+                                          Add to To
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            addRecipient(
+                                              "cc",
+                                              clientUser.email,
+                                              contactLabel
+                                            )
+                                          }
+                                          className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                        >
+                                          Add to Cc
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            To
+                          </span>
+                          <input
+                            value={emailTo}
+                            onChange={(event) => setEmailTo(event.target.value)}
+                            placeholder="Comma-separated recipients"
+                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Cc
+                          </span>
+                          <input
+                            value={emailCc}
+                            onChange={(event) => setEmailCc(event.target.value)}
+                            placeholder="Optional comma-separated recipients"
+                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          />
+                        </label>
+                      </div>
+
+                      <label className="mt-5 block">
+                        <span className="text-sm font-medium text-white">
+                          Subject
+                        </span>
+                        <input
+                          value={emailSubject}
+                          onChange={(event) =>
+                            setEmailSubject(event.target.value)
+                          }
+                          className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                        />
+                      </label>
+
+                      <label className="mt-5 block">
+                        <span className="text-sm font-medium text-white">
+                          Plain-text body
+                        </span>
+                        <textarea
+                          value={emailBody}
+                          onChange={(event) => setEmailBody(event.target.value)}
+                          placeholder="Write freely here like a project note. Keep it plain text. Use dictation, then clean it up with AI if needed."
+                          className="mt-3 min-h-[320px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#09111f] px-4 py-4 font-mono text-sm leading-6 text-white outline-none"
+                        />
+                      </label>
+
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          {emailError ? (
                             <p className="text-sm text-[#ff8f9c]">
-                              {contextError}
+                              {emailError}
+                            </p>
+                          ) : emailFeedback ? (
+                            <p className="text-sm text-status-success">
+                              {emailFeedback}
                             </p>
                           ) : (
                             <p className="text-sm text-text-secondary">
-                              Tip: use the link field for websites, Google Docs,
-                              Drive files, or screenshot references, and the
-                              notes field for pasted content.
+                              This editor stays plain text on purpose, closer to
+                              a fast note tool than a formatted email builder.
                             </p>
                           )}
+                        </div>
+                        <div className="flex flex-wrap gap-3">
                           <button
                             type="button"
-                            onClick={() => void addSupportingContext()}
-                            disabled={savingContext}
-                            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                            onClick={toggleVoiceDictation}
+                            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
                           >
-                            {savingContext ? "Adding..." : "Add Context"}
+                            {dictationActive
+                              ? "Stop dictation"
+                              : "Voice dictation"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void generateEmailDraft("cleanup")}
+                            disabled={emailBusy || !emailBody.trim()}
+                            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                          >
+                            {emailBusy ? "Working..." : "Clean up with AI"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void generateEmailDraft("generate")}
+                            disabled={emailBusy || aiProviders.length === 0}
+                            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                          >
+                            {emailBusy ? "Drafting..." : "AI generate email"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void copyEmailDraft()}
+                            disabled={!emailSubject.trim() && !emailBody.trim()}
+                            className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Copy email
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void sendProjectEmail()}
+                            disabled={
+                              emailSending ||
+                              !emailSettings?.enabled ||
+                              !emailTo.trim() ||
+                              !emailSubject.trim() ||
+                              !emailBody.trim()
+                            }
+                            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                          >
+                            {emailSending ? "Sending..." : "Send email"}
                           </button>
                         </div>
-
-                        <div className="mt-5 space-y-3">
-                          {supportingContext.length > 0 ? (
-                            supportingContext.map((item) => (
-                              <div
-                                key={item.id}
-                                className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card px-4 py-4"
-                              >
-                                <div className="flex items-start justify-between gap-4">
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-white">
-                                      {item.sourceLabel}
-                                    </p>
-                                    <p className="mt-1 text-xs text-text-secondary">
-                                      {formatEvidenceTypeLabel(
-                                        item.evidenceType
-                                      )}{" "}
-                                      ·{" "}
-                                      {new Intl.DateTimeFormat("en-ZA", {
-                                        dateStyle: "medium",
-                                        timeStyle: "short"
-                                      }).format(new Date(item.createdAt))}
-                                    </p>
-                                    {item.sourceUrl ? (
-                                      <p className="mt-3 break-all text-sm text-[#49cde1]">
-                                        {item.sourceUrl}
-                                      </p>
-                                    ) : null}
-                                    {item.content ? (
-                                      <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
-                                        {item.content}
-                                      </p>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] bg-background-card px-4 py-4 text-sm text-text-secondary">
-                              No supporting context added yet. Add links, notes,
-                              or references so the summary and quote can work
-                              from better source material.
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="mt-5 rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] bg-background-card px-4 py-4 text-sm text-text-secondary">
-                        {supportingContext.length > 0
-                          ? `${supportingContext.length} source item${supportingContext.length === 1 ? "" : "s"} attached. Expand this section to review links, notes, transcripts, and documents.`
-                          : "No source material added yet. Expand this section to add links, notes, transcripts, or documents."}
                       </div>
-                    )}
+                    </div>
                   </div>
-                ) : null}
-              </section>
+                </section>
+              </div>
 
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-lg font-semibold text-white">
-                      Project Email Composer
-                    </h2>
-                    <p className="mt-2 text-sm text-text-secondary">
-                      Plain-text project emails with dictation, AI cleanup, and
-                      AI drafting. Use this as a copy-first drafting space, then
-                      paste into your own email tool when that suits your
-                      workflow better.
-                    </p>
-                  </div>
-                  <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs text-text-secondary">
-                    {emailSettings?.enabled && emailSettings.fromEmail
-                      ? `Sending from ${emailSettings.fromEmail}`
-                      : "Outbound email not connected yet"}
-                  </div>
-                </div>
-
-                <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  <label className="block">
-                    <span className="text-sm font-medium text-white">
-                      Email intent
-                    </span>
-                    <select
-                      value={emailIntent}
-                      onChange={(event) => setEmailIntent(event.target.value)}
-                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                    >
-                      <option value="next_steps">Next steps</option>
-                      <option value="questionnaire_invite">
-                        Project inputs invite
-                      </option>
-                      <option value="quote_ready">
-                        Quote ready for review
-                      </option>
-                      <option value="approval_follow_up">
-                        Approval follow-up
-                      </option>
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-medium text-white">
-                      AI provider
-                    </span>
-                    <select
-                      value={emailProviderKey}
-                      onChange={(event) => {
-                        const nextProviderKey = event.target.value;
-                        setEmailProviderKey(nextProviderKey);
-                        const nextProvider = aiProviders.find(
-                          (provider) => provider.providerKey === nextProviderKey
-                        );
-                        setEmailModelOverride(nextProvider?.defaultModel ?? "");
-                      }}
-                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                    >
-                      {aiProviders.length > 0 ? (
-                        aiProviders.map((provider) => (
-                          <option
-                            key={provider.providerKey}
-                            value={provider.providerKey}
-                          >
-                            {provider.label}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="">No enabled AI providers</option>
-                      )}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-medium text-white">
-                      Model
-                    </span>
-                    <input
-                      value={emailModelOverride}
-                      onChange={(event) =>
-                        setEmailModelOverride(event.target.value)
-                      }
-                      placeholder="Use provider default model"
-                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-medium text-white">
-                      Extra instruction
-                    </span>
-                    <textarea
-                      value={emailInstructions}
-                      onChange={(event) =>
-                        setEmailInstructions(event.target.value)
-                      }
-                      placeholder="Example: mention that Magnusol should nominate one operations lead and one sales owner for discovery."
-                      className="mt-3 min-h-[88px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                    />
-                  </label>
-                </div>
-
-                {savedClientContacts.length > 0 || clientUsers.length > 0 ? (
-                  <div className="mt-5 rounded-2xl bg-[#0b1126] p-4">
-                    <p className="text-sm font-medium text-white">
-                      Quick recipients
-                    </p>
-                    <p className="mt-2 text-sm text-text-secondary">
-                      Pull people into the email without typing addresses again.
-                    </p>
-
-                    {savedClientContacts.length > 0 ? (
-                      <div className="mt-4">
-                        <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
-                          Saved client contacts
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-3">
-                          {savedClientContacts.map((contact) => {
-                            const contactLabel = [
-                              contact.firstName,
-                              contact.lastName
-                            ]
-                              .filter(Boolean)
-                              .join(" ");
-
-                            return (
-                              <div
-                                key={`email-contact-${contact.id}`}
-                                className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-3"
-                              >
-                                <p className="text-sm font-medium text-white">
-                                  {contactLabel || contact.email}
-                                </p>
-                                <p className="mt-1 text-xs text-text-secondary">
-                                  {contact.email}
-                                  {contact.canApproveQuotes
-                                    ? " · Quote approver"
-                                    : ""}
-                                </p>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      addRecipient(
-                                        "to",
-                                        contact.email,
-                                        contactLabel
-                                      )
-                                    }
-                                    className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
-                                  >
-                                    Add to To
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      addRecipient(
-                                        "cc",
-                                        contact.email,
-                                        contactLabel
-                                      )
-                                    }
-                                    className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
-                                  >
-                                    Add to Cc
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {clientUsers.length > 0 ? (
-                      <div className="mt-4">
-                        <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
-                          Portal users
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-3">
-                          {clientUsers.map((clientUser) => {
-                            const contactLabel = [
-                              clientUser.firstName,
-                              clientUser.lastName
-                            ]
-                              .filter(Boolean)
-                              .join(" ");
-
-                            return (
-                              <div
-                                key={`email-client-user-${clientUser.id}`}
-                                className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-3"
-                              >
-                                <p className="text-sm font-medium text-white">
-                                  {contactLabel || clientUser.email}
-                                </p>
-                                <p className="mt-1 text-xs text-text-secondary">
-                                  {clientUser.email} · {clientUser.role}
-                                </p>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      addRecipient(
-                                        "to",
-                                        clientUser.email,
-                                        contactLabel
-                                      )
-                                    }
-                                    className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
-                                  >
-                                    Add to To
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      addRecipient(
-                                        "cc",
-                                        clientUser.email,
-                                        contactLabel
-                                      )
-                                    }
-                                    className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
-                                  >
-                                    Add to Cc
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  <label className="block">
-                    <span className="text-sm font-medium text-white">To</span>
-                    <input
-                      value={emailTo}
-                      onChange={(event) => setEmailTo(event.target.value)}
-                      placeholder="Comma-separated recipients"
-                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-sm font-medium text-white">Cc</span>
-                    <input
-                      value={emailCc}
-                      onChange={(event) => setEmailCc(event.target.value)}
-                      placeholder="Optional comma-separated recipients"
-                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                    />
-                  </label>
-                </div>
-
-                <label className="mt-5 block">
-                  <span className="text-sm font-medium text-white">
-                    Subject
-                  </span>
-                  <input
-                    value={emailSubject}
-                    onChange={(event) => setEmailSubject(event.target.value)}
-                    className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                  />
-                </label>
-
-                <label className="mt-5 block">
-                  <span className="text-sm font-medium text-white">
-                    Plain-text body
-                  </span>
-                  <textarea
-                    value={emailBody}
-                    onChange={(event) => setEmailBody(event.target.value)}
-                    placeholder="Write freely here like a project note. Keep it plain text. Use dictation, then clean it up with AI if needed."
-                    className="mt-3 min-h-[320px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#09111f] px-4 py-4 font-mono text-sm leading-6 text-white outline-none"
-                  />
-                </label>
-
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    {emailError ? (
-                      <p className="text-sm text-[#ff8f9c]">{emailError}</p>
-                    ) : emailFeedback ? (
-                      <p className="text-sm text-status-success">
-                        {emailFeedback}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-text-secondary">
-                        This editor stays plain text on purpose, closer to a
-                        fast note tool than a formatted email builder.
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={toggleVoiceDictation}
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
-                    >
-                      {dictationActive ? "Stop dictation" : "Voice dictation"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void generateEmailDraft("cleanup")}
-                      disabled={emailBusy || !emailBody.trim()}
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                    >
-                      {emailBusy ? "Working..." : "Clean up with AI"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void generateEmailDraft("generate")}
-                      disabled={emailBusy || aiProviders.length === 0}
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                    >
-                      {emailBusy ? "Drafting..." : "AI generate email"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void copyEmailDraft()}
-                      disabled={!emailSubject.trim() && !emailBody.trim()}
-                      className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Copy email
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void sendProjectEmail()}
-                      disabled={
-                        emailSending ||
-                        !emailSettings?.enabled ||
-                        !emailTo.trim() ||
-                        !emailSubject.trim() ||
-                        !emailBody.trim()
-                      }
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                    >
-                      {emailSending ? "Sending..." : "Send email"}
-                    </button>
-                  </div>
-                </div>
-              </section>
-
-              <div className="grid gap-6">
+              <div className="space-y-6">
                 {isStandaloneQuote ? (
                   <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                     <div className="flex items-start justify-between gap-4">
@@ -3909,404 +4181,560 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </section>
                 ) : null}
 
-                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h2 className="text-lg font-semibold text-white">
-                        Client Portal Access
-                      </h2>
-                      <p className="mt-2 text-sm text-text-secondary">
-                        Create client logins for project inputs, document
-                        review, and later approvals.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    {savedClientContacts.length > 0 ? (
-                      <div className="md:col-span-2 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                        <p className="text-sm font-medium text-white">
-                          Saved client contacts
+                {!isStandaloneQuote ? (
+                  <section
+                    ref={sectionRefs.sessions}
+                    className="scroll-mt-32 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/60"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleSection("sessions")}
+                      className="flex w-full items-center justify-between gap-3 bg-zinc-800 px-5 py-4 text-left"
+                    >
+                      <div>
+                        <p className="font-semibold text-sm text-white">
+                          Q&A Sessions
                         </p>
-                        <p className="mt-2 text-sm text-text-secondary">
-                          Pull approvers and stakeholders in from the client
-                          workspace instead of typing them again.
+                        <p className="text-xs text-zinc-400">
+                          {completedSessions}/{sessions.length} sessions
+                          completed
                         </p>
-                        <div className="mt-4 flex flex-wrap gap-3">
-                          {savedClientContacts.map((contact) => (
-                            <div
-                              key={contact.id}
-                              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-left text-sm text-white"
-                            >
-                              <span className="block font-medium">
-                                {[contact.firstName, contact.lastName]
-                                  .filter(Boolean)
-                                  .join(" ")}
-                              </span>
-                              <span className="mt-1 block text-xs text-text-secondary">
-                                {contact.email}
-                                {contact.canApproveQuotes
-                                  ? " · Quote approver"
-                                  : ""}
-                              </span>
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => useSavedClientContact(contact)}
-                                  className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
-                                >
-                                  Load into form
-                                </button>
-                                <button
-                                  type="button"
-                                  className="rounded-lg border border-[rgba(81,208,176,0.18)] bg-[rgba(81,208,176,0.12)] px-3 py-2 text-xs font-medium text-[#51d0b0]"
-                                  onClick={() =>
-                                    void inviteSavedClientContact(contact)
-                                  }
-                                  disabled={clientAccessSaving}
-                                >
-                                  Invite now
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
                       </div>
-                    ) : null}
-
-                    <label className="block">
-                      <span className="text-sm font-medium text-white">
-                        First name
+                      <span className="text-sm text-zinc-400">
+                        {openSections.sessions ? "▴" : "▾"}
                       </span>
-                      <input
-                        value={clientAccessDraft.firstName}
-                        onChange={(event) =>
-                          setClientAccessDraft((currentDraft) => ({
-                            ...currentDraft,
-                            firstName: event.target.value
-                          }))
-                        }
-                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-medium text-white">
-                        Last name
-                      </span>
-                      <input
-                        value={clientAccessDraft.lastName}
-                        onChange={(event) =>
-                          setClientAccessDraft((currentDraft) => ({
-                            ...currentDraft,
-                            lastName: event.target.value
-                          }))
-                        }
-                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-medium text-white">
-                        Email
-                      </span>
-                      <input
-                        value={clientAccessDraft.email}
-                        onChange={(event) =>
-                          setClientAccessDraft((currentDraft) => ({
-                            ...currentDraft,
-                            email: event.target.value
-                          }))
-                        }
-                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                      />
-                    </label>
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-4">
-                      <p className="text-sm font-medium text-white">
-                        Access setup
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-text-secondary">
-                        Muloo will create an invite link so the client can set
-                        their own password securely.
-                      </p>
-                      <label className="mt-4 flex items-center gap-3 text-sm text-white">
-                        <input
-                          type="checkbox"
-                          checked={clientAccessDraft.questionnaireAccess}
-                          onChange={(event) =>
-                            setClientAccessDraft((currentDraft) => ({
-                              ...currentDraft,
-                              questionnaireAccess: event.target.checked
-                            }))
-                          }
-                        />
-                        This client contact receives the active project inputs
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 flex items-center justify-between gap-4">
-                    <p className="text-sm text-text-secondary">
-                      Client portal login route: `/client/login`
-                    </p>
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        onClick={() => void pushQuoteToClientPortal()}
-                        disabled={
-                          clientUsers.length === 0 ||
-                          clientPortalPushBusy ||
-                          project.quoteApprovalStatus === "approved"
-                        }
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                      >
-                        {clientPortalPushBusy
-                          ? "Pushing..."
-                          : project.quoteApprovalStatus === "approved"
-                            ? "Quote approved"
-                            : "Push to client portal"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void copyClientQuoteLink()}
-                        disabled={clientUsers.length === 0}
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                      >
-                        Copy client quote link
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void addClientPortalUser()}
-                        disabled={clientAccessSaving}
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                      >
-                        {clientAccessSaving ? "Creating..." : "Add Client User"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {clientAccessFeedback ? (
-                    <p className="mt-4 text-sm text-status-success">
-                      {clientAccessFeedback}
-                    </p>
-                  ) : null}
-
-                  <div className="mt-5 space-y-3">
-                    {clientUsers.length > 0 ? (
-                      clientUsers.map((clientUser) => (
-                        <div
-                          key={clientUser.id}
-                          className="rounded-xl bg-[#0b1126] px-4 py-4"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-medium text-white">
-                                {clientUser.firstName} {clientUser.lastName}
-                              </p>
-                              <p className="mt-1 text-xs text-text-secondary">
-                                {clientUser.email} · {clientUser.role} ·{" "}
-                                {clientUser.authStatus === "active"
-                                  ? "Access active"
-                                  : "Invite pending"}
-                              </p>
-                              <p className="mt-2 text-xs text-text-secondary">
-                                Project inputs:{" "}
-                                {clientUser.questionnaireAccess === false
-                                  ? "Visibility only"
-                                  : "Assigned"}
-                                {clientUser.canApproveQuotes
-                                  ? " · Quote approver"
-                                  : ""}
-                              </p>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                disabled={
-                                  clientAccessUpdatingId === clientUser.id
-                                }
-                                onClick={() =>
-                                  void updateClientPortalUser(clientUser.id, {
-                                    role:
-                                      clientUser.role === "approver"
-                                        ? "contributor"
-                                        : "approver"
-                                  })
-                                }
-                                className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                              >
-                                {clientUser.role === "approver"
-                                  ? "Make contributor"
-                                  : "Make approver"}
-                              </button>
-                              <label className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white">
-                                <input
-                                  type="checkbox"
-                                  checked={
-                                    clientUser.questionnaireAccess !== false
+                    </button>
+                    <div
+                      className={`overflow-hidden transition-all duration-200 ${
+                        openSections.sessions ? "max-h-[4000px]" : "max-h-0"
+                      }`}
+                    >
+                      <div className="space-y-3 p-6">
+                        {sessions.map((session) => (
+                          <div
+                            key={session.session}
+                            className="rounded-xl bg-[#0b1126] px-4 py-4"
+                          >
+                            <div className="flex items-center justify-between gap-4">
+                              <div>
+                                <p className="text-sm font-medium text-white">
+                                  Session {session.session} - {session.title}
+                                </p>
+                                <p className="mt-1 text-xs text-text-secondary">
+                                  {
+                                    Object.values(session.fields).filter(
+                                      (value) => value.trim().length > 0
+                                    ).length
                                   }
-                                  disabled={
-                                    clientAccessUpdatingId === clientUser.id
-                                  }
-                                  onChange={(event) =>
-                                    void updateClientPortalUser(clientUser.id, {
-                                      questionnaireAccess: event.target.checked
-                                    })
-                                  }
-                                />
-                                Project inputs
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  void copyClientAccessLink(
-                                    clientUser.id,
-                                    "invite-link"
-                                  )
-                                }
-                                className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                  /{Object.keys(session.fields).length} fields
+                                  completed
+                                </p>
+                              </div>
+                              <span
+                                className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
+                                  isSessionComplete(session)
+                                    ? "complete"
+                                    : session.status
+                                )}`}
                               >
-                                Copy invite link
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  void copyClientAccessLink(
-                                    clientUser.id,
-                                    "reset-link"
-                                  )
-                                }
-                                className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
-                              >
-                                Copy reset link
-                              </button>
+                                {formatLabel(
+                                  isSessionComplete(session)
+                                    ? "complete"
+                                    : session.status
+                                )}
+                              </span>
                             </div>
                           </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-4 py-4 text-sm text-text-secondary">
-                        No client users added yet for this project.
+                        ))}
                       </div>
-                    )}
+                    </div>
+                  </section>
+                ) : null}
+
+                <section
+                  ref={sectionRefs.portal}
+                  className="scroll-mt-32 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/60"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("portal")}
+                    className="flex w-full items-center justify-between gap-3 bg-zinc-800 px-5 py-4 text-left"
+                  >
+                    <div>
+                      <p className="font-semibold text-sm text-white">
+                        Portal Access
+                      </p>
+                      <p className="text-xs text-zinc-400">
+                        {clientUsers.length} portal users
+                      </p>
+                    </div>
+                    <span className="text-sm text-zinc-400">
+                      {openSections.portal ? "▴" : "▾"}
+                    </span>
+                  </button>
+                  <div
+                    className={`overflow-hidden transition-all duration-200 ${
+                      openSections.portal ? "max-h-[7000px]" : "max-h-0"
+                    }`}
+                  >
+                    <div className="p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h2 className="text-lg font-semibold text-white">
+                            Client Portal Access
+                          </h2>
+                          <p className="mt-2 text-sm text-text-secondary">
+                            Create client logins for project inputs, document
+                            review, and later approvals.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        {savedClientContacts.length > 0 ? (
+                          <div className="md:col-span-2 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                            <p className="text-sm font-medium text-white">
+                              Saved client contacts
+                            </p>
+                            <p className="mt-2 text-sm text-text-secondary">
+                              Pull approvers and stakeholders in from the client
+                              workspace instead of typing them again.
+                            </p>
+                            <div className="mt-4 flex flex-wrap gap-3">
+                              {savedClientContacts.map((contact) => (
+                                <div
+                                  key={contact.id}
+                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-left text-sm text-white"
+                                >
+                                  <span className="block font-medium">
+                                    {[contact.firstName, contact.lastName]
+                                      .filter(Boolean)
+                                      .join(" ")}
+                                  </span>
+                                  <span className="mt-1 block text-xs text-text-secondary">
+                                    {contact.email}
+                                    {contact.canApproveQuotes
+                                      ? " · Quote approver"
+                                      : ""}
+                                  </span>
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        useSavedClientContact(contact)
+                                      }
+                                      className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                    >
+                                      Load into form
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="rounded-lg border border-[rgba(81,208,176,0.18)] bg-[rgba(81,208,176,0.12)] px-3 py-2 text-xs font-medium text-[#51d0b0]"
+                                      onClick={() =>
+                                        void inviteSavedClientContact(contact)
+                                      }
+                                      disabled={clientAccessSaving}
+                                    >
+                                      Invite now
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            First name
+                          </span>
+                          <input
+                            value={clientAccessDraft.firstName}
+                            onChange={(event) =>
+                              setClientAccessDraft((currentDraft) => ({
+                                ...currentDraft,
+                                firstName: event.target.value
+                              }))
+                            }
+                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Last name
+                          </span>
+                          <input
+                            value={clientAccessDraft.lastName}
+                            onChange={(event) =>
+                              setClientAccessDraft((currentDraft) => ({
+                                ...currentDraft,
+                                lastName: event.target.value
+                              }))
+                            }
+                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Email
+                          </span>
+                          <input
+                            value={clientAccessDraft.email}
+                            onChange={(event) =>
+                              setClientAccessDraft((currentDraft) => ({
+                                ...currentDraft,
+                                email: event.target.value
+                              }))
+                            }
+                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          />
+                        </label>
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-4">
+                          <p className="text-sm font-medium text-white">
+                            Access setup
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-text-secondary">
+                            Muloo will create an invite link so the client can
+                            set their own password securely.
+                          </p>
+                          <label className="mt-4 flex items-center gap-3 text-sm text-white">
+                            <input
+                              type="checkbox"
+                              checked={clientAccessDraft.questionnaireAccess}
+                              onChange={(event) =>
+                                setClientAccessDraft((currentDraft) => ({
+                                  ...currentDraft,
+                                  questionnaireAccess: event.target.checked
+                                }))
+                              }
+                            />
+                            This client contact receives the active project
+                            inputs
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex items-center justify-between gap-4">
+                        <p className="text-sm text-text-secondary">
+                          Client portal login route: `/client/login`
+                        </p>
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={() => void pushQuoteToClientPortal()}
+                            disabled={
+                              clientUsers.length === 0 ||
+                              clientPortalPushBusy ||
+                              project.quoteApprovalStatus === "approved"
+                            }
+                            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                          >
+                            {clientPortalPushBusy
+                              ? "Pushing..."
+                              : project.quoteApprovalStatus === "approved"
+                                ? "Quote approved"
+                                : "Push to client portal"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void copyClientQuoteLink()}
+                            disabled={clientUsers.length === 0}
+                            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                          >
+                            Copy client quote link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void addClientPortalUser()}
+                            disabled={clientAccessSaving}
+                            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                          >
+                            {clientAccessSaving
+                              ? "Creating..."
+                              : "Add Client User"}
+                          </button>
+                        </div>
+                      </div>
+
+                      {clientAccessFeedback ? (
+                        <p className="mt-4 text-sm text-status-success">
+                          {clientAccessFeedback}
+                        </p>
+                      ) : null}
+
+                      <div className="mt-5 space-y-3">
+                        {clientUsers.length > 0 ? (
+                          clientUsers.map((clientUser) => (
+                            <div
+                              key={clientUser.id}
+                              className="rounded-xl bg-[#0b1126] px-4 py-4"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-medium text-white">
+                                    {clientUser.firstName} {clientUser.lastName}
+                                  </p>
+                                  <p className="mt-1 text-xs text-text-secondary">
+                                    {clientUser.email} · {clientUser.role} ·{" "}
+                                    {clientUser.authStatus === "active"
+                                      ? "Access active"
+                                      : "Invite pending"}
+                                  </p>
+                                  <p className="mt-2 text-xs text-text-secondary">
+                                    Project inputs:{" "}
+                                    {clientUser.questionnaireAccess === false
+                                      ? "Visibility only"
+                                      : "Assigned"}
+                                    {clientUser.canApproveQuotes
+                                      ? " · Quote approver"
+                                      : ""}
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      clientAccessUpdatingId === clientUser.id
+                                    }
+                                    onClick={() =>
+                                      void updateClientPortalUser(
+                                        clientUser.id,
+                                        {
+                                          role:
+                                            clientUser.role === "approver"
+                                              ? "contributor"
+                                              : "approver"
+                                        }
+                                      )
+                                    }
+                                    className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                                  >
+                                    {clientUser.role === "approver"
+                                      ? "Make contributor"
+                                      : "Make approver"}
+                                  </button>
+                                  <label className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white">
+                                    <input
+                                      type="checkbox"
+                                      checked={
+                                        clientUser.questionnaireAccess !== false
+                                      }
+                                      disabled={
+                                        clientAccessUpdatingId === clientUser.id
+                                      }
+                                      onChange={(event) =>
+                                        void updateClientPortalUser(
+                                          clientUser.id,
+                                          {
+                                            questionnaireAccess:
+                                              event.target.checked
+                                          }
+                                        )
+                                      }
+                                    />
+                                    Project inputs
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      void copyClientAccessLink(
+                                        clientUser.id,
+                                        "invite-link"
+                                      )
+                                    }
+                                    className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                  >
+                                    Copy invite link
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      void copyClientAccessLink(
+                                        clientUser.id,
+                                        "reset-link"
+                                      )
+                                    }
+                                    className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                  >
+                                    Copy reset link
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-4 py-4 text-sm text-text-secondary">
+                            No client users added yet for this project.
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </section>
 
                 {!isStandaloneQuote ? (
-                  <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
+                  <section
+                    ref={sectionRefs.inputs}
+                    className="scroll-mt-32 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/60"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleSection("inputs")}
+                      className="flex w-full items-center justify-between gap-3 bg-zinc-800 px-5 py-4 text-left"
+                    >
                       <div>
-                        <h2 className="text-lg font-semibold text-white">
+                        <p className="font-semibold text-sm text-white">
                           Project Inputs
-                        </h2>
-                        <p className="mt-2 text-sm text-text-secondary">
-                          Build the client input pack and assign sections to the
-                          right portal users in the dedicated builder.
+                        </p>
+                        <p className="text-xs text-zinc-400">
+                          {
+                            clientUsers.filter(
+                              (clientUser) =>
+                                clientUser.questionnaireAccess !== false
+                            ).length
+                          }{" "}
+                          contacts assigned
                         </p>
                       </div>
-                      <Link
-                        href={`/projects/${project.id}/inputs`}
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white"
-                      >
-                        Open builder
-                      </Link>
-                    </div>
+                      <span className="text-sm text-zinc-400">
+                        {openSections.inputs ? "▴" : "▾"}
+                      </span>
+                    </button>
+                    <div
+                      className={`overflow-hidden transition-all duration-200 ${
+                        openSections.inputs ? "max-h-[2500px]" : "max-h-0"
+                      }`}
+                    >
+                      <div className="p-6">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div>
+                            <h2 className="text-lg font-semibold text-white">
+                              Project Inputs
+                            </h2>
+                            <p className="mt-2 text-sm text-text-secondary">
+                              Build the client input pack and assign sections to
+                              the right portal users in the dedicated builder.
+                            </p>
+                          </div>
+                          <Link
+                            href={`/projects/${project.id}/inputs`}
+                            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white"
+                          >
+                            Open builder
+                          </Link>
+                        </div>
 
-                    <div className="mt-5 grid gap-4 md:grid-cols-3">
-                      <div className="rounded-2xl bg-[#0b1126] p-5">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Why use the builder
-                        </p>
-                        <p className="mt-3 text-sm text-text-secondary">
-                          Choose which sections are active, add ad hoc
-                          questions, and stop generic defaults leaking into the
-                          client experience.
-                        </p>
-                      </div>
-                      <div className="rounded-2xl bg-[#0b1126] p-5">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Per-contact assignment
-                        </p>
-                        <p className="mt-3 text-sm text-text-secondary">
-                          Assign specific sections to specific client users so
-                          operations, leadership, and stakeholders only see the
-                          inputs relevant to them.
-                        </p>
-                      </div>
-                      <div className="rounded-2xl bg-[#0b1126] p-5">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                          Client experience
-                        </p>
-                        <p className="mt-3 text-sm text-text-secondary">
-                          Clients now autosave as they work and only see the
-                          sections they have been assigned, making it much
-                          easier to resume later.
-                        </p>
+                        <div className="mt-5 grid gap-4 md:grid-cols-3">
+                          <div className="rounded-2xl bg-[#0b1126] p-5">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Why use the builder
+                            </p>
+                            <p className="mt-3 text-sm text-text-secondary">
+                              Choose which sections are active, add ad hoc
+                              questions, and stop generic defaults leaking into
+                              the client experience.
+                            </p>
+                          </div>
+                          <div className="rounded-2xl bg-[#0b1126] p-5">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Per-contact assignment
+                            </p>
+                            <p className="mt-3 text-sm text-text-secondary">
+                              Assign specific sections to specific client users
+                              so operations, leadership, and stakeholders only
+                              see the inputs relevant to them.
+                            </p>
+                          </div>
+                          <div className="rounded-2xl bg-[#0b1126] p-5">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Client experience
+                            </p>
+                            <p className="mt-3 text-sm text-text-secondary">
+                              Clients now autosave as they work and only see the
+                              sections they have been assigned, making it much
+                              easier to resume later.
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </section>
                 ) : null}
 
                 {!isStandaloneQuote ? (
-                  <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                    <div className="flex items-center justify-between gap-4">
-                      <h2 className="text-lg font-semibold text-white">
-                        Discovery Progress
-                      </h2>
-                      <Link
-                        href={`/projects/${project.id}/discovery`}
-                        className="text-sm font-medium text-white"
-                      >
-                        Review
-                      </Link>
-                    </div>
+                  <section
+                    ref={sectionRefs.discovery}
+                    className="scroll-mt-32 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/60"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleSection("discovery")}
+                      className="flex w-full items-center justify-between gap-3 bg-zinc-800 px-5 py-4 text-left"
+                    >
+                      <div>
+                        <p className="font-semibold text-sm text-white">
+                          Discovery Progress
+                        </p>
+                        <p className="text-xs text-zinc-400">
+                          {completedSessions}/{sessions.length} sessions
+                          complete
+                        </p>
+                      </div>
+                      <span className="text-sm text-zinc-400">
+                        {openSections.discovery ? "▴" : "▾"}
+                      </span>
+                    </button>
+                    <div
+                      className={`overflow-hidden transition-all duration-200 ${
+                        openSections.discovery ? "max-h-[2500px]" : "max-h-0"
+                      }`}
+                    >
+                      <div className="p-6">
+                        <div className="flex items-center justify-between gap-4">
+                          <h2 className="text-lg font-semibold text-white">
+                            Discovery Progress
+                          </h2>
+                          <Link
+                            href={`/projects/${project.id}/discovery`}
+                            className="text-sm font-medium text-white"
+                          >
+                            Review
+                          </Link>
+                        </div>
 
-                    <div className="mt-5 space-y-3">
-                      {sessions.map((session) => (
-                        <div
-                          key={session.session}
-                          className="rounded-xl bg-[#0b1126] px-4 py-4"
-                        >
-                          <div className="flex items-center justify-between gap-4">
-                            <div>
-                              <p className="text-sm font-medium text-white">
-                                Session {session.session} - {session.title}
-                              </p>
-                              <p className="mt-1 text-xs text-text-secondary">
-                                {
-                                  Object.values(session.fields).filter(
-                                    (value) => value.trim().length > 0
-                                  ).length
-                                }
-                                /{Object.keys(session.fields).length} fields
-                                completed
-                              </p>
-                            </div>
-                            <span
-                              className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
-                                isSessionComplete(session)
-                                  ? "complete"
-                                  : session.status
-                              )}`}
-                            >
-                              {formatLabel(
-                                isSessionComplete(session)
-                                  ? "complete"
-                                  : session.status
-                              )}
-                            </span>
+                        <div className="mt-5 grid gap-4 md:grid-cols-2">
+                          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Session completion
+                            </p>
+                            <p className="mt-2 text-sm text-white">
+                              {completedSessions} of {sessions.length} sessions
+                              are fully completed.
+                            </p>
+                          </div>
+                          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              Summary status
+                            </p>
+                            <p className="mt-2 text-sm text-white">
+                              {discoverySummary
+                                ? "Saved summary available"
+                                : "No saved summary yet"}
+                            </p>
                           </div>
                         </div>
-                      ))}
-                    </div>
 
-                    <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                        Blueprint gate
-                      </p>
-                      <p className="mt-2 text-sm text-white">
-                        {canGenerateBlueprint
-                          ? "Session 1 and Session 3 are complete. Blueprint generation is unlocked."
-                          : "Finish Session 1 and Session 3 to unlock blueprint generation."}
-                      </p>
+                        <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Blueprint gate
+                          </p>
+                          <p className="mt-2 text-sm text-white">
+                            {canGenerateBlueprint
+                              ? "Session 1 and Session 3 are complete. Blueprint generation is unlocked."
+                              : "Finish Session 1 and Session 3 to unlock blueprint generation."}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </section>
                 ) : (
@@ -4578,122 +5006,217 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </section>
                 )}
 
-                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <div className="flex items-start justify-between gap-4">
+                <section
+                  ref={sectionRefs.agent}
+                  className="scroll-mt-32 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/60"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("agent")}
+                    className="flex w-full items-center justify-between gap-3 bg-zinc-800 px-5 py-4 text-left"
+                  >
                     <div>
-                      <h2 className="text-lg font-semibold text-white">
-                        {isStandaloneQuote
-                          ? "Supporting Analysis"
-                          : "Agent Handoff Summary"}
-                      </h2>
-                      <p className="mt-2 text-sm text-text-secondary">
-                        {isStandaloneQuote
-                          ? "The recommendation sits above. This section holds the supporting ratings, risks, open questions, and delivery watch-outs."
-                          : "Project-level discovery output for scoping, delivery planning, and future agent delegation."}
+                      <p className="font-semibold text-sm text-white">
+                        Agent Install Summary
+                      </p>
+                      <p className="text-xs text-zinc-400">
+                        {discoverySummary
+                          ? "Summary ready"
+                          : "Awaiting summary"}
                       </p>
                     </div>
+                    <span className="text-sm text-zinc-400">
+                      {openSections.agent ? "▴" : "▾"}
+                    </span>
+                  </button>
+                  <div
+                    className={`overflow-hidden transition-all duration-200 ${
+                      openSections.agent ? "max-h-[5000px]" : "max-h-0"
+                    }`}
+                  >
+                    <div className="p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h2 className="text-lg font-semibold text-white">
+                            {isStandaloneQuote
+                              ? "Supporting Analysis"
+                              : "Agent Handoff Summary"}
+                          </h2>
+                          <p className="mt-2 text-sm text-text-secondary">
+                            {isStandaloneQuote
+                              ? "The recommendation sits above. This section holds the supporting ratings, risks, open questions, and delivery watch-outs."
+                              : "Project-level discovery output for scoping, delivery planning, and future agent delegation."}
+                          </p>
+                        </div>
+                      </div>
+
+                      {discoverySummary ? (
+                        <>
+                          {!isStandaloneQuote ? (
+                            <div className="mt-5">
+                              <ExpandableText
+                                text={discoverySummary.executiveSummary}
+                                emptyText="No executive summary saved yet."
+                              />
+                            </div>
+                          ) : null}
+
+                          <div className="mt-5 grid gap-4 md:grid-cols-2">
+                            {[
+                              [
+                                "Engagement Track",
+                                discoverySummary.engagementTrack
+                              ],
+                              ["Platform Fit", discoverySummary.platformFit],
+                              [
+                                "Change Management",
+                                discoverySummary.changeManagementRating
+                              ],
+                              [
+                                "Data Readiness",
+                                discoverySummary.dataReadinessRating
+                              ],
+                              [
+                                "Scope Volatility",
+                                discoverySummary.scopeVolatilityRating
+                              ]
+                            ].map(([label, value]) => (
+                              <div
+                                key={label}
+                                className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                              >
+                                <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                  {label}
+                                </p>
+                                <p className="mt-2 text-sm text-white">
+                                  {value}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="mt-5 space-y-4">
+                            <details
+                              className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
+                              open
+                            >
+                              <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Missing Information
+                              </summary>
+                              <ul className="mt-4 space-y-3 text-sm text-text-secondary">
+                                {discoverySummary.missingInformation.length >
+                                0 ? (
+                                  discoverySummary.missingInformation.map(
+                                    (item) => <li key={item}>{item}</li>
+                                  )
+                                ) : (
+                                  <li>No major gaps flagged.</li>
+                                )}
+                              </ul>
+                            </details>
+
+                            <details className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                              <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Key Risks
+                              </summary>
+                              <ul className="mt-4 space-y-3 text-sm text-text-secondary">
+                                {scopedKeyRisks.length > 0 ? (
+                                  scopedKeyRisks.map((item) => (
+                                    <li key={item}>{item}</li>
+                                  ))
+                                ) : (
+                                  <li>No major risks flagged.</li>
+                                )}
+                              </ul>
+                            </details>
+
+                            <details className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                              <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Recommended Next Questions
+                              </summary>
+                              <ul className="mt-4 space-y-3 text-sm text-text-secondary">
+                                {scopedNextQuestions.length > 0 ? (
+                                  scopedNextQuestions.map((item) => (
+                                    <li key={item}>{item}</li>
+                                  ))
+                                ) : (
+                                  <li>No follow-up questions suggested yet.</li>
+                                )}
+                              </ul>
+                            </details>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                          <p className="text-sm text-text-secondary">
+                            No saved handoff summary yet. Generate the agent
+                            summary once there is enough discovery captured to
+                            produce a useful project-level view.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                </section>
 
-                  {discoverySummary ? (
-                    <>
-                      {!isStandaloneQuote ? (
-                        <p className="mt-5 text-sm text-text-secondary">
-                          {discoverySummary.executiveSummary}
+                {quickWins.length > 0 ? (
+                  <section
+                    ref={sectionRefs.quickWins}
+                    className="scroll-mt-32 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/60"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleSection("quickWins")}
+                      className="flex w-full items-center justify-between gap-3 bg-zinc-800 px-5 py-4 text-left"
+                    >
+                      <div>
+                        <p className="font-semibold text-sm text-white">
+                          Quick Wins
                         </p>
-                      ) : null}
-
-                      <div className="mt-5 grid gap-4 md:grid-cols-2">
-                        {[
-                          [
-                            "Engagement Track",
-                            discoverySummary.engagementTrack
-                          ],
-                          ["Platform Fit", discoverySummary.platformFit],
-                          [
-                            "Change Management",
-                            discoverySummary.changeManagementRating
-                          ],
-                          [
-                            "Data Readiness",
-                            discoverySummary.dataReadinessRating
-                          ],
-                          [
-                            "Scope Volatility",
-                            discoverySummary.scopeVolatilityRating
-                          ]
-                        ].map(([label, value]) => (
+                        <p className="text-xs text-zinc-400">
+                          {quickWins.length} identified
+                        </p>
+                      </div>
+                      <span className="text-sm text-zinc-400">
+                        {openSections.quickWins ? "▴" : "▾"}
+                      </span>
+                    </button>
+                    <div
+                      className={`overflow-hidden transition-all duration-200 ${
+                        openSections.quickWins ? "max-h-[3000px]" : "max-h-0"
+                      }`}
+                    >
+                      <div className="space-y-3 p-6">
+                        {quickWins.map((finding) => (
                           <div
-                            key={label}
-                            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                            key={finding.id}
+                            className="rounded-xl bg-[#0b1126] px-4 py-4"
                           >
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                              {label}
-                            </p>
-                            <p className="mt-2 text-sm text-white">{value}</p>
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-white">
+                                  {finding.title}
+                                </p>
+                                <ExpandableText
+                                  text={finding.description}
+                                  emptyText="No quick-win description yet."
+                                  className="mt-2 text-sm text-text-secondary"
+                                />
+                              </div>
+                              <span
+                                className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
+                                  finding.status
+                                )}`}
+                              >
+                                {formatLabel(finding.status)}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>
-
-                      <div className="mt-5 space-y-4">
-                        <details
-                          className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
-                          open
-                        >
-                          <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Missing Information
-                          </summary>
-                          <ul className="mt-4 space-y-3 text-sm text-text-secondary">
-                            {discoverySummary.missingInformation.length > 0 ? (
-                              discoverySummary.missingInformation.map(
-                                (item) => <li key={item}>{item}</li>
-                              )
-                            ) : (
-                              <li>No major gaps flagged.</li>
-                            )}
-                          </ul>
-                        </details>
-
-                        <details className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                          <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Key Risks
-                          </summary>
-                          <ul className="mt-4 space-y-3 text-sm text-text-secondary">
-                            {scopedKeyRisks.length > 0 ? (
-                              scopedKeyRisks.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))
-                            ) : (
-                              <li>No major risks flagged.</li>
-                            )}
-                          </ul>
-                        </details>
-
-                        <details className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                          <summary className="cursor-pointer list-none text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Recommended Next Questions
-                          </summary>
-                          <ul className="mt-4 space-y-3 text-sm text-text-secondary">
-                            {scopedNextQuestions.length > 0 ? (
-                              scopedNextQuestions.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))
-                            ) : (
-                              <li>No follow-up questions suggested yet.</li>
-                            )}
-                          </ul>
-                        </details>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                      <p className="text-sm text-text-secondary">
-                        No saved handoff summary yet. Generate the agent summary
-                        once there is enough discovery captured to produce a
-                        useful project-level view.
-                      </p>
                     </div>
-                  )}
-                </section>
+                  </section>
+                ) : null}
               </div>
             </div>
           </>

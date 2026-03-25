@@ -8,6 +8,7 @@ import AppShell from "./AppShell";
 
 const navItems = [
   { href: "/settings", label: "Overview" },
+  { href: "/settings/workspace", label: "Workspace" },
   { href: "/settings/team", label: "Team" },
   { href: "/settings/providers", label: "Providers" },
   { href: "/settings/email", label: "Email" },

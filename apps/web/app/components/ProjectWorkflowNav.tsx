@@ -22,19 +22,20 @@ export default function ProjectWorkflowNav({
   engagementType?: string | null;
 }) {
   const pathname = usePathname();
-  const [resolvedEngagementType, setResolvedEngagementType] = useState<
-    string | null
-  >(engagementType ?? null);
+  const [resolvedProject, setResolvedProject] = useState<{
+    engagementType: string | null;
+    includesPortalAudit: boolean;
+    portalId: string | null;
+  }>({
+    engagementType: engagementType ?? null,
+    includesPortalAudit: false,
+    portalId: null
+  });
 
   useEffect(() => {
-    if (engagementType) {
-      setResolvedEngagementType(engagementType);
-      return;
-    }
-
     let cancelled = false;
 
-    async function loadProjectEngagementType() {
+    async function loadProjectNavigationState() {
       try {
         const response = await fetch(
           `/api/projects/${encodeURIComponent(projectId)}`
@@ -45,13 +46,21 @@ export default function ProjectWorkflowNav({
           return;
         }
 
-        setResolvedEngagementType(body?.project?.engagementType ?? null);
+        setResolvedProject({
+          engagementType:
+            body?.project?.engagementType ?? engagementType ?? null,
+          includesPortalAudit: body?.project?.includesPortalAudit === true,
+          portalId:
+            typeof body?.project?.portalId === "string"
+              ? body.project.portalId
+              : null
+        });
       } catch {
         // Keep the existing navigation stable if this lightweight fetch fails.
       }
     }
 
-    void loadProjectEngagementType();
+    void loadProjectNavigationState();
 
     return () => {
       cancelled = true;
@@ -95,7 +104,8 @@ export default function ProjectWorkflowNav({
       href: `/projects/${projectId}/delivery`,
       label: "Delivery Board"
     },
-    ...(resolvedEngagementType === "OPTIMISATION"
+    ...(resolvedProject.includesPortalAudit === true ||
+    resolvedProject.portalId !== null
       ? [
           {
             href: `/projects/${projectId}/audit`,

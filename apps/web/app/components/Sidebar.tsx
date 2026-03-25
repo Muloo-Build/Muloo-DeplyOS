@@ -3,8 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { LayoutDashboard } from "lucide-react";
 
 const navItems = [
+  {
+    href: "/workspace",
+    label: "Command Centre",
+    shortLabel: "CC",
+    icon: <LayoutDashboard size={18} />
+  },
   { href: "/", label: "Projects", shortLabel: "P" },
   { href: "/clients", label: "Clients", shortLabel: "C" },
   { href: "/inbox", label: "Inbox", shortLabel: "I" },
@@ -76,7 +83,7 @@ export default function Sidebar() {
                 <span className="absolute left-0 top-2 h-8 w-1 rounded-r bg-[linear-gradient(180deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]" />
               ) : null}
               <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-xs font-semibold text-white">
-                {item.shortLabel}
+                {"icon" in item && item.icon ? item.icon : item.shortLabel}
               </span>
               <span className="font-medium">{item.label}</span>
               {item.href === "/inbox" && inboxCount > 0 ? (
