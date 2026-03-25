@@ -9,6 +9,7 @@ import {
   type PropertyAuditResult,
   type WorkflowSummaryResult
 } from "@muloo/hubspot-client";
+import { getApiKey } from "@muloo/shared";
 import type { Logger } from "@muloo/core";
 
 const OPENAI_CHAT_COMPLETIONS_URL =
@@ -555,17 +556,18 @@ export async function runPortalAuditAgent(input: {
   jobId: string;
   projectId: string;
   portalId: string;
+  workspaceId: string;
   prisma: PrismaClient;
 }): Promise<void> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = await getApiKey(input.workspaceId, "openai", input.prisma);
   if (!apiKey) {
     await updateJob(input.prisma, input.jobId, {
       status: "FAILED",
       resultStatus: "failed",
       completedAt: new Date(),
       outputSummary:
-        "Audit failed before start. OPENAI_API_KEY is not configured.",
-      errorLog: "OPENAI_API_KEY missing"
+        "OpenAI API key not configured. Go to Settings → API Keys to add it.",
+      errorLog: "OpenAI API key missing"
     });
     return;
   }

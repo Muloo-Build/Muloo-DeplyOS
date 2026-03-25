@@ -39,6 +39,13 @@ interface WorkspaceRoute {
   model: string | null;
 }
 
+interface WorkspaceApiKeyRecord {
+  keyName: string;
+  label: string | null;
+  isSet: boolean;
+  updatedAt: string;
+}
+
 interface GmailConnectionResponse {
   connection?: {
     isConnected?: boolean;
@@ -63,6 +70,23 @@ interface CalendarConnectionResponse {
     redirectUri?: string | null;
   } | null;
 }
+
+interface WorkspaceApiKeysResponse {
+  keys?: WorkspaceApiKeyRecord[];
+}
+
+const KNOWN_API_KEYS = [
+  {
+    keyName: "openai",
+    label: "OpenAI API Key",
+    placeholder: "sk-••••••••"
+  },
+  {
+    keyName: "anthropic",
+    label: "Anthropic API Key",
+    placeholder: "sk-ant-••••••••"
+  }
+] as const;
 
 function InlineWarning({ message }: { message: string }) {
   return (
@@ -104,6 +128,14 @@ export default function WorkspaceSettings() {
   const [gmail, setGmail] = useState<GmailConnectionState | null>(null);
   const [gmailFilterLabel, setGmailFilterLabel] = useState("");
   const [savedGmailFilterLabel, setSavedGmailFilterLabel] = useState("");
+  const [apiKeys, setApiKeys] = useState<WorkspaceApiKeyRecord[]>([]);
+  const [apiKeyInputs, setApiKeyInputs] = useState<Record<string, string>>({});
+  const [savingApiKeyName, setSavingApiKeyName] = useState<string | null>(null);
+  const [removingApiKeyName, setRemovingApiKeyName] = useState<string | null>(
+    null
+  );
+  const [apiKeyErrors, setApiKeyErrors] = useState<Record<string, string>>({});
+  const [apiKeySaved, setApiKeySaved] = useState<Record<string, boolean>>({});
   const [calendarConnection, setCalendarConnection] =
     useState<CalendarConnectionState | null>(null);
   const [calendarClientId, setCalendarClientId] = useState("");
@@ -151,6 +183,7 @@ export default function WorkspaceSettings() {
     try {
       const [
         gmailBody,
+        apiKeysBody,
         calendarConnectionBody,
         nextCalendarStatus,
         nextXeroStatus,
@@ -161,6 +194,11 @@ export default function WorkspaceSettings() {
           "/api/email-oauth/google",
           undefined,
           "Failed to load Gmail settings"
+        ),
+        fetchJson<WorkspaceApiKeysResponse>(
+          "/api/workspace/api-keys",
+          undefined,
+          "Failed to load API keys"
         ),
         fetchJson<CalendarConnectionResponse>(
           "/api/workspace/calendar/connection",
@@ -197,6 +235,7 @@ export default function WorkspaceSettings() {
         connectedEmail: gmailBody.connection?.connectedEmail ?? null,
         gmailFilterLabel: gmailBody.connection?.gmailFilterLabel ?? null
       });
+      setApiKeys(Array.isArray(apiKeysBody.keys) ? apiKeysBody.keys : []);
       setGmailFilterLabel(nextGmailFilterLabel);
       setSavedGmailFilterLabel(nextGmailFilterLabel);
       setCalendarConnection({
@@ -270,6 +309,81 @@ export default function WorkspaceSettings() {
       setError(message);
     } finally {
       setSavingGmailFilter(false);
+    }
+  }
+
+  async function saveApiKey(keyName: string, label: string) {
+    const keyValue = apiKeyInputs[keyName]?.trim() ?? "";
+
+    if (!keyValue) {
+      setApiKeyErrors((current) => ({
+        ...current,
+        [keyName]: "Paste a key before saving."
+      }));
+      return;
+    }
+
+    setSavingApiKeyName(keyName);
+    setApiKeyErrors((current) => ({ ...current, [keyName]: "" }));
+    setApiKeySaved((current) => ({ ...current, [keyName]: false }));
+    setError(null);
+    setFeedback(null);
+
+    try {
+      await fetchJson(
+        "/api/workspace/api-keys",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keyName, keyValue, label })
+        },
+        "Failed to save API key"
+      );
+
+      setApiKeyInputs((current) => ({ ...current, [keyName]: "" }));
+      setApiKeySaved((current) => ({ ...current, [keyName]: true }));
+      window.setTimeout(() => {
+        setApiKeySaved((current) => ({ ...current, [keyName]: false }));
+      }, 3000);
+      await loadAll();
+    } catch (saveError) {
+      setApiKeyErrors((current) => ({
+        ...current,
+        [keyName]:
+          saveError instanceof Error ? saveError.message : "Failed to save API key"
+      }));
+    } finally {
+      setSavingApiKeyName(null);
+    }
+  }
+
+  async function removeApiKey(keyName: string) {
+    setRemovingApiKeyName(keyName);
+    setApiKeyErrors((current) => ({ ...current, [keyName]: "" }));
+    setApiKeySaved((current) => ({ ...current, [keyName]: false }));
+    setError(null);
+    setFeedback(null);
+
+    try {
+      await fetchJson(
+        `/api/workspace/api-keys/${encodeURIComponent(keyName)}`,
+        {
+          method: "DELETE"
+        },
+        "Failed to remove API key"
+      );
+      setApiKeyInputs((current) => ({ ...current, [keyName]: "" }));
+      await loadAll();
+    } catch (removeError) {
+      setApiKeyErrors((current) => ({
+        ...current,
+        [keyName]:
+          removeError instanceof Error
+            ? removeError.message
+            : "Failed to remove API key"
+      }));
+    } finally {
+      setRemovingApiKeyName(null);
     }
   }
 
@@ -535,6 +649,8 @@ export default function WorkspaceSettings() {
     }
   }
 
+  const apiKeyMap = new Map(apiKeys.map((entry) => [entry.keyName, entry]));
+
   if (loading) {
     return (
       <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
@@ -787,6 +903,107 @@ export default function WorkspaceSettings() {
         {xeroConnectError ? (
           <InlineWarning message="Connection not configured. Ask your admin to add the required credentials to the deployment environment." />
         ) : null}
+      </section>
+
+      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-white">API Keys</h2>
+            <p className="mt-2 text-sm text-text-secondary">
+              Store operator-level provider keys in Deploy OS without touching
+              Railway. Saved values stay hidden after entry.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 space-y-4">
+          {KNOWN_API_KEYS.map((knownKey) => {
+            const record = apiKeyMap.get(knownKey.keyName);
+            const isSaving = savingApiKeyName === knownKey.keyName;
+            const isRemoving = removingApiKeyName === knownKey.keyName;
+
+            return (
+              <div
+                key={knownKey.keyName}
+                className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold text-white">
+                      {knownKey.label}
+                    </h3>
+                    <p className="mt-1 text-xs text-text-secondary">
+                      {record?.isSet
+                        ? `Configured${record.updatedAt ? ` · updated ${new Date(record.updatedAt).toLocaleString()}` : ""}`
+                        : "Not set yet"}
+                    </p>
+                  </div>
+                  <span
+                    className={
+                      record?.isSet
+                        ? "rounded-full bg-[rgba(45,212,160,0.18)] px-3 py-1 text-xs font-medium text-[#54e1b1]"
+                        : "rounded-full bg-[rgba(240,180,41,0.16)] px-3 py-1 text-xs font-medium text-[#f0c15f]"
+                    }
+                  >
+                    {record?.isSet ? "Configured" : "Not set"}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">
+                      Key value
+                    </span>
+                    <input
+                      type="password"
+                      value={apiKeyInputs[knownKey.keyName] ?? ""}
+                      onChange={(event) =>
+                        setApiKeyInputs((current) => ({
+                          ...current,
+                          [knownKey.keyName]: event.target.value
+                        }))
+                      }
+                      placeholder={knownKey.placeholder}
+                      className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                    />
+                  </label>
+
+                  <div className="flex flex-wrap items-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void saveApiKey(knownKey.keyName, knownKey.label)
+                      }
+                      disabled={isSaving}
+                      className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSaving ? "Saving..." : "Save"}
+                    </button>
+                    {record?.isSet ? (
+                      <button
+                        type="button"
+                        onClick={() => void removeApiKey(knownKey.keyName)}
+                        disabled={isRemoving}
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                      >
+                        {isRemoving ? "Removing..." : "Remove"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {apiKeySaved[knownKey.keyName] ? (
+                  <p className="mt-3 text-sm text-[#54e1b1]">Saved</p>
+                ) : null}
+                {apiKeyErrors[knownKey.keyName] ? (
+                  <p className="mt-3 text-sm text-[#ff9aa7]">
+                    {apiKeyErrors[knownKey.keyName]}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">

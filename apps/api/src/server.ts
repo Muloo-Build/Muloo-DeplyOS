@@ -14,7 +14,7 @@ import {
   validateProjectById
 } from "@muloo/file-system";
 import Prisma from "@prisma/client";
-import { moduleCatalog } from "@muloo/shared";
+import { DEFAULT_WORKSPACE_ID, getApiKey, moduleCatalog } from "@muloo/shared";
 import { z, ZodError } from "zod";
 import { prisma } from "./prisma";
 
@@ -4318,9 +4318,15 @@ export async function loadProjectExecutionJobStatus(
 }
 
 export async function startProjectPortalAuditExecutionJob(projectId: string) {
-  if (!process.env.OPENAI_API_KEY) {
+  const openAiApiKey = await getApiKey(
+    DEFAULT_WORKSPACE_ID,
+    "openai",
+    prisma
+  );
+
+  if (!openAiApiKey) {
     throw new Error(
-      "OpenAI API key not configured. Add OPENAI_API_KEY to environment."
+      "OpenAI API key not configured. Go to Settings → API Keys to add it."
     );
   }
 
@@ -4368,6 +4374,7 @@ export async function startProjectPortalAuditExecutionJob(projectId: string) {
       jobId: job.id,
       projectId: project.id,
       portalId: project.portalId as string,
+      workspaceId: DEFAULT_WORKSPACE_ID,
       prisma
     });
   });
@@ -9184,6 +9191,24 @@ function serializeWorkspaceAiRouting<
   };
 }
 
+function serializeWorkspaceApiKey<
+  T extends {
+    keyName: string;
+    label: string | null;
+    keyValue: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(apiKey: T) {
+  return {
+    keyName: apiKey.keyName,
+    label: apiKey.label,
+    isSet: Boolean(apiKey.keyValue.trim()),
+    createdAt: apiKey.createdAt.toISOString(),
+    updatedAt: apiKey.updatedAt.toISOString()
+  };
+}
+
 function serializeWorkspaceEmailSettings<
   T extends {
     id: string;
@@ -10233,6 +10258,15 @@ export async function loadProviderConnections() {
   return providers.map((provider) =>
     serializeWorkspaceProviderConnection(provider)
   );
+}
+
+export async function loadWorkspaceApiKeys() {
+  const keys = await prisma.workspaceApiKey.findMany({
+    where: { workspaceId: DEFAULT_WORKSPACE_ID },
+    orderBy: [{ label: "asc" }, { keyName: "asc" }]
+  });
+
+  return keys.map((key) => serializeWorkspaceApiKey(key));
 }
 
 export async function loadHubSpotPortals() {
@@ -13728,6 +13762,71 @@ export async function loadWorkspaceCalendarConnection() {
   });
 
   return serializeWorkspaceCalendarConnection(connection);
+}
+
+export async function saveWorkspaceApiKey(value: {
+  keyName?: unknown;
+  keyValue?: unknown;
+  label?: unknown;
+}) {
+  if (typeof value.keyName !== "string" || value.keyName.trim().length === 0) {
+    throw new Error("keyName must be a non-empty string");
+  }
+
+  if (
+    typeof value.keyValue !== "string" ||
+    value.keyValue.trim().length === 0
+  ) {
+    throw new Error("keyValue must be a non-empty string");
+  }
+
+  if (value.label !== undefined && typeof value.label !== "string") {
+    throw new Error("label must be a string");
+  }
+
+  const keyName = value.keyName.trim().toLowerCase();
+  const keyValue = value.keyValue.trim();
+  const label =
+    typeof value.label === "string" ? value.label.trim() || null : null;
+
+  const savedKey = await prisma.workspaceApiKey.upsert({
+    where: {
+      workspaceId_keyName: {
+        workspaceId: DEFAULT_WORKSPACE_ID,
+        keyName
+      }
+    },
+    create: {
+      workspaceId: DEFAULT_WORKSPACE_ID,
+      keyName,
+      keyValue,
+      label
+    },
+    update: {
+      keyValue,
+      label,
+      updatedAt: new Date()
+    }
+  });
+
+  return serializeWorkspaceApiKey(savedKey);
+}
+
+export async function deleteWorkspaceApiKey(keyName: string) {
+  const normalizedKeyName = keyName.trim().toLowerCase();
+
+  if (!normalizedKeyName) {
+    throw new Error("keyName must be a non-empty string");
+  }
+
+  await prisma.workspaceApiKey.deleteMany({
+    where: {
+      workspaceId: DEFAULT_WORKSPACE_ID,
+      keyName: normalizedKeyName
+    }
+  });
+
+  return { success: true };
 }
 
 export async function updateWorkspaceCalendarConnection(value: {

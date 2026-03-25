@@ -28,6 +28,8 @@ import {
 } from "@muloo/file-system";
 import {
   createProjectFromTemplateRequestSchema,
+  DEFAULT_WORKSPACE_ID,
+  getApiKey,
   moduleCatalog,
   updateProjectDiscoverySectionRequestSchema,
   updateProjectLifecycleDesignRequestSchema,
@@ -116,6 +118,7 @@ import {
   updateClientContact,
   updateClientDirectoryRecord,
   updateDeliveryTemplate,
+  deleteWorkspaceApiKey,
   updateWorkspaceEmailOAuthConnection,
   updateWorkspaceCalendarConnection,
   updateWorkspaceEmailSettings,
@@ -139,6 +142,7 @@ import {
   loadProjectExecutionJobStatus,
   loadProjectsDirectory,
   loadProjectTasks,
+  loadWorkspaceApiKeys,
   loadWorkflowRuns,
   loadLatestPortalSnapshot,
   loadProjectChangeRequests,
@@ -185,7 +189,8 @@ import {
   getQuotesPipeline,
   getWorkspaceAiRouting,
   getWorkspaceXeroInvoices,
-  saveWorkspaceAiRouting
+  saveWorkspaceAiRouting,
+  saveWorkspaceApiKey
 } from "./server";
 
 type HonoBindings = {
@@ -1461,11 +1466,17 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/projects/:projectId/run/portal-audit", async (c) => {
-    if (!process.env.OPENAI_API_KEY) {
+    const openAiApiKey = await getApiKey(
+      DEFAULT_WORKSPACE_ID,
+      "openai",
+      prisma
+    );
+
+    if (!openAiApiKey) {
       return c.json(
         {
           error:
-            "OpenAI API key not configured. Add OPENAI_API_KEY to environment."
+            "OpenAI API key not configured. Go to Settings → API Keys to add it."
         },
         503
       );
@@ -2175,6 +2186,52 @@ export function createApiApp(config: BaseConfig) {
             error instanceof Error
               ? error.message
               : "Failed to update Google Calendar connection"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/workspace/api-keys", async (c) =>
+    c.json({
+      keys: await loadWorkspaceApiKeys()
+    })
+  );
+
+  app.post("/api/workspace/api-keys", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      return c.json(
+        {
+          key: await saveWorkspaceApiKey(body)
+        },
+        201
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to save API key"
+        },
+        400
+      );
+    }
+  });
+
+  app.delete("/api/workspace/api-keys/:keyName", async (c) => {
+    try {
+      return c.json(
+        await deleteWorkspaceApiKey(c.req.param("keyName"))
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to remove API key"
         },
         400
       );
