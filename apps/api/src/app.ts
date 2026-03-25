@@ -17,6 +17,9 @@ import {
   createAgentDefinition,
   createClientContact,
   createClientDirectoryRecord,
+  createClientInviteLink,
+  createClientPortalUserForProject,
+  createClientResetLink,
   createDeliveryTemplate,
   createProductCatalogItem,
   createWorkRequest,
@@ -75,11 +78,13 @@ import {
   loadClientProjectDetail,
   loadClientProjectsForUser,
   loadClientQuoteDocument,
+  loadClientUsersForProject,
   refreshClientEnrichment,
   loadProjectMessages,
   markProjectMessagesSeenByClient,
   saveClientInputSubmission,
   serializeTask,
+  updateClientProjectAccess,
   updateWorkRequest,
   updateWorkspaceUser
 } from "./server";
@@ -162,6 +167,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/delivery-templates/*", internalAuth);
   app.use("/api/work-requests", internalAuth);
   app.use("/api/work-requests/*", internalAuth);
+  app.use("/api/projects", internalAuth);
+  app.use("/api/projects/*", internalAuth);
   app.use("/api/hubspot", internalAuth);
   app.use("/api/hubspot/*", internalAuth);
   app.use("/api/portals", internalAuth);
@@ -1513,6 +1520,139 @@ export function createApiApp(config: BaseConfig) {
 
   app.all("/api/client/*", (c) =>
     c.json({ error: "Client route not found" }, 404)
+  );
+
+  app.all("/api/projects/:projectId/client-users", async (c) => {
+    if (c.req.method === "GET") {
+      return c.json({
+        clientUsers: await loadClientUsersForProject(c.req.param("projectId"))
+      });
+    }
+
+    if (c.req.method === "POST") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as {
+          firstName?: unknown;
+          lastName?: unknown;
+          email?: unknown;
+          password?: unknown;
+          role?: unknown;
+          questionnaireAccess?: unknown;
+          assignedInputSections?: unknown;
+        };
+
+        const clientUser = await createClientPortalUserForProject(
+          c.req.param("projectId"),
+          body
+        );
+
+        return c.json({ clientUser }, 201);
+      } catch (error) {
+        if (error instanceof Error) {
+          return c.json({ error: error.message }, 400);
+        }
+
+        throw error;
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/projects/:projectId/client-users/:userId", async (c) => {
+    if (c.req.method !== "PATCH") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        role?: unknown;
+        questionnaireAccess?: unknown;
+        assignedInputSections?: unknown;
+      };
+      const clientUser = await updateClientProjectAccess(
+        c.req.param("projectId"),
+        c.req.param("userId"),
+        body
+      );
+
+      return c.json({ clientUser });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "Client user not found for this project"
+      ) {
+        return c.json({ error: error.message }, 404);
+      }
+
+      if (error instanceof Error) {
+        return c.json({ error: error.message }, 400);
+      }
+
+      throw error;
+    }
+  });
+
+  app.all(
+    "/api/projects/:projectId/client-users/:userId/invite-link",
+    async (c) => {
+      if (c.req.method !== "POST") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+
+      try {
+        const result = await createClientInviteLink(
+          c.req.param("userId"),
+          c.req.param("projectId")
+        );
+
+        return c.json(result);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create invite link"
+          },
+          error instanceof Error &&
+            error.message === "Client user not found for this project"
+            ? 404
+            : 400
+        );
+      }
+    }
+  );
+
+  app.all(
+    "/api/projects/:projectId/client-users/:userId/reset-link",
+    async (c) => {
+      if (c.req.method !== "POST") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+
+      try {
+        const result = await createClientResetLink(
+          c.req.param("userId"),
+          c.req.param("projectId")
+        );
+
+        return c.json(result);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create reset link"
+          },
+          error instanceof Error &&
+            error.message === "Client user not found for this project"
+            ? 404
+            : 400
+        );
+      }
+    }
   );
 
   app.all("*", async (c) => {
