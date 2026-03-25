@@ -16488,11 +16488,13 @@ async function resolveAiWorkflow(workflowKey: string) {
   const providerMap = new Map(
     providers.map((provider) => [provider.providerKey, provider])
   );
+  const routedProviderKey = routing?.providerKey ?? null;
+  const routedModelOverride = routing?.modelOverride ?? null;
   const routedCandidate = routing
     ? resolveProviderCandidate(
         providerMap,
-        routing.providerKey,
-        routing.modelOverride
+        routedProviderKey,
+        routedModelOverride
       )
     : null;
 
@@ -16504,14 +16506,18 @@ async function resolveAiWorkflow(workflowKey: string) {
     };
   }
 
+  if (routing) {
+    throw new Error(
+      `Configured provider ${routing.providerKey} is not available for workflow ${workflowKey}`
+    );
+  }
+
   const fallbackOrder = ["anthropic", "openai", "perplexity", "gemini"];
   for (const providerKey of fallbackOrder) {
     const fallbackCandidate = resolveProviderCandidate(
       providerMap,
       providerKey,
-      routing?.providerKey === providerKey
-        ? (routing?.modelOverride ?? null)
-        : null
+      routedProviderKey === providerKey ? routedModelOverride : null
     );
     if (fallbackCandidate) {
       return {

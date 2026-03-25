@@ -66,6 +66,11 @@ interface RecommendationRecord {
   updatedAt: string;
 }
 
+interface WorkspaceRoute {
+  providerKey: string;
+  model: string | null;
+}
+
 interface FindingDraft {
   severity: FindingRecord["severity"];
   title: string;
@@ -302,6 +307,7 @@ export default function PortalAuditWorkspace({
   const [recommendations, setRecommendations] = useState<
     RecommendationRecord[]
   >([]);
+  const [auditRoute, setAuditRoute] = useState<WorkspaceRoute | null>(null);
   const [loading, setLoading] = useState(true);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [aiAuditBusy, setAiAuditBusy] = useState(false);
@@ -343,10 +349,16 @@ export default function PortalAuditWorkspace({
       const recommendationsResponse = await fetch(
         `/api/projects/${encodeURIComponent(projectId)}/recommendations`
       );
+      const routeResponse = await fetch(
+        "/api/workspace/ai-routing/portal_audit"
+      );
       const findingsBody = await findingsResponse.json().catch(() => null);
       const recommendationsBody = await recommendationsResponse
         .json()
         .catch(() => null);
+      const routeBody = routeResponse.ok
+        ? await routeResponse.json().catch(() => null)
+        : null;
 
       if (!findingsResponse.ok) {
         throw new Error(findingsBody?.error ?? "Failed to load findings");
@@ -360,6 +372,14 @@ export default function PortalAuditWorkspace({
 
       setFindings(findingsBody.findings ?? []);
       setRecommendations(recommendationsBody.recommendations ?? []);
+      setAuditRoute(
+        routeBody?.providerKey
+          ? {
+              providerKey: routeBody.providerKey,
+              model: routeBody.model ?? null
+            }
+          : null
+      );
 
       if (projectBody.project?.portal?.id) {
         const snapshotResponse = await fetch(
@@ -558,6 +578,12 @@ export default function PortalAuditWorkspace({
                 Capture portal context, document findings, and pull quick wins
                 into delivery without leaving the project workflow.
               </p>
+              {auditRoute ? (
+                <p className="mt-3 text-sm text-text-secondary">
+                  AI route: {formatLabel(auditRoute.providerKey)}
+                  {auditRoute.model ? ` · ${auditRoute.model}` : ""}
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-wrap gap-3">
               <button
