@@ -1742,6 +1742,15 @@ export async function createWorkspaceUser(value: {
     throw new Error("password must be at least 8 characters");
   }
 
+  const nextSortOrder = Number.isFinite(sortOrder)
+    ? Math.round(sortOrder)
+    : await prisma.workspaceUser
+        .findFirst({
+          orderBy: { sortOrder: "desc" },
+          select: { sortOrder: true }
+        })
+        .then((user) => (user?.sortOrder ?? 0) + 10);
+
   const user = await prisma.workspaceUser.create({
     data: {
       name,
@@ -1749,7 +1758,7 @@ export async function createWorkspaceUser(value: {
       password: password || null,
       role,
       isActive: value.isActive === false ? false : true,
-      sortOrder: Number.isFinite(sortOrder) ? Math.round(sortOrder) : 999
+      sortOrder: nextSortOrder
     }
   });
 

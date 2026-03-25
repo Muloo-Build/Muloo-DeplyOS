@@ -9,7 +9,6 @@ interface WorkspaceUser {
   hasPassword: boolean;
   role: string;
   isActive: boolean;
-  sortOrder: number;
 }
 
 const emptyDraft = {
@@ -17,8 +16,7 @@ const emptyDraft = {
   email: "",
   password: "",
   role: "",
-  isActive: true,
-  sortOrder: "999"
+  isActive: true
 };
 
 export default function WorkspaceUsersSettings() {
@@ -121,8 +119,7 @@ export default function WorkspaceUsersSettings() {
           email: draft.email,
           password: draft.password,
           role: draft.role,
-          isActive: draft.isActive,
-          sortOrder: Number(draft.sortOrder)
+          isActive: draft.isActive
         })
       });
       const body = await response.json().catch(() => null);
@@ -130,8 +127,8 @@ export default function WorkspaceUsersSettings() {
         throw new Error(body?.error ?? "Failed to create workspace user");
       }
       setUsers((current) =>
-        [...current, body.user].sort(
-          (left, right) => left.sortOrder - right.sortOrder
+        [...current, body.user].sort((left, right) =>
+          left.name.localeCompare(right.name)
         )
       );
       setDraft(emptyDraft);
@@ -160,7 +157,7 @@ export default function WorkspaceUsersSettings() {
           Set a password here when you want a Muloo user to be able to sign in
           directly, including agent-specific operator accounts.
         </p>
-        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <input
             value={draft.name}
             onChange={(event) =>
@@ -194,18 +191,7 @@ export default function WorkspaceUsersSettings() {
             onChange={(event) =>
               setDraft((current) => ({ ...current, role: event.target.value }))
             }
-            placeholder="Role"
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
-          />
-          <input
-            value={draft.sortOrder}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                sortOrder: event.target.value
-              }))
-            }
-            placeholder="Sort order"
+            placeholder="Job title"
             className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
           />
           <button
@@ -239,7 +225,7 @@ export default function WorkspaceUsersSettings() {
               </span>
               {user.isActive ? <span>Active</span> : <span>Inactive</span>}
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.2fr_1.1fr_1fr_180px_140px_140px]">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.2fr_1.1fr_1fr_180px_140px]">
               <input
                 value={user.name}
                 onChange={(event) =>
@@ -259,6 +245,7 @@ export default function WorkspaceUsersSettings() {
                 onChange={(event) =>
                   updateUser(user.id, "role", event.target.value)
                 }
+                placeholder="Job title"
                 className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
               />
               <input
@@ -274,14 +261,6 @@ export default function WorkspaceUsersSettings() {
                   user.hasPassword
                     ? "Leave blank to keep password"
                     : "Set password"
-                }
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
-              />
-              <input
-                type="number"
-                value={user.sortOrder}
-                onChange={(event) =>
-                  updateUser(user.id, "sortOrder", Number(event.target.value))
                 }
                 className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
               />
