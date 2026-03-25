@@ -11,6 +11,7 @@ interface HubSpotClientOptions {
   accessToken: string;
   logger: Logger;
   baseUrl?: string;
+  scopes?: string[];
 }
 
 interface HubSpotPropertiesResponse {
@@ -336,11 +337,21 @@ function extractActiveHubs(payload: HubSpotAccountInfoResponse) {
 export class HubSpotClient {
   private readonly accessToken: string;
   private readonly baseUrl: string;
+  private readonly grantedScopes: Set<string> | null;
   private readonly logger: Logger;
 
   public constructor(options: HubSpotClientOptions) {
     this.accessToken = options.accessToken;
     this.baseUrl = options.baseUrl ?? "https://api.hubapi.com";
+    this.grantedScopes =
+      options.scopes && options.scopes.length > 0
+        ? new Set(
+            options.scopes
+              .filter((scope): scope is string => typeof scope === "string")
+              .map((scope) => scope.trim())
+              .filter(Boolean)
+          )
+        : null;
     this.logger = options.logger;
   }
 
@@ -378,8 +389,28 @@ export class HubSpotClient {
     path: string,
     init: RequestInit,
     errorLabel: string,
-    toleratedStatuses: number[] = [403]
+    options?: {
+      requiredScopes?: readonly string[];
+      toleratedStatuses?: readonly number[];
+    }
   ): Promise<T | null> {
+    const toleratedStatuses = options?.toleratedStatuses ?? [403, 404];
+    const requiredScopes = options?.requiredScopes ?? [];
+
+    if (
+      this.grantedScopes &&
+      requiredScopes.length > 0 &&
+      !requiredScopes.some((scope) => this.grantedScopes?.has(scope))
+    ) {
+      this.logger.warn(`${errorLabel} skipped because the token lacks scope.`, {
+        path,
+        requiredScopes,
+        grantedScopes: Array.from(this.grantedScopes)
+      });
+
+      return null;
+    }
+
     const url = `${this.baseUrl}${path}`;
 
     const response = await fetch(url, {
@@ -398,7 +429,8 @@ export class HubSpotClient {
         this.logger.warn(`${errorLabel} skipped because the token lacks scope.`, {
           path,
           status: response.status,
-          body
+          body,
+          requiredScopes: requiredScopes.length > 0 ? requiredScopes : undefined
         });
 
         return null;
@@ -728,22 +760,29 @@ export class HubSpotClient {
         { method: "GET" },
         "HubSpot deal properties fetch"
       ),
-      this.requestJson<HubSpotPropertiesResponse>(
+      this.requestOptionalJson<HubSpotPropertiesResponse>(
         "/crm/v3/properties/tickets",
         { method: "GET" },
         "HubSpot ticket properties fetch"
       ),
-      this.requestJson<HubSpotSchemasResponse>(
+      this.requestOptionalJson<HubSpotSchemasResponse>(
         "/crm/v3/schemas",
         { method: "GET" },
-        "HubSpot custom object schema fetch"
+        "HubSpot custom object schema fetch",
+        {
+          requiredScopes: [
+            "crm.objects.custom.read",
+            "crm.schemas.custom.read",
+            "crm.schemas.custom.write"
+          ]
+        }
       ),
       this.requestJson<HubSpotPipelinesResponse>(
         "/crm/v3/pipelines/deals",
         { method: "GET" },
         "HubSpot deal pipelines fetch"
       ),
-      this.requestJson<HubSpotPipelinesResponse>(
+      this.requestOptionalJson<HubSpotPipelinesResponse>(
         "/crm/v3/pipelines/tickets",
         { method: "GET" },
         "HubSpot ticket pipelines fetch"
@@ -751,17 +790,26 @@ export class HubSpotClient {
       this.requestOptionalJson<HubSpotCountableCollectionResponse>(
         "/settings/v3/users",
         { method: "GET" },
-        "HubSpot users fetch"
+        "HubSpot users fetch",
+        {
+          requiredScopes: ["crm.objects.users.read", "settings.users.read"]
+        }
       ),
       this.requestOptionalJson<HubSpotCountableCollectionResponse>(
         "/settings/v3/users/teams",
         { method: "GET" },
-        "HubSpot teams fetch"
+        "HubSpot teams fetch",
+        {
+          requiredScopes: ["settings.users.teams.read"]
+        }
       ),
-      this.requestJson<HubSpotCountableCollectionResponse>(
+      this.requestOptionalJson<HubSpotCountableCollectionResponse>(
         "/crm/v3/lists?count=true",
         { method: "GET" },
-        "HubSpot lists fetch"
+        "HubSpot lists fetch",
+        {
+          requiredScopes: ["crm.lists.read"]
+        }
       )
     ]);
 

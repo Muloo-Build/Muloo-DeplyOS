@@ -9125,7 +9125,8 @@ export async function createPortalSnapshotForPortal(portalId: string) {
     where: { id: portalId },
     select: {
       id: true,
-      accessToken: true
+      accessToken: true,
+      scopes: true
     }
   });
 
@@ -9140,7 +9141,8 @@ export async function createPortalSnapshotForPortal(portalId: string) {
   const client = new HubSpotClient({
     accessToken: portal.accessToken,
     baseUrl: normalizeHubSpotBaseUrl(),
-    logger: createHubSpotLogger()
+    logger: createHubSpotLogger(),
+    scopes: portal.scopes
   });
 
   const snapshotPayload = await client.capturePortalSnapshot();
