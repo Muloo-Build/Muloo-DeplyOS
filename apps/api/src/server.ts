@@ -401,6 +401,14 @@ const defaultAiWorkflowRouting = [
       "Draft internal-to-client emails from the saved project summary, quote status, and supporting context."
   },
   {
+    workflowKey: "project_prepare_brief",
+    label: "Project Prepare Brief",
+    providerKey: "openai",
+    modelOverride: "gpt-5.4",
+    notes:
+      "Generate meeting prep briefs, onsite agenda suggestions, and optimization context for existing-client work."
+  },
+  {
     workflowKey: "portal_audit",
     label: "Portal Audit",
     providerKey: "anthropic",
@@ -9098,6 +9106,18 @@ const portalAuditGenerationSchema = z.object({
     .default([])
 });
 
+const projectPrepareBriefSchema = z.object({
+  executiveSummary: z.string().trim().min(1),
+  meetingGoal: z.string().trim().min(1),
+  whatWeKnow: z.array(z.string().trim().min(1)).min(3).max(12).default([]),
+  openQuestions: z.array(z.string().trim().min(1)).min(3).max(12).default([]),
+  agenda: z.array(z.string().trim().min(1)).min(4).max(12).default([]),
+  recommendedApproach: z.string().trim().min(1),
+  likelyWorkstreams: z.array(z.string().trim().min(1)).min(2).max(10).default([]),
+  risks: z.array(z.string().trim().min(1)).max(10).default([]),
+  suggestedNextStep: z.string().trim().min(1)
+});
+
 function normalizeAuditString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
@@ -10222,6 +10242,185 @@ Rules:
       maxWait: 10_000,
       timeout: 30_000
     }
+  );
+}
+
+export async function generateProjectPrepareBrief(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      client: {
+        select: {
+          id: true,
+          name: true,
+          industry: true,
+          region: true,
+          website: true
+        }
+      },
+      portal: {
+        select: {
+          id: true,
+          portalId: true,
+          displayName: true,
+          connected: true,
+          connectedEmail: true,
+          hubDomain: true
+        }
+      },
+      discoverySummary: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const [relatedProjects, findings, recommendations, supportingContext, latestSnapshot] =
+    await Promise.all([
+      prisma.project.findMany({
+        where: {
+          clientId: project.clientId,
+          NOT: { id: projectId }
+        },
+        orderBy: [{ updatedAt: "desc" }],
+        take: 6,
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          engagementType: true,
+          updatedAt: true,
+          selectedHubs: true,
+          problemStatement: true,
+          solutionRecommendation: true,
+          scopeExecutiveSummary: true
+        }
+      }),
+      prisma.finding.findMany({
+        where: { projectId },
+        orderBy: [{ createdAt: "desc" }],
+        take: 12
+      }),
+      prisma.recommendation.findMany({
+        where: { projectId },
+        orderBy: [{ createdAt: "desc" }],
+        take: 10
+      }),
+      prisma.discoveryEvidence.findMany({
+        where: { projectId, sessionNumber: 0 },
+        orderBy: [{ createdAt: "desc" }],
+        take: 16
+      }),
+      project.portal
+        ? prisma.portalSnapshot.findFirst({
+            where: { portalId: project.portal.id },
+            orderBy: [{ capturedAt: "desc" }]
+          })
+        : Promise.resolve(null)
+    ]);
+
+  const rawBrief = await callAiWorkflow(
+    "project_prepare_brief",
+    `You are Muloo Deploy OS's meeting-prep and optimisation planning assistant.
+
+You are helping Jarrud prepare for a client session where Muloo may already know a lot, the client may already have HubSpot, and the next step is often to validate, sharpen, and sequence work rather than restart discovery from zero.
+
+Rules:
+- Return ONLY valid JSON. No markdown or commentary.
+- Use exactly these keys: executiveSummary, meetingGoal, whatWeKnow, openQuestions, agenda, recommendedApproach, likelyWorkstreams, risks, suggestedNextStep.
+- Think like a senior HubSpot consultant preparing for an onsite or working session.
+- Be practical, concise, and decision-oriented.
+- whatWeKnow should reflect facts already visible in the project, portal, audit, prior work, and notes.
+- openQuestions should focus on what must be validated live with the client before scope is finalised.
+- agenda should be a realistic workshop / meeting sequence, not generic filler.
+- likelyWorkstreams should describe the work that is likely to emerge next.
+- risks should focus on delivery risk, portal constraints, governance gaps, or assumptions that could derail the next phase.
+- suggestedNextStep should be the single clearest next action Muloo should take after reading the brief.`,
+    stringifyPromptData({
+      project: {
+        id: project.id,
+        name: project.name,
+        engagementType: project.engagementType,
+        status: project.status,
+        selectedHubs: project.selectedHubs,
+        implementationApproach: project.implementationApproach,
+        customerPlatformTier: project.customerPlatformTier,
+        problemStatement: project.problemStatement,
+        solutionRecommendation: project.solutionRecommendation,
+        scopeExecutiveSummary: project.scopeExecutiveSummary,
+        commercialBrief: project.commercialBrief
+      },
+      client: project.client,
+      portal: project.portal
+        ? {
+            portalId: project.portal.portalId,
+            displayName: project.portal.displayName,
+            connected: project.portal.connected,
+            connectedEmail: project.portal.connectedEmail,
+            hubDomain: project.portal.hubDomain
+          }
+        : null,
+      latestSnapshot: latestSnapshot
+        ? {
+            capturedAt: latestSnapshot.capturedAt.toISOString(),
+            hubTier: latestSnapshot.hubTier,
+            activeHubs: latestSnapshot.activeHubs,
+            contactPropertyCount: latestSnapshot.contactPropertyCount,
+            companyPropertyCount: latestSnapshot.companyPropertyCount,
+            dealPropertyCount: latestSnapshot.dealPropertyCount,
+            customObjectCount: latestSnapshot.customObjectCount,
+            dealPipelineCount: latestSnapshot.dealPipelineCount,
+            dealStageCount: latestSnapshot.dealStageCount,
+            activeUserCount: latestSnapshot.activeUserCount,
+            teamCount: latestSnapshot.teamCount,
+            activeListCount: latestSnapshot.activeListCount
+          }
+        : null,
+      discoverySummary: project.discoverySummary,
+      relatedProjects: relatedProjects.map((relatedProject) => ({
+        id: relatedProject.id,
+        name: relatedProject.name,
+        status: relatedProject.status,
+        engagementType: relatedProject.engagementType,
+        updatedAt: relatedProject.updatedAt.toISOString(),
+        selectedHubs: relatedProject.selectedHubs,
+        problemStatement: relatedProject.problemStatement,
+        solutionRecommendation: relatedProject.solutionRecommendation,
+        scopeExecutiveSummary: relatedProject.scopeExecutiveSummary
+      })),
+      findings: findings.map((finding) => ({
+        area: finding.area,
+        severity: finding.severity,
+        title: finding.title,
+        description: finding.description,
+        quickWin: finding.quickWin,
+        status: finding.status
+      })),
+      recommendations: recommendations.map((recommendation) => ({
+        title: recommendation.title,
+        area: recommendation.area,
+        type: recommendation.type,
+        phase: recommendation.phase,
+        rationale: recommendation.rationale,
+        effort: recommendation.effort,
+        impact: recommendation.impact
+      })),
+      supportingContext: supportingContext.map((item) => ({
+        evidenceType: item.evidenceType,
+        sourceLabel: item.sourceLabel,
+        sourceUrl: item.sourceUrl,
+        content: item.content,
+        createdAt: item.createdAt.toISOString()
+      }))
+    }),
+    { maxTokens: 2600 }
+  );
+
+  return parseModelJson(
+    rawBrief,
+    projectPrepareBriefSchema,
+    "project-prepare-brief"
   );
 }
 

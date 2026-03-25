@@ -92,6 +92,18 @@ interface PortalSnapshot {
   dealPipelineCount: number | null;
 }
 
+interface PrepareBrief {
+  executiveSummary: string;
+  meetingGoal: string;
+  whatWeKnow: string[];
+  openQuestions: string[];
+  agenda: string[];
+  recommendedApproach: string;
+  likelyWorkstreams: string[];
+  risks: string[];
+  suggestedNextStep: string;
+}
+
 const evidenceTypeOptions: Array<{
   value: EvidenceItem["evidenceType"];
   label: string;
@@ -137,10 +149,13 @@ export default function ProjectPrepareWorkspace({
   );
   const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
   const [snapshot, setSnapshot] = useState<PortalSnapshot | null>(null);
+  const [prepareBrief, setPrepareBrief] = useState<PrepareBrief | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingContext, setSavingContext] = useState(false);
   const [contextError, setContextError] = useState<string | null>(null);
+  const [briefBusy, setBriefBusy] = useState(false);
+  const [briefError, setBriefError] = useState<string | null>(null);
   const [contextDraft, setContextDraft] = useState({
     evidenceType: "summary" as EvidenceItem["evidenceType"],
     sourceLabel: "",
@@ -302,6 +317,35 @@ export default function ProjectPrepareWorkspace({
       );
     } finally {
       setSavingContext(false);
+    }
+  }
+
+  async function generatePrepareBrief() {
+    setBriefBusy(true);
+    setBriefError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/prepare-brief/generate`,
+        {
+          method: "POST"
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to generate prepare brief");
+      }
+
+      setPrepareBrief(body?.brief ?? null);
+    } catch (generationError) {
+      setBriefError(
+        generationError instanceof Error
+          ? generationError.message
+          : "Failed to generate prepare brief"
+      );
+    } finally {
+      setBriefBusy(false);
     }
   }
 
@@ -558,6 +602,137 @@ export default function ProjectPrepareWorkspace({
                     </p>
                   </div>
                 </div>
+              </section>
+            </div>
+
+            <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                      AI Meeting Brief
+                    </p>
+                    <h2 className="mt-2 text-2xl font-semibold text-white">
+                      Generate a prep pack before the session
+                    </h2>
+                    <p className="mt-3 max-w-3xl text-text-secondary">
+                      Pull together the current portal picture, prior client
+                      work, findings, recommendations, and prep notes into a
+                      meeting brief you can actually use.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void generatePrepareBrief()}
+                    disabled={briefBusy}
+                    className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
+                  >
+                    {briefBusy ? "Generating..." : "Generate brief"}
+                  </button>
+                </div>
+
+                {briefError ? (
+                  <div className="mt-4 rounded-xl border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-white">
+                    {briefError}
+                  </div>
+                ) : null}
+
+                {prepareBrief ? (
+                  <div className="mt-5 space-y-5">
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                        Executive Summary
+                      </p>
+                      <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
+                        {prepareBrief.executiveSummary}
+                      </p>
+                    </div>
+
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                        <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                          Meeting Goal
+                        </p>
+                        <p className="mt-3 text-sm text-text-secondary">
+                          {prepareBrief.meetingGoal}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                        <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                          Recommended Approach
+                        </p>
+                        <p className="mt-3 text-sm text-text-secondary">
+                          {prepareBrief.recommendedApproach}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[#0b1126] p-6 text-sm text-text-secondary">
+                    Generate the brief to get an executive summary, open
+                    questions, and a suggested meeting structure before you head
+                    into the session.
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  Brief Outputs
+                </p>
+                {prepareBrief ? (
+                  <div className="mt-4 space-y-4">
+                    {[
+                      {
+                        label: "What we know",
+                        items: prepareBrief.whatWeKnow
+                      },
+                      {
+                        label: "Open questions",
+                        items: prepareBrief.openQuestions
+                      },
+                      {
+                        label: "Agenda",
+                        items: prepareBrief.agenda
+                      },
+                      {
+                        label: "Likely workstreams",
+                        items: prepareBrief.likelyWorkstreams
+                      },
+                      {
+                        label: "Risks",
+                        items: prepareBrief.risks
+                      }
+                    ].map(({ label, items }) => (
+                      <div
+                        key={label}
+                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      >
+                        <p className="text-sm font-semibold text-white">
+                          {label}
+                        </p>
+                        <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                          {items.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                    <div className="rounded-2xl border border-[rgba(123,226,239,0.22)] bg-[rgba(123,226,239,0.08)] p-4">
+                      <p className="text-sm font-semibold text-white">
+                        Suggested next step
+                      </p>
+                      <p className="mt-2 text-sm text-[#b7f5ff]">
+                        {prepareBrief.suggestedNextStep}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[#0b1126] p-5 text-sm text-text-secondary">
+                    The generated prep outputs will land here once you run the
+                    briefing assistant.
+                  </div>
+                )}
               </section>
             </div>
 

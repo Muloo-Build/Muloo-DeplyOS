@@ -78,6 +78,7 @@ import {
   extractDiscoveryFields,
   getAuthenticatedClientUserId,
   generateProjectEmailDraft,
+  generateProjectPrepareBrief,
   generateSolutionOptions,
   industryOptions,
   isAuthenticated,
@@ -1844,6 +1845,44 @@ export function createApiApp(config: BaseConfig) {
           error: error instanceof Error ? error.message : "Failed to send email"
         },
         400
+      );
+    }
+  });
+
+  app.post("/api/projects/:projectId/prepare-brief/generate", async (c) => {
+    try {
+      const brief = await generateProjectPrepareBrief(c.req.param("projectId"));
+      return c.json({ brief });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return c.json(
+          {
+            error: "Prepare brief returned invalid JSON",
+            details: error.flatten()
+          },
+          502
+        );
+      }
+
+      if (error instanceof SyntaxError) {
+        return c.json(
+          {
+            error: "Prepare brief returned invalid JSON"
+          },
+          502
+        );
+      }
+
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to generate prepare brief"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 400
       );
     }
   });
