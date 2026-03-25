@@ -175,6 +175,11 @@ export default function HubSpotAgentWorkbench() {
   const [executing, setExecuting] = useState(false);
   const [resultText, setResultText] = useState<string>("");
   const [portalRecordId, setPortalRecordId] = useState<string>("");
+  const [requestText, setRequestText] = useState<string>(
+    "Create an executive dashboard for sales leadership showing pipeline value, stage conversion, and monthly revenue trends."
+  );
+  const [requestBusy, setRequestBusy] = useState(false);
+  const [requestResultText, setRequestResultText] = useState<string>("");
 
   useEffect(() => {
     async function loadCapabilities() {
@@ -239,6 +244,40 @@ export default function HubSpotAgentWorkbench() {
       );
     } finally {
       setExecuting(false);
+    }
+  }
+
+  async function runAgentRequest() {
+    setRequestBusy(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/hubspot/agent-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          request: requestText,
+          dryRun,
+          portalRecordId: portalRecordId.trim() || undefined
+        })
+      });
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to run HubSpot agent request");
+      }
+
+      setRequestResultText(JSON.stringify(body, null, 2));
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Failed to run HubSpot agent request"
+      );
+    } finally {
+      setRequestBusy(false);
     }
   }
 
@@ -404,6 +443,57 @@ export default function HubSpotAgentWorkbench() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  Natural-language request
+                </p>
+                <h3 className="mt-2 text-xl font-semibold text-white">
+                  Tell the agent what you want done
+                </h3>
+                <p className="mt-2 text-sm text-text-secondary">
+                  Pick the target portal, describe the job, and let the agent
+                  choose between a supported direct action or a manual delivery
+                  plan. Dashboard requests will usually come back as a plan
+                  because there is no clean general CRUD path for them.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void runAgentRequest()}
+                disabled={requestBusy}
+                className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
+              >
+                {requestBusy
+                  ? "Running..."
+                  : dryRun
+                    ? "Plan request"
+                    : "Run request"}
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 xl:grid-cols-2">
+              <label className="block">
+                <span className="text-sm font-medium text-white">
+                  What should the agent do?
+                </span>
+                <textarea
+                  value={requestText}
+                  onChange={(event) => setRequestText(event.target.value)}
+                  className="mt-3 min-h-[220px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                />
+              </label>
+              <div className="block">
+                <span className="text-sm font-medium text-white">Result</span>
+                <pre className="mt-3 min-h-[220px] overflow-auto rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4 font-mono text-sm text-[#d5ddff]">
+                  {requestResultText ||
+                    "The agent will return either a supported action preview/execution or a manual plan for work that is better handled outside the direct REST path."}
+                </pre>
+              </div>
+            </div>
           </div>
 
           <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">

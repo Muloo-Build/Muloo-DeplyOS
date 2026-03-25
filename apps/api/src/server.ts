@@ -407,6 +407,14 @@ const defaultAiWorkflowRouting = [
     modelOverride: "claude-sonnet-4-20250514",
     notes:
       "Detailed HubSpot portal audit generation with structured findings, quick wins, and implementation recommendations."
+  },
+  {
+    workflowKey: "hubspot_operator_request",
+    label: "HubSpot Operator Request",
+    providerKey: "openai",
+    modelOverride: "gpt-5.4",
+    notes:
+      "Translate natural-language HubSpot requests into safe direct actions or a manual execution plan."
   }
 ] as const;
 const defaultProductCatalog = [
@@ -917,6 +925,13 @@ type HubSpotAgentActionKey =
   | "create_custom_object"
   | "create_pipeline"
   | "upsert_record";
+const hubSpotAgentActionSchema = z.enum([
+  "create_property_group",
+  "create_property",
+  "create_custom_object",
+  "create_pipeline",
+  "upsert_record"
+]);
 type HubSpotAgentCapability = {
   key: string;
   label: string;
@@ -927,6 +942,15 @@ type HubSpotAgentCapability = {
   docs: Array<{ label: string; url: string }>;
   directActions?: HubSpotAgentActionKey[];
 };
+const hubSpotAgentRequestPlanSchema = z.object({
+  mode: z.enum(["execute_action", "manual_plan"]),
+  summary: z.string().trim().min(1),
+  capabilityKey: z.string().trim().min(1),
+  action: hubSpotAgentActionSchema.optional(),
+  input: z.record(z.unknown()).optional(),
+  manualPlan: z.array(z.string().trim().min(1)).default([]),
+  cautions: z.array(z.string().trim().min(1)).default([])
+});
 
 const hubSpotAgentCapabilities: HubSpotAgentCapability[] = [
   {
@@ -11430,6 +11454,111 @@ export async function executeHubSpotAgentAction(value: {
       };
     }
   }
+}
+
+export async function runHubSpotAgentRequest(value: {
+  request?: unknown;
+  dryRun?: unknown;
+  portalRecordId?: unknown;
+}) {
+  const request =
+    typeof value.request === "string" ? value.request.trim() : "";
+  const dryRun = value.dryRun !== false;
+  const portalRecordId =
+    typeof value.portalRecordId === "string" && value.portalRecordId.trim()
+      ? value.portalRecordId.trim()
+      : null;
+
+  if (!request) {
+    throw new Error("request must be a non-empty string");
+  }
+
+  const connection = await resolveHubSpotAgentConnection(portalRecordId);
+  const planText = await callAiWorkflow(
+    "hubspot_operator_request",
+    `You are Muloo Deploy OS's HubSpot Operator Agent.
+
+You receive natural-language requests for a specific HubSpot portal. Your job is to decide whether the request can be executed safely through a supported direct action, or whether it should return a manual plan instead.
+
+Rules:
+- Return ONLY valid JSON.
+- Use exactly these keys: mode, summary, capabilityKey, action, input, manualPlan, cautions.
+- mode must be either "execute_action" or "manual_plan".
+- Only choose "execute_action" when the request clearly maps to one supported direct action and you can produce a valid input payload.
+- If the request is about dashboards, reports, workflow design, CMS, app home, UI extensions, or anything without a safe direct CRUD path, return "manual_plan".
+- Do not pretend a dashboard can be created through the direct REST actions if it cannot.
+- If you choose "execute_action", action must be one of:
+  - create_property_group -> input: { objectType, name, label, displayOrder? }
+  - create_property -> input: { objectType, name, label, type, fieldType, description?, groupName?, formField?, options? }
+  - create_custom_object -> input: { name, singularLabel, pluralLabel, primaryDisplayProperty, secondaryDisplayProperties?, searchableProperties?, requiredProperties?, associatedObjects?, properties }
+  - create_pipeline -> input: { objectType, label, displayOrder?, stages? }
+  - upsert_record -> input: { objectType, id, idProperty?, properties }
+- manualPlan should be a short ordered list of the best next steps when direct execution is not the right path.
+- cautions should call out portal limitations, review needs, or missing information.
+- Keep the response practical and execution-focused.`,
+    stringifyPromptData({
+      request,
+      dryRun,
+      targetPortal: {
+        portalRecordId: connection.portalRecordId,
+        portalId: connection.portalId,
+        portalDisplayName: connection.portalDisplayName,
+        ready: connection.ready
+      },
+      supportedActions: Array.from(
+        new Set(
+          hubSpotAgentCapabilities.flatMap(
+            (capability) => capability.directActions ?? []
+          )
+        )
+      ),
+      capabilities: hubSpotAgentCapabilities.map((capability) => ({
+        key: capability.key,
+        label: capability.label,
+        support: capability.support,
+        recommendedPath: capability.recommendedPath,
+        summary: capability.summary,
+        notes: capability.notes,
+        directActions: capability.directActions ?? []
+      }))
+    }),
+    { maxTokens: 3000 }
+  );
+
+  const plan = await parseModelJson(
+    planText,
+    hubSpotAgentRequestPlanSchema,
+    "hubspot-operator-request"
+  );
+
+  if (plan.mode === "execute_action") {
+    if (!plan.action || !plan.input) {
+      throw new Error(
+        "HubSpot operator request returned an incomplete execution plan"
+      );
+    }
+
+    const execution = await executeHubSpotAgentAction({
+      action: plan.action,
+      input: plan.input,
+      dryRun,
+      portalRecordId
+    });
+
+    return {
+      request,
+      dryRun,
+      plan,
+      execution
+    };
+  }
+
+  return {
+    request,
+    dryRun,
+    plan,
+    execution: null
+  };
 }
 
 export async function loadAiRouting() {

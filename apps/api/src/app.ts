@@ -74,6 +74,7 @@ import {
   disconnectWorkspaceXeroConnection,
   ensureProjectScopeUnlocked,
   executeHubSpotAgentAction,
+  runHubSpotAgentRequest,
   extractDiscoveryFields,
   getAuthenticatedClientUserId,
   generateProjectEmailDraft,
@@ -2453,6 +2454,24 @@ export function createApiApp(config: BaseConfig) {
             error instanceof Error
               ? error.message
               : "Failed to execute HubSpot agent action"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/hubspot/agent-request", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const result = await runHubSpotAgentRequest(body);
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to run HubSpot agent request"
         },
         400
       );
