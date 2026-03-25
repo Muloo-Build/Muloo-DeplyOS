@@ -2561,90 +2561,6 @@ function matchExecutionRoute(pathname: string): {
       };
 }
 
-function matchRunRoute(pathname: string): {
-  runId: string;
-} | null {
-  const match = /^\/api\/runs\/([^/]+?)$/.exec(pathname);
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  return {
-    runId: decodeURIComponent(match[1])
-  };
-}
-
-function matchProjectBlueprintRoute(pathname: string): {
-  projectId: string;
-  action?: "generate";
-} | null {
-  const match = /^\/api\/projects\/([^/]+?)\/blueprint(?:\/(generate))?$/.exec(
-    pathname
-  );
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1]),
-    ...(match[2] === "generate" ? { action: "generate" } : {})
-  };
-}
-
-function matchProjectTasksRoute(pathname: string): {
-  projectId: string;
-  action?: "generate-plan";
-  taskId?: string;
-} | null {
-  const match =
-    /^\/api\/projects\/([^/]+?)\/tasks(?:\/(generate-plan|[^/]+))?$/.exec(
-      pathname
-    );
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  if (!match[2]) {
-    return {
-      projectId: decodeURIComponent(match[1])
-    };
-  }
-
-  if (match[2] === "generate-plan") {
-    return {
-      projectId: decodeURIComponent(match[1]),
-      action: "generate-plan"
-    };
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1]),
-    taskId: decodeURIComponent(match[2])
-  };
-}
-
-function matchProjectTaskAgentRunRoute(pathname: string): {
-  projectId: string;
-  taskId: string;
-} | null {
-  const match =
-    /^\/api\/projects\/([^/]+?)\/tasks\/([^/]+?)\/queue-agent-run$/.exec(
-      pathname
-    );
-
-  if (!match || !match[1] || !match[2]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1]),
-    taskId: decodeURIComponent(match[2])
-  };
-}
-
 function matchProjectMessagesRoute(pathname: string): {
   projectId: string;
 } | null {
@@ -3742,7 +3658,7 @@ export async function loadAgentRuns() {
   return jobs.map((job) => serializeExecutionJob(job));
 }
 
-async function updateAgentRun(
+export async function updateAgentRun(
   runId: string,
   value: {
     status?: unknown;
@@ -4061,7 +3977,7 @@ ${messageContext.map((item) => `- ${item}`).join("\n")}`
   }
 }
 
-async function queueAgentRun(projectId: string, taskId: string) {
+export async function queueAgentRun(projectId: string, taskId: string) {
   const task = await prisma.task.findFirst({
     where: { id: taskId, projectId },
     include: {
@@ -6417,7 +6333,7 @@ async function generateProjectPlan(projectId: string) {
   return generateBlueprintProjectPlan(projectId);
 }
 
-async function ensureProjectPlanGenerationAllowed(projectId: string) {
+export async function ensureProjectPlanGenerationAllowed(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: {
@@ -6450,6 +6366,390 @@ async function ensureProjectPlanGenerationAllowed(projectId: string) {
   throw new Error(
     "Approved scope is locked. Delivery scope can only be generated once from the approved quote."
   );
+}
+
+export async function loadProjectTasks(projectId: string) {
+  const tasks = await prisma.task.findMany({
+    where: { projectId },
+    include: {
+      assignedAgent: { select: { name: true } },
+      executionJobs: {
+        select: {
+          id: true,
+          status: true,
+          resultStatus: true,
+          createdAt: true,
+          completedAt: true
+        },
+        orderBy: [{ createdAt: "desc" }],
+        take: 1
+      }
+    },
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  return tasks.map((task) => serializeTask(task));
+}
+
+export async function createProjectTask(
+  projectId: string,
+  value: {
+    title?: unknown;
+    description?: unknown;
+    category?: unknown;
+    executionType?: unknown;
+    priority?: unknown;
+    status?: unknown;
+    plannedHours?: unknown;
+    actualHours?: unknown;
+    qaRequired?: unknown;
+    approvalRequired?: unknown;
+    assigneeType?: unknown;
+    executionReadiness?: unknown;
+    assignedAgentId?: unknown;
+  }
+) {
+  const validStatuses = [
+    "todo",
+    "waiting_on_client",
+    "in_progress",
+    "blocked",
+    "done"
+  ];
+  const validAssigneeTypes = ["Human", "Agent", "Client"];
+  const validPriorities = ["low", "medium", "high"];
+  const validExecutionReadiness = [
+    "not_ready",
+    "assisted",
+    "ready_with_review",
+    "ready"
+  ];
+
+  const status =
+    typeof value.status === "string" && validStatuses.includes(value.status)
+      ? value.status
+      : "todo";
+  const assigneeType =
+    typeof value.assigneeType === "string" &&
+    validAssigneeTypes.includes(value.assigneeType)
+      ? value.assigneeType
+      : "Human";
+  const assignedAgentId =
+    assigneeType === "Agent" &&
+    typeof value.assignedAgentId === "string" &&
+    value.assignedAgentId.trim().length > 0
+      ? value.assignedAgentId.trim()
+      : null;
+  const executionReadiness =
+    typeof value.executionReadiness === "string" &&
+    validExecutionReadiness.includes(value.executionReadiness)
+      ? value.executionReadiness
+      : assigneeType === "Agent"
+        ? "ready_with_review"
+        : "not_ready";
+  const priority =
+    typeof value.priority === "string" &&
+    validPriorities.includes(value.priority.toLowerCase())
+      ? value.priority.toLowerCase()
+      : "medium";
+  const normalizedTitle = normalizeRequiredTaskString(value.title, "title");
+  const normalizedDescription =
+    normalizeOptionalTaskString(value.description) ?? "";
+  const normalizedCategory = normalizeOptionalTaskString(value.category) ?? "";
+  const normalizedExecutionType =
+    normalizeOptionalTaskString(value.executionType) ?? "manual";
+  const resolvedAssignedAgentId = await resolveAssignedAgentIdForTask(
+    projectId,
+    {
+      title: normalizedTitle,
+      description: normalizedDescription,
+      category: normalizedCategory,
+      executionType: normalizedExecutionType,
+      assigneeType
+    },
+    assignedAgentId
+  );
+
+  const task = await prisma.task.create({
+    data: {
+      projectId,
+      title: normalizedTitle,
+      description: normalizedDescription || null,
+      category: normalizedCategory || null,
+      executionType: normalizedExecutionType,
+      priority,
+      status,
+      plannedHours:
+        typeof value.plannedHours === "number"
+          ? value.plannedHours
+          : Number.isFinite(Number(value.plannedHours))
+            ? Number(value.plannedHours)
+            : null,
+      actualHours:
+        typeof value.actualHours === "number"
+          ? value.actualHours
+          : Number.isFinite(Number(value.actualHours))
+            ? Number(value.actualHours)
+            : null,
+      qaRequired: Boolean(value.qaRequired),
+      approvalRequired: Boolean(value.approvalRequired),
+      assigneeType,
+      executionReadiness,
+      assignedAgentId: resolvedAssignedAgentId
+    },
+    include: { assignedAgent: { select: { name: true } } }
+  });
+
+  return serializeTask(task);
+}
+
+export async function generateProjectTaskPlan(projectId: string) {
+  return (await generateProjectPlan(projectId)).map((task) =>
+    serializeTask(task)
+  );
+}
+
+export async function updateProjectTaskRecord(
+  projectId: string,
+  taskId: string,
+  value: {
+    status?: unknown;
+    title?: unknown;
+    description?: unknown;
+    category?: unknown;
+    executionType?: unknown;
+    priority?: unknown;
+    qaRequired?: unknown;
+    approvalRequired?: unknown;
+    assigneeType?: unknown;
+    executionReadiness?: unknown;
+    assignedAgentId?: unknown;
+    plannedHours?: unknown;
+    actualHours?: unknown;
+  }
+) {
+  const validStatuses = [
+    "todo",
+    "waiting_on_client",
+    "in_progress",
+    "blocked",
+    "done"
+  ];
+  const validAssigneeTypes = ["Human", "Agent", "Client"];
+  const validPriorities = ["low", "medium", "high"];
+  const validExecutionReadiness = [
+    "not_ready",
+    "assisted",
+    "ready_with_review",
+    "ready"
+  ];
+
+  const existingTask = await prisma.task.findFirst({
+    where: {
+      id: taskId,
+      projectId
+    }
+  });
+
+  if (!existingTask) {
+    throw new Error("Task not found");
+  }
+
+  const projectLockState = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      quoteApprovalStatus: true,
+      scopeLockedAt: true
+    }
+  });
+
+  if (projectLockState && isProjectScopeLocked(projectLockState)) {
+    const blockedKeys = [
+      "title",
+      "description",
+      "category",
+      "executionType",
+      "priority",
+      "plannedHours",
+      "qaRequired",
+      "approvalRequired"
+    ].filter((key) => Object.prototype.hasOwnProperty.call(value, key));
+
+    if (blockedKeys.length > 0) {
+      throw new Error(
+        "Approved scope is locked. Use change management to revise scoped task details."
+      );
+    }
+  }
+
+  const data: Record<string, unknown> = {};
+
+  if (value.status !== undefined) {
+    const nextStatus =
+      typeof value.status === "string" ? value.status.trim() : "";
+
+    if (!validStatuses.includes(nextStatus)) {
+      throw new Error("Invalid task status");
+    }
+
+    data.status = nextStatus;
+  }
+
+  if (value.title !== undefined) {
+    data.title = normalizeRequiredTaskString(value.title, "title");
+  }
+
+  if (value.description !== undefined) {
+    data.description = normalizeOptionalTaskString(value.description);
+  }
+
+  if (value.category !== undefined) {
+    data.category = normalizeOptionalTaskString(value.category);
+  }
+
+  if (value.executionType !== undefined) {
+    data.executionType =
+      normalizeOptionalTaskString(value.executionType) ?? "manual";
+  }
+
+  if (value.priority !== undefined) {
+    if (
+      typeof value.priority !== "string" ||
+      !validPriorities.includes(value.priority.toLowerCase())
+    ) {
+      throw new Error("Invalid task priority");
+    }
+
+    data.priority = value.priority.toLowerCase();
+  }
+
+  if (value.assigneeType !== undefined) {
+    if (
+      typeof value.assigneeType !== "string" ||
+      !validAssigneeTypes.includes(value.assigneeType)
+    ) {
+      throw new Error("Invalid assignee type");
+    }
+
+    data.assigneeType = value.assigneeType;
+    if (value.assigneeType !== "Agent") {
+      data.assignedAgentId = null;
+    }
+  }
+
+  if (value.executionReadiness !== undefined) {
+    if (
+      typeof value.executionReadiness !== "string" ||
+      !validExecutionReadiness.includes(value.executionReadiness)
+    ) {
+      throw new Error("Invalid execution readiness");
+    }
+
+    data.executionReadiness = value.executionReadiness;
+  }
+
+  if (value.assignedAgentId !== undefined) {
+    if (value.assignedAgentId === null || value.assignedAgentId === "") {
+      data.assignedAgentId = null;
+    } else if (typeof value.assignedAgentId === "string") {
+      data.assignedAgentId = value.assignedAgentId.trim();
+    } else {
+      throw new Error("Invalid assigned agent");
+    }
+  }
+
+  if (value.plannedHours !== undefined) {
+    const plannedHours =
+      typeof value.plannedHours === "number"
+        ? value.plannedHours
+        : Number(value.plannedHours);
+
+    if (!Number.isFinite(plannedHours) || plannedHours < 0) {
+      throw new Error("Invalid planned hours");
+    }
+
+    data.plannedHours = plannedHours;
+  }
+
+  if (value.actualHours !== undefined) {
+    const actualHours =
+      typeof value.actualHours === "number"
+        ? value.actualHours
+        : Number(value.actualHours);
+
+    if (!Number.isFinite(actualHours) || actualHours < 0) {
+      throw new Error("Invalid actual hours");
+    }
+
+    data.actualHours = actualHours;
+  }
+
+  if (value.qaRequired !== undefined) {
+    data.qaRequired = Boolean(value.qaRequired);
+  }
+
+  if (value.approvalRequired !== undefined) {
+    data.approvalRequired = Boolean(value.approvalRequired);
+  }
+
+  const nextTaskShape = {
+    title: typeof data.title === "string" ? data.title : existingTask.title,
+    description:
+      typeof data.description === "string"
+        ? data.description
+        : (existingTask.description ?? ""),
+    category:
+      typeof data.category === "string"
+        ? data.category
+        : (existingTask.category ?? ""),
+    executionType:
+      typeof data.executionType === "string"
+        ? data.executionType
+        : existingTask.executionType,
+    assigneeType:
+      typeof data.assigneeType === "string"
+        ? data.assigneeType
+        : (existingTask.assigneeType ?? "Human")
+  };
+
+  if (nextTaskShape.assigneeType === "Agent" && !("assignedAgentId" in data)) {
+    data.assignedAgentId = await resolveAssignedAgentIdForTask(
+      projectId,
+      nextTaskShape,
+      existingTask.assignedAgentId
+    );
+  }
+
+  const task = await prisma.task.update({
+    where: { id: taskId },
+    data,
+    include: { assignedAgent: { select: { name: true } } }
+  });
+
+  return serializeTask(task);
+}
+
+export async function deleteProjectTaskRecord(
+  projectId: string,
+  taskId: string
+) {
+  const existingTask = await prisma.task.findFirst({
+    where: {
+      id: taskId,
+      projectId
+    }
+  });
+
+  if (!existingTask) {
+    throw new Error("Task not found");
+  }
+
+  await prisma.executionJob.deleteMany({
+    where: { taskId }
+  });
+  await prisma.task.delete({
+    where: { id: taskId }
+  });
 }
 
 async function loadProjectDiscoveryForBlueprint(projectId: string) {
@@ -7846,7 +8146,7 @@ Rules:
   });
 }
 
-async function generateBlueprintForProject(projectId: string) {
+export async function generateBlueprintForProject(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: {
@@ -7880,7 +8180,7 @@ async function generateBlueprintForProject(projectId: string) {
   return blueprint;
 }
 
-async function loadBlueprint(projectId: string) {
+export async function loadBlueprint(projectId: string) {
   return prisma.blueprint.findUnique({
     where: { projectId },
     include: {
@@ -14354,50 +14654,6 @@ export async function handleLegacyRequest(
       }
     }
 
-    const runRoute = matchRunRoute(url.pathname);
-    if (runRoute) {
-      if (request.method === "PATCH") {
-        try {
-          const body = (await readJsonBody(request)) as Record<string, unknown>;
-          const run = await updateAgentRun(runRoute.runId, body);
-          return sendJson(response, 200, { run });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to update agent run"
-          });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const projectTaskAgentRunRoute = matchProjectTaskAgentRunRoute(
-      url.pathname
-    );
-    if (projectTaskAgentRunRoute) {
-      if (request.method === "POST") {
-        try {
-          const run = await queueAgentRun(
-            projectTaskAgentRunRoute.projectId,
-            projectTaskAgentRunRoute.taskId
-          );
-          return sendJson(response, 201, { run });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to queue agent run"
-          });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
     const projectMessagesRoute = matchProjectMessagesRoute(url.pathname);
     if (projectMessagesRoute) {
       const project = await prisma.project.findUnique({
@@ -14440,537 +14696,6 @@ export async function handleLegacyRequest(
               error instanceof Error ? error.message : "Failed to post message"
           });
         }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const projectBlueprintRoute = matchProjectBlueprintRoute(url.pathname);
-    if (projectBlueprintRoute) {
-      if (
-        request.method === "POST" &&
-        projectBlueprintRoute.action === "generate"
-      ) {
-        try {
-          await ensureProjectScopeUnlocked(projectBlueprintRoute.projectId);
-          const blueprint = await generateBlueprintForProject(
-            projectBlueprintRoute.projectId
-          );
-          return sendJson(response, 200, { blueprint });
-        } catch (error: unknown) {
-          if (error instanceof Error && error.message === "Project not found") {
-            return sendJson(response, 404, { error: error.message });
-          }
-
-          if (
-            error instanceof Error &&
-            error.message.includes("must be complete before generating")
-          ) {
-            return sendJson(response, 400, { error: error.message });
-          }
-
-          if (error instanceof ZodError) {
-            return sendJson(response, 502, {
-              error: "Blueprint generation returned invalid JSON",
-              details: error.flatten()
-            });
-          }
-
-          if (error instanceof SyntaxError) {
-            return sendJson(response, 502, {
-              error: "Blueprint generation returned invalid JSON"
-            });
-          }
-
-          throw error;
-        }
-      }
-
-      if (request.method === "GET" && !projectBlueprintRoute.action) {
-        const blueprint = await loadBlueprint(projectBlueprintRoute.projectId);
-
-        if (!blueprint) {
-          return sendJson(response, 404, { error: "Blueprint not found" });
-        }
-
-        return sendJson(response, 200, { blueprint });
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const projectTasksRoute = matchProjectTasksRoute(url.pathname);
-    if (projectTasksRoute) {
-      if (
-        request.method === "GET" &&
-        !projectTasksRoute.action &&
-        !projectTasksRoute.taskId
-      ) {
-        const tasks = await prisma.task.findMany({
-          where: { projectId: projectTasksRoute.projectId },
-          include: {
-            assignedAgent: { select: { name: true } },
-            executionJobs: {
-              select: {
-                id: true,
-                status: true,
-                resultStatus: true,
-                createdAt: true,
-                completedAt: true
-              },
-              orderBy: [{ createdAt: "desc" }],
-              take: 1
-            }
-          },
-          orderBy: [{ createdAt: "asc" }]
-        });
-
-        return sendJson(response, 200, {
-          tasks: tasks.map((task) => serializeTask(task))
-        });
-      }
-
-      if (
-        request.method === "POST" &&
-        !projectTasksRoute.action &&
-        !projectTasksRoute.taskId
-      ) {
-        try {
-          await ensureProjectScopeUnlocked(
-            projectTasksRoute.projectId,
-            "Approved scope is locked. Use change management to add more project steps."
-          );
-        } catch (error) {
-          return sendJson(
-            response,
-            error instanceof Error && error.message === "Project not found"
-              ? 404
-              : 409,
-            {
-              error:
-                error instanceof Error ? error.message : "Failed to create task"
-            }
-          );
-        }
-
-        const body = (await readJsonBody(request)) as {
-          title?: unknown;
-          description?: unknown;
-          category?: unknown;
-          executionType?: unknown;
-          priority?: unknown;
-          status?: unknown;
-          plannedHours?: unknown;
-          actualHours?: unknown;
-          qaRequired?: unknown;
-          approvalRequired?: unknown;
-          assigneeType?: unknown;
-          executionReadiness?: unknown;
-          assignedAgentId?: unknown;
-        };
-
-        const validStatuses = [
-          "todo",
-          "waiting_on_client",
-          "in_progress",
-          "blocked",
-          "done"
-        ];
-        const validAssigneeTypes = ["Human", "Agent", "Client"];
-        const validPriorities = ["low", "medium", "high"];
-        const validExecutionReadiness = [
-          "not_ready",
-          "assisted",
-          "ready_with_review",
-          "ready"
-        ];
-
-        const status =
-          typeof body.status === "string" && validStatuses.includes(body.status)
-            ? body.status
-            : "todo";
-        const assigneeType =
-          typeof body.assigneeType === "string" &&
-          validAssigneeTypes.includes(body.assigneeType)
-            ? body.assigneeType
-            : "Human";
-        const assignedAgentId =
-          assigneeType === "Agent" &&
-          typeof body.assignedAgentId === "string" &&
-          body.assignedAgentId.trim().length > 0
-            ? body.assignedAgentId.trim()
-            : null;
-        const executionReadiness =
-          typeof body.executionReadiness === "string" &&
-          validExecutionReadiness.includes(body.executionReadiness)
-            ? body.executionReadiness
-            : assigneeType === "Agent"
-              ? "ready_with_review"
-              : "not_ready";
-        const priority =
-          typeof body.priority === "string" &&
-          validPriorities.includes(body.priority.toLowerCase())
-            ? body.priority.toLowerCase()
-            : "medium";
-        const normalizedTitle = normalizeRequiredTaskString(
-          body.title,
-          "title"
-        );
-        const normalizedDescription =
-          normalizeOptionalTaskString(body.description) ?? "";
-        const normalizedCategory =
-          normalizeOptionalTaskString(body.category) ?? "";
-        const normalizedExecutionType =
-          normalizeOptionalTaskString(body.executionType) ?? "manual";
-        const resolvedAssignedAgentId = await resolveAssignedAgentIdForTask(
-          projectTasksRoute.projectId,
-          {
-            title: normalizedTitle,
-            description: normalizedDescription,
-            category: normalizedCategory,
-            executionType: normalizedExecutionType,
-            assigneeType
-          },
-          assignedAgentId
-        );
-
-        const task = await prisma.task.create({
-          data: {
-            projectId: projectTasksRoute.projectId,
-            title: normalizedTitle,
-            description: normalizedDescription || null,
-            category: normalizedCategory || null,
-            executionType: normalizedExecutionType,
-            priority,
-            status,
-            plannedHours:
-              typeof body.plannedHours === "number"
-                ? body.plannedHours
-                : Number.isFinite(Number(body.plannedHours))
-                  ? Number(body.plannedHours)
-                  : null,
-            actualHours:
-              typeof body.actualHours === "number"
-                ? body.actualHours
-                : Number.isFinite(Number(body.actualHours))
-                  ? Number(body.actualHours)
-                  : null,
-            qaRequired: Boolean(body.qaRequired),
-            approvalRequired: Boolean(body.approvalRequired),
-            assigneeType,
-            executionReadiness,
-            assignedAgentId: resolvedAssignedAgentId
-          },
-          include: { assignedAgent: { select: { name: true } } }
-        });
-
-        return sendJson(response, 201, {
-          task: serializeTask(task)
-        });
-      }
-
-      if (
-        request.method === "POST" &&
-        projectTasksRoute.action === "generate-plan"
-      ) {
-        try {
-          await ensureProjectPlanGenerationAllowed(projectTasksRoute.projectId);
-        } catch (error) {
-          return sendJson(
-            response,
-            error instanceof Error && error.message === "Project not found"
-              ? 404
-              : 409,
-            {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to generate project plan"
-            }
-          );
-        }
-
-        const tasks = await generateProjectPlan(projectTasksRoute.projectId);
-
-        return sendJson(response, 200, {
-          tasks: tasks.map((task) => serializeTask(task))
-        });
-      }
-
-      if (request.method === "PATCH" && projectTasksRoute.taskId) {
-        const body = (await readJsonBody(request)) as {
-          status?: unknown;
-          title?: unknown;
-          description?: unknown;
-          category?: unknown;
-          executionType?: unknown;
-          priority?: unknown;
-          qaRequired?: unknown;
-          approvalRequired?: unknown;
-          assigneeType?: unknown;
-          executionReadiness?: unknown;
-          assignedAgentId?: unknown;
-          plannedHours?: unknown;
-          actualHours?: unknown;
-        };
-        const validStatuses = [
-          "todo",
-          "waiting_on_client",
-          "in_progress",
-          "blocked",
-          "done"
-        ];
-        const validAssigneeTypes = ["Human", "Agent", "Client"];
-        const validPriorities = ["low", "medium", "high"];
-        const validExecutionReadiness = [
-          "not_ready",
-          "assisted",
-          "ready_with_review",
-          "ready"
-        ];
-
-        const existingTask = await prisma.task.findFirst({
-          where: {
-            id: projectTasksRoute.taskId,
-            projectId: projectTasksRoute.projectId
-          }
-        });
-
-        if (!existingTask) {
-          return sendJson(response, 404, { error: "Task not found" });
-        }
-
-        const projectLockState = await prisma.project.findUnique({
-          where: { id: projectTasksRoute.projectId },
-          select: {
-            quoteApprovalStatus: true,
-            scopeLockedAt: true
-          }
-        });
-
-        if (projectLockState && isProjectScopeLocked(projectLockState)) {
-          const blockedKeys = [
-            "title",
-            "description",
-            "category",
-            "executionType",
-            "priority",
-            "plannedHours",
-            "qaRequired",
-            "approvalRequired"
-          ].filter((key) => Object.prototype.hasOwnProperty.call(body, key));
-
-          if (blockedKeys.length > 0) {
-            return sendJson(response, 409, {
-              error:
-                "Approved scope is locked. Use change management to revise scoped task details."
-            });
-          }
-        }
-
-        const data: Record<string, unknown> = {};
-
-        if (body.status !== undefined) {
-          const nextStatus =
-            typeof body.status === "string" ? body.status.trim() : "";
-
-          if (!validStatuses.includes(nextStatus)) {
-            return sendJson(response, 400, { error: "Invalid task status" });
-          }
-
-          data.status = nextStatus;
-        }
-
-        if (body.title !== undefined) {
-          data.title = normalizeRequiredTaskString(body.title, "title");
-        }
-
-        if (body.description !== undefined) {
-          data.description = normalizeOptionalTaskString(body.description);
-        }
-
-        if (body.category !== undefined) {
-          data.category = normalizeOptionalTaskString(body.category);
-        }
-
-        if (body.executionType !== undefined) {
-          data.executionType =
-            normalizeOptionalTaskString(body.executionType) ?? "manual";
-        }
-
-        if (body.priority !== undefined) {
-          if (
-            typeof body.priority !== "string" ||
-            !validPriorities.includes(body.priority.toLowerCase())
-          ) {
-            return sendJson(response, 400, {
-              error: "Invalid task priority"
-            });
-          }
-
-          data.priority = body.priority.toLowerCase();
-        }
-
-        if (body.assigneeType !== undefined) {
-          if (
-            typeof body.assigneeType !== "string" ||
-            !validAssigneeTypes.includes(body.assigneeType)
-          ) {
-            return sendJson(response, 400, {
-              error: "Invalid assignee type"
-            });
-          }
-
-          data.assigneeType = body.assigneeType;
-          if (body.assigneeType !== "Agent") {
-            data.assignedAgentId = null;
-          }
-        }
-
-        if (body.executionReadiness !== undefined) {
-          if (
-            typeof body.executionReadiness !== "string" ||
-            !validExecutionReadiness.includes(body.executionReadiness)
-          ) {
-            return sendJson(response, 400, {
-              error: "Invalid execution readiness"
-            });
-          }
-
-          data.executionReadiness = body.executionReadiness;
-        }
-
-        if (body.assignedAgentId !== undefined) {
-          if (body.assignedAgentId === null || body.assignedAgentId === "") {
-            data.assignedAgentId = null;
-          } else if (typeof body.assignedAgentId === "string") {
-            data.assignedAgentId = body.assignedAgentId.trim();
-          } else {
-            return sendJson(response, 400, {
-              error: "Invalid assigned agent"
-            });
-          }
-        }
-
-        if (body.plannedHours !== undefined) {
-          const plannedHours =
-            typeof body.plannedHours === "number"
-              ? body.plannedHours
-              : Number(body.plannedHours);
-
-          if (!Number.isFinite(plannedHours) || plannedHours < 0) {
-            return sendJson(response, 400, {
-              error: "Invalid planned hours"
-            });
-          }
-
-          data.plannedHours = plannedHours;
-        }
-
-        if (body.actualHours !== undefined) {
-          const actualHours =
-            typeof body.actualHours === "number"
-              ? body.actualHours
-              : Number(body.actualHours);
-
-          if (!Number.isFinite(actualHours) || actualHours < 0) {
-            return sendJson(response, 400, {
-              error: "Invalid actual hours"
-            });
-          }
-
-          data.actualHours = actualHours;
-        }
-
-        if (body.qaRequired !== undefined) {
-          data.qaRequired = Boolean(body.qaRequired);
-        }
-
-        if (body.approvalRequired !== undefined) {
-          data.approvalRequired = Boolean(body.approvalRequired);
-        }
-
-        const nextTaskShape = {
-          title:
-            typeof data.title === "string" ? data.title : existingTask.title,
-          description:
-            typeof data.description === "string"
-              ? data.description
-              : (existingTask.description ?? ""),
-          category:
-            typeof data.category === "string"
-              ? data.category
-              : (existingTask.category ?? ""),
-          executionType:
-            typeof data.executionType === "string"
-              ? data.executionType
-              : existingTask.executionType,
-          assigneeType:
-            typeof data.assigneeType === "string"
-              ? data.assigneeType
-              : (existingTask.assigneeType ?? "Human")
-        };
-
-        if (
-          nextTaskShape.assigneeType === "Agent" &&
-          !("assignedAgentId" in data)
-        ) {
-          data.assignedAgentId = await resolveAssignedAgentIdForTask(
-            projectTasksRoute.projectId,
-            nextTaskShape,
-            existingTask.assignedAgentId
-          );
-        }
-
-        const task = await prisma.task.update({
-          where: { id: projectTasksRoute.taskId },
-          data,
-          include: { assignedAgent: { select: { name: true } } }
-        });
-
-        return sendJson(response, 200, {
-          task: serializeTask(task)
-        });
-      }
-
-      if (request.method === "DELETE" && projectTasksRoute.taskId) {
-        try {
-          await ensureProjectScopeUnlocked(
-            projectTasksRoute.projectId,
-            "Approved scope is locked. Use change management to remove or replace project steps."
-          );
-        } catch (error) {
-          return sendJson(
-            response,
-            error instanceof Error && error.message === "Project not found"
-              ? 404
-              : 409,
-            {
-              error:
-                error instanceof Error ? error.message : "Failed to delete task"
-            }
-          );
-        }
-
-        const existingTask = await prisma.task.findFirst({
-          where: {
-            id: projectTasksRoute.taskId,
-            projectId: projectTasksRoute.projectId
-          }
-        });
-
-        if (!existingTask) {
-          return sendJson(response, 404, { error: "Task not found" });
-        }
-
-        await prisma.executionJob.deleteMany({
-          where: { taskId: projectTasksRoute.taskId }
-        });
-        await prisma.task.delete({
-          where: { id: projectTasksRoute.taskId }
-        });
-
-        return sendJson(response, 200, { success: true });
       }
 
       return sendJson(response, 405, { error: "Method Not Allowed" });
