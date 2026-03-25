@@ -1,0 +1,705 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+import AppShell from "./AppShell";
+import ProjectWorkflowNav from "./ProjectWorkflowNav";
+import { resolveProjectWorkspaceMode } from "./projectWorkspaceConfig";
+
+interface ProjectRecord {
+  id: string;
+  name: string;
+  status: string;
+  engagementType: string;
+  includesPortalAudit?: boolean;
+  portalId?: string | null;
+  problemStatement?: string | null;
+  solutionRecommendation?: string | null;
+  scopeExecutiveSummary?: string | null;
+  updatedAt: string;
+  selectedHubs: string[];
+  client: {
+    id: string;
+    name: string;
+    website?: string | null;
+    industry?: string | null;
+    region?: string | null;
+  };
+  portal: {
+    id: string;
+    portalId: string;
+    displayName: string;
+    connected: boolean;
+    connectedEmail?: string | null;
+  } | null;
+}
+
+interface DirectoryProject {
+  id: string;
+  name: string;
+  status: string;
+  engagementType: string;
+  updatedAt: string;
+  client: {
+    id: string;
+    name: string;
+  };
+}
+
+interface EvidenceItem {
+  id: string;
+  projectId: string;
+  evidenceType:
+    | "transcript"
+    | "summary"
+    | "uploaded-doc"
+    | "website-link"
+    | "screen-grab"
+    | "miro-note"
+    | "operator-note"
+    | "client-input";
+  sourceLabel: string;
+  sourceUrl: string | null;
+  content: string | null;
+  createdAt: string;
+}
+
+interface FindingRecord {
+  id: string;
+  title: string;
+  severity: "low" | "medium" | "high" | "critical";
+  quickWin: boolean;
+  status: "open" | "in_progress" | "resolved";
+}
+
+interface RecommendationRecord {
+  id: string;
+  title: string;
+  phase: string;
+  type: string;
+  impact: string;
+}
+
+interface PortalSnapshot {
+  capturedAt: string;
+  hubTier: string | null;
+  activeHubs: string[];
+  contactPropertyCount: number | null;
+  companyPropertyCount: number | null;
+  dealPropertyCount: number | null;
+  customObjectCount: number | null;
+  dealPipelineCount: number | null;
+}
+
+const evidenceTypeOptions: Array<{
+  value: EvidenceItem["evidenceType"];
+  label: string;
+}> = [
+  { value: "summary", label: "Meeting summary" },
+  { value: "operator-note", label: "Operator note" },
+  { value: "client-input", label: "Client input" },
+  { value: "transcript", label: "Transcript" },
+  { value: "website-link", label: "Website link" },
+  { value: "uploaded-doc", label: "Document / PDF" },
+  { value: "screen-grab", label: "Screen grab" },
+  { value: "miro-note", label: "Miro note" }
+];
+
+function formatLabel(value: string | null | undefined) {
+  if (!value) {
+    return "Not set";
+  }
+
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatRelativeDate(value: string) {
+  const date = new Date(value);
+  return new Intl.DateTimeFormat("en-ZA", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(date);
+}
+
+export default function ProjectPrepareWorkspace({
+  projectId
+}: {
+  projectId: string;
+}) {
+  const [project, setProject] = useState<ProjectRecord | null>(null);
+  const [projects, setProjects] = useState<DirectoryProject[]>([]);
+  const [findings, setFindings] = useState<FindingRecord[]>([]);
+  const [recommendations, setRecommendations] = useState<RecommendationRecord[]>(
+    []
+  );
+  const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
+  const [snapshot, setSnapshot] = useState<PortalSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [savingContext, setSavingContext] = useState(false);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [contextDraft, setContextDraft] = useState({
+    evidenceType: "summary" as EvidenceItem["evidenceType"],
+    sourceLabel: "",
+    sourceUrl: "",
+    content: ""
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadWorkspace() {
+      try {
+        const projectResponse = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}`
+        );
+        const projectBody = await projectResponse.json().catch(() => null);
+
+        if (!projectResponse.ok) {
+          throw new Error(projectBody?.error ?? "Failed to load project");
+        }
+
+        const resolvedProject = projectBody.project as ProjectRecord;
+        const [
+          projectsResponse,
+          findingsResponse,
+          recommendationsResponse,
+          contextResponse
+        ] = await Promise.all([
+          fetch("/api/projects"),
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/findings`),
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/recommendations`),
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`)
+        ]);
+
+        const projectsBody = await projectsResponse.json().catch(() => null);
+        const findingsBody = await findingsResponse.json().catch(() => null);
+        const recommendationsBody = await recommendationsResponse
+          .json()
+          .catch(() => null);
+        const contextBody = await contextResponse.json().catch(() => null);
+
+        let nextSnapshot: PortalSnapshot | null = null;
+        if (resolvedProject.portal?.id) {
+          const snapshotResponse = await fetch(
+            `/api/portals/${encodeURIComponent(resolvedProject.portal.id)}/snapshot`
+          );
+          const snapshotBody = await snapshotResponse.json().catch(() => null);
+          if (snapshotResponse.ok) {
+            nextSnapshot = snapshotBody?.snapshot ?? null;
+          }
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setProject(resolvedProject);
+        setProjects(projectsBody?.projects ?? projectsBody ?? []);
+        setFindings(findingsBody?.findings ?? []);
+        setRecommendations(recommendationsBody?.recommendations ?? []);
+        setSupportingContext(contextBody?.evidenceItems ?? []);
+        setSnapshot(nextSnapshot);
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Failed to load prepare workspace"
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadWorkspace();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  const relatedProjects = useMemo(() => {
+    if (!project) {
+      return [];
+    }
+
+    return projects
+      .filter(
+        (candidate) =>
+          candidate.id !== project.id && candidate.client?.id === project.client.id
+      )
+      .slice(0, 6);
+  }, [project, projects]);
+
+  const workspaceMode = resolveProjectWorkspaceMode({
+    engagementType: project?.engagementType,
+    hasPortal: Boolean(project?.portalId || project?.portal)
+  });
+
+  const prepChecklist = [
+    {
+      label: "Portal audit ready",
+      complete: Boolean(project?.portal && snapshot)
+    },
+    {
+      label: "Existing client context loaded",
+      complete: relatedProjects.length > 0 || supportingContext.length > 0
+    },
+    {
+      label: "Operator prep notes captured",
+      complete: supportingContext.length > 0
+    },
+    {
+      label: "Recommended next actions available",
+      complete: recommendations.length > 0
+    }
+  ];
+
+  async function addSupportingContext() {
+    if (!project) {
+      return;
+    }
+
+    setSavingContext(true);
+    setContextError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}/sessions/0/evidence`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(contextDraft)
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to add supporting context");
+      }
+
+      setSupportingContext((current) => [body.evidenceItem, ...current]);
+      setContextDraft({
+        evidenceType: "summary",
+        sourceLabel: "",
+        sourceUrl: "",
+        content: ""
+      });
+    } catch (saveError) {
+      setContextError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to add supporting context"
+      );
+    } finally {
+      setSavingContext(false);
+    }
+  }
+
+  return (
+    <AppShell>
+      <div className="p-8">
+        {loading ? (
+          <div className="grid gap-4">
+            {[0, 1, 2].map((row) => (
+              <div
+                key={row}
+                className="h-28 animate-pulse rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card"
+              />
+            ))}
+          </div>
+        ) : error || !project ? (
+          <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-8 text-white">
+            {error ?? "Project not found"}
+          </div>
+        ) : (
+          <>
+            <ProjectWorkflowNav
+              projectId={project.id}
+              showDiscovery
+              engagementType={project.engagementType}
+            />
+
+            <div className="mb-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
+              <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
+                Prepare
+              </p>
+              <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold font-heading text-white">
+                    {project.name}
+                  </h1>
+                  <p className="mt-3 max-w-3xl text-text-secondary">
+                    Move ahead of the meeting. Pull the portal into view, load
+                    prior work, capture new context, and decide what needs to
+                    be unpacked onsite before you scope anything further.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[rgba(123,226,239,0.2)] bg-[rgba(123,226,239,0.08)] px-4 py-3 text-sm text-[#b7f5ff]">
+                  {workspaceMode.label}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.7fr)]">
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  Meeting Readiness
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-white">
+                  Walk in knowing what matters
+                </h2>
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  {prepChecklist.map((item) => (
+                    <div
+                      key={item.label}
+                      className={`rounded-2xl border p-4 ${
+                        item.complete
+                          ? "border-[rgba(45,212,160,0.22)] bg-[rgba(45,212,160,0.08)]"
+                          : "border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
+                      }`}
+                    >
+                      <p className="text-sm font-medium text-white">
+                        {item.label}
+                      </p>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        {item.complete ? "Ready" : "Still needs attention"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      Problem Framing
+                    </p>
+                    <p className="mt-3 text-sm text-text-secondary">
+                      {project.problemStatement?.trim() ||
+                        "No formal problem statement saved yet. Use the context notes below to capture what the client is now asking for."}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      Current Direction
+                    </p>
+                    <p className="mt-3 text-sm text-text-secondary">
+                      {project.scopeExecutiveSummary?.trim() ||
+                        project.solutionRecommendation?.trim() ||
+                        "No scoped direction has been saved yet. Run audit, add context, and use the working doc to shape the next phase."}
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  Quick Launch
+                </p>
+                <div className="mt-4 space-y-3">
+                  {[
+                    {
+                      href: `/projects/${project.id}/audit`,
+                      title: "Run portal audit",
+                      description:
+                        "Check portal health, current state, and quick wins before the meeting."
+                    },
+                    {
+                      href: `/projects/${project.id}/inputs`,
+                      title: "Capture new request details",
+                      description:
+                        "Drop in what the client has asked for, what changed, and what needs validating onsite."
+                    },
+                    {
+                      href: `/projects/${project.id}/proposal`,
+                      title: "Open working doc",
+                      description:
+                        "Use the working document to organise findings, assumptions, and the shape of the next phase."
+                    },
+                    {
+                      href: "/projects/portal-ops",
+                      title: "Use Portal Ops",
+                      description:
+                        "Ask for a portal-specific implementation plan or pre-build logic against the connected HubSpot account."
+                    }
+                  ].map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="block rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4 transition hover:border-[rgba(255,255,255,0.14)]"
+                    >
+                      <p className="text-sm font-semibold text-white">
+                        {item.title}
+                      </p>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        {item.description}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                      Prior Client Work
+                    </p>
+                    <h2 className="mt-2 text-2xl font-semibold text-white">
+                      What have we already done?
+                    </h2>
+                  </div>
+                  <div className="rounded-xl bg-[#0b1126] px-4 py-2 text-sm text-text-secondary">
+                    {relatedProjects.length} prior project
+                    {relatedProjects.length === 1 ? "" : "s"}
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {relatedProjects.length > 0 ? (
+                    relatedProjects.map((relatedProject) => (
+                      <Link
+                        key={relatedProject.id}
+                        href={`/projects/${relatedProject.id}`}
+                        className="block rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4 transition hover:border-[rgba(255,255,255,0.14)]"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-white">
+                              {relatedProject.name}
+                            </p>
+                            <p className="mt-2 text-sm text-text-secondary">
+                              {formatLabel(relatedProject.engagementType)} ·{" "}
+                              {formatLabel(relatedProject.status)}
+                            </p>
+                          </div>
+                          <p className="text-xs text-text-muted">
+                            {formatRelativeDate(relatedProject.updatedAt)}
+                          </p>
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 text-sm text-text-secondary">
+                      No prior project records were found for this client yet.
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  Portal Posture
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-white">
+                  Current portal picture
+                </h2>
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      Portal
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {project.portal?.displayName ?? "Not connected"}
+                    </p>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      {project.portal
+                        ? `Portal ID ${project.portal.portalId}`
+                        : "Connect the client portal to prepare against live data."}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      Latest Snapshot
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {snapshot ? formatRelativeDate(snapshot.capturedAt) : "Not captured"}
+                    </p>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      {snapshot
+                        ? `${snapshot.activeHubs.length} active hubs · ${snapshot.dealPipelineCount ?? 0} deal pipelines`
+                        : "Run the portal audit workspace to capture the latest footprint."}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      Open Findings
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {findings.filter((finding) => finding.status !== "resolved").length}
+                    </p>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      {findings.filter((finding) => finding.quickWin).length} quick wins identified
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      Recommendations
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {recommendations.length}
+                    </p>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      {recommendations
+                        .slice(0, 2)
+                        .map((recommendation) => recommendation.title)
+                        .join(" · ") || "No recommendations yet"}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  Prep Notes & Source Material
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-white">
+                  Capture what you already know
+                </h2>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">Type</span>
+                    <select
+                      value={contextDraft.evidenceType}
+                      onChange={(event) =>
+                        setContextDraft((currentDraft) => ({
+                          ...currentDraft,
+                          evidenceType: event.target.value as EvidenceItem["evidenceType"]
+                        }))
+                      }
+                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-3 text-sm text-white outline-none"
+                    >
+                      {evidenceTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-white">Label</span>
+                    <input
+                      value={contextDraft.sourceLabel}
+                      onChange={(event) =>
+                        setContextDraft((currentDraft) => ({
+                          ...currentDraft,
+                          sourceLabel: event.target.value
+                        }))
+                      }
+                      placeholder="Example: client email summary"
+                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-3 text-sm text-white outline-none"
+                    />
+                  </label>
+                  <label className="block md:col-span-2">
+                    <span className="text-sm font-medium text-white">
+                      Link or source reference
+                    </span>
+                    <input
+                      value={contextDraft.sourceUrl}
+                      onChange={(event) =>
+                        setContextDraft((currentDraft) => ({
+                          ...currentDraft,
+                          sourceUrl: event.target.value
+                        }))
+                      }
+                      placeholder="Paste a doc link, website, file reference, or screenshot URL"
+                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-3 text-sm text-white outline-none"
+                    />
+                  </label>
+                  <label className="block md:col-span-2">
+                    <span className="text-sm font-medium text-white">
+                      Notes
+                    </span>
+                    <textarea
+                      value={contextDraft.content}
+                      onChange={(event) =>
+                        setContextDraft((currentDraft) => ({
+                          ...currentDraft,
+                          content: event.target.value
+                        }))
+                      }
+                      placeholder="Paste meeting prep notes, prior requirements, technical constraints, or questions to validate onsite."
+                      className="mt-3 min-h-[180px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-3 text-sm text-white outline-none"
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between gap-4">
+                  {contextError ? (
+                    <p className="text-sm text-[#ff8f9c]">{contextError}</p>
+                  ) : (
+                    <p className="text-sm text-text-secondary">
+                      Add what the client already sent, what Muloo already knows,
+                      and what needs to be validated in the room.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void addSupportingContext()}
+                    disabled={savingContext}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
+                  >
+                    {savingContext ? "Adding..." : "Add prep context"}
+                  </button>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  Current Notes
+                </p>
+                <div className="mt-4 space-y-3">
+                  {supportingContext.length > 0 ? (
+                    supportingContext.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      >
+                        <p className="text-sm font-semibold text-white">
+                          {item.sourceLabel}
+                        </p>
+                        <p className="mt-2 text-xs text-text-muted">
+                          {formatLabel(item.evidenceType)} ·{" "}
+                          {formatRelativeDate(item.createdAt)}
+                        </p>
+                        {item.sourceUrl ? (
+                          <p className="mt-3 break-all text-sm text-[#49cde1]">
+                            {item.sourceUrl}
+                          </p>
+                        ) : null}
+                        {item.content ? (
+                          <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
+                            {item.content}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 text-sm text-text-secondary">
+                      No prep notes captured yet. Add the client’s latest asks,
+                      prior decisions, and meeting context here first.
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+          </>
+        )}
+      </div>
+    </AppShell>
+  );
+}

@@ -4,6 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import {
+  buildProjectWorkspaceClusters,
+  resolveProjectWorkspaceMode
+} from "./projectWorkspaceConfig";
+
 function navClass(isActive: boolean) {
   return `rounded-2xl border px-4 py-3 text-sm font-medium transition ${
     isActive
@@ -67,68 +72,55 @@ export default function ProjectWorkflowNav({
     };
   }, [engagementType, projectId]);
 
-  const links = [
-    {
-      href: `/projects/${projectId}`,
-      label: "Project Summary"
-    },
-    {
-      href: `/projects/${projectId}/inputs`,
-      label: "Project Inputs"
-    },
-    ...(showDiscovery
-      ? [
-          {
-            href: `/projects/${projectId}/discovery`,
-            label: "Discovery Inputs"
-          },
-          {
-            href: `/projects/${projectId}/proposal`,
-            label: "Discovery Doc"
-          }
-        ]
-      : []),
-    {
-      href: `/blueprint/${projectId}`,
-      label: "Blueprint"
-    },
-    {
-      href: `/projects/${projectId}/quote`,
-      label: "Quote & Approval"
-    },
-    {
-      href: `/projects/${projectId}/changes`,
-      label: "Change Mgmt"
-    },
-    {
-      href: `/projects/${projectId}/delivery`,
-      label: "Delivery Board"
-    },
-    ...(resolvedProject.includesPortalAudit === true ||
-    resolvedProject.portalId !== null
-      ? [
-          {
-            href: `/projects/${projectId}/audit`,
-            label: "Audit"
-          }
-        ]
-      : [])
-  ];
+  const hasPortalAudit =
+    resolvedProject.includesPortalAudit === true || resolvedProject.portalId !== null;
+  const workspaceMode = resolveProjectWorkspaceMode({
+    engagementType: resolvedProject.engagementType,
+    hasPortal: hasPortalAudit
+  });
+  const clusters = buildProjectWorkspaceClusters({
+    projectId,
+    mode: workspaceMode.key,
+    showDiscovery,
+    hasPortalAudit
+  });
 
   return (
     <nav className="mb-6 rounded-[28px] border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-        Workflow
-      </p>
-      <div className="mt-4 flex flex-wrap gap-3">
-        {links.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={navClass(pathname === link.href)}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+            Workflow
+          </p>
+          <p className="mt-3 text-xl font-semibold text-white">
+            {workspaceMode.label}
+          </p>
+          <p className="mt-2 max-w-3xl text-sm text-text-secondary">
+            {workspaceMode.summary}
+          </p>
+        </div>
+      </div>
+      <div className="mt-5 grid gap-4 xl:grid-cols-4">
+        {clusters.map((cluster) => (
+          <div
+            key={cluster.label}
+            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
           >
-            {link.label}
-          </Link>
+            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              {cluster.label}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {cluster.links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={navClass(pathname === link.href)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </nav>
