@@ -13,6 +13,12 @@ const navItems = [
     icon: <LayoutDashboard size={18} />
   },
   { href: "/", label: "Projects", shortLabel: "P" },
+  {
+    href: "/projects/portal-ops",
+    label: "Portal Ops",
+    shortLabel: "PO",
+    indent: true
+  },
   { href: "/clients", label: "Clients", shortLabel: "C" },
   { href: "/inbox", label: "Inbox", shortLabel: "I" },
   { href: "/templates", label: "Templates", shortLabel: "T" },
@@ -22,6 +28,10 @@ const navItems = [
 ];
 
 function isProjectsRoute(pathname: string): boolean {
+  if (pathname.startsWith("/projects/portal-ops")) {
+    return false;
+  }
+
   return (
     pathname === "/" ||
     pathname.startsWith("/blueprint") ||
@@ -77,7 +87,7 @@ export default function Sidebar() {
                 active
                   ? "bg-[#141d3d] text-white"
                   : "text-text-secondary hover:bg-[#141d3d] hover:text-white"
-              }`}
+              } ${"indent" in item && item.indent ? "ml-3" : ""}`}
             >
               {active ? (
                 <span className="absolute left-0 top-2 h-8 w-1 rounded-r bg-[linear-gradient(180deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]" />
