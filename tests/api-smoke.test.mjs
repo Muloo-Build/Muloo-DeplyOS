@@ -433,6 +433,15 @@ test("guards internal Hono system routes without an auth cookie", async () => {
       method: "PATCH",
       body: {}
     });
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/modules");
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/modules/test-module"
+    );
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/summary");
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/validation");
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/readiness");
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/executions");
     await expectUnauthorized(
       baseUrl,
       "/api/projects/test-project/client-users/test-user",

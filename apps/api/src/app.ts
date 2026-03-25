@@ -5,8 +5,15 @@ import { type BaseConfig, getIntegrationStatus } from "@muloo/config";
 import {
   loadAllExecutionRecords,
   loadAllTemplates,
+  loadProjectById,
+  loadProjectExecutions,
+  loadProjectModuleDetail,
+  loadProjectReadinessById,
+  loadProjectSummaryById,
   loadTemplateById,
-  validateAllProjects
+  summarizeProjectModules,
+  validateAllProjects,
+  validateProjectById
 } from "@muloo/file-system";
 import { moduleCatalog } from "@muloo/shared";
 import { type Context, Hono, type Next } from "hono";
@@ -558,6 +565,47 @@ export function createApiApp(config: BaseConfig) {
       );
     }
   });
+
+  app.get("/api/projects/:projectId/modules", async (c) => {
+    const project = await loadProjectById(c.req.param("projectId"));
+    return c.json({
+      projectId: project.id,
+      modules: summarizeProjectModules(project)
+    });
+  });
+
+  app.get("/api/projects/:projectId/modules/:moduleKey", async (c) =>
+    c.json({
+      module: await loadProjectModuleDetail(
+        c.req.param("projectId"),
+        c.req.param("moduleKey")
+      )
+    })
+  );
+
+  app.get("/api/projects/:projectId/summary", async (c) =>
+    c.json({
+      summary: await loadProjectSummaryById(c.req.param("projectId"))
+    })
+  );
+
+  app.get("/api/projects/:projectId/validation", async (c) =>
+    c.json({
+      validation: await validateProjectById(c.req.param("projectId"))
+    })
+  );
+
+  app.get("/api/projects/:projectId/readiness", async (c) =>
+    c.json({
+      readiness: await loadProjectReadinessById(c.req.param("projectId"))
+    })
+  );
+
+  app.get("/api/projects/:projectId/executions", async (c) =>
+    c.json({
+      executions: await loadProjectExecutions(c.req.param("projectId"))
+    })
+  );
 
   app.get("/api/users", async (c) =>
     c.json({
