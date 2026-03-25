@@ -952,6 +952,208 @@ const hubSpotAgentRequestPlanSchema = z.object({
   cautions: z.array(z.string().trim().min(1)).default([])
 });
 
+function normalizeHubSpotAgentAction(
+  value: unknown
+): z.infer<typeof hubSpotAgentActionSchema> | undefined {
+  const normalized = normalizeAuditString(value)?.toLowerCase() ?? "";
+
+  switch (normalized) {
+    case "create_property_group":
+    case "property_group":
+    case "create group":
+      return "create_property_group";
+    case "create_property":
+    case "property":
+    case "create field":
+      return "create_property";
+    case "create_custom_object":
+    case "custom_object":
+    case "custom object":
+      return "create_custom_object";
+    case "create_pipeline":
+    case "pipeline":
+      return "create_pipeline";
+    case "upsert_record":
+    case "upsert":
+    case "record":
+      return "upsert_record";
+    default:
+      return undefined;
+  }
+}
+
+function normalizeHubSpotOperatorStrings(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (typeof entry === "string") {
+        return entry.trim();
+      }
+
+      if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+        const record = entry as Record<string, unknown>;
+        return (
+          normalizeAuditString(record.step) ??
+          normalizeAuditString(record.title) ??
+          normalizeAuditString(record.description) ??
+          ""
+        );
+      }
+
+      return "";
+    })
+    .filter(Boolean);
+}
+
+function inferHubSpotOperatorCapability(
+  action: z.infer<typeof hubSpotAgentActionSchema> | undefined,
+  summary: string,
+  request: string
+) {
+  if (action) {
+    return "crm_schema";
+  }
+
+  const haystack = `${summary} ${request}`.toLowerCase();
+
+  if (haystack.includes("dashboard") || haystack.includes("report")) {
+    return "reporting_manual_delivery";
+  }
+
+  if (haystack.includes("workflow") || haystack.includes("automation")) {
+    return "workflow_manual_delivery";
+  }
+
+  if (haystack.includes("cms") || haystack.includes("content")) {
+    return "cms_manual_delivery";
+  }
+
+  return "manual_delivery";
+}
+
+function normalizeHubSpotAgentRequestPlanPayload(
+  value: unknown,
+  request: string
+) {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const action = normalizeHubSpotAgentAction(
+    record.action ?? record.directAction ?? record.operation
+  );
+  const input =
+    record.input && typeof record.input === "object" && !Array.isArray(record.input)
+      ? (record.input as Record<string, unknown>)
+      : undefined;
+  const summary =
+    normalizeAuditString(record.summary) ??
+    normalizeAuditString(record.message) ??
+    normalizeAuditString(record.decision) ??
+    "Reviewed the request and prepared the safest next step.";
+  const manualPlan = [
+    ...normalizeHubSpotOperatorStrings(record.manualPlan),
+    ...normalizeHubSpotOperatorStrings(record.plan),
+    ...normalizeHubSpotOperatorStrings(record.steps),
+    ...normalizeHubSpotOperatorStrings(record.nextSteps)
+  ];
+  const cautions = [
+    ...normalizeHubSpotOperatorStrings(record.cautions),
+    ...normalizeHubSpotOperatorStrings(record.risks),
+    ...normalizeHubSpotOperatorStrings(record.notes)
+  ];
+  const requestedMode = normalizeAuditString(record.mode)?.toLowerCase() ?? "";
+  const canExecute = Boolean(action && input && Object.keys(input).length > 0);
+  const mode: z.infer<typeof hubSpotAgentRequestPlanSchema>["mode"] =
+    requestedMode === "execute_action" && canExecute
+      ? "execute_action"
+      : "manual_plan";
+
+  return {
+    mode,
+    summary,
+    capabilityKey:
+      normalizeAuditString(record.capabilityKey) ??
+      normalizeAuditString(record.capability) ??
+      inferHubSpotOperatorCapability(action, summary, request),
+    ...(mode === "execute_action" ? { action, input } : {}),
+    manualPlan:
+      mode === "manual_plan" && manualPlan.length === 0
+        ? [
+            "Review the request as a manual delivery plan because it does not map cleanly to a safe direct HubSpot API action."
+          ]
+        : manualPlan,
+    cautions
+  };
+}
+
+async function parseHubSpotAgentRequestPlanModelJson(
+  rawText: string,
+  request: string
+) {
+  const normalizedJson = extractJsonBlock(rawText);
+
+  try {
+    return hubSpotAgentRequestPlanSchema.parse(
+      normalizeHubSpotAgentRequestPlanPayload(
+        JSON.parse(normalizedJson) as unknown,
+        request
+      )
+    );
+  } catch (initialError) {
+    try {
+      const repairedText = await callAiWorkflow(
+        "json_repair",
+        `You repair malformed JSON for Muloo Deploy OS.
+
+Rules:
+- Return ONLY valid JSON.
+- Do not add markdown fences or commentary.
+- Preserve the original intended structure and values as closely as possible.
+`,
+        JSON.stringify(
+          {
+            label: "hubspot-operator-request",
+            malformedJson: normalizedJson
+          },
+          null,
+          2
+        ),
+        { maxTokens: 4000 }
+      );
+
+      const repairedJson = extractJsonBlock(repairedText);
+      return hubSpotAgentRequestPlanSchema.parse(
+        normalizeHubSpotAgentRequestPlanPayload(
+          JSON.parse(repairedJson) as unknown,
+          request
+        )
+      );
+    } catch (repairError) {
+      if (
+        initialError instanceof SyntaxError ||
+        initialError instanceof ZodError
+      ) {
+        throw initialError;
+      }
+
+      if (
+        repairError instanceof SyntaxError ||
+        repairError instanceof ZodError
+      ) {
+        throw repairError;
+      }
+
+      throw new SyntaxError(
+        "Failed to parse hubspot-operator-request JSON from model output"
+      );
+    }
+  }
+}
+
 const hubSpotAgentCapabilities: HubSpotAgentCapability[] = [
   {
     key: "crm_schema",
@@ -11900,17 +12102,25 @@ Rules:
     { maxTokens: 3000 }
   );
 
-  const plan = await parseModelJson(
-    planText,
-    hubSpotAgentRequestPlanSchema,
-    "hubspot-operator-request"
-  );
+  const plan = await parseHubSpotAgentRequestPlanModelJson(planText, request);
 
   if (plan.mode === "execute_action") {
     if (!plan.action || !plan.input) {
-      throw new Error(
-        "HubSpot operator request returned an incomplete execution plan"
-      );
+      return {
+        request,
+        dryRun,
+        plan: {
+          ...plan,
+          mode: "manual_plan" as const,
+          manualPlan:
+            plan.manualPlan.length > 0
+              ? plan.manualPlan
+              : [
+                  "Review the request manually because the model did not return a complete executable HubSpot action."
+                ]
+        },
+        execution: null
+      };
     }
 
     const execution = await executeHubSpotAgentAction({
