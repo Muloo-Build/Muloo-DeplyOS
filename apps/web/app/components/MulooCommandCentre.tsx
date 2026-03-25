@@ -77,6 +77,12 @@ interface DailySummary {
   createdAt?: string;
 }
 
+interface CalendarDayGroup {
+  key: string;
+  label: string;
+  events: CalendarEvent[];
+}
+
 function formatRelativeDate(value: string) {
   const date = new Date(value);
 
@@ -144,7 +150,6 @@ function formatDayLabel(value: string) {
   }
 
   return date.toLocaleDateString("en-ZA", {
-    weekday: "short",
     day: "2-digit",
     month: "short"
   });
@@ -263,6 +268,9 @@ export default function MulooCommandCentre() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [projects, setProjects] = useState<ActiveProject[]>([]);
   const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [expandedCalendarDays, setExpandedCalendarDays] = useState<
+    Record<string, boolean>
+  >({});
   const [xeroSummary, setXeroSummary] = useState<XeroSummary | null>(null);
   const [xeroConnected, setXeroConnected] = useState(false);
   const [summary, setSummary] = useState<DailySummary>({ content: null });
@@ -406,6 +414,13 @@ export default function MulooCommandCentre() {
     await loadProjects();
   }
 
+  function toggleCalendarDay(dayKey: string) {
+    setExpandedCalendarDays((current) => ({
+      ...current,
+      [dayKey]: !current[dayKey]
+    }));
+  }
+
   const sortedTodos = [
     ...todos
       .filter((todo) => !todo.completed)
@@ -415,15 +430,30 @@ export default function MulooCommandCentre() {
       .sort((left, right) => left.sortOrder - right.sortOrder)
   ];
 
-  const groupedCalendarEvents = calendarEvents.reduce<
-    Record<string, CalendarEvent[]>
-  >((groups, event) => {
-    const label = formatDayLabel(
-      event.start.dateTime ?? event.start.date ?? ""
-    );
-    groups[label] = groups[label] ? [...groups[label], event] : [event];
-    return groups;
-  }, {});
+  const groupedCalendarEvents = calendarEvents.reduce<CalendarDayGroup[]>(
+    (groups, event) => {
+      const startValue = event.start.dateTime ?? event.start.date ?? "";
+      const date = new Date(startValue);
+      const dayKey = Number.isNaN(date.getTime())
+        ? `unknown-${event.id}`
+        : date.toISOString().slice(0, 10);
+      const existingGroup = groups.find((group) => group.key === dayKey);
+
+      if (existingGroup) {
+        existingGroup.events.push(event);
+        return groups;
+      }
+
+      groups.push({
+        key: dayKey,
+        label: formatDayLabel(startValue),
+        events: [event]
+      });
+
+      return groups;
+    },
+    []
+  );
 
   async function handleAddTodo(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -660,7 +690,7 @@ export default function MulooCommandCentre() {
         ) : null}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -863,7 +893,7 @@ export default function MulooCommandCentre() {
             </section>
           </div>
 
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -896,15 +926,23 @@ export default function MulooCommandCentre() {
                   No calendar events in the next week.
                 </p>
               ) : (
-                <div className="mt-5 space-y-5">
-                  {Object.entries(groupedCalendarEvents).map(
-                    ([label, items]) => (
-                      <div key={label}>
-                        <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                          {label}
-                        </p>
-                        <div className="mt-3 space-y-3">
-                          {items.map((event) => (
+                <div className="mt-5 max-h-96 space-y-5 overflow-y-auto pr-1">
+                  {groupedCalendarEvents.map((group) => {
+                    const isExpanded = expandedCalendarDays[group.key] === true;
+                    const visibleEvents = isExpanded
+                      ? group.events
+                      : group.events.slice(0, 4);
+                    const remainingCount = Math.max(group.events.length - 4, 0);
+
+                    return (
+                      <div key={group.key}>
+                        <div className="sticky top-0 z-10 -mx-1 bg-background-card/95 px-1 py-2 backdrop-blur">
+                          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                            {group.label}
+                          </p>
+                        </div>
+                        <div className="mt-1 space-y-3">
+                          {visibleEvents.map((event) => (
                             <div
                               key={event.id}
                               className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-4"
@@ -914,7 +952,7 @@ export default function MulooCommandCentre() {
                                   <p className="text-xs uppercase tracking-[0.12em] text-text-muted">
                                     {formatTimeRange(event)}
                                   </p>
-                                  <p className="mt-1 text-sm font-semibold text-white">
+                                  <p className="mt-1 truncate text-sm font-semibold text-white">
                                     {event.summary}
                                   </p>
                                   {event.location ? (
@@ -942,9 +980,20 @@ export default function MulooCommandCentre() {
                             </div>
                           ))}
                         </div>
+                        {remainingCount > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleCalendarDay(group.key)}
+                            className="mt-3 text-sm font-medium text-[#78a9ff]"
+                          >
+                            {isExpanded
+                              ? "Show less"
+                              : `Show ${remainingCount} more`}
+                          </button>
+                        ) : null}
                       </div>
-                    )
-                  )}
+                    );
+                  })}
                 </div>
               )}
             </section>
