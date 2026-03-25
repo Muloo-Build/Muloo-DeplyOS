@@ -107,8 +107,10 @@ import {
   loadDiscoverySessionsPayload,
   loadDiscoverySummary,
   loadDiscoverySummaryWithRetry,
+  loadBlueprint,
   loadProjectRecord,
   loadProjectsDirectory,
+  loadProjectTasks,
   refreshClientEnrichment,
   loadProjectMessages,
   markProjectMessagesSeenByClient,
@@ -117,12 +119,20 @@ import {
   saveDiscoverySession,
   serializeTask,
   deleteProjectRecord,
+  deleteProjectTaskRecord,
+  createProjectTask,
   generateDiscoverySummary,
+  generateBlueprintForProject,
+  generateProjectTaskPlan,
+  queueAgentRun,
   updateProjectRecord,
   updateProjectRecordStatus,
+  updateAgentRun,
   updateClientProjectAccess,
+  updateProjectTaskRecord,
   updateWorkRequest,
-  updateWorkspaceUser
+  updateWorkspaceUser,
+  ensureProjectPlanGenerationAllowed
 } from "./server";
 
 type HonoBindings = {
@@ -189,6 +199,7 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/inbox", internalAuth);
   app.use("/api/inbox/*", internalAuth);
   app.use("/api/runs", internalAuth);
+  app.use("/api/runs/*", internalAuth);
   app.use("/api/users", internalAuth);
   app.use("/api/users/*", internalAuth);
   app.use("/api/provider-connections", internalAuth);
@@ -1004,6 +1015,264 @@ export function createApiApp(config: BaseConfig) {
 
     const docText = await docResponse.text();
     return c.json(await extractDiscoveryFields(docText, body.session));
+  });
+
+  app.patch("/api/runs/:runId", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const run = await updateAgentRun(c.req.param("runId"), body);
+      return c.json({ run });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update agent run"
+        },
+        400
+      );
+    }
+  });
+
+  app.post(
+    "/api/projects/:projectId/tasks/:taskId/queue-agent-run",
+    async (c) => {
+      try {
+        const run = await queueAgentRun(
+          c.req.param("projectId"),
+          c.req.param("taskId")
+        );
+        return c.json({ run }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to queue agent run"
+          },
+          400
+        );
+      }
+    }
+  );
+
+  app.all("/api/projects/:projectId/blueprint", async (c) => {
+    if (c.req.method === "GET") {
+      const blueprint = await loadBlueprint(c.req.param("projectId"));
+
+      if (!blueprint) {
+        return c.json({ error: "Blueprint not found" }, 404);
+      }
+
+      return c.json({ blueprint });
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.post("/api/projects/:projectId/blueprint/generate", async (c) => {
+    try {
+      await ensureProjectScopeUnlocked(c.req.param("projectId"));
+      const blueprint = await generateBlueprintForProject(
+        c.req.param("projectId")
+      );
+      return c.json({ blueprint });
+    } catch (error) {
+      if (error instanceof Error && error.message === "Project not found") {
+        return c.json({ error: error.message }, 404);
+      }
+
+      if (
+        error instanceof Error &&
+        error.message.includes("must be complete before generating")
+      ) {
+        return c.json({ error: error.message }, 400);
+      }
+
+      if (error instanceof ZodError) {
+        return c.json(
+          {
+            error: "Blueprint generation returned invalid JSON",
+            details: error.flatten()
+          },
+          502
+        );
+      }
+
+      if (error instanceof SyntaxError) {
+        return c.json(
+          {
+            error: "Blueprint generation returned invalid JSON"
+          },
+          502
+        );
+      }
+
+      throw error;
+    }
+  });
+
+  app.all("/api/projects/:projectId/tasks", async (c) => {
+    if (c.req.method === "GET") {
+      return c.json({
+        tasks: await loadProjectTasks(c.req.param("projectId"))
+      });
+    }
+
+    if (c.req.method === "POST") {
+      try {
+        await ensureProjectScopeUnlocked(
+          c.req.param("projectId"),
+          "Approved scope is locked. Use change management to add more project steps."
+        );
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error ? error.message : "Failed to create task"
+          },
+          error instanceof Error && error.message === "Project not found"
+            ? 404
+            : 409
+        );
+      }
+
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as {
+          title?: unknown;
+          description?: unknown;
+          category?: unknown;
+          executionType?: unknown;
+          priority?: unknown;
+          status?: unknown;
+          plannedHours?: unknown;
+          actualHours?: unknown;
+          qaRequired?: unknown;
+          approvalRequired?: unknown;
+          assigneeType?: unknown;
+          executionReadiness?: unknown;
+          assignedAgentId?: unknown;
+        };
+        const task = await createProjectTask(c.req.param("projectId"), body);
+        return c.json({ task }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error ? error.message : "Failed to create task"
+          },
+          400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.post("/api/projects/:projectId/tasks/generate-plan", async (c) => {
+    try {
+      await ensureProjectPlanGenerationAllowed(c.req.param("projectId"));
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to generate project plan"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 409
+      );
+    }
+
+    return c.json({
+      tasks: await generateProjectTaskPlan(c.req.param("projectId"))
+    });
+  });
+
+  app.all("/api/projects/:projectId/tasks/:taskId", async (c) => {
+    if (c.req.method === "PATCH") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as {
+          status?: unknown;
+          title?: unknown;
+          description?: unknown;
+          category?: unknown;
+          executionType?: unknown;
+          priority?: unknown;
+          qaRequired?: unknown;
+          approvalRequired?: unknown;
+          assigneeType?: unknown;
+          executionReadiness?: unknown;
+          assignedAgentId?: unknown;
+          plannedHours?: unknown;
+          actualHours?: unknown;
+        };
+        const task = await updateProjectTaskRecord(
+          c.req.param("projectId"),
+          c.req.param("taskId"),
+          body
+        );
+
+        return c.json({ task });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error ? error.message : "Failed to update task"
+          },
+          error instanceof Error && error.message === "Task not found"
+            ? 404
+            : error instanceof Error &&
+                error.message ===
+                  "Approved scope is locked. Use change management to revise scoped task details."
+              ? 409
+              : 400
+        );
+      }
+    }
+
+    if (c.req.method === "DELETE") {
+      try {
+        await ensureProjectScopeUnlocked(
+          c.req.param("projectId"),
+          "Approved scope is locked. Use change management to remove or replace project steps."
+        );
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error ? error.message : "Failed to delete task"
+          },
+          error instanceof Error && error.message === "Project not found"
+            ? 404
+            : 409
+        );
+      }
+
+      try {
+        await deleteProjectTaskRecord(
+          c.req.param("projectId"),
+          c.req.param("taskId")
+        );
+        return c.json({ success: true });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error ? error.message : "Failed to delete task"
+          },
+          error instanceof Error && error.message === "Task not found"
+            ? 404
+            : 400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
   });
 
   app.get("/api/users", async (c) =>

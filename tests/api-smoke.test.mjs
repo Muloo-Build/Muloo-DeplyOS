@@ -516,6 +516,55 @@ test("guards internal Hono system routes without an auth cookie", async () => {
         method: "DELETE"
       }
     );
+    await expectUnauthorized(baseUrl, "/api/runs/test-run", {
+      method: "PATCH",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/blueprint");
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/blueprint/generate",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/tasks");
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/tasks", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/tasks/generate-plan",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/tasks/test-task",
+      {
+        method: "PATCH",
+        body: {}
+      }
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/tasks/test-task",
+      {
+        method: "DELETE"
+      }
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/tasks/test-task/queue-agent-run",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
     await expectUnauthorized(baseUrl, "/api/projects/test-project/summary");
     await expectUnauthorized(baseUrl, "/api/projects/test-project/validation");
     await expectUnauthorized(baseUrl, "/api/projects/test-project/readiness");
