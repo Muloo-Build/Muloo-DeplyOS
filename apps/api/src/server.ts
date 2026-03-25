@@ -2578,22 +2578,6 @@ function matchProjectDesignRoute(pathname: string): {
   };
 }
 
-function matchProjectModuleRoute(pathname: string): {
-  projectId: string;
-  moduleKey: string;
-} | null {
-  const match = /^\/api\/projects\/([^/]+)\/modules\/([^/]+)$/.exec(pathname);
-
-  if (!match || !match[1] || !match[2]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1]),
-    moduleKey: decodeURIComponent(match[2])
-  };
-}
-
 function matchExecutionRoute(pathname: string): {
   executionId: string;
   resource?: "steps";
@@ -15460,16 +15444,6 @@ export async function handleLegacyRequest(
       return sendJson(response, 200, options);
     }
 
-    const projectModuleRoute = matchProjectModuleRoute(url.pathname);
-    if (projectModuleRoute) {
-      return sendJson(response, 200, {
-        module: await loadProjectModuleDetail(
-          projectModuleRoute.projectId,
-          projectModuleRoute.moduleKey
-        )
-      });
-    }
-
     const projectDesignRoute = matchProjectDesignRoute(url.pathname);
     if (projectDesignRoute) {
       if (request.method === "GET" && !projectDesignRoute.resource) {
@@ -15802,38 +15776,6 @@ export async function handleLegacyRequest(
 
       if (request.method !== "GET") {
         return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      if (projectRoute.resource === "modules") {
-        const project = await loadProjectById(projectRoute.projectId);
-        return sendJson(response, 200, {
-          projectId: project.id,
-          modules: summarizeProjectModules(project)
-        });
-      }
-
-      if (projectRoute.resource === "summary") {
-        return sendJson(response, 200, {
-          summary: await loadProjectSummaryById(projectRoute.projectId)
-        });
-      }
-
-      if (projectRoute.resource === "validation") {
-        return sendJson(response, 200, {
-          validation: await validateProjectById(projectRoute.projectId)
-        });
-      }
-
-      if (projectRoute.resource === "readiness") {
-        return sendJson(response, 200, {
-          readiness: await loadProjectReadinessById(projectRoute.projectId)
-        });
-      }
-
-      if (projectRoute.resource === "executions") {
-        return sendJson(response, 200, {
-          executions: await loadProjectExecutions(projectRoute.projectId)
-        });
       }
 
       const project = await prisma.project.findUnique({
