@@ -66,6 +66,18 @@ export const operationalValidationStatusSchema = z.enum([
 export const readinessOutcomeSchema = z.enum(["ready", "not_ready"]);
 export const executionModeSchema = z.enum(["dry-run", "apply"]);
 export const executionTypeSchema = z.enum(["project-module", "legacy-spec"]);
+export const taskExecutionLaneSchema = z.enum([
+  "api",
+  "cowork",
+  "manual",
+  "blocked_by_tier"
+]);
+export const taskValidationStatusSchema = z.enum([
+  "pending",
+  "confirmed",
+  "failed",
+  "skipped"
+]);
 export const executionStepTypeSchema = z.enum([
   "project",
   "validation",

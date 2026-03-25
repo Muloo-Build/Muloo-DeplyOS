@@ -369,6 +369,10 @@ test("guards internal Hono system routes without an auth cookie", async () => {
       method: "POST",
       body: {}
     });
+    await expectUnauthorized(baseUrl, "/api/portals/test-portal/snapshot");
+    await expectUnauthorized(baseUrl, "/api/portals/test-portal/snapshot", {
+      method: "POST"
+    });
     await expectUnauthorized(baseUrl, "/api/clients");
     await expectUnauthorized(baseUrl, "/api/clients", {
       method: "POST",
@@ -536,6 +540,46 @@ test("guards internal Hono system routes without an auth cookie", async () => {
       method: "POST",
       body: {}
     });
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/findings");
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/findings", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/findings/test-finding",
+      {
+        method: "PATCH",
+        body: {}
+      }
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/findings/test-finding",
+      {
+        method: "DELETE"
+      }
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/recommendations"
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/recommendations",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/recommendations/test-recommendation",
+      {
+        method: "PATCH",
+        body: {}
+      }
+    );
     await expectUnauthorized(
       baseUrl,
       "/api/projects/test-project/tasks/generate-plan",

@@ -49,7 +49,10 @@ import {
   createClientResetLink,
   createDeliveryTemplate,
   createProjectRecord,
+  createProjectFinding,
+  createProjectRecommendation,
   createProductCatalogItem,
+  createPortalSnapshotForPortal,
   createWorkRequest,
   createWorkspaceUser,
   createClientAuthToken,
@@ -118,8 +121,11 @@ import {
   loadDiscoverySummaryWithRetry,
   loadBlueprint,
   loadProjectRecord,
+  loadProjectFindings,
+  loadProjectRecommendations,
   loadProjectsDirectory,
   loadProjectTasks,
+  loadLatestPortalSnapshot,
   loadProjectChangeRequests,
   refreshClientEnrichment,
   loadProjectMessages,
@@ -130,6 +136,7 @@ import {
   saveDiscoverySession,
   serializeTask,
   deleteProjectRecord,
+  deleteProjectFinding,
   deleteProjectTaskRecord,
   createProjectTask,
   generateDiscoverySummary,
@@ -140,6 +147,8 @@ import {
   shareProjectQuote,
   updateProjectRecord,
   updateProjectRecordStatus,
+  updateProjectFinding,
+  updateProjectRecommendation,
   updateAgentRun,
   updateClientProjectAccess,
   updateProjectTaskRecord,
@@ -245,6 +254,7 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/hubspot", internalAuth);
   app.use("/api/hubspot/*", internalAuth);
   app.use("/api/portals", internalAuth);
+  app.use("/api/portals/*", internalAuth);
   app.use("/api/clients", internalAuth);
   app.use("/api/clients/*", internalAuth);
   app.use("/api/email-settings", internalAuth);
@@ -1229,6 +1239,15 @@ export function createApiApp(config: BaseConfig) {
           description?: unknown;
           category?: unknown;
           executionType?: unknown;
+          executionLaneRationale?: unknown;
+          hubspotTierRequired?: unknown;
+          coworkBrief?: unknown;
+          manualInstructions?: unknown;
+          apiPayload?: unknown;
+          validationStatus?: unknown;
+          validationEvidence?: unknown;
+          findingId?: unknown;
+          recommendationId?: unknown;
           priority?: unknown;
           status?: unknown;
           plannedHours?: unknown;
@@ -1286,6 +1305,15 @@ export function createApiApp(config: BaseConfig) {
           description?: unknown;
           category?: unknown;
           executionType?: unknown;
+          executionLaneRationale?: unknown;
+          hubspotTierRequired?: unknown;
+          coworkBrief?: unknown;
+          manualInstructions?: unknown;
+          apiPayload?: unknown;
+          validationStatus?: unknown;
+          validationEvidence?: unknown;
+          findingId?: unknown;
+          recommendationId?: unknown;
           priority?: unknown;
           qaRequired?: unknown;
           approvalRequired?: unknown;
@@ -1358,6 +1386,143 @@ export function createApiApp(config: BaseConfig) {
 
     return c.json({ error: "Method Not Allowed" }, 405);
   });
+
+  app.all("/api/projects/:projectId/findings", async (c) => {
+    if (c.req.method === "GET") {
+      return c.json({
+        findings: await loadProjectFindings(c.req.param("projectId"))
+      });
+    }
+
+    if (c.req.method === "POST") {
+      try {
+        const finding = await createProjectFinding(
+          c.req.param("projectId"),
+          await readJsonBodyOrEmpty(c)
+        );
+        return c.json({ finding }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create finding"
+          },
+          400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/projects/:projectId/findings/:findingId", async (c) => {
+    if (c.req.method === "PATCH") {
+      try {
+        const finding = await updateProjectFinding(
+          c.req.param("projectId"),
+          c.req.param("findingId"),
+          await readJsonBodyOrEmpty(c)
+        );
+        return c.json({ finding });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update finding"
+          },
+          error instanceof Error && error.message === "Finding not found"
+            ? 404
+            : 400
+        );
+      }
+    }
+
+    if (c.req.method === "DELETE") {
+      try {
+        await deleteProjectFinding(
+          c.req.param("projectId"),
+          c.req.param("findingId")
+        );
+        return c.json({ success: true });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to delete finding"
+          },
+          error instanceof Error && error.message === "Finding not found"
+            ? 404
+            : 400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/projects/:projectId/recommendations", async (c) => {
+    if (c.req.method === "GET") {
+      return c.json({
+        recommendations: await loadProjectRecommendations(
+          c.req.param("projectId")
+        )
+      });
+    }
+
+    if (c.req.method === "POST") {
+      try {
+        const recommendation = await createProjectRecommendation(
+          c.req.param("projectId"),
+          await readJsonBodyOrEmpty(c)
+        );
+        return c.json({ recommendation }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create recommendation"
+          },
+          400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.patch(
+    "/api/projects/:projectId/recommendations/:recommendationId",
+    async (c) => {
+      try {
+        const recommendation = await updateProjectRecommendation(
+          c.req.param("projectId"),
+          c.req.param("recommendationId"),
+          await readJsonBodyOrEmpty(c)
+        );
+        return c.json({ recommendation });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update recommendation"
+          },
+          error instanceof Error && error.message === "Recommendation not found"
+            ? 404
+            : 400
+        );
+      }
+    }
+  );
 
   app.put("/api/projects/:projectId/scope", async (c) => {
     const payload = updateProjectScopeRequestSchema.parse(
@@ -2028,6 +2193,39 @@ export function createApiApp(config: BaseConfig) {
       portals: await loadHubSpotPortals()
     })
   );
+
+  app.get("/api/portals/:portalId/snapshot", async (c) => {
+    const snapshot = await loadLatestPortalSnapshot(c.req.param("portalId"));
+
+    if (!snapshot) {
+      return c.json({ snapshot: null }, 404);
+    }
+
+    return c.json({ snapshot });
+  });
+
+  app.post("/api/portals/:portalId/snapshot", async (c) => {
+    try {
+      const snapshot = await createPortalSnapshotForPortal(
+        c.req.param("portalId")
+      );
+      return c.json({ snapshot }, 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to refresh portal snapshot"
+        },
+        error instanceof Error &&
+          (error.message === "HubSpot portal not found" ||
+            error.message === "HubSpot portal is not connected")
+          ? 404
+          : 400
+      );
+    }
+  });
 
   app.post("/api/portals", async (c) => {
     const body = (await readJsonBodyOrEmpty(c)) as {

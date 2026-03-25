@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 function navClass(isActive: boolean) {
   return `rounded-2xl border px-4 py-3 text-sm font-medium transition ${
@@ -13,12 +14,50 @@ function navClass(isActive: boolean) {
 
 export default function ProjectWorkflowNav({
   projectId,
-  showDiscovery = true
+  showDiscovery = true,
+  engagementType
 }: {
   projectId: string;
   showDiscovery?: boolean;
+  engagementType?: string | null;
 }) {
   const pathname = usePathname();
+  const [resolvedEngagementType, setResolvedEngagementType] = useState<
+    string | null
+  >(engagementType ?? null);
+
+  useEffect(() => {
+    if (engagementType) {
+      setResolvedEngagementType(engagementType);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadProjectEngagementType() {
+      try {
+        const response = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}`
+        );
+        const body = await response.json().catch(() => null);
+
+        if (!response.ok || cancelled) {
+          return;
+        }
+
+        setResolvedEngagementType(body?.project?.engagementType ?? null);
+      } catch {
+        // Keep the existing navigation stable if this lightweight fetch fails.
+      }
+    }
+
+    void loadProjectEngagementType();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [engagementType, projectId]);
+
   const links = [
     {
       href: `/projects/${projectId}`,
@@ -55,7 +94,15 @@ export default function ProjectWorkflowNav({
     {
       href: `/projects/${projectId}/delivery`,
       label: "Delivery Board"
-    }
+    },
+    ...(resolvedEngagementType === "OPTIMISATION"
+      ? [
+          {
+            href: `/projects/${projectId}/audit`,
+            label: "Audit"
+          }
+        ]
+      : [])
   ];
 
   return (

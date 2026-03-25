@@ -39,6 +39,32 @@ interface HubSpotPipelinesResponse {
   results: HubSpotPipelineResponse[];
 }
 
+interface HubSpotAccountInfoResponse {
+  [key: string]: unknown;
+}
+
+interface HubSpotSchemasResponse {
+  results?: Array<Record<string, unknown>>;
+}
+
+export interface PortalSnapshotCaptureResult {
+  capturedAt: string;
+  hubTier?: string | null;
+  activeHubs: string[];
+  contactPropertyCount?: number | null;
+  companyPropertyCount?: number | null;
+  dealPropertyCount?: number | null;
+  ticketPropertyCount?: number | null;
+  customObjectCount?: number | null;
+  dealPipelineCount?: number | null;
+  dealStageCount?: number | null;
+  ticketPipelineCount?: number | null;
+  activeUserCount?: number | null;
+  teamCount?: number | null;
+  activeListCount?: number | null;
+  rawApiResponses: Record<string, unknown>;
+}
+
 interface HubSpotPropertyGroupResponse {
   name: string;
   label: string;
@@ -180,6 +206,102 @@ function normalizePipeline(
       normalizePipelineStage(internalName, stage, index)
     )
   };
+}
+
+function countResults(payload: { results?: unknown[] } | null | undefined) {
+  return Array.isArray(payload?.results) ? payload.results.length : null;
+}
+
+function normalizeHubLabel(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function extractHubTier(payload: HubSpotAccountInfoResponse) {
+  const candidateKeys = [
+    "hubTier",
+    "portalTier",
+    "subscriptionLevel",
+    "accountType",
+    "tier"
+  ];
+
+  for (const key of candidateKeys) {
+    const value = payload[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function extractActiveHubs(payload: HubSpotAccountInfoResponse) {
+  const explicitActiveHubs = payload.activeHubs;
+  if (Array.isArray(explicitActiveHubs)) {
+    return explicitActiveHubs
+      .filter((hub): hub is string => typeof hub === "string")
+      .map((hub) => normalizeHubLabel(hub))
+      .filter(Boolean);
+  }
+
+  const products = payload.products;
+  if (Array.isArray(products)) {
+    const productHubs = products
+      .map((product) => {
+        if (!product || typeof product !== "object") {
+          return null;
+        }
+
+        const productRecord = product as Record<string, unknown>;
+
+        const name =
+          typeof productRecord.name === "string"
+            ? productRecord.name
+            : typeof productRecord.label === "string"
+              ? productRecord.label
+              : null;
+        const isActive =
+          productRecord.enabled === true ||
+          productRecord.active === true ||
+          (typeof productRecord.status === "string" &&
+            ["active", "enabled", "purchased"].includes(
+              productRecord.status.toLowerCase()
+            ));
+
+        return name && isActive ? normalizeHubLabel(name) : null;
+      })
+      .filter((hub): hub is string => Boolean(hub));
+
+    if (productHubs.length > 0) {
+      return Array.from(new Set(productHubs));
+    }
+  }
+
+  const knownHubKeys = [
+    "marketingHub",
+    "salesHub",
+    "serviceHub",
+    "cmsHub",
+    "operationsHub",
+    "commerceHub"
+  ] as const;
+
+  const hubsFromFlags = knownHubKeys
+    .map((key) => {
+      const value = payload[key];
+      if (
+        value === true ||
+        (typeof value === "string" && value.trim().length > 0) ||
+        (value && typeof value === "object")
+      ) {
+        return normalizeHubLabel(key.replace(/Hub$/, ""));
+      }
+
+      return null;
+    })
+    .filter((hub): hub is string => Boolean(hub));
+
+  return Array.from(new Set(hubsFromFlags));
 }
 
 export class HubSpotClient {
@@ -497,5 +619,97 @@ export class HubSpotClient {
       },
       "HubSpot object upsert"
     );
+  }
+
+  public async capturePortalSnapshot(): Promise<PortalSnapshotCaptureResult> {
+    this.logger.info("Capturing HubSpot portal snapshot.");
+
+    const [
+      accountInfo,
+      contactProperties,
+      companyProperties,
+      dealProperties,
+      ticketProperties,
+      customObjectSchemas,
+      dealPipelines,
+      ticketPipelines
+    ] = await Promise.all([
+      this.requestJson<HubSpotAccountInfoResponse>(
+        "/account-info/v3/details",
+        { method: "GET" },
+        "HubSpot account info fetch"
+      ),
+      this.requestJson<HubSpotPropertiesResponse>(
+        "/crm/v3/properties/contacts",
+        { method: "GET" },
+        "HubSpot contact properties fetch"
+      ),
+      this.requestJson<HubSpotPropertiesResponse>(
+        "/crm/v3/properties/companies",
+        { method: "GET" },
+        "HubSpot company properties fetch"
+      ),
+      this.requestJson<HubSpotPropertiesResponse>(
+        "/crm/v3/properties/deals",
+        { method: "GET" },
+        "HubSpot deal properties fetch"
+      ),
+      this.requestJson<HubSpotPropertiesResponse>(
+        "/crm/v3/properties/tickets",
+        { method: "GET" },
+        "HubSpot ticket properties fetch"
+      ),
+      this.requestJson<HubSpotSchemasResponse>(
+        "/crm/v3/schemas",
+        { method: "GET" },
+        "HubSpot custom object schema fetch"
+      ),
+      this.requestJson<HubSpotPipelinesResponse>(
+        "/crm/v3/pipelines/deals",
+        { method: "GET" },
+        "HubSpot deal pipelines fetch"
+      ),
+      this.requestJson<HubSpotPipelinesResponse>(
+        "/crm/v3/pipelines/tickets",
+        { method: "GET" },
+        "HubSpot ticket pipelines fetch"
+      )
+    ]);
+
+    const dealPipelineCount = countResults(dealPipelines);
+    const dealStageCount = Array.isArray(dealPipelines.results)
+      ? dealPipelines.results.reduce(
+          (total, pipeline) => total + (pipeline.stages?.length ?? 0),
+          0
+        )
+      : null;
+    const ticketPipelineCount = countResults(ticketPipelines);
+
+    return {
+      capturedAt: new Date().toISOString(),
+      hubTier: extractHubTier(accountInfo),
+      activeHubs: extractActiveHubs(accountInfo),
+      contactPropertyCount: countResults(contactProperties),
+      companyPropertyCount: countResults(companyProperties),
+      dealPropertyCount: countResults(dealProperties),
+      ticketPropertyCount: countResults(ticketProperties),
+      customObjectCount: countResults(customObjectSchemas),
+      dealPipelineCount,
+      dealStageCount,
+      ticketPipelineCount,
+      activeUserCount: null,
+      teamCount: null,
+      activeListCount: null,
+      rawApiResponses: {
+        accountInfoDetails: accountInfo,
+        contactProperties,
+        companyProperties,
+        dealProperties,
+        ticketProperties,
+        customObjectSchemas,
+        dealPipelines,
+        ticketPipelines
+      }
+    };
   }
 }

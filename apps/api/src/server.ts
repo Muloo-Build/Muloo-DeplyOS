@@ -51,6 +51,28 @@ const validImplementationApproachValues = [
   "pragmatic_poc",
   "best_practice"
 ] as const;
+const validTaskStatusValues = [
+  "backlog",
+  "todo",
+  "waiting_on_client",
+  "in_progress",
+  "blocked",
+  "done"
+] as const;
+const validTaskAssigneeTypeValues = ["Human", "Agent", "Client"] as const;
+const validTaskPriorityValues = ["low", "medium", "high"] as const;
+const validTaskExecutionReadinessValues = [
+  "not_ready",
+  "assisted",
+  "ready_with_review",
+  "ready"
+] as const;
+const validTaskValidationStatusValues = [
+  "pending",
+  "confirmed",
+  "failed",
+  "skipped"
+] as const;
 const validHubTierValues = [
   "free",
   "starter",
@@ -3503,6 +3525,15 @@ export function serializeTask<
     description: string | null;
     category: string | null;
     executionType: string;
+    executionLaneRationale?: string | null;
+    hubspotTierRequired?: string | null;
+    coworkBrief?: string | null;
+    manualInstructions?: string | null;
+    apiPayload?: Prisma.Prisma.JsonValue | null;
+    validationStatus?: string;
+    validationEvidence?: string | null;
+    findingId?: string | null;
+    recommendationId?: string | null;
     priority: string;
     status: string;
     plannedHours: number | null;
@@ -3543,6 +3574,15 @@ export function serializeTask<
     description: task.description,
     category: task.category,
     executionType: task.executionType,
+    executionLaneRationale: task.executionLaneRationale ?? null,
+    hubspotTierRequired: task.hubspotTierRequired ?? null,
+    coworkBrief: task.coworkBrief ?? null,
+    manualInstructions: task.manualInstructions ?? null,
+    apiPayload: task.apiPayload ?? null,
+    validationStatus: task.validationStatus ?? "pending",
+    validationEvidence: task.validationEvidence ?? null,
+    findingId: task.findingId ?? null,
+    recommendationId: task.recommendationId ?? null,
     priority: task.priority,
     status: task.status,
     plannedHours: task.plannedHours,
@@ -4179,6 +4219,38 @@ function normalizeOptionalTaskString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
     : null;
+}
+
+function normalizeTaskValidationStatus(value: unknown) {
+  if (
+    typeof value === "string" &&
+    validTaskValidationStatusValues.includes(
+      value as (typeof validTaskValidationStatusValues)[number]
+    )
+  ) {
+    return value;
+  }
+
+  return "pending";
+}
+
+function normalizeOptionalJsonObject(
+  value: unknown,
+  fieldName: string
+): Prisma.Prisma.InputJsonValue | Prisma.Prisma.NullTypes.JsonNull | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return Prisma.Prisma.JsonNull;
+  }
+
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return value as Prisma.Prisma.InputJsonValue;
+  }
+
+  throw new Error(`${fieldName} must be an object`);
 }
 
 function normalizeRequiredTaskString(value: unknown, fieldName: string) {
@@ -6364,6 +6436,15 @@ export async function createProjectTask(
     description?: unknown;
     category?: unknown;
     executionType?: unknown;
+    executionLaneRationale?: unknown;
+    hubspotTierRequired?: unknown;
+    coworkBrief?: unknown;
+    manualInstructions?: unknown;
+    apiPayload?: unknown;
+    validationStatus?: unknown;
+    validationEvidence?: unknown;
+    findingId?: unknown;
+    recommendationId?: unknown;
     priority?: unknown;
     status?: unknown;
     plannedHours?: unknown;
@@ -6375,29 +6456,18 @@ export async function createProjectTask(
     assignedAgentId?: unknown;
   }
 ) {
-  const validStatuses = [
-    "todo",
-    "waiting_on_client",
-    "in_progress",
-    "blocked",
-    "done"
-  ];
-  const validAssigneeTypes = ["Human", "Agent", "Client"];
-  const validPriorities = ["low", "medium", "high"];
-  const validExecutionReadiness = [
-    "not_ready",
-    "assisted",
-    "ready_with_review",
-    "ready"
-  ];
-
   const status =
-    typeof value.status === "string" && validStatuses.includes(value.status)
+    typeof value.status === "string" &&
+    validTaskStatusValues.includes(
+      value.status as (typeof validTaskStatusValues)[number]
+    )
       ? value.status
       : "todo";
   const assigneeType =
     typeof value.assigneeType === "string" &&
-    validAssigneeTypes.includes(value.assigneeType)
+    validTaskAssigneeTypeValues.includes(
+      value.assigneeType as (typeof validTaskAssigneeTypeValues)[number]
+    )
       ? value.assigneeType
       : "Human";
   const assignedAgentId =
@@ -6408,14 +6478,18 @@ export async function createProjectTask(
       : null;
   const executionReadiness =
     typeof value.executionReadiness === "string" &&
-    validExecutionReadiness.includes(value.executionReadiness)
+    validTaskExecutionReadinessValues.includes(
+      value.executionReadiness as (typeof validTaskExecutionReadinessValues)[number]
+    )
       ? value.executionReadiness
       : assigneeType === "Agent"
         ? "ready_with_review"
         : "not_ready";
   const priority =
     typeof value.priority === "string" &&
-    validPriorities.includes(value.priority.toLowerCase())
+    validTaskPriorityValues.includes(
+      value.priority.toLowerCase() as (typeof validTaskPriorityValues)[number]
+    )
       ? value.priority.toLowerCase()
       : "medium";
   const normalizedTitle = normalizeRequiredTaskString(value.title, "title");
@@ -6424,6 +6498,10 @@ export async function createProjectTask(
   const normalizedCategory = normalizeOptionalTaskString(value.category) ?? "";
   const normalizedExecutionType =
     normalizeOptionalTaskString(value.executionType) ?? "manual";
+  const normalizedApiPayload = normalizeOptionalJsonObject(
+    value.apiPayload,
+    "apiPayload"
+  );
   const resolvedAssignedAgentId = await resolveAssignedAgentIdForTask(
     projectId,
     {
@@ -6443,6 +6521,21 @@ export async function createProjectTask(
       description: normalizedDescription || null,
       category: normalizedCategory || null,
       executionType: normalizedExecutionType,
+      executionLaneRationale: normalizeOptionalTaskString(
+        value.executionLaneRationale
+      ),
+      hubspotTierRequired: normalizeOptionalTaskString(
+        value.hubspotTierRequired
+      ),
+      coworkBrief: normalizeOptionalTaskString(value.coworkBrief),
+      manualInstructions: normalizeOptionalTaskString(value.manualInstructions),
+      ...(normalizedApiPayload !== undefined
+        ? { apiPayload: normalizedApiPayload }
+        : {}),
+      validationStatus: normalizeTaskValidationStatus(value.validationStatus),
+      validationEvidence: normalizeOptionalTaskString(value.validationEvidence),
+      findingId: normalizeOptionalTaskString(value.findingId),
+      recommendationId: normalizeOptionalTaskString(value.recommendationId),
       priority,
       status,
       plannedHours:
@@ -6484,6 +6577,15 @@ export async function updateProjectTaskRecord(
     description?: unknown;
     category?: unknown;
     executionType?: unknown;
+    executionLaneRationale?: unknown;
+    hubspotTierRequired?: unknown;
+    coworkBrief?: unknown;
+    manualInstructions?: unknown;
+    apiPayload?: unknown;
+    validationStatus?: unknown;
+    validationEvidence?: unknown;
+    findingId?: unknown;
+    recommendationId?: unknown;
     priority?: unknown;
     qaRequired?: unknown;
     approvalRequired?: unknown;
@@ -6494,22 +6596,6 @@ export async function updateProjectTaskRecord(
     actualHours?: unknown;
   }
 ) {
-  const validStatuses = [
-    "todo",
-    "waiting_on_client",
-    "in_progress",
-    "blocked",
-    "done"
-  ];
-  const validAssigneeTypes = ["Human", "Agent", "Client"];
-  const validPriorities = ["low", "medium", "high"];
-  const validExecutionReadiness = [
-    "not_ready",
-    "assisted",
-    "ready_with_review",
-    "ready"
-  ];
-
   const existingTask = await prisma.task.findFirst({
     where: {
       id: taskId,
@@ -6535,6 +6621,11 @@ export async function updateProjectTaskRecord(
       "description",
       "category",
       "executionType",
+      "executionLaneRationale",
+      "hubspotTierRequired",
+      "coworkBrief",
+      "manualInstructions",
+      "apiPayload",
       "priority",
       "plannedHours",
       "qaRequired",
@@ -6554,7 +6645,11 @@ export async function updateProjectTaskRecord(
     const nextStatus =
       typeof value.status === "string" ? value.status.trim() : "";
 
-    if (!validStatuses.includes(nextStatus)) {
+    if (
+      !validTaskStatusValues.includes(
+        nextStatus as (typeof validTaskStatusValues)[number]
+      )
+    ) {
       throw new Error("Invalid task status");
     }
 
@@ -6578,10 +6673,72 @@ export async function updateProjectTaskRecord(
       normalizeOptionalTaskString(value.executionType) ?? "manual";
   }
 
+  if (value.executionLaneRationale !== undefined) {
+    data.executionLaneRationale = normalizeOptionalTaskString(
+      value.executionLaneRationale
+    );
+  }
+
+  if (value.hubspotTierRequired !== undefined) {
+    data.hubspotTierRequired = normalizeOptionalTaskString(
+      value.hubspotTierRequired
+    );
+  }
+
+  if (value.coworkBrief !== undefined) {
+    data.coworkBrief = normalizeOptionalTaskString(value.coworkBrief);
+  }
+
+  if (value.manualInstructions !== undefined) {
+    data.manualInstructions = normalizeOptionalTaskString(
+      value.manualInstructions
+    );
+  }
+
+  if (value.apiPayload !== undefined) {
+    data.apiPayload = normalizeOptionalJsonObject(
+      value.apiPayload,
+      "apiPayload"
+    );
+  }
+
+  if (value.validationStatus !== undefined) {
+    const nextValidationStatus =
+      typeof value.validationStatus === "string"
+        ? value.validationStatus.trim()
+        : "";
+
+    if (
+      !validTaskValidationStatusValues.includes(
+        nextValidationStatus as (typeof validTaskValidationStatusValues)[number]
+      )
+    ) {
+      throw new Error("Invalid validation status");
+    }
+
+    data.validationStatus = nextValidationStatus;
+  }
+
+  if (value.validationEvidence !== undefined) {
+    data.validationEvidence = normalizeOptionalTaskString(
+      value.validationEvidence
+    );
+  }
+
+  if (value.findingId !== undefined) {
+    data.findingId = normalizeOptionalTaskString(value.findingId);
+  }
+
+  if (value.recommendationId !== undefined) {
+    data.recommendationId = normalizeOptionalTaskString(value.recommendationId);
+  }
+
   if (value.priority !== undefined) {
     if (
       typeof value.priority !== "string" ||
-      !validPriorities.includes(value.priority.toLowerCase())
+      !validTaskPriorityValues.includes(
+        value.priority.toLowerCase() as (typeof validTaskPriorityValues)[number]
+      )
     ) {
       throw new Error("Invalid task priority");
     }
@@ -6592,7 +6749,9 @@ export async function updateProjectTaskRecord(
   if (value.assigneeType !== undefined) {
     if (
       typeof value.assigneeType !== "string" ||
-      !validAssigneeTypes.includes(value.assigneeType)
+      !validTaskAssigneeTypeValues.includes(
+        value.assigneeType as (typeof validTaskAssigneeTypeValues)[number]
+      )
     ) {
       throw new Error("Invalid assignee type");
     }
@@ -6606,7 +6765,9 @@ export async function updateProjectTaskRecord(
   if (value.executionReadiness !== undefined) {
     if (
       typeof value.executionReadiness !== "string" ||
-      !validExecutionReadiness.includes(value.executionReadiness)
+      !validTaskExecutionReadinessValues.includes(
+        value.executionReadiness as (typeof validTaskExecutionReadinessValues)[number]
+      )
     ) {
       throw new Error("Invalid execution readiness");
     }
@@ -8413,6 +8574,205 @@ function serializeHubSpotPortal<
   };
 }
 
+function createHubSpotLogger() {
+  return {
+    info(message: string, context?: Record<string, unknown>) {
+      console.info(message, context);
+    },
+    warn(message: string, context?: Record<string, unknown>) {
+      console.warn(message, context);
+    },
+    error(message: string, context?: Record<string, unknown>) {
+      console.error(message, context);
+    }
+  };
+}
+
+function serializePortalSnapshot<
+  T extends {
+    id: string;
+    portalId: string;
+    capturedAt: Date;
+    hubTier: string | null;
+    activeHubs: string[];
+    contactPropertyCount: number | null;
+    companyPropertyCount: number | null;
+    dealPropertyCount: number | null;
+    ticketPropertyCount: number | null;
+    customObjectCount: number | null;
+    dealPipelineCount: number | null;
+    dealStageCount: number | null;
+    ticketPipelineCount: number | null;
+    activeUserCount: number | null;
+    teamCount: number | null;
+    activeListCount: number | null;
+    rawApiResponses: Prisma.Prisma.JsonValue | null;
+    createdAt: Date;
+  }
+>(snapshot: T) {
+  return {
+    id: snapshot.id,
+    portalId: snapshot.portalId,
+    capturedAt: snapshot.capturedAt.toISOString(),
+    hubTier: snapshot.hubTier,
+    activeHubs: snapshot.activeHubs,
+    contactPropertyCount: snapshot.contactPropertyCount,
+    companyPropertyCount: snapshot.companyPropertyCount,
+    dealPropertyCount: snapshot.dealPropertyCount,
+    ticketPropertyCount: snapshot.ticketPropertyCount,
+    customObjectCount: snapshot.customObjectCount,
+    dealPipelineCount: snapshot.dealPipelineCount,
+    dealStageCount: snapshot.dealStageCount,
+    ticketPipelineCount: snapshot.ticketPipelineCount,
+    activeUserCount: snapshot.activeUserCount,
+    teamCount: snapshot.teamCount,
+    activeListCount: snapshot.activeListCount,
+    rawApiResponses: snapshot.rawApiResponses,
+    createdAt: snapshot.createdAt.toISOString()
+  };
+}
+
+const findingAreaSchema = z.enum([
+  "crm",
+  "pipelines",
+  "properties",
+  "views",
+  "dashboards",
+  "workflows",
+  "team",
+  "permissions",
+  "data_quality",
+  "integrations",
+  "sequences",
+  "reporting",
+  "other"
+]);
+
+const findingSeveritySchema = z.enum(["low", "medium", "high", "critical"]);
+const findingStatusSchema = z.enum(["open", "in_progress", "resolved"]);
+const recommendationTypeSchema = z.enum([
+  "quick_win",
+  "structural",
+  "advisory"
+]);
+const recommendationEffortSchema = z.enum(["xs", "s", "m", "l", "xl"]);
+const recommendationImpactSchema = z.enum(["low", "medium", "high"]);
+const recommendationApprovalStatusSchema = z.enum([
+  "pending",
+  "approved",
+  "rejected"
+]);
+
+const createFindingInputSchema = z.object({
+  area: findingAreaSchema,
+  severity: findingSeveritySchema,
+  title: z.string().trim().min(1),
+  description: z.string().trim().min(1),
+  quickWin: z.boolean().optional(),
+  phaseRecommendation: z.string().trim().min(1).optional(),
+  evidence: z.string().trim().min(1).optional()
+});
+
+const updateFindingInputSchema = z.object({
+  area: findingAreaSchema.optional(),
+  severity: findingSeveritySchema.optional(),
+  title: z.string().trim().min(1).optional(),
+  description: z.string().trim().min(1).optional(),
+  quickWin: z.boolean().optional(),
+  phaseRecommendation: z.string().trim().min(1).optional(),
+  evidence: z.string().trim().min(1).nullable().optional(),
+  status: findingStatusSchema.optional()
+});
+
+const createRecommendationInputSchema = z.object({
+  title: z.string().trim().min(1),
+  area: findingAreaSchema,
+  type: recommendationTypeSchema,
+  phase: z.string().trim().min(1).optional(),
+  rationale: z.string().trim().min(1),
+  effort: recommendationEffortSchema,
+  impact: recommendationImpactSchema,
+  linkedFindingIds: z.array(z.string().trim().min(1)).optional()
+});
+
+const updateRecommendationInputSchema = z.object({
+  title: z.string().trim().min(1).optional(),
+  area: findingAreaSchema.optional(),
+  type: recommendationTypeSchema.optional(),
+  phase: z.string().trim().min(1).optional(),
+  rationale: z.string().trim().min(1).optional(),
+  effort: recommendationEffortSchema.optional(),
+  impact: recommendationImpactSchema.optional(),
+  linkedFindingIds: z.array(z.string().trim().min(1)).optional(),
+  clientApprovalStatus: recommendationApprovalStatusSchema.optional()
+});
+
+function serializeFinding<
+  T extends {
+    id: string;
+    projectId: string;
+    area: string;
+    severity: string;
+    title: string;
+    description: string;
+    quickWin: boolean;
+    phaseRecommendation: string;
+    evidence: string | null;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(finding: T) {
+  return {
+    id: finding.id,
+    projectId: finding.projectId,
+    area: finding.area,
+    severity: finding.severity,
+    title: finding.title,
+    description: finding.description,
+    quickWin: finding.quickWin,
+    phaseRecommendation: finding.phaseRecommendation,
+    evidence: finding.evidence,
+    status: finding.status,
+    createdAt: finding.createdAt.toISOString(),
+    updatedAt: finding.updatedAt.toISOString()
+  };
+}
+
+function serializeRecommendation<
+  T extends {
+    id: string;
+    projectId: string;
+    title: string;
+    area: string;
+    type: string;
+    phase: string;
+    rationale: string;
+    effort: string;
+    impact: string;
+    clientApprovalStatus: string;
+    linkedFindingIds: string[];
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(recommendation: T) {
+  return {
+    id: recommendation.id,
+    projectId: recommendation.projectId,
+    title: recommendation.title,
+    area: recommendation.area,
+    type: recommendation.type,
+    phase: recommendation.phase,
+    rationale: recommendation.rationale,
+    effort: recommendation.effort,
+    impact: recommendation.impact,
+    clientApprovalStatus: recommendation.clientApprovalStatus,
+    linkedFindingIds: recommendation.linkedFindingIds,
+    createdAt: recommendation.createdAt.toISOString(),
+    updatedAt: recommendation.updatedAt.toISOString()
+  };
+}
+
 async function ensureProductCatalogSeeded() {
   for (const product of defaultProductCatalog) {
     await prisma.productCatalogItem.upsert({
@@ -8601,6 +8961,216 @@ export async function loadHubSpotPortals() {
   });
 
   return portals.map((portal) => serializeHubSpotPortal(portal));
+}
+
+export async function loadLatestPortalSnapshot(portalId: string) {
+  const snapshot = await prisma.portalSnapshot.findFirst({
+    where: { portalId },
+    orderBy: [{ capturedAt: "desc" }]
+  });
+
+  return snapshot ? serializePortalSnapshot(snapshot) : null;
+}
+
+export async function createPortalSnapshotForPortal(portalId: string) {
+  const portal = await prisma.hubSpotPortal.findUnique({
+    where: { id: portalId },
+    select: {
+      id: true,
+      accessToken: true
+    }
+  });
+
+  if (!portal) {
+    throw new Error("HubSpot portal not found");
+  }
+
+  if (!portal.accessToken) {
+    throw new Error("HubSpot portal is not connected");
+  }
+
+  const client = new HubSpotClient({
+    accessToken: portal.accessToken,
+    baseUrl: normalizeHubSpotBaseUrl(),
+    logger: createHubSpotLogger()
+  });
+
+  const snapshotPayload = await client.capturePortalSnapshot();
+  const snapshot = await prisma.portalSnapshot.create({
+    data: {
+      portalId,
+      hubTier: snapshotPayload.hubTier ?? null,
+      activeHubs: snapshotPayload.activeHubs,
+      contactPropertyCount: snapshotPayload.contactPropertyCount ?? null,
+      companyPropertyCount: snapshotPayload.companyPropertyCount ?? null,
+      dealPropertyCount: snapshotPayload.dealPropertyCount ?? null,
+      ticketPropertyCount: snapshotPayload.ticketPropertyCount ?? null,
+      customObjectCount: snapshotPayload.customObjectCount ?? null,
+      dealPipelineCount: snapshotPayload.dealPipelineCount ?? null,
+      dealStageCount: snapshotPayload.dealStageCount ?? null,
+      ticketPipelineCount: snapshotPayload.ticketPipelineCount ?? null,
+      activeUserCount: snapshotPayload.activeUserCount ?? null,
+      teamCount: snapshotPayload.teamCount ?? null,
+      activeListCount: snapshotPayload.activeListCount ?? null,
+      rawApiResponses:
+        snapshotPayload.rawApiResponses as Prisma.Prisma.InputJsonValue
+    }
+  });
+
+  return serializePortalSnapshot(snapshot);
+}
+
+export async function loadProjectFindings(projectId: string) {
+  const findings = await prisma.finding.findMany({
+    where: { projectId },
+    orderBy: [{ createdAt: "desc" }]
+  });
+
+  return findings.map((finding) => serializeFinding(finding));
+}
+
+export async function createProjectFinding(projectId: string, value: unknown) {
+  const payload = createFindingInputSchema.parse(value);
+  const finding = await prisma.finding.create({
+    data: {
+      projectId,
+      area: payload.area,
+      severity: payload.severity,
+      title: payload.title,
+      description: payload.description,
+      quickWin: payload.quickWin ?? false,
+      phaseRecommendation: payload.phaseRecommendation ?? "next",
+      evidence: payload.evidence ?? null
+    }
+  });
+
+  return serializeFinding(finding);
+}
+
+export async function updateProjectFinding(
+  projectId: string,
+  findingId: string,
+  value: unknown
+) {
+  const payload = updateFindingInputSchema.parse(value);
+  const existingFinding = await prisma.finding.findFirst({
+    where: { id: findingId, projectId },
+    select: { id: true }
+  });
+
+  if (!existingFinding) {
+    throw new Error("Finding not found");
+  }
+
+  const finding = await prisma.finding.update({
+    where: { id: findingId },
+    data: {
+      ...(payload.area !== undefined ? { area: payload.area } : {}),
+      ...(payload.severity !== undefined ? { severity: payload.severity } : {}),
+      ...(payload.title !== undefined ? { title: payload.title } : {}),
+      ...(payload.description !== undefined
+        ? { description: payload.description }
+        : {}),
+      ...(payload.quickWin !== undefined ? { quickWin: payload.quickWin } : {}),
+      ...(payload.phaseRecommendation !== undefined
+        ? { phaseRecommendation: payload.phaseRecommendation }
+        : {}),
+      ...(payload.evidence !== undefined ? { evidence: payload.evidence } : {}),
+      ...(payload.status !== undefined ? { status: payload.status } : {})
+    }
+  });
+
+  return serializeFinding(finding);
+}
+
+export async function deleteProjectFinding(
+  projectId: string,
+  findingId: string
+) {
+  const existingFinding = await prisma.finding.findFirst({
+    where: { id: findingId, projectId },
+    select: { id: true }
+  });
+
+  if (!existingFinding) {
+    throw new Error("Finding not found");
+  }
+
+  await prisma.finding.delete({
+    where: { id: findingId }
+  });
+}
+
+export async function loadProjectRecommendations(projectId: string) {
+  const recommendations = await prisma.recommendation.findMany({
+    where: { projectId },
+    orderBy: [{ createdAt: "desc" }]
+  });
+
+  return recommendations.map((recommendation) =>
+    serializeRecommendation(recommendation)
+  );
+}
+
+export async function createProjectRecommendation(
+  projectId: string,
+  value: unknown
+) {
+  const payload = createRecommendationInputSchema.parse(value);
+  const recommendation = await prisma.recommendation.create({
+    data: {
+      projectId,
+      title: payload.title,
+      area: payload.area,
+      type: payload.type,
+      phase: payload.phase ?? "next",
+      rationale: payload.rationale,
+      effort: payload.effort,
+      impact: payload.impact,
+      linkedFindingIds: payload.linkedFindingIds ?? []
+    }
+  });
+
+  return serializeRecommendation(recommendation);
+}
+
+export async function updateProjectRecommendation(
+  projectId: string,
+  recommendationId: string,
+  value: unknown
+) {
+  const payload = updateRecommendationInputSchema.parse(value);
+  const existingRecommendation = await prisma.recommendation.findFirst({
+    where: { id: recommendationId, projectId },
+    select: { id: true }
+  });
+
+  if (!existingRecommendation) {
+    throw new Error("Recommendation not found");
+  }
+
+  const recommendation = await prisma.recommendation.update({
+    where: { id: recommendationId },
+    data: {
+      ...(payload.title !== undefined ? { title: payload.title } : {}),
+      ...(payload.area !== undefined ? { area: payload.area } : {}),
+      ...(payload.type !== undefined ? { type: payload.type } : {}),
+      ...(payload.phase !== undefined ? { phase: payload.phase } : {}),
+      ...(payload.rationale !== undefined
+        ? { rationale: payload.rationale }
+        : {}),
+      ...(payload.effort !== undefined ? { effort: payload.effort } : {}),
+      ...(payload.impact !== undefined ? { impact: payload.impact } : {}),
+      ...(payload.linkedFindingIds !== undefined
+        ? { linkedFindingIds: payload.linkedFindingIds }
+        : {}),
+      ...(payload.clientApprovalStatus !== undefined
+        ? { clientApprovalStatus: payload.clientApprovalStatus }
+        : {})
+    }
+  });
+
+  return serializeRecommendation(recommendation);
 }
 
 async function fetchHubSpotOAuthAccessTokenInfo(input: {
@@ -8992,6 +9562,15 @@ export async function completeHubSpotOAuthCallback(value: {
 
     return savedPortal;
   });
+
+  try {
+    await createPortalSnapshotForPortal(portal.id);
+  } catch (error) {
+    console.error("Failed to capture HubSpot portal snapshot after OAuth.", {
+      portalId: portal.id,
+      error: error instanceof Error ? error.message : "Unknown snapshot error"
+    });
+  }
 
   return {
     portal: serializeHubSpotPortal(portal),
@@ -10034,17 +10613,7 @@ export async function executeHubSpotAgentAction(value: {
   const client = new HubSpotClient({
     accessToken: connection.accessToken,
     baseUrl: connection.baseUrl,
-    logger: {
-      info(message: string, context?: Record<string, unknown>) {
-        console.info(message, context);
-      },
-      warn(message: string, context?: Record<string, unknown>) {
-        console.warn(message, context);
-      },
-      error(message: string, context?: Record<string, unknown>) {
-        console.error(message, context);
-      }
-    }
+    logger: createHubSpotLogger()
   });
 
   switch (action as HubSpotAgentActionKey) {

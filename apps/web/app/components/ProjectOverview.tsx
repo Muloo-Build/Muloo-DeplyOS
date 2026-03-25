@@ -68,6 +68,7 @@ interface Project {
     youtubeUrl?: string | null;
   };
   portal: {
+    id: string;
     portalId: string;
     displayName: string;
     region?: string | null;
@@ -88,6 +89,40 @@ interface HubSpotPortalOption {
   connectedName?: string | null;
   hubDomain?: string | null;
   installedAt?: string | null;
+}
+
+interface PortalSnapshot {
+  id: string;
+  portalId: string;
+  capturedAt: string;
+  hubTier: string | null;
+  activeHubs: string[];
+  contactPropertyCount: number | null;
+  companyPropertyCount: number | null;
+  dealPropertyCount: number | null;
+  ticketPropertyCount: number | null;
+  customObjectCount: number | null;
+  dealPipelineCount: number | null;
+  dealStageCount: number | null;
+  ticketPipelineCount: number | null;
+  activeUserCount: number | null;
+  teamCount: number | null;
+  activeListCount: number | null;
+}
+
+interface FindingRecord {
+  id: string;
+  projectId: string;
+  area: string;
+  severity: "low" | "medium" | "high" | "critical";
+  title: string;
+  description: string;
+  quickWin: boolean;
+  phaseRecommendation: string;
+  evidence: string | null;
+  status: "open" | "in_progress" | "resolved";
+  createdAt: string;
+  updatedAt: string;
 }
 
 type HubSpotInstallProfile =
@@ -441,6 +476,10 @@ function formatDate(dateString: string) {
   });
 }
 
+function formatStatCount(value: number | null) {
+  return value === null ? "—" : value.toLocaleString("en-ZA");
+}
+
 function statusClass(status: string) {
   switch (status) {
     case "complete":
@@ -574,6 +613,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     SavedClientContact[]
   >([]);
   const [portalOptions, setPortalOptions] = useState<HubSpotPortalOption[]>([]);
+  const [portalSnapshot, setPortalSnapshot] = useState<PortalSnapshot | null>(
+    null
+  );
+  const [findings, setFindings] = useState<FindingRecord[]>([]);
   const [hubSpotInstallProfile, setHubSpotInstallProfile] =
     useState<HubSpotInstallProfile>("core_crm");
   const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>(
@@ -607,6 +650,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [projectEditError, setProjectEditError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [portalConnectBusy, setPortalConnectBusy] = useState(false);
+  const [portalSnapshotBusy, setPortalSnapshotBusy] = useState(false);
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summaryFeedback, setSummaryFeedback] = useState<string | null>(null);
@@ -649,7 +693,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       clientUsersResponse,
       supportingContextResponse,
       clientsResponse,
-      portalsResponse
+      portalsResponse,
+      findingsResponse
     ] = await Promise.all([
       fetch(`/api/projects/${encodeURIComponent(projectId)}`),
       fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
@@ -663,7 +708,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         `/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`
       ),
       fetch("/api/clients"),
-      fetch("/api/portals")
+      fetch("/api/portals"),
+      fetch(`/api/projects/${encodeURIComponent(projectId)}/findings`)
     ]);
 
     if (
@@ -691,6 +737,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       : null;
     const portalsBody = portalsResponse.ok
       ? await portalsResponse.json().catch(() => null)
+      : null;
+    const findingsBody = findingsResponse.ok
+      ? await findingsResponse.json().catch(() => null)
       : null;
 
     setProject(projectBody.project);
@@ -722,6 +771,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       ) ?? null;
     setSavedClientContacts(matchingClient?.contacts ?? []);
     setPortalOptions(portalsBody?.portals ?? []);
+    setFindings(findingsBody?.findings ?? []);
     if (enabledDraftProviders.length > 0) {
       setEmailProviderKey((currentKey) =>
         enabledDraftProviders.some(
@@ -752,6 +802,21 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       setBlueprint(null);
     } else {
       throw new Error("Failed to load blueprint status");
+    }
+
+    if (projectBody.project?.portal?.id) {
+      const snapshotResponse = await fetch(
+        `/api/portals/${encodeURIComponent(projectBody.project.portal.id)}/snapshot`
+      );
+
+      if (snapshotResponse.ok) {
+        const snapshotBody = await snapshotResponse.json().catch(() => null);
+        setPortalSnapshot(snapshotBody?.snapshot ?? null);
+      } else {
+        setPortalSnapshot(null);
+      }
+    } else {
+      setPortalSnapshot(null);
     }
   }
 
@@ -843,6 +908,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         discoverySummary
       )
     : session1Complete && session3Complete;
+  const quickWins = findings.filter((finding) => finding.quickWin);
+  const quickWinStats = {
+    total: quickWins.length,
+    open: quickWins.filter((finding) => finding.status === "open").length,
+    inProgress: quickWins.filter((finding) => finding.status === "in_progress")
+      .length,
+    resolved: quickWins.filter((finding) => finding.status === "resolved")
+      .length
+  };
   const totalHumanHours =
     blueprint?.tasks
       .filter((task) => task.type === "Human")
@@ -859,6 +933,39 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     project,
     discoverySummary?.recommendedNextQuestions
   );
+
+  async function refreshPortalSnapshot() {
+    if (!project?.portal?.id) {
+      return;
+    }
+
+    setPortalSnapshotBusy(true);
+    setProjectEditError(null);
+
+    try {
+      const response = await fetch(
+        `/api/portals/${encodeURIComponent(project.portal.id)}/snapshot`,
+        {
+          method: "POST"
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to refresh portal snapshot");
+      }
+
+      setPortalSnapshot(body?.snapshot ?? null);
+    } catch (snapshotError) {
+      setProjectEditError(
+        snapshotError instanceof Error
+          ? snapshotError.message
+          : "Failed to refresh portal snapshot"
+      );
+    } finally {
+      setPortalSnapshotBusy(false);
+    }
+  }
 
   function startEditing(field: Exclude<EditableField, null>) {
     if (!project) {
@@ -2052,6 +2159,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             <ProjectWorkflowNav
               projectId={project.id}
               showDiscovery={!isStandaloneQuote}
+              engagementType={project.engagementType}
             />
             <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -2440,6 +2548,108 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           use the same portal automatically.
                         </p>
                       </div>
+
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.06)] bg-background-card/60 p-3">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                              Portal Snapshot
+                            </p>
+                            <p className="mt-2 text-sm text-white">
+                              {portalSnapshot?.hubTier
+                                ? `Hub tier: ${portalSnapshot.hubTier}`
+                                : "No portal snapshot captured yet"}
+                            </p>
+                            {portalSnapshot?.capturedAt ? (
+                              <p className="mt-1 text-xs text-text-secondary">
+                                Captured {formatDate(portalSnapshot.capturedAt)}
+                              </p>
+                            ) : (
+                              <p className="mt-1 text-xs text-text-secondary">
+                                Capture the current portal footprint here before
+                                the audit work starts.
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void refreshPortalSnapshot()}
+                            disabled={portalSnapshotBusy || !project.portal?.id}
+                            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                          >
+                            {portalSnapshotBusy
+                              ? "Refreshing..."
+                              : "Refresh Snapshot"}
+                          </button>
+                        </div>
+
+                        {portalSnapshot ? (
+                          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-3">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                                Active Hubs
+                              </p>
+                              <p className="mt-2 text-sm text-white">
+                                {portalSnapshot.activeHubs.length > 0
+                                  ? portalSnapshot.activeHubs
+                                      .map((hub) => formatLabel(hub))
+                                      .join(", ")
+                                  : "Not detected"}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-3">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                                Pipelines
+                              </p>
+                              <p className="mt-2 text-sm text-white">
+                                Deals{" "}
+                                {formatStatCount(
+                                  portalSnapshot.dealPipelineCount
+                                )}{" "}
+                                / Stages{" "}
+                                {formatStatCount(portalSnapshot.dealStageCount)}{" "}
+                                / Tickets{" "}
+                                {formatStatCount(
+                                  portalSnapshot.ticketPipelineCount
+                                )}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-3">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                                Property Counts
+                              </p>
+                              <p className="mt-2 text-sm text-white">
+                                Contacts{" "}
+                                {formatStatCount(
+                                  portalSnapshot.contactPropertyCount
+                                )}{" "}
+                                · Companies{" "}
+                                {formatStatCount(
+                                  portalSnapshot.companyPropertyCount
+                                )}{" "}
+                                · Deals{" "}
+                                {formatStatCount(
+                                  portalSnapshot.dealPropertyCount
+                                )}{" "}
+                                · Tickets{" "}
+                                {formatStatCount(
+                                  portalSnapshot.ticketPropertyCount
+                                )}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-3">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                                Custom Objects
+                              </p>
+                              <p className="mt-2 text-sm text-white">
+                                {formatStatCount(
+                                  portalSnapshot.customObjectCount
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                     {renderError("portalId")}
                   </div>
@@ -2491,6 +2701,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </div>
                   {[
                     ["Portal", project.portal?.displayName ?? "Pending"],
+                    [
+                      "Quick Wins",
+                      `${quickWinStats.total} total · ${quickWinStats.open} open · ${quickWinStats.inProgress} in progress · ${quickWinStats.resolved} resolved`
+                    ],
                     [
                       isStandaloneQuote
                         ? "Technical Blueprint Generated"
