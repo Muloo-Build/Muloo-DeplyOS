@@ -2976,6 +2976,7 @@ function serializeClientDirectoryRecord<
     slug: string;
     clientRoles: string[];
     parentClientId: string | null;
+    hubSpotPortalId?: string | null;
     industry: string | null;
     region: string | null;
     website: string | null;
@@ -2995,6 +2996,20 @@ function serializeClientDirectoryRecord<
     childClients?: Array<{ id: string; name: string }>;
     visibleToPartners?: Array<{ partnerClient: { id: string; name: string } }>;
     visibleClients?: Array<{ client: { id: string; name: string } }>;
+    hubSpotPortal?: {
+      id: string;
+      portalId: string;
+      displayName: string;
+      region: string | null;
+      connected: boolean;
+      connectedEmail: string | null;
+      connectedName: string | null;
+      hubDomain: string | null;
+      tokenExpiresAt: Date | null;
+      installedAt: Date | null;
+      updatedAt: Date;
+      createdAt: Date;
+    } | null;
   }
 >(client: T) {
   return {
@@ -3004,6 +3019,10 @@ function serializeClientDirectoryRecord<
     clientRoles: client.clientRoles,
     parentClientId: client.parentClientId ?? null,
     parentClientName: client.parentClient?.name ?? null,
+    hubSpotPortalId: client.hubSpotPortalId ?? null,
+    hubSpotPortal: client.hubSpotPortal
+      ? serializeHubSpotPortal(client.hubSpotPortal)
+      : null,
     industry: client.industry,
     region: client.region,
     website: client.website,
@@ -11271,6 +11290,7 @@ export async function loadClientsDirectory() {
   const [clients, projects] = await Promise.all([
     prisma.client.findMany({
       include: {
+        hubSpotPortal: true,
         parentClient: {
           select: {
             id: true,
@@ -11415,6 +11435,7 @@ export async function createClientDirectoryRecord(value: {
   logoUrl?: string;
   industry?: string;
   region?: string;
+  hubSpotPortalId?: string;
   additionalWebsites?: string[];
   linkedinUrl?: string;
   facebookUrl?: string;
@@ -11425,6 +11446,22 @@ export async function createClientDirectoryRecord(value: {
   parentClientId?: string;
   visibleToPartnerIds?: string[];
 }) {
+  const requestedHubSpotPortalId =
+    typeof value.hubSpotPortalId === "string" && value.hubSpotPortalId.trim()
+      ? value.hubSpotPortalId.trim()
+      : null;
+
+  if (requestedHubSpotPortalId) {
+    const portal = await prisma.hubSpotPortal.findUnique({
+      where: { id: requestedHubSpotPortalId },
+      select: { id: true }
+    });
+
+    if (!portal) {
+      throw new Error("HubSpot portal not found");
+    }
+  }
+
   const client = await prisma.client.create({
     data: {
       name: value.name ?? "",
@@ -11457,6 +11494,15 @@ export async function createClientDirectoryRecord(value: {
           ? value.youtubeUrl.trim() || null
           : null,
       clientRoles: normalizeClientRoleTags(value.clientRoles),
+      ...(requestedHubSpotPortalId
+        ? {
+            hubSpotPortal: {
+              connect: {
+                id: requestedHubSpotPortalId
+              }
+            }
+          }
+        : {}),
       ...(typeof value.parentClientId === "string" &&
       value.parentClientId.trim()
         ? {
@@ -11481,6 +11527,7 @@ export async function createClientDirectoryRecord(value: {
   const createdClient = await prisma.client.findUnique({
     where: { id: client.id },
     include: {
+      hubSpotPortal: true,
       parentClient: {
         select: {
           id: true,
@@ -11535,6 +11582,7 @@ export async function updateClientDirectoryRecord(
     additionalWebsites?: unknown;
     industry?: unknown;
     region?: unknown;
+    hubSpotPortalId?: unknown;
     logoUrl?: unknown;
     linkedinUrl?: unknown;
     facebookUrl?: unknown;
@@ -11556,6 +11604,7 @@ export async function updateClientDirectoryRecord(
 
   const updateData: Prisma.Prisma.ClientUpdateInput = {};
   let nextPartnerVisibilityIds: string[] | null = null;
+  let nextHubSpotPortalId: string | null | undefined;
 
   if (typeof value.name === "string") {
     const name = value.name.trim();
@@ -11593,6 +11642,24 @@ export async function updateClientDirectoryRecord(
 
   if (value.region !== undefined) {
     updateData.region = normalizeClientRegion(value.region);
+  }
+
+  if (value.hubSpotPortalId !== undefined) {
+    nextHubSpotPortalId =
+      typeof value.hubSpotPortalId === "string"
+        ? value.hubSpotPortalId.trim() || null
+        : null;
+
+    if (nextHubSpotPortalId) {
+      const portal = await prisma.hubSpotPortal.findUnique({
+        where: { id: nextHubSpotPortalId },
+        select: { id: true }
+      });
+
+      if (!portal) {
+        throw new Error("HubSpot portal not found");
+      }
+    }
   }
 
   if (typeof value.logoUrl === "string") {
@@ -11644,53 +11711,97 @@ export async function updateClientDirectoryRecord(
     ).filter((partnerClientId) => partnerClientId !== clientId);
   }
 
-  const updatedClient = await prisma.client.update({
-    where: { id: clientId },
-    data: updateData
+  const refreshedClient = await prisma.$transaction(async (transaction) => {
+    const updatedClient = await transaction.client.update({
+      where: { id: clientId },
+      data: {
+        ...updateData,
+        ...(nextHubSpotPortalId !== undefined
+          ? {
+              hubSpotPortal: nextHubSpotPortalId
+                ? {
+                    connect: {
+                      id: nextHubSpotPortalId
+                    }
+                  }
+                : { disconnect: true }
+            }
+          : {})
+      }
+    });
+
+    if (nextHubSpotPortalId !== undefined) {
+      if (nextHubSpotPortalId) {
+        await transaction.project.updateMany({
+          where: { clientId },
+          data: {
+            portalId: nextHubSpotPortalId
+          }
+        });
+      } else {
+        const linkedProjectCount = await transaction.project.count({
+          where: { clientId }
+        });
+
+        if (linkedProjectCount > 0) {
+          throw new Error(
+            "Clients with linked projects must keep a HubSpot portal"
+          );
+        }
+      }
+
+      if (
+        client.hubSpotPortalId &&
+        client.hubSpotPortalId !== nextHubSpotPortalId
+      ) {
+        await deleteHubSpotPortalIfUnused(transaction, client.hubSpotPortalId);
+      }
+    }
+
+    return transaction.client.findUnique({
+      where: { id: updatedClient.id },
+      include: {
+        hubSpotPortal: true,
+        parentClient: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        childClients: {
+          select: {
+            id: true,
+            name: true
+          },
+          orderBy: [{ name: "asc" }]
+        },
+        visibleToPartners: {
+          include: {
+            partnerClient: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        visibleClients: {
+          include: {
+            client: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        }
+      }
+    });
   });
 
   if (nextPartnerVisibilityIds) {
     await syncPartnerVisibilityLinks(clientId, nextPartnerVisibilityIds);
   }
-
-  const refreshedClient = await prisma.client.findUnique({
-    where: { id: clientId },
-    include: {
-      parentClient: {
-        select: {
-          id: true,
-          name: true
-        }
-      },
-      childClients: {
-        select: {
-          id: true,
-          name: true
-        },
-        orderBy: [{ name: "asc" }]
-      },
-      visibleToPartners: {
-        include: {
-          partnerClient: {
-            select: {
-              id: true,
-              name: true
-            }
-          }
-        }
-      },
-      visibleClients: {
-        include: {
-          client: {
-            select: {
-              id: true,
-              name: true
-            }
-          }
-        }
-      }
-    }
-  });
 
   if (!refreshedClient) {
     throw new Error("Client not found");

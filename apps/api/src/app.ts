@@ -2027,6 +2027,7 @@ export function createApiApp(config: BaseConfig) {
       logoUrl?: string;
       industry?: string;
       region?: string;
+      hubSpotPortalId?: string;
       additionalWebsites?: string[];
       linkedinUrl?: string;
       facebookUrl?: string;
@@ -2063,6 +2064,7 @@ export function createApiApp(config: BaseConfig) {
         logoUrl?: unknown;
         industry?: unknown;
         region?: unknown;
+        hubSpotPortalId?: unknown;
         additionalWebsites?: unknown;
         linkedinUrl?: unknown;
         facebookUrl?: unknown;

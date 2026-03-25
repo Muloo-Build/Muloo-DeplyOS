@@ -32,6 +32,25 @@ interface ClientProjectSummary {
   updatedAt: string;
 }
 
+interface HubSpotPortalOption {
+  id: string;
+  portalId: string;
+  displayName: string;
+  region?: string | null;
+  connected: boolean;
+  connectedEmail?: string | null;
+  connectedName?: string | null;
+  hubDomain?: string | null;
+  installedAt?: string | null;
+}
+
+type HubSpotInstallProfile =
+  | "core_crm"
+  | "automation"
+  | "cms_content"
+  | "commercial_objects"
+  | "advanced_admin";
+
 interface ClientRecord {
   id: string;
   name: string;
@@ -39,6 +58,8 @@ interface ClientRecord {
   clientRoles: string[];
   parentClientId?: string | null;
   parentClientName?: string | null;
+  hubSpotPortalId?: string | null;
+  hubSpotPortal?: HubSpotPortalOption | null;
   industry?: string | null;
   region?: string | null;
   website?: string | null;
@@ -85,6 +106,7 @@ interface ClientProfileDraft {
   additionalWebsitesText: string;
   industry: string;
   region: string;
+  hubSpotPortalId: string;
   linkedinUrl: string;
   facebookUrl: string;
   instagramUrl: string;
@@ -136,6 +158,13 @@ const clientRoleOptions = [
   { value: "partner", label: "Partner" },
   { value: "group", label: "Group" }
 ] as const;
+const hubSpotInstallProfileOptions = [
+  { value: "core_crm", label: "Core CRM install" },
+  { value: "automation", label: "Automation add-on" },
+  { value: "cms_content", label: "CMS / content add-on" },
+  { value: "commercial_objects", label: "Commercial objects add-on" },
+  { value: "advanced_admin", label: "Advanced admin add-on" }
+] as const;
 
 function createEmptyContactDraft(): ContactDraft {
   return {
@@ -155,6 +184,7 @@ function createClientProfileDraft(client: ClientRecord): ClientProfileDraft {
     additionalWebsitesText: (client.additionalWebsites ?? []).join("\n"),
     industry: client.industry ?? "",
     region: client.region ?? "",
+    hubSpotPortalId: client.hubSpotPortal?.id ?? "",
     linkedinUrl: client.linkedinUrl ?? "",
     facebookUrl: client.facebookUrl ?? "",
     instagramUrl: client.instagramUrl ?? "",
@@ -355,6 +385,7 @@ function createFallbackClientProfileDraft(): ClientProfileDraft {
     additionalWebsitesText: "",
     industry: "",
     region: "",
+    hubSpotPortalId: "",
     linkedinUrl: "",
     facebookUrl: "",
     instagramUrl: "",
@@ -376,6 +407,7 @@ function buildClientPayload(
         additionalWebsitesText: string;
         industry: string;
         region: string;
+        hubSpotPortalId: string;
         linkedinUrl: string;
         facebookUrl: string;
         instagramUrl: string;
@@ -396,6 +428,7 @@ function buildClientPayload(
       .filter(Boolean),
     industry: draft.industry,
     region: draft.region,
+    hubSpotPortalId: draft.hubSpotPortalId,
     linkedinUrl: draft.linkedinUrl,
     facebookUrl: draft.facebookUrl,
     instagramUrl: draft.instagramUrl,
@@ -439,6 +472,12 @@ export default function ClientsWorkspace() {
   >([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [alphabetFilter, setAlphabetFilter] = useState("All");
+  const [portalOptions, setPortalOptions] = useState<HubSpotPortalOption[]>([]);
+  const [connectingPortalForClientId, setConnectingPortalForClientId] =
+    useState<string | null>(null);
+  const [hubSpotInstallProfiles, setHubSpotInstallProfiles] = useState<
+    Record<string, HubSpotInstallProfile>
+  >({});
   const [clientDraft, setClientDraft] = useState({
     name: "",
     website: "",
@@ -446,6 +485,7 @@ export default function ClientsWorkspace() {
     additionalWebsitesText: "",
     industry: "",
     region: "",
+    hubSpotPortalId: "",
     linkedinUrl: "",
     facebookUrl: "",
     instagramUrl: "",
@@ -510,8 +550,28 @@ export default function ClientsWorkspace() {
     }
   }
 
+  async function refreshPortalOptions() {
+    try {
+      const response = await fetch("/api/portals");
+
+      if (!response.ok) {
+        throw new Error("Failed to load HubSpot portals");
+      }
+
+      const body = await response.json();
+      setPortalOptions(body.portals ?? []);
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Failed to load HubSpot portals"
+      );
+    }
+  }
+
   useEffect(() => {
     void refreshClients();
+    void refreshPortalOptions();
   }, []);
 
   const totalProjects = clients.reduce(
@@ -728,6 +788,7 @@ export default function ClientsWorkspace() {
         additionalWebsitesText: "",
         industry: "",
         region: "",
+        hubSpotPortalId: "",
         linkedinUrl: "",
         facebookUrl: "",
         instagramUrl: "",
@@ -825,6 +886,45 @@ export default function ClientsWorkspace() {
       );
     } finally {
       setEnrichingClientId(null);
+    }
+  }
+
+  async function connectClientHubSpotPortal(client: ClientRecord) {
+    const selectedPortalRecordId =
+      getProfileDraftForClient(client.id).hubSpotPortalId.trim() ||
+      client.hubSpotPortal?.id ||
+      "";
+
+    setConnectingPortalForClientId(client.id);
+    setError(null);
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/hubspot/oauth/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: client.id,
+          portalRecordId: selectedPortalRecordId || undefined,
+          installProfile: hubSpotInstallProfiles[client.id] ?? "core_crm"
+        })
+      });
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok || !body?.authUrl) {
+        throw new Error(
+          body?.error ?? "Failed to start HubSpot portal connection"
+        );
+      }
+
+      window.location.href = body.authUrl;
+    } catch (connectError) {
+      setError(
+        connectError instanceof Error
+          ? connectError.message
+          : "Failed to start HubSpot portal connection"
+      );
+      setConnectingPortalForClientId(null);
     }
   }
 
@@ -1062,12 +1162,24 @@ export default function ClientsWorkspace() {
     const isConfirmingDelete = confirmingDeleteClientId === client.id;
     const isDeleting = deletingClientId === client.id;
     const isEnriching = enrichingClientId === client.id;
+    const isConnectingPortal = connectingPortalForClientId === client.id;
     const availableParentGroups = groupClientOptions.filter(
       (groupClient) => groupClient.id !== client.id
     );
     const availablePartnerOptions = partnerClientOptions.filter(
       (partnerClient) => partnerClient.id !== client.id
     );
+    const selectedHubSpotPortal =
+      portalOptions.find(
+        (portalOption) => portalOption.id === profileDraft.hubSpotPortalId
+      ) ??
+      portalOptions.find(
+        (portalOption) => portalOption.id === client.hubSpotPortal?.id
+      ) ??
+      client.hubSpotPortal ??
+      null;
+    const hubSpotInstallProfile =
+      hubSpotInstallProfiles[client.id] ?? "core_crm";
 
     return (
       <div
@@ -1143,6 +1255,12 @@ export default function ClientsWorkspace() {
                 ) : (
                   <span>No contacts linked yet</span>
                 )}
+                <span>
+                  HubSpot:{" "}
+                  {client.hubSpotPortal?.displayName
+                    ? `${client.hubSpotPortal.displayName}${client.hubSpotPortal.connected ? " · connected" : " · needs reconnect"}`
+                    : "Not connected yet"}
+                </span>
               </div>
             </div>
           </div>
@@ -1411,6 +1529,124 @@ export default function ClientsWorkspace() {
                           ))}
                         </div>
                       ) : null}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
+                    <p className="text-sm font-medium text-white">
+                      Client HubSpot portal
+                    </p>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      Connect the client’s HubSpot portal once here. Every
+                      project for this client will use the same canonical portal
+                      automatically.
+                    </p>
+
+                    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+                      <label className="block">
+                        <span className="text-sm font-medium text-white">
+                          Linked portal
+                        </span>
+                        <select
+                          value={profileDraft.hubSpotPortalId}
+                          onChange={(event) =>
+                            updateProfileDraft(
+                              client.id,
+                              "hubSpotPortalId",
+                              event.target.value
+                            )
+                          }
+                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        >
+                          <option value="">Not linked yet</option>
+                          {portalOptions.map((portalOption) => (
+                            <option
+                              key={portalOption.id}
+                              value={portalOption.id}
+                            >
+                              {portalOption.displayName} ·{" "}
+                              {portalOption.portalId}
+                              {portalOption.connected
+                                ? " · Connected"
+                                : " · Needs reconnect"}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-2 text-xs text-text-muted">
+                          Select an existing installed portal here, or run OAuth
+                          below to connect a new one.
+                        </p>
+                      </label>
+
+                      <label className="block">
+                        <span className="text-sm font-medium text-white">
+                          Install profile
+                        </span>
+                        <select
+                          value={hubSpotInstallProfile}
+                          onChange={(event) =>
+                            setHubSpotInstallProfiles((currentProfiles) => ({
+                              ...currentProfiles,
+                              [client.id]: event.target
+                                .value as HubSpotInstallProfile
+                            }))
+                          }
+                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        >
+                          {hubSpotInstallProfileOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-2 text-xs text-text-muted">
+                          Start with `Core CRM install` for most client portals.
+                        </p>
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => void connectClientHubSpotPortal(client)}
+                        disabled={isConnectingPortal || isDeleting}
+                        className="w-full rounded-2xl border border-[rgba(81,208,176,0.22)] bg-[rgba(81,208,176,0.08)] px-5 py-3 text-sm font-medium text-[#8de7d1] disabled:cursor-not-allowed disabled:text-text-muted lg:w-auto"
+                      >
+                        {isConnectingPortal
+                          ? "Connecting..."
+                          : selectedHubSpotPortal?.connected
+                            ? "Reconnect portal"
+                            : "Connect portal"}
+                      </button>
+                    </div>
+
+                    <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4 text-sm text-text-secondary">
+                      {selectedHubSpotPortal ? (
+                        <div className="space-y-2">
+                          <p className="font-medium text-white">
+                            {selectedHubSpotPortal.displayName}
+                          </p>
+                          <p>
+                            {selectedHubSpotPortal.portalId}
+                            {selectedHubSpotPortal.connected
+                              ? " · Connected"
+                              : " · Needs reconnect"}
+                          </p>
+                          {selectedHubSpotPortal.connectedEmail ? (
+                            <p>
+                              Connected as{" "}
+                              {selectedHubSpotPortal.connectedEmail}
+                            </p>
+                          ) : null}
+                          {selectedHubSpotPortal.hubDomain ? (
+                            <p>{selectedHubSpotPortal.hubDomain}</p>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p>
+                          No HubSpot portal linked yet. Once you connect it
+                          here, all of this client’s projects will inherit that
+                          portal automatically.
+                        </p>
+                      )}
                     </div>
                   </div>
 
