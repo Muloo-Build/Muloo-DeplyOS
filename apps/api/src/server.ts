@@ -11923,8 +11923,8 @@ export async function createWorkspaceXeroOAuthStart() {
     "openid",
     "profile",
     "email",
-    "accounting.transactions.read",
-    "accounting.contacts.read",
+    "accounting.transactions",
+    "accounting.contacts",
     "offline_access"
   ];
   const state = createSignedStateToken({
@@ -12044,8 +12044,8 @@ export async function completeWorkspaceXeroOAuthCallback(value: {
     "openid",
     "profile",
     "email",
-    "accounting.transactions.read",
-    "accounting.contacts.read",
+    "accounting.transactions",
+    "accounting.contacts",
     "offline_access"
   ];
   const existingConnection = await prisma.workspaceXeroConnection.findFirst({
