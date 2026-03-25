@@ -113,6 +113,13 @@ async function expectUnauthorized(baseUrl, path, options = {}) {
   assert.deepEqual(body, { error: "Unauthorized" });
 }
 
+async function expectClientUnauthorized(baseUrl, path, options = {}) {
+  const { response, body } = await requestJson(baseUrl, path, options);
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(body, { error: "Client unauthorized" });
+}
+
 test("returns an unauthenticated internal session by default", async () => {
   const { server, baseUrl } = await startServer();
 
@@ -398,6 +405,63 @@ test("guards internal Hono system routes without an auth cookie", async () => {
         body: {}
       }
     );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test("guards client Hono routes without a client auth cookie", async () => {
+  const { server, baseUrl } = await startServer();
+
+  try {
+    await expectClientUnauthorized(baseUrl, "/api/client/inbox");
+    await expectClientUnauthorized(baseUrl, "/api/client/inbox/summary");
+    await expectClientUnauthorized(baseUrl, "/api/client/projects");
+    await expectClientUnauthorized(
+      baseUrl,
+      "/api/client/projects/test-project"
+    );
+    await expectClientUnauthorized(
+      baseUrl,
+      "/api/client/projects/test-project/submissions/1",
+      {
+        method: "PATCH",
+        body: {}
+      }
+    );
+    await expectClientUnauthorized(
+      baseUrl,
+      "/api/client/projects/test-project/tasks"
+    );
+    await expectClientUnauthorized(
+      baseUrl,
+      "/api/client/projects/test-project/quote"
+    );
+    await expectClientUnauthorized(
+      baseUrl,
+      "/api/client/projects/test-project/quote/approve",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    await expectClientUnauthorized(
+      baseUrl,
+      "/api/client/projects/test-project/messages"
+    );
+    await expectClientUnauthorized(
+      baseUrl,
+      "/api/client/projects/test-project/messages",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    await expectClientUnauthorized(baseUrl, "/api/client/work-requests");
+    await expectClientUnauthorized(baseUrl, "/api/client/work-requests", {
+      method: "POST",
+      body: {}
+    });
   } finally {
     await stopServer(server);
   }

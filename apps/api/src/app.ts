@@ -60,6 +60,8 @@ import {
   appendApprovedChangeRequestToDelivery,
   updateAgentDefinition,
   updateWorkspaceAiRouting,
+  approveProjectQuote,
+  createProjectMessage,
   updateClientContact,
   updateClientDirectoryRecord,
   updateDeliveryTemplate,
@@ -68,12 +70,26 @@ import {
   updateProductCatalogItem,
   updateWorkspaceProviderConnection,
   deleteClientDirectoryRecord,
+  loadClientInbox,
+  loadClientInboxSummary,
+  loadClientProjectDetail,
+  loadClientProjectsForUser,
+  loadClientQuoteDocument,
   refreshClientEnrichment,
+  loadProjectMessages,
+  markProjectMessagesSeenByClient,
+  saveClientInputSubmission,
+  serializeTask,
   updateWorkRequest,
   updateWorkspaceUser
 } from "./server";
 
-type HonoBindings = { Bindings: HttpBindings };
+type HonoBindings = {
+  Bindings: HttpBindings;
+  Variables: {
+    clientUserId: string;
+  };
+};
 
 async function readJsonBodyOrEmpty(context: {
   req: {
@@ -94,6 +110,16 @@ export function createApiApp(config: BaseConfig) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
+    await next();
+  };
+  const clientAuth = async (c: Context<HonoBindings>, next: Next) => {
+    const clientUserId = getAuthenticatedClientUserId(c.env.incoming);
+
+    if (!clientUserId) {
+      return c.json({ error: "Client unauthorized" }, 401);
+    }
+
+    c.set("clientUserId", clientUserId);
     await next();
   };
 
@@ -144,6 +170,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/email-settings", internalAuth);
   app.use("/api/email-oauth/google", internalAuth);
   app.use("/api/email-oauth/google/*", internalAuth);
+  app.use("/api/client", clientAuth);
+  app.use("/api/client/*", clientAuth);
 
   app.all("/api/auth/session", (c) =>
     c.json({
@@ -1172,6 +1200,320 @@ export function createApiApp(config: BaseConfig) {
       );
     }
   });
+
+  app.all("/api/client/inbox/summary", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    return c.json({
+      summary: await loadClientInboxSummary(c.get("clientUserId"))
+    });
+  });
+
+  app.all("/api/client/inbox", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    const clientUserId = c.get("clientUserId");
+    const projectIds = (
+      await prisma.clientProjectAccess.findMany({
+        where: { userId: clientUserId },
+        select: { projectId: true }
+      })
+    ).map((record) => record.projectId);
+
+    await markProjectMessagesSeenByClient(projectIds);
+
+    return c.json(await loadClientInbox(clientUserId));
+  });
+
+  app.all("/api/client/work-requests", async (c) => {
+    const clientUserId = c.get("clientUserId");
+    const clientUser = await prisma.clientPortalUser.findUnique({
+      where: { id: clientUserId }
+    });
+
+    if (!clientUser) {
+      return c.json({ error: "Client unauthorized" }, 401);
+    }
+
+    if (c.req.method === "GET") {
+      const accessRecords = await prisma.clientProjectAccess.findMany({
+        where: { userId: clientUserId },
+        select: { projectId: true }
+      });
+
+      return c.json({
+        workRequests: await loadWorkRequests({
+          projectIds: accessRecords.map((record) => record.projectId),
+          contactEmail: clientUser.email
+        })
+      });
+    }
+
+    if (c.req.method === "POST") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const workRequest = await createWorkRequest({
+          ...body,
+          contactName: `${clientUser.firstName} ${clientUser.lastName}`.trim(),
+          contactEmail: clientUser.email
+        });
+        return c.json({ workRequest }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create work request"
+          },
+          400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/client/projects/:projectId/quote/approve", async (c) => {
+    if (c.req.method !== "POST") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    try {
+      const result = await approveProjectQuote(
+        c.req.param("projectId"),
+        c.get("clientUserId")
+      );
+
+      return c.json({
+        project: result.project,
+        quote: result.quote,
+        approved: true
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "Project not found") {
+        return c.json({ error: error.message }, 404);
+      }
+
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to approve quote"
+        },
+        400
+      );
+    }
+  });
+
+  app.all("/api/client/projects", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    return c.json({
+      projects: await loadClientProjectsForUser(c.get("clientUserId"))
+    });
+  });
+
+  app.all("/api/client/projects/:projectId", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    const detail = await loadClientProjectDetail(
+      c.req.param("projectId"),
+      c.get("clientUserId")
+    );
+
+    if (!detail) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    return c.json(detail);
+  });
+
+  app.all(
+    "/api/client/projects/:projectId/submissions/:sessionId",
+    async (c) => {
+      if (c.req.method !== "PATCH") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as {
+          answers?: unknown;
+        };
+        const submission = await saveClientInputSubmission(
+          c.req.param("projectId"),
+          c.get("clientUserId"),
+          Number(c.req.param("sessionId")),
+          body.answers ?? {}
+        );
+
+        return c.json({ submission });
+      } catch (error) {
+        if (error instanceof Error) {
+          return c.json({ error: error.message }, 400);
+        }
+
+        throw error;
+      }
+    }
+  );
+
+  app.all("/api/client/projects/:projectId/tasks", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    const projectId = c.req.param("projectId");
+    const access = await prisma.clientProjectAccess.findFirst({
+      where: {
+        projectId,
+        userId: c.get("clientUserId")
+      }
+    });
+
+    if (!access) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    const tasks = await prisma.task.findMany({
+      where: { projectId },
+      include: {
+        assignedAgent: { select: { name: true } },
+        executionJobs: {
+          select: {
+            id: true,
+            status: true,
+            resultStatus: true,
+            createdAt: true,
+            completedAt: true
+          },
+          orderBy: [{ createdAt: "desc" }],
+          take: 1
+        }
+      },
+      orderBy: [{ createdAt: "asc" }]
+    });
+
+    return c.json({
+      tasks: tasks.map((task) => serializeTask(task))
+    });
+  });
+
+  app.all("/api/client/projects/:projectId/quote", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    const document = await loadClientQuoteDocument(
+      c.req.param("projectId"),
+      c.get("clientUserId")
+    );
+
+    if (!document) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    if (!document.quote) {
+      return c.json(
+        {
+          error: "Quote has not yet been published to the client portal."
+        },
+        400
+      );
+    }
+
+    const isStandaloneQuote = document.project.scopeType === "standalone_quote";
+
+    if (!document.summary) {
+      return c.json(
+        {
+          error: isStandaloneQuote
+            ? "Generate the scoped summary before opening the commercial document."
+            : "Generate the discovery summary before opening the quote."
+        },
+        400
+      );
+    }
+
+    if (!isStandaloneQuote && !document.blueprint) {
+      return c.json(
+        {
+          error:
+            "Generate the discovery summary and blueprint before opening the quote."
+        },
+        400
+      );
+    }
+
+    return c.json(document);
+  });
+
+  app.all("/api/client/projects/:projectId/messages", async (c) => {
+    const projectId = c.req.param("projectId");
+    const clientUserId = c.get("clientUserId");
+    const access = await prisma.clientProjectAccess.findFirst({
+      where: {
+        projectId,
+        userId: clientUserId
+      }
+    });
+
+    if (!access) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    if (c.req.method === "GET") {
+      await markProjectMessagesSeenByClient(projectId);
+      return c.json({
+        messages: await loadProjectMessages(projectId)
+      });
+    }
+
+    if (c.req.method === "POST") {
+      const clientUser = await prisma.clientPortalUser.findUnique({
+        where: { id: clientUserId }
+      });
+
+      if (!clientUser) {
+        return c.json({ error: "Client unauthorized" }, 401);
+      }
+
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as {
+          body?: unknown;
+        };
+        const message = await createProjectMessage({
+          projectId,
+          senderType: "client",
+          senderName: `${clientUser.firstName} ${clientUser.lastName}`.trim(),
+          body: body.body
+        });
+
+        return c.json({ message }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error ? error.message : "Failed to post message"
+          },
+          400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/client/*", (c) =>
+    c.json({ error: "Client route not found" }, 404)
+  );
 
   app.all("*", async (c) => {
     await handleLegacyRequest(config, c.env.incoming, c.env.outgoing);
