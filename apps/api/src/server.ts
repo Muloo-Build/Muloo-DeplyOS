@@ -91,12 +91,15 @@ const defaultHubSpotOAuthRequiredScopes = [
   "crm.objects.deals.read",
   "crm.objects.deals.write",
   "crm.objects.owners.read",
+  "crm.objects.users.read",
   "crm.schemas.contacts.read",
   "crm.schemas.contacts.write",
   "crm.schemas.companies.read",
   "crm.schemas.companies.write",
   "crm.schemas.deals.read",
-  "crm.schemas.deals.write"
+  "crm.schemas.deals.write",
+  "settings.users.read",
+  "settings.users.teams.read"
 ] as const;
 const defaultHubSpotOAuthOptionalScopes = [
   "crm.objects.line_items.read",
