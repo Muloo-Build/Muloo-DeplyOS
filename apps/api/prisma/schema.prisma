@@ -16,11 +16,12 @@ enum EngagementType {
 }
 
 model Client {
-  id                 String    @id @default(cuid())
+  id                 String                    @id @default(cuid())
   name               String
-  slug               String    @unique
-  clientRoles        String[]  @default(["client"])
+  slug               String                    @unique
+  clientRoles        String[]                  @default(["client"])
   parentClientId     String?
+  hubSpotPortalId    String?
   industry           String?
   region             String?
   website            String?
@@ -34,14 +35,17 @@ model Client {
   xUrl               String?
   youtubeUrl         String?
   lastEnrichedAt     DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  parentClient       Client?   @relation("ClientHierarchy", fields: [parentClientId], references: [id], onDelete: SetNull)
-  childClients       Client[]  @relation("ClientHierarchy")
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  parentClient       Client?                   @relation("ClientHierarchy", fields: [parentClientId], references: [id], onDelete: SetNull)
+  childClients       Client[]                  @relation("ClientHierarchy")
+  hubSpotPortal      HubSpotPortal?            @relation("ClientHubSpotPortal", fields: [hubSpotPortalId], references: [id], onDelete: SetNull)
   contacts           ClientContact[]
   projects           Project[]
   visibleToPartners  PartnerClientVisibility[] @relation("VisibilityTarget")
   visibleClients     PartnerClientVisibility[] @relation("VisibilityPartner")
+
+  @@index([hubSpotPortalId])
 }
 
 model PartnerClientVisibility {
@@ -112,24 +116,24 @@ model WorkspaceAiRouting {
 }
 
 model WorkspaceEmailSettings {
-  id             String   @id @default(cuid())
-  providerLabel  String   @default("SMTP")
-  host           String?
-  port           Int?
-  secure         Boolean  @default(false)
-  username       String?
-  password       String?
-  fromName       String?
-  fromEmail      String?
-  replyToEmail   String?
-  enabled        Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String   @id @default(cuid())
+  providerLabel String   @default("SMTP")
+  host          String?
+  port          Int?
+  secure        Boolean  @default(false)
+  username      String?
+  password      String?
+  fromName      String?
+  fromEmail     String?
+  replyToEmail  String?
+  enabled       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model WorkspaceEmailOAuthConnection {
-  id             String   @id @default(cuid())
-  providerKey    String   @unique
+  id             String    @id @default(cuid())
+  providerKey    String    @unique
   label          String
   clientId       String?
   clientSecret   String?
@@ -141,9 +145,9 @@ model WorkspaceEmailOAuthConnection {
   connectedEmail String?
   connectedName  String?
   tokenExpiresAt DateTime?
-  enabled        Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  enabled        Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }
 
 model HubSpotPortal {
@@ -163,63 +167,64 @@ model HubSpotPortal {
   installedAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  clients        Client[]  @relation("ClientHubSpotPortal")
   projects       Project[]
 }
 
 model Project {
-  id             String                @id @default(cuid())
-  name           String
-  status         String                @default("draft")
-  quoteApprovalStatus String           @default("draft")
-  quoteSharedAt  DateTime?
-  quoteApprovedAt DateTime?
-  quoteApprovedByName String?
-  quoteApprovedByEmail String?
-  scopeLockedAt  DateTime?
-  engagementType EngagementType        @default(IMPLEMENTATION)
-  owner          String
-  ownerEmail     String
-  serviceFamily  String                @default("hubspot_architecture")
-  implementationApproach String        @default("pragmatic_poc")
-  customerPlatformTier String?
-  platformTierSelections Json?
-  problemStatement String?
-  solutionRecommendation String?
-  scopeExecutiveSummary String?
-  clientChampionFirstName String?
-  clientChampionLastName  String?
-  clientChampionEmail     String?
+  id                        String                  @id @default(cuid())
+  name                      String
+  status                    String                  @default("draft")
+  quoteApprovalStatus       String                  @default("draft")
+  quoteSharedAt             DateTime?
+  quoteApprovedAt           DateTime?
+  quoteApprovedByName       String?
+  quoteApprovedByEmail      String?
+  scopeLockedAt             DateTime?
+  engagementType            EngagementType          @default(IMPLEMENTATION)
+  owner                     String
+  ownerEmail                String
+  serviceFamily             String                  @default("hubspot_architecture")
+  implementationApproach    String                  @default("pragmatic_poc")
+  customerPlatformTier      String?
+  platformTierSelections    Json?
+  problemStatement          String?
+  solutionRecommendation    String?
+  scopeExecutiveSummary     String?
+  clientChampionFirstName   String?
+  clientChampionLastName    String?
+  clientChampionEmail       String?
   clientQuestionnaireConfig Json?
-  scopeType      String?
-  commercialBrief String?
-  deliveryTemplateId String?
-  selectedHubs   String[]
-  currentPhase   String?
-  clientId       String
-  portalId       String
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-  client         Client                @relation(fields: [clientId], references: [id])
-  portal         HubSpotPortal         @relation(fields: [portalId], references: [id])
-  deliveryTemplate DeliveryTemplate?   @relation(fields: [deliveryTemplateId], references: [id])
-  discovery      DiscoverySubmission[]
-  discoveryEvidence DiscoveryEvidence[]
-  discoverySummary DiscoverySummary?
-  blueprint      Blueprint?
-  tasks          Task[]
-  messages       ProjectMessage[]
-  executionJobs  ExecutionJob[]
-  clientAccess   ClientProjectAccess[]
-  clientSubmissions ClientInputSubmission[]
-  quotes         ProjectQuote[]
-  workRequests   WorkRequest[]
+  scopeType                 String?
+  commercialBrief           String?
+  deliveryTemplateId        String?
+  selectedHubs              String[]
+  currentPhase              String?
+  clientId                  String
+  portalId                  String
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  client                    Client                  @relation(fields: [clientId], references: [id])
+  portal                    HubSpotPortal           @relation(fields: [portalId], references: [id])
+  deliveryTemplate          DeliveryTemplate?       @relation(fields: [deliveryTemplateId], references: [id])
+  discovery                 DiscoverySubmission[]
+  discoveryEvidence         DiscoveryEvidence[]
+  discoverySummary          DiscoverySummary?
+  blueprint                 Blueprint?
+  tasks                     Task[]
+  messages                  ProjectMessage[]
+  executionJobs             ExecutionJob[]
+  clientAccess              ClientProjectAccess[]
+  clientSubmissions         ClientInputSubmission[]
+  quotes                    ProjectQuote[]
+  workRequests              WorkRequest[]
 }
 
 model ProjectQuote {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   projectId       String
   version         Int
-  status          String   @default("shared")
+  status          String    @default("shared")
   currency        String
   defaultRate     Float?
   phaseLines      Json
@@ -227,29 +232,29 @@ model ProjectQuote {
   totals          Json
   paymentSchedule Json
   context         Json?
-  sharedAt        DateTime @default(now())
+  sharedAt        DateTime  @default(now())
   approvedAt      DateTime?
   approvedByName  String?
   approvedByEmail String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, version])
   @@index([projectId, createdAt])
 }
 
 model ProjectMessage {
-  id          String   @id @default(cuid())
-  projectId   String
-  senderType  String
-  senderName  String
-  body        String
+  id             String    @id @default(cuid())
+  projectId      String
+  senderType     String
+  senderName     String
+  body           String
   internalSeenAt DateTime?
   clientSeenAt   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, createdAt])
 }
@@ -291,72 +296,72 @@ model AgentDefinition {
 }
 
 model DeliveryTemplate {
-  id                 String                @id @default(cuid())
-  slug               String                @unique
-  name               String
-  description        String?
-  serviceFamily      String
-  category           String
-  scopeType          String
-  recommendedHubs    String[]
+  id                  String                 @id @default(cuid())
+  slug                String                 @unique
+  name                String
+  description         String?
+  serviceFamily       String
+  category            String
+  scopeType           String
+  recommendedHubs     String[]
   defaultPlannedHours Float?
-  isActive           Boolean               @default(true)
-  sortOrder          Int                   @default(0)
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  tasks              DeliveryTemplateTask[]
-  projects           Project[]
+  isActive            Boolean                @default(true)
+  sortOrder           Int                    @default(0)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  tasks               DeliveryTemplateTask[]
+  projects            Project[]
 }
 
 model DeliveryTemplateTask {
-  id               String            @id @default(cuid())
+  id               String           @id @default(cuid())
   templateId       String
   title            String
   description      String?
   category         String?
-  executionType    String            @default("manual")
-  priority         String            @default("medium")
-  status           String            @default("todo")
-  qaRequired       Boolean           @default(false)
-  approvalRequired Boolean           @default(false)
+  executionType    String           @default("manual")
+  priority         String           @default("medium")
+  status           String           @default("todo")
+  qaRequired       Boolean          @default(false)
+  approvalRequired Boolean          @default(false)
   assigneeType     String?
   plannedHours     Float?
-  sortOrder        Int               @default(0)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  template         DeliveryTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  sortOrder        Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  template         DeliveryTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   @@index([templateId, sortOrder])
 }
 
 model ClientPortalUser {
-  id                       String   @id @default(cuid())
-  firstName                String
-  lastName                 String
-  email                    String   @unique
-  password                 String
-  inviteToken              String?  @unique
-  inviteTokenExpiresAt     DateTime?
-  inviteAcceptedAt         DateTime?
-  passwordResetToken       String?  @unique
+  id                          String                  @id @default(cuid())
+  firstName                   String
+  lastName                    String
+  email                       String                  @unique
+  password                    String
+  inviteToken                 String?                 @unique
+  inviteTokenExpiresAt        DateTime?
+  inviteAcceptedAt            DateTime?
+  passwordResetToken          String?                 @unique
   passwordResetTokenExpiresAt DateTime?
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
-  access                   ClientProjectAccess[]
-  submissions              ClientInputSubmission[]
+  createdAt                   DateTime                @default(now())
+  updatedAt                   DateTime                @updatedAt
+  access                      ClientProjectAccess[]
+  submissions                 ClientInputSubmission[]
 }
 
 model ClientProjectAccess {
-  id                  String           @id @default(cuid())
-  userId              String
-  projectId           String
-  role                String           @default("contributor")
-  questionnaireAccess Boolean          @default(true)
-  assignedInputSections Int[]          @default([])
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  user                ClientPortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project             Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                    String           @id @default(cuid())
+  userId                String
+  projectId             String
+  role                  String           @default("contributor")
+  questionnaireAccess   Boolean          @default(true)
+  assignedInputSections Int[]            @default([])
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  user                  ClientPortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project               Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([userId, projectId])
   @@index([projectId, createdAt])
@@ -397,15 +402,15 @@ model WorkRequest {
 }
 
 model ClientInputSubmission {
-  id           String           @id @default(cuid())
+  id            String           @id @default(cuid())
   projectId     String
   userId        String
   sessionNumber Int
-  status        String          @default("draft")
+  status        String           @default("draft")
   answers       Json?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user          ClientPortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId, sessionNumber])
@@ -436,7 +441,7 @@ model DiscoverySubmission {
 }
 
 model DiscoveryEvidence {
-  id           String   @id @default(cuid())
+  id            String   @id @default(cuid())
   projectId     String
   sessionNumber Int
   evidenceType  String
@@ -459,28 +464,28 @@ model Blueprint {
 }
 
 model DiscoverySummary {
-  id                     String   @id @default(cuid())
-  projectId              String   @unique
-  executiveSummary       String
-  mainPainPoints         String[] @default([])
-  recommendedApproach    String   @default("")
-  whyThisApproach        String   @default("")
-  phaseOneFocus          String   @default("")
-  futureUpgradePath      String   @default("")
-  inScopeItems           String[] @default([])
-  outOfScopeItems        String[] @default([])
-  supportingTools        String[] @default([])
-  engagementTrack        String
-  platformFit            String
-  changeManagementRating String
-  dataReadinessRating    String
-  scopeVolatilityRating  String
-  missingInformation     String[]
-  keyRisks               String[]
+  id                       String   @id @default(cuid())
+  projectId                String   @unique
+  executiveSummary         String
+  mainPainPoints           String[] @default([])
+  recommendedApproach      String   @default("")
+  whyThisApproach          String   @default("")
+  phaseOneFocus            String   @default("")
+  futureUpgradePath        String   @default("")
+  inScopeItems             String[] @default([])
+  outOfScopeItems          String[] @default([])
+  supportingTools          String[] @default([])
+  engagementTrack          String
+  platformFit              String
+  changeManagementRating   String
+  dataReadinessRating      String
+  scopeVolatilityRating    String
+  missingInformation       String[]
+  keyRisks                 String[]
   recommendedNextQuestions String[]
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-  project                Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  project                  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model BlueprintTask {
@@ -498,30 +503,30 @@ model BlueprintTask {
 }
 
 model Task {
-  id               String         @id @default(cuid())
-  projectId        String
-  changeRequestId  String?
-  scopeOrigin      String         @default("baseline")
-  title            String
-  description      String?
-  category         String?
-  executionType    String         @default("manual")
-  priority         String         @default("medium")
-  status           String         @default("draft")
-  plannedHours     Float?
-  actualHours      Float?
-  qaRequired       Boolean        @default(false)
-  approvalRequired Boolean        @default(false)
-  dependencyIds    String[]
-  assigneeType     String?
-  executionReadiness String       @default("not_ready")
-  assignedAgentId  String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  project          Project        @relation(fields: [projectId], references: [id])
-  changeRequest    WorkRequest?   @relation(fields: [changeRequestId], references: [id], onDelete: SetNull)
-  assignedAgent    AgentDefinition? @relation(fields: [assignedAgentId], references: [id])
-  executionJobs    ExecutionJob[]
+  id                 String           @id @default(cuid())
+  projectId          String
+  changeRequestId    String?
+  scopeOrigin        String           @default("baseline")
+  title              String
+  description        String?
+  category           String?
+  executionType      String           @default("manual")
+  priority           String           @default("medium")
+  status             String           @default("draft")
+  plannedHours       Float?
+  actualHours        Float?
+  qaRequired         Boolean          @default(false)
+  approvalRequired   Boolean          @default(false)
+  dependencyIds      String[]
+  assigneeType       String?
+  executionReadiness String           @default("not_ready")
+  assignedAgentId    String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  project            Project          @relation(fields: [projectId], references: [id])
+  changeRequest      WorkRequest?     @relation(fields: [changeRequestId], references: [id], onDelete: SetNull)
+  assignedAgent      AgentDefinition? @relation(fields: [assignedAgentId], references: [id])
+  executionJobs      ExecutionJob[]
 }
 
 model ExecutionJob {
