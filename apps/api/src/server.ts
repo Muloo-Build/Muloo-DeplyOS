@@ -8896,6 +8896,375 @@ const portalAuditGenerationSchema = z.object({
     .default([])
 });
 
+function normalizeAuditString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function normalizeAuditBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "yes", "y"].includes(normalized)) {
+      return true;
+    }
+
+    if (["false", "no", "n"].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return undefined;
+}
+
+function normalizePortalAuditArea(
+  value: unknown,
+  fallbackText = ""
+): z.infer<typeof findingAreaSchema> {
+  const normalizedValue = normalizeAuditString(value)?.toLowerCase() ?? "";
+  const haystack = `${normalizedValue} ${fallbackText}`.toLowerCase();
+
+  if (haystack.includes("pipeline")) {
+    return "pipelines";
+  }
+
+  if (
+    haystack.includes("property") ||
+    haystack.includes("field") ||
+    haystack.includes("schema")
+  ) {
+    return "properties";
+  }
+
+  if (haystack.includes("view") || haystack.includes("list")) {
+    return "views";
+  }
+
+  if (haystack.includes("dashboard")) {
+    return "dashboards";
+  }
+
+  if (haystack.includes("workflow") || haystack.includes("automation")) {
+    return "workflows";
+  }
+
+  if (
+    haystack.includes("team") ||
+    haystack.includes("user") ||
+    haystack.includes("owner")
+  ) {
+    return "team";
+  }
+
+  if (
+    haystack.includes("permission") ||
+    haystack.includes("role") ||
+    haystack.includes("access")
+  ) {
+    return "permissions";
+  }
+
+  if (
+    haystack.includes("data quality") ||
+    haystack.includes("duplicate") ||
+    haystack.includes("lifecycle") ||
+    haystack.includes("hygiene")
+  ) {
+    return "data_quality";
+  }
+
+  if (
+    haystack.includes("integration") ||
+    haystack.includes("sync") ||
+    haystack.includes("connected app")
+  ) {
+    return "integrations";
+  }
+
+  if (haystack.includes("sequence")) {
+    return "sequences";
+  }
+
+  if (haystack.includes("report")) {
+    return "reporting";
+  }
+
+  if (
+    haystack.includes("crm") ||
+    haystack.includes("lead") ||
+    haystack.includes("contact") ||
+    haystack.includes("company") ||
+    haystack.includes("deal")
+  ) {
+    return "crm";
+  }
+
+  return "other";
+}
+
+function normalizePortalAuditSeverity(
+  value: unknown
+): z.infer<typeof findingSeveritySchema> {
+  const normalized = normalizeAuditString(value)?.toLowerCase() ?? "";
+
+  if (normalized === "critical" || normalized === "high") {
+    return normalized;
+  }
+
+  if (
+    normalized === "medium" ||
+    normalized === "moderate" ||
+    normalized === "med"
+  ) {
+    return "medium";
+  }
+
+  return "low";
+}
+
+function normalizePortalAuditRecommendationType(
+  value: unknown,
+  fallbackText = ""
+): z.infer<typeof recommendationTypeSchema> {
+  const haystack = `${normalizeAuditString(value) ?? ""} ${fallbackText}`
+    .toLowerCase()
+    .trim();
+
+  if (haystack.includes("quick")) {
+    return "quick_win";
+  }
+
+  if (
+    haystack.includes("structural") ||
+    haystack.includes("rebuild") ||
+    haystack.includes("architecture")
+  ) {
+    return "structural";
+  }
+
+  return "advisory";
+}
+
+function normalizePortalAuditEffort(
+  value: unknown
+): z.infer<typeof recommendationEffortSchema> {
+  const normalized = normalizeAuditString(value)?.toLowerCase() ?? "";
+
+  if (["xs", "s", "m", "l", "xl"].includes(normalized)) {
+    return normalized as z.infer<typeof recommendationEffortSchema>;
+  }
+
+  if (["small", "low"].includes(normalized)) {
+    return "s";
+  }
+
+  if (["medium", "moderate"].includes(normalized)) {
+    return "m";
+  }
+
+  if (["large", "high"].includes(normalized)) {
+    return "l";
+  }
+
+  return "m";
+}
+
+function normalizePortalAuditImpact(
+  value: unknown
+): z.infer<typeof recommendationImpactSchema> {
+  const normalized = normalizeAuditString(value)?.toLowerCase() ?? "";
+
+  if (normalized === "high" || normalized === "medium" || normalized === "low") {
+    return normalized;
+  }
+
+  if (normalized === "moderate") {
+    return "medium";
+  }
+
+  return "medium";
+}
+
+function normalizePortalAuditPayload(value: unknown) {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const findingsSource = Array.isArray(record.findings) ? record.findings : [];
+  const recommendationsSource = Array.isArray(record.recommendations)
+    ? record.recommendations
+    : [];
+  const executiveSummary =
+    normalizeAuditString(record.executiveSummary) ??
+    normalizeAuditString(record.summary) ??
+    normalizeAuditString(record.executive_summary) ??
+    "Portal audit generated without an executive summary.";
+
+  return {
+    executiveSummary,
+    findings: findingsSource
+      .map((entry) => {
+        const item =
+          entry && typeof entry === "object" && !Array.isArray(entry)
+            ? (entry as Record<string, unknown>)
+            : {};
+        const title =
+          normalizeAuditString(item.title) ??
+          normalizeAuditString(item.finding) ??
+          normalizeAuditString(item.name) ??
+          normalizeAuditString(item.issue) ??
+          normalizeAuditString(item.observation);
+        const description =
+          normalizeAuditString(item.description) ??
+          normalizeAuditString(item.details) ??
+          normalizeAuditString(item.detail) ??
+          normalizeAuditString(item.summary) ??
+          normalizeAuditString(item.observation) ??
+          normalizeAuditString(item.issue) ??
+          title;
+
+        if (!title || !description) {
+          return null;
+        }
+
+        const fallbackText = `${title} ${description}`;
+
+        return {
+          area: normalizePortalAuditArea(
+            item.area ?? item.category ?? item.section ?? item.group,
+            fallbackText
+          ),
+          severity: normalizePortalAuditSeverity(
+            item.severity ?? item.priority ?? item.risk
+          ),
+          title,
+          description,
+          quickWin: normalizeAuditBoolean(
+            item.quickWin ?? item.quick_win ?? item.isQuickWin
+          ),
+          phaseRecommendation:
+            normalizeAuditString(
+              item.phaseRecommendation ?? item.phase ?? item.timing
+            ) ?? undefined,
+          evidence:
+            normalizeAuditString(
+              item.evidence ?? item.proof ?? item.supportingEvidence
+            ) ?? undefined
+        };
+      })
+      .filter(Boolean),
+    recommendations: recommendationsSource
+      .map((entry) => {
+        const item =
+          entry && typeof entry === "object" && !Array.isArray(entry)
+            ? (entry as Record<string, unknown>)
+            : {};
+        const title =
+          normalizeAuditString(item.title) ??
+          normalizeAuditString(item.recommendation) ??
+          normalizeAuditString(item.action) ??
+          normalizeAuditString(item.name);
+        const rationale =
+          normalizeAuditString(item.rationale) ??
+          normalizeAuditString(item.reason) ??
+          normalizeAuditString(item.description) ??
+          normalizeAuditString(item.why) ??
+          title;
+
+        if (!title || !rationale) {
+          return null;
+        }
+
+        const fallbackText = `${title} ${rationale}`;
+
+        return {
+          title,
+          area: normalizePortalAuditArea(
+            item.area ?? item.category ?? item.section ?? item.group,
+            fallbackText
+          ),
+          type: normalizePortalAuditRecommendationType(
+            item.type ?? item.recommendationType,
+            fallbackText
+          ),
+          phase:
+            normalizeAuditString(item.phase ?? item.when ?? item.timing) ??
+            undefined,
+          rationale,
+          effort: normalizePortalAuditEffort(
+            item.effort ?? item.size ?? item.levelOfEffort
+          ),
+          impact: normalizePortalAuditImpact(
+            item.impact ?? item.priority ?? item.expectedImpact
+          ),
+          linkedFindingTitles: Array.isArray(item.linkedFindingTitles)
+            ? item.linkedFindingTitles
+                .map((title) => normalizeAuditString(title))
+                .filter((title): title is string => Boolean(title))
+            : undefined
+        };
+      })
+      .filter(Boolean)
+  };
+}
+
+async function parsePortalAuditModelJson(rawText: string) {
+  const normalizedJson = extractJsonBlock(rawText);
+
+  try {
+    return portalAuditGenerationSchema.parse(
+      normalizePortalAuditPayload(JSON.parse(normalizedJson) as unknown)
+    );
+  } catch (initialError) {
+    try {
+      const repairedText = await callAiWorkflow(
+        "json_repair",
+        `You repair malformed JSON for Muloo Deploy OS.
+
+Rules:
+- Return ONLY valid JSON.
+- Do not add markdown fences or commentary.
+- Preserve the original intended structure and values as closely as possible.
+`,
+        JSON.stringify(
+          {
+            label: "portal-audit",
+            malformedJson: normalizedJson
+          },
+          null,
+          2
+        ),
+        { maxTokens: 4000 }
+      );
+
+      const repairedJson = extractJsonBlock(repairedText);
+      return portalAuditGenerationSchema.parse(
+        normalizePortalAuditPayload(JSON.parse(repairedJson) as unknown)
+      );
+    } catch (repairError) {
+      if (
+        initialError instanceof SyntaxError ||
+        initialError instanceof ZodError
+      ) {
+        throw initialError;
+      }
+
+      if (
+        repairError instanceof SyntaxError ||
+        repairError instanceof ZodError
+      ) {
+        throw repairError;
+      }
+
+      throw new SyntaxError("Failed to parse portal-audit JSON from model output");
+    }
+  }
+}
+
 const createFindingInputSchema = z.object({
   area: findingAreaSchema,
   severity: findingSeveritySchema,
@@ -9549,11 +9918,7 @@ Rules:
     { maxTokens: 3200 }
   );
 
-  const parsedAudit = await parseModelJson(
-    rawAudit,
-    portalAuditGenerationSchema,
-    "portal-audit"
-  );
+  const parsedAudit = await parsePortalAuditModelJson(rawAudit);
 
   const uniqueFindings = Array.from(
     new Map(
@@ -9572,82 +9937,90 @@ Rules:
     ).values()
   );
 
-  return prisma.$transaction(async (transaction) => {
-    await transaction.finding.deleteMany({
-      where: {
-        projectId,
-        evidence: {
-          startsWith: aiGeneratedPortalAuditEvidencePrefix
-        }
-      }
-    });
-
-    await transaction.recommendation.deleteMany({
-      where: {
-        projectId,
-        rationale: {
-          startsWith: aiGeneratedPortalAuditRecommendationPrefix
-        }
-      }
-    });
-
-    const findings = [] as Array<ReturnType<typeof serializeFinding>>;
-    const findingIdByTitle = new Map<string, string>();
-
-    for (const finding of uniqueFindings) {
-      const createdFinding = await transaction.finding.create({
-        data: {
+  return prisma.$transaction(
+    async (transaction) => {
+      await transaction.finding.deleteMany({
+        where: {
           projectId,
-          area: finding.area,
-          severity: finding.severity,
-          title: finding.title.trim(),
-          description: finding.description.trim(),
-          quickWin: finding.quickWin ?? false,
-          phaseRecommendation: finding.phaseRecommendation?.trim() || "phase 1",
-          evidence: `${aiGeneratedPortalAuditEvidencePrefix} ${finding.evidence?.trim() || "Generated from the latest portal snapshot and project context."}`,
-          status: "open"
+          evidence: {
+            startsWith: aiGeneratedPortalAuditEvidencePrefix
+          }
         }
       });
 
-      findings.push(serializeFinding(createdFinding));
-      findingIdByTitle.set(
-        createdFinding.title.trim().toLowerCase(),
-        createdFinding.id
-      );
-    }
-
-    const recommendations = [] as Array<
-      ReturnType<typeof serializeRecommendation>
-    >;
-
-    for (const recommendation of uniqueRecommendations) {
-      const linkedFindingIds = (recommendation.linkedFindingTitles ?? [])
-        .map((title) => findingIdByTitle.get(title.trim().toLowerCase()) ?? null)
-        .filter((value): value is string => Boolean(value));
-
-      const createdRecommendation = await transaction.recommendation.create({
-        data: {
+      await transaction.recommendation.deleteMany({
+        where: {
           projectId,
-          title: recommendation.title.trim(),
-          area: recommendation.area,
-          type: recommendation.type,
-          phase: recommendation.phase?.trim() || "phase 1",
-          rationale: `${aiGeneratedPortalAuditRecommendationPrefix} ${recommendation.rationale.trim()}`,
-          effort: recommendation.effort,
-          impact: recommendation.impact,
-          linkedFindingIds
+          rationale: {
+            startsWith: aiGeneratedPortalAuditRecommendationPrefix
+          }
         }
       });
 
-      recommendations.push(serializeRecommendation(createdRecommendation));
-    }
+      const findings = [] as Array<ReturnType<typeof serializeFinding>>;
+      const findingIdByTitle = new Map<string, string>();
 
-    return {
-      executiveSummary: parsedAudit.executiveSummary.trim(),
-      findings,
-      recommendations
-    };
-  });
+      for (const finding of uniqueFindings) {
+        const createdFinding = await transaction.finding.create({
+          data: {
+            projectId,
+            area: finding.area,
+            severity: finding.severity,
+            title: finding.title.trim(),
+            description: finding.description.trim(),
+            quickWin: finding.quickWin ?? false,
+            phaseRecommendation: finding.phaseRecommendation?.trim() || "phase 1",
+            evidence: `${aiGeneratedPortalAuditEvidencePrefix} ${finding.evidence?.trim() || "Generated from the latest portal snapshot and project context."}`,
+            status: "open"
+          }
+        });
+
+        findings.push(serializeFinding(createdFinding));
+        findingIdByTitle.set(
+          createdFinding.title.trim().toLowerCase(),
+          createdFinding.id
+        );
+      }
+
+      const recommendations = [] as Array<
+        ReturnType<typeof serializeRecommendation>
+      >;
+
+      for (const recommendation of uniqueRecommendations) {
+        const linkedFindingIds = (recommendation.linkedFindingTitles ?? [])
+          .map(
+            (title) => findingIdByTitle.get(title.trim().toLowerCase()) ?? null
+          )
+          .filter((value): value is string => Boolean(value));
+
+        const createdRecommendation = await transaction.recommendation.create({
+          data: {
+            projectId,
+            title: recommendation.title.trim(),
+            area: recommendation.area,
+            type: recommendation.type,
+            phase: recommendation.phase?.trim() || "phase 1",
+            rationale: `${aiGeneratedPortalAuditRecommendationPrefix} ${recommendation.rationale.trim()}`,
+            effort: recommendation.effort,
+            impact: recommendation.impact,
+            linkedFindingIds
+          }
+        });
+
+        recommendations.push(serializeRecommendation(createdRecommendation));
+      }
+
+      return {
+        executiveSummary: parsedAudit.executiveSummary.trim(),
+        findings,
+        recommendations
+      };
+    },
+    {
+      maxWait: 10_000,
+      timeout: 30_000
+    }
+  );
 }
 
 export async function updateProjectRecommendation(
