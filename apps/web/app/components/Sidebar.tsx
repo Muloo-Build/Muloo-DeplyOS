@@ -3,32 +3,38 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutDashboard } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  Bot,
+  Building2,
+  FolderKanban,
+  Inbox,
+  LayoutDashboard,
+  PanelsTopLeft,
+  PlaySquare,
+  ScrollText,
+  Settings
+} from "lucide-react";
 
-const navItems = [
-  {
-    href: "/workspace",
-    label: "Command Centre",
-    shortLabel: "CC",
-    icon: <LayoutDashboard size={18} />
-  },
-  { href: "/", label: "Projects", shortLabel: "P" },
-  {
-    href: "/projects/portal-ops",
-    label: "Portal Ops",
-    shortLabel: "PO",
-    indent: true
-  },
-  { href: "/clients", label: "Clients", shortLabel: "C" },
-  { href: "/inbox", label: "Inbox", shortLabel: "I" },
-  { href: "/templates", label: "Templates", shortLabel: "T" },
-  { href: "/runs", label: "Runs", shortLabel: "R" },
-  { href: "/agents", label: "Agents", shortLabel: "A" },
-  { href: "/settings", label: "Settings", shortLabel: "S" }
-];
+type NavItem = {
+  href: string;
+  label: string;
+  icon: ReactNode;
+  compact?: boolean;
+  isActive: (pathname: string) => boolean;
+  badge?: "inbox";
+};
+
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
 
 function isProjectsRoute(pathname: string): boolean {
-  if (pathname.startsWith("/projects/portal-ops")) {
+  if (
+    pathname.startsWith("/projects/portal-ops") ||
+    pathname.startsWith("/operations")
+  ) {
     return false;
   }
 
@@ -39,6 +45,105 @@ function isProjectsRoute(pathname: string): boolean {
     pathname.startsWith("/project")
   );
 }
+
+function isOperationsRoute(pathname: string): boolean {
+  return pathname === "/operations" || pathname.startsWith("/operations/");
+}
+
+const navGroups: NavGroup[] = [
+  {
+    label: "Workspace",
+    items: [
+      {
+        href: "/workspace",
+        label: "Command Centre",
+        icon: <LayoutDashboard size={18} />,
+        isActive: (pathname) =>
+          pathname === "/workspace" || pathname.startsWith("/workspace/")
+      },
+      {
+        href: "/inbox",
+        label: "Inbox",
+        icon: <Inbox size={18} />,
+        isActive: (pathname) =>
+          pathname === "/inbox" || pathname.startsWith("/inbox/"),
+        badge: "inbox"
+      }
+    ]
+  },
+  {
+    label: "Delivery",
+    items: [
+      {
+        href: "/",
+        label: "Projects",
+        icon: <FolderKanban size={18} />,
+        isActive: isProjectsRoute
+      },
+      {
+        href: "/clients",
+        label: "Clients",
+        icon: <Building2 size={18} />,
+        isActive: (pathname) =>
+          pathname === "/clients" || pathname.startsWith("/clients/")
+      }
+    ]
+  },
+  {
+    label: "Operations",
+    items: [
+      {
+        href: "/operations",
+        label: "Operations Hub",
+        icon: <PanelsTopLeft size={18} />,
+        isActive: isOperationsRoute
+      },
+      {
+        href: "/projects/portal-ops",
+        label: "Portal Ops",
+        icon: <LayoutDashboard size={16} />,
+        compact: true,
+        isActive: (pathname) =>
+          pathname === "/projects/portal-ops" ||
+          pathname.startsWith("/projects/portal-ops/")
+      },
+      {
+        href: "/runs",
+        label: "Runs",
+        icon: <PlaySquare size={16} />,
+        compact: true,
+        isActive: (pathname) => pathname === "/runs" || pathname.startsWith("/runs/")
+      },
+      {
+        href: "/agents",
+        label: "Agents",
+        icon: <Bot size={16} />,
+        compact: true,
+        isActive: (pathname) =>
+          pathname === "/agents" || pathname.startsWith("/agents/")
+      }
+    ]
+  },
+  {
+    label: "Admin",
+    items: [
+      {
+        href: "/templates",
+        label: "Templates",
+        icon: <ScrollText size={18} />,
+        isActive: (pathname) =>
+          pathname === "/templates" || pathname.startsWith("/templates/")
+      },
+      {
+        href: "/settings",
+        label: "Settings",
+        icon: <Settings size={18} />,
+        isActive: (pathname) =>
+          pathname === "/settings" || pathname.startsWith("/settings/")
+      }
+    ]
+  }
+];
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -72,38 +177,52 @@ export default function Sidebar() {
         </p>
       </div>
 
-      <nav className="flex-1 px-3 py-6">
-        {navItems.map((item) => {
-          const active =
-            item.href === "/"
-              ? isProjectsRoute(pathname)
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+      <nav className="flex-1 overflow-y-auto px-3 py-6">
+        {navGroups.map((group) => (
+          <div key={group.label} className="mb-6">
+            <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+              {group.label}
+            </p>
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const active = item.isActive(pathname);
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`relative mb-2 flex h-12 items-center gap-3 rounded-xl px-3 transition-colors ${
-                active
-                  ? "bg-[#141d3d] text-white"
-                  : "text-text-secondary hover:bg-[#141d3d] hover:text-white"
-              } ${"indent" in item && item.indent ? "ml-3" : ""}`}
-            >
-              {active ? (
-                <span className="absolute left-0 top-2 h-8 w-1 rounded-r bg-[linear-gradient(180deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]" />
-              ) : null}
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-xs font-semibold text-white">
-                {"icon" in item && item.icon ? item.icon : item.shortLabel}
-              </span>
-              <span className="font-medium">{item.label}</span>
-              {item.href === "/inbox" && inboxCount > 0 ? (
-                <span className="ml-auto flex min-w-6 items-center justify-center rounded-full bg-[rgba(224,80,96,0.9)] px-2 py-1 text-[10px] font-semibold text-white">
-                  {inboxCount}
-                </span>
-              ) : null}
-            </Link>
-          );
-        })}
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`relative flex items-center gap-3 rounded-xl px-3 transition-colors ${
+                      item.compact ? "h-10 ml-3" : "h-12"
+                    } ${
+                      active
+                        ? "bg-[#141d3d] text-white"
+                        : "text-text-secondary hover:bg-[#141d3d] hover:text-white"
+                    }`}
+                  >
+                    {active ? (
+                      <span className="absolute left-0 top-2 h-6 w-1 rounded-r bg-[linear-gradient(180deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]" />
+                    ) : null}
+                    <span
+                      className={`flex items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-white ${
+                        item.compact ? "h-6 w-6" : "h-7 w-7"
+                      }`}
+                    >
+                      {item.icon}
+                    </span>
+                    <span className={item.compact ? "text-sm font-medium" : "font-medium"}>
+                      {item.label}
+                    </span>
+                    {item.badge === "inbox" && inboxCount > 0 ? (
+                      <span className="ml-auto flex min-w-6 items-center justify-center rounded-full bg-[rgba(224,80,96,0.9)] px-2 py-1 text-[10px] font-semibold text-white">
+                        {inboxCount}
+                      </span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       <div className="border-t border-[rgba(255,255,255,0.07)] px-6 py-4">
