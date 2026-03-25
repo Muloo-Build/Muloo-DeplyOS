@@ -520,6 +520,26 @@ const defaultAgentCatalog = [
     sortOrder: 30
   },
   {
+    slug: "portal-audit-agent",
+    name: "Portal Audit Agent",
+    purpose:
+      "Run detailed HubSpot portal audits using the latest snapshot, project context, and delivery heuristics to surface findings and prioritised recommendations.",
+    provider: "anthropic",
+    model: "claude-sonnet-4-20250514",
+    triggerType: "manual",
+    approvalMode: "review_required",
+    allowedActions: [
+      "audit",
+      "findings",
+      "quick-wins",
+      "recommendations",
+      "portal-review"
+    ],
+    systemPrompt:
+      "Audit HubSpot portals like a senior architect. Ground findings in observed evidence, separate confirmed issues from missing access or tier limitations, and prioritise practical next actions for delivery.",
+    sortOrder: 35
+  },
+  {
     slug: "hubspot-build-agent",
     name: "HubSpot Build Agent",
     purpose:
