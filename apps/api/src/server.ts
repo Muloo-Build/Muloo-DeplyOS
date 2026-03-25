@@ -2469,75 +2469,6 @@ function matchProjectDesignRoute(pathname: string): {
   };
 }
 
-function matchClientProjectRoute(pathname: string): {
-  projectId?: string;
-  resource?: "messages" | "submissions" | "tasks" | "quote";
-  sessionId?: number;
-} | null {
-  const listMatch = /^\/api\/client\/projects$/.exec(pathname);
-
-  if (listMatch) {
-    return {};
-  }
-
-  const projectMatch =
-    /^\/api\/client\/projects\/([^/]+?)(?:\/(tasks|messages|quote)|\/submissions\/([1-4]))?$/.exec(
-      pathname
-    );
-
-  if (!projectMatch || !projectMatch[1]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(projectMatch[1]),
-    ...(projectMatch[2] === "tasks" ||
-    projectMatch[2] === "messages" ||
-    projectMatch[2] === "quote"
-      ? {
-          resource: projectMatch[2] as "tasks" | "messages" | "quote"
-        }
-      : projectMatch[3]
-        ? {
-            resource: "submissions" as const,
-            sessionId: Number(projectMatch[3])
-          }
-        : {})
-  };
-}
-
-function matchClientProjectQuoteApprovalRoute(pathname: string): {
-  projectId: string;
-} | null {
-  const match = /^\/api\/client\/projects\/([^/]+?)\/quote\/approve$/.exec(
-    pathname
-  );
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1])
-  };
-}
-
-function matchClientWorkRequestRoute(pathname: string): null | {} {
-  return /^\/api\/client\/work-requests$/.test(pathname) ? {} : null;
-}
-
-function matchClientInboxRoute(
-  pathname: string
-): { resource?: "summary" } | null {
-  const match = /^\/api\/client\/inbox(?:\/(summary))?$/.exec(pathname);
-
-  if (!match) {
-    return null;
-  }
-
-  return match[1] === "summary" ? { resource: "summary" } : {};
-}
-
 function matchProjectClientUsersRoute(pathname: string): {
   projectId: string;
 } | null {
@@ -3739,7 +3670,7 @@ function deriveTaskExecutionPath(input: {
   };
 }
 
-function serializeTask<
+export function serializeTask<
   T extends {
     id: string;
     projectId: string;
@@ -7469,7 +7400,10 @@ async function shareProjectQuote(projectId: string, payload: unknown) {
   };
 }
 
-async function approveProjectQuote(projectId: string, clientUserId: string) {
+export async function approveProjectQuote(
+  projectId: string,
+  clientUserId: string
+) {
   const access = await prisma.clientProjectAccess.findUnique({
     where: {
       userId_projectId: {
@@ -11549,7 +11483,7 @@ async function updateClientProjectAccess(
   };
 }
 
-async function loadClientProjectsForUser(userId: string) {
+export async function loadClientProjectsForUser(userId: string) {
   const accessRecords = await prisma.clientProjectAccess.findMany({
     where: { userId },
     include: {
@@ -11572,7 +11506,10 @@ async function loadClientProjectsForUser(userId: string) {
   }));
 }
 
-async function loadClientProjectDetail(projectId: string, userId: string) {
+export async function loadClientProjectDetail(
+  projectId: string,
+  userId: string
+) {
   const access = await prisma.clientProjectAccess.findUnique({
     where: {
       userId_projectId: {
@@ -11646,7 +11583,10 @@ async function loadClientProjectDetail(projectId: string, userId: string) {
   };
 }
 
-async function loadClientQuoteDocument(projectId: string, userId: string) {
+export async function loadClientQuoteDocument(
+  projectId: string,
+  userId: string
+) {
   const access = await prisma.clientProjectAccess.findUnique({
     where: {
       userId_projectId: {
@@ -11699,7 +11639,7 @@ async function loadClientQuoteDocument(projectId: string, userId: string) {
   };
 }
 
-async function saveClientInputSubmission(
+export async function saveClientInputSubmission(
   projectId: string,
   userId: string,
   sessionNumber: number,
@@ -11772,7 +11712,7 @@ async function saveClientInputSubmission(
   return serializeClientInputSubmission(submission);
 }
 
-async function loadProjectMessages(projectId: string) {
+export async function loadProjectMessages(projectId: string) {
   const messages = await prisma.projectMessage.findMany({
     where: { projectId },
     orderBy: [{ createdAt: "asc" }]
@@ -11781,7 +11721,7 @@ async function loadProjectMessages(projectId: string) {
   return messages.map((message) => serializeProjectMessage(message));
 }
 
-async function createProjectMessage(value: {
+export async function createProjectMessage(value: {
   projectId?: unknown;
   senderType?: unknown;
   senderName?: unknown;
@@ -11838,7 +11778,9 @@ export async function markAllProjectMessagesSeenByInternal() {
   });
 }
 
-async function markProjectMessagesSeenByClient(projectIds: string[] | string) {
+export async function markProjectMessagesSeenByClient(
+  projectIds: string[] | string
+) {
   const normalizedProjectIds = Array.isArray(projectIds)
     ? projectIds
     : [projectIds];
@@ -11885,7 +11827,7 @@ export async function loadInternalInbox() {
   };
 }
 
-async function loadClientInbox(userId: string) {
+export async function loadClientInbox(userId: string) {
   const accessRecords = await prisma.clientProjectAccess.findMany({
     where: { userId },
     select: { projectId: true }
@@ -11956,7 +11898,7 @@ export async function loadInboxSummary() {
   };
 }
 
-async function loadClientInboxSummary(userId: string) {
+export async function loadClientInboxSummary(userId: string) {
   const accessRecords = await prisma.clientProjectAccess.findMany({
     where: { userId },
     select: { projectId: true }
@@ -13566,323 +13508,6 @@ export async function handleLegacyRequest(
       if (!isAuthenticated(request)) {
         return sendJson(response, 401, { error: "Unauthorized" });
       }
-    }
-
-    if (url.pathname.startsWith("/api/client/")) {
-      const clientUserId = getAuthenticatedClientUserId(request);
-
-      if (!clientUserId) {
-        return sendJson(response, 401, { error: "Client unauthorized" });
-      }
-
-      const clientInboxRoute = matchClientInboxRoute(url.pathname);
-
-      if (clientInboxRoute) {
-        if (
-          request.method === "GET" &&
-          clientInboxRoute.resource === "summary"
-        ) {
-          return sendJson(response, 200, {
-            summary: await loadClientInboxSummary(clientUserId)
-          });
-        }
-
-        if (request.method === "GET") {
-          await markProjectMessagesSeenByClient(
-            (
-              await prisma.clientProjectAccess.findMany({
-                where: { userId: clientUserId },
-                select: { projectId: true }
-              })
-            ).map((record) => record.projectId)
-          );
-
-          return sendJson(response, 200, await loadClientInbox(clientUserId));
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const clientWorkRequestRoute = matchClientWorkRequestRoute(url.pathname);
-
-      if (clientWorkRequestRoute) {
-        const clientUser = await prisma.clientPortalUser.findUnique({
-          where: { id: clientUserId }
-        });
-
-        if (!clientUser) {
-          return sendJson(response, 401, { error: "Client unauthorized" });
-        }
-
-        if (request.method === "GET") {
-          const accessRecords = await prisma.clientProjectAccess.findMany({
-            where: { userId: clientUserId },
-            select: { projectId: true }
-          });
-
-          return sendJson(response, 200, {
-            workRequests: await loadWorkRequests({
-              projectIds: accessRecords.map((record) => record.projectId),
-              contactEmail: clientUser.email
-            })
-          });
-        }
-
-        if (request.method === "POST") {
-          try {
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const workRequest = await createWorkRequest({
-              ...body,
-              contactName:
-                `${clientUser.firstName} ${clientUser.lastName}`.trim(),
-              contactEmail: clientUser.email
-            });
-            return sendJson(response, 201, { workRequest });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to create work request"
-            });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const clientProjectQuoteApprovalRoute =
-        matchClientProjectQuoteApprovalRoute(url.pathname);
-
-      if (clientProjectQuoteApprovalRoute) {
-        if (request.method === "POST") {
-          try {
-            const result = await approveProjectQuote(
-              clientProjectQuoteApprovalRoute.projectId,
-              clientUserId
-            );
-
-            return sendJson(response, 200, {
-              project: result.project,
-              quote: result.quote,
-              approved: true
-            });
-          } catch (error) {
-            if (
-              error instanceof Error &&
-              error.message === "Project not found"
-            ) {
-              return sendJson(response, 404, { error: error.message });
-            }
-
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to approve quote"
-            });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const clientProjectRoute = matchClientProjectRoute(url.pathname);
-
-      if (clientProjectRoute) {
-        if (request.method === "GET" && !clientProjectRoute.projectId) {
-          return sendJson(response, 200, {
-            projects: await loadClientProjectsForUser(clientUserId)
-          });
-        }
-
-        if (
-          request.method === "GET" &&
-          clientProjectRoute.projectId &&
-          !clientProjectRoute.resource
-        ) {
-          const detail = await loadClientProjectDetail(
-            clientProjectRoute.projectId,
-            clientUserId
-          );
-
-          if (!detail) {
-            return sendJson(response, 404, { error: "Project not found" });
-          }
-
-          return sendJson(response, 200, detail);
-        }
-
-        if (
-          request.method === "PATCH" &&
-          clientProjectRoute.projectId &&
-          clientProjectRoute.resource === "submissions" &&
-          clientProjectRoute.sessionId
-        ) {
-          try {
-            const body = (await readJsonBody(request)) as {
-              answers?: unknown;
-            };
-            const submission = await saveClientInputSubmission(
-              clientProjectRoute.projectId,
-              clientUserId,
-              clientProjectRoute.sessionId,
-              body.answers ?? {}
-            );
-
-            return sendJson(response, 200, { submission });
-          } catch (error) {
-            if (error instanceof Error) {
-              return sendJson(response, 400, { error: error.message });
-            }
-
-            throw error;
-          }
-        }
-
-        if (
-          request.method === "GET" &&
-          clientProjectRoute.projectId &&
-          clientProjectRoute.resource === "tasks"
-        ) {
-          const access = await prisma.clientProjectAccess.findFirst({
-            where: {
-              projectId: clientProjectRoute.projectId,
-              userId: clientUserId
-            }
-          });
-
-          if (!access) {
-            return sendJson(response, 404, { error: "Project not found" });
-          }
-
-          const tasks = await prisma.task.findMany({
-            where: { projectId: clientProjectRoute.projectId },
-            include: {
-              assignedAgent: { select: { name: true } },
-              executionJobs: {
-                select: {
-                  id: true,
-                  status: true,
-                  resultStatus: true,
-                  createdAt: true,
-                  completedAt: true
-                },
-                orderBy: [{ createdAt: "desc" }],
-                take: 1
-              }
-            },
-            orderBy: [{ createdAt: "asc" }]
-          });
-
-          return sendJson(response, 200, {
-            tasks: tasks.map((task) => serializeTask(task))
-          });
-        }
-
-        if (
-          request.method === "GET" &&
-          clientProjectRoute.projectId &&
-          clientProjectRoute.resource === "quote"
-        ) {
-          const document = await loadClientQuoteDocument(
-            clientProjectRoute.projectId,
-            clientUserId
-          );
-
-          if (!document) {
-            return sendJson(response, 404, { error: "Project not found" });
-          }
-
-          if (!document.quote) {
-            return sendJson(response, 400, {
-              error: "Quote has not yet been published to the client portal."
-            });
-          }
-
-          const isStandaloneQuote =
-            document.project.scopeType === "standalone_quote";
-
-          if (!document.summary) {
-            return sendJson(response, 400, {
-              error: isStandaloneQuote
-                ? "Generate the scoped summary before opening the commercial document."
-                : "Generate the discovery summary before opening the quote."
-            });
-          }
-
-          if (!isStandaloneQuote && !document.blueprint) {
-            return sendJson(response, 400, {
-              error:
-                "Generate the discovery summary and blueprint before opening the quote."
-            });
-          }
-
-          return sendJson(response, 200, document);
-        }
-
-        if (
-          clientProjectRoute.projectId &&
-          clientProjectRoute.resource === "messages"
-        ) {
-          const access = await prisma.clientProjectAccess.findFirst({
-            where: {
-              projectId: clientProjectRoute.projectId,
-              userId: clientUserId
-            }
-          });
-
-          if (!access) {
-            return sendJson(response, 404, { error: "Project not found" });
-          }
-
-          if (request.method === "GET") {
-            await markProjectMessagesSeenByClient(clientProjectRoute.projectId);
-            return sendJson(response, 200, {
-              messages: await loadProjectMessages(clientProjectRoute.projectId)
-            });
-          }
-
-          if (request.method === "POST") {
-            const clientUser = await prisma.clientPortalUser.findUnique({
-              where: { id: clientUserId }
-            });
-
-            if (!clientUser) {
-              return sendJson(response, 401, {
-                error: "Client unauthorized"
-              });
-            }
-
-            try {
-              const body = (await readJsonBody(request)) as {
-                body?: unknown;
-              };
-              const message = await createProjectMessage({
-                projectId: clientProjectRoute.projectId,
-                senderType: "client",
-                senderName:
-                  `${clientUser.firstName} ${clientUser.lastName}`.trim(),
-                body: body.body
-              });
-
-              return sendJson(response, 201, { message });
-            } catch (error) {
-              return sendJson(response, 400, {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to post message"
-              });
-            }
-          }
-        }
-      }
-
-      return sendJson(response, 404, { error: "Client route not found" });
     }
 
     const runRoute = matchRunRoute(url.pathname);
