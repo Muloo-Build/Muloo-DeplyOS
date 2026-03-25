@@ -2,12 +2,20 @@
 
 import { useEffect, useState } from "react";
 
-interface CalendarState {
+interface GmailConnectionState {
+  connected: boolean;
+  connectedEmail?: string | null;
+  gmailFilterLabel?: string | null;
+}
+
+interface CalendarStatusState {
+  configured: boolean;
   connected: boolean;
   connectedEmail?: string | null;
 }
 
-interface XeroInvoiceState {
+interface XeroStatusState {
+  configured: boolean;
   connected: boolean;
   tenantName?: string | null;
 }
@@ -25,59 +33,147 @@ interface WorkspaceRoute {
   model: string | null;
 }
 
+interface GmailConnectionResponse {
+  connection?: {
+    isConnected?: boolean;
+    connectedEmail?: string | null;
+    gmailFilterLabel?: string | null;
+  } | null;
+}
+
+interface ProvidersResponse {
+  providers?: ProviderConnection[];
+}
+
+interface SaveGmailFilterResponse {
+  success: boolean;
+  gmailFilterLabel: string | null;
+}
+
+function InlineWarning({ message }: { message: string }) {
+  return (
+    <div className="mt-3 rounded-xl border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
+      {message}
+    </div>
+  );
+}
+
+async function fetchJson<T>(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  fallbackMessage: string
+) {
+  try {
+    const response = await fetch(input, init);
+    const body = (await response.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null;
+
+    if (!response.ok) {
+      throw new Error(
+        typeof body?.message === "string"
+          ? body.message
+          : typeof body?.error === "string"
+            ? body.error
+            : fallbackMessage
+      );
+    }
+
+    return body as T;
+  } catch (error) {
+    throw error instanceof Error ? error : new Error(fallbackMessage);
+  }
+}
+
 export default function WorkspaceSettings() {
-  const [calendar, setCalendar] = useState<CalendarState | null>(null);
-  const [xero, setXero] = useState<XeroInvoiceState | null>(null);
+  const [gmail, setGmail] = useState<GmailConnectionState | null>(null);
+  const [gmailFilterLabel, setGmailFilterLabel] = useState("");
+  const [savedGmailFilterLabel, setSavedGmailFilterLabel] = useState("");
+  const [calendarStatus, setCalendarStatus] =
+    useState<CalendarStatusState | null>(null);
+  const [xeroStatus, setXeroStatus] = useState<XeroStatusState | null>(null);
   const [providers, setProviders] = useState<ProviderConnection[]>([]);
   const [route, setRoute] = useState<WorkspaceRoute>({
     providerKey: "",
     model: ""
   });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [savingRoute, setSavingRoute] = useState(false);
+  const [saveRouteSuccess, setSaveRouteSuccess] = useState(false);
+  const [saveRouteError, setSaveRouteError] = useState(false);
+  const [savingGmailFilter, setSavingGmailFilter] = useState(false);
+  const [gmailFilterError, setGmailFilterError] = useState<string | null>(null);
+  const [connectingGmail, setConnectingGmail] = useState(false);
+  const [disconnectingGmail, setDisconnectingGmail] = useState(false);
+  const [gmailConnectError, setGmailConnectError] = useState(false);
+  const [connectingXero, setConnectingXero] = useState(false);
+  const [connectingCalendar, setConnectingCalendar] = useState(false);
+  const [disconnectingCalendar, setDisconnectingCalendar] = useState(false);
+  const [disconnectingXero, setDisconnectingXero] = useState(false);
+  const [xeroConnectError, setXeroConnectError] = useState(false);
+  const [calendarConnectError, setCalendarConnectError] = useState(false);
+
+  useEffect(() => {
+    void loadAll();
+  }, []);
 
   async function loadAll() {
     setLoading(true);
     setError(null);
 
     try {
-      const [calendarResponse, xeroResponse, routeResponse, providersResponse] =
-        await Promise.all([
-          fetch("/api/workspace/calendar/events"),
-          fetch("/api/workspace/xero/invoices"),
-          fetch("/api/workspace/ai-routing/daily_summary"),
-          fetch("/api/provider-connections")
-        ]);
+      const [
+        gmailBody,
+        nextCalendarStatus,
+        nextXeroStatus,
+        routeBody,
+        providersBody
+      ] = await Promise.all([
+        fetchJson<GmailConnectionResponse>(
+          "/api/email-oauth/google",
+          undefined,
+          "Failed to load Gmail settings"
+        ),
+        fetchJson<CalendarStatusState>(
+          "/api/workspace/calendar/status",
+          undefined,
+          "Failed to load Google Calendar status"
+        ),
+        fetchJson<XeroStatusState>(
+          "/api/workspace/xero/status",
+          undefined,
+          "Failed to load Xero status"
+        ),
+        fetchJson<WorkspaceRoute>(
+          "/api/workspace/ai-routing/daily_summary",
+          undefined,
+          "Failed to load daily summary routing"
+        ),
+        fetchJson<ProvidersResponse>(
+          "/api/provider-connections",
+          undefined,
+          "Failed to load AI providers"
+        )
+      ]);
 
-      if (
-        !calendarResponse.ok ||
-        !xeroResponse.ok ||
-        !routeResponse.ok ||
-        !providersResponse.ok
-      ) {
-        throw new Error("Failed to load workspace settings");
-      }
+      const nextGmailFilterLabel =
+        gmailBody.connection?.gmailFilterLabel?.trim() ?? "";
 
-      const calendarBody = await calendarResponse.json();
-      const xeroBody = await xeroResponse.json();
-      const routeBody = await routeResponse.json();
-      const providersBody = await providersResponse.json();
-
-      setCalendar({
-        connected: Boolean(calendarBody.connected),
-        connectedEmail: calendarBody.connectedEmail ?? null
+      setGmail({
+        connected: gmailBody.connection?.isConnected === true,
+        connectedEmail: gmailBody.connection?.connectedEmail ?? null,
+        gmailFilterLabel: gmailBody.connection?.gmailFilterLabel ?? null
       });
-      setXero({
-        connected: Boolean(xeroBody.connected),
-        tenantName: xeroBody.tenantName ?? null
-      });
-
-      const nextProviders = Array.isArray(providersBody.providers)
-        ? providersBody.providers
-        : [];
-      setProviders(nextProviders);
+      setGmailFilterLabel(nextGmailFilterLabel);
+      setSavedGmailFilterLabel(nextGmailFilterLabel);
+      setCalendarStatus(nextCalendarStatus);
+      setXeroStatus(nextXeroStatus);
+      setProviders(
+        Array.isArray(providersBody.providers) ? providersBody.providers : []
+      );
       setRoute({
         providerKey: routeBody?.providerKey ?? "",
         model: routeBody?.model ?? ""
@@ -93,24 +189,156 @@ export default function WorkspaceSettings() {
     }
   }
 
-  useEffect(() => {
-    void loadAll();
-  }, []);
+  async function saveGmailFilter() {
+    const normalizedLabel = gmailFilterLabel.trim();
 
-  async function disconnectCalendar() {
+    if (normalizedLabel === savedGmailFilterLabel) {
+      return;
+    }
+
+    setSavingGmailFilter(true);
+    setGmailFilterError(null);
     setError(null);
     setFeedback(null);
 
     try {
-      const response = await fetch("/api/workspace/calendar/connection", {
-        method: "DELETE"
-      });
-      const body = await response.json().catch(() => null);
+      const body = await fetchJson<SaveGmailFilterResponse>(
+        "/api/workspace/email-filter",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gmailFilterLabel: normalizedLabel })
+        },
+        "Failed to save Gmail filter"
+      );
+      const nextLabel = body.gmailFilterLabel?.trim() ?? "";
+      setGmailFilterLabel(nextLabel);
+      setSavedGmailFilterLabel(nextLabel);
+      setGmail((current) =>
+        current
+          ? {
+              ...current,
+              gmailFilterLabel: body.gmailFilterLabel
+            }
+          : current
+      );
+      setFeedback("Gmail filter saved.");
+    } catch (saveError) {
+      const message =
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save Gmail filter";
+      setGmailFilterError(message);
+      setError(message);
+    } finally {
+      setSavingGmailFilter(false);
+    }
+  }
 
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to disconnect Google Calendar");
+  async function connectGmail() {
+    setConnectingGmail(true);
+    setGmailConnectError(false);
+    setError(null);
+    setFeedback(null);
+
+    try {
+      const body = await fetchJson<{ authUrl?: string }>(
+        "/api/email-oauth/google/start",
+        {
+          method: "POST"
+        },
+        "Failed to start Gmail connection"
+      );
+
+      if (!body.authUrl) {
+        throw new Error("Failed to start Gmail connection");
       }
 
+      window.location.assign(body.authUrl);
+    } catch {
+      setGmailConnectError(true);
+    } finally {
+      setConnectingGmail(false);
+    }
+  }
+
+  async function disconnectGmail() {
+    setDisconnectingGmail(true);
+    setError(null);
+    setFeedback(null);
+    setGmailConnectError(false);
+
+    try {
+      await fetchJson(
+        "/api/email-oauth/google",
+        {
+          method: "DELETE"
+        },
+        "Failed to disconnect Gmail"
+      );
+      setFeedback("Gmail disconnected.");
+      await loadAll();
+    } catch (disconnectError) {
+      setError(
+        disconnectError instanceof Error
+          ? disconnectError.message
+          : "Failed to disconnect Gmail"
+      );
+    } finally {
+      setDisconnectingGmail(false);
+    }
+  }
+
+  async function connectCalendar() {
+    setConnectingCalendar(true);
+    setCalendarConnectError(false);
+    setError(null);
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/workspace/calendar/auth", {
+        redirect: "manual"
+      });
+
+      if (
+        response.type === "opaqueredirect" ||
+        (response.status >= 300 && response.status < 400)
+      ) {
+        window.location.assign("/api/workspace/calendar/auth");
+        return;
+      }
+
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+
+      if (!response.ok || body?.error === "not_configured") {
+        setCalendarConnectError(true);
+        return;
+      }
+
+      window.location.assign("/api/workspace/calendar/auth");
+    } catch {
+      setCalendarConnectError(true);
+    } finally {
+      setConnectingCalendar(false);
+    }
+  }
+
+  async function disconnectCalendar() {
+    setDisconnectingCalendar(true);
+    setError(null);
+    setFeedback(null);
+    setCalendarConnectError(false);
+
+    try {
+      await fetchJson(
+        "/api/workspace/calendar/connection",
+        {
+          method: "DELETE"
+        },
+        "Failed to disconnect Google Calendar"
+      );
       setFeedback("Google Calendar disconnected.");
       await loadAll();
     } catch (disconnectError) {
@@ -119,23 +347,61 @@ export default function WorkspaceSettings() {
           ? disconnectError.message
           : "Failed to disconnect Google Calendar"
       );
+    } finally {
+      setDisconnectingCalendar(false);
     }
   }
 
-  async function disconnectXero() {
+  async function connectXero() {
+    setConnectingXero(true);
+    setXeroConnectError(false);
     setError(null);
     setFeedback(null);
 
     try {
-      const response = await fetch("/api/workspace/xero/connection", {
-        method: "DELETE"
+      const response = await fetch("/api/workspace/xero/auth", {
+        redirect: "manual"
       });
-      const body = await response.json().catch(() => null);
 
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to disconnect Xero");
+      if (
+        response.type === "opaqueredirect" ||
+        (response.status >= 300 && response.status < 400)
+      ) {
+        window.location.assign("/api/workspace/xero/auth");
+        return;
       }
 
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+
+      if (!response.ok || body?.error === "not_configured") {
+        setXeroConnectError(true);
+        return;
+      }
+
+      window.location.assign("/api/workspace/xero/auth");
+    } catch {
+      setXeroConnectError(true);
+    } finally {
+      setConnectingXero(false);
+    }
+  }
+
+  async function disconnectXero() {
+    setDisconnectingXero(true);
+    setError(null);
+    setFeedback(null);
+    setXeroConnectError(false);
+
+    try {
+      await fetchJson(
+        "/api/workspace/xero/connection",
+        {
+          method: "DELETE"
+        },
+        "Failed to disconnect Xero"
+      );
       setFeedback("Xero disconnected.");
       await loadAll();
     } catch (disconnectError) {
@@ -144,44 +410,46 @@ export default function WorkspaceSettings() {
           ? disconnectError.message
           : "Failed to disconnect Xero"
       );
+    } finally {
+      setDisconnectingXero(false);
     }
   }
 
-  async function saveRoute() {
+  async function saveDailySummaryRoute() {
     if (!route.providerKey || !route.model) {
+      setSaveRouteError(true);
       setError("Choose a provider and model for the daily summary.");
       return;
     }
 
-    setSaving(true);
+    setSavingRoute(true);
+    setSaveRouteSuccess(false);
+    setSaveRouteError(false);
     setError(null);
     setFeedback(null);
 
     try {
-      const response = await fetch("/api/workspace/ai-routing/daily_summary", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(route)
-      });
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to save daily summary routing");
-      }
-
+      const body = await fetchJson<WorkspaceRoute>(
+        "/api/workspace/ai-routing/daily_summary",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(route)
+        },
+        "Failed to save daily summary routing"
+      );
       setRoute({
         providerKey: body.providerKey ?? route.providerKey,
         model: body.model ?? route.model
       });
-      setFeedback("Daily summary routing updated.");
-    } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Failed to save daily summary routing"
-      );
+      setSaveRouteSuccess(true);
+      window.setTimeout(() => {
+        setSaveRouteSuccess(false);
+      }, 3000);
+    } catch {
+      setSaveRouteError(true);
     } finally {
-      setSaving(false);
+      setSavingRoute(false);
     }
   }
 
@@ -210,6 +478,79 @@ export default function WorkspaceSettings() {
       <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
+            <h2 className="text-xl font-semibold text-white">Gmail</h2>
+            <p className="mt-2 text-sm text-text-secondary">
+              Connect the mailbox used for action-required email triage.
+            </p>
+          </div>
+          {gmail?.connected ? (
+            <span className="rounded-full bg-[rgba(45,212,160,0.18)] px-3 py-1 text-xs font-medium text-[#54e1b1]">
+              Connected
+            </span>
+          ) : null}
+        </div>
+
+        <p className="mt-5 text-sm text-text-secondary">
+          {gmail?.connected
+            ? `Connected as ${gmail.connectedEmail ?? "your Google account"}.`
+            : "No Gmail connection configured yet."}
+        </p>
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          {gmail?.connected ? (
+            <button
+              type="button"
+              onClick={() => void disconnectGmail()}
+              disabled={disconnectingGmail}
+              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+            >
+              {disconnectingGmail ? "Disconnecting..." : "Disconnect"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void connectGmail()}
+              disabled={connectingGmail}
+              className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {connectingGmail ? "Redirecting..." : "Connect Gmail"}
+            </button>
+          )}
+        </div>
+
+        {gmailConnectError ? (
+          <InlineWarning message="We could not start the Gmail connection flow. Check the mailbox OAuth settings and try again." />
+        ) : null}
+
+        <div className="mt-5">
+          <label className="text-sm font-medium text-white">
+            Filter by Gmail label (optional)
+          </label>
+          <input
+            type="text"
+            value={gmailFilterLabel}
+            onChange={(event) => setGmailFilterLabel(event.target.value)}
+            onBlur={() => void saveGmailFilter()}
+            placeholder="e.g. action-required"
+            className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+          />
+          <p className="mt-2 text-xs text-text-secondary">
+            Create a label in Gmail, drag emails there, and we&apos;ll only show
+            those. Leave blank to show unread Primary emails from the last 14
+            days.
+          </p>
+          {savingGmailFilter ? (
+            <p className="mt-2 text-xs text-text-secondary">Saving filter...</p>
+          ) : null}
+          {gmailFilterError ? (
+            <p className="mt-2 text-xs text-[#ff9aa7]">{gmailFilterError}</p>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
             <h2 className="text-xl font-semibold text-white">
               Google Calendar
             </h2>
@@ -217,7 +558,7 @@ export default function WorkspaceSettings() {
               Connect the shared calendar feed used by the Command Centre.
             </p>
           </div>
-          {calendar?.connected ? (
+          {calendarStatus?.connected ? (
             <span className="rounded-full bg-[rgba(45,212,160,0.18)] px-3 py-1 text-xs font-medium text-[#54e1b1]">
               Connected
             </span>
@@ -225,32 +566,40 @@ export default function WorkspaceSettings() {
         </div>
 
         <p className="mt-5 text-sm text-text-secondary">
-          {calendar?.connected
-            ? `Connected as ${calendar.connectedEmail ?? "your Google account"}.`
+          {calendarStatus?.connected
+            ? `Connected as ${calendarStatus.connectedEmail ?? "your Google account"}.`
             : "No Google Calendar connection configured yet."}
         </p>
 
         <div className="mt-5 flex flex-wrap gap-3">
-          {calendar?.connected ? (
+          {!calendarStatus?.configured ? (
+            <span className="text-sm text-text-secondary">Not set up</span>
+          ) : calendarStatus.connected ? (
             <button
               type="button"
               onClick={() => void disconnectCalendar()}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
+              disabled={disconnectingCalendar}
+              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
             >
-              Disconnect
+              {disconnectingCalendar ? "Disconnecting..." : "Disconnect"}
             </button>
           ) : (
             <button
               type="button"
-              onClick={() => {
-                window.location.href = "/api/workspace/calendar/auth";
-              }}
-              className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white"
+              onClick={() => void connectCalendar()}
+              disabled={connectingCalendar}
+              className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Connect Google Calendar
+              {connectingCalendar
+                ? "Redirecting..."
+                : "Connect Google Calendar"}
             </button>
           )}
         </div>
+
+        {calendarConnectError ? (
+          <InlineWarning message="Connection not configured. Ask your admin to add the required credentials to the deployment environment." />
+        ) : null}
       </section>
 
       <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
@@ -258,10 +607,11 @@ export default function WorkspaceSettings() {
           <div>
             <h2 className="text-xl font-semibold text-white">Xero</h2>
             <p className="mt-2 text-sm text-text-secondary">
-              Manage the tenant used for invoice visibility in the Command Centre.
+              Manage the tenant used for invoice visibility in the Command
+              Centre.
             </p>
           </div>
-          {xero?.connected ? (
+          {xeroStatus?.connected ? (
             <span className="rounded-full bg-[rgba(45,212,160,0.18)] px-3 py-1 text-xs font-medium text-[#54e1b1]">
               Connected
             </span>
@@ -269,32 +619,38 @@ export default function WorkspaceSettings() {
         </div>
 
         <p className="mt-5 text-sm text-text-secondary">
-          {xero?.connected
-            ? `Connected to ${xero.tenantName ?? "your Xero tenant"}.`
+          {xeroStatus?.connected
+            ? `Connected to ${xeroStatus.tenantName ?? "your Xero tenant"}.`
             : "No Xero connection configured yet."}
         </p>
 
         <div className="mt-5 flex flex-wrap gap-3">
-          {xero?.connected ? (
+          {!xeroStatus?.configured ? (
+            <span className="text-sm text-text-secondary">Not set up</span>
+          ) : xeroStatus.connected ? (
             <button
               type="button"
               onClick={() => void disconnectXero()}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
+              disabled={disconnectingXero}
+              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
             >
-              Disconnect
+              {disconnectingXero ? "Disconnecting..." : "Disconnect"}
             </button>
           ) : (
             <button
               type="button"
-              onClick={() => {
-                window.location.href = "/api/workspace/xero/auth";
-              }}
-              className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white"
+              onClick={() => void connectXero()}
+              disabled={connectingXero}
+              className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Connect Xero
+              {connectingXero ? "Redirecting..." : "Connect Xero"}
             </button>
           )}
         </div>
+
+        {xeroConnectError ? (
+          <InlineWarning message="Connection not configured. Ask your admin to add the required credentials to the deployment environment." />
+        ) : null}
       </section>
 
       <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
@@ -346,14 +702,22 @@ export default function WorkspaceSettings() {
           </label>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void saveRoute()}
-          disabled={saving}
-          className="mt-5 rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {saving ? "Saving..." : "Save daily summary routing"}
-        </button>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void saveDailySummaryRoute()}
+            disabled={savingRoute}
+            className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {savingRoute ? "Saving..." : "Save"}
+          </button>
+          {saveRouteSuccess ? (
+            <span className="text-sm text-[#54e1b1]">Saved</span>
+          ) : null}
+          {saveRouteError ? (
+            <span className="text-sm text-[#ff9aa7]">Save failed</span>
+          ) : null}
+        </div>
       </section>
     </div>
   );

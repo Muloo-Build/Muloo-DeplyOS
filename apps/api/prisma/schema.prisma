@@ -146,6 +146,7 @@ model WorkspaceEmailOAuthConnection {
   connectedEmail String?
   connectedName  String?
   tokenExpiresAt DateTime?
+  gmailFilterLabel String?
   enabled        Boolean   @default(false)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt

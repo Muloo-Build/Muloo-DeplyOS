@@ -8522,6 +8522,7 @@ function serializeWorkspaceEmailOAuthConnection<
     connectedEmail: string | null;
     connectedName: string | null;
     tokenExpiresAt: Date | null;
+    gmailFilterLabel: string | null;
     enabled: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -8538,6 +8539,7 @@ function serializeWorkspaceEmailOAuthConnection<
     connectedEmail: connection.connectedEmail,
     connectedName: connection.connectedName,
     tokenExpiresAt: connection.tokenExpiresAt?.toISOString() ?? null,
+    gmailFilterLabel: connection.gmailFilterLabel,
     isConnected: Boolean(connection.connectedEmail),
     enabled: connection.enabled,
     createdAt: connection.createdAt.toISOString(),
@@ -11331,10 +11333,15 @@ export async function getGmailActionRequired() {
     return { connected: false as const };
   }
 
+  const gmailFilterLabel = refreshedConnection.gmailFilterLabel?.trim() || null;
+  const query = gmailFilterLabel
+    ? `label:${gmailFilterLabel} is:unread`
+    : "is:unread from:(-me) category:primary newer_than:14d";
+
   const messagesResponse = await fetch(
     "https://gmail.googleapis.com/gmail/v1/users/me/messages?" +
       new URLSearchParams({
-        q: "is:unread OR is:starred",
+        q: query,
         maxResults: "20"
       }).toString(),
     {
@@ -11416,6 +11423,7 @@ export async function getGmailActionRequired() {
 
   return {
     connected: true as const,
+    activeFilterLabel: gmailFilterLabel,
     emails
   };
 }
@@ -11488,8 +11496,8 @@ async function refreshWorkspaceCalendarAccessTokenIfNeeded(
 }
 
 export async function createWorkspaceCalendarOAuthStart() {
-  const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID?.trim() ?? "";
-  const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET?.trim() ?? "";
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim() ?? "";
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() ?? "";
 
   if (!clientId || !clientSecret) {
     throw new Error("Google Calendar OAuth credentials are not configured");
@@ -11538,8 +11546,8 @@ export async function completeWorkspaceCalendarOAuthCallback(value: {
     typeof verifiedState.redirectUri === "string"
       ? verifiedState.redirectUri
       : resolveWorkspaceCalendarRedirectUri();
-  const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID?.trim() ?? "";
-  const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET?.trim() ?? "";
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim() ?? "";
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() ?? "";
 
   if (!clientId || !clientSecret) {
     throw new Error("Google Calendar OAuth credentials are not configured");
@@ -11759,6 +11767,21 @@ export async function disconnectWorkspaceCalendarConnection() {
   });
 
   return { success: true };
+}
+
+export async function getWorkspaceCalendarStatus() {
+  const connection = await prisma.workspaceCalendarConnection.findUnique({
+    where: { providerKey: "google_calendar" }
+  });
+
+  return {
+    configured: Boolean(
+      process.env.GOOGLE_CLIENT_ID?.trim() &&
+      process.env.GOOGLE_CLIENT_SECRET?.trim()
+    ),
+    connected: Boolean(connection?.enabled && connection.connectedEmail),
+    connectedEmail: connection?.connectedEmail ?? null
+  };
 }
 
 function buildXeroBasicAuth(clientId: string, clientSecret: string) {
@@ -12108,17 +12131,39 @@ export async function disconnectWorkspaceXeroConnection() {
   return { success: true };
 }
 
+export async function getWorkspaceXeroStatus() {
+  const connection = await prisma.workspaceXeroConnection.findFirst({
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  return {
+    configured: Boolean(
+      process.env.XERO_CLIENT_ID?.trim() &&
+      process.env.XERO_CLIENT_SECRET?.trim()
+    ),
+    connected: Boolean(connection?.enabled && connection.tenantId),
+    tenantName: connection?.tenantName ?? null
+  };
+}
+
 export async function getActiveProjects(options?: { take?: number }) {
   const projects = await prisma.project.findMany({
     where: {
-      status: { notIn: ["completed", "draft"] }
+      status: {
+        in: ["scoping", "designed", "ready-for-execution", "in-flight", "draft"]
+      }
     },
     include: {
-      client: { select: { name: true } },
-      portal: { select: { displayName: true } },
-      tasks: {
-        where: { status: { not: "done" } },
-        select: { title: true, status: true, executionType: true }
+      client: { select: { id: true, name: true } },
+      portal: { select: { id: true, displayName: true } },
+      _count: {
+        select: {
+          tasks: {
+            where: {
+              status: { not: "done" }
+            }
+          }
+        }
       }
     },
     orderBy: { updatedAt: "desc" },
@@ -12132,7 +12177,7 @@ export async function getActiveProjects(options?: { take?: number }) {
     engagementType: project.engagementType,
     client: project.client,
     portal: project.portal,
-    tasks: project.tasks
+    openTaskCount: project._count.tasks
   }));
 }
 
@@ -15471,6 +15516,7 @@ export async function updateWorkspaceEmailOAuthConnection(value: {
   clientSecret?: unknown;
   redirectUri?: unknown;
   enabled?: unknown;
+  gmailFilterLabel?: unknown;
   scopes?: unknown;
 }) {
   await ensureWorkspaceEmailOAuthConnectionsSeeded();
@@ -15508,6 +15554,14 @@ export async function updateWorkspaceEmailOAuthConnection(value: {
 
   if (value.enabled !== undefined) {
     updateData.enabled = Boolean(value.enabled);
+  }
+
+  if (value.gmailFilterLabel !== undefined) {
+    if (typeof value.gmailFilterLabel !== "string") {
+      throw new Error("gmailFilterLabel must be a string");
+    }
+
+    updateData.gmailFilterLabel = value.gmailFilterLabel.trim() || null;
   }
 
   if (value.scopes !== undefined) {

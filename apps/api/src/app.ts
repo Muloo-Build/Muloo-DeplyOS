@@ -168,6 +168,8 @@ import {
   deleteWorkspaceTodo,
   generateWorkspaceDailySummary,
   getActiveProjects,
+  getWorkspaceCalendarStatus,
+  getWorkspaceXeroStatus,
   getCalendarEvents,
   getGmailActionRequired,
   getLatestWorkspaceDailySummary,
@@ -1954,7 +1956,44 @@ export function createApiApp(config: BaseConfig) {
     c.json(await getGmailActionRequired())
   );
 
+  app.patch("/api/workspace/email-filter", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const connection = await updateWorkspaceEmailOAuthConnection({
+        gmailFilterLabel: body.gmailFilterLabel
+      });
+      return c.json({
+        success: true,
+        gmailFilterLabel: connection.gmailFilterLabel
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update Gmail filter"
+        },
+        400
+      );
+    }
+  });
+
   app.get("/api/workspace/calendar/auth", async (c) => {
+    if (
+      !process.env.GOOGLE_CLIENT_ID?.trim() ||
+      !process.env.GOOGLE_CLIENT_SECRET?.trim()
+    ) {
+      return c.json(
+        {
+          error: "not_configured",
+          message:
+            "OAuth credentials not set. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to environment variables."
+        },
+        400
+      );
+    }
+
     try {
       const { authUrl } = await createWorkspaceCalendarOAuthStart();
       return c.redirect(authUrl);
@@ -1970,6 +2009,10 @@ export function createApiApp(config: BaseConfig) {
       );
     }
   });
+
+  app.get("/api/workspace/calendar/status", async (c) =>
+    c.json(await getWorkspaceCalendarStatus())
+  );
 
   app.get("/api/workspace/calendar/callback", async (c) => {
     try {
@@ -2000,6 +2043,20 @@ export function createApiApp(config: BaseConfig) {
   );
 
   app.get("/api/workspace/xero/auth", async (c) => {
+    if (
+      !process.env.XERO_CLIENT_ID?.trim() ||
+      !process.env.XERO_CLIENT_SECRET?.trim()
+    ) {
+      return c.json(
+        {
+          error: "not_configured",
+          message:
+            "OAuth credentials not set. Add XERO_CLIENT_ID and XERO_CLIENT_SECRET to environment variables."
+        },
+        400
+      );
+    }
+
     try {
       const { authUrl } = await createWorkspaceXeroOAuthStart();
       return c.redirect(authUrl);
@@ -2015,6 +2072,10 @@ export function createApiApp(config: BaseConfig) {
       );
     }
   });
+
+  app.get("/api/workspace/xero/status", async (c) =>
+    c.json(await getWorkspaceXeroStatus())
+  );
 
   app.get("/api/workspace/xero/callback", async (c) => {
     try {

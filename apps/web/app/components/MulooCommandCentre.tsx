@@ -68,7 +68,7 @@ interface ActiveProject {
   engagementType: string;
   client?: { name: string };
   portal?: { displayName: string };
-  tasks: Array<{ title: string; status: string; executionType: string }>;
+  openTaskCount: number;
 }
 
 interface DailySummary {
@@ -255,10 +255,14 @@ export default function MulooCommandCentre() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [emails, setEmails] = useState<Email[]>([]);
   const [emailConnected, setEmailConnected] = useState(false);
+  const [activeFilterLabel, setActiveFilterLabel] = useState<string | null>(
+    null
+  );
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [projects, setProjects] = useState<ActiveProject[]>([]);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
   const [xeroSummary, setXeroSummary] = useState<XeroSummary | null>(null);
   const [xeroConnected, setXeroConnected] = useState(false);
   const [summary, setSummary] = useState<DailySummary>({ content: null });
@@ -289,6 +293,9 @@ export default function MulooCommandCentre() {
     const body = await response.json();
     setEmailConnected(Boolean(body.connected));
     setEmails(Array.isArray(body.emails) ? body.emails : []);
+    setActiveFilterLabel(
+      typeof body.activeFilterLabel === "string" ? body.activeFilterLabel : null
+    );
   }
 
   async function loadCalendar() {
@@ -314,13 +321,18 @@ export default function MulooCommandCentre() {
   }
 
   async function loadProjects() {
+    setProjectsError(null);
+
     const response = await fetch("/api/workspace/projects/active");
+    const body = await response.json().catch(() => null);
 
     if (!response.ok) {
-      throw new Error("Failed to load active projects");
+      setProjects([]);
+      setProjectsError("Could not load projects.");
+      return;
     }
 
-    setProjects(await response.json());
+    setProjects(Array.isArray(body) ? body : []);
   }
 
   async function loadXero() {
@@ -390,6 +402,10 @@ export default function MulooCommandCentre() {
     });
   }, [router, searchParams]);
 
+  async function refetchProjects() {
+    await loadProjects();
+  }
+
   const sortedTodos = [
     ...todos
       .filter((todo) => !todo.completed)
@@ -402,7 +418,9 @@ export default function MulooCommandCentre() {
   const groupedCalendarEvents = calendarEvents.reduce<
     Record<string, CalendarEvent[]>
   >((groups, event) => {
-    const label = formatDayLabel(event.start.dateTime ?? event.start.date ?? "");
+    const label = formatDayLabel(
+      event.start.dateTime ?? event.start.date ?? ""
+    );
     groups[label] = groups[label] ? [...groups[label], event] : [event];
     return groups;
   }, {});
@@ -443,11 +461,14 @@ export default function MulooCommandCentre() {
   }
 
   async function patchTodo(todoId: string, payload: Record<string, unknown>) {
-    const response = await fetch(`/api/workspace/todos/${encodeURIComponent(todoId)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    const response = await fetch(
+      `/api/workspace/todos/${encodeURIComponent(todoId)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }
+    );
     const body = await response.json().catch(() => null);
 
     if (!response.ok) {
@@ -461,9 +482,12 @@ export default function MulooCommandCentre() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/workspace/todos/${encodeURIComponent(todoId)}`, {
-        method: "DELETE"
-      });
+      const response = await fetch(
+        `/api/workspace/todos/${encodeURIComponent(todoId)}`,
+        {
+          method: "DELETE"
+        }
+      );
       const body = await response.json().catch(() => null);
 
       if (!response.ok) {
@@ -492,7 +516,9 @@ export default function MulooCommandCentre() {
       await patchTodo(todo.id, { sortOrder: target.sortOrder });
     } catch (todoError) {
       setError(
-        todoError instanceof Error ? todoError.message : "Failed to reorder todo"
+        todoError instanceof Error
+          ? todoError.message
+          : "Failed to reorder todo"
       );
     }
   }
@@ -586,8 +612,8 @@ export default function MulooCommandCentre() {
                 AI Daily Briefing
               </h1>
               <p className="mt-2 max-w-3xl text-sm text-text-secondary">
-                A single executive snapshot across open actions, client delivery,
-                meetings, quotes, and receivables.
+                A single executive snapshot across open actions, client
+                delivery, meetings, quotes, and receivables.
               </p>
             </div>
             <button
@@ -638,9 +664,12 @@ export default function MulooCommandCentre() {
             <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-semibold text-white">To-do list</h2>
+                  <h2 className="text-xl font-semibold text-white">
+                    To-do list
+                  </h2>
                   <p className="mt-1 text-sm text-text-secondary">
-                    Track the next operational moves without leaving the dashboard.
+                    Track the next operational moves without leaving the
+                    dashboard.
                   </p>
                 </div>
                 <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-1 text-xs text-text-secondary">
@@ -760,11 +789,18 @@ export default function MulooCommandCentre() {
             <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-semibold text-white">
-                    Gmail action required
-                  </h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-semibold text-white">
+                      Gmail — needs attention
+                    </h2>
+                    {activeFilterLabel ? (
+                      <span className="rounded-full bg-[rgba(79,142,247,0.14)] px-3 py-1 text-xs text-[#78a9ff]">
+                        label: {activeFilterLabel}
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-1 text-sm text-text-secondary">
-                    Unread or starred messages that likely need your attention.
+                    Unread messages that likely need your attention.
                   </p>
                 </div>
                 {!emailConnected ? (
@@ -780,7 +816,8 @@ export default function MulooCommandCentre() {
 
               {!emailConnected ? (
                 <p className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-5 text-sm text-text-secondary">
-                  Connect Gmail to surface starred or unread emails that need action.
+                  Connect Gmail to surface starred or unread emails that need
+                  action.
                 </p>
               ) : emails.length === 0 ? (
                 <p className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-5 text-sm text-text-secondary">
@@ -860,51 +897,54 @@ export default function MulooCommandCentre() {
                 </p>
               ) : (
                 <div className="mt-5 space-y-5">
-                  {Object.entries(groupedCalendarEvents).map(([label, items]) => (
-                    <div key={label}>
-                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                        {label}
-                      </p>
-                      <div className="mt-3 space-y-3">
-                        {items.map((event) => (
-                          <div
-                            key={event.id}
-                            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-4"
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs uppercase tracking-[0.12em] text-text-muted">
-                                  {formatTimeRange(event)}
-                                </p>
-                                <p className="mt-1 text-sm font-semibold text-white">
-                                  {event.summary}
-                                </p>
-                                {event.location ? (
-                                  <p className="mt-1 text-sm text-text-secondary">
-                                    {event.location}
+                  {Object.entries(groupedCalendarEvents).map(
+                    ([label, items]) => (
+                      <div key={label}>
+                        <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                          {label}
+                        </p>
+                        <div className="mt-3 space-y-3">
+                          {items.map((event) => (
+                            <div
+                              key={event.id}
+                              className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-4"
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs uppercase tracking-[0.12em] text-text-muted">
+                                    {formatTimeRange(event)}
                                   </p>
-                                ) : event.hangoutLink ? (
-                                  <a
-                                    href={event.hangoutLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-1 inline-block text-sm text-[#78a9ff]"
-                                  >
-                                    Join meeting
-                                  </a>
+                                  <p className="mt-1 text-sm font-semibold text-white">
+                                    {event.summary}
+                                  </p>
+                                  {event.location ? (
+                                    <p className="mt-1 text-sm text-text-secondary">
+                                      {event.location}
+                                    </p>
+                                  ) : event.hangoutLink ? (
+                                    <a
+                                      href={event.hangoutLink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="mt-1 inline-block text-sm text-[#78a9ff]"
+                                    >
+                                      Join meeting
+                                    </a>
+                                  ) : null}
+                                </div>
+                                {event.attendees &&
+                                event.attendees.length > 1 ? (
+                                  <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary">
+                                    {event.attendees.length} attendees
+                                  </span>
                                 ) : null}
                               </div>
-                              {event.attendees && event.attendees.length > 1 ? (
-                                <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary">
-                                  {event.attendees.length} attendees
-                                </span>
-                              ) : null}
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               )}
             </section>
@@ -941,7 +981,9 @@ export default function MulooCommandCentre() {
                     <button
                       key={quote.id}
                       type="button"
-                      onClick={() => router.push(`/projects/${quote.projectId}/quote`)}
+                      onClick={() =>
+                        router.push(`/projects/${quote.projectId}/quote`)
+                      }
                       className="grid w-full grid-cols-[1.1fr_1.2fr_0.8fr_0.8fr_0.8fr] gap-3 border-t border-[rgba(255,255,255,0.06)] px-4 py-4 text-left transition-colors hover:bg-background-elevated"
                     >
                       <span className="truncate text-sm text-white">
@@ -977,7 +1019,9 @@ export default function MulooCommandCentre() {
         <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold text-white">Active projects</h2>
+              <h2 className="text-xl font-semibold text-white">
+                Active projects
+              </h2>
               <p className="mt-1 text-sm text-text-secondary">
                 Delivery work still in motion across the workspace.
               </p>
@@ -987,9 +1031,20 @@ export default function MulooCommandCentre() {
             </span>
           </div>
 
-          {projects.length === 0 ? (
+          {projectsError ? (
+            <div className="mt-5 rounded-2xl border border-[rgba(224,80,96,0.28)] bg-[rgba(58,21,32,0.72)] p-4 text-sm text-white">
+              Could not load projects.{" "}
+              <button
+                type="button"
+                onClick={() => void refetchProjects()}
+                className="underline"
+              >
+                Retry
+              </button>
+            </div>
+          ) : projects.length === 0 ? (
             <p className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-5 text-sm text-text-secondary">
-              No active projects.
+              No active projects yet
             </p>
           ) : (
             <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -997,7 +1052,9 @@ export default function MulooCommandCentre() {
                 <button
                   key={project.id}
                   type="button"
-                  onClick={() => router.push(`/projects/${project.id}/delivery`)}
+                  onClick={() =>
+                    router.push(`/projects/${project.id}/delivery`)
+                  }
                   className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 text-left transition-colors hover:bg-background-elevated"
                 >
                   <div className="flex flex-wrap items-center gap-2">
@@ -1020,7 +1077,7 @@ export default function MulooCommandCentre() {
                       {project.engagementType.replace(/_/g, " ")}
                     </span>
                     <span className="rounded-full bg-[rgba(79,142,247,0.14)] px-3 py-1 text-xs text-[#78a9ff]">
-                      {project.tasks.length} tasks open
+                      {project.openTaskCount} tasks open
                     </span>
                   </div>
                 </button>
@@ -1032,7 +1089,9 @@ export default function MulooCommandCentre() {
         <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold text-white">Invoice summary</h2>
+              <h2 className="text-xl font-semibold text-white">
+                Invoice summary
+              </h2>
               <p className="mt-1 text-sm text-text-secondary">
                 Outstanding and overdue receivables from Xero.
               </p>
@@ -1098,7 +1157,9 @@ export default function MulooCommandCentre() {
                       <span className="text-sm text-white">
                         {invoice.invoiceNumber}
                       </span>
-                      <span className="text-sm text-white">{invoice.contact}</span>
+                      <span className="text-sm text-white">
+                        {invoice.contact}
+                      </span>
                       <span className="text-sm text-text-secondary">
                         {formatDateTime(invoice.dueDate)}
                       </span>
