@@ -40,12 +40,24 @@ interface FindingRecord {
   projectId: string;
   area: string;
   severity: "low" | "medium" | "high" | "critical";
+  source: string | null;
+  category: string | null;
   title: string;
   description: string;
   quickWin: boolean;
   phaseRecommendation: string;
-  evidence: string | null;
+  evidence: unknown;
   status: "open" | "in_progress" | "resolved";
+  recommendations: Array<{
+    id: string;
+    title: string;
+    rationale: string;
+    type: "quick_win" | "structural" | "advisory";
+    impact: "low" | "medium" | "high";
+    effort: "xs" | "s" | "m" | "l" | "xl";
+    phase: string;
+    findingId: string | null;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -61,23 +73,19 @@ interface RecommendationRecord {
   effort: "xs" | "s" | "m" | "l" | "xl";
   impact: "low" | "medium" | "high";
   clientApprovalStatus: "pending" | "approved" | "rejected";
+  findingId: string | null;
   linkedFindingIds: string[];
   createdAt: string;
   updatedAt: string;
 }
 
-interface WorkspaceRoute {
-  providerKey: string;
-  model: string | null;
-}
-
-interface WorkflowRun {
+interface ExecutionJob {
   id: string;
-  workflowKey: string;
-  title: string;
+  jobType: string | null;
   status: string;
   resultStatus: string | null;
-  summary: string | null;
+  outputSummary: string | null;
+  errorLog: string | null;
   createdAt: string;
 }
 
@@ -132,6 +140,18 @@ function formatCount(value: number | null) {
 
 function formatRecommendationRationale(value: string) {
   return value.replace(/^\[AI audit\]\s*/i, "").trim();
+}
+
+function formatEvidenceValue(value: unknown) {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value === null || value === undefined) {
+    return "No evidence captured.";
+  }
+
+  return JSON.stringify(value, null, 2);
 }
 
 function FindingModal({
@@ -317,23 +337,15 @@ export default function PortalAuditWorkspace({
   const [recommendations, setRecommendations] = useState<
     RecommendationRecord[]
   >([]);
-  const [auditRoute, setAuditRoute] = useState<WorkspaceRoute | null>(null);
-  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
+  const [auditJob, setAuditJob] = useState<ExecutionJob | null>(null);
   const [loading, setLoading] = useState(true);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [aiAuditBusy, setAiAuditBusy] = useState(false);
-  const [aiAuditSummary, setAiAuditSummary] = useState<string | null>(null);
   const [aiAuditFeedback, setAiAuditFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeFindingArea, setActiveFindingArea] = useState<
     (typeof auditAreas)[number] | null
   >(null);
-  const [healthRatings, setHealthRatings] = useState<Record<string, number>>(
-    () => Object.fromEntries(auditAreas.map((area) => [area.key, 3]))
-  );
-  const [issuesDrafts, setIssuesDrafts] = useState<Record<string, string>>(() =>
-    Object.fromEntries(auditAreas.map((area) => [area.key, ""]))
-  );
   const [expandedAreas, setExpandedAreas] = useState<Record<string, boolean>>(
     () => Object.fromEntries(auditAreas.map((area) => [area.key, true]))
   );
@@ -360,22 +372,10 @@ export default function PortalAuditWorkspace({
       const recommendationsResponse = await fetch(
         `/api/projects/${encodeURIComponent(projectId)}/recommendations`
       );
-      const routeResponse = await fetch(
-        "/api/workspace/ai-routing/portal_audit"
-      );
-      const workflowRunsResponse = await fetch(
-        `/api/projects/${encodeURIComponent(projectId)}/workflow-runs`
-      );
       const findingsBody = await findingsResponse.json().catch(() => null);
       const recommendationsBody = await recommendationsResponse
         .json()
         .catch(() => null);
-      const routeBody = routeResponse.ok
-        ? await routeResponse.json().catch(() => null)
-        : null;
-      const workflowRunsBody = workflowRunsResponse.ok
-        ? await workflowRunsResponse.json().catch(() => null)
-        : null;
 
       if (!findingsResponse.ok) {
         throw new Error(findingsBody?.error ?? "Failed to load findings");
@@ -389,19 +389,6 @@ export default function PortalAuditWorkspace({
 
       setFindings(findingsBody.findings ?? []);
       setRecommendations(recommendationsBody.recommendations ?? []);
-      setAuditRoute(
-        routeBody?.providerKey
-          ? {
-              providerKey: routeBody.providerKey,
-              model: routeBody.model ?? null
-            }
-          : null
-      );
-      setWorkflowRuns(
-        (workflowRunsBody?.workflowRuns ?? []).filter(
-          (run: WorkflowRun) => run.workflowKey === "portal_audit"
-        )
-      );
 
       if (projectBody.project?.portal?.id) {
         const snapshotResponse = await fetch(
@@ -431,6 +418,45 @@ export default function PortalAuditWorkspace({
   useEffect(() => {
     void loadAuditData();
   }, [projectId]);
+
+  async function pollAuditJobStatus(jobId: string) {
+    let keepPolling = true;
+
+    while (keepPolling) {
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, 3000);
+      });
+
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(jobId)}/status`
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to load audit job status");
+      }
+
+      const nextJob = body?.job ?? null;
+      setAuditJob(nextJob);
+
+      if (!nextJob) {
+        keepPolling = false;
+        setAiAuditBusy(false);
+        return;
+      }
+
+      if (nextJob.status === "COMPLETED") {
+        setAiAuditBusy(false);
+        setAiAuditFeedback(nextJob.outputSummary ?? "Portal audit completed.");
+        await loadAuditData();
+        keepPolling = false;
+      } else if (nextJob.status === "FAILED") {
+        setAiAuditBusy(false);
+        setError(nextJob.outputSummary ?? "Portal audit failed");
+        keepPolling = false;
+      }
+    }
+  }
 
   async function refreshSnapshot() {
     if (!project?.portal?.id) {
@@ -472,7 +498,7 @@ export default function PortalAuditWorkspace({
 
     try {
       const response = await fetch(
-        `/api/projects/${encodeURIComponent(projectId)}/portal-audit/generate`,
+        `/api/projects/${encodeURIComponent(projectId)}/run/portal-audit`,
         {
           method: "POST"
         }
@@ -483,27 +509,21 @@ export default function PortalAuditWorkspace({
         throw new Error(body?.error ?? "Failed to generate portal audit");
       }
 
-      setAiAuditSummary(body?.audit?.executiveSummary ?? null);
-      setFindings(body?.audit?.findings ?? []);
-      setRecommendations(body?.audit?.recommendations ?? []);
-      setWorkflowRuns((currentRuns) =>
-        body?.run
-          ? [body.run, ...currentRuns.filter((run) => run.id !== body.run.id)]
-          : currentRuns
-      );
-      setAiAuditFeedback(
-        `AI audit refreshed at ${new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit"
-        })}.`
-      );
+      const job = body?.job ?? null;
+      setAuditJob(job);
+
+      if (!job?.id) {
+        throw new Error("Portal audit job did not return an ID");
+      }
+
+      setAiAuditFeedback("Portal audit started. Running live checks now.");
+      await pollAuditJobStatus(job.id);
     } catch (auditError) {
       setError(
         auditError instanceof Error
           ? auditError.message
           : "Failed to generate portal audit"
       );
-    } finally {
       setAiAuditBusy(false);
     }
   }
@@ -519,6 +539,23 @@ export default function PortalAuditWorkspace({
       {}
     );
   }, [findings]);
+
+  const severityCounts = useMemo(
+    () =>
+      findings.reduce<Record<FindingRecord["severity"], number>>(
+        (accumulator, finding) => {
+          accumulator[finding.severity] += 1;
+          return accumulator;
+        },
+        {
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0
+        }
+      ),
+    [findings]
+  );
 
   const snapshotStats = [
     { label: "Hub Tier", value: snapshot?.hubTier ?? "Not captured yet" },
@@ -605,12 +642,9 @@ export default function PortalAuditWorkspace({
                 Capture portal context, document findings, and pull quick wins
                 into delivery without leaving the project workflow.
               </p>
-              {auditRoute ? (
-                <p className="mt-3 text-sm text-text-secondary">
-                  AI route: {formatLabel(auditRoute.providerKey)}
-                  {auditRoute.model ? ` · ${auditRoute.model}` : ""}
-                </p>
-              ) : null}
+              <p className="mt-3 text-sm text-text-secondary">
+                Audit engine: OpenAI · gpt-4o
+              </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <button
@@ -651,26 +685,36 @@ export default function PortalAuditWorkspace({
                   {aiAuditFeedback}
                 </p>
               ) : null}
-              {workflowRuns.length > 0 ? (
-                <div className="mt-4 grid gap-3 md:grid-cols-3">
-                  {workflowRuns.slice(0, 3).map((run) => (
+              <div className="mt-4 flex flex-wrap gap-3">
+                {(["critical", "high", "medium", "low"] as const).map(
+                  (severity) => (
                     <div
-                      key={run.id}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      key={severity}
+                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
                     >
                       <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                        {formatLabel(run.status)}
+                        {severity}
                       </p>
-                      <p className="mt-2 text-sm font-semibold text-white">
-                        {run.summary || run.title}
-                      </p>
-                      <p className="mt-2 text-xs text-text-secondary">
-                        {new Date(run.createdAt).toLocaleString()}
+                      <p className="mt-2 text-lg font-semibold text-white">
+                        {severityCounts[severity]}
                       </p>
                     </div>
-                  ))}
-                </div>
-              ) : null}
+                  )
+                )}
+                {auditJob ? (
+                  <div className="min-w-[260px] rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      Audit job
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      {auditJob.outputSummary || formatLabel(auditJob.status)}
+                    </p>
+                    <p className="mt-2 text-xs text-text-secondary">
+                      Status: {formatLabel(auditJob.status)}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
               {!project?.portal ? (
                 <div className="mt-6 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary">
                   Connect the client’s HubSpot portal first, then this audit
@@ -694,17 +738,6 @@ export default function PortalAuditWorkspace({
             </>
           )}
         </section>
-
-        {aiAuditSummary ? (
-          <section className="rounded-[28px] border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-              AI Audit Summary
-            </p>
-            <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-text-secondary">
-              {aiAuditSummary}
-            </div>
-          </section>
-        ) : null}
 
         <section className="rounded-[28px] border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -779,6 +812,19 @@ export default function PortalAuditWorkspace({
           </div>
 
           <div className="mt-6 space-y-4">
+            {findings.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary">
+                <p>No findings yet. Run a portal audit to get started.</p>
+                <button
+                  type="button"
+                  onClick={() => void runAiAudit()}
+                  disabled={aiAuditBusy || !project?.portal?.id}
+                  className="mt-4 rounded-xl border border-[rgba(240,130,74,0.25)] bg-[rgba(240,130,74,0.14)] px-4 py-3 text-sm font-medium text-[#f0824a] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {aiAuditBusy ? "Running AI Audit..." : "Run Portal Audit"}
+                </button>
+              </div>
+            ) : null}
             {auditAreas.map((area) => {
               const areaFindings = findingsByArea[area.key] ?? [];
               const isExpanded = expandedAreas[area.key] ?? true;
@@ -820,46 +866,12 @@ export default function PortalAuditWorkspace({
 
                   {isExpanded ? (
                     <>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {[1, 2, 3, 4, 5].map((rating) => (
-                          <button
-                            key={rating}
-                            type="button"
-                            onClick={() =>
-                              setHealthRatings((current) => ({
-                                ...current,
-                                [area.key]: rating
-                              }))
-                            }
-                            className={`rounded-xl px-3 py-2 text-sm font-medium ${
-                              healthRatings[area.key] === rating
-                                ? "border border-[rgba(81,208,176,0.35)] bg-[rgba(81,208,176,0.12)] text-[#51d0b0]"
-                                : "border border-[rgba(255,255,255,0.08)] bg-background-card text-text-secondary"
-                            }`}
-                          >
-                            {rating}
-                          </button>
-                        ))}
-                      </div>
-
-                      <textarea
-                        value={issuesDrafts[area.key] ?? ""}
-                        onChange={(event) =>
-                          setIssuesDrafts((current) => ({
-                            ...current,
-                            [area.key]: event.target.value
-                          }))
-                        }
-                        placeholder={`Capture working notes for ${area.label.toLowerCase()} here.`}
-                        className="mt-4 min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-3 text-sm text-white outline-none"
-                      />
-
-                      <div className="mt-4 flex flex-wrap gap-3">
+                      <div className="mt-4 grid gap-3">
                         {areaFindings.length > 0 ? (
                           areaFindings.map((finding) => (
                             <div
                               key={finding.id}
-                              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3"
+                              className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4"
                             >
                               <div className="flex flex-wrap items-center gap-2">
                                 <span
@@ -867,6 +879,11 @@ export default function PortalAuditWorkspace({
                                 >
                                   {formatLabel(finding.severity)}
                                 </span>
+                                {finding.category ? (
+                                  <span className="rounded-full bg-[rgba(140,190,255,0.14)] px-2 py-0.5 text-[11px] font-medium text-[#8cbcff]">
+                                    {formatLabel(finding.category)}
+                                  </span>
+                                ) : null}
                                 {finding.quickWin ? (
                                   <span className="rounded-full bg-[rgba(81,208,176,0.12)] px-2 py-0.5 text-[11px] font-medium text-[#51d0b0]">
                                     Quick Win
@@ -879,14 +896,37 @@ export default function PortalAuditWorkspace({
                               <p className="mt-3 text-sm font-medium text-white">
                                 {finding.title}
                               </p>
-                              <p className="mt-2 text-sm text-text-secondary">
+                              <p className="mt-2 text-sm leading-6 text-text-secondary">
                                 {finding.description}
                               </p>
+                              {finding.recommendations[0] ? (
+                                <div className="mt-3 rounded-xl border border-[rgba(81,208,176,0.12)] bg-[rgba(81,208,176,0.08)] px-3 py-3">
+                                  <p className="text-xs uppercase tracking-[0.18em] text-[#51d0b0]">
+                                    Recommendation
+                                  </p>
+                                  <p className="mt-2 text-sm font-medium text-white">
+                                    {finding.recommendations[0].title}
+                                  </p>
+                                  <p className="mt-2 text-sm leading-6 text-text-secondary">
+                                    {formatRecommendationRationale(
+                                      finding.recommendations[0].rationale
+                                    )}
+                                  </p>
+                                </div>
+                              ) : null}
+                              <details className="mt-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0f1730] px-3 py-3">
+                                <summary className="cursor-pointer text-sm font-medium text-white">
+                                  Evidence
+                                </summary>
+                                <pre className="mt-3 whitespace-pre-wrap break-words text-xs leading-6 text-text-secondary">
+                                  {formatEvidenceValue(finding.evidence)}
+                                </pre>
+                              </details>
                             </div>
                           ))
                         ) : (
                           <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-4 text-sm text-text-secondary">
-                            No findings logged for this area yet.
+                            No findings yet. Run a portal audit to get started.
                           </div>
                         )}
                       </div>

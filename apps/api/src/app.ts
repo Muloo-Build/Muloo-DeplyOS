@@ -134,6 +134,7 @@ import {
   loadProjectRecord,
   loadProjectFindings,
   loadProjectRecommendations,
+  loadProjectExecutionJobStatus,
   loadProjectsDirectory,
   loadProjectTasks,
   loadWorkflowRuns,
@@ -158,6 +159,7 @@ import {
   runTrackedHubSpotAgentRequest,
   runTrackedProjectPortalAudit,
   runTrackedProjectPrepareBrief,
+  startProjectPortalAuditExecutionJob,
   sendWorkspaceEmail,
   shareProjectQuote,
   updateProjectRecord,
@@ -1454,6 +1456,59 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.post("/api/projects/:projectId/run/portal-audit", async (c) => {
+    if (!process.env.OPENAI_API_KEY) {
+      return c.json(
+        {
+          error:
+            "OpenAI API key not configured. Add OPENAI_API_KEY to environment."
+        },
+        503
+      );
+    }
+
+    try {
+      const job = await startProjectPortalAuditExecutionJob(
+        c.req.param("projectId")
+      );
+      return c.json({ job }, 202);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to start portal audit"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
+  app.get("/api/projects/:projectId/runs/:jobId/status", async (c) => {
+    try {
+      const job = await loadProjectExecutionJobStatus(
+        c.req.param("projectId"),
+        c.req.param("jobId")
+      );
+      return c.json({ job });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load execution job status"
+        },
+        error instanceof Error && error.message === "Execution job not found"
+          ? 404
+          : 400
+      );
+    }
   });
 
   app.post("/api/projects/:projectId/portal-audit/generate", async (c) => {

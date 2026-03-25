@@ -606,11 +606,13 @@ model ExecutionJob {
   id              String    @id @default(cuid())
   projectId       String
   taskId          String?
+  jobType         String?
   moduleKey       String
   executionMethod String    @default("manual")
   mode            String    @default("dry-run")
   status          String    @default("queued")
   payload         Json?
+  outputSummary   String?
   resultStatus    String?
   outputLog       String?
   errorLog        String?
@@ -682,14 +684,17 @@ model Finding {
   project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   area                String
   severity            String
+  source              String?
+  category            String?
   title               String
   description         String
   quickWin            Boolean  @default(false)
   phaseRecommendation String   @default("next")
-  evidence            String?
+  evidence            Json?
   status              String   @default("open")
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  recommendations     Recommendation[]
 
   @@index([projectId, area, severity])
 }
@@ -698,6 +703,8 @@ model Recommendation {
   id                   String   @id @default(cuid())
   projectId            String
   project              Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  findingId            String?
+  finding              Finding? @relation(fields: [findingId], references: [id], onDelete: SetNull)
   title                String
   area                 String
   type                 String
@@ -711,4 +718,5 @@ model Recommendation {
   updatedAt            DateTime @updatedAt
 
   @@index([projectId, area, type])
+  @@index([findingId])
 }

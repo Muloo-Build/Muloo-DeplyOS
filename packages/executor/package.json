@@ -12,6 +12,8 @@
   "dependencies": {
     "@muloo/core": "workspace:*",
     "@muloo/diff-engine": "workspace:*",
-    "@muloo/shared": "workspace:*"
+    "@muloo/hubspot-client": "workspace:*",
+    "@muloo/shared": "workspace:*",
+    "@prisma/client": "5.22.0"
   }
 }

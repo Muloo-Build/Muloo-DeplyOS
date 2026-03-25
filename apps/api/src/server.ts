@@ -2,6 +2,7 @@ import type * as http from "node:http";
 import crypto from "node:crypto";
 import nodemailer from "nodemailer";
 import { getIntegrationStatus } from "@muloo/config";
+import { runPortalAuditAgent } from "@muloo/executor";
 import { HubSpotClient } from "@muloo/hubspot-client";
 import {
   loadProjectById,
@@ -3938,11 +3939,13 @@ function serializeExecutionJob<
     id: string;
     projectId: string;
     taskId: string | null;
+    jobType?: string | null;
     moduleKey: string;
     executionMethod: string;
     mode: string;
     status: string;
     payload: unknown | null;
+    outputSummary?: string | null;
     resultStatus: string | null;
     outputLog: string | null;
     errorLog: string | null;
@@ -3959,11 +3962,13 @@ function serializeExecutionJob<
     projectName: job.project?.name ?? null,
     taskId: job.taskId,
     taskTitle: job.task?.title ?? null,
+    jobType: job.jobType ?? null,
     moduleKey: job.moduleKey,
     executionMethod: job.executionMethod,
     mode: job.mode,
     status: job.status,
     payload: job.payload,
+    outputSummary: job.outputSummary ?? null,
     resultStatus: job.resultStatus,
     outputLog: job.outputLog,
     errorLog: job.errorLog,
@@ -4288,6 +4293,86 @@ export async function loadAgentRuns() {
   });
 
   return jobs.map((job) => serializeExecutionJob(job));
+}
+
+export async function loadProjectExecutionJobStatus(
+  projectId: string,
+  jobId: string
+) {
+  const job = await prisma.executionJob.findFirst({
+    where: {
+      id: jobId,
+      projectId
+    },
+    include: {
+      project: { select: { name: true } },
+      task: { select: { title: true } }
+    }
+  });
+
+  if (!job) {
+    throw new Error("Execution job not found");
+  }
+
+  return serializeExecutionJob(job);
+}
+
+export async function startProjectPortalAuditExecutionJob(projectId: string) {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error(
+      "OpenAI API key not configured. Add OPENAI_API_KEY to environment."
+    );
+  }
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      name: true,
+      portalId: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (!project.portalId) {
+    throw new Error("No portal connected to this project");
+  }
+
+  const job = await prisma.executionJob.create({
+    data: {
+      projectId: project.id,
+      jobType: "portal_audit",
+      moduleKey: "portal-audit-agent",
+      executionMethod: "openai",
+      mode: "async",
+      status: "RUNNING",
+      resultStatus: "queued",
+      outputSummary: "Queued portal audit agent.",
+      payload: {
+        projectId: project.id,
+        portalId: project.portalId
+      },
+      startedAt: new Date()
+    },
+    include: {
+      project: { select: { name: true } },
+      task: { select: { title: true } }
+    }
+  });
+
+  setImmediate(() => {
+    void runPortalAuditAgent({
+      jobId: job.id,
+      projectId: project.id,
+      portalId: project.portalId as string,
+      prisma
+    });
+  });
+
+  return serializeExecutionJob(job);
 }
 
 export async function updateAgentRun(
@@ -9382,7 +9467,6 @@ const recommendationApprovalStatusSchema = z.enum([
   "approved",
   "rejected"
 ]);
-const aiGeneratedPortalAuditEvidencePrefix = "[AI audit]";
 const aiGeneratedPortalAuditRecommendationPrefix = "[AI audit]";
 const portalAuditGenerationSchema = z.object({
   executiveSummary: z.string().trim().min(1),
@@ -9803,21 +9887,38 @@ Rules:
 const createFindingInputSchema = z.object({
   area: findingAreaSchema,
   severity: findingSeveritySchema,
+  source: z.string().trim().min(1).optional(),
+  category: z.string().trim().min(1).optional(),
   title: z.string().trim().min(1),
   description: z.string().trim().min(1),
   quickWin: z.boolean().optional(),
   phaseRecommendation: z.string().trim().min(1).optional(),
-  evidence: z.string().trim().min(1).optional()
+  evidence: z
+    .union([
+      z.string().trim().min(1),
+      z.record(z.string(), z.unknown()),
+      z.array(z.unknown())
+    ])
+    .optional()
 });
 
 const updateFindingInputSchema = z.object({
   area: findingAreaSchema.optional(),
   severity: findingSeveritySchema.optional(),
+  source: z.string().trim().min(1).nullable().optional(),
+  category: z.string().trim().min(1).nullable().optional(),
   title: z.string().trim().min(1).optional(),
   description: z.string().trim().min(1).optional(),
   quickWin: z.boolean().optional(),
   phaseRecommendation: z.string().trim().min(1).optional(),
-  evidence: z.string().trim().min(1).nullable().optional(),
+  evidence: z
+    .union([
+      z.string().trim().min(1),
+      z.record(z.string(), z.unknown()),
+      z.array(z.unknown())
+    ])
+    .nullable()
+    .optional(),
   status: findingStatusSchema.optional()
 });
 
@@ -9829,6 +9930,7 @@ const createRecommendationInputSchema = z.object({
   rationale: z.string().trim().min(1),
   effort: recommendationEffortSchema,
   impact: recommendationImpactSchema,
+  findingId: z.string().trim().min(1).optional(),
   linkedFindingIds: z.array(z.string().trim().min(1)).optional()
 });
 
@@ -9840,9 +9942,27 @@ const updateRecommendationInputSchema = z.object({
   rationale: z.string().trim().min(1).optional(),
   effort: recommendationEffortSchema.optional(),
   impact: recommendationImpactSchema.optional(),
+  findingId: z.string().trim().min(1).nullable().optional(),
   linkedFindingIds: z.array(z.string().trim().min(1)).optional(),
   clientApprovalStatus: recommendationApprovalStatusSchema.optional()
 });
+
+function normalizeFindingEvidence(
+  value: unknown
+):
+  | Prisma.Prisma.InputJsonValue
+  | Prisma.Prisma.NullTypes.JsonNull
+  | undefined {
+  if (value === undefined || value === null) {
+    return value === undefined ? undefined : Prisma.Prisma.JsonNull;
+  }
+
+  if (typeof value === "string") {
+    return { summary: value } as Prisma.Prisma.InputJsonValue;
+  }
+
+  return value as Prisma.Prisma.InputJsonValue;
+}
 
 function serializeFinding<
   T extends {
@@ -9850,12 +9970,24 @@ function serializeFinding<
     projectId: string;
     area: string;
     severity: string;
+    source: string | null;
+    category: string | null;
     title: string;
     description: string;
     quickWin: boolean;
     phaseRecommendation: string;
-    evidence: string | null;
+    evidence: Prisma.Prisma.JsonValue | null;
     status: string;
+    recommendations?: Array<{
+      id: string;
+      title: string;
+      rationale: string;
+      type: string;
+      impact: string;
+      effort: string;
+      phase: string;
+      findingId: string | null;
+    }>;
     createdAt: Date;
     updatedAt: Date;
   }
@@ -9865,12 +9997,25 @@ function serializeFinding<
     projectId: finding.projectId,
     area: finding.area,
     severity: finding.severity,
+    source: finding.source,
+    category: finding.category,
     title: finding.title,
     description: finding.description,
     quickWin: finding.quickWin,
     phaseRecommendation: finding.phaseRecommendation,
     evidence: finding.evidence,
     status: finding.status,
+    recommendations:
+      finding.recommendations?.map((recommendation) => ({
+        id: recommendation.id,
+        title: recommendation.title,
+        rationale: recommendation.rationale,
+        type: recommendation.type,
+        impact: recommendation.impact,
+        effort: recommendation.effort,
+        phase: recommendation.phase,
+        findingId: recommendation.findingId
+      })) ?? [],
     createdAt: finding.createdAt.toISOString(),
     updatedAt: finding.updatedAt.toISOString()
   };
@@ -9888,6 +10033,7 @@ function serializeRecommendation<
     effort: string;
     impact: string;
     clientApprovalStatus: string;
+    findingId: string | null;
     linkedFindingIds: string[];
     createdAt: Date;
     updatedAt: Date;
@@ -9904,6 +10050,7 @@ function serializeRecommendation<
     effort: recommendation.effort,
     impact: recommendation.impact,
     clientApprovalStatus: recommendation.clientApprovalStatus,
+    findingId: recommendation.findingId,
     linkedFindingIds: recommendation.linkedFindingIds,
     createdAt: recommendation.createdAt.toISOString(),
     updatedAt: recommendation.updatedAt.toISOString()
@@ -10162,24 +10309,53 @@ export async function createPortalSnapshotForPortal(portalId: string) {
 export async function loadProjectFindings(projectId: string) {
   const findings = await prisma.finding.findMany({
     where: { projectId },
+    include: {
+      recommendations: {
+        orderBy: [{ createdAt: "desc" }],
+        take: 3
+      }
+    },
     orderBy: [{ createdAt: "desc" }]
   });
 
-  return findings.map((finding) => serializeFinding(finding));
+  const severityOrder = {
+    critical: 0,
+    high: 1,
+    medium: 2,
+    low: 3
+  } as const;
+
+  return findings
+    .sort((left, right) => {
+      const leftOrder =
+        severityOrder[left.severity as keyof typeof severityOrder] ?? 99;
+      const rightOrder =
+        severityOrder[right.severity as keyof typeof severityOrder] ?? 99;
+
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+
+      return right.createdAt.valueOf() - left.createdAt.valueOf();
+    })
+    .map((finding) => serializeFinding(finding));
 }
 
 export async function createProjectFinding(projectId: string, value: unknown) {
   const payload = createFindingInputSchema.parse(value);
+  const evidence = normalizeFindingEvidence(payload.evidence);
   const finding = await prisma.finding.create({
     data: {
       projectId,
       area: payload.area,
       severity: payload.severity,
+      source: payload.source ?? "manual",
+      category: payload.category ?? null,
       title: payload.title,
       description: payload.description,
       quickWin: payload.quickWin ?? false,
       phaseRecommendation: payload.phaseRecommendation ?? "next",
-      evidence: payload.evidence ?? null
+      ...(evidence !== undefined ? { evidence } : {})
     }
   });
 
@@ -10206,6 +10382,10 @@ export async function updateProjectFinding(
     data: {
       ...(payload.area !== undefined ? { area: payload.area } : {}),
       ...(payload.severity !== undefined ? { severity: payload.severity } : {}),
+      ...(payload.source !== undefined ? { source: payload.source } : {}),
+      ...(payload.category !== undefined
+        ? { category: payload.category }
+        : {}),
       ...(payload.title !== undefined ? { title: payload.title } : {}),
       ...(payload.description !== undefined
         ? { description: payload.description }
@@ -10214,7 +10394,10 @@ export async function updateProjectFinding(
       ...(payload.phaseRecommendation !== undefined
         ? { phaseRecommendation: payload.phaseRecommendation }
         : {}),
-      ...(payload.evidence !== undefined ? { evidence: payload.evidence } : {}),
+      ...(() => {
+        const evidence = normalizeFindingEvidence(payload.evidence);
+        return evidence !== undefined ? { evidence } : {};
+      })(),
       ...(payload.status !== undefined ? { status: payload.status } : {})
     }
   });
@@ -10266,6 +10449,7 @@ export async function createProjectRecommendation(
       rationale: payload.rationale,
       effort: payload.effort,
       impact: payload.impact,
+      findingId: payload.findingId ?? null,
       linkedFindingIds: payload.linkedFindingIds ?? []
     }
   });
@@ -10340,16 +10524,7 @@ export async function generateProjectPortalAudit(projectId: string) {
       prisma.finding.findMany({
         where: {
           projectId,
-          OR: [
-            { evidence: null },
-            {
-              NOT: {
-                evidence: {
-                  startsWith: aiGeneratedPortalAuditEvidencePrefix
-                }
-              }
-            }
-          ]
+          OR: [{ source: null }, { NOT: { source: "ai_audit" } }]
         },
         orderBy: [{ createdAt: "desc" }]
       }),
@@ -10477,9 +10652,7 @@ Rules:
       await transaction.finding.deleteMany({
         where: {
           projectId,
-          evidence: {
-            startsWith: aiGeneratedPortalAuditEvidencePrefix
-          }
+          source: "ai_audit"
         }
       });
 
@@ -10501,11 +10674,18 @@ Rules:
             projectId,
             area: finding.area,
             severity: finding.severity,
+            source: "ai_audit",
+            category: finding.area,
             title: finding.title.trim(),
             description: finding.description.trim(),
             quickWin: finding.quickWin ?? false,
             phaseRecommendation: finding.phaseRecommendation?.trim() || "phase 1",
-            evidence: `${aiGeneratedPortalAuditEvidencePrefix} ${finding.evidence?.trim() || "Generated from the latest portal snapshot and project context."}`,
+            evidence: {
+              summary:
+                finding.evidence?.trim() ||
+                "Generated from the latest portal snapshot and project context.",
+              generatedBy: "legacy_portal_audit"
+            } as Prisma.Prisma.InputJsonValue,
             status: "open"
           }
         });
@@ -10531,6 +10711,7 @@ Rules:
         const createdRecommendation = await transaction.recommendation.create({
           data: {
             projectId,
+            findingId: linkedFindingIds[0] ?? null,
             title: recommendation.title.trim(),
             area: recommendation.area,
             type: recommendation.type,
@@ -11009,6 +11190,7 @@ export async function updateProjectRecommendation(
         : {}),
       ...(payload.effort !== undefined ? { effort: payload.effort } : {}),
       ...(payload.impact !== undefined ? { impact: payload.impact } : {}),
+      ...(payload.findingId !== undefined ? { findingId: payload.findingId } : {}),
       ...(payload.linkedFindingIds !== undefined
         ? { linkedFindingIds: payload.linkedFindingIds }
         : {}),
