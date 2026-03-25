@@ -9523,7 +9523,9 @@ Rules:
         activeUserCount: latestSnapshot.activeUserCount,
         teamCount: latestSnapshot.teamCount,
         activeListCount: latestSnapshot.activeListCount,
-        rawApiResponses: latestSnapshot.rawApiResponses
+        rawApiPreview: summarizePortalSnapshotRawApiResponses(
+          latestSnapshot.rawApiResponses
+        )
       },
       existingManualFindings: existingManualFindings.map((finding) => ({
         area: finding.area,
@@ -9544,7 +9546,7 @@ Rules:
         })
       )
     }),
-    { maxTokens: 6000 }
+    { maxTokens: 3200 }
   );
 
   const parsedAudit = await parseModelJson(
@@ -16745,6 +16747,20 @@ function extractOpenAiText(payload: any) {
   return "";
 }
 
+function extractOpenAiErrorMessage(payload: any) {
+  const error = payload?.error;
+
+  if (typeof error === "string" && error.trim()) {
+    return error.trim();
+  }
+
+  if (typeof error?.message === "string" && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return null;
+}
+
 function extractPerplexityErrorMessage(payload: any) {
   const error = payload?.error;
 
@@ -16769,6 +16785,187 @@ function extractGeminiText(payload: any) {
     .map((part) => (typeof part?.text === "string" ? part.text : ""))
     .join("\n")
     .trim();
+}
+
+function summarizePortalSnapshotRawApiResponses(value: Prisma.Prisma.JsonValue) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const payload = value as Record<string, unknown>;
+
+  function summarizeProperties(key: string) {
+    const source = payload[key];
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+      return null;
+    }
+
+    const sourceRecord = source as { results?: unknown[] };
+    const results = Array.isArray(sourceRecord.results)
+      ? sourceRecord.results
+      : [];
+
+    return results.slice(0, 20).map((entry) => {
+      const record =
+        entry && typeof entry === "object"
+          ? (entry as Record<string, unknown>)
+          : {};
+
+      return {
+        name: typeof record.name === "string" ? record.name : null,
+        label: typeof record.label === "string" ? record.label : null,
+        type: typeof record.type === "string" ? record.type : null,
+        fieldType:
+          typeof record.fieldType === "string" ? record.fieldType : null,
+        groupName:
+          typeof record.groupName === "string" ? record.groupName : null
+      };
+    });
+  }
+
+  function summarizePipelines(key: string) {
+    const source = payload[key];
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+      return null;
+    }
+
+    const sourceRecord = source as { results?: unknown[] };
+    const results = Array.isArray(sourceRecord.results)
+      ? sourceRecord.results
+      : [];
+
+    return results.slice(0, 10).map((entry) => {
+      const record =
+        entry && typeof entry === "object"
+          ? (entry as Record<string, unknown>)
+          : {};
+      const stages = Array.isArray(record.stages) ? record.stages : [];
+
+      return {
+        id: typeof record.id === "string" ? record.id : null,
+        label: typeof record.label === "string" ? record.label : null,
+        stages: stages.slice(0, 10).map((stage) => {
+          const stageRecord =
+            stage && typeof stage === "object"
+              ? (stage as Record<string, unknown>)
+              : {};
+          return {
+            id: typeof stageRecord.id === "string" ? stageRecord.id : null,
+            label:
+              typeof stageRecord.label === "string" ? stageRecord.label : null
+          };
+        })
+      };
+    });
+  }
+
+  function summarizeSchemas() {
+    const source = payload.customObjectSchemas;
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+      return null;
+    }
+
+    const sourceRecord = source as { results?: unknown[] };
+    const results = Array.isArray(sourceRecord.results)
+      ? sourceRecord.results
+      : [];
+
+    return results.slice(0, 10).map((entry) => {
+      const record =
+        entry && typeof entry === "object"
+          ? (entry as Record<string, unknown>)
+          : {};
+      const labels =
+        record.labels && typeof record.labels === "object"
+          ? (record.labels as Record<string, unknown>)
+          : {};
+      const properties = Array.isArray(record.properties)
+        ? record.properties
+        : [];
+
+      return {
+        name: typeof record.name === "string" ? record.name : null,
+        singularLabel:
+          typeof labels.singular === "string" ? labels.singular : null,
+        pluralLabel: typeof labels.plural === "string" ? labels.plural : null,
+        primaryDisplayProperty:
+          typeof record.primaryDisplayProperty === "string"
+            ? record.primaryDisplayProperty
+            : null,
+        propertyCount: properties.length
+      };
+    });
+  }
+
+  function summarizeCollection(key: string, preferredFields: string[]) {
+    const source = payload[key];
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+      return null;
+    }
+
+    const collection = source as {
+      results?: unknown[];
+      lists?: unknown[];
+      total?: number;
+      count?: number;
+    };
+    const items = Array.isArray(collection.results)
+      ? collection.results
+      : Array.isArray(collection.lists)
+        ? collection.lists
+        : [];
+
+    return {
+      total:
+        typeof collection.total === "number"
+          ? collection.total
+          : typeof collection.count === "number"
+            ? collection.count
+            : items.length,
+      sample: items.slice(0, 10).map((entry) => {
+        const record =
+          entry && typeof entry === "object"
+            ? (entry as Record<string, unknown>)
+            : {};
+        return Object.fromEntries(
+          preferredFields.map((field) => [
+            field,
+            typeof record[field] === "string" ? record[field] : null
+          ])
+        );
+      })
+    };
+  }
+
+  const accountInfoSource = payload.accountInfoDetails;
+  const accountInfo =
+    accountInfoSource &&
+    typeof accountInfoSource === "object" &&
+    !Array.isArray(accountInfoSource)
+      ? Object.fromEntries(
+          Object.entries(accountInfoSource as Record<string, unknown>)
+            .filter(([, entry]) =>
+              typeof entry === "string" ||
+              typeof entry === "number" ||
+              typeof entry === "boolean"
+            )
+            .slice(0, 20)
+        )
+      : null;
+
+  return {
+    accountInfo,
+    contactPropertiesSample: summarizeProperties("contactProperties"),
+    companyPropertiesSample: summarizeProperties("companyProperties"),
+    dealPropertiesSample: summarizeProperties("dealProperties"),
+    ticketPropertiesSample: summarizeProperties("ticketProperties"),
+    dealPipelinesSample: summarizePipelines("dealPipelines"),
+    ticketPipelinesSample: summarizePipelines("ticketPipelines"),
+    customObjectsSample: summarizeSchemas(),
+    usersSample: summarizeCollection("users", ["id", "email", "firstName", "lastName"]),
+    teamsSample: summarizeCollection("teams", ["id", "name"]),
+    listsSample: summarizeCollection("lists", ["listId", "name"])
+  };
 }
 
 async function callAiWorkflow(
@@ -16847,8 +17044,12 @@ async function callResolvedAiWorkflow(
       }
     );
 
-    if (!response.ok) {
-      throw new Error(`OpenAI request failed with status ${response.status}`);
+      if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(
+        extractOpenAiErrorMessage(payload) ||
+          `OpenAI request failed with status ${response.status}`
+      );
     }
 
     return extractOpenAiText(await response.json());
