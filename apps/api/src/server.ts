@@ -91,15 +91,12 @@ const defaultHubSpotOAuthRequiredScopes = [
   "crm.objects.deals.read",
   "crm.objects.deals.write",
   "crm.objects.owners.read",
-  "crm.objects.users.read",
   "crm.schemas.contacts.read",
   "crm.schemas.contacts.write",
   "crm.schemas.companies.read",
   "crm.schemas.companies.write",
   "crm.schemas.deals.read",
-  "crm.schemas.deals.write",
-  "settings.users.read",
-  "settings.users.teams.read"
+  "crm.schemas.deals.write"
 ] as const;
 const defaultHubSpotOAuthOptionalScopes = [
   "crm.objects.line_items.read",
@@ -114,7 +111,6 @@ const defaultHubSpotOAuthOptionalScopes = [
   "crm.objects.leads.write",
   "crm.objects.services.read",
   "crm.objects.services.write",
-  "crm.objects.users.read",
   "crm.objects.users.write",
   "crm.objects.marketing_events.read",
   "crm.objects.marketing_events.write",
@@ -143,9 +139,7 @@ const defaultHubSpotOAuthOptionalScopes = [
   "communication_preferences.read_write",
   "settings.currencies.read",
   "settings.currencies.write",
-  "settings.users.read",
   "settings.users.write",
-  "settings.users.teams.read",
   "settings.users.teams.write",
   "settings.security.security_health.read",
   "business_units_view.read",

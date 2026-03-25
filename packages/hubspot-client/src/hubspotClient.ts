@@ -374,6 +374,48 @@ export class HubSpotClient {
     return (await response.json()) as T;
   }
 
+  private async requestOptionalJson<T>(
+    path: string,
+    init: RequestInit,
+    errorLabel: string,
+    toleratedStatuses: number[] = [403]
+  ): Promise<T | null> {
+    const url = `${this.baseUrl}${path}`;
+
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+        "Content-Type": "application/json",
+        ...(init.headers ?? {})
+      }
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+
+      if (toleratedStatuses.includes(response.status)) {
+        this.logger.warn(`${errorLabel} skipped because the token lacks scope.`, {
+          path,
+          status: response.status,
+          body
+        });
+
+        return null;
+      }
+
+      throw new Error(
+        `${errorLabel} failed with status ${response.status}: ${body}`
+      );
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    return (await response.json()) as T;
+  }
+
   public async fetchProperties(
     objectType: string
   ): Promise<ComparablePropertyDefinition[]> {
@@ -706,12 +748,12 @@ export class HubSpotClient {
         { method: "GET" },
         "HubSpot ticket pipelines fetch"
       ),
-      this.requestJson<HubSpotCountableCollectionResponse>(
+      this.requestOptionalJson<HubSpotCountableCollectionResponse>(
         "/settings/v3/users",
         { method: "GET" },
         "HubSpot users fetch"
       ),
-      this.requestJson<HubSpotCountableCollectionResponse>(
+      this.requestOptionalJson<HubSpotCountableCollectionResponse>(
         "/settings/v3/users/teams",
         { method: "GET" },
         "HubSpot teams fetch"
