@@ -425,6 +425,18 @@ export default function PortalAuditWorkspace({
       value: formatCount(snapshot?.customObjectCount ?? null)
     },
     {
+      label: "Active Users",
+      value: formatCount(snapshot?.activeUserCount ?? null)
+    },
+    {
+      label: "Teams",
+      value: formatCount(snapshot?.teamCount ?? null)
+    },
+    {
+      label: "Active Lists",
+      value: formatCount(snapshot?.activeListCount ?? null)
+    },
+    {
       label: "Deal Pipelines / Stages",
       value: snapshot
         ? `${formatCount(snapshot.dealPipelineCount)} / ${formatCount(snapshot.dealStageCount)}`
