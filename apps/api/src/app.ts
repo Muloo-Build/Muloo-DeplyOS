@@ -1,9 +1,11 @@
 import type * as http from "node:http";
 import { createAdaptorServer, type HttpBindings } from "@hono/node-server";
-import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import { type BaseConfig, getIntegrationStatus } from "@muloo/config";
 import {
+  createProjectFromTemplate,
   loadAllExecutionRecords,
+  loadExecutionById,
+  loadExecutionSteps,
   loadAllTemplates,
   loadProjectById,
   loadProjectDiscoveryById,
@@ -17,17 +19,22 @@ import {
   summarizeProjectModules,
   updateProjectDiscoverySection,
   updateProjectLifecycleDesign,
+  updateProjectMetadata,
   updateProjectPipelinesDesign,
   updateProjectPropertiesDesign,
+  updateProjectScope,
   validateAllProjects,
   validateProjectById
 } from "@muloo/file-system";
 import {
+  createProjectFromTemplateRequestSchema,
   moduleCatalog,
   updateProjectDiscoverySectionRequestSchema,
   updateProjectLifecycleDesignRequestSchema,
+  updateProjectMetadataRequestSchema,
   updateProjectPipelinesDesignRequestSchema,
-  updateProjectPropertiesDesignRequestSchema
+  updateProjectPropertiesDesignRequestSchema,
+  updateProjectScopeRequestSchema
 } from "@muloo/shared";
 import { type Context, Hono, type Next } from "hono";
 import { ZodError } from "zod";
@@ -57,7 +64,8 @@ import {
   executeHubSpotAgentAction,
   extractDiscoveryFields,
   getAuthenticatedClientUserId,
-  handleLegacyRequest,
+  generateProjectEmailDraft,
+  generateSolutionOptions,
   industryOptions,
   isAuthenticated,
   isUniqueConstraintError,
@@ -111,8 +119,10 @@ import {
   loadProjectRecord,
   loadProjectsDirectory,
   loadProjectTasks,
+  loadProjectChangeRequests,
   refreshClientEnrichment,
   loadProjectMessages,
+  markProjectMessagesSeenByInternal,
   markProjectMessagesSeenByClient,
   resetDiscoverySummary,
   saveClientInputSubmission,
@@ -125,6 +135,8 @@ import {
   generateBlueprintForProject,
   generateProjectTaskPlan,
   queueAgentRun,
+  sendWorkspaceEmail,
+  shareProjectQuote,
   updateProjectRecord,
   updateProjectRecordStatus,
   updateAgentRun,
@@ -200,6 +212,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/inbox/*", internalAuth);
   app.use("/api/runs", internalAuth);
   app.use("/api/runs/*", internalAuth);
+  app.use("/api/executions", internalAuth);
+  app.use("/api/executions/*", internalAuth);
   app.use("/api/users", internalAuth);
   app.use("/api/users/*", internalAuth);
   app.use("/api/provider-connections", internalAuth);
@@ -218,6 +232,7 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/discovery/*", internalAuth);
   app.use("/api/projects", internalAuth);
   app.use("/api/projects/*", internalAuth);
+  app.use("/api/solution-options", internalAuth);
   app.use("/api/hubspot", internalAuth);
   app.use("/api/hubspot/*", internalAuth);
   app.use("/api/portals", internalAuth);
@@ -507,9 +522,18 @@ export function createApiApp(config: BaseConfig) {
     return c.json({ error: "Method Not Allowed" }, 405);
   });
 
-  app.all("/api/projects/from-template", async (c) => {
-    await handleLegacyRequest(config, c.env.incoming, c.env.outgoing);
-    return RESPONSE_ALREADY_SENT;
+  app.post("/api/projects/from-template", async (c) => {
+    const payload = createProjectFromTemplateRequestSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+    const project = await createProjectFromTemplate(payload);
+    return c.json(
+      {
+        project,
+        summary: await summarizeProject(project)
+      },
+      201
+    );
   });
 
   app.all("/api/projects/:projectId", async (c) => {
@@ -529,6 +553,20 @@ export function createApiApp(config: BaseConfig) {
             : 400
         );
       }
+    }
+
+    if (c.req.method === "PUT") {
+      const payload = updateProjectMetadataRequestSchema.parse(
+        await readJsonBodyOrEmpty(c)
+      );
+      const project = await updateProjectMetadata(
+        c.req.param("projectId"),
+        payload
+      );
+      return c.json({
+        project,
+        summary: await summarizeProject(project)
+      });
     }
 
     if (c.req.method === "PATCH") {
@@ -1274,6 +1312,326 @@ export function createApiApp(config: BaseConfig) {
 
     return c.json({ error: "Method Not Allowed" }, 405);
   });
+
+  app.put("/api/projects/:projectId/scope", async (c) => {
+    const payload = updateProjectScopeRequestSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+    const project = await updateProjectScope(c.req.param("projectId"), payload);
+    return c.json({
+      project,
+      summary: await summarizeProject(project)
+    });
+  });
+
+  app.all("/api/projects/:projectId/messages", async (c) => {
+    const project = await prisma.project.findUnique({
+      where: { id: c.req.param("projectId") },
+      select: { id: true }
+    });
+
+    if (!project) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    if (c.req.method === "GET") {
+      await markProjectMessagesSeenByInternal(c.req.param("projectId"));
+      return c.json({
+        messages: await loadProjectMessages(c.req.param("projectId"))
+      });
+    }
+
+    if (c.req.method === "POST") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as {
+          body?: unknown;
+          senderName?: unknown;
+        };
+        const message = await createProjectMessage({
+          projectId: c.req.param("projectId"),
+          senderType: "internal",
+          senderName:
+            typeof body.senderName === "string" &&
+            body.senderName.trim().length > 0
+              ? body.senderName
+              : "Muloo",
+          body: body.body
+        });
+
+        return c.json({ message }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error ? error.message : "Failed to post message"
+          },
+          400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.post("/api/projects/:projectId/quote/share", async (c) => {
+    try {
+      const result = await shareProjectQuote(
+        c.req.param("projectId"),
+        await readJsonBodyOrEmpty(c)
+      );
+      return c.json({
+        project: result.project,
+        quote: result.quote,
+        shared: true
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "Project not found") {
+        return c.json({ error: error.message }, 404);
+      }
+
+      if (
+        error instanceof Error &&
+        error.message ===
+          "Approved scope is locked. Use change management to revise this project."
+      ) {
+        return c.json({ error: error.message }, 409);
+      }
+
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to share quote"
+        },
+        400
+      );
+    }
+  });
+
+  app.all("/api/projects/:projectId/changes", async (c) => {
+    if (c.req.method === "GET") {
+      try {
+        const result = await loadProjectChangeRequests(
+          c.req.param("projectId")
+        );
+        return c.json(result);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to load project change requests"
+          },
+          error instanceof Error && error.message === "Project not found"
+            ? 404
+            : 400
+        );
+      }
+    }
+
+    if (c.req.method === "POST") {
+      try {
+        const project = await prisma.project.findUnique({
+          where: { id: c.req.param("projectId") },
+          include: {
+            client: true
+          }
+        });
+
+        if (!project) {
+          return c.json({ error: "Project not found" }, 404);
+        }
+
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const workRequest = await createWorkRequest({
+          ...body,
+          projectId: project.id,
+          serviceFamily: project.serviceFamily,
+          companyName: project.client.name,
+          contactName:
+            typeof body.contactName === "string" &&
+            body.contactName.trim().length > 0
+              ? body.contactName
+              : project.clientChampionFirstName ||
+                project.owner ||
+                project.client.name,
+          contactEmail:
+            typeof body.contactEmail === "string" &&
+            body.contactEmail.trim().length > 0
+              ? body.contactEmail
+              : project.clientChampionEmail ||
+                project.ownerEmail ||
+                "hello@muloo.co",
+          requestType: "change_request"
+        });
+
+        return c.json({ workRequest }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create project change request"
+          },
+          400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.post("/api/projects/:projectId/email-draft", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        intent?: unknown;
+        mode?: unknown;
+        providerKey?: unknown;
+        modelOverride?: unknown;
+        sourceSubject?: unknown;
+        sourceBody?: unknown;
+        customInstructions?: unknown;
+      };
+
+      if (typeof body.intent !== "string" || body.intent.trim().length === 0) {
+        return c.json({ error: "intent must be a non-empty string" }, 400);
+      }
+
+      const draft = await generateProjectEmailDraft({
+        projectId: c.req.param("projectId"),
+        intent: body.intent.trim(),
+        mode:
+          body.mode === "cleanup" || body.mode === "generate"
+            ? body.mode
+            : "generate",
+        ...(typeof body.providerKey === "string" &&
+        body.providerKey.trim().length > 0
+          ? { providerKey: body.providerKey.trim() }
+          : {}),
+        ...(typeof body.modelOverride === "string"
+          ? { modelOverride: body.modelOverride.trim() }
+          : {}),
+        ...(typeof body.sourceSubject === "string"
+          ? { sourceSubject: body.sourceSubject }
+          : {}),
+        ...(typeof body.sourceBody === "string"
+          ? { sourceBody: body.sourceBody }
+          : {}),
+        ...(typeof body.customInstructions === "string"
+          ? { customInstructions: body.customInstructions.trim() }
+          : {})
+      });
+
+      return c.json({ draft });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to draft project email"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
+  app.post("/api/projects/:projectId/send-email", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        to?: unknown;
+        cc?: unknown;
+        subject?: unknown;
+        body?: unknown;
+      };
+
+      const result = await sendWorkspaceEmail(body);
+      const toRecipients = (Array.isArray(body.to) ? body.to : [body.to])
+        .flatMap((entry) =>
+          typeof entry === "string" ? entry.split(/[,\n;]/) : []
+        )
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+      const ccRecipients = (Array.isArray(body.cc) ? body.cc : [body.cc])
+        .flatMap((entry) =>
+          typeof entry === "string" ? entry.split(/[,\n;]/) : []
+        )
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+      await createProjectMessage({
+        projectId: c.req.param("projectId"),
+        senderType: "internal",
+        senderName: "Muloo Email Composer",
+        body: `Email sent\nTo: ${toRecipients.join(", ")}${
+          ccRecipients.length > 0 ? `\nCc: ${ccRecipients.join(", ")}` : ""
+        }\nSubject: ${
+          typeof body.subject === "string" ? body.subject.trim() : ""
+        }\n\n${typeof body.body === "string" ? body.body.trim() : ""}`
+      });
+      return c.json({ sent: true, result });
+    } catch (error) {
+      return c.json(
+        {
+          error: error instanceof Error ? error.message : "Failed to send email"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/solution-options", async (c) => {
+    const body = (await readJsonBodyOrEmpty(c)) as {
+      clientName?: string;
+      website?: string;
+      problemStatement?: string;
+      serviceFamily?: string;
+    };
+
+    if (
+      typeof body.problemStatement !== "string" ||
+      body.problemStatement.trim().length < 20
+    ) {
+      return c.json(
+        {
+          error: "problemStatement must be at least 20 characters"
+        },
+        400
+      );
+    }
+
+    return c.json(
+      await generateSolutionOptions({
+        problemStatement: body.problemStatement.trim(),
+        ...(typeof body.clientName === "string" &&
+        body.clientName.trim().length > 0
+          ? { clientName: body.clientName.trim() }
+          : {}),
+        ...(typeof body.website === "string" && body.website.trim().length > 0
+          ? { website: body.website.trim() }
+          : {}),
+        ...(typeof body.serviceFamily === "string" &&
+        body.serviceFamily.trim().length > 0
+          ? { serviceFamily: body.serviceFamily.trim() }
+          : {})
+      })
+    );
+  });
+
+  app.get("/api/executions/:executionId", async (c) =>
+    c.json({
+      execution: await loadExecutionById(c.req.param("executionId"))
+    })
+  );
+
+  app.get("/api/executions/:executionId/steps", async (c) =>
+    c.json({
+      executionId: c.req.param("executionId"),
+      steps: await loadExecutionSteps(c.req.param("executionId"))
+    })
+  );
 
   app.get("/api/users", async (c) =>
     c.json({
@@ -2500,10 +2858,7 @@ export function createApiApp(config: BaseConfig) {
     }
   );
 
-  app.all("*", async (c) => {
-    await handleLegacyRequest(config, c.env.incoming, c.env.outgoing);
-    return RESPONSE_ALREADY_SENT;
-  });
+  app.notFound((c) => c.json({ error: "Not Found" }, 404));
 
   return app;
 }

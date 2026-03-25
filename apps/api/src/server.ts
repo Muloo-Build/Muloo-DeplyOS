@@ -1,39 +1,25 @@
 import type * as http from "node:http";
 import crypto from "node:crypto";
 import nodemailer from "nodemailer";
-import { getIntegrationStatus, type BaseConfig } from "@muloo/config";
+import { getIntegrationStatus } from "@muloo/config";
 import { HubSpotClient } from "@muloo/hubspot-client";
 import {
-  createProjectFromTemplate,
-  loadExecutionById,
-  loadExecutionSteps,
   loadProjectById,
   loadProjectExecutions,
   loadProjectModuleDetail,
   loadProjectSummaryById,
   summarizeProjectModules,
   summarizeProject,
-  updateProjectMetadata,
-  updateProjectScope,
   validateProjectById
 } from "@muloo/file-system";
 import Prisma from "@prisma/client";
 import { moduleCatalog } from "@muloo/shared";
-import {
-  createProjectFromTemplateRequestSchema,
-  updateProjectMetadataRequestSchema,
-  updateProjectScopeRequestSchema
-} from "@muloo/shared";
 import { z, ZodError } from "zod";
 import { prisma } from "./prisma";
 
 type PrismaTransactionClient = Parameters<
   Parameters<typeof prisma.$transaction>[0]
 >[0];
-
-const contentTypes: Record<string, string> = {
-  ".json": "application/json; charset=utf-8"
-};
 
 const pendingPortalPrefix = "pending-portal-";
 export const authCookieName = "muloo_deploy_os_auth";
@@ -2297,15 +2283,6 @@ function resolveAssignedInputSectionsForAccess(input: {
   );
 }
 
-function sendJson(
-  response: http.ServerResponse,
-  statusCode: number,
-  payload: unknown
-): void {
-  response.writeHead(statusCode, { "Content-Type": contentTypes[".json"] });
-  response.end(`${JSON.stringify(payload, null, 2)}\n`);
-}
-
 function parseCookies(request: http.IncomingMessage): Record<string, string> {
   const cookieHeader = request.headers.cookie;
 
@@ -2348,14 +2325,6 @@ export function createCookieHeader(
   }
 
   return cookieParts.join("; ");
-}
-
-function setCookie(
-  response: http.ServerResponse,
-  value: string,
-  options?: { maxAge?: number; name?: string }
-) {
-  response.setHeader("Set-Cookie", createCookieHeader(value, options));
 }
 
 export function resolveSimpleAuthCredentials() {
@@ -2458,121 +2427,6 @@ export function getAuthenticatedClientUserId(request: http.IncomingMessage) {
   } catch {
     return null;
   }
-}
-
-export async function readJsonBody(
-  request: http.IncomingMessage
-): Promise<unknown> {
-  const chunks: Buffer[] = [];
-
-  for await (const chunk of request) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-
-  if (chunks.length === 0) {
-    return {};
-  }
-
-  const content = Buffer.concat(chunks).toString("utf8").trim();
-  return content.length > 0 ? (JSON.parse(content) as unknown) : {};
-}
-
-function matchProjectRoute(pathname: string): {
-  projectId: string;
-  resource?:
-    | "modules"
-    | "summary"
-    | "validation"
-    | "readiness"
-    | "executions"
-    | "scope"
-    | "discovery"
-    | "status"
-    | "changes"
-    | "email-draft"
-    | "send-email";
-} | null {
-  const match =
-    /^\/api\/projects\/([^/]+?)(?:\/(modules|summary|validation|readiness|executions|scope|discovery|status|changes|email-draft|send-email))?$/.exec(
-      pathname
-    );
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  const projectId = decodeURIComponent(match[1]);
-  const resource = match[2];
-  const normalizedResource =
-    resource === "modules" ||
-    resource === "summary" ||
-    resource === "validation" ||
-    resource === "readiness" ||
-    resource === "executions" ||
-    resource === "scope" ||
-    resource === "discovery" ||
-    resource === "status" ||
-    resource === "changes" ||
-    resource === "email-draft" ||
-    resource === "send-email"
-      ? resource
-      : undefined;
-
-  return normalizedResource
-    ? { projectId, resource: normalizedResource }
-    : { projectId };
-}
-
-function matchProjectQuoteRoute(pathname: string): {
-  projectId: string;
-  action?: "share";
-} | null {
-  const match = /^\/api\/projects\/([^/]+?)\/quote(?:\/(share))?$/.exec(
-    pathname
-  );
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1]),
-    ...(match[2] === "share" ? { action: "share" as const } : {})
-  };
-}
-
-function matchExecutionRoute(pathname: string): {
-  executionId: string;
-  resource?: "steps";
-} | null {
-  const match = /^\/api\/executions\/([^/]+?)(?:\/(steps))?$/.exec(pathname);
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  return match[2] === "steps"
-    ? {
-        executionId: decodeURIComponent(match[1]),
-        resource: "steps"
-      }
-    : {
-        executionId: decodeURIComponent(match[1])
-      };
-}
-
-function matchProjectMessagesRoute(pathname: string): {
-  projectId: string;
-} | null {
-  const match = /^\/api\/projects\/([^/]+?)\/messages$/.exec(pathname);
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1])
-  };
 }
 
 function emptyDiscoverySessions(): Record<number, DiscoverySessionFields> {
@@ -6842,7 +6696,7 @@ async function loadProjectDiscoveryForBlueprint(projectId: string) {
   };
 }
 
-async function generateSolutionOptions(input: {
+export async function generateSolutionOptions(input: {
   clientName?: string;
   website?: string;
   problemStatement: string;
@@ -6914,7 +6768,7 @@ Rules:
   };
 }
 
-async function generateProjectEmailDraft(input: {
+export async function generateProjectEmailDraft(input: {
   projectId: string;
   intent: string;
   mode?: "generate" | "cleanup";
@@ -7485,7 +7339,7 @@ export async function ensureProjectScopeUnlocked(
   }
 }
 
-async function shareProjectQuote(projectId: string, payload: unknown) {
+export async function shareProjectQuote(projectId: string, payload: unknown) {
   await ensureProjectScopeUnlocked(projectId);
   const latestExistingQuote = await prisma.projectQuote.findFirst({
     where: { projectId },
@@ -10465,7 +10319,7 @@ export async function loadWorkRequests(filters?: {
   return requests.map((request) => serializeWorkRequest(request));
 }
 
-async function loadProjectChangeRequests(projectId: string) {
+export async function loadProjectChangeRequests(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: { id: true, name: true }
@@ -12870,7 +12724,7 @@ export async function createProjectMessage(value: {
   return serializeProjectMessage(message);
 }
 
-async function markProjectMessagesSeenByInternal(projectId: string) {
+export async function markProjectMessagesSeenByInternal(projectId: string) {
   await prisma.projectMessage.updateMany({
     where: {
       projectId,
@@ -13790,7 +13644,7 @@ async function sendWorkspaceEmailViaGoogleMailbox(value: {
   };
 }
 
-async function sendWorkspaceEmail(value: {
+export async function sendWorkspaceEmail(value: {
   to?: unknown;
   cc?: unknown;
   subject?: unknown;
@@ -14631,422 +14485,5 @@ Example format:
   } catch {
     console.log("[discovery/extract] Parsed fields:", JSON.stringify({}));
     return { fields: {} };
-  }
-}
-
-export async function handleLegacyRequest(
-  config: BaseConfig,
-  request: http.IncomingMessage,
-  response: http.ServerResponse
-) {
-  const url = new URL(request.url ?? "/", config.appBaseUrl);
-
-  try {
-    if (
-      url.pathname.startsWith("/api/") &&
-      !url.pathname.startsWith("/api/client-auth/") &&
-      !url.pathname.startsWith("/api/auth/") &&
-      !url.pathname.startsWith("/api/client/") &&
-      url.pathname !== "/api/health"
-    ) {
-      if (!isAuthenticated(request)) {
-        return sendJson(response, 401, { error: "Unauthorized" });
-      }
-    }
-
-    const projectMessagesRoute = matchProjectMessagesRoute(url.pathname);
-    if (projectMessagesRoute) {
-      const project = await prisma.project.findUnique({
-        where: { id: projectMessagesRoute.projectId },
-        select: { id: true }
-      });
-
-      if (!project) {
-        return sendJson(response, 404, { error: "Project not found" });
-      }
-
-      if (request.method === "GET") {
-        await markProjectMessagesSeenByInternal(projectMessagesRoute.projectId);
-        return sendJson(response, 200, {
-          messages: await loadProjectMessages(projectMessagesRoute.projectId)
-        });
-      }
-
-      if (request.method === "POST") {
-        try {
-          const body = (await readJsonBody(request)) as {
-            body?: unknown;
-            senderName?: unknown;
-          };
-          const message = await createProjectMessage({
-            projectId: projectMessagesRoute.projectId,
-            senderType: "internal",
-            senderName:
-              typeof body.senderName === "string" &&
-              body.senderName.trim().length > 0
-                ? body.senderName
-                : "Muloo",
-            body: body.body
-          });
-
-          return sendJson(response, 201, { message });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error ? error.message : "Failed to post message"
-          });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const projectQuoteRoute = matchProjectQuoteRoute(url.pathname);
-    if (projectQuoteRoute) {
-      if (request.method === "POST" && projectQuoteRoute.action === "share") {
-        try {
-          const result = await shareProjectQuote(
-            projectQuoteRoute.projectId,
-            await readJsonBody(request)
-          );
-          return sendJson(response, 200, {
-            project: result.project,
-            quote: result.quote,
-            shared: true
-          });
-        } catch (error) {
-          if (error instanceof Error && error.message === "Project not found") {
-            return sendJson(response, 404, { error: error.message });
-          }
-
-          if (
-            error instanceof Error &&
-            error.message ===
-              "Approved scope is locked. Use change management to revise this project."
-          ) {
-            return sendJson(response, 409, { error: error.message });
-          }
-
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error ? error.message : "Failed to share quote"
-          });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    if (
-      request.method === "POST" &&
-      url.pathname === "/api/projects/from-template"
-    ) {
-      const payload = createProjectFromTemplateRequestSchema.parse(
-        await readJsonBody(request)
-      );
-      const project = await createProjectFromTemplate(payload);
-      return sendJson(response, 201, {
-        project,
-        summary: await summarizeProject(project)
-      });
-    }
-
-    if (request.method === "POST" && url.pathname === "/api/solution-options") {
-      const body = (await readJsonBody(request)) as {
-        clientName?: string;
-        website?: string;
-        problemStatement?: string;
-        serviceFamily?: string;
-      };
-
-      if (
-        typeof body.problemStatement !== "string" ||
-        body.problemStatement.trim().length < 20
-      ) {
-        return sendJson(response, 400, {
-          error: "problemStatement must be at least 20 characters"
-        });
-      }
-
-      const options = await generateSolutionOptions({
-        problemStatement: body.problemStatement.trim(),
-        ...(typeof body.clientName === "string" &&
-        body.clientName.trim().length > 0
-          ? { clientName: body.clientName.trim() }
-          : {}),
-        ...(typeof body.website === "string" && body.website.trim().length > 0
-          ? { website: body.website.trim() }
-          : {}),
-        ...(typeof body.serviceFamily === "string" &&
-        body.serviceFamily.trim().length > 0
-          ? { serviceFamily: body.serviceFamily.trim() }
-          : {})
-      });
-
-      return sendJson(response, 200, options);
-    }
-
-    const executionRoute = matchExecutionRoute(url.pathname);
-    if (executionRoute) {
-      if (executionRoute.resource === "steps") {
-        return sendJson(response, 200, {
-          executionId: executionRoute.executionId,
-          steps: await loadExecutionSteps(executionRoute.executionId)
-        });
-      }
-
-      return sendJson(response, 200, {
-        execution: await loadExecutionById(executionRoute.executionId)
-      });
-    }
-
-    const projectRoute = matchProjectRoute(url.pathname);
-    if (projectRoute) {
-      if (projectRoute.resource === "changes") {
-        if (request.method === "GET") {
-          try {
-            const result = await loadProjectChangeRequests(
-              projectRoute.projectId
-            );
-            return sendJson(response, 200, result);
-          } catch (error) {
-            return sendJson(
-              response,
-              error instanceof Error && error.message === "Project not found"
-                ? 404
-                : 400,
-              {
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to load project change requests"
-              }
-            );
-          }
-        }
-
-        if (request.method === "POST") {
-          try {
-            const project = await prisma.project.findUnique({
-              where: { id: projectRoute.projectId },
-              include: {
-                client: true
-              }
-            });
-
-            if (!project) {
-              return sendJson(response, 404, { error: "Project not found" });
-            }
-
-            const body = (await readJsonBody(request)) as Record<
-              string,
-              unknown
-            >;
-            const workRequest = await createWorkRequest({
-              ...body,
-              projectId: project.id,
-              serviceFamily: project.serviceFamily,
-              companyName: project.client.name,
-              contactName:
-                typeof body.contactName === "string" &&
-                body.contactName.trim().length > 0
-                  ? body.contactName
-                  : project.clientChampionFirstName ||
-                    project.owner ||
-                    project.client.name,
-              contactEmail:
-                typeof body.contactEmail === "string" &&
-                body.contactEmail.trim().length > 0
-                  ? body.contactEmail
-                  : project.clientChampionEmail ||
-                    project.ownerEmail ||
-                    "hello@muloo.co",
-              requestType: "change_request"
-            });
-
-            return sendJson(response, 201, { workRequest });
-          } catch (error) {
-            return sendJson(response, 400, {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to create project change request"
-            });
-          }
-        }
-
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      if (request.method === "PUT" && !projectRoute.resource) {
-        const payload = updateProjectMetadataRequestSchema.parse(
-          await readJsonBody(request)
-        );
-        const project = await updateProjectMetadata(
-          projectRoute.projectId,
-          payload
-        );
-        return sendJson(response, 200, {
-          project,
-          summary: await summarizeProject(project)
-        });
-      }
-
-      if (request.method === "PUT" && projectRoute.resource === "scope") {
-        const payload = updateProjectScopeRequestSchema.parse(
-          await readJsonBody(request)
-        );
-        const project = await updateProjectScope(
-          projectRoute.projectId,
-          payload
-        );
-        return sendJson(response, 200, {
-          project,
-          summary: await summarizeProject(project)
-        });
-      }
-
-      if (
-        request.method === "POST" &&
-        projectRoute.resource === "email-draft"
-      ) {
-        try {
-          const body = (await readJsonBody(request)) as {
-            intent?: unknown;
-            mode?: unknown;
-            providerKey?: unknown;
-            modelOverride?: unknown;
-            sourceSubject?: unknown;
-            sourceBody?: unknown;
-            customInstructions?: unknown;
-          };
-
-          if (
-            typeof body.intent !== "string" ||
-            body.intent.trim().length === 0
-          ) {
-            return sendJson(response, 400, {
-              error: "intent must be a non-empty string"
-            });
-          }
-
-          const draft = await generateProjectEmailDraft({
-            projectId: projectRoute.projectId,
-            intent: body.intent.trim(),
-            mode:
-              body.mode === "cleanup" || body.mode === "generate"
-                ? body.mode
-                : "generate",
-            ...(typeof body.providerKey === "string" &&
-            body.providerKey.trim().length > 0
-              ? { providerKey: body.providerKey.trim() }
-              : {}),
-            ...(typeof body.modelOverride === "string"
-              ? { modelOverride: body.modelOverride.trim() }
-              : {}),
-            ...(typeof body.sourceSubject === "string"
-              ? { sourceSubject: body.sourceSubject }
-              : {}),
-            ...(typeof body.sourceBody === "string"
-              ? { sourceBody: body.sourceBody }
-              : {}),
-            ...(typeof body.customInstructions === "string"
-              ? { customInstructions: body.customInstructions.trim() }
-              : {})
-          });
-
-          return sendJson(response, 200, { draft });
-        } catch (error) {
-          return sendJson(
-            response,
-            error instanceof Error && error.message === "Project not found"
-              ? 404
-              : 400,
-            {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to draft project email"
-            }
-          );
-        }
-      }
-
-      if (request.method === "POST" && projectRoute.resource === "send-email") {
-        try {
-          const body = (await readJsonBody(request)) as {
-            to?: unknown;
-            cc?: unknown;
-            subject?: unknown;
-            body?: unknown;
-          };
-
-          const result = await sendWorkspaceEmail(body);
-          const toRecipients = (Array.isArray(body.to) ? body.to : [body.to])
-            .flatMap((entry) =>
-              typeof entry === "string" ? entry.split(/[,\n;]/) : []
-            )
-            .map((entry) => entry.trim())
-            .filter(Boolean);
-          const ccRecipients = (Array.isArray(body.cc) ? body.cc : [body.cc])
-            .flatMap((entry) =>
-              typeof entry === "string" ? entry.split(/[,\n;]/) : []
-            )
-            .map((entry) => entry.trim())
-            .filter(Boolean);
-          await createProjectMessage({
-            projectId: projectRoute.projectId,
-            senderType: "internal",
-            senderName: "Muloo Email Composer",
-            body: `Email sent\nTo: ${toRecipients.join(", ")}${
-              ccRecipients.length > 0 ? `\nCc: ${ccRecipients.join(", ")}` : ""
-            }\nSubject: ${
-              typeof body.subject === "string" ? body.subject.trim() : ""
-            }\n\n${typeof body.body === "string" ? body.body.trim() : ""}`
-          });
-          return sendJson(response, 200, { sent: true, result });
-        } catch (error) {
-          return sendJson(response, 400, {
-            error:
-              error instanceof Error ? error.message : "Failed to send email"
-          });
-        }
-      }
-
-      if (request.method !== "GET") {
-        return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      const project = await prisma.project.findUnique({
-        where: { id: projectRoute.projectId },
-        include: { client: true, portal: true, discovery: true }
-      });
-      if (!project) {
-        return sendJson(response, 404, { error: "Project not found" });
-      }
-      return sendJson(response, 200, {
-        project: serializeProject(project)
-      });
-    }
-
-    if (url.pathname.startsWith("/api/")) {
-      return sendJson(response, 404, { error: "Not Found" });
-    }
-
-    response.writeHead(404, { "Content-Type": "text/plain" });
-    response.end("Not Found");
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Unexpected server error";
-    const statusCode =
-      error instanceof ZodError
-        ? 400
-        : (error instanceof Error &&
-              "code" in error &&
-              error.code === "ENOENT") ||
-            message.includes("was not found")
-          ? 404
-          : 500;
-    sendJson(response, statusCode, { error: message });
   }
 }

@@ -520,6 +520,8 @@ test("guards internal Hono system routes without an auth cookie", async () => {
       method: "PATCH",
       body: {}
     });
+    await expectUnauthorized(baseUrl, "/api/executions/test-execution");
+    await expectUnauthorized(baseUrl, "/api/executions/test-execution/steps");
     await expectUnauthorized(baseUrl, "/api/projects/test-project/blueprint");
     await expectUnauthorized(
       baseUrl,
@@ -565,6 +567,52 @@ test("guards internal Hono system routes without an auth cookie", async () => {
         body: {}
       }
     );
+    await expectUnauthorized(baseUrl, "/api/projects/from-template", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/solution-options", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/projects/test-project", {
+      method: "PUT",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/scope", {
+      method: "PUT",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/messages");
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/messages", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/quote/share",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/changes");
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/changes", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/email-draft",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/send-email", {
+      method: "POST",
+      body: {}
+    });
     await expectUnauthorized(baseUrl, "/api/projects/test-project/summary");
     await expectUnauthorized(baseUrl, "/api/projects/test-project/validation");
     await expectUnauthorized(baseUrl, "/api/projects/test-project/readiness");
