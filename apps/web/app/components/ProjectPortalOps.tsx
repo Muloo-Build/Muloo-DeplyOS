@@ -85,6 +85,14 @@ function formatSupportMode(value: HubSpotAgentRequestPlan["mode"]) {
   return value === "execute_action" ? "Ready to execute" : "Manual plan";
 }
 
+function getPortalRequestErrorMessage(
+  body: HubSpotAgentRequestResponse | { error?: string } | null
+) {
+  return body && "error" in body && typeof body.error === "string"
+    ? body.error
+    : "Failed to run portal request";
+}
+
 export default function ProjectPortalOps() {
   const [capabilities, setCapabilities] =
     useState<HubSpotCapabilitiesResponse | null>(null);
@@ -171,7 +179,7 @@ export default function ProjectPortalOps() {
         | null;
 
       if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to run portal request");
+        throw new Error(getPortalRequestErrorMessage(body));
       }
 
       setResponseBody(body as HubSpotAgentRequestResponse);
