@@ -152,6 +152,20 @@ interface ClientMemory {
     project: { id: string; name: string };
   }>;
   portalSnapshots: PortalSnapshot[];
+  portalDiff: {
+    fromCapturedAt: string;
+    toCapturedAt: string;
+    newHubs: string[];
+    removedHubs: string[];
+    contactPropertyDelta: number;
+    companyPropertyDelta: number;
+    dealPropertyDelta: number;
+    customObjectDelta: number;
+    dealPipelineDelta: number;
+    dealStageDelta: number;
+    activeUserDelta: number;
+    activeListDelta: number;
+  } | null;
   recentRuns: WorkflowRun[];
 }
 
@@ -185,6 +199,14 @@ function formatRelativeDate(value: string) {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(date);
+}
+
+function formatSignedCount(value: number) {
+  if (value === 0) {
+    return "0";
+  }
+
+  return value > 0 ? `+${value}` : `${value}`;
 }
 
 export default function ProjectPrepareWorkspace({
@@ -789,6 +811,105 @@ export default function ProjectPrepareWorkspace({
                       ) : (
                         <p className="text-sm text-text-secondary">
                           No snapshot history captured for this client yet.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <p className="text-sm font-semibold text-white">
+                      Portal diff
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      {clientMemory?.portalDiff ? (
+                        <>
+                          <p className="text-xs text-text-muted">
+                            {formatRelativeDate(clientMemory.portalDiff.fromCapturedAt)}
+                            {" "}to{" "}
+                            {formatRelativeDate(clientMemory.portalDiff.toCapturedAt)}
+                          </p>
+                          <div className="grid gap-3 lg:grid-cols-2">
+                            <div className="rounded-xl border border-[rgba(255,255,255,0.07)] px-3 py-3">
+                              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                Hubs changed
+                              </p>
+                              <p className="mt-2 text-sm text-white">
+                                +{clientMemory.portalDiff.newHubs.length} / -
+                                {clientMemory.portalDiff.removedHubs.length}
+                              </p>
+                              <p className="mt-2 text-xs text-text-muted">
+                                {clientMemory.portalDiff.newHubs.length
+                                  ? `Added: ${clientMemory.portalDiff.newHubs
+                                      .map((hub) => formatLabel(hub))
+                                      .join(", ")}`
+                                  : "No new hubs detected"}
+                              </p>
+                              <p className="mt-1 text-xs text-text-muted">
+                                {clientMemory.portalDiff.removedHubs.length
+                                  ? `Removed: ${clientMemory.portalDiff.removedHubs
+                                      .map((hub) => formatLabel(hub))
+                                      .join(", ")}`
+                                  : "No hubs removed"}
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl border border-[rgba(255,255,255,0.07)] px-3 py-3">
+                              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                Structure delta
+                              </p>
+                              <div className="mt-2 space-y-1 text-xs text-text-muted">
+                                <p>
+                                  Contact properties:{" "}
+                                  {formatSignedCount(
+                                    clientMemory.portalDiff.contactPropertyDelta
+                                  )}
+                                </p>
+                                <p>
+                                  Company properties:{" "}
+                                  {formatSignedCount(
+                                    clientMemory.portalDiff.companyPropertyDelta
+                                  )}
+                                </p>
+                                <p>
+                                  Deal properties:{" "}
+                                  {formatSignedCount(
+                                    clientMemory.portalDiff.dealPropertyDelta
+                                  )}
+                                </p>
+                                <p>
+                                  Custom objects:{" "}
+                                  {formatSignedCount(
+                                    clientMemory.portalDiff.customObjectDelta
+                                  )}
+                                </p>
+                                <p>
+                                  Pipelines / stages:{" "}
+                                  {formatSignedCount(
+                                    clientMemory.portalDiff.dealPipelineDelta
+                                  )}{" "}
+                                  /{" "}
+                                  {formatSignedCount(
+                                    clientMemory.portalDiff.dealStageDelta
+                                  )}
+                                </p>
+                                <p>
+                                  Active users / lists:{" "}
+                                  {formatSignedCount(
+                                    clientMemory.portalDiff.activeUserDelta
+                                  )}{" "}
+                                  /{" "}
+                                  {formatSignedCount(
+                                    clientMemory.portalDiff.activeListDelta
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-sm text-text-secondary">
+                          Capture at least two portal snapshots to compare how
+                          the client environment has changed over time.
                         </p>
                       )}
                     </div>

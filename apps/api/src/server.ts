@@ -11709,6 +11709,44 @@ export async function loadClientMemory(
       })
     ]);
 
+  const latestSnapshot = portalSnapshots[0] ?? null;
+  const previousSnapshot = portalSnapshots[1] ?? null;
+  const latestHubs = new Set(latestSnapshot?.activeHubs ?? []);
+  const previousHubs = new Set(previousSnapshot?.activeHubs ?? []);
+  const portalDiff =
+    latestSnapshot && previousSnapshot
+      ? {
+          fromCapturedAt: previousSnapshot.capturedAt.toISOString(),
+          toCapturedAt: latestSnapshot.capturedAt.toISOString(),
+          newHubs: [...latestHubs].filter((hub) => !previousHubs.has(hub)),
+          removedHubs: [...previousHubs].filter((hub) => !latestHubs.has(hub)),
+          contactPropertyDelta:
+            (latestSnapshot.contactPropertyCount ?? 0) -
+            (previousSnapshot.contactPropertyCount ?? 0),
+          companyPropertyDelta:
+            (latestSnapshot.companyPropertyCount ?? 0) -
+            (previousSnapshot.companyPropertyCount ?? 0),
+          dealPropertyDelta:
+            (latestSnapshot.dealPropertyCount ?? 0) -
+            (previousSnapshot.dealPropertyCount ?? 0),
+          customObjectDelta:
+            (latestSnapshot.customObjectCount ?? 0) -
+            (previousSnapshot.customObjectCount ?? 0),
+          dealPipelineDelta:
+            (latestSnapshot.dealPipelineCount ?? 0) -
+            (previousSnapshot.dealPipelineCount ?? 0),
+          dealStageDelta:
+            (latestSnapshot.dealStageCount ?? 0) -
+            (previousSnapshot.dealStageCount ?? 0),
+          activeUserDelta:
+            (latestSnapshot.activeUserCount ?? 0) -
+            (previousSnapshot.activeUserCount ?? 0),
+          activeListDelta:
+            (latestSnapshot.activeListCount ?? 0) -
+            (previousSnapshot.activeListCount ?? 0)
+        }
+      : null;
+
   return {
     client: {
       id: client.id,
@@ -11753,6 +11791,7 @@ export async function loadClientMemory(
       teamCount: snapshot.teamCount,
       activeListCount: snapshot.activeListCount
     })),
+    portalDiff,
     recentRuns
   };
 }
