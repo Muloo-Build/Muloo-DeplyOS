@@ -55,6 +55,7 @@ interface Project {
   selectedHubs: string[];
   updatedAt: string;
   client: {
+    id: string;
     name: string;
     industry?: string | null;
     region?: string | null;
@@ -930,6 +931,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         },
         body: JSON.stringify({
           projectId,
+          clientId: project.client.id,
           installProfile: hubSpotInstallProfile
         })
       });
@@ -2335,7 +2337,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                            HubSpot Portal
+                            Client HubSpot Portal
                           </p>
                           {editingField === "portalId" ? (
                             <>
@@ -2364,8 +2366,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 ))}
                               </select>
                               <p className="mt-3 text-xs text-text-secondary">
-                                Pick an installed HubSpot portal or connect a
-                                new one for this project.
+                                Pick the client’s installed HubSpot portal.
+                                Saving here updates every project for this
+                                client.
                               </p>
                               {renderActions("portalId")}
                             </>
@@ -2378,7 +2381,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                               <p className="mt-1 text-xs leading-5 text-text-secondary">
                                 {project.portal?.portalId
                                   ? `${project.portal.portalId}${project.portal.connected ? " · Connected" : " · Needs reconnect"}`
-                                  : "Connect the client’s HubSpot portal before running live agent work."}
+                                  : "Connect the client’s HubSpot portal once here and every project for this client will inherit it."}
                               </p>
                               {project.portal?.connectedEmail ? (
                                 <p className="mt-1 text-xs text-text-secondary">
@@ -2390,7 +2393,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         </div>
                         {editingField !== "portalId" ? (
                           <EditButton
-                            label="Select linked HubSpot portal"
+                            label="Select client HubSpot portal"
                             onClick={() => startEditing("portalId")}
                           />
                         ) : null}
@@ -2427,13 +2430,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           >
                             {portalConnectBusy
                               ? "Connecting..."
-                              : "Connect portal"}
+                              : "Connect client portal"}
                           </button>
                         </div>
                         <p className="mt-3 text-xs leading-5 text-text-secondary">
                           Start with `Core CRM install` for most client portals.
-                          Use the add-on profiles only when that project
-                          genuinely needs those HubSpot products.
+                          This is a client-level connection, so once it is
+                          linked here the rest of that client’s projects will
+                          use the same portal automatically.
                         </p>
                       </div>
                     </div>

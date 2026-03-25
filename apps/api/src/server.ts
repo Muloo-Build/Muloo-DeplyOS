@@ -38,6 +38,10 @@ import {
 import { z, ZodError } from "zod";
 import { prisma } from "./prisma";
 
+type PrismaTransactionClient = Parameters<
+  Parameters<typeof prisma.$transaction>[0]
+>[0];
+
 const contentTypes: Record<string, string> = {
   ".json": "application/json; charset=utf-8"
 };
@@ -2013,6 +2017,111 @@ function createPendingPortalId(): string {
   return `${pendingPortalPrefix}${Date.now()}-${Math.random()
     .toString(36)
     .slice(2, 8)}`;
+}
+
+async function deleteHubSpotPortalIfUnused(
+  transaction: PrismaTransactionClient,
+  portalId: string
+) {
+  const [remainingProjects, remainingClients] = await Promise.all([
+    transaction.project.count({
+      where: { portalId }
+    }),
+    transaction.client.count({
+      where: { hubSpotPortalId: portalId }
+    })
+  ]);
+
+  if (remainingProjects === 0 && remainingClients === 0) {
+    await transaction.hubSpotPortal
+      .delete({
+        where: { id: portalId }
+      })
+      .catch(() => null);
+  }
+}
+
+async function syncClientHubSpotPortal(
+  transaction: PrismaTransactionClient,
+  clientId: string,
+  portalId: string
+) {
+  await Promise.all([
+    transaction.client.update({
+      where: { id: clientId },
+      data: {
+        hubSpotPortalId: portalId
+      }
+    }),
+    transaction.project.updateMany({
+      where: { clientId },
+      data: {
+        portalId
+      }
+    })
+  ]);
+}
+
+async function resolveClientHubSpotPortal(
+  transaction: PrismaTransactionClient,
+  input: {
+    clientId: string;
+    clientName: string;
+    requestedPortalId: string | undefined;
+    fallbackPortalId: string | undefined;
+  }
+) {
+  const client = await transaction.client.findUnique({
+    where: { id: input.clientId },
+    select: {
+      hubSpotPortalId: true
+    }
+  });
+
+  if (input.requestedPortalId !== undefined) {
+    return input.requestedPortalId
+      ? transaction.hubSpotPortal.upsert({
+          where: { portalId: input.requestedPortalId },
+          update: {},
+          create: {
+            portalId: input.requestedPortalId,
+            displayName: input.clientName
+          }
+        })
+      : transaction.hubSpotPortal.create({
+          data: {
+            portalId: createPendingPortalId(),
+            displayName: input.clientName
+          }
+        });
+  }
+
+  if (client?.hubSpotPortalId) {
+    const existingPortal = await transaction.hubSpotPortal.findUnique({
+      where: { id: client.hubSpotPortalId }
+    });
+
+    if (existingPortal) {
+      return existingPortal;
+    }
+  }
+
+  if (input.fallbackPortalId) {
+    const fallbackPortal = await transaction.hubSpotPortal.findUnique({
+      where: { id: input.fallbackPortalId }
+    });
+
+    if (fallbackPortal) {
+      return fallbackPortal;
+    }
+  }
+
+  return transaction.hubSpotPortal.create({
+    data: {
+      portalId: createPendingPortalId(),
+      displayName: input.clientName
+    }
+  });
 }
 
 function normalizeProject<T extends { portal: { portalId: string } | null }>(
@@ -8441,12 +8550,17 @@ async function refreshHubSpotPortalAccessTokenIfNeeded(portalRecordId: string) {
 
 export async function createHubSpotOAuthStart(value: {
   projectId?: unknown;
+  clientId?: unknown;
   portalRecordId?: unknown;
   installProfile?: unknown;
 }) {
   const projectId =
     typeof value.projectId === "string" && value.projectId.trim()
       ? value.projectId.trim()
+      : null;
+  const clientId =
+    typeof value.clientId === "string" && value.clientId.trim()
+      ? value.clientId.trim()
       : null;
   const portalRecordId =
     typeof value.portalRecordId === "string" && value.portalRecordId.trim()
@@ -8470,11 +8584,26 @@ export async function createHubSpotOAuthStart(value: {
   if (projectId) {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
-      select: { id: true }
+      select: { id: true, clientId: true }
     });
 
     if (!project) {
       throw new Error("Project not found");
+    }
+
+    if (clientId && clientId !== project.clientId) {
+      throw new Error("Client does not match the selected project");
+    }
+  }
+
+  if (clientId) {
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: { id: true }
+    });
+
+    if (!client) {
+      throw new Error("Client not found");
     }
   }
 
@@ -8496,10 +8625,15 @@ export async function createHubSpotOAuthStart(value: {
   const state = createSignedStateToken({
     providerKey: "hubspot_oauth",
     projectId,
+    clientId,
     portalRecordId,
     installProfile,
     redirectUri: oauthConfig.redirectUri,
-    returnTo: projectId ? `/projects/${projectId}` : "/settings/providers",
+    returnTo: projectId
+      ? `/projects/${projectId}`
+      : clientId
+        ? "/clients"
+        : "/settings/providers",
     expiresAt: Date.now() + 1000 * 60 * 10
   });
 
@@ -8543,6 +8677,10 @@ export async function completeHubSpotOAuthCallback(value: {
   const projectId =
     typeof verifiedState.projectId === "string"
       ? verifiedState.projectId.trim()
+      : "";
+  let clientId =
+    typeof verifiedState.clientId === "string"
+      ? verifiedState.clientId.trim()
       : "";
   const portalRecordId =
     typeof verifiedState.portalRecordId === "string"
@@ -8673,33 +8811,27 @@ export async function completeHubSpotOAuthCallback(value: {
           }
         });
 
-    if (projectId) {
+    if (!clientId && projectId) {
       const project = await transaction.project.findUnique({
         where: { id: projectId },
-        select: { id: true, portalId: true }
+        select: { clientId: true }
       });
 
-      if (project) {
-        const previousPortalId = project.portalId;
+      clientId = project?.clientId ?? "";
+    }
 
-        await transaction.project.update({
-          where: { id: projectId },
-          data: { portalId: savedPortal.id }
-        });
+    if (clientId) {
+      const previousPortalId = await transaction.client
+        .findUnique({
+          where: { id: clientId },
+          select: { hubSpotPortalId: true }
+        })
+        .then((client) => client?.hubSpotPortalId ?? null);
 
-        if (previousPortalId !== savedPortal.id) {
-          const remainingPortalProjects = await transaction.project.count({
-            where: { portalId: previousPortalId }
-          });
+      await syncClientHubSpotPortal(transaction, clientId, savedPortal.id);
 
-          if (remainingPortalProjects === 0) {
-            await transaction.hubSpotPortal
-              .delete({
-                where: { id: previousPortalId }
-              })
-              .catch(() => null);
-          }
-        }
+      if (previousPortalId && previousPortalId !== savedPortal.id) {
+        await deleteHubSpotPortalIfUnused(transaction, previousPortalId);
       }
     }
 
@@ -13622,81 +13754,84 @@ export async function handleLegacyRequest(
         );
 
         const slug = createSlug(body.clientName);
-        const client = await prisma.client.upsert({
-          where: { slug },
-          update: {
-            name: body.clientName,
-            industry: body.industry?.trim() || null,
-            website: body.website?.trim() || null,
-            additionalWebsites: normalizeStringArray(body.additionalWebsites),
-            linkedinUrl: body.linkedinUrl?.trim() || null,
-            facebookUrl: body.facebookUrl?.trim() || null,
-            instagramUrl: body.instagramUrl?.trim() || null,
-            xUrl: body.xUrl?.trim() || null,
-            youtubeUrl: body.youtubeUrl?.trim() || null
-          },
-          create: {
-            name: body.clientName,
-            slug,
-            industry: body.industry?.trim() || null,
-            website: body.website?.trim() || null,
-            additionalWebsites: normalizeStringArray(body.additionalWebsites),
-            linkedinUrl: body.linkedinUrl?.trim() || null,
-            facebookUrl: body.facebookUrl?.trim() || null,
-            instagramUrl: body.instagramUrl?.trim() || null,
-            xUrl: body.xUrl?.trim() || null,
-            youtubeUrl: body.youtubeUrl?.trim() || null
-          }
-        });
+        const requestedPortalId =
+          typeof body.hubspotPortalId === "string"
+            ? body.hubspotPortalId.trim()
+            : undefined;
 
-        const requestedPortalId = body.hubspotPortalId?.trim() ?? "";
-        const portal = requestedPortalId
-          ? await prisma.hubSpotPortal.upsert({
-              where: { portalId: requestedPortalId },
-              update: {},
-              create: {
-                portalId: requestedPortalId,
-                displayName: body.clientName
-              }
-            })
-          : await prisma.hubSpotPortal.create({
-              data: {
-                portalId: createPendingPortalId(),
-                displayName: body.clientName
-              }
-            });
+        const project = await prisma.$transaction(async (transaction) => {
+          const client = await transaction.client.upsert({
+            where: { slug },
+            update: {
+              name: body.clientName,
+              industry: body.industry?.trim() || null,
+              website: body.website?.trim() || null,
+              additionalWebsites: normalizeStringArray(body.additionalWebsites),
+              linkedinUrl: body.linkedinUrl?.trim() || null,
+              facebookUrl: body.facebookUrl?.trim() || null,
+              instagramUrl: body.instagramUrl?.trim() || null,
+              xUrl: body.xUrl?.trim() || null,
+              youtubeUrl: body.youtubeUrl?.trim() || null
+            },
+            create: {
+              name: body.clientName,
+              slug,
+              industry: body.industry?.trim() || null,
+              website: body.website?.trim() || null,
+              additionalWebsites: normalizeStringArray(body.additionalWebsites),
+              linkedinUrl: body.linkedinUrl?.trim() || null,
+              facebookUrl: body.facebookUrl?.trim() || null,
+              instagramUrl: body.instagramUrl?.trim() || null,
+              xUrl: body.xUrl?.trim() || null,
+              youtubeUrl: body.youtubeUrl?.trim() || null
+            }
+          });
 
-        const project = await prisma.project.create({
-          data: {
-            name: body.name,
-            status: "draft",
-            engagementType: (body.engagementType ??
-              "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
-            ...(await resolveProjectOwner(body.owner, body.ownerEmail)),
-            serviceFamily,
-            implementationApproach,
-            customerPlatformTier,
-            platformTierSelections,
-            problemStatement: body.problemStatement?.trim() || null,
-            solutionRecommendation: body.solutionRecommendation?.trim() || null,
-            scopeExecutiveSummary: body.scopeExecutiveSummary?.trim() || null,
-            clientChampionFirstName:
-              body.clientChampionFirstName?.trim() || null,
-            clientChampionLastName: body.clientChampionLastName?.trim() || null,
-            clientChampionEmail: body.clientChampionEmail?.trim() || null,
-            scopeType,
-            deliveryTemplateId: body.deliveryTemplateId?.trim() || null,
-            commercialBrief: body.commercialBrief?.trim() || null,
-            selectedHubs: Array.isArray(body.selectedHubs)
-              ? body.selectedHubs
-              : [],
+          const portal = await resolveClientHubSpotPortal(transaction, {
             clientId: client.id,
-            portalId: portal.id
-          },
-          include: {
-            client: true,
-            portal: true
+            clientName: body.clientName,
+            requestedPortalId,
+            fallbackPortalId: undefined
+          });
+
+          if (client.hubSpotPortalId !== portal.id) {
+            await syncClientHubSpotPortal(transaction, client.id, portal.id);
           }
+
+          return transaction.project.create({
+            data: {
+              name: body.name,
+              status: "draft",
+              engagementType: (body.engagementType ??
+                "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
+              ...(await resolveProjectOwner(body.owner, body.ownerEmail)),
+              serviceFamily,
+              implementationApproach,
+              customerPlatformTier,
+              platformTierSelections,
+              problemStatement: body.problemStatement?.trim() || null,
+              solutionRecommendation:
+                body.solutionRecommendation?.trim() || null,
+              scopeExecutiveSummary: body.scopeExecutiveSummary?.trim() || null,
+              clientChampionFirstName:
+                body.clientChampionFirstName?.trim() || null,
+              clientChampionLastName:
+                body.clientChampionLastName?.trim() || null,
+              clientChampionEmail: body.clientChampionEmail?.trim() || null,
+              scopeType,
+              deliveryTemplateId: body.deliveryTemplateId?.trim() || null,
+              commercialBrief: body.commercialBrief?.trim() || null,
+              selectedHubs: Array.isArray(body.selectedHubs)
+                ? body.selectedHubs
+                : [],
+              clientId: client.id,
+              portalId: portal.id
+            },
+            include: {
+              client: true,
+              portal: true
+            }
+          });
         });
 
         return sendJson(response, 201, {
@@ -15324,6 +15459,7 @@ export async function handleLegacyRequest(
         const project = await prisma.$transaction(async (transaction) => {
           let nextClientId = existingProject.clientId;
           let nextPortalId = existingProject.portalId;
+          let previousClientPortalId = existingProject.client.hubSpotPortalId;
 
           if (normalizedPayload.clientName) {
             const clientSlug = createSlug(normalizedPayload.clientName);
@@ -15337,6 +15473,7 @@ export async function handleLegacyRequest(
             });
 
             nextClientId = client.id;
+            previousClientPortalId = client.hubSpotPortalId;
           }
 
           if (
@@ -15397,24 +15534,25 @@ export async function handleLegacyRequest(
             });
           }
 
-          if (normalizedPayload.portalId !== undefined) {
-            const portal = normalizedPayload.portalId
-              ? await transaction.hubSpotPortal.upsert({
-                  where: { portalId: normalizedPayload.portalId },
-                  update: {},
-                  create: {
-                    portalId: normalizedPayload.portalId,
-                    displayName: nextClientName
-                  }
-                })
-              : await transaction.hubSpotPortal.create({
-                  data: {
-                    portalId: createPendingPortalId(),
-                    displayName: nextClientName
-                  }
-                });
+          const portal = await resolveClientHubSpotPortal(transaction, {
+            clientId: nextClientId,
+            clientName: nextClientName,
+            requestedPortalId: normalizedPayload.portalId,
+            fallbackPortalId: existingProject.portalId
+          });
 
-            nextPortalId = portal.id;
+          nextPortalId = portal.id;
+
+          if (
+            normalizedPayload.portalId !== undefined ||
+            nextClientId !== existingProject.clientId ||
+            previousClientPortalId !== nextPortalId
+          ) {
+            await syncClientHubSpotPortal(
+              transaction,
+              nextClientId,
+              nextPortalId
+            );
           }
 
           const updatedProject = await transaction.project.update({
@@ -15529,15 +15667,10 @@ export async function handleLegacyRequest(
           }
 
           if (nextPortalId !== existingProject.portalId) {
-            const remainingPortalProjects = await transaction.project.count({
-              where: { portalId: existingProject.portalId }
-            });
-
-            if (remainingPortalProjects === 0) {
-              await transaction.hubSpotPortal.delete({
-                where: { id: existingProject.portalId }
-              });
-            }
+            await deleteHubSpotPortalIfUnused(
+              transaction,
+              existingProject.portalId
+            );
           }
 
           return updatedProject;
@@ -15616,15 +15749,12 @@ export async function handleLegacyRequest(
           where: { id: projectRoute.projectId }
         });
 
-        const remainingProjects = await prisma.project.count({
-          where: { portalId: existingProject.portalId }
+        await prisma.$transaction(async (transaction) => {
+          await deleteHubSpotPortalIfUnused(
+            transaction,
+            existingProject.portalId
+          );
         });
-
-        if (remainingProjects === 0) {
-          await prisma.hubSpotPortal.delete({
-            where: { id: existingProject.portalId }
-          });
-        }
 
         return sendJson(response, 200, { success: true });
       }
