@@ -8844,6 +8844,820 @@ export async function completeHubSpotOAuthCallback(value: {
   };
 }
 
+export async function loadProjectsDirectory() {
+  const projects = await prisma.project.findMany({
+    include: { client: true, portal: true },
+    orderBy: { updatedAt: "desc" }
+  });
+
+  return projects.map((project) => serializeProject(project));
+}
+
+export async function loadProjectRecord(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      client: true,
+      portal: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  return serializeProject(project);
+}
+
+export async function createProjectRecord(value: {
+  name?: unknown;
+  clientName?: unknown;
+  hubspotPortalId?: unknown;
+  selectedHubs?: unknown;
+  owner?: unknown;
+  ownerEmail?: unknown;
+  serviceFamily?: unknown;
+  implementationApproach?: unknown;
+  customerPlatformTier?: unknown;
+  platformTierSelections?: unknown;
+  problemStatement?: unknown;
+  solutionRecommendation?: unknown;
+  scopeExecutiveSummary?: unknown;
+  scopeType?: unknown;
+  deliveryTemplateId?: unknown;
+  commercialBrief?: unknown;
+  engagementType?: unknown;
+  industry?: unknown;
+  website?: unknown;
+  additionalWebsites?: unknown;
+  linkedinUrl?: unknown;
+  facebookUrl?: unknown;
+  instagramUrl?: unknown;
+  xUrl?: unknown;
+  youtubeUrl?: unknown;
+  clientChampionFirstName?: unknown;
+  clientChampionLastName?: unknown;
+  clientChampionEmail?: unknown;
+}) {
+  const name = typeof value.name === "string" ? value.name.trim() : "";
+  const clientName =
+    typeof value.clientName === "string" ? value.clientName.trim() : "";
+  const scopeType =
+    typeof value.scopeType === "string" && value.scopeType.trim().length > 0
+      ? value.scopeType.trim()
+      : "discovery";
+  const selectedHubs = Array.isArray(value.selectedHubs)
+    ? value.selectedHubs
+        .filter((hub): hub is string => typeof hub === "string")
+        .map((hub) => hub.trim())
+        .filter(Boolean)
+    : [];
+
+  if (
+    !name ||
+    !clientName ||
+    (scopeType !== "standalone_quote" && selectedHubs.length === 0)
+  ) {
+    throw new Error(
+      scopeType === "standalone_quote"
+        ? "name and clientName are required"
+        : "name, clientName, and selectedHubs are required"
+    );
+  }
+
+  if (
+    typeof value.engagementType === "string" &&
+    !isValidEngagementType(value.engagementType)
+  ) {
+    throw new Error("Invalid engagement type");
+  }
+
+  const serviceFamily =
+    typeof value.serviceFamily === "string" &&
+    value.serviceFamily.trim().length > 0
+      ? value.serviceFamily.trim()
+      : "hubspot_architecture";
+  const implementationApproach =
+    typeof value.implementationApproach === "string" &&
+    isValidImplementationApproach(value.implementationApproach.trim())
+      ? value.implementationApproach.trim()
+      : "pragmatic_poc";
+  const customerPlatformTier =
+    typeof value.customerPlatformTier === "string" &&
+    isValidCustomerPlatformTier(value.customerPlatformTier.trim().toLowerCase())
+      ? value.customerPlatformTier.trim().toLowerCase()
+      : null;
+  const platformTierSelections = normalizePlatformTierSelections(
+    value.platformTierSelections
+  );
+  const slug = createSlug(clientName);
+  const requestedPortalId =
+    typeof value.hubspotPortalId === "string"
+      ? value.hubspotPortalId.trim()
+      : undefined;
+
+  const project = await prisma.$transaction(async (transaction) => {
+    const client = await transaction.client.upsert({
+      where: { slug },
+      update: {
+        name: clientName,
+        industry:
+          typeof value.industry === "string"
+            ? value.industry.trim() || null
+            : null,
+        website:
+          typeof value.website === "string"
+            ? value.website.trim() || null
+            : null,
+        additionalWebsites: normalizeStringArray(value.additionalWebsites),
+        linkedinUrl:
+          typeof value.linkedinUrl === "string"
+            ? value.linkedinUrl.trim() || null
+            : null,
+        facebookUrl:
+          typeof value.facebookUrl === "string"
+            ? value.facebookUrl.trim() || null
+            : null,
+        instagramUrl:
+          typeof value.instagramUrl === "string"
+            ? value.instagramUrl.trim() || null
+            : null,
+        xUrl: typeof value.xUrl === "string" ? value.xUrl.trim() || null : null,
+        youtubeUrl:
+          typeof value.youtubeUrl === "string"
+            ? value.youtubeUrl.trim() || null
+            : null
+      },
+      create: {
+        name: clientName,
+        slug,
+        industry:
+          typeof value.industry === "string"
+            ? value.industry.trim() || null
+            : null,
+        website:
+          typeof value.website === "string"
+            ? value.website.trim() || null
+            : null,
+        additionalWebsites: normalizeStringArray(value.additionalWebsites),
+        linkedinUrl:
+          typeof value.linkedinUrl === "string"
+            ? value.linkedinUrl.trim() || null
+            : null,
+        facebookUrl:
+          typeof value.facebookUrl === "string"
+            ? value.facebookUrl.trim() || null
+            : null,
+        instagramUrl:
+          typeof value.instagramUrl === "string"
+            ? value.instagramUrl.trim() || null
+            : null,
+        xUrl: typeof value.xUrl === "string" ? value.xUrl.trim() || null : null,
+        youtubeUrl:
+          typeof value.youtubeUrl === "string"
+            ? value.youtubeUrl.trim() || null
+            : null
+      }
+    });
+
+    const portal = await resolveClientHubSpotPortal(transaction, {
+      clientId: client.id,
+      clientName,
+      requestedPortalId,
+      fallbackPortalId: undefined
+    });
+
+    if (client.hubSpotPortalId !== portal.id) {
+      await syncClientHubSpotPortal(transaction, client.id, portal.id);
+    }
+
+    return transaction.project.create({
+      data: {
+        name,
+        status: "draft",
+        engagementType: (typeof value.engagementType === "string"
+          ? value.engagementType
+          : "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
+        ...(await resolveProjectOwner(
+          typeof value.owner === "string" ? value.owner : undefined,
+          typeof value.ownerEmail === "string" ? value.ownerEmail : undefined
+        )),
+        serviceFamily,
+        implementationApproach,
+        customerPlatformTier,
+        platformTierSelections,
+        problemStatement:
+          typeof value.problemStatement === "string"
+            ? value.problemStatement.trim() || null
+            : null,
+        solutionRecommendation:
+          typeof value.solutionRecommendation === "string"
+            ? value.solutionRecommendation.trim() || null
+            : null,
+        scopeExecutiveSummary:
+          typeof value.scopeExecutiveSummary === "string"
+            ? value.scopeExecutiveSummary.trim() || null
+            : null,
+        clientChampionFirstName:
+          typeof value.clientChampionFirstName === "string"
+            ? value.clientChampionFirstName.trim() || null
+            : null,
+        clientChampionLastName:
+          typeof value.clientChampionLastName === "string"
+            ? value.clientChampionLastName.trim() || null
+            : null,
+        clientChampionEmail:
+          typeof value.clientChampionEmail === "string"
+            ? value.clientChampionEmail.trim() || null
+            : null,
+        scopeType,
+        deliveryTemplateId:
+          typeof value.deliveryTemplateId === "string"
+            ? value.deliveryTemplateId.trim() || null
+            : null,
+        commercialBrief:
+          typeof value.commercialBrief === "string"
+            ? value.commercialBrief.trim() || null
+            : null,
+        selectedHubs,
+        clientId: client.id,
+        portalId: portal.id
+      },
+      include: {
+        client: true,
+        portal: true
+      }
+    });
+  });
+
+  return serializeProject(project);
+}
+
+export async function updateProjectRecord(
+  projectId: string,
+  value: {
+    clientName?: unknown;
+    type?: unknown;
+    implementationApproach?: unknown;
+    customerPlatformTier?: unknown;
+    platformTierSelections?: unknown;
+    problemStatement?: unknown;
+    solutionRecommendation?: unknown;
+    scopeExecutiveSummary?: unknown;
+    clientQuestionnaireConfig?: unknown;
+    scopeType?: unknown;
+    deliveryTemplateId?: unknown;
+    commercialBrief?: unknown;
+    portalId?: unknown;
+    owner?: unknown;
+    ownerEmail?: unknown;
+    hubs?: unknown;
+    clientIndustry?: unknown;
+    clientWebsite?: unknown;
+    clientAdditionalWebsites?: unknown;
+    clientLinkedinUrl?: unknown;
+    clientFacebookUrl?: unknown;
+    clientInstagramUrl?: unknown;
+    clientXUrl?: unknown;
+    clientYoutubeUrl?: unknown;
+    clientChampionFirstName?: unknown;
+    clientChampionLastName?: unknown;
+    clientChampionEmail?: unknown;
+  }
+) {
+  await ensureProjectScopeUnlocked(projectId);
+
+  const normalizedPayload: {
+    clientName?: string;
+    type?: EngagementType;
+    implementationApproach?: string;
+    customerPlatformTier?: string;
+    platformTierSelections?: Record<string, string>;
+    problemStatement?: string;
+    solutionRecommendation?: string;
+    scopeExecutiveSummary?: string;
+    clientQuestionnaireConfig?: ClientQuestionnaireConfig;
+    scopeType?: string;
+    deliveryTemplateId?: string;
+    commercialBrief?: string;
+    portalId?: string;
+    owner?: string;
+    ownerEmail?: string;
+    hubs?: ProjectHub[];
+    clientIndustry?: string;
+    clientWebsite?: string;
+    clientAdditionalWebsites?: string[];
+    clientLinkedinUrl?: string;
+    clientFacebookUrl?: string;
+    clientInstagramUrl?: string;
+    clientXUrl?: string;
+    clientYoutubeUrl?: string;
+    clientChampionFirstName?: string;
+    clientChampionLastName?: string;
+    clientChampionEmail?: string;
+  } = {};
+
+  if (value.clientName !== undefined) {
+    if (
+      typeof value.clientName !== "string" ||
+      value.clientName.trim().length === 0
+    ) {
+      throw new Error("clientName must be a non-empty string");
+    }
+    normalizedPayload.clientName = value.clientName.trim();
+  }
+
+  if (value.type !== undefined) {
+    if (typeof value.type !== "string" || !isValidEngagementType(value.type)) {
+      throw new Error("Invalid engagement type");
+    }
+    normalizedPayload.type = value.type;
+  }
+
+  if (value.customerPlatformTier !== undefined) {
+    if (
+      value.customerPlatformTier !== null &&
+      (typeof value.customerPlatformTier !== "string" ||
+        (value.customerPlatformTier.trim().length > 0 &&
+          !isValidCustomerPlatformTier(
+            value.customerPlatformTier.trim().toLowerCase()
+          )))
+    ) {
+      throw new Error(
+        "customerPlatformTier must be starter, professional, enterprise, or blank"
+      );
+    }
+    normalizedPayload.customerPlatformTier =
+      typeof value.customerPlatformTier === "string"
+        ? value.customerPlatformTier.trim().toLowerCase()
+        : "";
+  }
+
+  if (value.implementationApproach !== undefined) {
+    if (
+      typeof value.implementationApproach !== "string" ||
+      !isValidImplementationApproach(value.implementationApproach.trim())
+    ) {
+      throw new Error(
+        "implementationApproach must be pragmatic_poc or best_practice"
+      );
+    }
+    normalizedPayload.implementationApproach =
+      value.implementationApproach.trim();
+  }
+
+  if (value.platformTierSelections !== undefined) {
+    normalizedPayload.platformTierSelections = normalizePlatformTierSelections(
+      value.platformTierSelections
+    );
+  }
+
+  const stringFields = [
+    [
+      "problemStatement",
+      value.problemStatement,
+      "problemStatement must be a string"
+    ],
+    [
+      "solutionRecommendation",
+      value.solutionRecommendation,
+      "solutionRecommendation must be a string"
+    ],
+    [
+      "scopeExecutiveSummary",
+      value.scopeExecutiveSummary,
+      "scopeExecutiveSummary must be a string"
+    ],
+    [
+      "commercialBrief",
+      value.commercialBrief,
+      "commercialBrief must be a string"
+    ],
+    ["owner", value.owner, "owner must be a string"],
+    ["ownerEmail", value.ownerEmail, "ownerEmail must be a string"],
+    ["clientIndustry", value.clientIndustry, "clientIndustry must be a string"],
+    ["clientWebsite", value.clientWebsite, "clientWebsite must be a string"],
+    [
+      "clientLinkedinUrl",
+      value.clientLinkedinUrl,
+      "clientLinkedinUrl must be a string"
+    ],
+    [
+      "clientFacebookUrl",
+      value.clientFacebookUrl,
+      "clientFacebookUrl must be a string"
+    ],
+    [
+      "clientInstagramUrl",
+      value.clientInstagramUrl,
+      "clientInstagramUrl must be a string"
+    ],
+    ["clientXUrl", value.clientXUrl, "clientXUrl must be a string"],
+    [
+      "clientYoutubeUrl",
+      value.clientYoutubeUrl,
+      "clientYoutubeUrl must be a string"
+    ],
+    [
+      "clientChampionFirstName",
+      value.clientChampionFirstName,
+      "clientChampionFirstName must be a string"
+    ],
+    [
+      "clientChampionLastName",
+      value.clientChampionLastName,
+      "clientChampionLastName must be a string"
+    ],
+    [
+      "clientChampionEmail",
+      value.clientChampionEmail,
+      "clientChampionEmail must be a string"
+    ]
+  ] as const;
+
+  for (const [key, fieldValue, errorMessage] of stringFields) {
+    if (fieldValue !== undefined) {
+      if (typeof fieldValue !== "string") {
+        throw new Error(errorMessage);
+      }
+      normalizedPayload[key] = fieldValue.trim();
+    }
+  }
+
+  if (value.clientQuestionnaireConfig !== undefined) {
+    normalizedPayload.clientQuestionnaireConfig =
+      normalizeClientQuestionnaireConfig(value.clientQuestionnaireConfig);
+  }
+
+  if (value.scopeType !== undefined) {
+    if (typeof value.scopeType !== "string") {
+      throw new Error("scopeType must be a string");
+    }
+    normalizedPayload.scopeType = value.scopeType.trim();
+  }
+
+  if (value.deliveryTemplateId !== undefined) {
+    if (
+      typeof value.deliveryTemplateId !== "string" &&
+      value.deliveryTemplateId !== null
+    ) {
+      throw new Error("deliveryTemplateId must be a string or null");
+    }
+    normalizedPayload.deliveryTemplateId =
+      typeof value.deliveryTemplateId === "string"
+        ? value.deliveryTemplateId.trim()
+        : "";
+  }
+
+  if (value.portalId !== undefined) {
+    if (typeof value.portalId !== "string") {
+      throw new Error("portalId must be a string");
+    }
+    normalizedPayload.portalId = value.portalId.trim();
+  }
+
+  if (value.clientAdditionalWebsites !== undefined) {
+    normalizedPayload.clientAdditionalWebsites = normalizeStringArray(
+      value.clientAdditionalWebsites
+    );
+  }
+
+  if (value.hubs !== undefined) {
+    if (
+      !Array.isArray(value.hubs) ||
+      value.hubs.length === 0 ||
+      value.hubs.some((hub) => typeof hub !== "string")
+    ) {
+      throw new Error("hubs must be a non-empty array of hub keys");
+    }
+
+    const normalizedHubs = Array.from(
+      new Set(value.hubs.map((hub) => hub.trim().toLowerCase()))
+    );
+
+    if (normalizedHubs.some((hub) => !isValidProjectHub(hub))) {
+      throw new Error("Invalid hubs selection");
+    }
+
+    normalizedPayload.hubs = normalizedHubs;
+  }
+
+  if (
+    normalizedPayload.clientName === undefined &&
+    normalizedPayload.type === undefined &&
+    normalizedPayload.customerPlatformTier === undefined &&
+    normalizedPayload.implementationApproach === undefined &&
+    normalizedPayload.platformTierSelections === undefined &&
+    normalizedPayload.problemStatement === undefined &&
+    normalizedPayload.solutionRecommendation === undefined &&
+    normalizedPayload.scopeExecutiveSummary === undefined &&
+    normalizedPayload.clientQuestionnaireConfig === undefined &&
+    normalizedPayload.scopeType === undefined &&
+    normalizedPayload.deliveryTemplateId === undefined &&
+    normalizedPayload.commercialBrief === undefined &&
+    normalizedPayload.portalId === undefined &&
+    normalizedPayload.owner === undefined &&
+    normalizedPayload.ownerEmail === undefined &&
+    normalizedPayload.hubs === undefined &&
+    normalizedPayload.clientIndustry === undefined &&
+    normalizedPayload.clientWebsite === undefined &&
+    normalizedPayload.clientAdditionalWebsites === undefined &&
+    normalizedPayload.clientLinkedinUrl === undefined &&
+    normalizedPayload.clientFacebookUrl === undefined &&
+    normalizedPayload.clientInstagramUrl === undefined &&
+    normalizedPayload.clientXUrl === undefined &&
+    normalizedPayload.clientYoutubeUrl === undefined &&
+    normalizedPayload.clientChampionFirstName === undefined &&
+    normalizedPayload.clientChampionLastName === undefined &&
+    normalizedPayload.clientChampionEmail === undefined
+  ) {
+    throw new Error("At least one editable field is required");
+  }
+
+  const existingProject = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: { client: true, portal: true }
+  });
+
+  if (!existingProject) {
+    throw new Error("Project not found");
+  }
+
+  const nextClientName =
+    normalizedPayload.clientName ?? existingProject.client.name;
+  const nextOwnerDetails =
+    normalizedPayload.owner !== undefined ||
+    normalizedPayload.ownerEmail !== undefined
+      ? await resolveProjectOwner(
+          normalizedPayload.owner ?? existingProject.owner,
+          normalizedPayload.ownerEmail ?? existingProject.ownerEmail
+        )
+      : null;
+
+  const project = await prisma.$transaction(async (transaction) => {
+    let nextClientId = existingProject.clientId;
+    let nextPortalId = existingProject.portalId;
+    let previousClientPortalId = existingProject.client.hubSpotPortalId;
+
+    if (normalizedPayload.clientName) {
+      const clientSlug = createSlug(normalizedPayload.clientName);
+      const client = await transaction.client.upsert({
+        where: { slug: clientSlug },
+        update: { name: normalizedPayload.clientName },
+        create: {
+          name: normalizedPayload.clientName,
+          slug: clientSlug
+        }
+      });
+
+      nextClientId = client.id;
+      previousClientPortalId = client.hubSpotPortalId;
+    }
+
+    if (
+      normalizedPayload.clientIndustry !== undefined ||
+      normalizedPayload.clientWebsite !== undefined ||
+      normalizedPayload.clientAdditionalWebsites !== undefined ||
+      normalizedPayload.clientLinkedinUrl !== undefined ||
+      normalizedPayload.clientFacebookUrl !== undefined ||
+      normalizedPayload.clientInstagramUrl !== undefined ||
+      normalizedPayload.clientXUrl !== undefined ||
+      normalizedPayload.clientYoutubeUrl !== undefined
+    ) {
+      await transaction.client.update({
+        where: { id: nextClientId },
+        data: {
+          ...(normalizedPayload.clientIndustry !== undefined
+            ? { industry: normalizedPayload.clientIndustry || null }
+            : {}),
+          ...(normalizedPayload.clientWebsite !== undefined
+            ? { website: normalizedPayload.clientWebsite || null }
+            : {}),
+          ...(normalizedPayload.clientAdditionalWebsites !== undefined
+            ? {
+                additionalWebsites: normalizedPayload.clientAdditionalWebsites
+              }
+            : {}),
+          ...(normalizedPayload.clientLinkedinUrl !== undefined
+            ? { linkedinUrl: normalizedPayload.clientLinkedinUrl || null }
+            : {}),
+          ...(normalizedPayload.clientFacebookUrl !== undefined
+            ? { facebookUrl: normalizedPayload.clientFacebookUrl || null }
+            : {}),
+          ...(normalizedPayload.clientInstagramUrl !== undefined
+            ? { instagramUrl: normalizedPayload.clientInstagramUrl || null }
+            : {}),
+          ...(normalizedPayload.clientXUrl !== undefined
+            ? { xUrl: normalizedPayload.clientXUrl || null }
+            : {}),
+          ...(normalizedPayload.clientYoutubeUrl !== undefined
+            ? { youtubeUrl: normalizedPayload.clientYoutubeUrl || null }
+            : {})
+        }
+      });
+    }
+
+    const portal = await resolveClientHubSpotPortal(transaction, {
+      clientId: nextClientId,
+      clientName: nextClientName,
+      requestedPortalId: normalizedPayload.portalId,
+      fallbackPortalId: existingProject.portalId
+    });
+
+    nextPortalId = portal.id;
+
+    if (
+      normalizedPayload.portalId !== undefined ||
+      nextClientId !== existingProject.clientId ||
+      previousClientPortalId !== nextPortalId
+    ) {
+      await syncClientHubSpotPortal(transaction, nextClientId, nextPortalId);
+    }
+
+    const updatedProject = await transaction.project.update({
+      where: { id: projectId },
+      data: {
+        ...(normalizedPayload.type
+          ? {
+              engagementType:
+                normalizedPayload.type as Prisma.$Enums.EngagementType
+            }
+          : {}),
+        ...(normalizedPayload.customerPlatformTier !== undefined
+          ? {
+              customerPlatformTier:
+                normalizedPayload.customerPlatformTier || null
+            }
+          : {}),
+        ...(normalizedPayload.implementationApproach !== undefined
+          ? {
+              implementationApproach: normalizedPayload.implementationApproach
+            }
+          : {}),
+        ...(normalizedPayload.platformTierSelections !== undefined
+          ? {
+              platformTierSelections:
+                Object.keys(normalizedPayload.platformTierSelections).length > 0
+                  ? normalizedPayload.platformTierSelections
+                  : Prisma.Prisma.JsonNull
+            }
+          : {}),
+        ...(normalizedPayload.problemStatement !== undefined
+          ? { problemStatement: normalizedPayload.problemStatement || null }
+          : {}),
+        ...(normalizedPayload.solutionRecommendation !== undefined
+          ? {
+              solutionRecommendation:
+                normalizedPayload.solutionRecommendation || null
+            }
+          : {}),
+        ...(normalizedPayload.scopeExecutiveSummary !== undefined
+          ? {
+              scopeExecutiveSummary:
+                normalizedPayload.scopeExecutiveSummary || null
+            }
+          : {}),
+        ...(normalizedPayload.clientQuestionnaireConfig !== undefined
+          ? {
+              clientQuestionnaireConfig:
+                normalizedPayload.clientQuestionnaireConfig
+            }
+          : {}),
+        ...(normalizedPayload.scopeType !== undefined
+          ? { scopeType: normalizedPayload.scopeType || "discovery" }
+          : {}),
+        ...(normalizedPayload.deliveryTemplateId !== undefined
+          ? { deliveryTemplateId: normalizedPayload.deliveryTemplateId || null }
+          : {}),
+        ...(normalizedPayload.commercialBrief !== undefined
+          ? { commercialBrief: normalizedPayload.commercialBrief || null }
+          : {}),
+        ...(normalizedPayload.hubs
+          ? { selectedHubs: normalizedPayload.hubs }
+          : {}),
+        ...(nextOwnerDetails ? nextOwnerDetails : {}),
+        ...(nextClientId !== existingProject.clientId
+          ? { clientId: nextClientId }
+          : {}),
+        ...(nextPortalId !== existingProject.portalId
+          ? { portalId: nextPortalId }
+          : {}),
+        ...(normalizedPayload.clientChampionFirstName !== undefined
+          ? {
+              clientChampionFirstName:
+                normalizedPayload.clientChampionFirstName || null
+            }
+          : {}),
+        ...(normalizedPayload.clientChampionLastName !== undefined
+          ? {
+              clientChampionLastName:
+                normalizedPayload.clientChampionLastName || null
+            }
+          : {}),
+        ...(normalizedPayload.clientChampionEmail !== undefined
+          ? {
+              clientChampionEmail: normalizedPayload.clientChampionEmail || null
+            }
+          : {})
+      },
+      include: { client: true, portal: true, discovery: true }
+    });
+
+    if (nextClientId !== existingProject.clientId) {
+      const remainingClientProjects = await transaction.project.count({
+        where: { clientId: existingProject.clientId }
+      });
+
+      if (remainingClientProjects === 0) {
+        await transaction.client.delete({
+          where: { id: existingProject.clientId }
+        });
+      }
+    }
+
+    if (nextPortalId !== existingProject.portalId) {
+      await deleteHubSpotPortalIfUnused(transaction, existingProject.portalId);
+    }
+
+    return updatedProject;
+  });
+
+  return serializeProject(project);
+}
+
+export async function updateProjectRecordStatus(
+  projectId: string,
+  status: unknown
+) {
+  const allowedStatuses = [
+    "active",
+    "complete",
+    "archived",
+    "draft",
+    "ready-for-execution",
+    "in-flight"
+  ];
+
+  if (typeof status !== "string" || !allowedStatuses.includes(status)) {
+    throw new Error("Invalid status");
+  }
+
+  try {
+    const project = await prisma.project.update({
+      where: { id: projectId },
+      data: { status },
+      include: { client: true, portal: true, discovery: true }
+    });
+
+    return serializeProject(project);
+  } catch (error: unknown) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "P2025"
+    ) {
+      throw new Error("Project not found");
+    }
+
+    throw error;
+  }
+}
+
+export async function deleteProjectRecord(projectId: string) {
+  const existingProject = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, portalId: true }
+  });
+
+  if (!existingProject) {
+    throw new Error("Project not found");
+  }
+
+  await prisma.executionJob.deleteMany({
+    where: { projectId }
+  });
+  await prisma.task.deleteMany({
+    where: { projectId }
+  });
+  await prisma.blueprintTask.deleteMany({
+    where: { blueprint: { projectId } }
+  });
+  await prisma.blueprint.deleteMany({
+    where: { projectId }
+  });
+  await prisma.discoverySubmission.deleteMany({
+    where: { projectId }
+  });
+  await prisma.project.delete({
+    where: { id: projectId }
+  });
+
+  await prisma.$transaction(async (transaction) => {
+    await deleteHubSpotPortalIfUnused(transaction, existingProject.portalId);
+  });
+}
+
 function normalizeHubSpotBaseUrl(value?: string | null) {
   const trimmed = value?.trim();
 
@@ -13670,184 +14484,6 @@ export async function handleLegacyRequest(
       return sendJson(response, 405, { error: "Method Not Allowed" });
     }
 
-    if (url.pathname === "/api/projects") {
-      if (request.method === "POST") {
-        const body = (await readJsonBody(request)) as {
-          name: string;
-          clientName: string;
-          hubspotPortalId?: string;
-          selectedHubs: string[];
-          owner?: string;
-          ownerEmail?: string;
-          serviceFamily?: string;
-          implementationApproach?: string;
-          customerPlatformTier?: string;
-          platformTierSelections?: Record<string, string>;
-          problemStatement?: string;
-          solutionRecommendation?: string;
-          scopeExecutiveSummary?: string;
-          scopeType?: string;
-          deliveryTemplateId?: string;
-          commercialBrief?: string;
-          engagementType?: string;
-          industry?: string;
-          website?: string;
-          additionalWebsites?: string[];
-          linkedinUrl?: string;
-          facebookUrl?: string;
-          instagramUrl?: string;
-          xUrl?: string;
-          youtubeUrl?: string;
-          clientChampionFirstName?: string;
-          clientChampionLastName?: string;
-          clientChampionEmail?: string;
-        };
-
-        const scopeType =
-          typeof body.scopeType === "string" && body.scopeType.trim().length > 0
-            ? body.scopeType.trim()
-            : "discovery";
-
-        if (
-          !body.name ||
-          !body.clientName ||
-          (scopeType !== "standalone_quote" && !body.selectedHubs?.length)
-        ) {
-          return sendJson(response, 400, {
-            error:
-              scopeType === "standalone_quote"
-                ? "name and clientName are required"
-                : "name, clientName, and selectedHubs are required"
-          });
-        }
-
-        if (
-          body.engagementType &&
-          !isValidEngagementType(body.engagementType)
-        ) {
-          return sendJson(response, 400, {
-            error: "Invalid engagement type"
-          });
-        }
-
-        const serviceFamily =
-          typeof body.serviceFamily === "string" &&
-          serviceFamilyOptions.includes(
-            body.serviceFamily.trim() as (typeof serviceFamilyOptions)[number]
-          )
-            ? body.serviceFamily.trim()
-            : "hubspot_architecture";
-        const implementationApproach =
-          typeof body.implementationApproach === "string" &&
-          isValidImplementationApproach(body.implementationApproach.trim())
-            ? body.implementationApproach.trim()
-            : "pragmatic_poc";
-        const customerPlatformTier =
-          typeof body.customerPlatformTier === "string" &&
-          isValidCustomerPlatformTier(
-            body.customerPlatformTier.trim().toLowerCase()
-          )
-            ? body.customerPlatformTier.trim().toLowerCase()
-            : null;
-        const platformTierSelections = normalizePlatformTierSelections(
-          body.platformTierSelections
-        );
-
-        const slug = createSlug(body.clientName);
-        const requestedPortalId =
-          typeof body.hubspotPortalId === "string"
-            ? body.hubspotPortalId.trim()
-            : undefined;
-
-        const project = await prisma.$transaction(async (transaction) => {
-          const client = await transaction.client.upsert({
-            where: { slug },
-            update: {
-              name: body.clientName,
-              industry: body.industry?.trim() || null,
-              website: body.website?.trim() || null,
-              additionalWebsites: normalizeStringArray(body.additionalWebsites),
-              linkedinUrl: body.linkedinUrl?.trim() || null,
-              facebookUrl: body.facebookUrl?.trim() || null,
-              instagramUrl: body.instagramUrl?.trim() || null,
-              xUrl: body.xUrl?.trim() || null,
-              youtubeUrl: body.youtubeUrl?.trim() || null
-            },
-            create: {
-              name: body.clientName,
-              slug,
-              industry: body.industry?.trim() || null,
-              website: body.website?.trim() || null,
-              additionalWebsites: normalizeStringArray(body.additionalWebsites),
-              linkedinUrl: body.linkedinUrl?.trim() || null,
-              facebookUrl: body.facebookUrl?.trim() || null,
-              instagramUrl: body.instagramUrl?.trim() || null,
-              xUrl: body.xUrl?.trim() || null,
-              youtubeUrl: body.youtubeUrl?.trim() || null
-            }
-          });
-
-          const portal = await resolveClientHubSpotPortal(transaction, {
-            clientId: client.id,
-            clientName: body.clientName,
-            requestedPortalId,
-            fallbackPortalId: undefined
-          });
-
-          if (client.hubSpotPortalId !== portal.id) {
-            await syncClientHubSpotPortal(transaction, client.id, portal.id);
-          }
-
-          return transaction.project.create({
-            data: {
-              name: body.name,
-              status: "draft",
-              engagementType: (body.engagementType ??
-                "IMPLEMENTATION") as Prisma.$Enums.EngagementType,
-              ...(await resolveProjectOwner(body.owner, body.ownerEmail)),
-              serviceFamily,
-              implementationApproach,
-              customerPlatformTier,
-              platformTierSelections,
-              problemStatement: body.problemStatement?.trim() || null,
-              solutionRecommendation:
-                body.solutionRecommendation?.trim() || null,
-              scopeExecutiveSummary: body.scopeExecutiveSummary?.trim() || null,
-              clientChampionFirstName:
-                body.clientChampionFirstName?.trim() || null,
-              clientChampionLastName:
-                body.clientChampionLastName?.trim() || null,
-              clientChampionEmail: body.clientChampionEmail?.trim() || null,
-              scopeType,
-              deliveryTemplateId: body.deliveryTemplateId?.trim() || null,
-              commercialBrief: body.commercialBrief?.trim() || null,
-              selectedHubs: Array.isArray(body.selectedHubs)
-                ? body.selectedHubs
-                : [],
-              clientId: client.id,
-              portalId: portal.id
-            },
-            include: {
-              client: true,
-              portal: true
-            }
-          });
-        });
-
-        return sendJson(response, 201, {
-          project: serializeProject(project)
-        });
-      }
-
-      const projects = await prisma.project.findMany({
-        include: { client: true, portal: true },
-        orderBy: { updatedAt: "desc" }
-      });
-      return sendJson(response, 200, {
-        projects: projects.map((project) => serializeProject(project))
-      });
-    }
-
     const discoveryRoute = matchDiscoveryRoute(url.pathname);
     if (request.method === "GET" && discoveryRoute) {
       const [submissions, evidenceItems] = await Promise.all([
@@ -15002,761 +15638,6 @@ export async function handleLegacyRequest(
         }
 
         return sendJson(response, 405, { error: "Method Not Allowed" });
-      }
-
-      if (request.method === "GET" && !projectRoute.resource) {
-        const project = await prisma.project.findUnique({
-          where: { id: projectRoute.projectId },
-          include: {
-            client: true,
-            portal: true
-          }
-        });
-
-        if (!project) {
-          return sendJson(response, 404, { error: "Project not found" });
-        }
-
-        return sendJson(response, 200, {
-          project: serializeProject(project)
-        });
-      }
-      if (request.method === "PATCH" && !projectRoute.resource) {
-        try {
-          await ensureProjectScopeUnlocked(projectRoute.projectId);
-        } catch (error) {
-          return sendJson(
-            response,
-            error instanceof Error && error.message === "Project not found"
-              ? 404
-              : 409,
-            {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to update project"
-            }
-          );
-        }
-
-        const body = (await readJsonBody(request)) as {
-          clientName?: unknown;
-          type?: unknown;
-          implementationApproach?: unknown;
-          customerPlatformTier?: unknown;
-          platformTierSelections?: unknown;
-          problemStatement?: unknown;
-          solutionRecommendation?: unknown;
-          scopeExecutiveSummary?: unknown;
-          clientQuestionnaireConfig?: unknown;
-          scopeType?: unknown;
-          deliveryTemplateId?: unknown;
-          commercialBrief?: unknown;
-          portalId?: unknown;
-          owner?: unknown;
-          ownerEmail?: unknown;
-          hubs?: unknown;
-          clientIndustry?: unknown;
-          clientWebsite?: unknown;
-          clientAdditionalWebsites?: unknown;
-          clientLinkedinUrl?: unknown;
-          clientFacebookUrl?: unknown;
-          clientInstagramUrl?: unknown;
-          clientXUrl?: unknown;
-          clientYoutubeUrl?: unknown;
-          clientChampionFirstName?: unknown;
-          clientChampionLastName?: unknown;
-          clientChampionEmail?: unknown;
-        };
-
-        const normalizedPayload: {
-          clientName?: string;
-          type?: EngagementType;
-          implementationApproach?: string;
-          customerPlatformTier?: string;
-          platformTierSelections?: Record<string, string>;
-          problemStatement?: string;
-          solutionRecommendation?: string;
-          scopeExecutiveSummary?: string;
-          clientQuestionnaireConfig?: ClientQuestionnaireConfig;
-          scopeType?: string;
-          deliveryTemplateId?: string;
-          commercialBrief?: string;
-          portalId?: string;
-          owner?: string;
-          ownerEmail?: string;
-          hubs?: ProjectHub[];
-          clientIndustry?: string;
-          clientWebsite?: string;
-          clientAdditionalWebsites?: string[];
-          clientLinkedinUrl?: string;
-          clientFacebookUrl?: string;
-          clientInstagramUrl?: string;
-          clientXUrl?: string;
-          clientYoutubeUrl?: string;
-          clientChampionFirstName?: string;
-          clientChampionLastName?: string;
-          clientChampionEmail?: string;
-        } = {};
-
-        if (body.clientName !== undefined) {
-          if (
-            typeof body.clientName !== "string" ||
-            body.clientName.trim().length === 0
-          ) {
-            return sendJson(response, 400, {
-              error: "clientName must be a non-empty string"
-            });
-          }
-
-          normalizedPayload.clientName = body.clientName.trim();
-        }
-
-        if (body.type !== undefined) {
-          if (
-            typeof body.type !== "string" ||
-            !isValidEngagementType(body.type)
-          ) {
-            return sendJson(response, 400, {
-              error: "Invalid engagement type"
-            });
-          }
-
-          normalizedPayload.type = body.type;
-        }
-
-        if (body.customerPlatformTier !== undefined) {
-          if (
-            body.customerPlatformTier !== null &&
-            (typeof body.customerPlatformTier !== "string" ||
-              (body.customerPlatformTier.trim().length > 0 &&
-                !isValidCustomerPlatformTier(
-                  body.customerPlatformTier.trim().toLowerCase()
-                )))
-          ) {
-            return sendJson(response, 400, {
-              error:
-                "customerPlatformTier must be starter, professional, enterprise, or blank"
-            });
-          }
-
-          normalizedPayload.customerPlatformTier =
-            typeof body.customerPlatformTier === "string"
-              ? body.customerPlatformTier.trim().toLowerCase()
-              : "";
-        }
-
-        if (body.implementationApproach !== undefined) {
-          if (
-            typeof body.implementationApproach !== "string" ||
-            !isValidImplementationApproach(body.implementationApproach.trim())
-          ) {
-            return sendJson(response, 400, {
-              error:
-                "implementationApproach must be pragmatic_poc or best_practice"
-            });
-          }
-
-          normalizedPayload.implementationApproach =
-            body.implementationApproach.trim();
-        }
-
-        if (body.platformTierSelections !== undefined) {
-          normalizedPayload.platformTierSelections =
-            normalizePlatformTierSelections(body.platformTierSelections);
-        }
-
-        if (body.problemStatement !== undefined) {
-          if (typeof body.problemStatement !== "string") {
-            return sendJson(response, 400, {
-              error: "problemStatement must be a string"
-            });
-          }
-
-          normalizedPayload.problemStatement = body.problemStatement.trim();
-        }
-
-        if (body.solutionRecommendation !== undefined) {
-          if (typeof body.solutionRecommendation !== "string") {
-            return sendJson(response, 400, {
-              error: "solutionRecommendation must be a string"
-            });
-          }
-
-          normalizedPayload.solutionRecommendation =
-            body.solutionRecommendation.trim();
-        }
-
-        if (body.scopeExecutiveSummary !== undefined) {
-          if (typeof body.scopeExecutiveSummary !== "string") {
-            return sendJson(response, 400, {
-              error: "scopeExecutiveSummary must be a string"
-            });
-          }
-
-          normalizedPayload.scopeExecutiveSummary =
-            body.scopeExecutiveSummary.trim();
-        }
-
-        if (body.clientQuestionnaireConfig !== undefined) {
-          normalizedPayload.clientQuestionnaireConfig =
-            normalizeClientQuestionnaireConfig(body.clientQuestionnaireConfig);
-        }
-
-        if (body.scopeType !== undefined) {
-          if (typeof body.scopeType !== "string") {
-            return sendJson(response, 400, {
-              error: "scopeType must be a string"
-            });
-          }
-
-          normalizedPayload.scopeType = body.scopeType.trim();
-        }
-
-        if (body.deliveryTemplateId !== undefined) {
-          if (
-            typeof body.deliveryTemplateId !== "string" &&
-            body.deliveryTemplateId !== null
-          ) {
-            return sendJson(response, 400, {
-              error: "deliveryTemplateId must be a string or null"
-            });
-          }
-
-          normalizedPayload.deliveryTemplateId =
-            typeof body.deliveryTemplateId === "string"
-              ? body.deliveryTemplateId.trim()
-              : "";
-        }
-
-        if (body.commercialBrief !== undefined) {
-          if (typeof body.commercialBrief !== "string") {
-            return sendJson(response, 400, {
-              error: "commercialBrief must be a string"
-            });
-          }
-
-          normalizedPayload.commercialBrief = body.commercialBrief.trim();
-        }
-
-        if (body.portalId !== undefined) {
-          if (typeof body.portalId !== "string") {
-            return sendJson(response, 400, {
-              error: "portalId must be a string"
-            });
-          }
-
-          normalizedPayload.portalId = body.portalId.trim();
-        }
-
-        if (body.owner !== undefined) {
-          if (typeof body.owner !== "string") {
-            return sendJson(response, 400, {
-              error: "owner must be a string"
-            });
-          }
-
-          normalizedPayload.owner = body.owner.trim();
-        }
-
-        if (body.ownerEmail !== undefined) {
-          if (typeof body.ownerEmail !== "string") {
-            return sendJson(response, 400, {
-              error: "ownerEmail must be a string"
-            });
-          }
-
-          normalizedPayload.ownerEmail = body.ownerEmail.trim();
-        }
-
-        if (body.clientIndustry !== undefined) {
-          if (typeof body.clientIndustry !== "string") {
-            return sendJson(response, 400, {
-              error: "clientIndustry must be a string"
-            });
-          }
-
-          normalizedPayload.clientIndustry = body.clientIndustry.trim();
-        }
-
-        if (body.clientWebsite !== undefined) {
-          if (typeof body.clientWebsite !== "string") {
-            return sendJson(response, 400, {
-              error: "clientWebsite must be a string"
-            });
-          }
-
-          normalizedPayload.clientWebsite = body.clientWebsite.trim();
-        }
-
-        if (body.clientAdditionalWebsites !== undefined) {
-          normalizedPayload.clientAdditionalWebsites = normalizeStringArray(
-            body.clientAdditionalWebsites
-          );
-        }
-
-        if (body.clientLinkedinUrl !== undefined) {
-          if (typeof body.clientLinkedinUrl !== "string") {
-            return sendJson(response, 400, {
-              error: "clientLinkedinUrl must be a string"
-            });
-          }
-
-          normalizedPayload.clientLinkedinUrl = body.clientLinkedinUrl.trim();
-        }
-
-        if (body.clientFacebookUrl !== undefined) {
-          if (typeof body.clientFacebookUrl !== "string") {
-            return sendJson(response, 400, {
-              error: "clientFacebookUrl must be a string"
-            });
-          }
-
-          normalizedPayload.clientFacebookUrl = body.clientFacebookUrl.trim();
-        }
-
-        if (body.clientInstagramUrl !== undefined) {
-          if (typeof body.clientInstagramUrl !== "string") {
-            return sendJson(response, 400, {
-              error: "clientInstagramUrl must be a string"
-            });
-          }
-
-          normalizedPayload.clientInstagramUrl = body.clientInstagramUrl.trim();
-        }
-
-        if (body.clientXUrl !== undefined) {
-          if (typeof body.clientXUrl !== "string") {
-            return sendJson(response, 400, {
-              error: "clientXUrl must be a string"
-            });
-          }
-
-          normalizedPayload.clientXUrl = body.clientXUrl.trim();
-        }
-
-        if (body.clientYoutubeUrl !== undefined) {
-          if (typeof body.clientYoutubeUrl !== "string") {
-            return sendJson(response, 400, {
-              error: "clientYoutubeUrl must be a string"
-            });
-          }
-
-          normalizedPayload.clientYoutubeUrl = body.clientYoutubeUrl.trim();
-        }
-
-        if (body.hubs !== undefined) {
-          if (
-            !Array.isArray(body.hubs) ||
-            body.hubs.length === 0 ||
-            body.hubs.some((hub) => typeof hub !== "string")
-          ) {
-            return sendJson(response, 400, {
-              error: "hubs must be a non-empty array of hub keys"
-            });
-          }
-
-          const normalizedHubs = Array.from(
-            new Set(body.hubs.map((hub) => hub.trim().toLowerCase()))
-          );
-
-          if (normalizedHubs.some((hub) => !isValidProjectHub(hub))) {
-            return sendJson(response, 400, {
-              error: "Invalid hubs selection"
-            });
-          }
-
-          normalizedPayload.hubs = normalizedHubs;
-        }
-
-        if (body.clientChampionFirstName !== undefined) {
-          if (typeof body.clientChampionFirstName !== "string") {
-            return sendJson(response, 400, {
-              error: "clientChampionFirstName must be a string"
-            });
-          }
-
-          normalizedPayload.clientChampionFirstName =
-            body.clientChampionFirstName.trim();
-        }
-
-        if (body.clientChampionLastName !== undefined) {
-          if (typeof body.clientChampionLastName !== "string") {
-            return sendJson(response, 400, {
-              error: "clientChampionLastName must be a string"
-            });
-          }
-
-          normalizedPayload.clientChampionLastName =
-            body.clientChampionLastName.trim();
-        }
-
-        if (body.clientChampionEmail !== undefined) {
-          if (typeof body.clientChampionEmail !== "string") {
-            return sendJson(response, 400, {
-              error: "clientChampionEmail must be a string"
-            });
-          }
-
-          normalizedPayload.clientChampionEmail =
-            body.clientChampionEmail.trim();
-        }
-
-        if (
-          normalizedPayload.clientName === undefined &&
-          normalizedPayload.type === undefined &&
-          normalizedPayload.customerPlatformTier === undefined &&
-          normalizedPayload.implementationApproach === undefined &&
-          normalizedPayload.platformTierSelections === undefined &&
-          normalizedPayload.problemStatement === undefined &&
-          normalizedPayload.solutionRecommendation === undefined &&
-          normalizedPayload.scopeExecutiveSummary === undefined &&
-          normalizedPayload.clientQuestionnaireConfig === undefined &&
-          normalizedPayload.scopeType === undefined &&
-          normalizedPayload.deliveryTemplateId === undefined &&
-          normalizedPayload.commercialBrief === undefined &&
-          normalizedPayload.portalId === undefined &&
-          normalizedPayload.owner === undefined &&
-          normalizedPayload.ownerEmail === undefined &&
-          normalizedPayload.hubs === undefined &&
-          normalizedPayload.clientIndustry === undefined &&
-          normalizedPayload.clientWebsite === undefined &&
-          normalizedPayload.clientAdditionalWebsites === undefined &&
-          normalizedPayload.clientLinkedinUrl === undefined &&
-          normalizedPayload.clientFacebookUrl === undefined &&
-          normalizedPayload.clientInstagramUrl === undefined &&
-          normalizedPayload.clientXUrl === undefined &&
-          normalizedPayload.clientYoutubeUrl === undefined &&
-          normalizedPayload.clientChampionFirstName === undefined &&
-          normalizedPayload.clientChampionLastName === undefined &&
-          normalizedPayload.clientChampionEmail === undefined
-        ) {
-          return sendJson(response, 400, {
-            error: "At least one editable field is required"
-          });
-        }
-
-        const existingProject = await prisma.project.findUnique({
-          where: { id: projectRoute.projectId },
-          include: { client: true, portal: true }
-        });
-
-        if (!existingProject) {
-          return sendJson(response, 404, { error: "Project not found" });
-        }
-
-        const nextClientName =
-          normalizedPayload.clientName ?? existingProject.client.name;
-        const nextOwnerDetails =
-          normalizedPayload.owner !== undefined ||
-          normalizedPayload.ownerEmail !== undefined
-            ? await resolveProjectOwner(
-                normalizedPayload.owner ?? existingProject.owner,
-                normalizedPayload.ownerEmail ?? existingProject.ownerEmail
-              )
-            : null;
-
-        const project = await prisma.$transaction(async (transaction) => {
-          let nextClientId = existingProject.clientId;
-          let nextPortalId = existingProject.portalId;
-          let previousClientPortalId = existingProject.client.hubSpotPortalId;
-
-          if (normalizedPayload.clientName) {
-            const clientSlug = createSlug(normalizedPayload.clientName);
-            const client = await transaction.client.upsert({
-              where: { slug: clientSlug },
-              update: { name: normalizedPayload.clientName },
-              create: {
-                name: normalizedPayload.clientName,
-                slug: clientSlug
-              }
-            });
-
-            nextClientId = client.id;
-            previousClientPortalId = client.hubSpotPortalId;
-          }
-
-          if (
-            normalizedPayload.clientIndustry !== undefined ||
-            normalizedPayload.clientWebsite !== undefined ||
-            normalizedPayload.clientAdditionalWebsites !== undefined ||
-            normalizedPayload.clientLinkedinUrl !== undefined ||
-            normalizedPayload.clientFacebookUrl !== undefined ||
-            normalizedPayload.clientInstagramUrl !== undefined ||
-            normalizedPayload.clientXUrl !== undefined ||
-            normalizedPayload.clientYoutubeUrl !== undefined
-          ) {
-            await transaction.client.update({
-              where: { id: nextClientId },
-              data: {
-                ...(normalizedPayload.clientIndustry !== undefined
-                  ? {
-                      industry: normalizedPayload.clientIndustry || null
-                    }
-                  : {}),
-                ...(normalizedPayload.clientWebsite !== undefined
-                  ? {
-                      website: normalizedPayload.clientWebsite || null
-                    }
-                  : {}),
-                ...(normalizedPayload.clientAdditionalWebsites !== undefined
-                  ? {
-                      additionalWebsites:
-                        normalizedPayload.clientAdditionalWebsites
-                    }
-                  : {}),
-                ...(normalizedPayload.clientLinkedinUrl !== undefined
-                  ? {
-                      linkedinUrl: normalizedPayload.clientLinkedinUrl || null
-                    }
-                  : {}),
-                ...(normalizedPayload.clientFacebookUrl !== undefined
-                  ? {
-                      facebookUrl: normalizedPayload.clientFacebookUrl || null
-                    }
-                  : {}),
-                ...(normalizedPayload.clientInstagramUrl !== undefined
-                  ? {
-                      instagramUrl: normalizedPayload.clientInstagramUrl || null
-                    }
-                  : {}),
-                ...(normalizedPayload.clientXUrl !== undefined
-                  ? {
-                      xUrl: normalizedPayload.clientXUrl || null
-                    }
-                  : {}),
-                ...(normalizedPayload.clientYoutubeUrl !== undefined
-                  ? {
-                      youtubeUrl: normalizedPayload.clientYoutubeUrl || null
-                    }
-                  : {})
-              }
-            });
-          }
-
-          const portal = await resolveClientHubSpotPortal(transaction, {
-            clientId: nextClientId,
-            clientName: nextClientName,
-            requestedPortalId: normalizedPayload.portalId,
-            fallbackPortalId: existingProject.portalId
-          });
-
-          nextPortalId = portal.id;
-
-          if (
-            normalizedPayload.portalId !== undefined ||
-            nextClientId !== existingProject.clientId ||
-            previousClientPortalId !== nextPortalId
-          ) {
-            await syncClientHubSpotPortal(
-              transaction,
-              nextClientId,
-              nextPortalId
-            );
-          }
-
-          const updatedProject = await transaction.project.update({
-            where: { id: projectRoute.projectId },
-            data: {
-              ...(normalizedPayload.type
-                ? {
-                    engagementType:
-                      normalizedPayload.type as Prisma.$Enums.EngagementType
-                  }
-                : {}),
-              ...(normalizedPayload.customerPlatformTier !== undefined
-                ? {
-                    customerPlatformTier:
-                      normalizedPayload.customerPlatformTier || null
-                  }
-                : {}),
-              ...(normalizedPayload.implementationApproach !== undefined
-                ? {
-                    implementationApproach:
-                      normalizedPayload.implementationApproach
-                  }
-                : {}),
-              ...(normalizedPayload.platformTierSelections !== undefined
-                ? {
-                    platformTierSelections:
-                      Object.keys(normalizedPayload.platformTierSelections)
-                        .length > 0
-                        ? normalizedPayload.platformTierSelections
-                        : Prisma.Prisma.JsonNull
-                  }
-                : {}),
-              ...(normalizedPayload.problemStatement !== undefined
-                ? {
-                    problemStatement: normalizedPayload.problemStatement || null
-                  }
-                : {}),
-              ...(normalizedPayload.solutionRecommendation !== undefined
-                ? {
-                    solutionRecommendation:
-                      normalizedPayload.solutionRecommendation || null
-                  }
-                : {}),
-              ...(normalizedPayload.scopeExecutiveSummary !== undefined
-                ? {
-                    scopeExecutiveSummary:
-                      normalizedPayload.scopeExecutiveSummary || null
-                  }
-                : {}),
-              ...(normalizedPayload.clientQuestionnaireConfig !== undefined
-                ? {
-                    clientQuestionnaireConfig:
-                      normalizedPayload.clientQuestionnaireConfig
-                  }
-                : {}),
-              ...(normalizedPayload.scopeType !== undefined
-                ? { scopeType: normalizedPayload.scopeType || "discovery" }
-                : {}),
-              ...(normalizedPayload.deliveryTemplateId !== undefined
-                ? {
-                    deliveryTemplateId:
-                      normalizedPayload.deliveryTemplateId || null
-                  }
-                : {}),
-              ...(normalizedPayload.commercialBrief !== undefined
-                ? {
-                    commercialBrief: normalizedPayload.commercialBrief || null
-                  }
-                : {}),
-              ...(normalizedPayload.hubs
-                ? { selectedHubs: normalizedPayload.hubs }
-                : {}),
-              ...(nextOwnerDetails ? nextOwnerDetails : {}),
-              ...(nextClientId !== existingProject.clientId
-                ? { clientId: nextClientId }
-                : {}),
-              ...(nextPortalId !== existingProject.portalId
-                ? { portalId: nextPortalId }
-                : {}),
-              ...(normalizedPayload.clientChampionFirstName !== undefined
-                ? {
-                    clientChampionFirstName:
-                      normalizedPayload.clientChampionFirstName || null
-                  }
-                : {}),
-              ...(normalizedPayload.clientChampionLastName !== undefined
-                ? {
-                    clientChampionLastName:
-                      normalizedPayload.clientChampionLastName || null
-                  }
-                : {}),
-              ...(normalizedPayload.clientChampionEmail !== undefined
-                ? {
-                    clientChampionEmail:
-                      normalizedPayload.clientChampionEmail || null
-                  }
-                : {})
-            },
-            include: { client: true, portal: true, discovery: true }
-          });
-
-          if (nextClientId !== existingProject.clientId) {
-            const remainingClientProjects = await transaction.project.count({
-              where: { clientId: existingProject.clientId }
-            });
-
-            if (remainingClientProjects === 0) {
-              await transaction.client.delete({
-                where: { id: existingProject.clientId }
-              });
-            }
-          }
-
-          if (nextPortalId !== existingProject.portalId) {
-            await deleteHubSpotPortalIfUnused(
-              transaction,
-              existingProject.portalId
-            );
-          }
-
-          return updatedProject;
-        });
-
-        return sendJson(response, 200, {
-          project: serializeProject(project)
-        });
-      }
-
-      if (request.method === "PATCH" && projectRoute.resource === "status") {
-        const body = (await readJsonBody(request)) as { status?: string };
-        const allowedStatuses = [
-          "active",
-          "complete",
-          "archived",
-          "draft",
-          "ready-for-execution",
-          "in-flight"
-        ];
-
-        if (!body.status || !allowedStatuses.includes(body.status)) {
-          return sendJson(response, 400, { error: "Invalid status" });
-        }
-
-        try {
-          const project = await prisma.project.update({
-            where: { id: projectRoute.projectId },
-            data: { status: body.status },
-            include: { client: true, portal: true, discovery: true }
-          });
-
-          return sendJson(response, 200, {
-            project: serializeProject(project)
-          });
-        } catch (error: unknown) {
-          if (
-            typeof error === "object" &&
-            error !== null &&
-            "code" in error &&
-            error.code === "P2025"
-          ) {
-            return sendJson(response, 404, { error: "Project not found" });
-          }
-
-          throw error;
-        }
-      }
-
-      if (request.method === "DELETE" && !projectRoute.resource) {
-        const existingProject = await prisma.project.findUnique({
-          where: { id: projectRoute.projectId },
-          select: { id: true, portalId: true }
-        });
-
-        if (!existingProject) {
-          return sendJson(response, 404, { error: "Project not found" });
-        }
-
-        await prisma.executionJob.deleteMany({
-          where: { projectId: projectRoute.projectId }
-        });
-        await prisma.task.deleteMany({
-          where: { projectId: projectRoute.projectId }
-        });
-        await prisma.blueprintTask.deleteMany({
-          where: { blueprint: { projectId: projectRoute.projectId } }
-        });
-        await prisma.blueprint.deleteMany({
-          where: { projectId: projectRoute.projectId }
-        });
-        await prisma.discoverySubmission.deleteMany({
-          where: { projectId: projectRoute.projectId }
-        });
-        await prisma.project.delete({
-          where: { id: projectRoute.projectId }
-        });
-
-        await prisma.$transaction(async (transaction) => {
-          await deleteHubSpotPortalIfUnused(
-            transaction,
-            existingProject.portalId
-          );
-        });
-
-        return sendJson(response, 200, { success: true });
       }
 
       if (request.method === "PUT" && !projectRoute.resource) {
