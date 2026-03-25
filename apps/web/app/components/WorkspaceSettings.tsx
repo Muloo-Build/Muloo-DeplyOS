@@ -14,6 +14,12 @@ interface CalendarStatusState {
   connectedEmail?: string | null;
 }
 
+interface CalendarConnectionState {
+  clientId: string | null;
+  hasClientSecret: boolean;
+  redirectUri: string | null;
+}
+
 interface XeroStatusState {
   configured: boolean;
   connected: boolean;
@@ -48,6 +54,14 @@ interface ProvidersResponse {
 interface SaveGmailFilterResponse {
   success: boolean;
   gmailFilterLabel: string | null;
+}
+
+interface CalendarConnectionResponse {
+  connection?: {
+    clientId?: string | null;
+    hasClientSecret?: boolean;
+    redirectUri?: string | null;
+  } | null;
 }
 
 function InlineWarning({ message }: { message: string }) {
@@ -90,6 +104,10 @@ export default function WorkspaceSettings() {
   const [gmail, setGmail] = useState<GmailConnectionState | null>(null);
   const [gmailFilterLabel, setGmailFilterLabel] = useState("");
   const [savedGmailFilterLabel, setSavedGmailFilterLabel] = useState("");
+  const [calendarConnection, setCalendarConnection] =
+    useState<CalendarConnectionState | null>(null);
+  const [calendarClientId, setCalendarClientId] = useState("");
+  const [calendarClientSecret, setCalendarClientSecret] = useState("");
   const [calendarStatus, setCalendarStatus] =
     useState<CalendarStatusState | null>(null);
   const [xeroStatus, setXeroStatus] = useState<XeroStatusState | null>(null);
@@ -104,6 +122,12 @@ export default function WorkspaceSettings() {
   const [savingRoute, setSavingRoute] = useState(false);
   const [saveRouteSuccess, setSaveRouteSuccess] = useState(false);
   const [saveRouteError, setSaveRouteError] = useState(false);
+  const [savingCalendarCredentials, setSavingCalendarCredentials] =
+    useState(false);
+  const [calendarCredentialsSaved, setCalendarCredentialsSaved] =
+    useState(false);
+  const [calendarCredentialsError, setCalendarCredentialsError] =
+    useState<string | null>(null);
   const [savingGmailFilter, setSavingGmailFilter] = useState(false);
   const [gmailFilterError, setGmailFilterError] = useState<string | null>(null);
   const [connectingGmail, setConnectingGmail] = useState(false);
@@ -127,6 +151,7 @@ export default function WorkspaceSettings() {
     try {
       const [
         gmailBody,
+        calendarConnectionBody,
         nextCalendarStatus,
         nextXeroStatus,
         routeBody,
@@ -136,6 +161,11 @@ export default function WorkspaceSettings() {
           "/api/email-oauth/google",
           undefined,
           "Failed to load Gmail settings"
+        ),
+        fetchJson<CalendarConnectionResponse>(
+          "/api/workspace/calendar/connection",
+          undefined,
+          "Failed to load Google Calendar connection"
         ),
         fetchJson<CalendarStatusState>(
           "/api/workspace/calendar/status",
@@ -169,6 +199,14 @@ export default function WorkspaceSettings() {
       });
       setGmailFilterLabel(nextGmailFilterLabel);
       setSavedGmailFilterLabel(nextGmailFilterLabel);
+      setCalendarConnection({
+        clientId: calendarConnectionBody.connection?.clientId ?? null,
+        hasClientSecret:
+          calendarConnectionBody.connection?.hasClientSecret === true,
+        redirectUri: calendarConnectionBody.connection?.redirectUri ?? null
+      });
+      setCalendarClientId(calendarConnectionBody.connection?.clientId ?? "");
+      setCalendarClientSecret("");
       setCalendarStatus(nextCalendarStatus);
       setXeroStatus(nextXeroStatus);
       setProviders(
@@ -322,6 +360,50 @@ export default function WorkspaceSettings() {
       setCalendarConnectError(true);
     } finally {
       setConnectingCalendar(false);
+    }
+  }
+
+  async function saveCalendarCredentials() {
+    setSavingCalendarCredentials(true);
+    setCalendarCredentialsSaved(false);
+    setCalendarCredentialsError(null);
+    setError(null);
+    setFeedback(null);
+
+    try {
+      const body = await fetchJson<CalendarConnectionResponse>(
+        "/api/workspace/calendar/connection",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: calendarClientId,
+            clientSecret: calendarClientSecret
+          })
+        },
+        "Failed to save Google Calendar credentials"
+      );
+
+      setCalendarConnection({
+        clientId: body.connection?.clientId ?? null,
+        hasClientSecret: body.connection?.hasClientSecret === true,
+        redirectUri: body.connection?.redirectUri ?? null
+      });
+      setCalendarClientId(body.connection?.clientId ?? "");
+      setCalendarClientSecret("");
+      setCalendarCredentialsSaved(true);
+      window.setTimeout(() => {
+        setCalendarCredentialsSaved(false);
+      }, 3000);
+      await loadAll();
+    } catch (saveError) {
+      setCalendarCredentialsError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save Google Calendar credentials"
+      );
+    } finally {
+      setSavingCalendarCredentials(false);
     }
   }
 
@@ -570,6 +652,60 @@ export default function WorkspaceSettings() {
             ? `Connected as ${calendarStatus.connectedEmail ?? "your Google account"}.`
             : "No Google Calendar connection configured yet."}
         </p>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <label className="block">
+            <span className="text-sm font-medium text-white">
+              Google Client ID
+            </span>
+            <input
+              type="text"
+              value={calendarClientId}
+              onChange={(event) => setCalendarClientId(event.target.value)}
+              className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-white">
+              Google Client Secret
+            </span>
+            <input
+              type="password"
+              value={calendarClientSecret}
+              onChange={(event) => setCalendarClientSecret(event.target.value)}
+              placeholder={
+                calendarConnection?.hasClientSecret
+                  ? "Saved in workspace settings"
+                  : "Paste client secret"
+              }
+              className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void saveCalendarCredentials()}
+            disabled={savingCalendarCredentials}
+            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {savingCalendarCredentials ? "Saving..." : "Save credentials"}
+          </button>
+          {calendarConnection?.redirectUri ? (
+            <span className="text-xs text-text-secondary">
+              Redirect URI: {calendarConnection.redirectUri}
+            </span>
+          ) : null}
+          {calendarCredentialsSaved ? (
+            <span className="text-sm text-[#54e1b1]">Saved</span>
+          ) : null}
+          {calendarCredentialsError ? (
+            <span className="text-sm text-[#ff9aa7]">
+              {calendarCredentialsError}
+            </span>
+          ) : null}
+        </div>
 
         <div className="mt-5 flex flex-wrap gap-3">
           {!calendarStatus?.configured ? (

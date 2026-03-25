@@ -9284,6 +9284,10 @@ function serializeWorkspaceCalendarConnection<
     id: string;
     providerKey: string;
     label: string;
+    clientId: string | null;
+    clientSecret: string | null;
+    redirectUri: string | null;
+    scopes: string[];
     connectedEmail: string | null;
     connectedName: string | null;
     tokenExpiresAt: Date | null;
@@ -9296,6 +9300,10 @@ function serializeWorkspaceCalendarConnection<
     id: connection.id,
     providerKey: connection.providerKey,
     label: connection.label,
+    clientId: connection.clientId,
+    hasClientSecret: Boolean(connection.clientSecret),
+    redirectUri: connection.redirectUri || resolveWorkspaceCalendarRedirectUri(),
+    scopes: connection.scopes,
     connectedEmail: connection.connectedEmail,
     connectedName: connection.connectedName,
     tokenExpiresAt: connection.tokenExpiresAt?.toISOString() ?? null,
@@ -13702,21 +13710,151 @@ async function refreshWorkspaceCalendarAccessTokenIfNeeded(
   });
 }
 
+export async function loadWorkspaceCalendarConnection() {
+  const connection = await prisma.workspaceCalendarConnection.upsert({
+    where: { providerKey: "google_calendar" },
+    update: {},
+    create: {
+      providerKey: "google_calendar",
+      label: "Google Calendar",
+      scopes: [
+        "https://www.googleapis.com/auth/calendar.readonly",
+        "openid",
+        "email",
+        "profile"
+      ],
+      enabled: false
+    }
+  });
+
+  return serializeWorkspaceCalendarConnection(connection);
+}
+
+export async function updateWorkspaceCalendarConnection(value: {
+  clientId?: unknown;
+  clientSecret?: unknown;
+  redirectUri?: unknown;
+  enabled?: unknown;
+  scopes?: unknown;
+}) {
+  const connection = await prisma.workspaceCalendarConnection.upsert({
+    where: { providerKey: "google_calendar" },
+    update: {},
+    create: {
+      providerKey: "google_calendar",
+      label: "Google Calendar",
+      scopes: [
+        "https://www.googleapis.com/auth/calendar.readonly",
+        "openid",
+        "email",
+        "profile"
+      ],
+      enabled: false
+    }
+  });
+
+  const updateData: Prisma.Prisma.WorkspaceCalendarConnectionUpdateInput = {};
+
+  if (value.clientId !== undefined) {
+    if (typeof value.clientId !== "string") {
+      throw new Error("clientId must be a string");
+    }
+
+    updateData.clientId = value.clientId.trim() || null;
+  }
+
+  if (value.clientSecret !== undefined) {
+    if (typeof value.clientSecret !== "string") {
+      throw new Error("clientSecret must be a string");
+    }
+
+    updateData.clientSecret = value.clientSecret.trim() || null;
+  }
+
+  if (value.redirectUri !== undefined) {
+    if (typeof value.redirectUri !== "string") {
+      throw new Error("redirectUri must be a string");
+    }
+
+    updateData.redirectUri = value.redirectUri.trim() || null;
+  }
+
+  if (value.enabled !== undefined) {
+    updateData.enabled = Boolean(value.enabled);
+  }
+
+  if (value.scopes !== undefined) {
+    const scopes = Array.isArray(value.scopes)
+      ? value.scopes
+      : typeof value.scopes === "string"
+        ? value.scopes.split(/[\n, ]+/)
+        : [];
+
+    const normalizedScopes = scopes
+      .filter((scope): scope is string => typeof scope === "string")
+      .map((scope) => scope.trim())
+      .filter(Boolean);
+
+    const nextScopes = ensureScope(
+      normalizedScopes,
+      "https://www.googleapis.com/auth/calendar.readonly"
+    );
+
+    if (nextScopes.length === 0) {
+      throw new Error("At least one Calendar OAuth scope is required");
+    }
+
+    updateData.scopes = nextScopes;
+  }
+
+  const updatedConnection = await prisma.workspaceCalendarConnection.update({
+    where: { id: connection.id },
+    data: updateData
+  });
+
+  return serializeWorkspaceCalendarConnection(updatedConnection);
+}
+
+async function resolveWorkspaceCalendarOauthConfig() {
+  const connection = await prisma.workspaceCalendarConnection.findUnique({
+    where: { providerKey: "google_calendar" }
+  });
+
+  const clientId =
+    connection?.clientId?.trim() || process.env.GOOGLE_CLIENT_ID?.trim() || "";
+  const clientSecret =
+    connection?.clientSecret?.trim() ||
+    process.env.GOOGLE_CLIENT_SECRET?.trim() ||
+    "";
+  const redirectUri =
+    connection?.redirectUri?.trim() || resolveWorkspaceCalendarRedirectUri();
+  const scopes =
+    connection?.scopes.length && connection.scopes.some(Boolean)
+      ? ensureScope(connection.scopes, "https://www.googleapis.com/auth/calendar.readonly")
+      : [
+          "https://www.googleapis.com/auth/calendar.readonly",
+          "openid",
+          "email",
+          "profile"
+        ];
+
+  return {
+    connection,
+    clientId,
+    clientSecret,
+    redirectUri,
+    scopes
+  };
+}
+
 export async function createWorkspaceCalendarOAuthStart() {
-  const clientId = process.env.GOOGLE_CLIENT_ID?.trim() ?? "";
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() ?? "";
+  const { clientId, clientSecret, redirectUri, scopes } =
+    await resolveWorkspaceCalendarOauthConfig();
 
   if (!clientId || !clientSecret) {
     throw new Error("Google Calendar OAuth credentials are not configured");
   }
 
-  const redirectUri = resolveWorkspaceCalendarRedirectUri();
-  const scopes = [
-    "https://www.googleapis.com/auth/calendar.readonly",
-    "openid",
-    "email",
-    "profile"
-  ];
   const state = createSignedStateToken({
     providerKey: "google_calendar",
     redirectUri,
@@ -13753,8 +13891,12 @@ export async function completeWorkspaceCalendarOAuthCallback(value: {
     typeof verifiedState.redirectUri === "string"
       ? verifiedState.redirectUri
       : resolveWorkspaceCalendarRedirectUri();
-  const clientId = process.env.GOOGLE_CLIENT_ID?.trim() ?? "";
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() ?? "";
+  const {
+    clientId,
+    clientSecret,
+    scopes,
+    connection
+  } = await resolveWorkspaceCalendarOauthConfig();
 
   if (!clientId || !clientSecret) {
     throw new Error("Google Calendar OAuth credentials are not configured");
@@ -13808,12 +13950,6 @@ export async function completeWorkspaceCalendarOAuthCallback(value: {
     throw new Error("Could not load the connected Google Calendar profile");
   }
 
-  const scopes = [
-    "https://www.googleapis.com/auth/calendar.readonly",
-    "openid",
-    "email",
-    "profile"
-  ];
   const updateData: Prisma.Prisma.WorkspaceCalendarConnectionUpdateInput = {
     label: "Google Calendar",
     clientId,
@@ -13835,7 +13971,7 @@ export async function completeWorkspaceCalendarOAuthCallback(value: {
     updateData.refreshToken = tokenBody.refresh_token;
   }
 
-  const connection = await prisma.workspaceCalendarConnection.upsert({
+  const savedConnection = await prisma.workspaceCalendarConnection.upsert({
     where: { providerKey: "google_calendar" },
     update: updateData,
     create: {
@@ -13858,7 +13994,7 @@ export async function completeWorkspaceCalendarOAuthCallback(value: {
     }
   });
 
-  return serializeWorkspaceCalendarConnection(connection);
+  return serializeWorkspaceCalendarConnection(savedConnection);
 }
 
 export async function getCalendarEvents() {
@@ -13977,15 +14113,11 @@ export async function disconnectWorkspaceCalendarConnection() {
 }
 
 export async function getWorkspaceCalendarStatus() {
-  const connection = await prisma.workspaceCalendarConnection.findUnique({
-    where: { providerKey: "google_calendar" }
-  });
+  const { connection, clientId, clientSecret } =
+    await resolveWorkspaceCalendarOauthConfig();
 
   return {
-    configured: Boolean(
-      process.env.GOOGLE_CLIENT_ID?.trim() &&
-      process.env.GOOGLE_CLIENT_SECRET?.trim()
-    ),
+    configured: Boolean(clientId && clientSecret),
     connected: Boolean(connection?.enabled && connection.connectedEmail),
     connectedEmail: connection?.connectedEmail ?? null
   };

@@ -94,6 +94,7 @@ import {
   loadProviderConnections,
   loadWorkRequests,
   loadWorkspaceEmailOAuthConnection,
+  loadWorkspaceCalendarConnection,
   loadWorkspaceEmailSettings,
   loadWorkspaceTodos,
   loadWorkspaceUsers,
@@ -116,6 +117,7 @@ import {
   updateClientDirectoryRecord,
   updateDeliveryTemplate,
   updateWorkspaceEmailOAuthConnection,
+  updateWorkspaceCalendarConnection,
   updateWorkspaceEmailSettings,
   updateProductCatalogItem,
   updateWorkspaceProviderConnection,
@@ -2133,20 +2135,6 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.get("/api/workspace/calendar/auth", async (c) => {
-    if (
-      !process.env.GOOGLE_CLIENT_ID?.trim() ||
-      !process.env.GOOGLE_CLIENT_SECRET?.trim()
-    ) {
-      return c.json(
-        {
-          error: "not_configured",
-          message:
-            "OAuth credentials not set. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to environment variables."
-        },
-        400
-      );
-    }
-
     try {
       const { authUrl } = await createWorkspaceCalendarOAuthStart();
       return c.redirect(authUrl);
@@ -2154,9 +2142,39 @@ export function createApiApp(config: BaseConfig) {
       return c.json(
         {
           error:
+            error instanceof Error &&
+            error.message === "Google Calendar OAuth credentials are not configured"
+              ? "not_configured"
+              : "start_failed",
+          message:
             error instanceof Error
               ? error.message
               : "Failed to start Google Calendar OAuth"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/workspace/calendar/connection", async (c) =>
+    c.json({
+      connection: await loadWorkspaceCalendarConnection()
+    })
+  );
+
+  app.patch("/api/workspace/calendar/connection", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      return c.json({
+        connection: await updateWorkspaceCalendarConnection(body)
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update Google Calendar connection"
         },
         400
       );
