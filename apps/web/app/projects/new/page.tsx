@@ -175,6 +175,30 @@ const templates = [
   { id: "muloo-service-foundation", label: "Service Foundation" }
 ];
 
+const projectContainerOptions = [
+  {
+    value: "discovery",
+    label: "Discovery-led implementation",
+    description:
+      "Use Muloo discovery, scoped recommendations, and a phased quote.",
+    engagementType: "IMPLEMENTATION"
+  },
+  {
+    value: "standalone_quote",
+    label: "Standalone quote job",
+    description:
+      "Capture a specific job brief and quote it without a full discovery cycle.",
+    engagementType: null
+  },
+  {
+    value: "optimisation",
+    label: "HubSpot Optimisation / Revamp",
+    description:
+      "Audit an existing portal, identify quick wins, and deliver structured improvements.",
+    engagementType: "OPTIMISATION"
+  }
+] as const;
+
 const industryOptions = [
   "Accounting & Advisory",
   "Agency & Professional Services",
@@ -235,6 +259,13 @@ function formatTierLabel(value: string) {
   }
 
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatContainerLabel(value: string) {
+  return (
+    projectContainerOptions.find((option) => option.value === value)?.label ??
+    value
+  );
 }
 
 export default function NewProjectPage() {
@@ -425,6 +456,21 @@ export default function NewProjectPage() {
     setFormData((current) => ({ ...current, [field]: value }));
   }
 
+  function selectProjectContainer(scopeType: string) {
+    const selectedOption = projectContainerOptions.find(
+      (option) => option.value === scopeType
+    );
+
+    setFormData((current) => ({
+      ...current,
+      scopeType,
+      engagementType: selectedOption?.engagementType ?? current.engagementType,
+      ...(scopeType === "standalone_quote"
+        ? { useTemplate: false, templateId: "" }
+        : {})
+    }));
+  }
+
   function toggleHub(hubId: string) {
     setFormData((current) => ({
       ...current,
@@ -598,7 +644,11 @@ export default function NewProjectPage() {
       }
 
       const body = await response.json();
-      router.push(`/projects/${body.project.id}`);
+      const destination =
+        formData.scopeType === "optimisation"
+          ? `/projects/${body.project.id}/audit`
+          : `/projects/${body.project.id}`;
+      router.push(destination);
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -663,35 +713,26 @@ export default function NewProjectPage() {
                   <p className="mb-3 text-sm text-text-secondary">
                     Engagement container
                   </p>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {[
-                      [
-                        "discovery",
-                        "Discovery-led implementation",
-                        "Use Muloo discovery, scoped recommendations, and a phased quote."
-                      ],
-                      [
-                        "standalone_quote",
-                        "Standalone quote job",
-                        "Capture a specific job brief and quote it without a full discovery cycle."
-                      ]
-                    ].map(([value, label, description]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => updateField("scopeType", value)}
-                        className={`rounded-2xl border p-4 text-left transition-colors ${
-                          formData.scopeType === value
-                            ? "border-accent-solid bg-background-elevated"
-                            : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
-                        }`}
-                      >
-                        <p className="font-semibold text-white">{label}</p>
-                        <p className="mt-1 text-sm text-text-secondary">
-                          {description}
-                        </p>
-                      </button>
-                    ))}
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {projectContainerOptions.map(
+                      ({ value, label, description }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => selectProjectContainer(value)}
+                          className={`rounded-2xl border p-4 text-left transition-colors ${
+                            formData.scopeType === value
+                              ? "border-accent-solid bg-background-elevated"
+                              : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                          }`}
+                        >
+                          <p className="font-semibold text-white">{label}</p>
+                          <p className="mt-1 text-sm text-text-secondary">
+                            {description}
+                          </p>
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
 
@@ -1302,12 +1343,7 @@ export default function NewProjectPage() {
                       (family) => family.id === formData.serviceFamily
                     )?.label ?? ""
                   ],
-                  [
-                    "Container",
-                    formData.scopeType === "standalone_quote"
-                      ? "Standalone quote"
-                      : "Discovery-led implementation"
-                  ],
+                  ["Container", formatContainerLabel(formData.scopeType)],
                   ["Industry", formData.industry],
                   ["Website", formData.website],
                   [
