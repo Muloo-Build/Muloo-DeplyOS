@@ -1718,6 +1718,7 @@ export async function loadWorkspaceUsers() {
 export async function createWorkspaceUser(value: {
   name?: unknown;
   email?: unknown;
+  password?: unknown;
   role?: unknown;
   isActive?: unknown;
   sortOrder?: unknown;
@@ -1725,6 +1726,8 @@ export async function createWorkspaceUser(value: {
   const name = typeof value.name === "string" ? value.name.trim() : "";
   const email =
     typeof value.email === "string" ? value.email.trim().toLowerCase() : "";
+  const password =
+    typeof value.password === "string" ? value.password.trim() : "";
   const role = typeof value.role === "string" ? value.role.trim() : "";
   const sortOrder =
     typeof value.sortOrder === "number"
@@ -1735,10 +1738,15 @@ export async function createWorkspaceUser(value: {
     throw new Error("name, email, and role are required");
   }
 
+  if (password && password.length < 8) {
+    throw new Error("password must be at least 8 characters");
+  }
+
   const user = await prisma.workspaceUser.create({
     data: {
       name,
       email,
+      password: password || null,
       role,
       isActive: value.isActive === false ? false : true,
       sortOrder: Number.isFinite(sortOrder) ? Math.round(sortOrder) : 999
@@ -1753,6 +1761,7 @@ export async function updateWorkspaceUser(
   value: {
     name?: unknown;
     email?: unknown;
+    password?: unknown;
     role?: unknown;
     isActive?: unknown;
     sortOrder?: unknown;
@@ -1772,6 +1781,20 @@ export async function updateWorkspaceUser(
       throw new Error("email must be a non-empty string");
     }
     data.email = value.email.trim().toLowerCase();
+  }
+
+  if (value.password !== undefined) {
+    if (typeof value.password !== "string") {
+      throw new Error("password must be a string");
+    }
+
+    const password = value.password.trim();
+
+    if (password && password.length < 8) {
+      throw new Error("password must be at least 8 characters");
+    }
+
+    data.password = password || null;
   }
 
   if (value.role !== undefined) {
@@ -2341,6 +2364,15 @@ export function createSimpleAuthToken(username: string) {
   return Buffer.from(`${username}:${secret}`).toString("base64url");
 }
 
+export function createWorkspaceUserAuthToken(userId: string) {
+  const secret =
+    process.env.SIMPLE_AUTH_SECRET ?? "muloo-deploy-os-internal-auth";
+
+  return Buffer.from(`workspace-user:${userId}:${secret}`).toString(
+    "base64url"
+  );
+}
+
 export function createClientAuthToken(userId: string) {
   const secret =
     process.env.CLIENT_AUTH_SECRET ?? "muloo-deploy-os-client-auth";
@@ -2395,11 +2427,63 @@ function verifySignedStateToken(value: string) {
   return decoded;
 }
 
-export function isAuthenticated(request: http.IncomingMessage) {
+function getAuthenticatedWorkspaceUserId(request: http.IncomingMessage) {
+  const cookies = parseCookies(request);
+  const token = cookies[authCookieName];
+
+  if (!token) {
+    return null;
+  }
+
+  const secret =
+    process.env.SIMPLE_AUTH_SECRET ?? "muloo-deploy-os-internal-auth";
+
+  try {
+    const [tokenType, userId, tokenSecret] = Buffer.from(token, "base64url")
+      .toString("utf8")
+      .split(":");
+
+    if (
+      tokenType !== "workspace-user" ||
+      !userId?.trim() ||
+      tokenSecret !== secret
+    ) {
+      return null;
+    }
+
+    return userId.trim();
+  } catch {
+    return null;
+  }
+}
+
+export async function isAuthenticated(request: http.IncomingMessage) {
   const cookies = parseCookies(request);
   const { username } = resolveSimpleAuthCredentials();
+  const token = cookies[authCookieName];
 
-  return cookies[authCookieName] === createSimpleAuthToken(username);
+  if (!token) {
+    return false;
+  }
+
+  if (token === createSimpleAuthToken(username)) {
+    return true;
+  }
+
+  const workspaceUserId = getAuthenticatedWorkspaceUserId(request);
+
+  if (!workspaceUserId) {
+    return false;
+  }
+
+  const workspaceUser = await prisma.workspaceUser
+    .findUnique({
+      where: { id: workspaceUserId },
+      select: { isActive: true }
+    })
+    .catch(() => null);
+
+  return Boolean(workspaceUser?.isActive);
 }
 
 export function getAuthenticatedClientUserId(request: http.IncomingMessage) {
@@ -8143,6 +8227,7 @@ export function serializeWorkspaceUser<
     id: string;
     name: string;
     email: string;
+    password?: string | null;
     role: string;
     isActive: boolean;
     sortOrder: number;
@@ -8154,6 +8239,7 @@ export function serializeWorkspaceUser<
     id: user.id,
     name: user.name,
     email: user.email,
+    hasPassword: Boolean(user.password),
     role: user.role,
     isActive: user.isActive,
     sortOrder: user.sortOrder,

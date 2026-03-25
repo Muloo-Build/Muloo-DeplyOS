@@ -140,7 +140,7 @@ test("rejects invalid internal credentials", async () => {
     const { response, body } = await requestJson(baseUrl, "/api/auth/login", {
       method: "POST",
       body: {
-        username: "wrong-user",
+        username: process.env.SIMPLE_AUTH_USERNAME,
         password: "wrong-pass"
       }
     });

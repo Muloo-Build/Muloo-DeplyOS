@@ -54,6 +54,7 @@ import {
   createWorkspaceUser,
   createClientAuthToken,
   createCookieHeader,
+  createWorkspaceUserAuthToken,
   createWorkspaceGoogleEmailOAuthStart,
   createSimpleAuthToken,
   completeWorkspaceGoogleEmailOAuthCallback,
@@ -166,10 +167,18 @@ async function readJsonBodyOrEmpty(context: {
   }
 }
 
+function normalizeWorkspaceLoginIdentifier(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function createApiApp(config: BaseConfig) {
   const app = new Hono<HonoBindings>();
   const internalAuth = async (c: Context<HonoBindings>, next: Next) => {
-    if (!isAuthenticated(c.env.incoming)) {
+    if (!(await isAuthenticated(c.env.incoming))) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
@@ -244,9 +253,9 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/client", clientAuth);
   app.use("/api/client/*", clientAuth);
 
-  app.all("/api/auth/session", (c) =>
+  app.all("/api/auth/session", async (c) =>
     c.json({
-      authenticated: isAuthenticated(c.env.incoming)
+      authenticated: await isAuthenticated(c.env.incoming)
     })
   );
 
@@ -255,20 +264,57 @@ export function createApiApp(config: BaseConfig) {
       password?: string;
       username?: string;
     };
+    const loginIdentifier = body.username?.trim() ?? "";
     const credentials = resolveSimpleAuthCredentials();
+    const matchesSimpleAuthUsername =
+      loginIdentifier.toLowerCase() === credentials.username.toLowerCase();
+
+    if (matchesSimpleAuthUsername && body.password === credentials.password) {
+      c.header(
+        "Set-Cookie",
+        createCookieHeader(createSimpleAuthToken(credentials.username), {
+          maxAge: 60 * 60 * 12
+        })
+      );
+
+      return c.json({ authenticated: true });
+    }
+
+    if (matchesSimpleAuthUsername) {
+      return c.json({ error: "Invalid credentials" }, 401);
+    }
+
+    const normalizedIdentifier =
+      normalizeWorkspaceLoginIdentifier(loginIdentifier);
+    const workspaceUsers = await loadWorkspaceUsers().catch(() => []);
+    const matchingWorkspaceUser = workspaceUsers.find((user) => {
+      const normalizedName = normalizeWorkspaceLoginIdentifier(user.name);
+      const normalizedEmail = user.email.trim().toLowerCase();
+      const normalizedEmailLocalPart = normalizedEmail.split("@")[0] ?? "";
+
+      return (
+        user.isActive &&
+        (normalizedEmail === loginIdentifier.toLowerCase() ||
+          normalizedEmailLocalPart === normalizedIdentifier ||
+          normalizedName === normalizedIdentifier)
+      );
+    });
 
     if (
-      body.username?.trim() !== credentials.username ||
-      body.password !== credentials.password
+      !matchingWorkspaceUser ||
+      matchingWorkspaceUser.password !== body.password
     ) {
       return c.json({ error: "Invalid credentials" }, 401);
     }
 
     c.header(
       "Set-Cookie",
-      createCookieHeader(createSimpleAuthToken(credentials.username), {
-        maxAge: 60 * 60 * 12
-      })
+      createCookieHeader(
+        createWorkspaceUserAuthToken(matchingWorkspaceUser.id),
+        {
+          maxAge: 60 * 60 * 12
+        }
+      )
     );
 
     return c.json({ authenticated: true });

@@ -6,6 +6,7 @@ interface WorkspaceUser {
   id: string;
   name: string;
   email: string;
+  hasPassword: boolean;
   role: string;
   isActive: boolean;
   sortOrder: number;
@@ -14,6 +15,7 @@ interface WorkspaceUser {
 const emptyDraft = {
   name: "",
   email: "",
+  password: "",
   role: "",
   isActive: true,
   sortOrder: "999"
@@ -25,6 +27,9 @@ export default function WorkspaceUsersSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>(
+    {}
+  );
 
   useEffect(() => {
     async function loadUsers() {
@@ -72,7 +77,12 @@ export default function WorkspaceUsersSettings() {
       const response = await fetch(`/api/users/${encodeURIComponent(userId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(user)
+        body: JSON.stringify({
+          ...user,
+          ...(passwordDrafts[userId]?.trim()
+            ? { password: passwordDrafts[userId] }
+            : {})
+        })
       });
       const body = await response.json().catch(() => null);
       if (!response.ok) {
@@ -83,6 +93,10 @@ export default function WorkspaceUsersSettings() {
           candidate.id === userId ? body.user : candidate
         )
       );
+      setPasswordDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        [userId]: ""
+      }));
     } catch (saveError) {
       setError(
         saveError instanceof Error
@@ -105,6 +119,7 @@ export default function WorkspaceUsersSettings() {
         body: JSON.stringify({
           name: draft.name,
           email: draft.email,
+          password: draft.password,
           role: draft.role,
           isActive: draft.isActive,
           sortOrder: Number(draft.sortOrder)
@@ -141,7 +156,11 @@ export default function WorkspaceUsersSettings() {
 
       <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
         <p className="text-sm font-semibold text-white">Add team member</p>
-        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <p className="mt-2 text-sm text-text-secondary">
+          Set a password here when you want a Muloo user to be able to sign in
+          directly, including agent-specific operator accounts.
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <input
             value={draft.name}
             onChange={(event) =>
@@ -156,6 +175,18 @@ export default function WorkspaceUsersSettings() {
               setDraft((current) => ({ ...current, email: event.target.value }))
             }
             placeholder="Email"
+            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+          />
+          <input
+            type="password"
+            value={draft.password}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                password: event.target.value
+              }))
+            }
+            placeholder="Password"
             className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
           />
           <input
@@ -186,6 +217,10 @@ export default function WorkspaceUsersSettings() {
             {saving === "new" ? "Adding..." : "Add user"}
           </button>
         </div>
+        <p className="mt-3 text-xs text-text-muted">
+          Use at least 8 characters when you set a password. Leave it blank if
+          you only want the profile created for now.
+        </p>
       </div>
 
       {loading ? (
@@ -198,7 +233,13 @@ export default function WorkspaceUsersSettings() {
             key={user.id}
             className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
           >
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.2fr_1.1fr_1fr_140px_140px]">
+            <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-text-muted">
+              <span>
+                {user.hasPassword ? "Password set" : "No password set yet"}
+              </span>
+              {user.isActive ? <span>Active</span> : <span>Inactive</span>}
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.2fr_1.1fr_1fr_180px_140px_140px]">
               <input
                 value={user.name}
                 onChange={(event) =>
@@ -217,6 +258,22 @@ export default function WorkspaceUsersSettings() {
                 value={user.role}
                 onChange={(event) =>
                   updateUser(user.id, "role", event.target.value)
+                }
+                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+              />
+              <input
+                type="password"
+                value={passwordDrafts[user.id] ?? ""}
+                onChange={(event) =>
+                  setPasswordDrafts((currentDrafts) => ({
+                    ...currentDrafts,
+                    [user.id]: event.target.value
+                  }))
+                }
+                placeholder={
+                  user.hasPassword
+                    ? "Leave blank to keep password"
+                    : "Set password"
                 }
                 className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
               />

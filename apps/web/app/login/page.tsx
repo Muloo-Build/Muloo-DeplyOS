@@ -55,17 +55,18 @@ export default function LoginPage() {
           Deploy OS
         </h1>
         <p className="mt-3 text-text-secondary">
-          Sign in with your workspace username and password.
+          Sign in with your workspace email or username and password.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           <label className="block">
             <span className="mb-2 block text-sm text-text-secondary">
-              Username
+              Email or username
             </span>
             <input
               value={username}
               onChange={(event) => setUsername(event.target.value)}
+              placeholder="jarrud@muloo.co or muloo-operator"
               className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
             />
           </label>
