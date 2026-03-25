@@ -6,16 +6,29 @@ import {
   loadAllExecutionRecords,
   loadAllTemplates,
   loadProjectById,
+  loadProjectDiscoveryById,
+  loadProjectDesignById,
   loadProjectExecutions,
   loadProjectModuleDetail,
   loadProjectReadinessById,
   loadProjectSummaryById,
   loadTemplateById,
+  summarizeProject,
   summarizeProjectModules,
+  updateProjectDiscoverySection,
+  updateProjectLifecycleDesign,
+  updateProjectPipelinesDesign,
+  updateProjectPropertiesDesign,
   validateAllProjects,
   validateProjectById
 } from "@muloo/file-system";
-import { moduleCatalog } from "@muloo/shared";
+import {
+  moduleCatalog,
+  updateProjectDiscoverySectionRequestSchema,
+  updateProjectLifecycleDesignRequestSchema,
+  updateProjectPipelinesDesignRequestSchema,
+  updateProjectPropertiesDesignRequestSchema
+} from "@muloo/shared";
 import { type Context, Hono, type Next } from "hono";
 import { ZodError } from "zod";
 import { prisma } from "./prisma";
@@ -38,8 +51,11 @@ import {
   createSimpleAuthToken,
   completeWorkspaceGoogleEmailOAuthCallback,
   completeHubSpotOAuthCallback,
+  createDiscoveryEvidence,
   disconnectWorkspaceGoogleEmailOAuthConnection,
+  ensureProjectScopeUnlocked,
   executeHubSpotAgentAction,
+  extractDiscoveryFields,
   getAuthenticatedClientUserId,
   handleLegacyRequest,
   industryOptions,
@@ -87,14 +103,21 @@ import {
   loadClientProjectsForUser,
   loadClientQuoteDocument,
   loadClientUsersForProject,
+  loadDiscoveryEvidence,
+  loadDiscoverySessionsPayload,
+  loadDiscoverySummary,
+  loadDiscoverySummaryWithRetry,
   loadProjectRecord,
   loadProjectsDirectory,
   refreshClientEnrichment,
   loadProjectMessages,
   markProjectMessagesSeenByClient,
+  resetDiscoverySummary,
   saveClientInputSubmission,
+  saveDiscoverySession,
   serializeTask,
   deleteProjectRecord,
+  generateDiscoverySummary,
   updateProjectRecord,
   updateProjectRecordStatus,
   updateClientProjectAccess,
@@ -180,6 +203,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/delivery-templates/*", internalAuth);
   app.use("/api/work-requests", internalAuth);
   app.use("/api/work-requests/*", internalAuth);
+  app.use("/api/discovery", internalAuth);
+  app.use("/api/discovery/*", internalAuth);
   app.use("/api/projects", internalAuth);
   app.use("/api/projects/*", internalAuth);
   app.use("/api/hubspot", internalAuth);
@@ -606,6 +631,380 @@ export function createApiApp(config: BaseConfig) {
       executions: await loadProjectExecutions(c.req.param("projectId"))
     })
   );
+
+  app.all("/api/projects/:projectId/design", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    const projectId = c.req.param("projectId");
+
+    return c.json({
+      design: await loadProjectDesignById(projectId),
+      validation: await validateProjectById(projectId),
+      readiness: await loadProjectReadinessById(projectId)
+    });
+  });
+
+  app.put("/api/projects/:projectId/design/lifecycle", async (c) => {
+    const payload = updateProjectLifecycleDesignRequestSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+    const project = await updateProjectLifecycleDesign(
+      c.req.param("projectId"),
+      payload
+    );
+
+    return c.json({
+      project,
+      design: await loadProjectDesignById(project.id),
+      validation: await validateProjectById(project.id),
+      readiness: await loadProjectReadinessById(project.id),
+      summary: await summarizeProject(project)
+    });
+  });
+
+  app.put("/api/projects/:projectId/design/properties", async (c) => {
+    const payload = updateProjectPropertiesDesignRequestSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+    const project = await updateProjectPropertiesDesign(
+      c.req.param("projectId"),
+      payload
+    );
+
+    return c.json({
+      project,
+      design: await loadProjectDesignById(project.id),
+      validation: await validateProjectById(project.id),
+      readiness: await loadProjectReadinessById(project.id),
+      summary: await summarizeProject(project)
+    });
+  });
+
+  app.put("/api/projects/:projectId/design/pipelines", async (c) => {
+    const payload = updateProjectPipelinesDesignRequestSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+    const project = await updateProjectPipelinesDesign(
+      c.req.param("projectId"),
+      payload
+    );
+
+    return c.json({
+      project,
+      design: await loadProjectDesignById(project.id),
+      validation: await validateProjectById(project.id),
+      readiness: await loadProjectReadinessById(project.id),
+      summary: await summarizeProject(project)
+    });
+  });
+
+  app.all("/api/projects/:projectId/discovery", async (c) => {
+    if (c.req.method === "GET") {
+      return c.json({
+        projectId: c.req.param("projectId"),
+        discovery: await loadProjectDiscoveryById(c.req.param("projectId"))
+      });
+    }
+
+    if (c.req.method === "PUT") {
+      const payload = updateProjectDiscoverySectionRequestSchema.parse(
+        await readJsonBodyOrEmpty(c)
+      );
+      const project = await updateProjectDiscoverySection(
+        c.req.param("projectId"),
+        payload
+      );
+
+      return c.json({
+        project,
+        discovery: await loadProjectDiscoveryById(project.id),
+        summary: await summarizeProject(project)
+      });
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.get("/api/discovery/:projectId/sessions", async (c) =>
+    c.json(await loadDiscoverySessionsPayload(c.req.param("projectId")))
+  );
+
+  app.patch("/api/projects/:projectId/sessions/:sessionId", async (c) => {
+    const sessionId = Number(c.req.param("sessionId"));
+
+    if (![1, 2, 3, 4].includes(sessionId)) {
+      return c.json({ error: "Not Found" }, 404);
+    }
+
+    try {
+      await ensureProjectScopeUnlocked(c.req.param("projectId"));
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to save session"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 409
+      );
+    }
+
+    const body = (await readJsonBodyOrEmpty(c)) as { fields?: unknown };
+    const sessionDetail = await saveDiscoverySession(
+      c.req.param("projectId"),
+      sessionId,
+      body.fields ?? body
+    );
+
+    return c.json({ sessionDetail });
+  });
+
+  app.all(
+    "/api/projects/:projectId/sessions/:sessionId/evidence",
+    async (c) => {
+      const sessionId = Number(c.req.param("sessionId"));
+
+      if (![0, 1, 2, 3, 4].includes(sessionId)) {
+        return c.json({ error: "Not Found" }, 404);
+      }
+
+      if (c.req.method === "GET") {
+        const project = await prisma.project.findUnique({
+          where: { id: c.req.param("projectId") },
+          select: { id: true }
+        });
+
+        if (!project) {
+          return c.json({ error: "Project not found" }, 404);
+        }
+
+        return c.json({
+          evidenceItems: await loadDiscoveryEvidence(
+            c.req.param("projectId"),
+            sessionId
+          )
+        });
+      }
+
+      if (c.req.method === "POST") {
+        try {
+          await ensureProjectScopeUnlocked(c.req.param("projectId"));
+        } catch (error) {
+          return c.json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to add evidence item"
+            },
+            error instanceof Error && error.message === "Project not found"
+              ? 404
+              : 409
+          );
+        }
+
+        try {
+          const body = (await readJsonBodyOrEmpty(c)) as {
+            evidenceType?: unknown;
+            sourceLabel?: unknown;
+            sourceUrl?: unknown;
+            content?: unknown;
+          };
+          const evidenceItem = await createDiscoveryEvidence(
+            c.req.param("projectId"),
+            sessionId,
+            body
+          );
+
+          return c.json({ evidenceItem }, 201);
+        } catch (error) {
+          if (error instanceof Error) {
+            return c.json({ error: error.message }, 400);
+          }
+
+          throw error;
+        }
+      }
+
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+  );
+
+  app.all("/api/projects/:projectId/discovery-summary", async (c) => {
+    if (c.req.method === "GET") {
+      const project = await prisma.project.findUnique({
+        where: { id: c.req.param("projectId") },
+        select: { id: true }
+      });
+
+      if (!project) {
+        return c.json({ error: "Project not found" }, 404);
+      }
+
+      return c.json({
+        summary: await loadDiscoverySummary(c.req.param("projectId"))
+      });
+    }
+
+    if (c.req.method === "POST") {
+      let scopeUnlocked = false;
+
+      try {
+        await ensureProjectScopeUnlocked(c.req.param("projectId"));
+        scopeUnlocked = true;
+        const summary = await generateDiscoverySummary(
+          c.req.param("projectId")
+        );
+        return c.json({ summary });
+      } catch (error) {
+        if (scopeUnlocked) {
+          const recoveredSummary = await loadDiscoverySummaryWithRetry(
+            c.req.param("projectId")
+          ).catch(() => null);
+
+          if (recoveredSummary) {
+            return c.json({
+              summary: recoveredSummary,
+              recovered: true
+            });
+          }
+        }
+
+        if (error instanceof Error && error.message === "Project not found") {
+          return c.json({ error: error.message }, 404);
+        }
+
+        if (
+          error instanceof Error &&
+          error.message ===
+            "Approved scope is locked. Use change management to revise this project."
+        ) {
+          return c.json({ error: error.message }, 409);
+        }
+
+        if (error instanceof ZodError) {
+          return c.json(
+            {
+              error: "Discovery summary returned invalid JSON",
+              details: error.flatten()
+            },
+            502
+          );
+        }
+
+        if (error instanceof SyntaxError) {
+          return c.json(
+            {
+              error: "Discovery summary returned invalid JSON"
+            },
+            502
+          );
+        }
+
+        if (error instanceof Error) {
+          return c.json({ error: error.message }, 500);
+        }
+
+        throw error;
+      }
+    }
+
+    if (c.req.method === "DELETE") {
+      try {
+        await ensureProjectScopeUnlocked(c.req.param("projectId"));
+        await resetDiscoverySummary(c.req.param("projectId"));
+        return c.json({ summary: null });
+      } catch (error) {
+        if (error instanceof Error) {
+          return c.json(
+            { error: error.message },
+            error.message === "Project not found"
+              ? 404
+              : error.message ===
+                  "Approved scope is locked. Use change management to revise this project."
+                ? 409
+                : 500
+          );
+        }
+
+        throw error;
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.post("/api/discovery/save", async (c) => {
+    const body = (await readJsonBodyOrEmpty(c)) as {
+      projectId?: string;
+      session?: number;
+      fields?: Record<string, unknown>;
+    };
+
+    if (
+      !body.projectId ||
+      !body.session ||
+      ![1, 2, 3, 4].includes(body.session) ||
+      !body.fields ||
+      typeof body.fields !== "object" ||
+      Array.isArray(body.fields)
+    ) {
+      return c.json({ error: "Invalid discovery payload" }, 400);
+    }
+
+    await saveDiscoverySession(body.projectId, body.session, body.fields);
+
+    return c.json({ success: true });
+  });
+
+  app.post("/api/discovery/extract", async (c) => {
+    const body = (await readJsonBodyOrEmpty(c)) as {
+      text?: string;
+      session?: number;
+    };
+
+    if (!body.text || !body.session || ![1, 2, 3, 4].includes(body.session)) {
+      return c.json({ error: "Invalid extraction payload" }, 400);
+    }
+
+    return c.json(await extractDiscoveryFields(body.text, body.session));
+  });
+
+  app.post("/api/discovery/fetch-doc", async (c) => {
+    const body = (await readJsonBodyOrEmpty(c)) as {
+      url?: string;
+      session?: number;
+    };
+
+    if (!body.url || !body.session || ![1, 2, 3, 4].includes(body.session)) {
+      return c.json({ error: "Invalid document payload" }, 400);
+    }
+
+    const docIdMatch = body.url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+
+    if (!docIdMatch) {
+      return c.json({ error: "Invalid Google Doc URL" }, 400);
+    }
+
+    const exportUrl = `https://docs.google.com/document/d/${docIdMatch[1]}/export?format=txt`;
+    const docResponse = await fetch(exportUrl);
+
+    if (!docResponse.ok) {
+      return c.json(
+        {
+          error:
+            "Could not fetch document. Make sure it is set to public access."
+        },
+        400
+      );
+    }
+
+    const docText = await docResponse.text();
+    return c.json(await extractDiscoveryFields(docText, body.session));
+  });
 
   app.get("/api/users", async (c) =>
     c.json({

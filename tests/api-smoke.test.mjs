@@ -438,6 +438,84 @@ test("guards internal Hono system routes without an auth cookie", async () => {
       baseUrl,
       "/api/projects/test-project/modules/test-module"
     );
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/design");
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/design/lifecycle",
+      {
+        method: "PUT",
+        body: {}
+      }
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/design/properties",
+      {
+        method: "PUT",
+        body: {}
+      }
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/design/pipelines",
+      {
+        method: "PUT",
+        body: {}
+      }
+    );
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/discovery");
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/discovery", {
+      method: "PUT",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/discovery/test-project/sessions");
+    await expectUnauthorized(baseUrl, "/api/discovery/save", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/discovery/extract", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/discovery/fetch-doc", {
+      method: "POST",
+      body: {}
+    });
+    await expectUnauthorized(baseUrl, "/api/projects/test-project/sessions/1", {
+      method: "PATCH",
+      body: {}
+    });
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/sessions/0/evidence"
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/sessions/0/evidence",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/discovery-summary"
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/discovery-summary",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    await expectUnauthorized(
+      baseUrl,
+      "/api/projects/test-project/discovery-summary",
+      {
+        method: "DELETE"
+      }
+    );
     await expectUnauthorized(baseUrl, "/api/projects/test-project/summary");
     await expectUnauthorized(baseUrl, "/api/projects/test-project/validation");
     await expectUnauthorized(baseUrl, "/api/projects/test-project/readiness");

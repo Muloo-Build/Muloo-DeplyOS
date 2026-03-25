@@ -8,19 +8,12 @@ import {
   loadExecutionById,
   loadExecutionSteps,
   loadProjectById,
-  loadProjectDiscoveryById,
-  loadProjectDesignById,
   loadProjectExecutions,
   loadProjectModuleDetail,
-  loadProjectReadinessById,
   loadProjectSummaryById,
   summarizeProjectModules,
   summarizeProject,
-  updateProjectDiscoverySection,
-  updateProjectLifecycleDesign,
   updateProjectMetadata,
-  updateProjectPipelinesDesign,
-  updateProjectPropertiesDesign,
   updateProjectScope,
   validateProjectById
 } from "@muloo/file-system";
@@ -28,11 +21,7 @@ import Prisma from "@prisma/client";
 import { moduleCatalog } from "@muloo/shared";
 import {
   createProjectFromTemplateRequestSchema,
-  updateProjectDiscoverySectionRequestSchema,
-  updateProjectLifecycleDesignRequestSchema,
   updateProjectMetadataRequestSchema,
-  updateProjectPipelinesDesignRequestSchema,
-  updateProjectPropertiesDesignRequestSchema,
   updateProjectScopeRequestSchema
 } from "@muloo/shared";
 import { z, ZodError } from "zod";
@@ -2552,32 +2541,6 @@ function matchProjectQuoteRoute(pathname: string): {
   };
 }
 
-function matchProjectDesignRoute(pathname: string): {
-  projectId: string;
-  resource?: "lifecycle" | "properties" | "pipelines";
-} | null {
-  const match =
-    /^\/api\/projects\/([^/]+?)\/design(?:\/(lifecycle|properties|pipelines))?$/.exec(
-      pathname
-    );
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  const resource =
-    match[2] === "lifecycle" ||
-    match[2] === "properties" ||
-    match[2] === "pipelines"
-      ? match[2]
-      : undefined;
-
-  return {
-    projectId: decodeURIComponent(match[1]),
-    ...(resource ? { resource } : {})
-  };
-}
-
 function matchExecutionRoute(pathname: string): {
   executionId: string;
   resource?: "steps";
@@ -2609,18 +2572,6 @@ function matchRunRoute(pathname: string): {
 
   return {
     runId: decodeURIComponent(match[1])
-  };
-}
-
-function matchDiscoveryRoute(pathname: string): { projectId: string } | null {
-  const match = /^\/api\/discovery\/([^/]+)\/sessions$/.exec(pathname);
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1])
   };
 }
 
@@ -2705,54 +2656,6 @@ function matchProjectMessagesRoute(pathname: string): {
 
   return {
     projectId: decodeURIComponent(match[1])
-  };
-}
-
-function matchProjectDiscoverySummaryRoute(
-  pathname: string
-): { projectId: string } | null {
-  const match = /^\/api\/projects\/([^/]+?)\/discovery-summary$/.exec(pathname);
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1])
-  };
-}
-
-function matchProjectSessionRoute(pathname: string): {
-  projectId: string;
-  sessionId: number;
-} | null {
-  const match = /^\/api\/projects\/([^/]+?)\/sessions\/([1-4])$/.exec(pathname);
-
-  if (!match || !match[1] || !match[2]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1]),
-    sessionId: Number(match[2])
-  };
-}
-
-function matchProjectSessionEvidenceRoute(pathname: string): {
-  projectId: string;
-  sessionId: number;
-} | null {
-  const match = /^\/api\/projects\/([^/]+?)\/sessions\/([0-4])\/evidence$/.exec(
-    pathname
-  );
-
-  if (!match || !match[1] || !match[2]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1]),
-    sessionId: Number(match[2])
   };
 }
 
@@ -7095,7 +6998,7 @@ Rules:
   return serializeDiscoverySummary(savedSummary);
 }
 
-async function generateDiscoverySummary(projectId: string) {
+export async function generateDiscoverySummary(projectId: string) {
   const discoveryPayload = await loadProjectDiscoveryForBlueprint(projectId);
 
   if (!discoveryPayload) {
@@ -7226,7 +7129,7 @@ Rules:
   return serializeDiscoverySummary(savedSummary);
 }
 
-async function loadDiscoverySummary(projectId: string) {
+export async function loadDiscoverySummary(projectId: string) {
   const summary = await prisma.discoverySummary.findUnique({
     where: { projectId }
   });
@@ -7240,7 +7143,7 @@ function waitForDelay(delayMs: number) {
   });
 }
 
-async function loadDiscoverySummaryWithRetry(
+export async function loadDiscoverySummaryWithRetry(
   projectId: string,
   attempts = 4,
   delayMs = 350
@@ -7260,7 +7163,7 @@ async function loadDiscoverySummaryWithRetry(
   return null;
 }
 
-async function ensureProjectScopeUnlocked(
+export async function ensureProjectScopeUnlocked(
   projectId: string,
   errorMessage = "Approved scope is locked. Use change management to revise this project."
 ) {
@@ -7545,7 +7448,7 @@ export async function approveProjectQuote(
   };
 }
 
-async function resetDiscoverySummary(projectId: string) {
+export async function resetDiscoverySummary(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: { scopeType: true }
@@ -14250,7 +14153,7 @@ function serializeDiscoveryEvidence<
   };
 }
 
-async function loadDiscoveryEvidence(
+export async function loadDiscoveryEvidence(
   projectId: string,
   sessionNumber?: number
 ) {
@@ -14265,7 +14168,7 @@ async function loadDiscoveryEvidence(
   return evidenceItems.map((item) => serializeDiscoveryEvidence(item));
 }
 
-async function createDiscoveryEvidence(
+export async function createDiscoveryEvidence(
   projectId: string,
   sessionNumber: number,
   value: {
@@ -14306,7 +14209,7 @@ async function createDiscoveryEvidence(
   return serializeDiscoveryEvidence(evidenceItem);
 }
 
-async function saveDiscoverySession(
+export async function saveDiscoverySession(
   projectId: string,
   sessionNumber: number,
   fields: unknown
@@ -14347,7 +14250,34 @@ async function saveDiscoverySession(
   };
 }
 
-async function extractDiscoveryFields(
+export async function loadDiscoverySessionsPayload(projectId: string) {
+  const [submissions, evidenceItems] = await Promise.all([
+    prisma.discoverySubmission.findMany({
+      where: { projectId },
+      orderBy: { version: "asc" },
+      select: {
+        version: true,
+        status: true,
+        sections: true,
+        completedSections: true
+      }
+    }),
+    loadDiscoveryEvidence(projectId)
+  ]);
+
+  return {
+    sessions: buildDiscoverySessions(
+      submissions.map((submission) => ({
+        version: submission.version,
+        sections: submission.sections
+      }))
+    ),
+    sessionDetails: buildDiscoverySessionsWithStatus(submissions),
+    evidenceItems
+  };
+}
+
+export async function extractDiscoveryFields(
   text: string,
   session: number
 ): Promise<{ fields: DiscoverySessionFields; message?: string }> {
@@ -14468,62 +14398,6 @@ export async function handleLegacyRequest(
       return sendJson(response, 405, { error: "Method Not Allowed" });
     }
 
-    const discoveryRoute = matchDiscoveryRoute(url.pathname);
-    if (request.method === "GET" && discoveryRoute) {
-      const [submissions, evidenceItems] = await Promise.all([
-        prisma.discoverySubmission.findMany({
-          where: { projectId: discoveryRoute.projectId },
-          orderBy: { version: "asc" },
-          select: {
-            version: true,
-            status: true,
-            sections: true,
-            completedSections: true
-          }
-        }),
-        loadDiscoveryEvidence(discoveryRoute.projectId)
-      ]);
-
-      return sendJson(response, 200, {
-        sessions: buildDiscoverySessions(
-          submissions.map((submission) => ({
-            version: submission.version,
-            sections: submission.sections
-          }))
-        ),
-        sessionDetails: buildDiscoverySessionsWithStatus(submissions),
-        evidenceItems
-      });
-    }
-
-    const projectSessionRoute = matchProjectSessionRoute(url.pathname);
-    if (request.method === "PATCH" && projectSessionRoute) {
-      const project = await prisma.project.findUnique({
-        where: { id: projectSessionRoute.projectId },
-        select: { id: true, quoteApprovalStatus: true, scopeLockedAt: true }
-      });
-
-      if (!project) {
-        return sendJson(response, 404, { error: "Project not found" });
-      }
-
-      if (isProjectScopeLocked(project)) {
-        return sendJson(response, 409, {
-          error:
-            "Approved scope is locked. Use change management to revise this project."
-        });
-      }
-
-      const body = (await readJsonBody(request)) as { fields?: unknown };
-      const sessionDetail = await saveDiscoverySession(
-        projectSessionRoute.projectId,
-        projectSessionRoute.sessionId,
-        body.fields ?? body
-      );
-
-      return sendJson(response, 200, { sessionDetail });
-    }
-
     const projectMessagesRoute = matchProjectMessagesRoute(url.pathname);
     if (projectMessagesRoute) {
       const project = await prisma.project.findUnique({
@@ -14565,185 +14439,6 @@ export async function handleLegacyRequest(
             error:
               error instanceof Error ? error.message : "Failed to post message"
           });
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const projectSessionEvidenceRoute = matchProjectSessionEvidenceRoute(
-      url.pathname
-    );
-    if (projectSessionEvidenceRoute) {
-      if (request.method === "GET") {
-        const project = await prisma.project.findUnique({
-          where: { id: projectSessionEvidenceRoute.projectId },
-          select: { id: true }
-        });
-
-        if (!project) {
-          return sendJson(response, 404, { error: "Project not found" });
-        }
-
-        const evidenceItems = await loadDiscoveryEvidence(
-          projectSessionEvidenceRoute.projectId,
-          projectSessionEvidenceRoute.sessionId
-        );
-        return sendJson(response, 200, { evidenceItems });
-      }
-
-      if (request.method === "POST") {
-        const project = await prisma.project.findUnique({
-          where: { id: projectSessionEvidenceRoute.projectId },
-          select: { id: true, quoteApprovalStatus: true, scopeLockedAt: true }
-        });
-
-        if (!project) {
-          return sendJson(response, 404, { error: "Project not found" });
-        }
-
-        if (isProjectScopeLocked(project)) {
-          return sendJson(response, 409, {
-            error:
-              "Approved scope is locked. Use change management to revise this project."
-          });
-        }
-
-        try {
-          const body = (await readJsonBody(request)) as {
-            evidenceType?: unknown;
-            sourceLabel?: unknown;
-            sourceUrl?: unknown;
-            content?: unknown;
-          };
-          const evidenceItem = await createDiscoveryEvidence(
-            projectSessionEvidenceRoute.projectId,
-            projectSessionEvidenceRoute.sessionId,
-            body
-          );
-
-          return sendJson(response, 201, { evidenceItem });
-        } catch (error) {
-          if (error instanceof Error) {
-            return sendJson(response, 400, { error: error.message });
-          }
-
-          throw error;
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const projectDiscoverySummaryRoute = matchProjectDiscoverySummaryRoute(
-      url.pathname
-    );
-    if (projectDiscoverySummaryRoute) {
-      if (request.method === "GET") {
-        const project = await prisma.project.findUnique({
-          where: { id: projectDiscoverySummaryRoute.projectId },
-          select: { id: true }
-        });
-
-        if (!project) {
-          return sendJson(response, 404, { error: "Project not found" });
-        }
-
-        const summary = await loadDiscoverySummary(
-          projectDiscoverySummaryRoute.projectId
-        );
-        return sendJson(response, 200, { summary });
-      }
-
-      if (request.method === "POST") {
-        let scopeUnlocked = false;
-
-        try {
-          await ensureProjectScopeUnlocked(
-            projectDiscoverySummaryRoute.projectId
-          );
-          scopeUnlocked = true;
-          const summary = await generateDiscoverySummary(
-            projectDiscoverySummaryRoute.projectId
-          );
-          return sendJson(response, 200, { summary });
-        } catch (error: unknown) {
-          if (scopeUnlocked) {
-            const recoveredSummary = await loadDiscoverySummaryWithRetry(
-              projectDiscoverySummaryRoute.projectId
-            ).catch(() => null);
-
-            if (recoveredSummary) {
-              return sendJson(response, 200, {
-                summary: recoveredSummary,
-                recovered: true
-              });
-            }
-          }
-
-          if (error instanceof Error && error.message === "Project not found") {
-            return sendJson(response, 404, { error: error.message });
-          }
-
-          if (
-            error instanceof Error &&
-            error.message ===
-              "Approved scope is locked. Use change management to revise this project."
-          ) {
-            return sendJson(response, 409, { error: error.message });
-          }
-
-          if (error instanceof ZodError) {
-            return sendJson(response, 502, {
-              error: "Discovery summary returned invalid JSON",
-              details: error.flatten()
-            });
-          }
-
-          if (error instanceof SyntaxError) {
-            return sendJson(response, 502, {
-              error: "Discovery summary returned invalid JSON"
-            });
-          }
-
-          if (error instanceof Error) {
-            return sendJson(response, 500, { error: error.message });
-          }
-
-          throw error;
-        }
-      }
-
-      if (request.method === "DELETE") {
-        try {
-          const project = await prisma.project.findUnique({
-            where: { id: projectDiscoverySummaryRoute.projectId },
-            select: {
-              id: true,
-              quoteApprovalStatus: true,
-              scopeLockedAt: true
-            }
-          });
-
-          if (!project) {
-            return sendJson(response, 404, { error: "Project not found" });
-          }
-
-          if (isProjectScopeLocked(project)) {
-            return sendJson(response, 409, {
-              error:
-                "Approved scope is locked. Use change management to revise this project."
-            });
-          }
-
-          await resetDiscoverySummary(projectDiscoverySummaryRoute.projectId);
-          return sendJson(response, 200, { summary: null });
-        } catch (error: unknown) {
-          if (error instanceof Error) {
-            return sendJson(response, 500, { error: error.message });
-          }
-
-          throw error;
         }
       }
 
@@ -15317,84 +15012,6 @@ export async function handleLegacyRequest(
       return sendJson(response, 405, { error: "Method Not Allowed" });
     }
 
-    if (request.method === "POST" && url.pathname === "/api/discovery/save") {
-      const body = (await readJsonBody(request)) as {
-        projectId?: string;
-        session?: number;
-        fields?: Record<string, unknown>;
-      };
-
-      if (
-        !body.projectId ||
-        !body.session ||
-        !sessionFieldLabels[body.session] ||
-        !body.fields ||
-        typeof body.fields !== "object" ||
-        Array.isArray(body.fields)
-      ) {
-        return sendJson(response, 400, {
-          error: "Invalid discovery payload"
-        });
-      }
-
-      await saveDiscoverySession(body.projectId, body.session, body.fields);
-
-      return sendJson(response, 200, { success: true });
-    }
-
-    if (
-      request.method === "POST" &&
-      url.pathname === "/api/discovery/extract"
-    ) {
-      const body = (await readJsonBody(request)) as {
-        text?: string;
-        session?: number;
-      };
-
-      if (!body.text || !body.session || !sessionFieldLabels[body.session]) {
-        return sendJson(response, 400, {
-          error: "Invalid extraction payload"
-        });
-      }
-
-      const extraction = await extractDiscoveryFields(body.text, body.session);
-      return sendJson(response, 200, extraction);
-    }
-
-    if (
-      request.method === "POST" &&
-      url.pathname === "/api/discovery/fetch-doc"
-    ) {
-      const body = (await readJsonBody(request)) as {
-        url?: string;
-        session?: number;
-      };
-
-      if (!body.url || !body.session || !sessionFieldLabels[body.session]) {
-        return sendJson(response, 400, { error: "Invalid document payload" });
-      }
-
-      const docIdMatch = body.url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
-      if (!docIdMatch) {
-        return sendJson(response, 400, {
-          error: "Invalid Google Doc URL"
-        });
-      }
-
-      const exportUrl = `https://docs.google.com/document/d/${docIdMatch[1]}/export?format=txt`;
-      const docResponse = await fetch(exportUrl);
-      if (!docResponse.ok) {
-        return sendJson(response, 400, {
-          error:
-            "Could not fetch document. Make sure it is set to public access."
-        });
-      }
-
-      const docText = await docResponse.text();
-      const extraction = await extractDiscoveryFields(docText, body.session);
-      return sendJson(response, 200, extraction);
-    }
-
     if (
       request.method === "POST" &&
       url.pathname === "/api/projects/from-template"
@@ -15442,84 +15059,6 @@ export async function handleLegacyRequest(
       });
 
       return sendJson(response, 200, options);
-    }
-
-    const projectDesignRoute = matchProjectDesignRoute(url.pathname);
-    if (projectDesignRoute) {
-      if (request.method === "GET" && !projectDesignRoute.resource) {
-        const design = await loadProjectDesignById(
-          projectDesignRoute.projectId
-        );
-        return sendJson(response, 200, {
-          design,
-          validation: await validateProjectById(projectDesignRoute.projectId),
-          readiness: await loadProjectReadinessById(
-            projectDesignRoute.projectId
-          )
-        });
-      }
-
-      if (
-        request.method === "PUT" &&
-        projectDesignRoute.resource === "lifecycle"
-      ) {
-        const payload = updateProjectLifecycleDesignRequestSchema.parse(
-          await readJsonBody(request)
-        );
-        const project = await updateProjectLifecycleDesign(
-          projectDesignRoute.projectId,
-          payload
-        );
-        return sendJson(response, 200, {
-          project,
-          design: await loadProjectDesignById(project.id),
-          validation: await validateProjectById(project.id),
-          readiness: await loadProjectReadinessById(project.id),
-          summary: await summarizeProject(project)
-        });
-      }
-
-      if (
-        request.method === "PUT" &&
-        projectDesignRoute.resource === "properties"
-      ) {
-        const payload = updateProjectPropertiesDesignRequestSchema.parse(
-          await readJsonBody(request)
-        );
-        const project = await updateProjectPropertiesDesign(
-          projectDesignRoute.projectId,
-          payload
-        );
-        return sendJson(response, 200, {
-          project,
-          design: await loadProjectDesignById(project.id),
-          validation: await validateProjectById(project.id),
-          readiness: await loadProjectReadinessById(project.id),
-          summary: await summarizeProject(project)
-        });
-      }
-
-      if (
-        request.method === "PUT" &&
-        projectDesignRoute.resource === "pipelines"
-      ) {
-        const payload = updateProjectPipelinesDesignRequestSchema.parse(
-          await readJsonBody(request)
-        );
-        const project = await updateProjectPipelinesDesign(
-          projectDesignRoute.projectId,
-          payload
-        );
-        return sendJson(response, 200, {
-          project,
-          design: await loadProjectDesignById(project.id),
-          validation: await validateProjectById(project.id),
-          readiness: await loadProjectReadinessById(project.id),
-          summary: await summarizeProject(project)
-        });
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
     }
 
     const executionRoute = matchExecutionRoute(url.pathname);
@@ -15745,31 +15284,6 @@ export async function handleLegacyRequest(
           return sendJson(response, 400, {
             error:
               error instanceof Error ? error.message : "Failed to send email"
-          });
-        }
-      }
-
-      if (projectRoute.resource === "discovery") {
-        if (request.method === "GET") {
-          return sendJson(response, 200, {
-            projectId: projectRoute.projectId,
-            discovery: await loadProjectDiscoveryById(projectRoute.projectId)
-          });
-        }
-
-        if (request.method === "PUT") {
-          const payload = updateProjectDiscoverySectionRequestSchema.parse(
-            await readJsonBody(request)
-          );
-          const project = await updateProjectDiscoverySection(
-            projectRoute.projectId,
-            payload
-          );
-
-          return sendJson(response, 200, {
-            project,
-            discovery: await loadProjectDiscoveryById(project.id),
-            summary: await summarizeProject(project)
           });
         }
       }
