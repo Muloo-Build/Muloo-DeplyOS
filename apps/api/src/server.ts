@@ -399,6 +399,14 @@ const defaultAiWorkflowRouting = [
     modelOverride: "gpt-5.4",
     notes:
       "Draft internal-to-client emails from the saved project summary, quote status, and supporting context."
+  },
+  {
+    workflowKey: "portal_audit",
+    label: "Portal Audit",
+    providerKey: "anthropic",
+    modelOverride: "claude-sonnet-4-20250514",
+    notes:
+      "Detailed HubSpot portal audit generation with structured findings, quick wins, and implementation recommendations."
   }
 ] as const;
 const defaultProductCatalog = [
@@ -8809,6 +8817,40 @@ const recommendationApprovalStatusSchema = z.enum([
   "approved",
   "rejected"
 ]);
+const aiGeneratedPortalAuditEvidencePrefix = "[AI audit]";
+const aiGeneratedPortalAuditRecommendationPrefix = "[AI audit]";
+const portalAuditGenerationSchema = z.object({
+  executiveSummary: z.string().trim().min(1),
+  findings: z
+    .array(
+      z.object({
+        area: findingAreaSchema,
+        severity: findingSeveritySchema,
+        title: z.string().trim().min(1),
+        description: z.string().trim().min(1),
+        quickWin: z.boolean().optional(),
+        phaseRecommendation: z.string().trim().min(1).optional(),
+        evidence: z.string().trim().min(1).optional()
+      })
+    )
+    .min(3)
+    .max(24),
+  recommendations: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1),
+        area: findingAreaSchema,
+        type: recommendationTypeSchema,
+        phase: z.string().trim().min(1).optional(),
+        rationale: z.string().trim().min(1),
+        effort: recommendationEffortSchema,
+        impact: recommendationImpactSchema,
+        linkedFindingTitles: z.array(z.string().trim().min(1)).optional()
+      })
+    )
+    .max(12)
+    .default([])
+});
 
 const createFindingInputSchema = z.object({
   area: findingAreaSchema,
@@ -8945,17 +8987,15 @@ async function ensureProviderConnectionsSeeded() {
 }
 
 async function ensureAiRoutingSeeded() {
-  const existingCount = await prisma.workspaceAiRouting.count();
-
-  if (existingCount > 0) {
-    return;
+  for (const routing of defaultAiWorkflowRouting) {
+    await prisma.workspaceAiRouting.upsert({
+      where: { workflowKey: routing.workflowKey },
+      update: {},
+      create: {
+        ...routing
+      }
+    });
   }
-
-  await prisma.workspaceAiRouting.createMany({
-    data: defaultAiWorkflowRouting.map((routing) => ({
-      ...routing
-    }))
-  });
 }
 
 async function ensureWorkspaceEmailSettingsSeeded() {
@@ -9283,6 +9323,285 @@ export async function createProjectRecommendation(
   });
 
   return serializeRecommendation(recommendation);
+}
+
+export async function generateProjectPortalAudit(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      client: {
+        select: {
+          id: true,
+          name: true,
+          industry: true,
+          region: true,
+          website: true
+        }
+      },
+      portal: {
+        select: {
+          id: true,
+          portalId: true,
+          displayName: true,
+          connected: true,
+          connectedEmail: true,
+          hubDomain: true,
+          scopes: true,
+          updatedAt: true
+        }
+      },
+      discoverySummary: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (!project.portal) {
+    throw new Error(
+      "Connect the client HubSpot portal before running the AI audit"
+    );
+  }
+
+  if (!project.portal.connected) {
+    throw new Error(
+      "Reconnect the client HubSpot portal before running the AI audit"
+    );
+  }
+
+  let latestSnapshot = await prisma.portalSnapshot.findFirst({
+    where: { portalId: project.portal.id },
+    orderBy: [{ capturedAt: "desc" }]
+  });
+
+  if (!latestSnapshot) {
+    await createPortalSnapshotForPortal(project.portal.id);
+    latestSnapshot = await prisma.portalSnapshot.findFirst({
+      where: { portalId: project.portal.id },
+      orderBy: [{ capturedAt: "desc" }]
+    });
+  }
+
+  if (!latestSnapshot) {
+    throw new Error("Capture a portal snapshot before running the AI audit");
+  }
+
+  const [existingManualFindings, existingManualRecommendations] =
+    await Promise.all([
+      prisma.finding.findMany({
+        where: {
+          projectId,
+          OR: [
+            { evidence: null },
+            {
+              NOT: {
+                evidence: {
+                  startsWith: aiGeneratedPortalAuditEvidencePrefix
+                }
+              }
+            }
+          ]
+        },
+        orderBy: [{ createdAt: "desc" }]
+      }),
+      prisma.recommendation.findMany({
+        where: {
+          projectId,
+          NOT: {
+            rationale: {
+              startsWith: aiGeneratedPortalAuditRecommendationPrefix
+            }
+          }
+        },
+        orderBy: [{ createdAt: "desc" }]
+      })
+    ]);
+
+  const rawAudit = await callAiWorkflow(
+    "portal_audit",
+    `You are Muloo Deploy OS's dedicated HubSpot Portal Audit Agent.
+
+You are auditing a live HubSpot portal for a delivery team. Your job is to produce a detailed, implementation-grade audit from the captured portal footprint and project context.
+
+Rules:
+- Return ONLY valid JSON. No markdown. No commentary.
+- Use exactly these keys: executiveSummary, findings, recommendations.
+- executiveSummary must be a practical 1 to 3 paragraph operator summary that explains the current state, biggest risks, and where Muloo should focus first.
+- findings must contain concrete, evidence-backed observations. Prefer 8 to 18 findings when there is enough evidence.
+- Do not invent HubSpot features, counts, or configuration details that are not present in the input.
+- If a metric is unavailable because of missing scope, portal tier, or unavailable snapshot data, do not present that as a confirmed fault. Call out the limitation only when it materially affects audit confidence.
+- quickWin should be true only when the issue can realistically be improved quickly without a major redesign.
+- phaseRecommendation should describe the most sensible delivery timing such as "now", "phase 1", "phase 2", or "later".
+- evidence should reference the specific counts, snapshot fields, or raw API sections that support the finding.
+- recommendations should be prioritized next actions Muloo can take. Prefer 4 to 8 recommendations.
+- linkedFindingTitles should reference finding titles from the generated findings when there is a direct link.
+- Avoid duplicating existing manual findings or recommendations unless the new evidence materially strengthens or reframes them.
+- Keep the tone sharp, practical, and delivery-oriented. Think like a senior HubSpot architect performing an optimisation audit for a paying client.`,
+    stringifyPromptData({
+      project: {
+        id: project.id,
+        name: project.name,
+        engagementType: project.engagementType,
+        owner: project.owner,
+        ownerEmail: project.ownerEmail,
+        implementationApproach: project.implementationApproach,
+        customerPlatformTier: project.customerPlatformTier,
+        selectedHubs: project.selectedHubs,
+        problemStatement: project.problemStatement,
+        solutionRecommendation: project.solutionRecommendation,
+        scopeExecutiveSummary: project.scopeExecutiveSummary,
+        commercialBrief: project.commercialBrief
+      },
+      client: project.client,
+      portal: {
+        id: project.portal.id,
+        portalId: project.portal.portalId,
+        displayName: project.portal.displayName,
+        connectedEmail: project.portal.connectedEmail,
+        hubDomain: project.portal.hubDomain,
+        scopes: project.portal.scopes,
+        updatedAt: project.portal.updatedAt.toISOString()
+      },
+      discoverySummary: project.discoverySummary,
+      latestSnapshot: {
+        capturedAt: latestSnapshot.capturedAt.toISOString(),
+        hubTier: latestSnapshot.hubTier,
+        activeHubs: latestSnapshot.activeHubs,
+        contactPropertyCount: latestSnapshot.contactPropertyCount,
+        companyPropertyCount: latestSnapshot.companyPropertyCount,
+        dealPropertyCount: latestSnapshot.dealPropertyCount,
+        ticketPropertyCount: latestSnapshot.ticketPropertyCount,
+        customObjectCount: latestSnapshot.customObjectCount,
+        dealPipelineCount: latestSnapshot.dealPipelineCount,
+        dealStageCount: latestSnapshot.dealStageCount,
+        ticketPipelineCount: latestSnapshot.ticketPipelineCount,
+        activeUserCount: latestSnapshot.activeUserCount,
+        teamCount: latestSnapshot.teamCount,
+        activeListCount: latestSnapshot.activeListCount,
+        rawApiResponses: latestSnapshot.rawApiResponses
+      },
+      existingManualFindings: existingManualFindings.map((finding) => ({
+        area: finding.area,
+        severity: finding.severity,
+        title: finding.title,
+        description: finding.description,
+        quickWin: finding.quickWin,
+        status: finding.status
+      })),
+      existingManualRecommendations: existingManualRecommendations.map(
+        (recommendation) => ({
+          area: recommendation.area,
+          title: recommendation.title,
+          type: recommendation.type,
+          phase: recommendation.phase,
+          effort: recommendation.effort,
+          impact: recommendation.impact
+        })
+      )
+    }),
+    { maxTokens: 6000 }
+  );
+
+  const parsedAudit = await parseModelJson(
+    rawAudit,
+    portalAuditGenerationSchema,
+    "portal-audit"
+  );
+
+  const uniqueFindings = Array.from(
+    new Map(
+      parsedAudit.findings.map((finding) => [
+        `${finding.area}:${finding.title.trim().toLowerCase()}`,
+        finding
+      ])
+    ).values()
+  );
+  const uniqueRecommendations = Array.from(
+    new Map(
+      parsedAudit.recommendations.map((recommendation) => [
+        `${recommendation.area}:${recommendation.title.trim().toLowerCase()}`,
+        recommendation
+      ])
+    ).values()
+  );
+
+  return prisma.$transaction(async (transaction) => {
+    await transaction.finding.deleteMany({
+      where: {
+        projectId,
+        evidence: {
+          startsWith: aiGeneratedPortalAuditEvidencePrefix
+        }
+      }
+    });
+
+    await transaction.recommendation.deleteMany({
+      where: {
+        projectId,
+        rationale: {
+          startsWith: aiGeneratedPortalAuditRecommendationPrefix
+        }
+      }
+    });
+
+    const findings = [] as Array<ReturnType<typeof serializeFinding>>;
+    const findingIdByTitle = new Map<string, string>();
+
+    for (const finding of uniqueFindings) {
+      const createdFinding = await transaction.finding.create({
+        data: {
+          projectId,
+          area: finding.area,
+          severity: finding.severity,
+          title: finding.title.trim(),
+          description: finding.description.trim(),
+          quickWin: finding.quickWin ?? false,
+          phaseRecommendation: finding.phaseRecommendation?.trim() || "phase 1",
+          evidence: `${aiGeneratedPortalAuditEvidencePrefix} ${finding.evidence?.trim() || "Generated from the latest portal snapshot and project context."}`,
+          status: "open"
+        }
+      });
+
+      findings.push(serializeFinding(createdFinding));
+      findingIdByTitle.set(
+        createdFinding.title.trim().toLowerCase(),
+        createdFinding.id
+      );
+    }
+
+    const recommendations = [] as Array<
+      ReturnType<typeof serializeRecommendation>
+    >;
+
+    for (const recommendation of uniqueRecommendations) {
+      const linkedFindingIds = (recommendation.linkedFindingTitles ?? [])
+        .map((title) => findingIdByTitle.get(title.trim().toLowerCase()) ?? null)
+        .filter((value): value is string => Boolean(value));
+
+      const createdRecommendation = await transaction.recommendation.create({
+        data: {
+          projectId,
+          title: recommendation.title.trim(),
+          area: recommendation.area,
+          type: recommendation.type,
+          phase: recommendation.phase?.trim() || "phase 1",
+          rationale: `${aiGeneratedPortalAuditRecommendationPrefix} ${recommendation.rationale.trim()}`,
+          effort: recommendation.effort,
+          impact: recommendation.impact,
+          linkedFindingIds
+        }
+      });
+
+      recommendations.push(serializeRecommendation(createdRecommendation));
+    }
+
+    return {
+      executiveSummary: parsedAudit.executiveSummary.trim(),
+      findings,
+      recommendations
+    };
+  });
 }
 
 export async function updateProjectRecommendation(

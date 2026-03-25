@@ -152,6 +152,7 @@ import {
   generateDiscoverySummary,
   generateBlueprintForProject,
   generateProjectTaskPlan,
+  generateProjectPortalAudit,
   queueAgentRun,
   sendWorkspaceEmail,
   shareProjectQuote,
@@ -1439,6 +1440,35 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.post("/api/projects/:projectId/portal-audit/generate", async (c) => {
+    try {
+      const audit = await generateProjectPortalAudit(c.req.param("projectId"));
+      return c.json({ audit });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return c.json(
+          {
+            error: "Portal audit returned invalid JSON",
+            details: error.flatten()
+          },
+          502
+        );
+      }
+
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to generate portal audit"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 400
+      );
+    }
   });
 
   app.all("/api/projects/:projectId/findings/:findingId", async (c) => {

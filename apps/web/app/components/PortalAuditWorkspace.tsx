@@ -50,6 +50,22 @@ interface FindingRecord {
   updatedAt: string;
 }
 
+interface RecommendationRecord {
+  id: string;
+  projectId: string;
+  title: string;
+  area: string;
+  type: "quick_win" | "structural" | "advisory";
+  phase: string;
+  rationale: string;
+  effort: "xs" | "s" | "m" | "l" | "xl";
+  impact: "low" | "medium" | "high";
+  clientApprovalStatus: "pending" | "approved" | "rejected";
+  linkedFindingIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface FindingDraft {
   severity: FindingRecord["severity"];
   title: string;
@@ -97,6 +113,10 @@ function formatLabel(value: string) {
 
 function formatCount(value: number | null) {
   return value === null ? "—" : value.toLocaleString("en-ZA");
+}
+
+function formatRecommendationRationale(value: string) {
+  return value.replace(/^\[AI audit\]\s*/i, "").trim();
 }
 
 function FindingModal({
@@ -279,8 +299,14 @@ export default function PortalAuditWorkspace({
   const [project, setProject] = useState<ProjectSummary | null>(null);
   const [snapshot, setSnapshot] = useState<PortalSnapshot | null>(null);
   const [findings, setFindings] = useState<FindingRecord[]>([]);
+  const [recommendations, setRecommendations] = useState<
+    RecommendationRecord[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const [aiAuditBusy, setAiAuditBusy] = useState(false);
+  const [aiAuditSummary, setAiAuditSummary] = useState<string | null>(null);
+  const [aiAuditFeedback, setAiAuditFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeFindingArea, setActiveFindingArea] = useState<
     (typeof auditAreas)[number] | null
@@ -314,13 +340,26 @@ export default function PortalAuditWorkspace({
       const findingsResponse = await fetch(
         `/api/projects/${encodeURIComponent(projectId)}/findings`
       );
+      const recommendationsResponse = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/recommendations`
+      );
       const findingsBody = await findingsResponse.json().catch(() => null);
+      const recommendationsBody = await recommendationsResponse
+        .json()
+        .catch(() => null);
 
       if (!findingsResponse.ok) {
         throw new Error(findingsBody?.error ?? "Failed to load findings");
       }
 
+      if (!recommendationsResponse.ok) {
+        throw new Error(
+          recommendationsBody?.error ?? "Failed to load recommendations"
+        );
+      }
+
       setFindings(findingsBody.findings ?? []);
+      setRecommendations(recommendationsBody.recommendations ?? []);
 
       if (projectBody.project?.portal?.id) {
         const snapshotResponse = await fetch(
@@ -381,6 +420,44 @@ export default function PortalAuditWorkspace({
       );
     } finally {
       setSnapshotBusy(false);
+    }
+  }
+
+  async function runAiAudit() {
+    setAiAuditBusy(true);
+    setAiAuditFeedback(null);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/portal-audit/generate`,
+        {
+          method: "POST"
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to generate portal audit");
+      }
+
+      setAiAuditSummary(body?.audit?.executiveSummary ?? null);
+      setFindings(body?.audit?.findings ?? []);
+      setRecommendations(body?.audit?.recommendations ?? []);
+      setAiAuditFeedback(
+        `AI audit refreshed at ${new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        })}.`
+      );
+    } catch (auditError) {
+      setError(
+        auditError instanceof Error
+          ? auditError.message
+          : "Failed to generate portal audit"
+      );
+    } finally {
+      setAiAuditBusy(false);
     }
   }
 
@@ -482,14 +559,24 @@ export default function PortalAuditWorkspace({
                 into delivery without leaving the project workflow.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void refreshSnapshot()}
-              disabled={snapshotBusy || !project?.portal?.id}
-              className="rounded-xl border border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.12)] px-4 py-3 text-sm font-medium text-[#51d0b0] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {snapshotBusy ? "Refreshing..." : "Refresh Snapshot"}
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => void runAiAudit()}
+                disabled={aiAuditBusy || !project?.portal?.id}
+                className="rounded-xl border border-[rgba(240,130,74,0.25)] bg-[rgba(240,130,74,0.14)] px-4 py-3 text-sm font-medium text-[#f0824a] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {aiAuditBusy ? "Running AI Audit..." : "Run AI Audit"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void refreshSnapshot()}
+                disabled={snapshotBusy || !project?.portal?.id}
+                className="rounded-xl border border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.12)] px-4 py-3 text-sm font-medium text-[#51d0b0] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {snapshotBusy ? "Refreshing..." : "Refresh Snapshot"}
+              </button>
+            </div>
           </div>
 
           {loading ? (
@@ -505,6 +592,11 @@ export default function PortalAuditWorkspace({
             <>
               {error ? (
                 <p className="mt-4 text-sm text-[#ff8f9c]">{error}</p>
+              ) : null}
+              {aiAuditFeedback ? (
+                <p className="mt-4 text-sm text-status-success">
+                  {aiAuditFeedback}
+                </p>
               ) : null}
               {!project?.portal ? (
                 <div className="mt-6 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary">
@@ -528,6 +620,74 @@ export default function PortalAuditWorkspace({
               )}
             </>
           )}
+        </section>
+
+        {aiAuditSummary ? (
+          <section className="rounded-[28px] border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+              AI Audit Summary
+            </p>
+            <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-text-secondary">
+              {aiAuditSummary}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="rounded-[28px] border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                AI Recommendations
+              </p>
+              <h2 className="mt-3 text-2xl font-semibold text-white">
+                Prioritised next actions
+              </h2>
+            </div>
+            <div className="rounded-xl bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+              {recommendations.length} recommendation
+              {recommendations.length === 1 ? "" : "s"}
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            {recommendations.length > 0 ? (
+              recommendations.map((recommendation) => (
+                <div
+                  key={recommendation.id}
+                  className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                >
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+                      {formatLabel(recommendation.type)}
+                    </span>
+                    <span className="rounded-full bg-[rgba(81,208,176,0.12)] px-2 py-0.5 text-[11px] font-medium text-[#51d0b0]">
+                      {formatLabel(recommendation.area)}
+                    </span>
+                    <span className="rounded-full bg-[rgba(240,130,74,0.14)] px-2 py-0.5 text-[11px] font-medium text-[#f0824a]">
+                      Effort {recommendation.effort.toUpperCase()}
+                    </span>
+                    <span className="rounded-full bg-[rgba(140,190,255,0.14)] px-2 py-0.5 text-[11px] font-medium text-[#8cbcff]">
+                      Impact {formatLabel(recommendation.impact)}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-base font-semibold text-white">
+                    {recommendation.title}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-text-secondary">
+                    {formatRecommendationRationale(recommendation.rationale)}
+                  </p>
+                  <p className="mt-3 text-xs uppercase tracking-[0.18em] text-text-muted">
+                    {recommendation.phase}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary lg:col-span-2">
+                Run the AI audit to generate detailed recommendations for this
+                portal.
+              </div>
+            )}
+          </div>
         </section>
 
         <section className="rounded-[28px] border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
