@@ -47,6 +47,13 @@ interface HubSpotSchemasResponse {
   results?: Array<Record<string, unknown>>;
 }
 
+interface HubSpotCountableCollectionResponse {
+  results?: unknown[];
+  lists?: unknown[];
+  total?: number;
+  count?: number;
+}
+
 export interface PortalSnapshotCaptureResult {
   capturedAt: string;
   hubTier?: string | null;
@@ -210,6 +217,28 @@ function normalizePipeline(
 
 function countResults(payload: { results?: unknown[] } | null | undefined) {
   return Array.isArray(payload?.results) ? payload.results.length : null;
+}
+
+function countCollectionItems(
+  payload: HubSpotCountableCollectionResponse | null | undefined
+) {
+  if (typeof payload?.total === "number") {
+    return payload.total;
+  }
+
+  if (typeof payload?.count === "number") {
+    return payload.count;
+  }
+
+  if (Array.isArray(payload?.results)) {
+    return payload.results.length;
+  }
+
+  if (Array.isArray(payload?.lists)) {
+    return payload.lists.length;
+  }
+
+  return null;
 }
 
 function normalizeHubLabel(value: string) {
@@ -632,7 +661,10 @@ export class HubSpotClient {
       ticketProperties,
       customObjectSchemas,
       dealPipelines,
-      ticketPipelines
+      ticketPipelines,
+      users,
+      teams,
+      lists
     ] = await Promise.all([
       this.requestJson<HubSpotAccountInfoResponse>(
         "/account-info/v3/details",
@@ -673,6 +705,21 @@ export class HubSpotClient {
         "/crm/v3/pipelines/tickets",
         { method: "GET" },
         "HubSpot ticket pipelines fetch"
+      ),
+      this.requestJson<HubSpotCountableCollectionResponse>(
+        "/settings/v3/users",
+        { method: "GET" },
+        "HubSpot users fetch"
+      ),
+      this.requestJson<HubSpotCountableCollectionResponse>(
+        "/settings/v3/users/teams",
+        { method: "GET" },
+        "HubSpot teams fetch"
+      ),
+      this.requestJson<HubSpotCountableCollectionResponse>(
+        "/crm/v3/lists?count=true",
+        { method: "GET" },
+        "HubSpot lists fetch"
       )
     ]);
 
@@ -697,9 +744,9 @@ export class HubSpotClient {
       dealPipelineCount,
       dealStageCount,
       ticketPipelineCount,
-      activeUserCount: null,
-      teamCount: null,
-      activeListCount: null,
+      activeUserCount: countCollectionItems(users),
+      teamCount: countCollectionItems(teams),
+      activeListCount: countCollectionItems(lists),
       rawApiResponses: {
         accountInfoDetails: accountInfo,
         contactProperties,
@@ -708,7 +755,10 @@ export class HubSpotClient {
         ticketProperties,
         customObjectSchemas,
         dealPipelines,
-        ticketPipelines
+        ticketPipelines,
+        users,
+        teams,
+        lists
       }
     };
   }

@@ -8996,6 +8996,8 @@ export async function createPortalSnapshotForPortal(portalId: string) {
   });
 
   const snapshotPayload = await client.capturePortalSnapshot();
+  const { activeUserCount, teamCount, activeListCount, rawApiResponses } =
+    snapshotPayload;
   const snapshot = await prisma.portalSnapshot.create({
     data: {
       portalId,
@@ -9009,11 +9011,10 @@ export async function createPortalSnapshotForPortal(portalId: string) {
       dealPipelineCount: snapshotPayload.dealPipelineCount ?? null,
       dealStageCount: snapshotPayload.dealStageCount ?? null,
       ticketPipelineCount: snapshotPayload.ticketPipelineCount ?? null,
-      activeUserCount: snapshotPayload.activeUserCount ?? null,
-      teamCount: snapshotPayload.teamCount ?? null,
-      activeListCount: snapshotPayload.activeListCount ?? null,
-      rawApiResponses:
-        snapshotPayload.rawApiResponses as Prisma.Prisma.InputJsonValue
+      activeUserCount: activeUserCount ?? null,
+      teamCount: teamCount ?? null,
+      activeListCount: activeListCount ?? null,
+      rawApiResponses: rawApiResponses as Prisma.Prisma.InputJsonValue
     }
   });
 
