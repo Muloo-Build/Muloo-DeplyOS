@@ -12,6 +12,7 @@ interface Project {
   status: string;
   hubsInScope: string[];
   updatedAt: string;
+  defaultWorkspacePath?: string;
 }
 
 interface ProjectStats {
@@ -241,7 +242,7 @@ export default function ProjectsDashboard() {
             <div>
               <div className="flex flex-wrap items-center gap-3">
                 <Link
-                  href={`/projects/${project.id}`}
+                  href={project.defaultWorkspacePath ?? `/projects/${project.id}`}
                   className="text-lg font-semibold text-white transition-opacity hover:opacity-80"
                 >
                   {project.name}
@@ -277,7 +278,10 @@ export default function ProjectsDashboard() {
             </div>
 
             <div className="flex items-start justify-end gap-3 text-sm font-medium">
-              <Link href={`/projects/${project.id}`} className="text-white">
+              <Link
+                href={project.defaultWorkspacePath ?? `/projects/${project.id}`}
+                className="text-white"
+              >
                 View
               </Link>
               {archived ? (

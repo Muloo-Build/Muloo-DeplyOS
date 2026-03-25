@@ -29,6 +29,31 @@ interface AgentRun {
   } | null;
 }
 
+interface WorkflowRun {
+  id: string;
+  workflowKey: string;
+  title: string;
+  projectId: string | null;
+  projectName: string | null;
+  clientId: string | null;
+  clientName: string | null;
+  portalId: string | null;
+  portalDisplayName: string | null;
+  portalExternalId: string | null;
+  providerKey: string | null;
+  model: string | null;
+  routeSource: string | null;
+  requestText: string | null;
+  summary: string | null;
+  status: string;
+  resultStatus: string | null;
+  outputLog: string | null;
+  errorLog: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
 function formatLabel(value: string | null) {
   if (!value) return "Not set";
   return value
@@ -38,6 +63,7 @@ function formatLabel(value: string | null) {
 
 export default function RunsPage() {
   const [agentRuns, setAgentRuns] = useState<AgentRun[]>([]);
+  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingRunId, setUpdatingRunId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +72,7 @@ export default function RunsPage() {
     const response = await fetch("/api/runs");
     const body = await response.json().catch(() => null);
     setAgentRuns(body?.agentRuns ?? []);
+    setWorkflowRuns(body?.workflowRuns ?? []);
     setLoading(false);
   }
 
@@ -102,9 +129,11 @@ export default function RunsPage() {
 
         <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
           <div className="flex items-center justify-between gap-4">
-            <h2 className="text-xl font-semibold text-white">Agent runs</h2>
+            <h2 className="text-xl font-semibold text-white">Operational runs</h2>
             <div className="rounded-xl bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
-              {loading ? "Loading..." : `${agentRuns.length} runs`}
+              {loading
+                ? "Loading..."
+                : `${workflowRuns.length + agentRuns.length} runs`}
             </div>
           </div>
 
@@ -115,10 +144,119 @@ export default function RunsPage() {
           ) : null}
 
           <div className="mt-6 space-y-4">
-            {!loading && agentRuns.length === 0 ? (
+            {!loading && workflowRuns.length === 0 && agentRuns.length === 0 ? (
               <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 text-sm text-text-secondary">
-                No agent runs queued yet. Assign an agent to a delivery task and
-                queue a run from the delivery board.
+                No runs queued yet. Generate an audit, prepare brief, Portal Ops
+                request, or agent run to start building execution history.
+              </div>
+            ) : null}
+
+            {workflowRuns.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-semibold text-white">
+                    AI workflow runs
+                  </h3>
+                  <p className="text-sm text-text-secondary">
+                    Audit, Prepare, and Portal Ops activity
+                  </p>
+                </div>
+
+                {workflowRuns.map((run) => (
+                  <div
+                    key={run.id}
+                    className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                          {formatLabel(run.workflowKey)}
+                        </p>
+                        <h3 className="mt-2 text-lg font-semibold text-white">
+                          {run.title}
+                        </h3>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          {run.projectName ??
+                            run.portalDisplayName ??
+                            run.clientName ??
+                            "Workspace run"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary">
+                          {formatLabel(run.status)}
+                        </div>
+                        <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary">
+                          {formatLabel(run.resultStatus)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-3 text-sm text-text-secondary">
+                      {run.clientName ? <span>Client: {run.clientName}</span> : null}
+                      {run.portalDisplayName ? (
+                        <span>
+                          Portal: {run.portalDisplayName}
+                          {run.portalExternalId ? ` · ${run.portalExternalId}` : ""}
+                        </span>
+                      ) : null}
+                      {run.providerKey ? (
+                        <span>Provider: {formatLabel(run.providerKey)}</span>
+                      ) : null}
+                      {run.model ? <span>Model: {run.model}</span> : null}
+                      {run.routeSource ? (
+                        <span>
+                          Route source: {formatLabel(run.routeSource)}
+                        </span>
+                      ) : null}
+                      <span>Queued: {new Date(run.createdAt).toLocaleString()}</span>
+                    </div>
+
+                    {run.summary ? (
+                      <div className="mt-4 rounded-2xl border border-[rgba(123,226,239,0.18)] bg-[rgba(123,226,239,0.07)] p-4 text-sm text-[#b7f5ff]">
+                        {run.summary}
+                      </div>
+                    ) : null}
+
+                    <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+                        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                          Request
+                        </p>
+                        <pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-text-secondary font-sans">
+                          {run.requestText ?? "No request text stored for this run."}
+                        </pre>
+                      </div>
+
+                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+                        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                          Output
+                        </p>
+                        <pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-text-secondary font-sans">
+                          {run.outputLog ?? "No output log captured yet."}
+                        </pre>
+                        {run.errorLog ? (
+                          <div className="mt-4 rounded-xl border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-white">
+                            {run.errorLog}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {agentRuns.length > 0 ? (
+              <div className="pt-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-semibold text-white">
+                    Agent runs
+                  </h3>
+                  <p className="text-sm text-text-secondary">
+                    Delivery execution reviews
+                  </p>
+                </div>
               </div>
             ) : null}
 

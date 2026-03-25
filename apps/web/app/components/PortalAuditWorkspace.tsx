@@ -71,6 +71,16 @@ interface WorkspaceRoute {
   model: string | null;
 }
 
+interface WorkflowRun {
+  id: string;
+  workflowKey: string;
+  title: string;
+  status: string;
+  resultStatus: string | null;
+  summary: string | null;
+  createdAt: string;
+}
+
 interface FindingDraft {
   severity: FindingRecord["severity"];
   title: string;
@@ -308,6 +318,7 @@ export default function PortalAuditWorkspace({
     RecommendationRecord[]
   >([]);
   const [auditRoute, setAuditRoute] = useState<WorkspaceRoute | null>(null);
+  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [aiAuditBusy, setAiAuditBusy] = useState(false);
@@ -352,12 +363,18 @@ export default function PortalAuditWorkspace({
       const routeResponse = await fetch(
         "/api/workspace/ai-routing/portal_audit"
       );
+      const workflowRunsResponse = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/workflow-runs`
+      );
       const findingsBody = await findingsResponse.json().catch(() => null);
       const recommendationsBody = await recommendationsResponse
         .json()
         .catch(() => null);
       const routeBody = routeResponse.ok
         ? await routeResponse.json().catch(() => null)
+        : null;
+      const workflowRunsBody = workflowRunsResponse.ok
+        ? await workflowRunsResponse.json().catch(() => null)
         : null;
 
       if (!findingsResponse.ok) {
@@ -379,6 +396,11 @@ export default function PortalAuditWorkspace({
               model: routeBody.model ?? null
             }
           : null
+      );
+      setWorkflowRuns(
+        (workflowRunsBody?.workflowRuns ?? []).filter(
+          (run: WorkflowRun) => run.workflowKey === "portal_audit"
+        )
       );
 
       if (projectBody.project?.portal?.id) {
@@ -464,6 +486,11 @@ export default function PortalAuditWorkspace({
       setAiAuditSummary(body?.audit?.executiveSummary ?? null);
       setFindings(body?.audit?.findings ?? []);
       setRecommendations(body?.audit?.recommendations ?? []);
+      setWorkflowRuns((currentRuns) =>
+        body?.run
+          ? [body.run, ...currentRuns.filter((run) => run.id !== body.run.id)]
+          : currentRuns
+      );
       setAiAuditFeedback(
         `AI audit refreshed at ${new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -623,6 +650,26 @@ export default function PortalAuditWorkspace({
                 <p className="mt-4 text-sm text-status-success">
                   {aiAuditFeedback}
                 </p>
+              ) : null}
+              {workflowRuns.length > 0 ? (
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  {workflowRuns.slice(0, 3).map((run) => (
+                    <div
+                      key={run.id}
+                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                    >
+                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                        {formatLabel(run.status)}
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-white">
+                        {run.summary || run.title}
+                      </p>
+                      <p className="mt-2 text-xs text-text-secondary">
+                        {new Date(run.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               ) : null}
               {!project?.portal ? (
                 <div className="mt-6 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary">

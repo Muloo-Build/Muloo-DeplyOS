@@ -19,6 +19,7 @@ interface ProjectRecord {
   scopeExecutiveSummary?: string | null;
   updatedAt: string;
   selectedHubs: string[];
+  defaultWorkspacePath?: string;
   client: {
     id: string;
     name: string;
@@ -35,16 +36,17 @@ interface ProjectRecord {
   } | null;
 }
 
-interface DirectoryProject {
+interface ClientMemoryProject {
   id: string;
   name: string;
   status: string;
   engagementType: string;
   updatedAt: string;
-  client: {
-    id: string;
-    name: string;
-  };
+  problemStatement?: string | null;
+  solutionRecommendation?: string | null;
+  scopeExecutiveSummary?: string | null;
+  selectedHubs: string[];
+  defaultWorkspacePath?: string;
 }
 
 interface EvidenceItem {
@@ -104,6 +106,55 @@ interface PrepareBrief {
   suggestedNextStep: string;
 }
 
+interface WorkflowRun {
+  id: string;
+  workflowKey: string;
+  title: string;
+  projectId: string | null;
+  projectName: string | null;
+  clientId: string | null;
+  clientName: string | null;
+  portalId: string | null;
+  portalDisplayName: string | null;
+  portalExternalId: string | null;
+  providerKey: string | null;
+  model: string | null;
+  routeSource: string | null;
+  requestText: string | null;
+  summary: string | null;
+  status: string;
+  resultStatus: string | null;
+  outputLog: string | null;
+  errorLog: string | null;
+  createdAt: string;
+}
+
+interface ClientMemory {
+  previousProjects: ClientMemoryProject[];
+  recentFindings: Array<{
+    id: string;
+    title: string;
+    area: string;
+    severity: string;
+    status: string;
+    quickWin: boolean;
+    updatedAt: string;
+    project: { id: string; name: string };
+  }>;
+  recentRecommendations: Array<{
+    id: string;
+    title: string;
+    area: string;
+    type: string;
+    phase: string;
+    impact: string;
+    updatedAt: string;
+    project: { id: string; name: string };
+  }>;
+  portalSnapshots: PortalSnapshot[];
+  recentRuns: WorkflowRun[];
+}
+
 const evidenceTypeOptions: Array<{
   value: EvidenceItem["evidenceType"];
   label: string;
@@ -142,13 +193,14 @@ export default function ProjectPrepareWorkspace({
   projectId: string;
 }) {
   const [project, setProject] = useState<ProjectRecord | null>(null);
-  const [projects, setProjects] = useState<DirectoryProject[]>([]);
   const [findings, setFindings] = useState<FindingRecord[]>([]);
   const [recommendations, setRecommendations] = useState<RecommendationRecord[]>(
     []
   );
   const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
   const [snapshot, setSnapshot] = useState<PortalSnapshot | null>(null);
+  const [clientMemory, setClientMemory] = useState<ClientMemory | null>(null);
+  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
   const [prepareBrief, setPrepareBrief] = useState<PrepareBrief | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -178,19 +230,12 @@ export default function ProjectPrepareWorkspace({
         }
 
         const resolvedProject = projectBody.project as ProjectRecord;
-        const [
-          projectsResponse,
-          findingsResponse,
-          recommendationsResponse,
-          contextResponse
-        ] = await Promise.all([
-          fetch("/api/projects"),
+        const [findingsResponse, recommendationsResponse, contextResponse] =
+          await Promise.all([
           fetch(`/api/projects/${encodeURIComponent(projectId)}/findings`),
           fetch(`/api/projects/${encodeURIComponent(projectId)}/recommendations`),
           fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`)
         ]);
-
-        const projectsBody = await projectsResponse.json().catch(() => null);
         const findingsBody = await findingsResponse.json().catch(() => null);
         const recommendationsBody = await recommendationsResponse
           .json()
@@ -198,6 +243,19 @@ export default function ProjectPrepareWorkspace({
         const contextBody = await contextResponse.json().catch(() => null);
 
         let nextSnapshot: PortalSnapshot | null = null;
+        let nextWorkflowRuns: WorkflowRun[] = [];
+        let nextClientMemory: ClientMemory | null = null;
+
+        const workflowRunsResponse = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}/workflow-runs`
+        );
+        const workflowRunsBody = await workflowRunsResponse
+          .json()
+          .catch(() => null);
+        if (workflowRunsResponse.ok) {
+          nextWorkflowRuns = workflowRunsBody?.workflowRuns ?? [];
+        }
+
         if (resolvedProject.portal?.id) {
           const snapshotResponse = await fetch(
             `/api/portals/${encodeURIComponent(resolvedProject.portal.id)}/snapshot`
@@ -208,16 +266,27 @@ export default function ProjectPrepareWorkspace({
           }
         }
 
+        const clientMemoryResponse = await fetch(
+          `/api/clients/${encodeURIComponent(resolvedProject.client.id)}/memory?excludeProjectId=${encodeURIComponent(projectId)}`
+        );
+        const clientMemoryBody = await clientMemoryResponse
+          .json()
+          .catch(() => null);
+        if (clientMemoryResponse.ok) {
+          nextClientMemory = clientMemoryBody?.memory ?? null;
+        }
+
         if (cancelled) {
           return;
         }
 
         setProject(resolvedProject);
-        setProjects(projectsBody?.projects ?? projectsBody ?? []);
         setFindings(findingsBody?.findings ?? []);
         setRecommendations(recommendationsBody?.recommendations ?? []);
         setSupportingContext(contextBody?.evidenceItems ?? []);
         setSnapshot(nextSnapshot);
+        setClientMemory(nextClientMemory);
+        setWorkflowRuns(nextWorkflowRuns);
       } catch (loadError) {
         if (!cancelled) {
           setError(
@@ -240,18 +309,10 @@ export default function ProjectPrepareWorkspace({
     };
   }, [projectId]);
 
-  const relatedProjects = useMemo(() => {
-    if (!project) {
-      return [];
-    }
-
-    return projects
-      .filter(
-        (candidate) =>
-          candidate.id !== project.id && candidate.client?.id === project.client.id
-      )
-      .slice(0, 6);
-  }, [project, projects]);
+  const relatedProjects = useMemo(
+    () => clientMemory?.previousProjects.slice(0, 6) ?? [],
+    [clientMemory]
+  );
 
   const workspaceMode = resolveProjectWorkspaceMode({
     engagementType: project?.engagementType,
@@ -265,7 +326,10 @@ export default function ProjectPrepareWorkspace({
     },
     {
       label: "Existing client context loaded",
-      complete: relatedProjects.length > 0 || supportingContext.length > 0
+      complete:
+        relatedProjects.length > 0 ||
+        supportingContext.length > 0 ||
+        (clientMemory?.recentRecommendations.length ?? 0) > 0
     },
     {
       label: "Operator prep notes captured",
@@ -273,7 +337,9 @@ export default function ProjectPrepareWorkspace({
     },
     {
       label: "Recommended next actions available",
-      complete: recommendations.length > 0
+      complete:
+        recommendations.length > 0 ||
+        (clientMemory?.recentRecommendations.length ?? 0) > 0
     }
   ];
 
@@ -338,6 +404,11 @@ export default function ProjectPrepareWorkspace({
       }
 
       setPrepareBrief(body?.brief ?? null);
+      setWorkflowRuns((currentRuns) =>
+        body?.run
+          ? [body.run, ...currentRuns.filter((run) => run.id !== body.run.id)]
+          : currentRuns
+      );
     } catch (generationError) {
       setBriefError(
         generationError instanceof Error
@@ -515,7 +586,10 @@ export default function ProjectPrepareWorkspace({
                     relatedProjects.map((relatedProject) => (
                       <Link
                         key={relatedProject.id}
-                        href={`/projects/${relatedProject.id}`}
+                        href={
+                          relatedProject.defaultWorkspacePath ??
+                          `/projects/${relatedProject.id}`
+                        }
                         className="block rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4 transition hover:border-[rgba(255,255,255,0.14)]"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -600,6 +674,156 @@ export default function ProjectPrepareWorkspace({
                         .map((recommendation) => recommendation.title)
                         .join(" · ") || "No recommendations yet"}
                     </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                      Client Memory
+                    </p>
+                    <h2 className="mt-2 text-2xl font-semibold text-white">
+                      Recent signals across the account
+                    </h2>
+                  </div>
+                  <div className="rounded-xl bg-[#0b1126] px-4 py-2 text-sm text-text-secondary">
+                    {(clientMemory?.recentFindings.length ?? 0) +
+                      (clientMemory?.recentRecommendations.length ?? 0)}{" "}
+                    memory items
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <p className="text-sm font-semibold text-white">
+                      Recent findings
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      {clientMemory?.recentFindings.length ? (
+                        clientMemory.recentFindings.slice(0, 4).map((finding) => (
+                          <div key={finding.id} className="rounded-xl border border-[rgba(255,255,255,0.07)] px-3 py-3">
+                            <p className="text-sm text-white">{finding.title}</p>
+                            <p className="mt-2 text-xs text-text-muted">
+                              {finding.project.name} · {formatLabel(finding.area)} ·{" "}
+                              {formatLabel(finding.severity)}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-text-secondary">
+                          No previous client findings captured yet.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <p className="text-sm font-semibold text-white">
+                      Recent recommendations
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      {clientMemory?.recentRecommendations.length ? (
+                        clientMemory.recentRecommendations
+                          .slice(0, 4)
+                          .map((recommendation) => (
+                            <div
+                              key={recommendation.id}
+                              className="rounded-xl border border-[rgba(255,255,255,0.07)] px-3 py-3"
+                            >
+                              <p className="text-sm text-white">
+                                {recommendation.title}
+                              </p>
+                              <p className="mt-2 text-xs text-text-muted">
+                                {recommendation.project.name} ·{" "}
+                                {formatLabel(recommendation.area)} ·{" "}
+                                {formatLabel(recommendation.impact)}
+                              </p>
+                            </div>
+                          ))
+                      ) : (
+                        <p className="text-sm text-text-secondary">
+                          No previous recommendations captured yet.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  Memory Timeline
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-white">
+                  Portal history and recent runs
+                </h2>
+
+                <div className="mt-5 grid gap-4">
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <p className="text-sm font-semibold text-white">
+                      Portal snapshots
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      {clientMemory?.portalSnapshots.length ? (
+                        clientMemory.portalSnapshots
+                          .slice(0, 4)
+                          .map((memorySnapshot) => (
+                            <div
+                              key={memorySnapshot.capturedAt}
+                              className="rounded-xl border border-[rgba(255,255,255,0.07)] px-3 py-3"
+                            >
+                              <p className="text-sm text-white">
+                                {formatRelativeDate(memorySnapshot.capturedAt)}
+                              </p>
+                              <p className="mt-2 text-xs text-text-muted">
+                                {(memorySnapshot.hubTier ?? "Unknown tier").toUpperCase()} ·{" "}
+                                {memorySnapshot.activeHubs.length} hubs ·{" "}
+                                {memorySnapshot.dealPipelineCount ?? 0} pipelines
+                              </p>
+                            </div>
+                          ))
+                      ) : (
+                        <p className="text-sm text-text-secondary">
+                          No snapshot history captured for this client yet.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <p className="text-sm font-semibold text-white">
+                      Recent AI runs
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      {(clientMemory?.recentRuns.length ?? 0) > 0 ? (
+                        clientMemory?.recentRuns.slice(0, 4).map((run) => (
+                          <div
+                            key={run.id}
+                            className="rounded-xl border border-[rgba(255,255,255,0.07)] px-3 py-3"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm text-white">{run.title}</p>
+                              <span className="text-xs text-text-muted">
+                                {formatLabel(run.status)}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xs text-text-muted">
+                              {formatRelativeDate(run.createdAt)}
+                              {run.summary ? ` · ${run.summary}` : ""}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-text-secondary">
+                          No Prepare, Audit, or Portal Ops runs recorded yet for
+                          this client.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </section>

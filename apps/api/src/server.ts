@@ -3041,6 +3041,12 @@ function serializeProject<
   }
 >(project: T) {
   const normalizedProject = normalizeProject(project);
+  const defaultWorkspacePath =
+    normalizedProject.engagementType === "AUDIT" ||
+    normalizedProject.engagementType === "OPTIMISATION" ||
+    normalizedProject.engagementType === "GUIDED_DEPLOYMENT"
+      ? `/projects/${normalizedProject.id}/prepare`
+      : `/projects/${normalizedProject.id}`;
   const packagingAssessment = derivePlatformPackagingAssessment({
     selectedHubs: normalizedProject.selectedHubs,
     implementationApproach: normalizedProject.implementationApproach,
@@ -3074,7 +3080,8 @@ function serializeProject<
     ),
     packagingAssessment,
     clientName: normalizedProject.client.name,
-    hubsInScope: normalizedProject.selectedHubs
+    hubsInScope: normalizedProject.selectedHubs,
+    defaultWorkspacePath
   };
 }
 
@@ -3964,6 +3971,310 @@ function serializeExecutionJob<
     completedAt: job.completedAt?.toISOString() ?? null,
     createdAt: job.createdAt.toISOString()
   };
+}
+
+function mergeWorkflowRunPayload(
+  existingPayload: Prisma.Prisma.JsonValue | null,
+  nextPayload: Prisma.Prisma.InputJsonValue | undefined
+): Prisma.Prisma.InputJsonValue | undefined {
+  if (
+    existingPayload &&
+    typeof existingPayload === "object" &&
+    !Array.isArray(existingPayload) &&
+    nextPayload &&
+    typeof nextPayload === "object" &&
+    !Array.isArray(nextPayload)
+  ) {
+    return {
+      ...(existingPayload as Record<string, unknown>),
+      ...(nextPayload as Record<string, unknown>)
+    } as Prisma.Prisma.InputJsonValue;
+  }
+
+  if (nextPayload !== undefined) {
+    return nextPayload;
+  }
+
+  if (existingPayload === null) {
+    return undefined;
+  }
+
+  return existingPayload as Prisma.Prisma.InputJsonValue;
+}
+
+function serializeWorkflowRun<
+  T extends {
+    id: string;
+    workflowKey: string;
+    title: string;
+    projectId: string | null;
+    clientId: string | null;
+    portalId: string | null;
+    providerKey: string | null;
+    model: string | null;
+    routeSource: string | null;
+    requestText: string | null;
+    summary: string | null;
+    status: string;
+    resultStatus: string | null;
+    outputLog: string | null;
+    errorLog: string | null;
+    payload: Prisma.Prisma.JsonValue | null;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    project?: {
+      id: string;
+      name: string;
+      client?: { id: string; name: string } | null;
+      portal?: { id: string; displayName: string; portalId: string } | null;
+    } | null;
+    client?: { id: string; name: string } | null;
+    portal?: { id: string; displayName: string; portalId: string } | null;
+  }
+>(run: T) {
+  const resolvedClient = run.client ?? run.project?.client ?? null;
+  const resolvedPortal = run.portal ?? run.project?.portal ?? null;
+
+  return {
+    id: run.id,
+    workflowKey: run.workflowKey,
+    title: run.title,
+    projectId: run.projectId,
+    projectName: run.project?.name ?? null,
+    clientId: resolvedClient?.id ?? run.clientId ?? null,
+    clientName: resolvedClient?.name ?? null,
+    portalId: resolvedPortal?.id ?? run.portalId ?? null,
+    portalDisplayName: resolvedPortal?.displayName ?? null,
+    portalExternalId: resolvedPortal?.portalId ?? null,
+    providerKey: run.providerKey,
+    model: run.model,
+    routeSource: run.routeSource,
+    requestText: run.requestText,
+    summary: run.summary,
+    status: run.status,
+    resultStatus: run.resultStatus,
+    outputLog: run.outputLog,
+    errorLog: run.errorLog,
+    payload: run.payload,
+    startedAt: run.startedAt?.toISOString() ?? null,
+    completedAt: run.completedAt?.toISOString() ?? null,
+    createdAt: run.createdAt.toISOString(),
+    updatedAt: run.updatedAt.toISOString()
+  };
+}
+
+async function createWorkflowRunRecord(input: {
+  workflowKey: string;
+  title: string;
+  projectId?: string | null;
+  clientId?: string | null;
+  portalId?: string | null;
+  requestText?: string | null;
+  payload?: Prisma.Prisma.InputJsonValue;
+}) {
+  const resolvedRoute = await resolveAiWorkflow(input.workflowKey);
+
+  return prisma.workflowRun.create({
+    data: {
+      workflowKey: input.workflowKey,
+      title: input.title,
+      projectId: input.projectId ?? null,
+      clientId: input.clientId ?? null,
+      portalId: input.portalId ?? null,
+      providerKey: resolvedRoute.providerKey,
+      model: resolvedRoute.model,
+      routeSource: resolvedRoute.routeSource,
+      requestText: input.requestText ?? null,
+      status: "queued",
+      resultStatus: "queued",
+      ...(input.payload !== undefined ? { payload: input.payload } : {})
+    },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          client: { select: { id: true, name: true } },
+          portal: { select: { id: true, displayName: true, portalId: true } }
+        }
+      },
+      client: { select: { id: true, name: true } },
+      portal: { select: { id: true, displayName: true, portalId: true } }
+    }
+  });
+}
+
+async function updateWorkflowRunRecord(
+  runId: string,
+  input: {
+    summary?: string | null;
+    status?: string;
+    resultStatus?: string | null;
+    outputLog?: string | null;
+    errorLog?: string | null;
+    payload?: Prisma.Prisma.InputJsonValue;
+    startedAt?: Date | null;
+    completedAt?: Date | null;
+  }
+) {
+  const existingRun = await prisma.workflowRun.findUnique({
+    where: { id: runId },
+    select: { payload: true }
+  });
+
+  return prisma.workflowRun.update({
+    where: { id: runId },
+    data: {
+      ...(input.summary !== undefined ? { summary: input.summary } : {}),
+      ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.resultStatus !== undefined
+        ? { resultStatus: input.resultStatus }
+        : {}),
+      ...(input.outputLog !== undefined ? { outputLog: input.outputLog } : {}),
+      ...(input.errorLog !== undefined ? { errorLog: input.errorLog } : {}),
+      ...(input.startedAt !== undefined ? { startedAt: input.startedAt } : {}),
+      ...(input.completedAt !== undefined
+        ? { completedAt: input.completedAt }
+        : {}),
+      ...(input.payload !== undefined
+        ? (() => {
+            const mergedPayload = mergeWorkflowRunPayload(
+              existingRun?.payload ?? null,
+              input.payload
+            );
+            return mergedPayload !== undefined
+              ? { payload: mergedPayload }
+              : {};
+          })()
+        : {})
+    },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          client: { select: { id: true, name: true } },
+          portal: { select: { id: true, displayName: true, portalId: true } }
+        }
+      },
+      client: { select: { id: true, name: true } },
+      portal: { select: { id: true, displayName: true, portalId: true } }
+    }
+  });
+}
+
+async function executeTrackedWorkflowRun<TResult>(input: {
+  workflowKey: string;
+  title: string;
+  projectId?: string | null;
+  clientId?: string | null;
+  portalId?: string | null;
+  requestText?: string | null;
+  payload?: Prisma.Prisma.InputJsonValue;
+  execute: () => Promise<{
+    result: TResult;
+    summary?: string | null;
+    outputLog?: string | null;
+    resultStatus?: string | null;
+    payload?: Prisma.Prisma.InputJsonValue;
+  }>;
+}) {
+  const queuedRun = await createWorkflowRunRecord(input);
+  const runningRun = await updateWorkflowRunRecord(queuedRun.id, {
+    status: "running",
+    resultStatus: "executing",
+    startedAt: new Date()
+  });
+
+  try {
+    const outcome = await input.execute();
+    const completedRun = await updateWorkflowRunRecord(runningRun.id, {
+      summary: outcome.summary ?? null,
+      status: "completed",
+      resultStatus: outcome.resultStatus ?? "completed",
+      outputLog: outcome.outputLog ?? null,
+      errorLog: null,
+      ...(outcome.payload !== undefined ? { payload: outcome.payload } : {}),
+      completedAt: new Date()
+    });
+
+    return {
+      run: serializeWorkflowRun(completedRun),
+      result: outcome.result
+    };
+  } catch (error) {
+    const failedRun = await updateWorkflowRunRecord(runningRun.id, {
+      status: "failed",
+      resultStatus: "failed",
+      errorLog: error instanceof Error ? error.message : "Workflow execution failed",
+      completedAt: new Date()
+    });
+
+    const wrappedError =
+      error instanceof Error
+        ? error
+        : new Error("Workflow execution failed");
+    Object.assign(wrappedError, {
+      workflowRun: serializeWorkflowRun(failedRun)
+    });
+    throw wrappedError;
+  }
+}
+
+export async function loadWorkflowRuns(input?: {
+  projectId?: string | null;
+  clientId?: string | null;
+  portalId?: string | null;
+  workflowKeys?: string[];
+  limit?: number;
+}) {
+  const conditions: Prisma.Prisma.WorkflowRunWhereInput[] = [];
+
+  if (input?.projectId) {
+    conditions.push({ projectId: input.projectId });
+  }
+
+  if (input?.clientId) {
+    conditions.push({
+      OR: [{ clientId: input.clientId }, { project: { clientId: input.clientId } }]
+    });
+  }
+
+  if (input?.portalId) {
+    conditions.push({
+      OR: [{ portalId: input.portalId }, { project: { portalId: input.portalId } }]
+    });
+  }
+
+  if (input?.workflowKeys?.length) {
+    conditions.push({
+      workflowKey: {
+        in: input.workflowKeys.filter(Boolean)
+      }
+    });
+  }
+
+  const runs = await prisma.workflowRun.findMany({
+    ...(conditions.length > 0 ? { where: { AND: conditions } } : {}),
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          client: { select: { id: true, name: true } },
+          portal: { select: { id: true, displayName: true, portalId: true } }
+        }
+      },
+      client: { select: { id: true, name: true } },
+      portal: { select: { id: true, displayName: true, portalId: true } }
+    },
+    orderBy: [{ createdAt: "desc" }],
+    ...(input?.limit ? { take: input.limit } : {})
+  });
+
+  return runs.map((run) => serializeWorkflowRun(run));
 }
 
 export async function loadAgentRuns() {
@@ -9118,6 +9429,8 @@ const projectPrepareBriefSchema = z.object({
   suggestedNextStep: z.string().trim().min(1)
 });
 
+type PrepareBrief = z.infer<typeof projectPrepareBriefSchema>;
+
 function normalizeAuditString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
@@ -10424,6 +10737,251 @@ Rules:
   );
 }
 
+function buildPortalAuditRunLog(audit: {
+  executiveSummary: string;
+  findings: Array<{ title: string; severity: string; area: string }>;
+  recommendations: Array<{ title: string; area: string }>;
+}) {
+  return [
+    "Portal audit completed.",
+    "",
+    audit.executiveSummary,
+    "",
+    `Findings captured: ${audit.findings.length}`,
+    ...audit.findings
+      .slice(0, 8)
+      .map(
+        (finding) =>
+          `- [${finding.severity.toUpperCase()}] ${finding.title} (${finding.area})`
+      ),
+    "",
+    `Recommendations captured: ${audit.recommendations.length}`,
+    ...audit.recommendations
+      .slice(0, 6)
+      .map((recommendation) => `- ${recommendation.title} (${recommendation.area})`)
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildPrepareBriefRunLog(brief: PrepareBrief) {
+  return [
+    "Prepare brief generated.",
+    "",
+    "Executive summary",
+    brief.executiveSummary,
+    "",
+    `Meeting goal: ${brief.meetingGoal}`,
+    "",
+    "Open questions",
+    ...brief.openQuestions.slice(0, 8).map((question) => `- ${question}`),
+    "",
+    "Agenda",
+    ...brief.agenda.slice(0, 8).map((agendaItem, index) => `${index + 1}. ${agendaItem}`),
+    "",
+    `Suggested next step: ${brief.suggestedNextStep}`
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildHubSpotAgentRunLog(result: {
+  request: string;
+  dryRun: boolean;
+  plan: {
+    mode: "execute_action" | "manual_plan";
+    summary: string;
+    capabilityKey?: string | null;
+    action?: string | null | undefined;
+    manualPlan: string[];
+    cautions: string[];
+  };
+  execution: unknown | null;
+}) {
+  return [
+    result.dryRun ? "Portal Ops dry run completed." : "Portal Ops request completed.",
+    "",
+    `Request: ${result.request}`,
+    `Mode: ${result.plan.mode}`,
+    `Summary: ${result.plan.summary}`,
+    result.plan.action ? `Action: ${result.plan.action}` : null,
+    result.plan.capabilityKey
+      ? `Capability: ${result.plan.capabilityKey}`
+      : null,
+    result.plan.manualPlan.length > 0 ? "" : null,
+    result.plan.manualPlan.length > 0 ? "Manual plan" : null,
+    ...result.plan.manualPlan.slice(0, 10).map((step, index) => `${index + 1}. ${step}`),
+    result.plan.cautions.length > 0 ? "" : null,
+    result.plan.cautions.length > 0 ? "Cautions" : null,
+    ...result.plan.cautions.slice(0, 10).map((caution) => `- ${caution}`),
+    result.execution ? "" : null,
+    result.execution ? "Execution payload" : null,
+    result.execution ? JSON.stringify(result.execution, null, 2) : null
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join("\n");
+}
+
+export async function runTrackedProjectPortalAudit(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      name: true,
+      clientId: true,
+      portalId: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  return executeTrackedWorkflowRun({
+    workflowKey: "portal_audit",
+    title: `Portal Audit · ${project.name}`,
+    projectId: project.id,
+    clientId: project.clientId,
+    portalId: project.portalId,
+    execute: async () => {
+      const audit = await generateProjectPortalAudit(project.id);
+
+      return {
+        result: audit,
+        summary: `Captured ${audit.findings.length} findings and ${audit.recommendations.length} recommendations.`,
+        outputLog: buildPortalAuditRunLog(audit),
+        resultStatus: "completed",
+        payload: {
+          findingCount: audit.findings.length,
+          recommendationCount: audit.recommendations.length,
+          executiveSummary: audit.executiveSummary
+        }
+      };
+    }
+  });
+}
+
+export async function runTrackedProjectPrepareBrief(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      name: true,
+      clientId: true,
+      portalId: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  return executeTrackedWorkflowRun({
+    workflowKey: "project_prepare_brief",
+    title: `Prepare Brief · ${project.name}`,
+    projectId: project.id,
+    clientId: project.clientId,
+    portalId: project.portalId,
+    execute: async () => {
+      const brief = await generateProjectPrepareBrief(project.id);
+
+      return {
+        result: brief,
+        summary: brief.meetingGoal,
+        outputLog: buildPrepareBriefRunLog(brief),
+        resultStatus: "completed",
+        payload: {
+          meetingGoal: brief.meetingGoal,
+          suggestedNextStep: brief.suggestedNextStep,
+          agendaLength: brief.agenda.length,
+          openQuestionCount: brief.openQuestions.length
+        }
+      };
+    }
+  });
+}
+
+export async function runTrackedHubSpotAgentRequest(value: {
+  request?: unknown;
+  dryRun?: unknown;
+  portalRecordId?: unknown;
+}) {
+  const portalRecordId =
+    typeof value.portalRecordId === "string" && value.portalRecordId.trim()
+      ? value.portalRecordId.trim()
+      : null;
+
+  const portal = portalRecordId
+    ? await prisma.hubSpotPortal.findUnique({
+        where: { id: portalRecordId },
+        include: {
+          clients: {
+            select: { id: true, name: true },
+            take: 1
+          },
+          projects: {
+            select: {
+              id: true,
+              name: true,
+              clientId: true,
+              updatedAt: true
+            },
+            orderBy: [{ updatedAt: "desc" }],
+            take: 1
+          }
+        }
+      })
+    : null;
+
+  const projectContext = portal?.projects[0] ?? null;
+  const clientContext =
+    portal?.clients[0] ??
+    (projectContext
+      ? await prisma.client.findUnique({
+          where: { id: projectContext.clientId },
+          select: { id: true, name: true }
+        })
+      : null);
+
+  return executeTrackedWorkflowRun({
+    workflowKey: "hubspot_operator_request",
+    title: `Portal Ops · ${portal?.displayName ?? "Client Portal"}`,
+    projectId: projectContext?.id ?? null,
+    clientId: clientContext?.id ?? null,
+    portalId: portal?.id ?? null,
+    requestText:
+      typeof value.request === "string" ? value.request.trim() : null,
+    payload: {
+      portalDisplayName: portal?.displayName ?? null,
+      portalExternalId: portal?.portalId ?? null,
+      requestedDryRun: value.dryRun !== false
+    },
+    execute: async () => {
+      const result = await runHubSpotAgentRequest(value);
+
+      return {
+        result,
+        summary: result.plan.summary,
+        outputLog: buildHubSpotAgentRunLog(result),
+        resultStatus:
+          result.plan.mode === "execute_action"
+            ? result.dryRun
+              ? "dry_run_ready"
+              : "executed"
+            : "manual_plan",
+        payload: {
+          mode: result.plan.mode,
+          capabilityKey: result.plan.capabilityKey ?? null,
+          action: result.plan.action ?? null,
+          manualPlanCount: result.plan.manualPlan.length,
+          cautionCount: result.plan.cautions.length,
+          executionLogged: result.execution !== null
+        }
+      };
+    }
+  });
+}
+
 export async function updateProjectRecommendation(
   projectId: string,
   recommendationId: string,
@@ -10885,6 +11443,136 @@ export async function loadProjectRecord(projectId: string) {
   }
 
   return serializeProject(project);
+}
+
+export async function loadClientMemory(
+  clientId: string,
+  options?: { excludeProjectId?: string; limit?: number }
+) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: {
+      id: true,
+      name: true,
+      hubSpotPortalId: true
+    }
+  });
+
+  if (!client) {
+    throw new Error("Client not found");
+  }
+
+  const projectWhere: Prisma.Prisma.ProjectWhereInput = {
+    clientId,
+    ...(options?.excludeProjectId ? { NOT: { id: options.excludeProjectId } } : {})
+  };
+
+  const [previousProjects, findings, recommendations, portalSnapshots, recentRuns] =
+    await Promise.all([
+      prisma.project.findMany({
+        where: projectWhere,
+        orderBy: [{ updatedAt: "desc" }],
+        take: options?.limit ?? 8,
+        include: { client: true, portal: true }
+      }),
+      prisma.finding.findMany({
+        where: {
+          project: {
+            clientId,
+            ...(options?.excludeProjectId
+              ? { id: { not: options.excludeProjectId } }
+              : {})
+          }
+        },
+        orderBy: [{ updatedAt: "desc" }],
+        take: 10,
+        include: {
+          project: {
+            select: { id: true, name: true }
+          }
+        }
+      }),
+      prisma.recommendation.findMany({
+        where: {
+          project: {
+            clientId,
+            ...(options?.excludeProjectId
+              ? { id: { not: options.excludeProjectId } }
+              : {})
+          }
+        },
+        orderBy: [{ updatedAt: "desc" }],
+        take: 10,
+        include: {
+          project: {
+            select: { id: true, name: true }
+          }
+        }
+      }),
+      client.hubSpotPortalId
+        ? prisma.portalSnapshot.findMany({
+            where: { portalId: client.hubSpotPortalId },
+            orderBy: [{ capturedAt: "desc" }],
+            take: 8
+          })
+        : Promise.resolve([]),
+      loadWorkflowRuns({
+        clientId,
+        workflowKeys: [
+          "portal_audit",
+          "project_prepare_brief",
+          "hubspot_operator_request"
+        ],
+        limit: 10
+      })
+    ]);
+
+  return {
+    client: {
+      id: client.id,
+      name: client.name,
+      hubSpotPortalId: client.hubSpotPortalId
+    },
+    previousProjects: previousProjects.map((project) => serializeProject(project)),
+    recentFindings: findings.map((finding) => ({
+      id: finding.id,
+      title: finding.title,
+      area: finding.area,
+      severity: finding.severity,
+      status: finding.status,
+      quickWin: finding.quickWin,
+      updatedAt: finding.updatedAt.toISOString(),
+      project: finding.project
+    })),
+    recentRecommendations: recommendations.map((recommendation) => ({
+      id: recommendation.id,
+      title: recommendation.title,
+      area: recommendation.area,
+      type: recommendation.type,
+      phase: recommendation.phase,
+      impact: recommendation.impact,
+      updatedAt: recommendation.updatedAt.toISOString(),
+      project: recommendation.project
+    })),
+    portalSnapshots: portalSnapshots.map((snapshot) => ({
+      id: snapshot.id,
+      capturedAt: snapshot.capturedAt.toISOString(),
+      hubTier: snapshot.hubTier,
+      activeHubs: snapshot.activeHubs,
+      contactPropertyCount: snapshot.contactPropertyCount,
+      companyPropertyCount: snapshot.companyPropertyCount,
+      dealPropertyCount: snapshot.dealPropertyCount,
+      ticketPropertyCount: snapshot.ticketPropertyCount,
+      customObjectCount: snapshot.customObjectCount,
+      dealPipelineCount: snapshot.dealPipelineCount,
+      dealStageCount: snapshot.dealStageCount,
+      ticketPipelineCount: snapshot.ticketPipelineCount,
+      activeUserCount: snapshot.activeUserCount,
+      teamCount: snapshot.teamCount,
+      activeListCount: snapshot.activeListCount
+    })),
+    recentRuns
+  };
 }
 
 export async function createProjectRecord(value: {

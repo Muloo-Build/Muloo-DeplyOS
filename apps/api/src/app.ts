@@ -74,11 +74,9 @@ import {
   disconnectWorkspaceXeroConnection,
   ensureProjectScopeUnlocked,
   executeHubSpotAgentAction,
-  runHubSpotAgentRequest,
   extractDiscoveryFields,
   getAuthenticatedClientUserId,
   generateProjectEmailDraft,
-  generateProjectPrepareBrief,
   generateSolutionOptions,
   industryOptions,
   isAuthenticated,
@@ -86,6 +84,7 @@ import {
   loadAgentRuns,
   loadAgentCatalog,
   loadAiRouting,
+  loadClientMemory,
   loadDeliveryTemplates,
   loadHubSpotPortals,
   loadInboxSummary,
@@ -137,6 +136,7 @@ import {
   loadProjectRecommendations,
   loadProjectsDirectory,
   loadProjectTasks,
+  loadWorkflowRuns,
   loadLatestPortalSnapshot,
   loadProjectChangeRequests,
   refreshClientEnrichment,
@@ -154,8 +154,10 @@ import {
   generateDiscoverySummary,
   generateBlueprintForProject,
   generateProjectTaskPlan,
-  generateProjectPortalAudit,
   queueAgentRun,
+  runTrackedHubSpotAgentRequest,
+  runTrackedProjectPortalAudit,
+  runTrackedProjectPrepareBrief,
   sendWorkspaceEmail,
   shareProjectQuote,
   updateProjectRecord,
@@ -573,7 +575,8 @@ export function createApiApp(config: BaseConfig) {
   app.get("/api/runs", async (c) =>
     c.json({
       runs: await loadAllExecutionRecords(),
-      agentRuns: await loadAgentRuns()
+      agentRuns: await loadAgentRuns(),
+      workflowRuns: await loadWorkflowRuns({ limit: 40 })
     })
   );
 
@@ -700,6 +703,15 @@ export function createApiApp(config: BaseConfig) {
 
     return c.json({ error: "Method Not Allowed" }, 405);
   });
+
+  app.get("/api/projects/:projectId/workflow-runs", async (c) =>
+    c.json({
+      workflowRuns: await loadWorkflowRuns({
+        projectId: c.req.param("projectId"),
+        limit: 12
+      })
+    })
+  );
 
   app.patch("/api/projects/:projectId/status", async (c) => {
     try {
@@ -1446,8 +1458,10 @@ export function createApiApp(config: BaseConfig) {
 
   app.post("/api/projects/:projectId/portal-audit/generate", async (c) => {
     try {
-      const audit = await generateProjectPortalAudit(c.req.param("projectId"));
-      return c.json({ audit });
+      const { run, result } = await runTrackedProjectPortalAudit(
+        c.req.param("projectId")
+      );
+      return c.json({ audit: result, run });
     } catch (error) {
       if (error instanceof ZodError) {
         return c.json(
@@ -1461,6 +1475,12 @@ export function createApiApp(config: BaseConfig) {
 
       return c.json(
         {
+          run:
+            error &&
+            typeof error === "object" &&
+            "workflowRun" in error
+              ? (error as { workflowRun?: unknown }).workflowRun
+              : null,
           error:
             error instanceof Error
               ? error.message
@@ -1851,8 +1871,10 @@ export function createApiApp(config: BaseConfig) {
 
   app.post("/api/projects/:projectId/prepare-brief/generate", async (c) => {
     try {
-      const brief = await generateProjectPrepareBrief(c.req.param("projectId"));
-      return c.json({ brief });
+      const { run, result } = await runTrackedProjectPrepareBrief(
+        c.req.param("projectId")
+      );
+      return c.json({ brief: result, run });
     } catch (error) {
       if (error instanceof ZodError) {
         return c.json(
@@ -1875,6 +1897,12 @@ export function createApiApp(config: BaseConfig) {
 
       return c.json(
         {
+          run:
+            error &&
+            typeof error === "object" &&
+            "workflowRun" in error
+              ? (error as { workflowRun?: unknown }).workflowRun
+              : null,
           error:
             error instanceof Error
               ? error.message
@@ -2502,11 +2530,17 @@ export function createApiApp(config: BaseConfig) {
   app.post("/api/hubspot/agent-request", async (c) => {
     try {
       const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
-      const result = await runHubSpotAgentRequest(body);
-      return c.json(result);
+      const { run, result } = await runTrackedHubSpotAgentRequest(body);
+      return c.json({ ...result, run });
     } catch (error) {
       return c.json(
         {
+          run:
+            error &&
+            typeof error === "object" &&
+            "workflowRun" in error
+              ? (error as { workflowRun?: unknown }).workflowRun
+              : null,
           error:
             error instanceof Error
               ? error.message
@@ -2569,6 +2603,15 @@ export function createApiApp(config: BaseConfig) {
     return c.json({ snapshot });
   });
 
+  app.get("/api/portals/:portalId/workflow-runs", async (c) =>
+    c.json({
+      workflowRuns: await loadWorkflowRuns({
+        portalId: c.req.param("portalId"),
+        limit: 12
+      })
+    })
+  );
+
   app.post("/api/portals/:portalId/snapshot", async (c) => {
     try {
       const snapshot = await createPortalSnapshotForPortal(
@@ -2628,6 +2671,32 @@ export function createApiApp(config: BaseConfig) {
       clients: await loadClientsDirectory()
     })
   );
+
+  app.get("/api/clients/:clientId/memory", async (c) => {
+    try {
+      const excludeProjectId = c.req.query("excludeProjectId");
+      return c.json({
+        memory: await loadClientMemory(
+          c.req.param("clientId"),
+          typeof excludeProjectId === "string" && excludeProjectId
+            ? { excludeProjectId }
+            : undefined
+        )
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load client memory"
+        },
+        error instanceof Error && error.message === "Client not found"
+          ? 404
+          : 400
+      );
+    }
+  });
 
   app.post("/api/clients", async (c) => {
     const body = (await readJsonBodyOrEmpty(c)) as {

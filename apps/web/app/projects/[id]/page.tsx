@@ -1,9 +1,16 @@
-import ProjectOverview from "../../components/ProjectOverview";
+import ProjectWorkspaceLanding from "../../components/ProjectWorkspaceLanding";
 
 export default function ProjectOverviewPage({
-  params
+  params,
+  searchParams
 }: {
   params: { id: string };
+  searchParams?: { view?: string };
 }) {
-  return <ProjectOverview projectId={params.id} />;
+  return (
+    <ProjectWorkspaceLanding
+      projectId={params.id}
+      forceSummary={searchParams?.view === "summary"}
+    />
+  );
 }

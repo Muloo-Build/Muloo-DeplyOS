@@ -70,7 +70,7 @@ export function buildProjectWorkspaceClusters(input: {
       label: "Context",
       links: [
         {
-          href: `/projects/${input.projectId}`,
+          href: `/projects/${input.projectId}?view=summary`,
           label: "Project Summary"
         },
         {

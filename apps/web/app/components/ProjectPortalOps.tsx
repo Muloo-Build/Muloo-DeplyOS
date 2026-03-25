@@ -48,6 +48,17 @@ interface HubSpotAgentRequestResponse {
   dryRun: boolean;
   plan: HubSpotAgentRequestPlan;
   execution: HubSpotAgentRequestExecution | null;
+  run?: WorkflowRun;
+}
+
+interface WorkflowRun {
+  id: string;
+  workflowKey: string;
+  title: string;
+  status: string;
+  resultStatus: string | null;
+  summary: string | null;
+  createdAt: string;
 }
 
 const starterRequest = `I need you to help me execute a Marketing Dashboard setup inside HubSpot step by step.
@@ -105,6 +116,7 @@ export default function ProjectPortalOps() {
   >(null);
   const [responseBody, setResponseBody] =
     useState<HubSpotAgentRequestResponse | null>(null);
+  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
 
   useEffect(() => {
     async function loadCapabilities() {
@@ -146,6 +158,36 @@ export default function ProjectPortalOps() {
     [connectedPortals, portalRecordId]
   );
 
+  useEffect(() => {
+    async function loadWorkflowRuns() {
+      if (!portalRecordId) {
+        setWorkflowRuns([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/portals/${encodeURIComponent(portalRecordId)}/workflow-runs`
+        );
+        const body = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          return;
+        }
+
+        setWorkflowRuns(
+          (body?.workflowRuns ?? []).filter(
+            (run: WorkflowRun) => run.workflowKey === "hubspot_operator_request"
+          )
+        );
+      } catch {
+        // Keep the portal ops screen usable if history loading fails.
+      }
+    }
+
+    void loadWorkflowRuns();
+  }, [portalRecordId]);
+
   async function submitRequest(mode: "plan" | "execute") {
     if (!portalRecordId) {
       setError("Select a connected client portal before submitting the request.");
@@ -183,6 +225,12 @@ export default function ProjectPortalOps() {
       }
 
       setResponseBody(body as HubSpotAgentRequestResponse);
+      if (body && typeof body === "object" && "run" in body && body.run) {
+        setWorkflowRuns((currentRuns) => [
+          body.run as WorkflowRun,
+          ...currentRuns.filter((run) => run.id !== (body.run as WorkflowRun).id)
+        ]);
+      }
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -304,6 +352,32 @@ export default function ProjectPortalOps() {
                   the platform can click through every UI step automatically.
                 </p>
               </div>
+
+              {workflowRuns.length > 0 ? (
+                <div className="mt-5 space-y-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                    Recent runs
+                  </p>
+                  {workflowRuns.slice(0, 3).map((run) => (
+                    <div
+                      key={run.id}
+                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                    >
+                      <p className="text-sm font-semibold text-white">
+                        {run.summary || run.title}
+                      </p>
+                      <p className="mt-2 text-xs text-text-secondary">
+                        {new Date(run.createdAt).toLocaleString()} ·{" "}
+                        {formatSupportMode(
+                          run.resultStatus === "manual_plan"
+                            ? "manual_plan"
+                            : "execute_action"
+                        )}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </section>
           </div>
 
