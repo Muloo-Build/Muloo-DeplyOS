@@ -21,6 +21,7 @@ import {
   createClientPortalUserForProject,
   createClientResetLink,
   createDeliveryTemplate,
+  createProjectRecord,
   createProductCatalogItem,
   createWorkRequest,
   createWorkspaceUser,
@@ -79,11 +80,16 @@ import {
   loadClientProjectsForUser,
   loadClientQuoteDocument,
   loadClientUsersForProject,
+  loadProjectRecord,
+  loadProjectsDirectory,
   refreshClientEnrichment,
   loadProjectMessages,
   markProjectMessagesSeenByClient,
   saveClientInputSubmission,
   serializeTask,
+  deleteProjectRecord,
+  updateProjectRecord,
+  updateProjectRecordStatus,
   updateClientProjectAccess,
   updateWorkRequest,
   updateWorkspaceUser
@@ -429,6 +435,129 @@ export function createApiApp(config: BaseConfig) {
       agentRuns: await loadAgentRuns()
     })
   );
+
+  app.all("/api/projects", async (c) => {
+    if (c.req.method === "GET") {
+      return c.json({
+        projects: await loadProjectsDirectory()
+      });
+    }
+
+    if (c.req.method === "POST") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const project = await createProjectRecord(body);
+        return c.json({ project }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create project"
+          },
+          400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/projects/from-template", async (c) => {
+    await handleLegacyRequest(config, c.env.incoming, c.env.outgoing);
+    return RESPONSE_ALREADY_SENT;
+  });
+
+  app.all("/api/projects/:projectId", async (c) => {
+    if (c.req.method === "GET") {
+      try {
+        return c.json({
+          project: await loadProjectRecord(c.req.param("projectId"))
+        });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error ? error.message : "Failed to load project"
+          },
+          error instanceof Error && error.message === "Project not found"
+            ? 404
+            : 400
+        );
+      }
+    }
+
+    if (c.req.method === "PATCH") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const project = await updateProjectRecord(
+          c.req.param("projectId"),
+          body
+        );
+        return c.json({ project });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update project"
+          },
+          error instanceof Error && error.message === "Project not found"
+            ? 404
+            : error instanceof Error &&
+                error.message ===
+                  "Approved scope is locked. Use change management to revise this project."
+              ? 409
+              : 400
+        );
+      }
+    }
+
+    if (c.req.method === "DELETE") {
+      try {
+        await deleteProjectRecord(c.req.param("projectId"));
+        return c.json({ success: true });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to delete project"
+          },
+          error instanceof Error && error.message === "Project not found"
+            ? 404
+            : 400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.patch("/api/projects/:projectId/status", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as { status?: unknown };
+      const project = await updateProjectRecordStatus(
+        c.req.param("projectId"),
+        body.status
+      );
+
+      return c.json({ project });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to update project"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 400
+      );
+    }
+  });
 
   app.get("/api/users", async (c) =>
     c.json({
