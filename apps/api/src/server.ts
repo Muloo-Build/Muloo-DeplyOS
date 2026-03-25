@@ -40,9 +40,11 @@ const validProjectHubValues = [
   "ops",
   "cms",
   "data",
-  "commerce"
+  "commerce",
+  "breeze"
 ] as const;
 const validCustomerPlatformTierValues = [
+  "free",
   "starter",
   "professional",
   "enterprise"
@@ -9919,7 +9921,7 @@ export async function updateProjectRecord(
           )))
     ) {
       throw new Error(
-        "customerPlatformTier must be starter, professional, enterprise, or blank"
+        "customerPlatformTier must be free, starter, professional, enterprise, or blank"
       );
     }
     normalizedPayload.customerPlatformTier =

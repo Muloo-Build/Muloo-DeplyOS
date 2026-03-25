@@ -54,6 +54,23 @@ interface DeliveryTemplateSummary {
   defaultPlannedHours?: number | null;
 }
 
+interface ClientLookupRecord {
+  id: string;
+  name: string;
+  slug: string;
+  hubSpotPortal?: {
+    id: string;
+    portalId: string;
+    displayName: string;
+    connected: boolean;
+  } | null;
+}
+
+interface PortalSnapshot {
+  hubTier: string | null;
+  activeHubs: string[];
+}
+
 interface SolutionOption {
   title: string;
   summary: string;
@@ -114,18 +131,25 @@ const engagementTypes = [
   }
 ];
 
-const hubOptions = [
+const coreHubOptions = [
   { id: "sales", label: "Sales Hub" },
   { id: "marketing", label: "Marketing Hub" },
   { id: "service", label: "Service Hub" },
-  { id: "cms", label: "Content Hub / Website" },
-  { id: "ops", label: "Operations Hub" },
-  { id: "data", label: "Data Hub" },
-  { id: "commerce", label: "Commerce Hub" }
+  { id: "cms", label: "Content Hub" },
+  { id: "ops", label: "Operations Hub" }
 ];
 
+const addOnHubOptions = [
+  { id: "commerce", label: "Commerce Hub" },
+  { id: "data", label: "Data Hub" },
+  { id: "breeze", label: "Breeze AI" }
+];
+
+const allHubOptions = [...coreHubOptions, ...addOnHubOptions];
+
 const customerPlatformTierOptions = [
-  { value: "", label: "Not set yet" },
+  { value: "", label: "Select plan tier" },
+  { value: "free", label: "Free" },
   { value: "starter", label: "Starter" },
   { value: "professional", label: "Professional" },
   { value: "enterprise", label: "Enterprise" }
@@ -144,29 +168,6 @@ const implementationApproachOptions = [
     description:
       "Prefer the cleaner long-term architecture even if it needs more packaging or effort."
   }
-];
-
-const hubTierOptions = [
-  { value: "", label: "Not in use" },
-  { value: "free", label: "Free" },
-  { value: "starter", label: "Starter" },
-  { value: "professional", label: "Professional" },
-  { value: "enterprise", label: "Enterprise" },
-  { value: "included", label: "Included / bundled" }
-];
-
-const platformProductOptions = [
-  { key: "smart_crm", label: "Smart CRM" },
-  { key: "marketing_hub", label: "Marketing Hub" },
-  { key: "sales_hub", label: "Sales Hub" },
-  { key: "service_hub", label: "Service Hub" },
-  { key: "content_hub", label: "Content Hub" },
-  { key: "operations_hub", label: "Operations Hub" },
-  { key: "data_hub", label: "Data Hub" },
-  { key: "commerce_hub", label: "Commerce Hub" },
-  { key: "breeze", label: "Breeze / AI" },
-  { key: "small_business_bundle", label: "Small Business Bundle" },
-  { key: "free_tools", label: "Free Tools" }
 ];
 
 const templates = [
@@ -258,7 +259,10 @@ function formatTierLabel(value: string) {
     return "Not set";
   }
 
-  return value.charAt(0).toUpperCase() + value.slice(1);
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function formatContainerLabel(value: string) {
@@ -268,18 +272,136 @@ function formatContainerLabel(value: string) {
   );
 }
 
+function createClientLookupKey(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeDetectedTier(value: string | null | undefined) {
+  const normalized = value?.trim().toLowerCase() ?? "";
+
+  if (["free", "starter", "professional", "enterprise"].includes(normalized)) {
+    return normalized;
+  }
+
+  if (normalized.includes("enterprise")) {
+    return "enterprise";
+  }
+
+  if (normalized.includes("professional") || normalized.includes("pro")) {
+    return "professional";
+  }
+
+  if (normalized.includes("starter")) {
+    return "starter";
+  }
+
+  if (normalized.includes("free")) {
+    return "free";
+  }
+
+  return "";
+}
+
+function normalizeDetectedHubs(activeHubs: string[]) {
+  return Array.from(
+    new Set(
+      activeHubs.flatMap((hub) => {
+        const normalized = hub
+          .trim()
+          .toLowerCase()
+          .replace(/[\s/]+/g, "_");
+
+        if (normalized.includes("sales")) {
+          return ["sales"];
+        }
+
+        if (normalized.includes("marketing")) {
+          return ["marketing"];
+        }
+
+        if (normalized.includes("service")) {
+          return ["service"];
+        }
+
+        if (normalized.includes("content") || normalized.includes("cms")) {
+          return ["cms"];
+        }
+
+        if (normalized.includes("operations") || normalized === "ops") {
+          return ["ops"];
+        }
+
+        if (normalized.includes("commerce")) {
+          return ["commerce"];
+        }
+
+        if (normalized.includes("data")) {
+          return ["data"];
+        }
+
+        if (normalized.includes("breeze")) {
+          return ["breeze"];
+        }
+
+        return [];
+      })
+    )
+  );
+}
+
+function buildCompatibilityPlatformTierSelections(
+  hubsInScope: string[],
+  customerPlatformTier: string
+) {
+  const selections: Record<string, string> = {};
+  const normalizedTier = customerPlatformTier.trim().toLowerCase();
+  const hubProductMap: Record<string, string> = {
+    sales: "sales_hub",
+    marketing: "marketing_hub",
+    service: "service_hub",
+    cms: "content_hub",
+    ops: "operations_hub",
+    commerce: "commerce_hub",
+    data: "data_hub"
+  };
+
+  for (const hub of hubsInScope) {
+    if (hub === "breeze") {
+      selections.breeze = "included";
+      continue;
+    }
+
+    const productKey = hubProductMap[hub];
+    if (productKey && normalizedTier) {
+      selections[productKey] = normalizedTier;
+    }
+  }
+
+  return selections;
+}
+
 export default function NewProjectPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
+  const [clients, setClients] = useState<ClientLookupRecord[]>([]);
   const [deliveryTemplates, setDeliveryTemplates] = useState<
     DeliveryTemplateSummary[]
   >([]);
   const [solutionOptions, setSolutionOptions] = useState<SolutionOption[]>([]);
   const [solutionBusy, setSolutionBusy] = useState(false);
   const [solutionError, setSolutionError] = useState<string | null>(null);
+  const [detectedPortalName, setDetectedPortalName] = useState<string | null>(
+    null
+  );
+  const [detectedPortalTier, setDetectedPortalTier] = useState("");
+  const [detectedPortalHubs, setDetectedPortalHubs] = useState<string[]>([]);
   const [selectedSolutionTitle, setSelectedSolutionTitle] = useState<
     string | null
   >(null);
@@ -342,6 +464,25 @@ export default function NewProjectPage() {
   }, []);
 
   useEffect(() => {
+    async function loadClients() {
+      try {
+        const response = await fetch("/api/clients");
+
+        if (!response.ok) {
+          throw new Error("Failed to load clients");
+        }
+
+        const body = await response.json();
+        setClients(body.clients ?? []);
+      } catch {
+        // Keep project creation usable even if the client directory is unavailable.
+      }
+    }
+
+    void loadClients();
+  }, []);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const requestType = params.get("requestType");
     const title = params.get("title");
@@ -395,6 +536,101 @@ export default function NewProjectPage() {
       scopeType: inferredScopeType
     }));
   }, []);
+
+  useEffect(() => {
+    const nextSelections = buildCompatibilityPlatformTierSelections(
+      formData.hubsInScope,
+      formData.customerPlatformTier
+    );
+
+    setFormData((current) => {
+      const currentEntries = Object.entries(
+        current.platformTierSelections
+      ).sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
+      const nextEntries = Object.entries(nextSelections).sort(
+        ([leftKey], [rightKey]) => leftKey.localeCompare(rightKey)
+      );
+
+      if (JSON.stringify(currentEntries) === JSON.stringify(nextEntries)) {
+        return current;
+      }
+
+      return {
+        ...current,
+        platformTierSelections: nextSelections
+      };
+    });
+  }, [formData.customerPlatformTier, formData.hubsInScope]);
+
+  useEffect(() => {
+    const lookupKey = createClientLookupKey(formData.clientName);
+
+    if (!lookupKey) {
+      setDetectedPortalName(null);
+      setDetectedPortalTier("");
+      setDetectedPortalHubs([]);
+      return;
+    }
+
+    const matchedClient =
+      clients.find((client) => client.slug === lookupKey) ??
+      clients.find(
+        (client) => createClientLookupKey(client.name) === lookupKey
+      );
+
+    if (!matchedClient?.hubSpotPortal?.id) {
+      setDetectedPortalName(null);
+      setDetectedPortalTier("");
+      setDetectedPortalHubs([]);
+      return;
+    }
+
+    const portalId = matchedClient.hubSpotPortal.id;
+    const portalName =
+      matchedClient.hubSpotPortal.displayName || matchedClient.name;
+    let cancelled = false;
+
+    async function loadPortalSnapshot() {
+      try {
+        const response = await fetch(`/api/portals/${portalId}/snapshot`);
+
+        if (!response.ok) {
+          throw new Error("No portal snapshot");
+        }
+
+        const body = await response.json();
+        const snapshot = (body.snapshot ?? null) as PortalSnapshot | null;
+
+        if (!snapshot || cancelled) {
+          return;
+        }
+
+        const nextTier = normalizeDetectedTier(snapshot.hubTier);
+        const nextHubs = normalizeDetectedHubs(snapshot.activeHubs ?? []);
+
+        setDetectedPortalName(portalName);
+        setDetectedPortalTier(nextTier);
+        setDetectedPortalHubs(nextHubs);
+        setFormData((current) => ({
+          ...current,
+          customerPlatformTier: nextTier || current.customerPlatformTier,
+          hubsInScope: nextHubs.length > 0 ? nextHubs : current.hubsInScope
+        }));
+      } catch {
+        if (!cancelled) {
+          setDetectedPortalName(null);
+          setDetectedPortalTier("");
+          setDetectedPortalHubs([]);
+        }
+      }
+    }
+
+    void loadPortalSnapshot();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clients, formData.clientName]);
 
   useEffect(() => {
     const matchingTemplates = deliveryTemplates.filter(
@@ -490,16 +726,6 @@ export default function NewProjectPage() {
     }));
   }
 
-  function updatePlatformTier(productKey: string, value: string) {
-    setFormData((current) => ({
-      ...current,
-      platformTierSelections: {
-        ...current.platformTierSelections,
-        [productKey]: value
-      }
-    }));
-  }
-
   async function handleSuggestSolutions() {
     if (formData.problemStatement.trim().length < 20) {
       setSolutionError(
@@ -556,10 +782,6 @@ export default function NewProjectPage() {
           : current.hubsInScope,
       customerPlatformTier:
         option.recommendedCustomerPlatformTier || current.customerPlatformTier,
-      platformTierSelections:
-        Object.keys(option.recommendedPlatformTierSelections ?? {}).length > 0
-          ? option.recommendedPlatformTierSelections
-          : current.platformTierSelections,
       solutionRecommendation: option.summary,
       scopeExecutiveSummary: option.executiveSummary,
       commercialBrief:
@@ -604,7 +826,10 @@ export default function NewProjectPage() {
       solutionRecommendation: formData.solutionRecommendation.trim(),
       scopeExecutiveSummary: formData.scopeExecutiveSummary.trim(),
       customerPlatformTier: formData.customerPlatformTier,
-      platformTierSelections: formData.platformTierSelections,
+      platformTierSelections: buildCompatibilityPlatformTierSelections(
+        formData.hubsInScope,
+        formData.customerPlatformTier
+      ),
       industry: formData.industry,
       website: formData.website.trim(),
       additionalWebsites: formData.additionalWebsitesText
@@ -1166,8 +1391,13 @@ export default function NewProjectPage() {
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm text-text-secondary">
-                      Customer platform tier
+                    <span className="mb-2 flex items-center gap-2 text-sm text-text-secondary">
+                      <span>Overall HubSpot plan tier</span>
+                      {detectedPortalTier ? (
+                        <span className="rounded-full bg-[rgba(73,205,225,0.12)] px-2 py-0.5 text-[11px] font-medium text-[#49cde1]">
+                          Detected from portal
+                        </span>
+                      ) : null}
                     </span>
                     <select
                       value={formData.customerPlatformTier}
@@ -1186,77 +1416,78 @@ export default function NewProjectPage() {
                       ))}
                     </select>
                     <p className="mt-2 text-xs text-text-muted">
-                      Use this when the job depends on specific Starter /
-                      Professional / Enterprise tooling within the customer
-                      platform.
+                      Smart CRM is included with all HubSpot plans.
+                      {detectedPortalTier && detectedPortalName
+                        ? ` Detected ${formatTierLabel(detectedPortalTier)} from ${detectedPortalName}. You can override it here.`
+                        : " Set the overall customer plan tier for the portal in scope."}
                     </p>
                   </label>
                 </div>
 
                 <div>
-                  <p className="mb-2 text-sm text-text-secondary">
-                    Customer platform includes
+                  <div className="mb-2 flex items-center gap-2 text-sm text-text-secondary">
+                    <span>Hubs in scope</span>
+                    {detectedPortalHubs.length > 0 ? (
+                      <span className="rounded-full bg-[rgba(73,205,225,0.12)] px-2 py-0.5 text-[11px] font-medium text-[#49cde1]">
+                        Detected from portal
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mb-3 text-sm text-text-muted">
+                    {detectedPortalHubs.length > 0 && detectedPortalName
+                      ? `Pulled from ${detectedPortalName}. Adjust the hub selection if this job only covers part of the detected portal footprint.`
+                      : "Select the core hubs this project covers, then add any purchased add-ons in scope."}
+                  </p>
+                  <p className="mb-3 text-xs uppercase tracking-[0.18em] text-text-muted">
+                    Core hubs
                   </p>
                   <div className="grid gap-3 md:grid-cols-2">
-                    {platformProductOptions.map((product) => (
-                      <label
-                        key={product.key}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4"
+                    {coreHubOptions.map((hub) => (
+                      <button
+                        key={hub.id}
+                        type="button"
+                        onClick={() => toggleHub(hub.id)}
+                        className={`rounded-2xl border p-4 text-left transition-colors ${
+                          formData.hubsInScope.includes(hub.id)
+                            ? "border-accent-solid bg-background-elevated"
+                            : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                        }`}
                       >
-                        <span className="block text-sm font-semibold text-white">
-                          {product.label}
-                        </span>
-                        <select
-                          value={
-                            formData.platformTierSelections[product.key] ?? ""
-                          }
-                          onChange={(event) =>
-                            updatePlatformTier(product.key, event.target.value)
-                          }
-                          className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none focus:border-accent-solid"
-                        >
-                          {hubTierOptions.map((option) => (
-                            <option
-                              key={`${product.key}-${option.value || "blank"}`}
-                              value={option.value}
-                            >
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                        <p className="font-semibold text-white">{hub.label}</p>
+                        <p className="mt-1 text-sm text-text-secondary">
+                          Included in the overall HubSpot plan selection.
+                        </p>
+                      </button>
                     ))}
                   </div>
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-3 text-sm text-text-secondary">
-                  Hubs in scope
-                </p>
-                <p className="mb-3 text-sm text-text-muted">
-                  {formData.scopeType === "standalone_quote"
-                    ? "Optional for standalone quotes. Use hubs only if they help frame the quoted work and delivery model."
-                    : "Select the hubs or work areas expected in scope."}
-                </p>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {hubOptions.map((hub) => (
-                    <button
-                      key={hub.id}
-                      type="button"
-                      onClick={() => toggleHub(hub.id)}
-                      className={`rounded-2xl border p-4 text-left transition-colors ${
-                        formData.hubsInScope.includes(hub.id)
-                          ? "border-accent-solid bg-background-elevated"
-                          : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
-                      }`}
-                    >
-                      <p className="font-semibold text-white">{hub.label}</p>
-                      <p className="mt-1 text-sm text-text-secondary">
-                        {hub.id}
-                      </p>
-                    </button>
-                  ))}
+                  <p className="mb-3 mt-5 text-xs uppercase tracking-[0.18em] text-text-muted">
+                    Add-ons in scope
+                  </p>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {addOnHubOptions.map((hub) => (
+                      <button
+                        key={hub.id}
+                        type="button"
+                        onClick={() => toggleHub(hub.id)}
+                        className={`rounded-2xl border p-4 text-left transition-colors ${
+                          formData.hubsInScope.includes(hub.id)
+                            ? "border-accent-solid bg-background-elevated"
+                            : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                        }`}
+                      >
+                        <p className="font-semibold text-white">{hub.label}</p>
+                        <p className="mt-1 text-sm text-text-secondary">
+                          Mark this when the add-on itself is part of the scoped
+                          delivery.
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-sm text-text-muted">
+                    {formData.scopeType === "standalone_quote"
+                      ? "Optional for standalone quotes. Use plan and hub scope only when it helps frame the quoted work."
+                      : "Select the hubs or add-ons expected in scope for this delivery."}
+                  </p>
                 </div>
               </div>
 
@@ -1421,42 +1652,25 @@ export default function NewProjectPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                    Customer platform tier
+                    Overall HubSpot plan tier
                   </p>
                   <p className="mt-3 text-white">
                     {formatTierLabel(formData.customerPlatformTier)}
                   </p>
+                  {detectedPortalTier ? (
+                    <p className="mt-2 text-xs text-[#49cde1]">
+                      Detected from portal
+                      {detectedPortalName ? ` · ${detectedPortalName}` : ""}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                    Platform products in use
+                    Platform note
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {platformProductOptions.filter(
-                      (product) => formData.platformTierSelections[product.key]
-                    ).length > 0 ? (
-                      platformProductOptions
-                        .filter(
-                          (product) =>
-                            formData.platformTierSelections[product.key]
-                        )
-                        .map((product) => (
-                          <span
-                            key={product.key}
-                            className="rounded bg-[rgba(73,205,225,0.12)] px-2 py-1 text-xs font-medium text-[#49cde1]"
-                          >
-                            {product.label}:{" "}
-                            {formatTierLabel(
-                              formData.platformTierSelections[product.key]
-                            )}
-                          </span>
-                        ))
-                    ) : (
-                      <span className="text-text-secondary">
-                        No platform products selected
-                      </span>
-                    )}
-                  </div>
+                  <p className="mt-3 text-white">
+                    Smart CRM is included with all HubSpot plans.
+                  </p>
                 </div>
               </div>
 
@@ -1471,7 +1685,8 @@ export default function NewProjectPage() {
                         key={hub}
                         className="rounded bg-[rgba(224,82,156,0.15)] px-2 py-1 text-xs font-medium text-accent-solid"
                       >
-                        {hub}
+                        {allHubOptions.find((option) => option.id === hub)
+                          ?.label ?? hub}
                       </span>
                     ))
                   ) : (
