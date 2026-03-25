@@ -2469,59 +2469,6 @@ function matchProjectDesignRoute(pathname: string): {
   };
 }
 
-function matchProjectClientUsersRoute(pathname: string): {
-  projectId: string;
-} | null {
-  const match = /^\/api\/projects\/([^/]+?)\/client-users$/.exec(pathname);
-
-  if (!match || !match[1]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1])
-  };
-}
-
-function matchProjectClientUserRoute(pathname: string): {
-  projectId: string;
-  userId: string;
-} | null {
-  const match = /^\/api\/projects\/([^/]+?)\/client-users\/([^/]+?)$/.exec(
-    pathname
-  );
-
-  if (!match || !match[1] || !match[2]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1]),
-    userId: decodeURIComponent(match[2])
-  };
-}
-
-function matchProjectClientUserActionRoute(pathname: string): {
-  projectId: string;
-  userId: string;
-  action: "invite-link" | "reset-link";
-} | null {
-  const match =
-    /^\/api\/projects\/([^/]+?)\/client-users\/([^/]+?)\/(invite-link|reset-link)$/.exec(
-      pathname
-    );
-
-  if (!match || !match[1] || !match[2] || !match[3]) {
-    return null;
-  }
-
-  return {
-    projectId: decodeURIComponent(match[1]),
-    userId: decodeURIComponent(match[2]),
-    action: match[3] as "invite-link" | "reset-link"
-  };
-}
-
 function matchProjectModuleRoute(pathname: string): {
   projectId: string;
   moduleKey: string;
@@ -10949,7 +10896,7 @@ export async function updateClientContact(
   return serializeClientContact(contact);
 }
 
-async function createClientPortalUserForProject(
+export async function createClientPortalUserForProject(
   projectId: string,
   value: {
     firstName?: unknown;
@@ -11136,7 +11083,44 @@ function buildClientPortalInviteEmail(input: {
   return { subject, body };
 }
 
-async function createClientResetLink(userId: string, projectId: string) {
+export async function createClientInviteLink(
+  userId: string,
+  projectId: string
+) {
+  const access = await prisma.clientProjectAccess.findUnique({
+    where: {
+      userId_projectId: {
+        userId,
+        projectId
+      }
+    },
+    include: {
+      user: true
+    }
+  });
+
+  if (!access) {
+    throw new Error("Client user not found for this project");
+  }
+
+  const inviteToken = crypto.randomBytes(24).toString("hex");
+  const inviteTokenExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14);
+
+  await prisma.clientPortalUser.update({
+    where: { id: access.user.id },
+    data: {
+      inviteToken,
+      inviteTokenExpiresAt
+    }
+  });
+
+  return {
+    user: serializeClientPortalUser(access.user),
+    inviteLink: buildClientAccessUrl("/client/activate", inviteToken)
+  };
+}
+
+export async function createClientResetLink(userId: string, projectId: string) {
   const access = await prisma.clientProjectAccess.findUnique({
     where: {
       userId_projectId: {
@@ -11170,7 +11154,7 @@ async function createClientResetLink(userId: string, projectId: string) {
   };
 }
 
-async function loadClientUsersForProject(projectId: string) {
+export async function loadClientUsersForProject(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: {
@@ -11386,7 +11370,7 @@ export async function inviteClientContactToProjects(
   };
 }
 
-async function updateClientProjectAccess(
+export async function updateClientProjectAccess(
   projectId: string,
   userId: string,
   value: {
@@ -13783,143 +13767,6 @@ export async function handleLegacyRequest(
       );
 
       return sendJson(response, 200, { sessionDetail });
-    }
-
-    const projectClientUsersRoute = matchProjectClientUsersRoute(url.pathname);
-    if (projectClientUsersRoute) {
-      if (request.method === "GET") {
-        return sendJson(response, 200, {
-          clientUsers: await loadClientUsersForProject(
-            projectClientUsersRoute.projectId
-          )
-        });
-      }
-
-      if (request.method === "POST") {
-        try {
-          const body = (await readJsonBody(request)) as {
-            firstName?: unknown;
-            lastName?: unknown;
-            email?: unknown;
-            password?: unknown;
-            role?: unknown;
-            questionnaireAccess?: unknown;
-            assignedInputSections?: unknown;
-          };
-
-          const clientUser = await createClientPortalUserForProject(
-            projectClientUsersRoute.projectId,
-            body
-          );
-
-          return sendJson(response, 201, { clientUser });
-        } catch (error) {
-          if (error instanceof Error) {
-            return sendJson(response, 400, { error: error.message });
-          }
-
-          throw error;
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    const projectClientUserActionRoute = matchProjectClientUserActionRoute(
-      url.pathname
-    );
-    const projectClientUserRoute = matchProjectClientUserRoute(url.pathname);
-    if (projectClientUserRoute) {
-      if (request.method === "PATCH") {
-        try {
-          const body = (await readJsonBody(request)) as {
-            role?: unknown;
-            questionnaireAccess?: unknown;
-            assignedInputSections?: unknown;
-          };
-          const clientUser = await updateClientProjectAccess(
-            projectClientUserRoute.projectId,
-            projectClientUserRoute.userId,
-            body
-          );
-
-          return sendJson(response, 200, { clientUser });
-        } catch (error) {
-          if (
-            error instanceof Error &&
-            error.message === "Client user not found for this project"
-          ) {
-            return sendJson(response, 404, { error: error.message });
-          }
-
-          if (error instanceof Error) {
-            return sendJson(response, 400, { error: error.message });
-          }
-
-          throw error;
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
-    }
-
-    if (projectClientUserActionRoute) {
-      if (request.method === "POST") {
-        try {
-          if (projectClientUserActionRoute.action === "reset-link") {
-            const result = await createClientResetLink(
-              projectClientUserActionRoute.userId,
-              projectClientUserActionRoute.projectId
-            );
-
-            return sendJson(response, 200, result);
-          }
-
-          const access = await prisma.clientProjectAccess.findUnique({
-            where: {
-              userId_projectId: {
-                userId: projectClientUserActionRoute.userId,
-                projectId: projectClientUserActionRoute.projectId
-              }
-            },
-            include: {
-              user: true
-            }
-          });
-
-          if (!access) {
-            return sendJson(response, 404, {
-              error: "Client user not found for this project"
-            });
-          }
-
-          const inviteToken = crypto.randomBytes(24).toString("hex");
-          const inviteTokenExpiresAt = new Date(
-            Date.now() + 1000 * 60 * 60 * 24 * 14
-          );
-
-          await prisma.clientPortalUser.update({
-            where: { id: access.user.id },
-            data: {
-              inviteToken,
-              inviteTokenExpiresAt
-            }
-          });
-
-          return sendJson(response, 200, {
-            user: serializeClientPortalUser(access.user),
-            inviteLink: buildClientAccessUrl("/client/activate", inviteToken)
-          });
-        } catch (error) {
-          if (error instanceof Error) {
-            return sendJson(response, 400, { error: error.message });
-          }
-
-          throw error;
-        }
-      }
-
-      return sendJson(response, 405, { error: "Method Not Allowed" });
     }
 
     const projectMessagesRoute = matchProjectMessagesRoute(url.pathname);
