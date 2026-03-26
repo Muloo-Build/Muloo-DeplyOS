@@ -440,10 +440,6 @@ export function createApiApp(config: BaseConfig) {
       return c.json({ authenticated: true });
     }
 
-    if (matchesSimpleAuthUsername) {
-      return c.json({ error: "Invalid credentials" }, 401);
-    }
-
     const normalizedIdentifier =
       normalizeWorkspaceLoginIdentifier(loginIdentifier);
     const workspaceUsers = await loadWorkspaceUsers().catch(() => []);
