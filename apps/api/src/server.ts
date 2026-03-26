@@ -76,6 +76,14 @@ const validTaskValidationStatusValues = [
   "failed",
   "skipped"
 ] as const;
+const projectContextTypes = [
+  "existing_knowledge",
+  "work_done",
+  "meeting_notes",
+  "email_brief",
+  "session_prep",
+  "blockers"
+] as const;
 const validHubTierValues = [
   "free",
   "starter",
@@ -9209,6 +9217,44 @@ function serializeWorkspaceApiKey<
   };
 }
 
+function isProjectContextType(
+  value: string
+): value is (typeof projectContextTypes)[number] {
+  return (projectContextTypes as readonly string[]).includes(value);
+}
+
+function formatProjectContextType(value: string) {
+  const labels: Record<string, string> = {
+    existing_knowledge: "What we already know",
+    work_done: "What has already been done",
+    meeting_notes: "Meeting and session notes",
+    email_brief: "Email context",
+    session_prep: "Session prep notes",
+    blockers: "Known blockers and sensitivities"
+  };
+
+  return labels[value] ?? value;
+}
+
+function serializeProjectContextEntry<
+  T extends {
+    contextType: string;
+    content: string;
+    source: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(entry: T) {
+  return {
+    contextType: entry.contextType,
+    label: formatProjectContextType(entry.contextType),
+    content: entry.content,
+    source: entry.source,
+    createdAt: entry.createdAt.toISOString(),
+    updatedAt: entry.updatedAt.toISOString()
+  };
+}
+
 function serializeWorkspaceEmailSettings<
   T extends {
     id: string;
@@ -10348,6 +10394,81 @@ export async function createPortalSnapshotForPortal(portalId: string) {
   return serializePortalSnapshot(snapshot);
 }
 
+export async function loadProjectContext(projectId: string) {
+  const entries = await prisma.projectContext.findMany({
+    where: { projectId }
+  });
+
+  const entryMap = new Map(
+    entries.map((entry) => [entry.contextType, serializeProjectContextEntry(entry)])
+  );
+
+  return Object.fromEntries(
+    projectContextTypes.map((contextType) => [
+      contextType,
+      entryMap.get(contextType) ?? null
+    ])
+  );
+}
+
+export async function saveProjectContext(
+  projectId: string,
+  contextType: string,
+  value: {
+    content?: unknown;
+    source?: unknown;
+  }
+) {
+  if (!isProjectContextType(contextType)) {
+    throw new Error("Unsupported project context type");
+  }
+
+  if (typeof value.content !== "string") {
+    throw new Error("content must be a string");
+  }
+
+  if (value.source !== undefined && typeof value.source !== "string") {
+    throw new Error("source must be a string");
+  }
+
+  const entry = await prisma.projectContext.upsert({
+    where: {
+      projectId_contextType: {
+        projectId,
+        contextType
+      }
+    },
+    create: {
+      projectId,
+      contextType,
+      content: value.content,
+      source: typeof value.source === "string" ? value.source : "manual"
+    },
+    update: {
+      content: value.content,
+      source: typeof value.source === "string" ? value.source : "manual",
+      updatedAt: new Date()
+    }
+  });
+
+  return serializeProjectContextEntry(entry);
+}
+
+export async function deleteProjectContext(projectId: string, contextType: string) {
+  if (!isProjectContextType(contextType)) {
+    throw new Error("Unsupported project context type");
+  }
+
+  await prisma.projectContext.deleteMany({
+    where: {
+      projectId,
+      contextType
+    }
+  });
+
+  return { success: true };
+}
+
 export async function loadProjectFindings(projectId: string) {
   const findings = await prisma.finding.findMany({
     where: { projectId },
@@ -10812,7 +10933,14 @@ export async function generateProjectPrepareBrief(projectId: string) {
     throw new Error("Project not found");
   }
 
-  const [relatedProjects, findings, recommendations, supportingContext, latestSnapshot] =
+  const [
+    relatedProjects,
+    findings,
+    recommendations,
+    supportingContext,
+    latestSnapshot,
+    contextEntries
+  ] =
     await Promise.all([
       prisma.project.findMany({
         where: {
@@ -10853,8 +10981,22 @@ export async function generateProjectPrepareBrief(projectId: string) {
             where: { portalId: project.portal.id },
             orderBy: [{ capturedAt: "desc" }]
           })
-        : Promise.resolve(null)
+        : Promise.resolve(null),
+      prisma.projectContext.findMany({
+        where: { projectId },
+        orderBy: [{ updatedAt: "desc" }]
+      })
     ]);
+
+  const consultantContext = contextEntries
+    .filter((entry) => entry.content.trim().length > 0)
+    .map((entry) => ({
+      contextType: entry.contextType,
+      label: formatProjectContextType(entry.contextType),
+      content: entry.content,
+      source: entry.source,
+      updatedAt: entry.updatedAt.toISOString()
+    }));
 
   const rawBrief = await callAiWorkflow(
     "project_prepare_brief",
@@ -10867,6 +11009,7 @@ Rules:
 - Use exactly these keys: executiveSummary, meetingGoal, whatWeKnow, openQuestions, agenda, recommendedApproach, likelyWorkstreams, risks, suggestedNextStep.
 - Think like a senior HubSpot consultant preparing for an onsite or working session.
 - Be practical, concise, and decision-oriented.
+- Treat the consultant context as the primary source of truth for what Muloo already knows, what has already been done, and what is sensitive or blocked.
 - whatWeKnow should reflect facts already visible in the project, portal, audit, prior work, and notes.
 - openQuestions should focus on what must be validated live with the client before scope is finalised.
 - agenda should be a realistic workshop / meeting sequence, not generic filler.
@@ -10948,7 +11091,8 @@ Rules:
         sourceUrl: item.sourceUrl,
         content: item.content,
         createdAt: item.createdAt.toISOString()
-      }))
+      })),
+      consultantContext
     }),
     { maxTokens: 2600 }
   );

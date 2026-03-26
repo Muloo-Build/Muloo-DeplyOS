@@ -26,7 +26,7 @@ const REQUIRED_INSPECTION_TOOLS = [
   "get_deal_health"
 ] as const;
 
-const SYSTEM_PROMPT = `You are a HubSpot portal health auditor. Your job is to systematically inspect a HubSpot portal and identify issues, inefficiencies, and risks.
+const BASE_SYSTEM_PROMPT = `You are a HubSpot portal health auditor. Your job is to systematically inspect a HubSpot portal and identify issues, inefficiencies, and risks.
 
 Use the available tools to gather data across workflows, pipelines, contact properties, email performance, lists, forms, and deal health. Be methodical — call each tool at least once before forming conclusions.
 
@@ -37,6 +37,27 @@ Severity guide:
 - high: significant inefficiency or process gap affecting revenue/delivery
 - medium: best practice violation or cleanup opportunity
 - low: cosmetic or minor optimisation`;
+
+function formatContextType(type: string): string {
+  const labels: Record<string, string> = {
+    existing_knowledge: "What we already know",
+    work_done: "What has already been done",
+    meeting_notes: "Meeting and session notes",
+    email_brief: "Email context",
+    session_prep: "Session prep notes",
+    blockers: "Known blockers and sensitivities"
+  };
+
+  return labels[type] ?? type;
+}
+
+function buildSystemPrompt(contextBlock: string) {
+  const contextSection = contextBlock.trim()
+    ? `\n\n## Engagement context (from the consultant's notes)\n\n${contextBlock}\n\nUse this context to inform your findings. Avoid flagging issues that have already been addressed. Weight your recommendations towards what is most relevant given this context.`
+    : "";
+
+  return `${BASE_SYSTEM_PROMPT}${contextSection}`;
+}
 
 type AuditSeverity = "critical" | "high" | "medium" | "low";
 type AuditCategory =
@@ -577,8 +598,18 @@ export async function runPortalAuditAgent(input: {
       input.prisma,
       input.portalId
     );
+    const contextEntries = await input.prisma.projectContext.findMany({
+      where: { projectId: input.projectId }
+    });
+    const contextBlock = contextEntries
+      .filter((entry) => entry.content.trim().length > 0)
+      .map(
+        (entry) =>
+          `### ${formatContextType(entry.contextType)}\n${entry.content.trim()}`
+      )
+      .join("\n\n");
     const messages: ChatCompletionMessage[] = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: buildSystemPrompt(contextBlock) },
       {
         role: "user",
         content: `Audit HubSpot portal. Project ID: ${input.projectId}. Be thorough.`

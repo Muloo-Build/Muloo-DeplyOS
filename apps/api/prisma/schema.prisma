@@ -292,9 +292,24 @@ model Project {
   clientSubmissions         ClientInputSubmission[]
   quotes                    ProjectQuote[]
   workRequests              WorkRequest[]
+  contextEntries            ProjectContext[]
   findings                  Finding[]
   recommendations           Recommendation[]
   workflowRuns              WorkflowRun[]
+}
+
+model ProjectContext {
+  id          String   @id @default(cuid())
+  projectId   String
+  contextType String
+  content     String   @db.Text
+  source      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, contextType])
+  @@index([projectId, updatedAt])
 }
 
 model ProjectQuote {

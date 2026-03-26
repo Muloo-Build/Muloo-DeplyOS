@@ -89,6 +89,15 @@ interface ExecutionJob {
   createdAt: string;
 }
 
+interface ProjectContextEntry {
+  contextType: string;
+  label: string;
+  content: string;
+  updatedAt: string;
+}
+
+type ProjectContextMap = Record<string, ProjectContextEntry | null>;
+
 interface FindingDraft {
   severity: FindingRecord["severity"];
   title: string;
@@ -116,6 +125,15 @@ const severityClassName: Record<FindingRecord["severity"], string> = {
   medium: "bg-[rgba(255,214,102,0.16)] text-[#ffd666]",
   high: "bg-[rgba(240,160,80,0.18)] text-[#f0a050]",
   critical: "bg-[rgba(255,154,165,0.18)] text-[#ff9aa5]"
+};
+
+const projectContextLabels: Record<string, string> = {
+  existing_knowledge: "Existing knowledge",
+  work_done: "Work done",
+  meeting_notes: "Meeting notes",
+  email_brief: "Email brief",
+  session_prep: "Session prep",
+  blockers: "Blockers"
 };
 
 function createFindingDraft(): FindingDraft {
@@ -332,6 +350,7 @@ export default function PortalAuditWorkspace({
   projectId: string;
 }) {
   const [project, setProject] = useState<ProjectSummary | null>(null);
+  const [projectContext, setProjectContext] = useState<ProjectContextMap>({});
   const [snapshot, setSnapshot] = useState<PortalSnapshot | null>(null);
   const [findings, setFindings] = useState<FindingRecord[]>([]);
   const [recommendations, setRecommendations] = useState<
@@ -372,8 +391,14 @@ export default function PortalAuditWorkspace({
       const recommendationsResponse = await fetch(
         `/api/projects/${encodeURIComponent(projectId)}/recommendations`
       );
+      const projectContextResponse = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/context`
+      );
       const findingsBody = await findingsResponse.json().catch(() => null);
       const recommendationsBody = await recommendationsResponse
+        .json()
+        .catch(() => null);
+      const projectContextBody = await projectContextResponse
         .json()
         .catch(() => null);
 
@@ -387,8 +412,15 @@ export default function PortalAuditWorkspace({
         );
       }
 
+      if (!projectContextResponse.ok) {
+        throw new Error(
+          projectContextBody?.error ?? "Failed to load project context"
+        );
+      }
+
       setFindings(findingsBody.findings ?? []);
       setRecommendations(recommendationsBody.recommendations ?? []);
+      setProjectContext((projectContextBody ?? {}) as ProjectContextMap);
 
       if (projectBody.project?.portal?.id) {
         const snapshotResponse = await fetch(
@@ -609,6 +641,10 @@ export default function PortalAuditWorkspace({
     }
   ];
 
+  const activeContextLabels = Object.entries(projectContext)
+    .filter(([, entry]) => Boolean(entry?.content?.trim()))
+    .map(([contextType]) => projectContextLabels[contextType] ?? formatLabel(contextType));
+
   return (
     <>
       {activeFindingArea ? (
@@ -645,6 +681,21 @@ export default function PortalAuditWorkspace({
               <p className="mt-3 text-sm text-text-secondary">
                 Audit engine: OpenAI · gpt-4o
               </p>
+              <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+                {activeContextLabels.length > 0 ? (
+                  <span>
+                    This audit will include your notes from:{" "}
+                    <span className="text-white">
+                      {activeContextLabels.join(", ")}
+                    </span>
+                  </span>
+                ) : (
+                  <span>
+                    Add notes in Prepare before running the audit to improve
+                    output quality.
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex flex-wrap gap-3">
               <button

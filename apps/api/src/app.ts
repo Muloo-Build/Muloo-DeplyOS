@@ -118,6 +118,7 @@ import {
   updateClientContact,
   updateClientDirectoryRecord,
   updateDeliveryTemplate,
+  deleteProjectContext,
   deleteWorkspaceApiKey,
   updateWorkspaceEmailOAuthConnection,
   updateWorkspaceCalendarConnection,
@@ -137,6 +138,7 @@ import {
   loadDiscoverySummaryWithRetry,
   loadBlueprint,
   loadProjectRecord,
+  loadProjectContext,
   loadProjectFindings,
   loadProjectRecommendations,
   loadProjectExecutionJobStatus,
@@ -190,7 +192,8 @@ import {
   getWorkspaceAiRouting,
   getWorkspaceXeroInvoices,
   saveWorkspaceAiRouting,
-  saveWorkspaceApiKey
+  saveWorkspaceApiKey,
+  saveProjectContext
 } from "./server";
 
 type HonoBindings = {
@@ -1463,6 +1466,52 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.get("/api/projects/:projectId/context", async (c) =>
+    c.json(await loadProjectContext(c.req.param("projectId")))
+  );
+
+  app.put("/api/projects/:projectId/context/:contextType", async (c) => {
+    try {
+      const entry = await saveProjectContext(
+        c.req.param("projectId"),
+        c.req.param("contextType"),
+        (await readJsonBodyOrEmpty(c)) as Record<string, unknown>
+      );
+      return c.json({ entry });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to save project context"
+        },
+        400
+      );
+    }
+  });
+
+  app.delete("/api/projects/:projectId/context/:contextType", async (c) => {
+    try {
+      return c.json(
+        await deleteProjectContext(
+          c.req.param("projectId"),
+          c.req.param("contextType")
+        )
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to delete project context"
+        },
+        400
+      );
+    }
   });
 
   app.post("/api/projects/:projectId/run/portal-audit", async (c) => {

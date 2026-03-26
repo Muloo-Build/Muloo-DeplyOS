@@ -129,6 +129,15 @@ interface WorkflowRun {
   createdAt: string;
 }
 
+interface ProjectContextEntry {
+  contextType: string;
+  label: string;
+  content: string;
+  updatedAt: string;
+}
+
+type ProjectContextMap = Record<string, ProjectContextEntry | null>;
+
 interface ClientMemory {
   previousProjects: ClientMemoryProject[];
   recentFindings: Array<{
@@ -183,6 +192,45 @@ const evidenceTypeOptions: Array<{
   { value: "miro-note", label: "Miro note" }
 ];
 
+const projectContextSections = [
+  {
+    contextType: "existing_knowledge",
+    title: "Capture what you already know",
+    description:
+      "Document the current picture before the AI starts reasoning."
+  },
+  {
+    contextType: "work_done",
+    title: "What have we already done?",
+    description:
+      "Capture fixes, changes, and implementation work that should not be flagged again."
+  },
+  {
+    contextType: "meeting_notes",
+    title: "Meeting notes / session notes",
+    description:
+      "Store client call notes, session highlights, and live discoveries."
+  },
+  {
+    contextType: "email_brief",
+    title: "Email brief",
+    description:
+      "Summarise important email threads, decisions, and context worth carrying forward."
+  },
+  {
+    contextType: "session_prep",
+    title: "Generate a prep pack before the session",
+    description:
+      "Capture the prep notes that should shape the next workshop or onsite session."
+  },
+  {
+    contextType: "blockers",
+    title: "Blockers and sensitivities",
+    description:
+      "Call out risks, sensitivities, and known blockers before the audit or brief runs."
+  }
+] as const;
+
 function formatLabel(value: string | null | undefined) {
   if (!value) {
     return "Not set";
@@ -209,6 +257,13 @@ function formatSignedCount(value: number) {
   return value > 0 ? `+${value}` : `${value}`;
 }
 
+function formatLastUpdated(value: string) {
+  return `Last updated ${new Intl.DateTimeFormat("en-ZA", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(value))}`;
+}
+
 export default function ProjectPrepareWorkspace({
   projectId
 }: {
@@ -219,6 +274,14 @@ export default function ProjectPrepareWorkspace({
   const [recommendations, setRecommendations] = useState<RecommendationRecord[]>(
     []
   );
+  const [projectContext, setProjectContext] = useState<ProjectContextMap>({});
+  const [projectContextDrafts, setProjectContextDrafts] = useState<
+    Record<string, string>
+  >({});
+  const [savingContextType, setSavingContextType] = useState<string | null>(
+    null
+  );
+  const [savedContextType, setSavedContextType] = useState<string | null>(null);
   const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
   const [snapshot, setSnapshot] = useState<PortalSnapshot | null>(null);
   const [clientMemory, setClientMemory] = useState<ClientMemory | null>(null);
@@ -252,17 +315,31 @@ export default function ProjectPrepareWorkspace({
         }
 
         const resolvedProject = projectBody.project as ProjectRecord;
-        const [findingsResponse, recommendationsResponse, contextResponse] =
-          await Promise.all([
+        const [
+          findingsResponse,
+          recommendationsResponse,
+          contextResponse,
+          projectContextResponse
+        ] = await Promise.all([
           fetch(`/api/projects/${encodeURIComponent(projectId)}/findings`),
           fetch(`/api/projects/${encodeURIComponent(projectId)}/recommendations`),
-          fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`)
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`),
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/context`)
         ]);
         const findingsBody = await findingsResponse.json().catch(() => null);
         const recommendationsBody = await recommendationsResponse
           .json()
           .catch(() => null);
         const contextBody = await contextResponse.json().catch(() => null);
+        const projectContextBody = await projectContextResponse
+          .json()
+          .catch(() => null);
+
+        if (!projectContextResponse.ok) {
+          throw new Error(
+            projectContextBody?.error ?? "Failed to load project context"
+          );
+        }
 
         let nextSnapshot: PortalSnapshot | null = null;
         let nextWorkflowRuns: WorkflowRun[] = [];
@@ -305,6 +382,15 @@ export default function ProjectPrepareWorkspace({
         setProject(resolvedProject);
         setFindings(findingsBody?.findings ?? []);
         setRecommendations(recommendationsBody?.recommendations ?? []);
+        setProjectContext((projectContextBody ?? {}) as ProjectContextMap);
+        setProjectContextDrafts(
+          Object.fromEntries(
+            projectContextSections.map(({ contextType }) => [
+              contextType,
+              projectContextBody?.[contextType]?.content ?? ""
+            ])
+          )
+        );
         setSupportingContext(contextBody?.evidenceItems ?? []);
         setSnapshot(nextSnapshot);
         setClientMemory(nextClientMemory);
@@ -330,6 +416,51 @@ export default function ProjectPrepareWorkspace({
       cancelled = true;
     };
   }, [projectId]);
+
+  async function saveProjectContextEntry(contextType: string) {
+    setSavingContextType(contextType);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/context/${encodeURIComponent(contextType)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: projectContextDrafts[contextType] ?? "",
+            source: "manual"
+          })
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to save project context");
+      }
+
+      setProjectContext((current) => ({
+        ...current,
+        [contextType]: body?.entry ?? null
+      }));
+      setSavedContextType(contextType);
+      window.setTimeout(() => {
+        setSavedContextType((current) =>
+          current === contextType ? null : current
+        );
+      }, 2000);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save project context"
+      );
+    } finally {
+      setSavingContextType((current) =>
+        current === contextType ? null : current
+      );
+    }
+  }
 
   const relatedProjects = useMemo(
     () => clientMemory?.previousProjects.slice(0, 6) ?? [],
@@ -949,6 +1080,76 @@ export default function ProjectPrepareWorkspace({
                 </div>
               </section>
             </div>
+
+            <section className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[rgba(255,255,255,0.07)] pb-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                    Consultant Context
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">
+                    Notes that feed the AI
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-sm text-text-secondary">
+                    These notes are auto-saved on blur and injected into the
+                    audit and prepare brief so the platform understands what you
+                    already know, what has been done, and what to avoid
+                    re-flagging.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 xl:grid-cols-2">
+                {projectContextSections.map((section) => {
+                  const entry = projectContext[section.contextType];
+                  return (
+                    <label
+                      key={section.contextType}
+                      className="block rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            {section.title}
+                          </p>
+                          <p className="mt-2 text-xs text-text-muted">
+                            {section.description}
+                          </p>
+                        </div>
+                        <div className="text-xs">
+                          {savingContextType === section.contextType ? (
+                            <span className="text-text-secondary">Saving...</span>
+                          ) : savedContextType === section.contextType ? (
+                            <span className="text-[#54e1b1]">Saved</span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <textarea
+                        value={projectContextDrafts[section.contextType] ?? ""}
+                        onChange={(event) =>
+                          setProjectContextDrafts((current) => ({
+                            ...current,
+                            [section.contextType]: event.target.value
+                          }))
+                        }
+                        onBlur={() => void saveProjectContextEntry(section.contextType)}
+                        placeholder={section.description}
+                        className="mt-4 min-h-[156px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-3 text-sm text-white outline-none"
+                      />
+                      {entry?.updatedAt ? (
+                        <p className="mt-3 text-xs text-text-muted">
+                          {formatLastUpdated(entry.updatedAt)}
+                        </p>
+                      ) : (
+                        <p className="mt-3 text-xs text-text-muted">
+                          No notes saved yet.
+                        </p>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
 
             <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
               <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">

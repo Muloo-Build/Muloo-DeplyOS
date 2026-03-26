@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
+import SlideOver from "./SlideOver";
 
 interface ClientContact {
   id: string;
@@ -173,6 +174,26 @@ function createEmptyContactDraft(): ContactDraft {
     email: "",
     title: "",
     canApproveQuotes: false
+  };
+}
+
+function createEmptyClientDraft(): ClientProfileDraft {
+  return {
+    name: "",
+    website: "",
+    logoUrl: "",
+    additionalWebsitesText: "",
+    industry: "",
+    region: "",
+    hubSpotPortalId: "",
+    linkedinUrl: "",
+    facebookUrl: "",
+    instagramUrl: "",
+    xUrl: "",
+    youtubeUrl: "",
+    clientRoles: ["client"],
+    parentClientId: "",
+    visibleToPartnerIds: []
   };
 }
 
@@ -440,7 +461,11 @@ function buildClientPayload(
   };
 }
 
-export default function ClientsWorkspace() {
+export default function ClientsWorkspace({
+  focusClientId
+}: {
+  focusClientId?: string;
+}) {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -470,6 +495,7 @@ export default function ClientsWorkspace() {
   const [showingPortalInviteIds, setShowingPortalInviteIds] = useState<
     string[]
   >([]);
+  const [newClientPanelOpen, setNewClientPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [alphabetFilter, setAlphabetFilter] = useState("All");
   const [portalOptions, setPortalOptions] = useState<HubSpotPortalOption[]>([]);
@@ -478,23 +504,7 @@ export default function ClientsWorkspace() {
   const [hubSpotInstallProfiles, setHubSpotInstallProfiles] = useState<
     Record<string, HubSpotInstallProfile>
   >({});
-  const [clientDraft, setClientDraft] = useState({
-    name: "",
-    website: "",
-    logoUrl: "",
-    additionalWebsitesText: "",
-    industry: "",
-    region: "",
-    hubSpotPortalId: "",
-    linkedinUrl: "",
-    facebookUrl: "",
-    instagramUrl: "",
-    xUrl: "",
-    youtubeUrl: "",
-    clientRoles: ["client"] as string[],
-    parentClientId: "",
-    visibleToPartnerIds: [] as string[]
-  });
+  const [clientDraft, setClientDraft] = useState(createEmptyClientDraft);
   const [contactDrafts, setContactDrafts] = useState<
     Record<string, ContactDraft>
   >({});
@@ -573,6 +583,22 @@ export default function ClientsWorkspace() {
     void refreshClients();
     void refreshPortalOptions();
   }, []);
+
+  useEffect(() => {
+    if (!focusClientId || clients.length === 0) {
+      return;
+    }
+
+    if (!clients.some((client) => client.id === focusClientId)) {
+      return;
+    }
+
+    setExpandedClientIds((currentIds) =>
+      currentIds.includes(focusClientId)
+        ? currentIds
+        : [focusClientId, ...currentIds]
+    );
+  }, [clients, focusClientId]);
 
   const totalProjects = clients.reduce(
     (total, client) => total + client.projects.length,
@@ -781,24 +807,9 @@ export default function ClientsWorkspace() {
         throw new Error(body?.error ?? "Failed to create client");
       }
 
-      setClientDraft({
-        name: "",
-        website: "",
-        logoUrl: "",
-        additionalWebsitesText: "",
-        industry: "",
-        region: "",
-        hubSpotPortalId: "",
-        linkedinUrl: "",
-        facebookUrl: "",
-        instagramUrl: "",
-        xUrl: "",
-        youtubeUrl: "",
-        clientRoles: ["client"],
-        parentClientId: "",
-        visibleToPartnerIds: []
-      });
+      setClientDraft(createEmptyClientDraft());
       setExpandedClientIds((currentIds) => [body.client.id, ...currentIds]);
+      setNewClientPanelOpen(false);
       setFeedback("Client added to the workspace.");
       await refreshClients({ background: true });
     } catch (createError) {
@@ -1184,7 +1195,7 @@ export default function ClientsWorkspace() {
     return (
       <div
         key={client.id}
-        className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card"
+        className="group rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card transition hover:border-[rgba(255,255,255,0.14)]"
       >
         <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-5 md:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-4">
@@ -1204,9 +1215,12 @@ export default function ClientsWorkspace() {
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="truncate text-lg font-semibold text-white">
+                <Link
+                  href={`/clients/${client.id}`}
+                  className="truncate text-lg font-semibold text-white transition hover:text-[#8be4ff]"
+                >
                   {client.name}
-                </h3>
+                </Link>
                 {client.projects.length > 0 ? (
                   <span className="rounded-full bg-[rgba(81,208,176,0.14)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#51d0b0]">
                     Active
@@ -1265,7 +1279,7 @@ export default function ClientsWorkspace() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
             <Link
               href={buildProjectLink(client, recommendedContact ?? undefined)}
               className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white"
@@ -2326,6 +2340,299 @@ export default function ClientsWorkspace() {
     );
   }
 
+  function renderNewClientForm() {
+    return (
+      <div className="space-y-5">
+        <p className="text-sm text-text-secondary">
+          Add the company once, then keep everything else inside the client
+          record when you need it.
+        </p>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="block">
+            <span className="text-sm font-medium text-white">Client name</span>
+            <input
+              value={clientDraft.name}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  name: event.target.value
+                }))
+              }
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-white">Website</span>
+            <input
+              value={clientDraft.website}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  website: event.target.value
+                }))
+              }
+              placeholder="client.com"
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-white">Logo URL</span>
+            <input
+              value={clientDraft.logoUrl}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  logoUrl: event.target.value
+                }))
+              }
+              placeholder="https://..."
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-white">Industry</span>
+            <select
+              value={clientDraft.industry}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  industry: event.target.value
+                }))
+              }
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            >
+              <option value="">Select industry</option>
+              {industryOptions.map((industry) => (
+                <option key={industry} value={industry}>
+                  {industry}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-white">Region</span>
+            <select
+              value={clientDraft.region}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  region: event.target.value
+                }))
+              }
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            >
+              <option value="">Select region</option>
+              {clientRegionOptions.map((region) => (
+                <option key={region} value={region}>
+                  {region}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-white">
+              Additional websites
+            </span>
+            <textarea
+              value={clientDraft.additionalWebsitesText}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  additionalWebsitesText: event.target.value
+                }))
+              }
+              placeholder="One per line"
+              className="mt-3 min-h-[88px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+            <p className="text-sm font-medium text-white">Client roles</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {clientRoleOptions.map((role) => (
+                <label
+                  key={role.value}
+                  className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
+                >
+                  <input
+                    type="checkbox"
+                    checked={clientDraft.clientRoles.includes(role.value)}
+                    onChange={() => toggleClientDraftRole(role.value)}
+                  />
+                  {role.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <label className="block rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+            <span className="text-sm font-medium text-white">Parent group</span>
+            <select
+              value={clientDraft.parentClientId}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  parentClientId: event.target.value
+                }))
+              }
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+            >
+              <option value="">No parent group</option>
+              {groupClientOptions.map((groupClient) => (
+                <option key={groupClient.id} value={groupClient.id}>
+                  {groupClient.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+          <p className="text-sm font-medium text-white">Visible to partners</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {partnerClientOptions.length > 0 ? (
+              partnerClientOptions.map((partnerClient) => (
+                <label
+                  key={partnerClient.id}
+                  className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
+                >
+                  <input
+                    type="checkbox"
+                    checked={clientDraft.visibleToPartnerIds.includes(
+                      partnerClient.id
+                    )}
+                    onChange={() =>
+                      toggleClientDraftVisiblePartner(partnerClient.id)
+                    }
+                  />
+                  {partnerClient.name}
+                </label>
+              ))
+            ) : (
+              <p className="text-sm text-text-muted">
+                No partner-tagged companies yet.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="block">
+            <span className="text-sm font-medium text-white">LinkedIn</span>
+            <input
+              value={clientDraft.linkedinUrl}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  linkedinUrl: event.target.value
+                }))
+              }
+              placeholder="https://linkedin.com/..."
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-white">Facebook</span>
+            <input
+              value={clientDraft.facebookUrl}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  facebookUrl: event.target.value
+                }))
+              }
+              placeholder="https://facebook.com/..."
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-white">Instagram</span>
+            <input
+              value={clientDraft.instagramUrl}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  instagramUrl: event.target.value
+                }))
+              }
+              placeholder="https://instagram.com/..."
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-white">X</span>
+            <input
+              value={clientDraft.xUrl}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  xUrl: event.target.value
+                }))
+              }
+              placeholder="https://x.com/..."
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-white">YouTube</span>
+            <input
+              value={clientDraft.youtubeUrl}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  youtubeUrl: event.target.value
+                }))
+              }
+              placeholder="https://youtube.com/..."
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[rgba(255,255,255,0.07)] pt-5">
+          <div>
+            {error ? (
+              <p className="text-sm text-[#ff8f9c]">{error}</p>
+            ) : feedback ? (
+              <p className="text-sm text-status-success">{feedback}</p>
+            ) : (
+              <p className="text-sm text-text-secondary">
+                Search keeps the directory clean, regions stay controlled, and
+                profiles can model partner and group relationships without
+                flattening everything into one client type.
+              </p>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setNewClientPanelOpen(false);
+                setClientDraft(createEmptyClientDraft());
+              }}
+              className="rounded-2xl border border-[rgba(255,255,255,0.08)] px-5 py-3 text-sm font-medium text-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void createClient()}
+              disabled={creatingClient}
+              className="rounded-2xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {creatingClient ? "Saving..." : "Add client"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const hasNoClients = !loading && clients.length === 0;
+
   return (
     <AppShell>
       <div className="px-8 py-8">
@@ -2346,6 +2653,13 @@ export default function ClientsWorkspace() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => setNewClientPanelOpen(true)}
+                  className="rounded-2xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white"
+                >
+                  + New Client
+                </button>
                 <Link
                   href="/projects/new"
                   className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-5 py-3 text-sm font-medium text-white"
@@ -2355,7 +2669,7 @@ export default function ClientsWorkspace() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {[
                 { label: "Clients", value: clients.length },
                 { label: "Active Clients", value: activeClientCount },
@@ -2364,12 +2678,12 @@ export default function ClientsWorkspace() {
               ].map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-2xl bg-[#0b1126] px-5 py-5"
+                  className="rounded-2xl bg-[#0b1126] px-4 py-4"
                 >
                   <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                     {item.label}
                   </p>
-                  <p className="mt-3 text-3xl font-semibold text-white">
+                  <p className="mt-2 text-2xl font-semibold text-white">
                     {item.value}
                   </p>
                 </div>
@@ -2377,325 +2691,35 @@ export default function ClientsWorkspace() {
             </div>
           </div>
 
-          <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold text-white">
-                  Add client company
-                </h2>
-                <p className="mt-2 text-sm text-text-secondary">
-                  Add the company once, then keep everything else inside the
-                  client record when you need it.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="text-sm font-medium text-white">
-                  Client name
-                </span>
-                <input
-                  value={clientDraft.name}
-                  onChange={(event) =>
-                    setClientDraft((currentDraft) => ({
-                      ...currentDraft,
-                      name: event.target.value
-                    }))
-                  }
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-white">Website</span>
-                <input
-                  value={clientDraft.website}
-                  onChange={(event) =>
-                    setClientDraft((currentDraft) => ({
-                      ...currentDraft,
-                      website: event.target.value
-                    }))
-                  }
-                  placeholder="client.com"
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-white">Logo URL</span>
-                <input
-                  value={clientDraft.logoUrl}
-                  onChange={(event) =>
-                    setClientDraft((currentDraft) => ({
-                      ...currentDraft,
-                      logoUrl: event.target.value
-                    }))
-                  }
-                  placeholder="https://..."
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-white">Industry</span>
-                <select
-                  value={clientDraft.industry}
-                  onChange={(event) =>
-                    setClientDraft((currentDraft) => ({
-                      ...currentDraft,
-                      industry: event.target.value
-                    }))
-                  }
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                >
-                  <option value="">Select industry</option>
-                  {industryOptions.map((industry) => (
-                    <option key={industry} value={industry}>
-                      {industry}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-white">Region</span>
-                <select
-                  value={clientDraft.region}
-                  onChange={(event) =>
-                    setClientDraft((currentDraft) => ({
-                      ...currentDraft,
-                      region: event.target.value
-                    }))
-                  }
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                >
-                  <option value="">Select region</option>
-                  {clientRegionOptions.map((region) => (
-                    <option key={region} value={region}>
-                      {region}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block md:col-span-2">
-                <span className="text-sm font-medium text-white">
-                  Additional websites
-                </span>
-                <textarea
-                  value={clientDraft.additionalWebsitesText}
-                  onChange={(event) =>
-                    setClientDraft((currentDraft) => ({
-                      ...currentDraft,
-                      additionalWebsitesText: event.target.value
-                    }))
-                  }
-                  placeholder="One per line"
-                  className="mt-3 min-h-[88px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
-              </label>
-            </div>
-
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-                <p className="text-sm font-medium text-white">Client roles</p>
-                <div className="mt-3 flex flex-wrap gap-3">
-                  {clientRoleOptions.map((role) => (
-                    <label
-                      key={role.value}
-                      className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={clientDraft.clientRoles.includes(role.value)}
-                        onChange={() => toggleClientDraftRole(role.value)}
-                      />
-                      {role.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <label className="block rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-                <span className="text-sm font-medium text-white">
-                  Parent group
-                </span>
-                <select
-                  value={clientDraft.parentClientId}
-                  onChange={(event) =>
-                    setClientDraft((currentDraft) => ({
-                      ...currentDraft,
-                      parentClientId: event.target.value
-                    }))
-                  }
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
-                >
-                  <option value="">No parent group</option>
-                  {groupClientOptions.map((groupClient) => (
-                    <option key={groupClient.id} value={groupClient.id}>
-                      {groupClient.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-              <p className="text-sm font-medium text-white">
-                Visible to partners
-              </p>
-              <div className="mt-3 flex flex-wrap gap-3">
-                {partnerClientOptions.length > 0 ? (
-                  partnerClientOptions.map((partnerClient) => (
-                    <label
-                      key={partnerClient.id}
-                      className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={clientDraft.visibleToPartnerIds.includes(
-                          partnerClient.id
-                        )}
-                        onChange={() =>
-                          toggleClientDraftVisiblePartner(partnerClient.id)
-                        }
-                      />
-                      {partnerClient.name}
-                    </label>
-                  ))
-                ) : (
-                  <p className="text-sm text-text-muted">
-                    No partner-tagged companies yet.
+          {!hasNoClients ? (
+            <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-6">
+              <div className="flex flex-wrap items-center gap-4 lg:flex-nowrap">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-white">Directory</p>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    Search by company, contact, email, or project.
                   </p>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="text-sm font-medium text-white">LinkedIn</span>
-                <input
-                  value={clientDraft.linkedinUrl}
-                  onChange={(event) =>
-                    setClientDraft((currentDraft) => ({
-                      ...currentDraft,
-                      linkedinUrl: event.target.value
-                    }))
-                  }
-                  placeholder="https://linkedin.com/..."
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-white">Facebook</span>
-                <input
-                  value={clientDraft.facebookUrl}
-                  onChange={(event) =>
-                    setClientDraft((currentDraft) => ({
-                      ...currentDraft,
-                      facebookUrl: event.target.value
-                    }))
-                  }
-                  placeholder="https://facebook.com/..."
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-white">
-                  Instagram
-                </span>
-                <input
-                  value={clientDraft.instagramUrl}
-                  onChange={(event) =>
-                    setClientDraft((currentDraft) => ({
-                      ...currentDraft,
-                      instagramUrl: event.target.value
-                    }))
-                  }
-                  placeholder="https://instagram.com/..."
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-white">X</span>
-                <input
-                  value={clientDraft.xUrl}
-                  onChange={(event) =>
-                    setClientDraft((currentDraft) => ({
-                      ...currentDraft,
-                      xUrl: event.target.value
-                    }))
-                  }
-                  placeholder="https://x.com/..."
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
-              </label>
-              <label className="block md:col-span-2">
-                <span className="text-sm font-medium text-white">YouTube</span>
-                <input
-                  value={clientDraft.youtubeUrl}
-                  onChange={(event) =>
-                    setClientDraft((currentDraft) => ({
-                      ...currentDraft,
-                      youtubeUrl: event.target.value
-                    }))
-                  }
-                  placeholder="https://youtube.com/..."
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
-              </label>
-            </div>
-
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                {error ? (
-                  <p className="text-sm text-[#ff8f9c]">{error}</p>
-                ) : feedback ? (
-                  <p className="text-sm text-status-success">{feedback}</p>
-                ) : (
-                  <p className="text-sm text-text-secondary">
-                    Search keeps the directory clean, regions stay controlled,
-                    and profiles can now model partner/group relationships
-                    without flattening everything into one client type.
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => void createClient()}
-                disabled={creatingClient}
-                className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-              >
-                {creatingClient ? "Saving..." : "Add client"}
-              </button>
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold text-white">Directory</h2>
-                <p className="mt-2 text-sm text-text-secondary">
-                  Search by company, contact, email, or project. Use A-Z when
-                  you need to jump fast through the longer tail of clients.
-                </p>
-              </div>
-              {refreshing ? (
-                <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-4 py-2 text-xs font-medium text-text-secondary">
-                  Refreshing...
                 </div>
-              ) : null}
-            </div>
+                {refreshing ? (
+                  <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-4 py-2 text-xs font-medium text-text-secondary">
+                    Refreshing...
+                  </div>
+                ) : null}
+              </div>
 
-            <div className="mt-6 grid gap-4 lg:grid-cols-[1.35fr,1fr]">
-              <label className="block">
-                <span className="text-sm font-medium text-white">Search</span>
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search client, contact, email, or project"
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
-              </label>
-              <div>
-                <span className="text-sm font-medium text-white">A-Z</span>
-                <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-5 flex flex-col gap-4 xl:flex-row xl:items-center">
+                <label className="block min-w-0 flex-1">
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search client, contact, email, or project"
+                    className="w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                  />
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-text-muted">
+                    A–Z
+                  </span>
                   {alphabet.map((item) => (
                     <button
                       key={item}
@@ -2712,12 +2736,34 @@ export default function ClientsWorkspace() {
                   ))}
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          ) : null}
 
           {loading ? (
             <div className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8 text-text-secondary">
               Loading clients...
+            </div>
+          ) : hasNoClients ? (
+            <div className="rounded-3xl border border-dashed border-[rgba(255,255,255,0.12)] bg-background-card px-8 py-16 text-center">
+              <p className="text-sm uppercase tracking-[0.22em] text-text-muted">
+                Clients
+              </p>
+              <h2 className="mt-3 text-2xl font-semibold text-white">
+                No clients in the directory yet
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-sm text-text-secondary">
+                Add the first client company to start linking projects,
+                contacts, and portal history without cluttering the workspace.
+              </p>
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setNewClientPanelOpen(true)}
+                  className="rounded-2xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white"
+                >
+                  + New Client
+                </button>
+              </div>
             </div>
           ) : filteredClients.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-[rgba(255,255,255,0.12)] bg-background-card p-8 text-text-secondary">
@@ -2726,7 +2772,7 @@ export default function ClientsWorkspace() {
           ) : (
             <>
               <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
-                <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[rgba(255,255,255,0.07)] pb-4">
                   <div>
                     <h2 className="text-xl font-semibold text-white">
                       Active Clients
@@ -2753,7 +2799,7 @@ export default function ClientsWorkspace() {
               </section>
 
               <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
-                <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[rgba(255,255,255,0.07)] pb-4">
                   <div>
                     <h2 className="text-xl font-semibold text-white">
                       Other Clients
@@ -2794,6 +2840,13 @@ export default function ClientsWorkspace() {
           )}
         </div>
       </div>
+      <SlideOver
+        open={newClientPanelOpen}
+        onClose={() => setNewClientPanelOpen(false)}
+        title="Add client company"
+      >
+        {renderNewClientForm()}
+      </SlideOver>
     </AppShell>
   );
 }
