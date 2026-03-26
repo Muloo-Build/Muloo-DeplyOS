@@ -9619,6 +9619,158 @@ function normalizeAuditBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
+function truncateModelContext(
+  value: string | null | undefined,
+  maxLength: number
+): string | null {
+  const normalized = normalizeAuditString(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function normalizePrepareBriefList(
+  value: unknown,
+  maximum: number
+): string[] {
+  const entries = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value
+          .split(/\n+|(?:^|\s)[-*•]\s+|\d+\.\s+|;\s+/)
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+      : [];
+
+  return entries
+    .map((entry) => normalizeAuditString(entry))
+    .filter((entry): entry is string => Boolean(entry))
+    .slice(0, maximum);
+}
+
+function normalizePrepareBriefText(value: unknown): string | null {
+  if (Array.isArray(value)) {
+    const joined = value
+      .map((entry) => normalizeAuditString(entry))
+      .filter((entry): entry is string => Boolean(entry))
+      .join(" ");
+
+    return normalizeAuditString(joined);
+  }
+
+  return normalizeAuditString(value);
+}
+
+function normalizePrepareBriefPayload(value: unknown) {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+
+  return {
+    executiveSummary:
+      normalizePrepareBriefText(
+        record.executiveSummary ?? record.summary ?? record.overview
+      ) ?? "",
+    meetingGoal:
+      normalizePrepareBriefText(
+        record.meetingGoal ?? record.goal ?? record.objective
+      ) ?? "",
+    whatWeKnow: normalizePrepareBriefList(
+      record.whatWeKnow ?? record.what_we_know ?? record.knownContext,
+      12
+    ),
+    openQuestions: normalizePrepareBriefList(
+      record.openQuestions ?? record.open_questions ?? record.questions,
+      12
+    ),
+    agenda: normalizePrepareBriefList(
+      record.agenda ?? record.agendaItems ?? record.meetingAgenda,
+      12
+    ),
+    recommendedApproach:
+      normalizePrepareBriefText(
+        record.recommendedApproach ??
+          record.recommended_approach ??
+          record.approach
+      ) ?? "",
+    likelyWorkstreams: normalizePrepareBriefList(
+      record.likelyWorkstreams ?? record.likely_workstreams ?? record.workstreams,
+      10
+    ),
+    risks: normalizePrepareBriefList(
+      record.risks ?? record.deliveryRisks ?? record.constraints,
+      10
+    ),
+    suggestedNextStep:
+      normalizePrepareBriefText(
+        record.suggestedNextStep ?? record.suggested_next_step ?? record.nextStep
+      ) ?? ""
+  };
+}
+
+async function parseProjectPrepareBriefModelJson(rawText: string) {
+  const normalizedJson = extractJsonBlock(rawText);
+
+  try {
+    return projectPrepareBriefSchema.parse(
+      normalizePrepareBriefPayload(JSON.parse(normalizedJson) as unknown)
+    );
+  } catch (initialError) {
+    try {
+      const repairedText = await callAiWorkflow(
+        "json_repair",
+        `You repair malformed JSON for Muloo Deploy OS.
+
+Rules:
+- Return ONLY valid JSON.
+- Do not add markdown fences or commentary.
+- Preserve the original intended structure and values as closely as possible.
+`,
+        JSON.stringify(
+          {
+            label: "project-prepare-brief",
+            malformedJson: normalizedJson
+          },
+          null,
+          2
+        ),
+        { maxTokens: 4000 }
+      );
+
+      const repairedJson = extractJsonBlock(repairedText);
+      return projectPrepareBriefSchema.parse(
+        normalizePrepareBriefPayload(JSON.parse(repairedJson) as unknown)
+      );
+    } catch (repairError) {
+      if (
+        initialError instanceof SyntaxError ||
+        initialError instanceof ZodError
+      ) {
+        throw initialError;
+      }
+
+      if (
+        repairError instanceof SyntaxError ||
+        repairError instanceof ZodError
+      ) {
+        throw repairError;
+      }
+
+      throw new SyntaxError(
+        "Failed to parse project-prepare-brief JSON from model output"
+      );
+    }
+  }
+}
+
 function normalizePortalAuditArea(
   value: unknown,
   fallbackText = ""
@@ -11064,15 +11216,24 @@ Rules:
         engagementType: relatedProject.engagementType,
         updatedAt: relatedProject.updatedAt.toISOString(),
         selectedHubs: relatedProject.selectedHubs,
-        problemStatement: relatedProject.problemStatement,
-        solutionRecommendation: relatedProject.solutionRecommendation,
-        scopeExecutiveSummary: relatedProject.scopeExecutiveSummary
+        problemStatement: truncateModelContext(
+          relatedProject.problemStatement,
+          500
+        ),
+        solutionRecommendation: truncateModelContext(
+          relatedProject.solutionRecommendation,
+          500
+        ),
+        scopeExecutiveSummary: truncateModelContext(
+          relatedProject.scopeExecutiveSummary,
+          500
+        )
       })),
       findings: findings.map((finding) => ({
         area: finding.area,
         severity: finding.severity,
         title: finding.title,
-        description: finding.description,
+        description: truncateModelContext(finding.description, 600),
         quickWin: finding.quickWin,
         status: finding.status
       })),
@@ -11081,27 +11242,26 @@ Rules:
         area: recommendation.area,
         type: recommendation.type,
         phase: recommendation.phase,
-        rationale: recommendation.rationale,
+        rationale: truncateModelContext(recommendation.rationale, 500),
         effort: recommendation.effort,
         impact: recommendation.impact
       })),
-      supportingContext: supportingContext.map((item) => ({
+      supportingContext: supportingContext.slice(0, 10).map((item) => ({
         evidenceType: item.evidenceType,
         sourceLabel: item.sourceLabel,
         sourceUrl: item.sourceUrl,
-        content: item.content,
+        content: truncateModelContext(item.content, 1500),
         createdAt: item.createdAt.toISOString()
       })),
-      consultantContext
+      consultantContext: consultantContext.slice(0, 6).map((entry) => ({
+        ...entry,
+        content: truncateModelContext(entry.content, 2000)
+      }))
     }),
     { maxTokens: 2600 }
   );
 
-  return parseModelJson(
-    rawBrief,
-    projectPrepareBriefSchema,
-    "project-prepare-brief"
-  );
+  return parseProjectPrepareBriefModelJson(rawBrief);
 }
 
 function buildPortalAuditRunLog(audit: {
