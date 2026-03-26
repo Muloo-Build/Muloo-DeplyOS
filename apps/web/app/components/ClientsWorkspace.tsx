@@ -1291,7 +1291,7 @@ export default function ClientsWorkspace({
               onClick={() => toggleExpanded(client.id)}
               className="rounded-2xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
             >
-              {isExpanded ? "Collapse" : "Open client"}
+              {isExpanded ? "Close editor" : "Edit client"}
             </button>
           </div>
         </div>

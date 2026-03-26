@@ -12388,6 +12388,7 @@ export async function createProjectRecord(value: {
 export async function updateProjectRecord(
   projectId: string,
   value: {
+    name?: unknown;
     clientName?: unknown;
     type?: unknown;
     implementationApproach?: unknown;
@@ -12421,6 +12422,7 @@ export async function updateProjectRecord(
   await ensureProjectScopeUnlocked(projectId);
 
   const normalizedPayload: {
+    name?: string;
     clientName?: string;
     type?: EngagementType;
     implementationApproach?: string;
@@ -12450,6 +12452,13 @@ export async function updateProjectRecord(
     clientChampionLastName?: string;
     clientChampionEmail?: string;
   } = {};
+
+  if (value.name !== undefined) {
+    if (typeof value.name !== "string" || value.name.trim().length === 0) {
+      throw new Error("name must be a non-empty string");
+    }
+    normalizedPayload.name = value.name.trim();
+  }
 
   if (value.clientName !== undefined) {
     if (
@@ -12644,6 +12653,7 @@ export async function updateProjectRecord(
   }
 
   if (
+    normalizedPayload.name === undefined &&
     normalizedPayload.clientName === undefined &&
     normalizedPayload.type === undefined &&
     normalizedPayload.customerPlatformTier === undefined &&
@@ -12810,6 +12820,9 @@ export async function updateProjectRecord(
               customerPlatformTier:
                 normalizedPayload.customerPlatformTier || null
             }
+          : {}),
+        ...(normalizedPayload.name !== undefined
+          ? { name: normalizedPayload.name }
           : {}),
         ...(normalizedPayload.implementationApproach !== undefined
           ? {

@@ -285,6 +285,7 @@ const industryOptions = [
 ];
 
 type EditableField =
+  | "projectName"
   | "clientName"
   | "type"
   | "brief"
@@ -379,6 +380,7 @@ const productKeyByHub: Record<string, string> = {
 
 function createProjectDraft(project: Project) {
   return {
+    name: project.name,
     clientName: project.client.name,
     type: project.engagementType,
     scopeType: project.scopeType ?? "discovery",
@@ -618,6 +620,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [discoverySummary, setDiscoverySummary] =
     useState<DiscoverySummary | null>(null);
   const [projectDraft, setProjectDraft] = useState({
+    name: "",
     clientName: "",
     type: "IMPLEMENTATION",
     scopeType: "discovery",
@@ -1238,6 +1241,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     let payload: Record<string, unknown>;
 
     switch (field) {
+      case "projectName":
+        payload = { name: projectDraft.name };
+        break;
       case "clientName":
         payload = { clientName: projectDraft.clientName };
         break;
@@ -2354,9 +2360,32 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   Back to projects
                 </Link>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <h1 className="text-3xl font-bold font-heading text-white">
-                    {project.name}
-                  </h1>
+                  {editingField === "projectName" ? (
+                    <div className="min-w-[280px] max-w-xl flex-1">
+                      <input
+                        value={projectDraft.name}
+                        onChange={(event) =>
+                          setProjectDraft((currentDraft) => ({
+                            ...currentDraft,
+                            name: event.target.value
+                          }))
+                        }
+                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-2xl font-bold font-heading text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                      />
+                      {renderActions("projectName")}
+                      {renderError("projectName")}
+                    </div>
+                  ) : (
+                    <div className="group flex items-center gap-3">
+                      <h1 className="text-3xl font-bold font-heading text-white">
+                        {project.name}
+                      </h1>
+                      <EditButton
+                        label="Edit project name"
+                        onClick={() => startEditing("projectName")}
+                      />
+                    </div>
+                  )}
                   <span
                     className={`rounded px-2 py-1 text-xs font-medium ${statusClass(
                       project.status
