@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -9,6 +9,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const nextError = new URLSearchParams(window.location.search).get("error");
+    setOauthError(nextError);
+  }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -83,7 +93,9 @@ export default function LoginPage() {
             />
           </label>
 
-          {error ? <p className="text-sm text-[#ff8f9c]">{error}</p> : null}
+          {error || oauthError ? (
+            <p className="text-sm text-[#ff8f9c]">{error ?? oauthError}</p>
+          ) : null}
 
           <button
             type="submit"
@@ -92,6 +104,21 @@ export default function LoginPage() {
           >
             {submitting ? "Signing in..." : "Sign in"}
           </button>
+
+          <div className="flex items-center gap-3 pt-2">
+            <div className="h-px flex-1 bg-[rgba(255,255,255,0.08)]" />
+            <span className="text-xs uppercase tracking-[0.24em] text-text-muted">
+              or
+            </span>
+            <div className="h-px flex-1 bg-[rgba(255,255,255,0.08)]" />
+          </div>
+
+          <a
+            href="/api/auth/google/start"
+            className="flex w-full items-center justify-center rounded-xl border border-[rgba(255,255,255,0.12)] bg-[#11182f] px-5 py-3 text-sm font-semibold text-white transition hover:border-[rgba(255,255,255,0.22)] hover:bg-[#17203d]"
+          >
+            Continue with Google
+          </a>
         </form>
       </div>
     </div>

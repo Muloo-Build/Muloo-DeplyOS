@@ -14812,6 +14812,45 @@ function resolveGoogleWorkspaceEmailOAuthRedirectUri(
   return `${resolveAppBaseUrl()}/settings/email/google/callback`;
 }
 
+function resolveWorkspaceGoogleLoginRedirectUri() {
+  return `${resolveAppBaseUrl()}/api/auth/google/callback`;
+}
+
+async function resolveWorkspaceGoogleLoginOauthConfig() {
+  const emailConnection = await prisma.workspaceEmailOAuthConnection
+    .findUnique({
+      where: { providerKey: "google_workspace" }
+    })
+    .catch(() => null);
+  const calendarConnection = await prisma.workspaceCalendarConnection
+    .findUnique({
+      where: { providerKey: "google_calendar" }
+    })
+    .catch(() => null);
+
+  const clientId =
+    emailConnection?.clientId?.trim() ||
+    calendarConnection?.clientId?.trim() ||
+    process.env.GOOGLE_CLIENT_ID?.trim() ||
+    "";
+  const clientSecret =
+    emailConnection?.clientSecret?.trim() ||
+    calendarConnection?.clientSecret?.trim() ||
+    process.env.GOOGLE_CLIENT_SECRET?.trim() ||
+    "";
+  const allowedDomain =
+    process.env.GOOGLE_LOGIN_ALLOWED_DOMAIN?.trim()
+      .toLowerCase()
+      .replace(/^@+/, "") || null;
+
+  return {
+    clientId,
+    clientSecret,
+    redirectUri: resolveWorkspaceGoogleLoginRedirectUri(),
+    allowedDomain
+  };
+}
+
 function resolveWorkspaceCalendarRedirectUri() {
   return `${resolveAppBaseUrl()}/api/workspace/calendar/callback`;
 }
@@ -15443,6 +15482,144 @@ export async function createWorkspaceCalendarOAuthStart() {
 
   return {
     authUrl: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+  };
+}
+
+export async function createWorkspaceGoogleLoginStart() {
+  const { clientId, clientSecret, redirectUri, allowedDomain } =
+    await resolveWorkspaceGoogleLoginOauthConfig();
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Google sign-in is not configured");
+  }
+
+  const state = createSignedStateToken({
+    providerKey: "google_login",
+    redirectUri,
+    expiresAt: Date.now() + 1000 * 60 * 10
+  });
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    access_type: "offline",
+    prompt: "select_account",
+    include_granted_scopes: "true",
+    scope: ["openid", "email", "profile"].join(" "),
+    state
+  });
+
+  if (allowedDomain) {
+    params.set("hd", allowedDomain);
+  }
+
+  return {
+    authUrl: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+  };
+}
+
+export async function completeWorkspaceGoogleLoginCallback(value: {
+  code?: unknown;
+  state?: unknown;
+}) {
+  const code = typeof value.code === "string" ? value.code.trim() : "";
+  const state = typeof value.state === "string" ? value.state.trim() : "";
+
+  if (!code || !state) {
+    throw new Error("Google sign-in callback is missing code or state");
+  }
+
+  const verifiedState = verifySignedStateToken(state);
+  const redirectUri =
+    typeof verifiedState.redirectUri === "string"
+      ? verifiedState.redirectUri
+      : resolveWorkspaceGoogleLoginRedirectUri();
+  const { clientId, clientSecret, allowedDomain } =
+    await resolveWorkspaceGoogleLoginOauthConfig();
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Google sign-in is not configured");
+  }
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code"
+    }).toString()
+  });
+
+  const tokenBody = (await tokenResponse.json().catch(() => null)) as {
+    access_token?: string;
+    error?: string;
+    error_description?: string;
+  } | null;
+
+  if (!tokenResponse.ok || !tokenBody?.access_token) {
+    throw new Error(
+      tokenBody?.error_description ||
+        tokenBody?.error ||
+        "Google sign-in token exchange failed"
+    );
+  }
+
+  const profileResponse = await fetch(
+    "https://openidconnect.googleapis.com/v1/userinfo",
+    {
+      headers: {
+        Authorization: `Bearer ${tokenBody.access_token}`
+      }
+    }
+  );
+  const profileBody = (await profileResponse.json().catch(() => null)) as {
+    email?: string;
+    email_verified?: boolean;
+    name?: string;
+  } | null;
+
+  const email = profileBody?.email?.trim().toLowerCase() ?? "";
+
+  if (!profileResponse.ok || !email) {
+    throw new Error("Could not load your Google profile");
+  }
+
+  if (profileBody?.email_verified === false) {
+    throw new Error("Your Google email address is not verified");
+  }
+
+  const emailDomain = email.split("@")[1] ?? "";
+  if (allowedDomain && emailDomain !== allowedDomain) {
+    throw new Error(
+      `Google sign-in is restricted to ${allowedDomain} accounts`
+    );
+  }
+
+  const workspaceUser = await prisma.workspaceUser.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+      isActive: true,
+      name: true
+    }
+  });
+
+  if (!workspaceUser?.isActive) {
+    throw new Error(
+      "Your Google account is not linked to an active workspace user"
+    );
+  }
+
+  return {
+    workspaceUser,
+    connectedEmail: email,
+    connectedName: profileBody?.name?.trim() || workspaceUser.name
   };
 }
 

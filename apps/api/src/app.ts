@@ -63,6 +63,7 @@ import {
   createClientAuthToken,
   createCookieHeader,
   createWorkspaceUserAuthToken,
+  createWorkspaceGoogleLoginStart,
   createWorkspaceGoogleEmailOAuthStart,
   createWorkspaceCalendarOAuthStart,
   createWorkspaceTodo,
@@ -70,6 +71,7 @@ import {
   createSimpleAuthToken,
   clearCompletedWorkspaceTodos,
   completeWorkspaceCalendarOAuthCallback,
+  completeWorkspaceGoogleLoginCallback,
   completeWorkspaceGoogleEmailOAuthCallback,
   completeWorkspaceXeroOAuthCallback,
   completeHubSpotOAuthCallback,
@@ -500,6 +502,55 @@ export function createApiApp(config: BaseConfig) {
     );
 
     return c.json({ authenticated: false });
+  });
+
+  app.get("/api/auth/google/start", async (c) => {
+    try {
+      const { authUrl } = await createWorkspaceGoogleLoginStart();
+      return c.redirect(authUrl);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to start Google sign-in";
+      return c.redirect(`/login?error=${encodeURIComponent(message)}`);
+    }
+  });
+
+  app.get("/api/auth/google/callback", async (c) => {
+    try {
+      const result = await completeWorkspaceGoogleLoginCallback({
+        code: c.req.query("code"),
+        state: c.req.query("state")
+      });
+
+      c.header(
+        "Set-Cookie",
+        createCookieHeader(createWorkspaceUserAuthToken(result.workspaceUser.id), {
+          maxAge: 60 * 60 * 12
+        })
+      );
+
+      await audit(
+        result.workspaceUser.email,
+        "auth.login",
+        "WorkspaceUser",
+        result.workspaceUser.id,
+        {
+          metadata: {
+            provider: "google"
+          }
+        }
+      );
+
+      return c.redirect("/");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to complete Google sign-in";
+      return c.redirect(`/login?error=${encodeURIComponent(message)}`);
+    }
   });
 
   app.all("/api/client-auth/session", async (c) => {
