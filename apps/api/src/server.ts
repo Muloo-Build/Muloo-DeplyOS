@@ -14858,7 +14858,7 @@ export async function generateWorkspaceDailySummary() {
     throw new Error("No AI provider configured");
   }
 
-  const apiKey = getProviderApiKey(provider.providerKey, provider.apiKey);
+  const apiKey = await getProviderApiKey(provider.providerKey, provider.apiKey);
   const model =
     "workflowKey" in routing
       ? routing.modelOverride?.trim() || provider.defaultModel?.trim() || null
@@ -18616,9 +18616,22 @@ export async function updateWorkspaceAiRouting(
   return serializeWorkspaceAiRouting(routing);
 }
 
-function getProviderApiKey(providerKey: string, storedApiKey: string | null) {
+async function getProviderApiKey(
+  providerKey: string,
+  storedApiKey: string | null
+) {
   if (storedApiKey) {
     return storedApiKey;
+  }
+
+  const workspaceKey = await getApiKey(
+    DEFAULT_WORKSPACE_ID,
+    providerKey,
+    prisma
+  );
+
+  if (workspaceKey) {
+    return workspaceKey;
   }
 
   switch (providerKey) {
@@ -18635,7 +18648,7 @@ function getProviderApiKey(providerKey: string, storedApiKey: string | null) {
   }
 }
 
-function resolveProviderCandidate(
+async function resolveProviderCandidate(
   providerMap: Map<
     string,
     {
@@ -18658,7 +18671,7 @@ function resolveProviderCandidate(
     return null;
   }
 
-  const apiKey = getProviderApiKey(provider.providerKey, provider.apiKey);
+  const apiKey = await getProviderApiKey(provider.providerKey, provider.apiKey);
   if (!apiKey) {
     return null;
   }
@@ -18688,7 +18701,7 @@ async function resolveAiWorkflow(workflowKey: string) {
   const routedProviderKey = routing?.providerKey ?? null;
   const routedModelOverride = routing?.modelOverride ?? null;
   const routedCandidate = routing
-    ? resolveProviderCandidate(
+    ? await resolveProviderCandidate(
         providerMap,
         routedProviderKey,
         routedModelOverride
@@ -18711,7 +18724,7 @@ async function resolveAiWorkflow(workflowKey: string) {
 
   const fallbackOrder = ["anthropic", "openai", "perplexity", "gemini"];
   for (const providerKey of fallbackOrder) {
-    const fallbackCandidate = resolveProviderCandidate(
+    const fallbackCandidate = await resolveProviderCandidate(
       providerMap,
       providerKey,
       routedProviderKey === providerKey ? routedModelOverride : null
@@ -18748,7 +18761,7 @@ async function resolveAiWorkflowSelection(
   const providerMap = new Map(
     providers.map((provider) => [provider.providerKey, provider])
   );
-  const candidate = resolveProviderCandidate(
+  const candidate = await resolveProviderCandidate(
     providerMap,
     providerKey,
     modelOverride ?? null
@@ -18780,7 +18793,7 @@ async function resolveAiWorkflowForAgent(
     providers.map((provider) => [provider.providerKey, provider])
   );
 
-  const preferredCandidate = resolveProviderCandidate(
+  const preferredCandidate = await resolveProviderCandidate(
     providerMap,
     preferredProviderKey,
     preferredModel ?? null
