@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "../components/AppShell";
 
-interface AgentRun {
+type RunStatusFilter = "all" | "queued" | "running" | "complete" | "failed";
+
+interface ExecutionRun {
   id: string;
+  type: "agent" | "workflow";
+  name: string;
   projectName: string | null;
-  taskTitle: string | null;
-  executionMethod: string;
-  mode: string;
   status: string;
   resultStatus: string | null;
   outputLog: string | null;
@@ -17,7 +18,13 @@ interface AgentRun {
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
-  payload: {
+  workflowKey?: string | null;
+  taskTitle?: string | null;
+  summary?: string | null;
+  requestText?: string | null;
+  executionMethod?: string | null;
+  executionTierLabel?: string | null;
+  payload?: {
     agentName?: string;
     agentModel?: string;
     routedProvider?: string;
@@ -29,56 +36,253 @@ interface AgentRun {
   } | null;
 }
 
-interface WorkflowRun {
-  id: string;
-  workflowKey: string;
-  title: string;
-  projectId: string | null;
-  projectName: string | null;
-  clientId: string | null;
-  clientName: string | null;
-  portalId: string | null;
-  portalDisplayName: string | null;
-  portalExternalId: string | null;
-  providerKey: string | null;
-  model: string | null;
-  routeSource: string | null;
-  requestText: string | null;
-  summary: string | null;
-  status: string;
-  resultStatus: string | null;
-  outputLog: string | null;
-  errorLog: string | null;
-  createdAt: string;
-  startedAt: string | null;
-  completedAt: string | null;
-}
+const statusTabs: Array<{ key: RunStatusFilter; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "queued", label: "Queued" },
+  { key: "running", label: "Running" },
+  { key: "complete", label: "Complete" },
+  { key: "failed", label: "Failed" }
+];
 
-function formatLabel(value: string | null) {
+const runsPerPage = 20;
+
+function formatLabel(value: string | null | undefined) {
   if (!value) return "Not set";
   return value
     .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export default function RunsPage() {
-  const [agentRuns, setAgentRuns] = useState<AgentRun[]>([]);
-  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [updatingRunId, setUpdatingRunId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function loadRuns() {
-    const response = await fetch("/api/runs");
-    const body = await response.json().catch(() => null);
-    setAgentRuns(body?.agentRuns ?? []);
-    setWorkflowRuns(body?.workflowRuns ?? []);
-    setLoading(false);
+function getRunStatusTone(status: string | null | undefined) {
+  switch (status) {
+    case "completed":
+    case "complete":
+      return {
+        badge: "bg-emerald-500/12 text-emerald-300",
+        dot: "bg-emerald-400"
+      };
+    case "running":
+    case "in_progress":
+    case "review_ready":
+      return {
+        badge: "bg-sky-500/12 text-sky-300",
+        dot: "bg-sky-400"
+      };
+    case "failed":
+      return {
+        badge: "bg-rose-500/12 text-rose-300",
+        dot: "bg-rose-400"
+      };
+    case "queued":
+    default:
+      return {
+        badge: "bg-amber-500/12 text-amber-300",
+        dot: "bg-amber-400"
+      };
   }
+}
+
+function getTypeBadgeClass(type: ExecutionRun["type"]) {
+  return type === "agent"
+    ? "bg-violet-500/12 text-violet-200"
+    : "bg-zinc-700 text-zinc-300";
+}
+
+function getRunTimeLabel(value: string) {
+  const date = new Date(value);
+  return date.toLocaleTimeString("en-ZA", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function getRunDateLabel(value: string) {
+  const date = new Date(value);
+  return date.toLocaleString("en-ZA", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function getRelativeDayGroup(value: string) {
+  const now = new Date();
+  const date = new Date(value);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfEntry = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate()
+  );
+  const diffDays = Math.floor(
+    (startOfToday.getTime() - startOfEntry.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays <= 0) return "TODAY";
+  if (diffDays === 1) return "YESTERDAY";
+  if (diffDays < 7) return "THIS WEEK";
+  return "EARLIER";
+}
+
+function getSearchText(run: ExecutionRun) {
+  return [
+    run.name,
+    run.projectName,
+    run.workflowKey,
+    run.executionMethod,
+    run.summary,
+    run.taskTitle
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+export default function RunsPage() {
+  const [runs, setRuns] = useState<ExecutionRun[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<RunStatusFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [updatingRunId, setUpdatingRunId] = useState<string | null>(null);
+  const [coworkInstructions, setCoworkInstructions] = useState<
+    Record<string, string>
+  >({});
+  const [coworkErrors, setCoworkErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    async function loadRuns() {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch("/api/execution-jobs?limit=200");
+        const body = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(body?.error ?? "Failed to load execution jobs");
+        }
+
+        setRuns(body?.runs ?? []);
+      } catch (loadError) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load execution jobs"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
     void loadRuns();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
+  const filteredRuns = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    return runs.filter((run) => {
+      const matchesQuery =
+        normalizedQuery.length === 0 ||
+        getSearchText(run).includes(normalizedQuery);
+
+      if (!matchesQuery) {
+        return false;
+      }
+
+      if (statusFilter === "all") {
+        return true;
+      }
+
+      if (statusFilter === "complete") {
+        return run.status === "completed" || run.status === "complete";
+      }
+
+      if (statusFilter === "running") {
+        return run.status === "running" || run.status === "in_progress";
+      }
+
+      return run.status === statusFilter;
+    });
+  }, [runs, searchQuery, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRuns.length / runsPerPage));
+  const paginatedRuns = useMemo(() => {
+    const startIndex = (currentPage - 1) * runsPerPage;
+    return filteredRuns.slice(startIndex, startIndex + runsPerPage);
+  }, [currentPage, filteredRuns]);
+
+  const groupedRuns = useMemo(() => {
+    const groups: Record<string, ExecutionRun[]> = {
+      TODAY: [],
+      YESTERDAY: [],
+      "THIS WEEK": [],
+      EARLIER: []
+    };
+
+    for (const run of paginatedRuns) {
+      groups[getRelativeDayGroup(run.createdAt)].push(run);
+    }
+
+    return groups;
+  }, [paginatedRuns]);
+
+  async function loadCoworkInstruction(runId: string) {
+    try {
+      const response = await fetch(
+        `/api/execution-jobs/${encodeURIComponent(runId)}/cowork-instruction`
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "No cowork instruction available");
+      }
+
+      const nextValue =
+        typeof body === "string"
+          ? body
+          : JSON.stringify(body, null, 2);
+
+      setCoworkInstructions((current) => ({
+        ...current,
+        [runId]: nextValue
+      }));
+      setCoworkErrors((current) => {
+        const next = { ...current };
+        delete next[runId];
+        return next;
+      });
+    } catch (instructionError) {
+      setCoworkErrors((current) => ({
+        ...current,
+        [runId]:
+          instructionError instanceof Error
+            ? instructionError.message
+            : "No cowork instruction available"
+      }));
+    }
+  }
+
+  function toggleRunExpansion(run: ExecutionRun) {
+    const nextExpandedRunId = expandedRunId === run.id ? null : run.id;
+    setExpandedRunId(nextExpandedRunId);
+
+    if (
+      nextExpandedRunId === run.id &&
+      run.type === "agent" &&
+      !coworkInstructions[run.id] &&
+      !coworkErrors[run.id]
+    ) {
+      void loadCoworkInstruction(run.id);
+    }
+  }
 
   async function updateRun(
     runId: string,
@@ -94,11 +298,13 @@ export default function RunsPage() {
         body: JSON.stringify(patch)
       });
       const body = await response.json().catch(() => null);
+
       if (!response.ok) {
         throw new Error(body?.error ?? "Failed to update run");
       }
-      setAgentRuns((current) =>
-        current.map((run) => (run.id === runId ? body.run : run))
+
+      setRuns((current) =>
+        current.map((run) => (run.id === runId ? { ...run, ...body.run } : run))
       );
     } catch (updateError) {
       setError(
@@ -113,320 +319,374 @@ export default function RunsPage() {
 
   return (
     <AppShell>
-      <div className="p-8">
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
-          <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
-            Runs
-          </p>
-          <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-            Agent Execution Review
-          </h1>
-          <p className="mt-3 max-w-3xl text-text-secondary">
-            Review queued agent work, inspect the generated execution brief, and
-            advance runs through dry-run, review, and completion.
-          </p>
-        </div>
-
-        <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-xl font-semibold text-white">Operational runs</h2>
-            <div className="rounded-xl bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
-              {loading
-                ? "Loading..."
-                : `${workflowRuns.length + agentRuns.length} runs`}
+      <div className="min-h-screen bg-zinc-900 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl space-y-6">
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-800/80 p-6 sm:p-8">
+            <p className="text-sm uppercase tracking-[0.25em] text-zinc-500">
+              Runs
+            </p>
+            <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h1 className="text-3xl font-semibold text-white">
+                  Unified execution feed
+                </h1>
+                <p className="mt-3 max-w-3xl text-sm text-zinc-300 sm:text-base">
+                  Review workflow and agent activity in one place, filter by
+                  status, and expand any row to inspect logs, operator context,
+                  and delivery controls.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-300">
+                {loading ? "Loading runs..." : `${filteredRuns.length} matching runs`}
+              </div>
             </div>
-          </div>
+          </section>
 
-          {error ? (
-            <div className="mt-4 rounded-xl border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-white">
-              {error}
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-800/70 p-4 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap gap-2">
+                {statusTabs.map((tab) => {
+                  const active = tab.key === statusFilter;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setStatusFilter(tab.key)}
+                      className={`rounded-full border px-4 py-2 text-sm transition ${
+                        active
+                          ? "border-violet-500 bg-violet-500/10 text-white"
+                          : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-zinc-500 hover:text-white"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <label className="w-full lg:max-w-sm">
+                <span className="sr-only">Search runs</span>
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search by project or module key"
+                  className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-zinc-500"
+                />
+              </label>
             </div>
-          ) : null}
 
-          <div className="mt-6 space-y-4">
-            {!loading && workflowRuns.length === 0 && agentRuns.length === 0 ? (
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 text-sm text-text-secondary">
-                No runs queued yet. Generate an audit, prepare brief, Portal Ops
-                request, or agent run to start building execution history.
+            {error ? (
+              <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                {error}
               </div>
             ) : null}
 
-            {workflowRuns.length > 0 ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-lg font-semibold text-white">
-                    AI workflow runs
-                  </h3>
-                  <p className="text-sm text-text-secondary">
-                    Audit, Prepare, and Portal Ops activity
-                  </p>
+            <div className="mt-6 space-y-6">
+              {!loading && filteredRuns.length === 0 ? (
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-6 text-sm text-zinc-400">
+                  No runs match the current filters yet.
                 </div>
+              ) : null}
 
-                {workflowRuns.map((run) => (
-                  <div
-                    key={run.id}
-                    className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                          {formatLabel(run.workflowKey)}
-                        </p>
-                        <h3 className="mt-2 text-lg font-semibold text-white">
-                          {run.title}
-                        </h3>
-                        <p className="mt-2 text-sm text-text-secondary">
-                          {run.projectName ??
-                            run.portalDisplayName ??
-                            run.clientName ??
-                            "Workspace run"}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary">
-                          {formatLabel(run.status)}
-                        </div>
-                        <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary">
-                          {formatLabel(run.resultStatus)}
-                        </div>
-                      </div>
+              {Object.entries(groupedRuns).map(([groupLabel, groupRuns]) =>
+                groupRuns.length > 0 ? (
+                  <section key={groupLabel} className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                        {groupLabel}
+                      </p>
+                      <div className="h-px flex-1 bg-zinc-800" />
                     </div>
 
-                    <div className="mt-4 flex flex-wrap gap-3 text-sm text-text-secondary">
-                      {run.clientName ? <span>Client: {run.clientName}</span> : null}
-                      {run.portalDisplayName ? (
-                        <span>
-                          Portal: {run.portalDisplayName}
-                          {run.portalExternalId ? ` · ${run.portalExternalId}` : ""}
-                        </span>
-                      ) : null}
-                      {run.providerKey ? (
-                        <span>Provider: {formatLabel(run.providerKey)}</span>
-                      ) : null}
-                      {run.model ? <span>Model: {run.model}</span> : null}
-                      {run.routeSource ? (
-                        <span>
-                          Route source: {formatLabel(run.routeSource)}
-                        </span>
-                      ) : null}
-                      <span>Queued: {new Date(run.createdAt).toLocaleString()}</span>
-                    </div>
+                    <div className="space-y-3">
+                      {groupRuns.map((run) => {
+                        const expanded = expandedRunId === run.id;
+                        const statusTone = getRunStatusTone(run.status);
 
-                    {run.summary ? (
-                      <div className="mt-4 rounded-2xl border border-[rgba(123,226,239,0.18)] bg-[rgba(123,226,239,0.07)] p-4 text-sm text-[#b7f5ff]">
-                        {run.summary}
-                      </div>
-                    ) : null}
+                        return (
+                          <div
+                            key={run.id}
+                            className="overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900/70"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggleRunExpansion(run)}
+                              className="flex w-full flex-col gap-4 px-4 py-4 text-left transition hover:bg-zinc-800/40 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span
+                                    className={`inline-block h-2.5 w-2.5 rounded-full ${statusTone.dot}`}
+                                  />
+                                  <p className="truncate font-medium text-white">
+                                    {run.name}
+                                  </p>
+                                  <span
+                                    className={`rounded-full px-2 py-1 text-[11px] uppercase tracking-[0.18em] ${getTypeBadgeClass(
+                                      run.type
+                                    )}`}
+                                  >
+                                    {run.type}
+                                  </span>
+                                </div>
+                                <p className="mt-2 truncate text-sm text-zinc-400">
+                                  {run.projectName ?? "Workspace run"}
+                                  {run.workflowKey ? ` · ${run.workflowKey}` : ""}
+                                </p>
+                              </div>
 
-                    <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-                        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                          Request
-                        </p>
-                        <pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-text-secondary font-sans">
-                          {run.requestText ?? "No request text stored for this run."}
-                        </pre>
-                      </div>
+                              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${statusTone.badge}`}
+                                >
+                                  {formatLabel(run.status)}
+                                </span>
+                                {run.resultStatus ? (
+                                  <span className="rounded-full bg-zinc-800 px-2.5 py-1 text-xs uppercase tracking-[0.18em] text-zinc-300">
+                                    {formatLabel(run.resultStatus)}
+                                  </span>
+                                ) : null}
+                                <span className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                  {getRunTimeLabel(run.createdAt)}
+                                </span>
+                              </div>
+                            </button>
 
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-                        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                          Output
-                        </p>
-                        <pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-text-secondary font-sans">
-                          {run.outputLog ?? "No output log captured yet."}
-                        </pre>
-                        {run.errorLog ? (
-                          <div className="mt-4 rounded-xl border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-white">
-                            {run.errorLog}
+                            {expanded ? (
+                              <div className="border-t border-zinc-800 px-4 py-4">
+                                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)]">
+                                  <div className="space-y-4">
+                                    {run.summary ? (
+                                      <div className="rounded-2xl border border-zinc-700 bg-zinc-800/70 p-4">
+                                        <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                          Summary
+                                        </p>
+                                        <p className="mt-3 text-sm text-zinc-200">
+                                          {run.summary}
+                                        </p>
+                                      </div>
+                                    ) : null}
+
+                                    {run.requestText ? (
+                                      <div className="rounded-2xl border border-zinc-700 bg-zinc-800/70 p-4">
+                                        <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                          Request
+                                        </p>
+                                        <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-zinc-300">
+                                          {run.requestText}
+                                        </pre>
+                                      </div>
+                                    ) : null}
+
+                                    <div className="rounded-2xl border border-zinc-700 bg-zinc-800/70 p-4">
+                                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                        Output Log
+                                      </p>
+                                      <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-zinc-300">
+                                        {run.outputLog ?? "No output log captured yet."}
+                                      </pre>
+                                    </div>
+
+                                    {run.errorLog ? (
+                                      <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4">
+                                        <p className="text-xs uppercase tracking-[0.18em] text-rose-200/80">
+                                          Error Log
+                                        </p>
+                                        <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-rose-100">
+                                          {run.errorLog}
+                                        </pre>
+                                      </div>
+                                    ) : null}
+
+                                    {run.type === "agent" ? (
+                                      <div className="rounded-2xl border border-zinc-700 bg-zinc-800/70 p-4">
+                                        <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                          Cowork Instruction
+                                        </p>
+                                        <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-zinc-300">
+                                          {coworkInstructions[run.id] ??
+                                            coworkErrors[run.id] ??
+                                            "Loading cowork instruction..."}
+                                        </pre>
+                                      </div>
+                                    ) : null}
+                                  </div>
+
+                                  <div className="space-y-4">
+                                    <div className="rounded-2xl border border-zinc-700 bg-zinc-800/70 p-4">
+                                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                        Run Meta
+                                      </p>
+                                      <div className="mt-3 space-y-2 text-sm text-zinc-300">
+                                        <p>Queued: {getRunDateLabel(run.createdAt)}</p>
+                                        <p>
+                                          Started:{" "}
+                                          {run.startedAt
+                                            ? getRunDateLabel(run.startedAt)
+                                            : "Not started"}
+                                        </p>
+                                        <p>
+                                          Completed:{" "}
+                                          {run.completedAt
+                                            ? getRunDateLabel(run.completedAt)
+                                            : "Not completed"}
+                                        </p>
+                                        <p>
+                                          Tier:{" "}
+                                          {run.executionTierLabel
+                                            ? formatLabel(run.executionTierLabel)
+                                            : "Not set"}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    {run.type === "agent" ? (
+                                      <>
+                                        <div className="rounded-2xl border border-zinc-700 bg-zinc-800/70 p-4">
+                                          <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                            Execution Profile
+                                          </p>
+                                          <div className="mt-3 space-y-2 text-sm text-zinc-300">
+                                            <p>
+                                              Execution:{" "}
+                                              {formatLabel(run.executionMethod)}
+                                            </p>
+                                            <p>
+                                              Provider:{" "}
+                                              {run.payload?.routedProvider ??
+                                                run.executionMethod ??
+                                                "Not set"}
+                                            </p>
+                                            <p>
+                                              Model:{" "}
+                                              {run.payload?.routedModel ??
+                                                run.payload?.agentModel ??
+                                                "Not set"}
+                                            </p>
+                                            <p>
+                                              Route source:{" "}
+                                              {formatLabel(run.payload?.routeSource)}
+                                            </p>
+                                            <p>
+                                              Approval mode:{" "}
+                                              {formatLabel(run.payload?.approvalMode)}
+                                            </p>
+                                            <p>
+                                              Allowed actions:{" "}
+                                              {(run.payload?.allowedActions ?? []).length >
+                                              0
+                                                ? (run.payload?.allowedActions ?? []).join(
+                                                    ", "
+                                                  )
+                                                : "Not set"}
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        <div className="rounded-2xl border border-zinc-700 bg-zinc-800/70 p-4">
+                                          <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                            Run Controls
+                                          </p>
+                                          <div className="mt-4 grid gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                void updateRun(run.id, {
+                                                  status: "in_progress",
+                                                  resultStatus: "executing"
+                                                })
+                                              }
+                                              disabled={updatingRunId === run.id}
+                                              className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-left text-sm text-white transition hover:border-zinc-500 disabled:opacity-60"
+                                            >
+                                              Start run
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                void updateRun(run.id, {
+                                                  status: "review_ready",
+                                                  resultStatus: "awaiting_review"
+                                                })
+                                              }
+                                              disabled={updatingRunId === run.id}
+                                              className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-left text-sm text-white transition hover:border-zinc-500 disabled:opacity-60"
+                                            >
+                                              Mark ready for review
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                void updateRun(run.id, {
+                                                  status: "completed",
+                                                  resultStatus: "approved"
+                                                })
+                                              }
+                                              disabled={updatingRunId === run.id}
+                                              className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-left text-sm text-white transition hover:border-zinc-500 disabled:opacity-60"
+                                            >
+                                              Mark complete
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                void updateRun(run.id, {
+                                                  status: "failed",
+                                                  resultStatus: "blocked",
+                                                  errorLog:
+                                                    "Marked failed during operator review."
+                                                })
+                                              }
+                                              disabled={updatingRunId === run.id}
+                                              className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-left text-sm text-rose-100 transition hover:border-rose-400 disabled:opacity-60"
+                                            >
+                                              Mark failed
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
-                        ) : null}
-                      </div>
+                        );
+                      })}
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
+                  </section>
+                ) : null
+              )}
+            </div>
 
-            {agentRuns.length > 0 ? (
-              <div className="pt-2">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-lg font-semibold text-white">
-                    Agent runs
-                  </h3>
-                  <p className="text-sm text-text-secondary">
-                    Delivery execution reviews
-                  </p>
+            {filteredRuns.length > runsPerPage ? (
+              <div className="mt-6 flex flex-col gap-3 border-t border-zinc-800 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-zinc-400">
+                  Page {currentPage} of {totalPages}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    disabled={currentPage === 1}
+                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-white transition hover:border-zinc-500 disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentPage((page) => Math.min(totalPages, page + 1))
+                    }
+                    disabled={currentPage >= totalPages}
+                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-white transition hover:border-zinc-500 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
                 </div>
               </div>
             ) : null}
-
-            {agentRuns.map((run) => (
-              <div
-                key={run.id}
-                className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                      {run.payload?.agentName ?? "Agent run"}
-                    </p>
-                    <h3 className="mt-2 text-lg font-semibold text-white">
-                      {run.taskTitle ?? "Untitled task"}
-                    </h3>
-                    <p className="mt-2 text-sm text-text-secondary">
-                      {run.projectName ?? "Unknown project"}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary">
-                      {formatLabel(run.status)}
-                    </div>
-                    <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary">
-                      {formatLabel(run.resultStatus)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-3 text-sm text-text-secondary">
-                  <span>Execution: {run.executionMethod}</span>
-                  <span>
-                    Routed provider:{" "}
-                    {run.payload?.routedProvider ?? run.executionMethod}
-                  </span>
-                  {run.payload?.routedModel || run.payload?.agentModel ? (
-                    <span>
-                      Model:{" "}
-                      {run.payload?.routedModel ?? run.payload?.agentModel}
-                    </span>
-                  ) : null}
-                  {run.payload?.projectServiceFamily ? (
-                    <span>
-                      Service family:{" "}
-                      {formatLabel(run.payload.projectServiceFamily)}
-                    </span>
-                  ) : null}
-                  {run.payload?.routeSource ? (
-                    <span>
-                      Route source: {formatLabel(run.payload.routeSource)}
-                    </span>
-                  ) : null}
-                  <span>Mode: {formatLabel(run.mode)}</span>
-                  <span>
-                    Queued: {new Date(run.createdAt).toLocaleString()}
-                  </span>
-                </div>
-
-                <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,2fr)_320px]">
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                      Execution brief
-                    </p>
-                    <pre className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-text-secondary font-sans">
-                      {run.outputLog ?? "No execution brief captured yet."}
-                    </pre>
-                    {run.errorLog ? (
-                      <div className="mt-4 rounded-xl border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-white">
-                        {run.errorLog}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-                      <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                        Run controls
-                      </p>
-                      <div className="mt-4 grid gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void updateRun(run.id, {
-                              status: "in_progress",
-                              resultStatus: "executing"
-                            })
-                          }
-                          disabled={updatingRunId === run.id}
-                          className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-left text-sm text-white disabled:opacity-60"
-                        >
-                          Start run
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void updateRun(run.id, {
-                              status: "review_ready",
-                              resultStatus: "awaiting_review"
-                            })
-                          }
-                          disabled={updatingRunId === run.id}
-                          className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-left text-sm text-white disabled:opacity-60"
-                        >
-                          Mark ready for review
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void updateRun(run.id, {
-                              status: "completed",
-                              resultStatus: "approved"
-                            })
-                          }
-                          disabled={updatingRunId === run.id}
-                          className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-left text-sm text-white disabled:opacity-60"
-                        >
-                          Mark complete
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void updateRun(run.id, {
-                              status: "failed",
-                              resultStatus: "blocked",
-                              errorLog: "Marked failed during operator review."
-                            })
-                          }
-                          disabled={updatingRunId === run.id}
-                          className="rounded-xl border border-[rgba(224,80,96,0.4)] px-4 py-3 text-left text-sm text-[#ff9aa5] disabled:opacity-60"
-                        >
-                          Mark failed
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-                      <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                        Execution profile
-                      </p>
-                      <div className="mt-3 space-y-2 text-sm text-text-secondary">
-                        <p>
-                          Approval mode:{" "}
-                          {formatLabel(run.payload?.approvalMode ?? null)}
-                        </p>
-                        <p>
-                          Allowed actions:{" "}
-                          {(run.payload?.allowedActions ?? []).length > 0
-                            ? (run.payload?.allowedActions ?? []).join(", ")
-                            : "Not set"}
-                        </p>
-                        <p>
-                          Started:{" "}
-                          {run.startedAt
-                            ? new Date(run.startedAt).toLocaleString()
-                            : "Not started"}
-                        </p>
-                        <p>
-                          Completed:{" "}
-                          {run.completedAt
-                            ? new Date(run.completedAt).toLocaleString()
-                            : "Not completed"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          </section>
         </div>
       </div>
     </AppShell>

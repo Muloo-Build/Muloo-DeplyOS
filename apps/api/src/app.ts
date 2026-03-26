@@ -241,6 +241,90 @@ function normalizeWorkspaceLoginIdentifier(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+const activeProjectStatuses = new Set([
+  "draft",
+  "scoping",
+  "designed",
+  "ready-for-execution",
+  "in-flight"
+]);
+
+const taskAttentionStatuses = ["blocked", "waiting_on_client"] as const;
+
+function getProjectStatusMatch(
+  project: {
+    status: string;
+    quoteApprovalStatus?: string | null;
+    scopeLockedAt?: string | null;
+    updatedAt: string | Date;
+    id: string;
+  },
+  waitingOnClientProjectIds: Set<string>,
+  requestedStatus: string | null
+) {
+  if (!requestedStatus) {
+    return true;
+  }
+
+  switch (requestedStatus) {
+    case "active":
+      return activeProjectStatuses.has(project.status);
+    case "awaiting_client":
+      return (
+        waitingOnClientProjectIds.has(project.id) ||
+        project.quoteApprovalStatus === "shared"
+      );
+    case "blueprint_approved_no_delivery":
+      return (
+        (project.quoteApprovalStatus === "approved" || Boolean(project.scopeLockedAt)) &&
+        project.status !== "in-flight" &&
+        project.status !== "completed" &&
+        project.status !== "archived"
+      );
+    default:
+      return project.status === requestedStatus;
+  }
+}
+
+function getRelativeAgeLabel(timestamp: string | Date) {
+  const diffMs = Date.now() - new Date(timestamp).getTime();
+  const diffHours = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60)));
+
+  if (diffHours < 24) {
+    return `${diffHours}h`;
+  }
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) {
+    return `${diffDays}d`;
+  }
+
+  return `${Math.floor(diffDays / 7)}w`;
+}
+
+function getExecutionStatusMatch(
+  status: string,
+  requestedStatus: string | null
+) {
+  if (!requestedStatus || requestedStatus === "all") {
+    return true;
+  }
+
+  if (requestedStatus === "complete") {
+    return status === "completed" || status === "complete";
+  }
+
+  if (requestedStatus === "running") {
+    return status === "running" || status === "in_progress";
+  }
+
+  if (requestedStatus === "failed") {
+    return status === "failed";
+  }
+
+  return status === requestedStatus;
+}
+
 function getRateLimitKey(c: Context<HonoBindings>) {
   return c.req.header("x-forwarded-for") ?? "unknown";
 }
@@ -780,10 +864,211 @@ export function createApiApp(config: BaseConfig) {
     })
   );
 
+  app.get("/api/execution-jobs", async (c) => {
+    const status = c.req.query("status")?.trim() || null;
+    const countOnly = c.req.query("count") === "true";
+    const limit = Number.parseInt(c.req.query("limit") ?? "20", 10);
+    const portalId = c.req.query("portalId")?.trim() || null;
+
+    const [agentRuns, workflowRuns] = await Promise.all([
+      portalId ? Promise.resolve([]) : loadAgentRuns(),
+      loadWorkflowRuns({
+        ...(portalId ? { portalId } : {}),
+        limit: Number.isFinite(limit) ? Math.max(limit * 3, 20) : 40
+      })
+    ]);
+
+    const mergedRuns = [
+      ...workflowRuns.map((run) => ({
+        ...run,
+        type: "workflow" as const,
+        name: run.title,
+        projectName: run.projectName ?? run.clientName ?? run.portalDisplayName,
+        executionTierLabel: "Workflow",
+        coworkInstruction: null
+      })),
+      ...agentRuns.map((run) => ({
+        ...run,
+        type: "agent" as const,
+        name:
+          run.taskTitle ??
+          (run.payload &&
+          typeof run.payload === "object" &&
+          !Array.isArray(run.payload) &&
+          "agentName" in run.payload &&
+          typeof run.payload.agentName === "string"
+            ? run.payload.agentName
+            : null) ??
+          run.projectName ??
+          "Agent run",
+        executionTierLabel: run.executionMethod,
+        coworkInstruction: null
+      }))
+    ]
+      .filter((run) => getExecutionStatusMatch(run.status, status))
+      .sort(
+        (left, right) =>
+          new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+      );
+
+    if (countOnly) {
+      return c.json({ count: mergedRuns.length });
+    }
+
+    return c.json({
+      runs: mergedRuns.slice(0, Number.isFinite(limit) ? limit : 20)
+    });
+  });
+
+  app.get("/api/tasks", async (c) => {
+    const countOnly = c.req.query("count") === "true";
+    const overdue = c.req.query("overdue") === "true";
+
+    const where = overdue
+      ? { status: { in: [...taskAttentionStatuses] } }
+      : null;
+
+    if (countOnly) {
+      // TODO: Replace this with true due-date based overdue logic once tasks carry deadlines.
+      const count = where
+        ? await prisma.task.count({ where })
+        : await prisma.task.count();
+      return c.json({ count });
+    }
+
+    const tasks = await prisma.task.findMany({
+      ...(where ? { where } : {}),
+      orderBy: [{ updatedAt: "desc" }],
+      take: 20,
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    return c.json({
+      tasks: tasks.map((task) => ({
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        updatedAt: task.updatedAt.toISOString(),
+        projectId: task.projectId,
+        projectName: task.project.name
+      }))
+    });
+  });
+
+  app.get("/api/projects/needs-attention", async (c) => {
+    const projects = await loadProjectsDirectory();
+    const waitingTasks = await prisma.task.findMany({
+      where: { status: { in: ["waiting_on_client"] } },
+      select: { projectId: true }
+    });
+
+    const waitingOnClientProjectIds = new Set(
+      waitingTasks.map((task) => task.projectId)
+    );
+
+    const needsAttention = projects
+      .map((project) => {
+        const projectAgeMs = Date.now() - new Date(project.updatedAt).getTime();
+        const ageDays = projectAgeMs / (1000 * 60 * 60 * 24);
+        const isApprovedWithoutDelivery =
+          (project.quoteApprovalStatus === "approved" ||
+            Boolean(project.scopeLockedAt)) &&
+          project.status !== "in-flight" &&
+          project.status !== "completed" &&
+          project.status !== "archived";
+
+        if (ageDays >= 10 && activeProjectStatuses.has(project.status)) {
+          return {
+            id: project.id,
+            projectId: project.id,
+            projectName: project.name,
+            clientName: project.clientName,
+            href: project.defaultWorkspacePath ?? `/projects/${project.id}`,
+            reason: "Project has been inactive for more than 10 days",
+            reasonKey: "overdue",
+            age: getRelativeAgeLabel(project.updatedAt),
+            status: project.status,
+            urgencyScore: 3
+          };
+        }
+
+        if (
+          waitingOnClientProjectIds.has(project.id) ||
+          project.quoteApprovalStatus === "shared"
+        ) {
+          return {
+            id: project.id,
+            projectId: project.id,
+            projectName: project.name,
+            clientName: project.clientName,
+            href: project.defaultWorkspacePath ?? `/projects/${project.id}`,
+            reason: waitingOnClientProjectIds.has(project.id)
+              ? "Waiting on client task input"
+              : "Quote shared and awaiting client response",
+            reasonKey: "awaiting_client",
+            age: getRelativeAgeLabel(project.updatedAt),
+            status: project.status,
+            urgencyScore: 2
+          };
+        }
+
+        if (isApprovedWithoutDelivery) {
+          return {
+            id: project.id,
+            projectId: project.id,
+            projectName: project.name,
+            clientName: project.clientName,
+            href: project.defaultWorkspacePath ?? `/projects/${project.id}`,
+            reason: "Approved and ready to move into delivery",
+            reasonKey: "blueprint_approved_no_delivery",
+            age: getRelativeAgeLabel(project.updatedAt),
+            status: project.status,
+            urgencyScore: 1
+          };
+        }
+
+        return null;
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .sort((left, right) => right.urgencyScore - left.urgencyScore)
+      .slice(0, 5);
+
+    return c.json({ items: needsAttention });
+  });
+
   app.all("/api/projects", async (c) => {
     if (c.req.method === "GET") {
+      const requestedStatus = c.req.query("status")?.trim() || null;
+      const countOnly = c.req.query("count") === "true";
+      const limit = Number.parseInt(c.req.query("limit") ?? "", 10);
+      const projects = await loadProjectsDirectory();
+      const waitingTasks = await prisma.task.findMany({
+        where: { status: { in: ["waiting_on_client"] } },
+        select: { projectId: true }
+      });
+      const waitingOnClientProjectIds = new Set(
+        waitingTasks.map((task) => task.projectId)
+      );
+      const filteredProjects = projects.filter((project) =>
+        getProjectStatusMatch(project, waitingOnClientProjectIds, requestedStatus)
+      );
+
+      if (countOnly) {
+        return c.json({ count: filteredProjects.length });
+      }
+
       return c.json({
-        projects: await loadProjectsDirectory()
+        projects:
+          Number.isFinite(limit) && limit > 0
+            ? filteredProjects.slice(0, limit)
+            : filteredProjects
       });
     }
 

@@ -1,1240 +1,422 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
 
-interface Todo {
-  id: string;
-  title: string;
-  notes?: string;
-  completed: boolean;
-  completedAt?: string;
-  sortOrder: number;
+interface CountResponse {
+  count: number;
 }
 
-interface Email {
-  id: string;
-  subject: string;
-  from: string;
-  date: string;
-  snippet: string;
-  gmailUrl: string;
-}
-
-interface CalendarEvent {
-  id: string;
-  summary: string;
-  start: { dateTime?: string; date?: string };
-  end: { dateTime?: string; date?: string };
-  location?: string;
-  hangoutLink?: string;
-  attendees?: Array<{ email: string; displayName?: string }>;
-}
-
-interface Invoice {
-  invoiceNumber: string;
-  contact: string;
-  dueDate: string;
-  amountDue: number;
-  status: string;
-  isOverdue: boolean;
-}
-
-interface XeroSummary {
-  totalOutstanding: number;
-  totalOverdue: number;
-  currency: string;
-  invoices: Invoice[];
-}
-
-interface Quote {
+interface NeedsAttentionItem {
   id: string;
   projectId: string;
   projectName: string;
   clientName: string;
-  version: number;
+  href: string;
+  reason: string;
+  reasonKey: "overdue" | "awaiting_client" | "blueprint_approved_no_delivery";
+  age: string;
   status: string;
-  totals: Record<string, unknown>;
-  sharedAt: string;
-  currency: string;
 }
 
-interface ActiveProject {
+interface ProjectListItem {
   id: string;
   name: string;
+  clientName: string;
   status: string;
-  engagementType: string;
-  client?: { name: string };
-  portal?: { displayName: string };
-  openTaskCount: number;
+  defaultWorkspacePath?: string;
+  updatedAt: string;
 }
 
-interface DailySummary {
-  content: string | null;
-  generatedBy?: string;
-  createdAt?: string;
+interface ExecutionRun {
+  id: string;
+  type: "workflow" | "agent";
+  name: string;
+  projectName: string | null;
+  status: string;
+  resultStatus: string | null;
+  createdAt: string;
 }
 
-interface CalendarDayGroup {
-  key: string;
-  label: string;
-  events: CalendarEvent[];
+interface UsersResponse {
+  users?: Array<{ name: string; email: string; isActive?: boolean }>;
 }
 
-function formatRelativeDate(value: string) {
-  const date = new Date(value);
+function formatDateHeading(date = new Date()) {
+  return date.toLocaleDateString("en-ZA", {
+    weekday: "long",
+    day: "numeric",
+    month: "long"
+  });
+}
 
-  if (Number.isNaN(date.getTime())) {
-    return "Unknown date";
+function getGreeting(date = new Date()) {
+  const hour = date.getHours();
+
+  if (hour < 12) {
+    return "Good morning";
   }
 
+  if (hour < 18) {
+    return "Good afternoon";
+  }
+
+  return "Good evening";
+}
+
+function formatRelativeTime(value: string) {
+  const date = new Date(value);
   const diffMs = Date.now() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffMinutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
 
-  if (diffMinutes < 1) return "Just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`;
+  }
 
-  return date.toLocaleDateString("en-ZA", {
-    day: "2-digit",
-    month: "short"
-  });
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
 }
 
-function formatDateTime(value?: string) {
+function formatStatusLabel(value: string | null | undefined) {
   if (!value) {
-    return "Not generated yet";
+    return "Unknown";
   }
 
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleString("en-ZA", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
-function formatDayLabel(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Upcoming";
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const compare = new Date(date);
-  compare.setHours(0, 0, 0, 0);
-
-  if (compare.getTime() === today.getTime()) {
-    return "Today";
-  }
-
-  if (compare.getTime() === tomorrow.getTime()) {
-    return "Tomorrow";
-  }
-
-  return date.toLocaleDateString("en-ZA", {
-    day: "2-digit",
-    month: "short"
-  });
-}
-
-function formatTimeRange(event: CalendarEvent) {
-  const startValue = event.start.dateTime ?? event.start.date;
-  const endValue = event.end.dateTime ?? event.end.date;
-
-  if (!startValue) {
-    return "Time TBC";
-  }
-
-  if (event.start.date && !event.start.dateTime) {
-    return "All day";
-  }
-
-  const start = new Date(startValue);
-  const end = endValue ? new Date(endValue) : null;
-
-  if (Number.isNaN(start.getTime())) {
-    return "Time TBC";
-  }
-
-  const startLabel = start.toLocaleTimeString("en-ZA", {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-  const endLabel =
-    end && !Number.isNaN(end.getTime())
-      ? end.toLocaleTimeString("en-ZA", {
-          hour: "2-digit",
-          minute: "2-digit"
-        })
-      : null;
-
-  return endLabel ? `${startLabel} - ${endLabel}` : startLabel;
-}
-
-function extractSenderName(from: string) {
-  const match = from.match(/"?([^"<]+)"?\s*<.+>/);
-  return match?.[1]?.trim() || from.split("<")[0]?.trim() || from;
-}
-
-function truncate(value: string, maxLength: number) {
-  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
-}
-
-function extractQuoteTotal(totals: Record<string, unknown>) {
-  const candidates = [
-    totals.total,
-    totals.grandTotal,
-    totals.totalAmount,
-    totals.finalTotal
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === "number") {
-      return candidate;
-    }
-
-    if (
-      candidate &&
-      typeof candidate === "object" &&
-      "amount" in candidate &&
-      typeof (candidate as { amount?: unknown }).amount === "number"
-    ) {
-      return (candidate as { amount: number }).amount;
-    }
-  }
-
-  return 0;
-}
-
-function formatCurrency(currency: string, amount: number) {
-  return `${currency} ${amount.toLocaleString("en-ZA", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  })}`;
+  return value.replace(/[_-]/g, " ");
 }
 
 function getStatusBadgeClass(status: string) {
   switch (status) {
-    case "shared":
-      return "bg-[rgba(79,142,247,0.18)] text-[#78a9ff]";
-    case "pending":
-      return "bg-[rgba(240,160,80,0.18)] text-[#f0a050]";
     case "completed":
-      return "bg-[rgba(45,212,160,0.16)] text-[#54e1b1]";
+    case "complete":
+      return "bg-emerald-500/12 text-emerald-300";
+    case "queued":
+    case "waiting_on_client":
+    case "ready-for-execution":
+      return "bg-amber-500/12 text-amber-300";
+    case "failed":
+    case "blocked":
+      return "bg-rose-500/12 text-rose-300";
     default:
-      return "bg-[rgba(255,255,255,0.08)] text-text-secondary";
+      return "bg-zinc-700 text-zinc-200";
   }
 }
 
-function SummarySkeleton() {
+function getAttentionTone(reasonKey: NeedsAttentionItem["reasonKey"]) {
+  switch (reasonKey) {
+    case "overdue":
+      return "border-rose-500/30 bg-rose-500/8 text-rose-200";
+    case "awaiting_client":
+      return "border-amber-500/30 bg-amber-500/8 text-amber-200";
+    case "blueprint_approved_no_delivery":
+      return "border-emerald-500/30 bg-emerald-500/8 text-emerald-200";
+    default:
+      return "border-zinc-700 bg-zinc-800 text-zinc-200";
+  }
+}
+
+function StatCard(props: {
+  href: string;
+  label: string;
+  value: number;
+  tone: "neutral" | "warning" | "danger";
+}) {
+  const toneClass =
+    props.tone === "danger"
+      ? "border-rose-500/25 bg-rose-500/8 text-rose-200"
+      : props.tone === "warning"
+        ? "border-amber-500/25 bg-amber-500/8 text-amber-200"
+        : "border-zinc-700 bg-zinc-800 text-white";
+
   return (
-    <div className="space-y-3">
-      <div className="h-5 w-3/4 animate-pulse rounded-full bg-[rgba(255,255,255,0.08)]" />
-      <div className="h-5 w-full animate-pulse rounded-full bg-[rgba(255,255,255,0.08)]" />
-      <div className="h-5 w-5/6 animate-pulse rounded-full bg-[rgba(255,255,255,0.08)]" />
-    </div>
+    <Link
+      href={props.href}
+      className={`rounded-2xl border p-5 transition hover:border-zinc-500 ${toneClass}`}
+    >
+      <p className="text-sm text-zinc-300">{props.label}</p>
+      <p className="mt-3 text-4xl font-semibold">{props.value}</p>
+    </Link>
   );
 }
 
 export default function MulooCommandCentre() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [emails, setEmails] = useState<Email[]>([]);
-  const [emailConnected, setEmailConnected] = useState(false);
-  const [activeFilterLabel, setActiveFilterLabel] = useState<string | null>(
-    null
-  );
-  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
-  const [calendarConnected, setCalendarConnected] = useState(false);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [projects, setProjects] = useState<ActiveProject[]>([]);
-  const [projectsError, setProjectsError] = useState<string | null>(null);
-  const [expandedCalendarDays, setExpandedCalendarDays] = useState<
-    Record<string, boolean>
-  >({});
-  const [xeroSummary, setXeroSummary] = useState<XeroSummary | null>(null);
-  const [xeroConnected, setXeroConnected] = useState(false);
-  const [summary, setSummary] = useState<DailySummary>({ content: null });
+  const [name, setName] = useState("team");
+  const [activeProjectsCount, setActiveProjectsCount] = useState(0);
+  const [awaitingClientCount, setAwaitingClientCount] = useState(0);
+  const [overdueTasksCount, setOverdueTasksCount] = useState(0);
+  const [queuedRunsCount, setQueuedRunsCount] = useState(0);
+  const [needsAttention, setNeedsAttention] = useState<NeedsAttentionItem[]>([]);
+  const [activeProjects, setActiveProjects] = useState<ProjectListItem[]>([]);
+  const [recentRuns, setRecentRuns] = useState<ExecutionRun[]>([]);
   const [loading, setLoading] = useState(true);
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [todoDraft, setTodoDraft] = useState("");
-  const [todoNotesDraft, setTodoNotesDraft] = useState("");
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function loadTodos() {
-    const response = await fetch("/api/workspace/todos");
-
-    if (!response.ok) {
-      throw new Error("Failed to load workspace todos");
-    }
-
-    setTodos(await response.json());
-  }
-
-  async function loadEmails() {
-    const response = await fetch("/api/workspace/emails/action-required");
-
-    if (!response.ok) {
-      throw new Error("Failed to load Gmail actions");
-    }
-
-    const body = await response.json();
-    setEmailConnected(Boolean(body.connected));
-    setEmails(Array.isArray(body.emails) ? body.emails : []);
-    setActiveFilterLabel(
-      typeof body.activeFilterLabel === "string" ? body.activeFilterLabel : null
-    );
-  }
-
-  async function loadCalendar() {
-    const response = await fetch("/api/workspace/calendar/events");
-
-    if (!response.ok) {
-      throw new Error("Failed to load calendar events");
-    }
-
-    const body = await response.json();
-    setCalendarConnected(Boolean(body.connected));
-    setCalendarEvents(Array.isArray(body.events) ? body.events : []);
-  }
-
-  async function loadQuotes() {
-    const response = await fetch("/api/workspace/quotes/pipeline");
-
-    if (!response.ok) {
-      throw new Error("Failed to load quotes pipeline");
-    }
-
-    setQuotes(await response.json());
-  }
-
-  async function loadProjects() {
-    setProjectsError(null);
-
-    const response = await fetch("/api/workspace/projects/active");
-    const body = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      setProjects([]);
-      setProjectsError("Could not load projects.");
-      return;
-    }
-
-    setProjects(Array.isArray(body) ? body : []);
-  }
-
-  async function loadXero() {
-    const response = await fetch("/api/workspace/xero/invoices");
-
-    if (!response.ok) {
-      throw new Error("Failed to load Xero summary");
-    }
-
-    const body = await response.json();
-    setXeroConnected(Boolean(body.connected));
-    setXeroSummary(body.summary ?? null);
-  }
-
-  async function loadSummary() {
-    const response = await fetch("/api/workspace/summary/latest");
-
-    if (!response.ok) {
-      throw new Error("Failed to load daily summary");
-    }
-
-    setSummary(await response.json());
-  }
-
-  async function loadAll() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      await Promise.all([
-        loadSummary(),
-        loadTodos(),
-        loadEmails(),
-        loadCalendar(),
-        loadQuotes(),
-        loadProjects(),
-        loadXero()
-      ]);
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Failed to load Command Centre"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
 
   useEffect(() => {
-    void loadAll();
+    async function loadCommandCentre() {
+      try {
+        const [
+          usersResponse,
+          activeProjectsCountResponse,
+          awaitingClientCountResponse,
+          overdueTasksCountResponse,
+          queuedRunsCountResponse,
+          needsAttentionResponse,
+          activeProjectsResponse,
+          recentRunsResponse
+        ] = await Promise.all([
+          fetch("/api/users"),
+          fetch("/api/projects?status=in-flight&count=true"),
+          fetch("/api/projects?status=awaiting_client&count=true"),
+          fetch("/api/tasks?overdue=true&count=true"),
+          fetch("/api/execution-jobs?status=queued&count=true"),
+          fetch("/api/projects/needs-attention"),
+          fetch("/api/projects?status=active&limit=6"),
+          fetch("/api/execution-jobs?limit=5")
+        ]);
+
+        const usersBody = (await usersResponse.json().catch(() => null)) as UsersResponse | null;
+        const firstActiveUser = usersBody?.users?.find((user) => user.isActive !== false);
+        if (firstActiveUser?.name?.trim()) {
+          setName(firstActiveUser.name.split(" ")[0] ?? firstActiveUser.name);
+        }
+
+        const activeProjectsCountBody =
+          (await activeProjectsCountResponse.json().catch(() => null)) as CountResponse | null;
+        const awaitingClientCountBody =
+          (await awaitingClientCountResponse.json().catch(() => null)) as CountResponse | null;
+        const overdueTasksCountBody =
+          (await overdueTasksCountResponse.json().catch(() => null)) as CountResponse | null;
+        const queuedRunsCountBody =
+          (await queuedRunsCountResponse.json().catch(() => null)) as CountResponse | null;
+        const needsAttentionBody = (await needsAttentionResponse.json().catch(() => null)) as
+          | { items?: NeedsAttentionItem[] }
+          | null;
+        const activeProjectsBody = (await activeProjectsResponse.json().catch(() => null)) as
+          | { projects?: ProjectListItem[] }
+          | null;
+        const recentRunsBody = (await recentRunsResponse.json().catch(() => null)) as
+          | { runs?: ExecutionRun[] }
+          | null;
+
+        setActiveProjectsCount(activeProjectsCountBody?.count ?? 0);
+        setAwaitingClientCount(awaitingClientCountBody?.count ?? 0);
+        setOverdueTasksCount(overdueTasksCountBody?.count ?? 0);
+        setQueuedRunsCount(queuedRunsCountBody?.count ?? 0);
+        setNeedsAttention(needsAttentionBody?.items ?? []);
+        setActiveProjects(activeProjectsBody?.projects ?? []);
+        setRecentRuns(recentRunsBody?.runs ?? []);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadCommandCentre();
   }, []);
 
-  useEffect(() => {
-    const hasCalendarConnected = searchParams.get("calendarConnected");
-    const hasXeroConnected = searchParams.get("xeroConnected");
-
-    if (!hasCalendarConnected && !hasXeroConnected) {
-      return;
-    }
-
-    void Promise.all([
-      hasCalendarConnected ? loadCalendar() : Promise.resolve(),
-      hasXeroConnected ? loadXero() : Promise.resolve()
-    ]).finally(() => {
-      router.replace("/workspace");
-    });
-  }, [router, searchParams]);
-
-  async function refetchProjects() {
-    await loadProjects();
-  }
-
-  function toggleCalendarDay(dayKey: string) {
-    setExpandedCalendarDays((current) => ({
-      ...current,
-      [dayKey]: !current[dayKey]
-    }));
-  }
-
-  const sortedTodos = [
-    ...todos
-      .filter((todo) => !todo.completed)
-      .sort((left, right) => left.sortOrder - right.sortOrder),
-    ...todos
-      .filter((todo) => todo.completed)
-      .sort((left, right) => left.sortOrder - right.sortOrder)
-  ];
-
-  const groupedCalendarEvents = calendarEvents.reduce<CalendarDayGroup[]>(
-    (groups, event) => {
-      const startValue = event.start.dateTime ?? event.start.date ?? "";
-      const date = new Date(startValue);
-      const dayKey = Number.isNaN(date.getTime())
-        ? `unknown-${event.id}`
-        : date.toISOString().slice(0, 10);
-      const existingGroup = groups.find((group) => group.key === dayKey);
-
-      if (existingGroup) {
-        existingGroup.events.push(event);
-        return groups;
-      }
-
-      groups.push({
-        key: dayKey,
-        label: formatDayLabel(startValue),
-        events: [event]
-      });
-
-      return groups;
-    },
-    []
-  );
-
-  async function handleAddTodo(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!todoDraft.trim()) {
-      return;
-    }
-
-    setError(null);
-    setFeedback(null);
-
-    try {
-      const response = await fetch("/api/workspace/todos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: todoDraft,
-          notes: todoNotesDraft || undefined
-        })
-      });
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to create todo");
-      }
-
-      setTodoDraft("");
-      setTodoNotesDraft("");
-      await loadTodos();
-    } catch (todoError) {
-      setError(
-        todoError instanceof Error ? todoError.message : "Failed to create todo"
-      );
-    }
-  }
-
-  async function patchTodo(todoId: string, payload: Record<string, unknown>) {
-    const response = await fetch(
-      `/api/workspace/todos/${encodeURIComponent(todoId)}`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      }
-    );
-    const body = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      throw new Error(body?.error ?? "Failed to update todo");
-    }
-
-    await loadTodos();
-  }
-
-  async function handleDeleteTodo(todoId: string) {
-    setError(null);
-
-    try {
-      const response = await fetch(
-        `/api/workspace/todos/${encodeURIComponent(todoId)}`,
-        {
-          method: "DELETE"
-        }
-      );
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to delete todo");
-      }
-
-      await loadTodos();
-    } catch (todoError) {
-      setError(
-        todoError instanceof Error ? todoError.message : "Failed to delete todo"
-      );
-    }
-  }
-
-  async function handleMoveTodo(todo: Todo, direction: -1 | 1) {
-    const index = sortedTodos.findIndex((item) => item.id === todo.id);
-    const target = sortedTodos[index + direction];
-
-    if (!target) {
-      return;
-    }
-
-    setError(null);
-
-    try {
-      await patchTodo(todo.id, { sortOrder: target.sortOrder });
-    } catch (todoError) {
-      setError(
-        todoError instanceof Error
-          ? todoError.message
-          : "Failed to reorder todo"
-      );
-    }
-  }
-
-  async function handleClearCompleted() {
-    setError(null);
-
-    try {
-      const response = await fetch("/api/workspace/todos", {
-        method: "DELETE"
-      });
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to clear completed todos");
-      }
-
-      await loadTodos();
-    } catch (todoError) {
-      setError(
-        todoError instanceof Error
-          ? todoError.message
-          : "Failed to clear completed todos"
-      );
-    }
-  }
-
-  async function handleRegenerate() {
-    setSummaryLoading(true);
-    setError(null);
-    setFeedback(null);
-
-    try {
-      const response = await fetch("/api/workspace/summary/generate", {
-        method: "POST"
-      });
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to generate summary");
-      }
-
-      setSummary(body);
-      setFeedback("Daily briefing regenerated.");
-    } catch (summaryError) {
-      setError(
-        summaryError instanceof Error
-          ? summaryError.message
-          : "Failed to generate summary"
-      );
-    } finally {
-      setSummaryLoading(false);
-    }
-  }
-
-  async function handleGmailConnect() {
-    setError(null);
-
-    try {
-      const response = await fetch("/api/email-oauth/google/start", {
-        method: "POST"
-      });
-      const body = await response.json().catch(() => null);
-
-      if (!response.ok || !body?.authUrl) {
-        throw new Error(body?.error ?? "Failed to start Gmail connection");
-      }
-
-      window.location.href = body.authUrl;
-    } catch (connectError) {
-      setError(
-        connectError instanceof Error
-          ? connectError.message
-          : "Failed to start Gmail connection"
-      );
-    }
-  }
-
-  const hasCompletedTodos = todos.some((todo) => todo.completed);
+  const heading = useMemo(() => {
+    const now = new Date();
+    return {
+      greeting: `${getGreeting(now)}, ${name}.`,
+      dateLabel: formatDateHeading(now)
+    };
+  }, [name]);
 
   return (
     <AppShell>
-      <main className="mx-auto max-w-screen-2xl space-y-6 p-6">
-        <section className="overflow-hidden rounded-[28px] border border-[rgba(255,255,255,0.07)] bg-[radial-gradient(circle_at_top_right,rgba(224,82,156,0.22),transparent_35%),linear-gradient(180deg,#111936_0%,#0d1530_100%)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-sm uppercase tracking-[0.24em] text-text-muted">
-                Command Centre
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold text-white">
-                AI Daily Briefing
-              </h1>
-              <p className="mt-2 max-w-3xl text-sm text-text-secondary">
-                A single executive snapshot across open actions, client
-                delivery, meetings, quotes, and receivables.
-              </p>
+      <div className="min-h-screen bg-zinc-900 p-8 text-white">
+        <div className="space-y-8">
+          <header className="rounded-3xl border border-zinc-800 bg-zinc-800/80 p-8">
+            <p className="text-sm uppercase tracking-[0.25em] text-zinc-500">
+              Command Centre
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold">{heading.greeting}</h1>
+            <p className="mt-2 text-zinc-300">{heading.dateLabel}</p>
+          </header>
+
+          <section className="grid gap-4 xl:grid-cols-4">
+            <StatCard
+              href="/projects?status=in-flight"
+              label="Active projects"
+              value={activeProjectsCount}
+              tone="neutral"
+            />
+            <StatCard
+              href="/projects?status=awaiting_client"
+              label="Awaiting client"
+              value={awaitingClientCount}
+              tone="warning"
+            />
+            <StatCard
+              href="/projects?status=attention"
+              label="Overdue tasks"
+              value={overdueTasksCount}
+              tone="danger"
+            />
+            <StatCard
+              href="/runs?status=queued"
+              label="Runs queued"
+              value={queuedRunsCount}
+              tone="warning"
+            />
+          </section>
+
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-800/70 p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                  Needs Attention
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-white">
+                  The next five things to unblock
+                </h2>
+              </div>
+              <Link href="/projects" className="text-sm text-zinc-300 hover:text-white">
+                View all projects →
+              </Link>
             </div>
-            <button
-              type="button"
-              onClick={() => void handleRegenerate()}
-              disabled={summaryLoading}
-              className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {summaryLoading ? "Generating..." : "Regenerate"}
-            </button>
-          </div>
 
-          <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[rgba(9,13,31,0.52)] p-5">
-            {summaryLoading || (loading && !summary.content) ? (
-              <SummarySkeleton />
-            ) : summary.content ? (
-              <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-white">
-                {summary.content}
-              </pre>
-            ) : (
-              <p className="text-sm text-text-secondary">
-                No daily briefing yet. Generate one to get a cross-workspace
-                summary.
-              </p>
-            )}
-          </div>
-
-          <p className="mt-4 text-xs text-text-muted">
-            Generated by {summary.generatedBy ?? "not yet generated"} ·{" "}
-            {formatDateTime(summary.createdAt)}
-          </p>
-        </section>
-
-        {error ? (
-          <div className="rounded-2xl border border-[rgba(224,80,96,0.35)] bg-[rgba(58,21,32,0.72)] px-5 py-4 text-sm text-white">
-            {error}
-          </div>
-        ) : null}
-
-        {feedback ? (
-          <div className="rounded-2xl border border-[rgba(45,212,160,0.28)] bg-[rgba(13,48,40,0.65)] px-5 py-4 text-sm text-white">
-            {feedback}
-          </div>
-        ) : null}
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="min-w-0 space-y-6">
-            <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold text-white">
-                    To-do list
-                  </h2>
-                  <p className="mt-1 text-sm text-text-secondary">
-                    Track the next operational moves without leaving the
-                    dashboard.
-                  </p>
+            <div className="mt-5 space-y-3">
+              {loading ? (
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-5 text-zinc-400">
+                  Loading attention queue...
                 </div>
-                <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-1 text-xs text-text-secondary">
-                  {todos.length} items
-                </span>
-              </div>
-
-              <form className="mt-5 space-y-3" onSubmit={handleAddTodo}>
-                <input
-                  value={todoDraft}
-                  onChange={(event) => setTodoDraft(event.target.value)}
-                  placeholder="Add a new todo"
-                  className="w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
-                <textarea
-                  value={todoNotesDraft}
-                  onChange={(event) => setTodoNotesDraft(event.target.value)}
-                  placeholder="Optional notes"
-                  className="min-h-[88px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
-                />
-                <button
-                  type="submit"
-                  className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white"
-                >
-                  Add
-                </button>
-              </form>
-
-              <div className="mt-6 space-y-3">
-                {sortedTodos.length === 0 ? (
-                  <p className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-5 text-sm text-text-secondary">
-                    No open todos yet.
-                  </p>
-                ) : (
-                  sortedTodos.map((todo) => (
-                    <div
-                      key={todo.id}
-                      className={`rounded-2xl border px-4 py-4 ${
-                        todo.completed
-                          ? "border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.03)]"
-                          : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={todo.completed}
-                          onChange={() =>
-                            void patchTodo(todo.id, {
-                              completed: !todo.completed
-                            }).catch((todoError) =>
-                              setError(
-                                todoError instanceof Error
-                                  ? todoError.message
-                                  : "Failed to update todo"
-                              )
-                            )
-                          }
-                          className="mt-1"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className={`text-sm font-medium ${
-                              todo.completed
-                                ? "text-text-secondary line-through"
-                                : "text-white"
-                            }`}
-                          >
-                            {todo.title}
-                          </p>
-                          {todo.notes ? (
-                            <p className="mt-1 text-sm text-text-secondary">
-                              {todo.notes}
-                            </p>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void handleMoveTodo(todo, -1)}
-                            className="rounded-lg border border-[rgba(255,255,255,0.08)] px-2 py-1 text-xs text-text-secondary"
-                          >
-                            Up
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleMoveTodo(todo, 1)}
-                            className="rounded-lg border border-[rgba(255,255,255,0.08)] px-2 py-1 text-xs text-text-secondary"
-                          >
-                            Down
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleDeleteTodo(todo.id)}
-                            className="rounded-lg border border-[rgba(224,80,96,0.25)] px-2 py-1 text-xs text-[#ff9aa7]"
-                          >
-                            Delete
-                          </button>
-                        </div>
+              ) : needsAttention.length === 0 ? (
+                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-5 text-zinc-400">
+                  Nothing urgent is flagged right now.
+                </div>
+              ) : (
+                needsAttention.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className={`block rounded-2xl border p-4 transition hover:border-zinc-500 ${getAttentionTone(
+                      item.reasonKey
+                    )}`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-white">
+                          {item.projectName}
+                        </p>
+                        <p className="mt-1 text-sm text-zinc-300">
+                          {item.clientName} · {item.reason}
+                        </p>
+                      </div>
+                      <div className="text-right text-sm text-zinc-300">
+                        <p>{item.age}</p>
+                        <p className="mt-1 rounded-full bg-zinc-900/70 px-2 py-1 text-xs uppercase tracking-[0.18em]">
+                          {formatStatusLabel(item.reasonKey)}
+                        </p>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          </section>
 
-              {hasCompletedTodos ? (
-                <button
-                  type="button"
-                  onClick={() => void handleClearCompleted()}
-                  className="mt-5 rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
-                >
-                  Clear completed
-                </button>
-              ) : null}
-            </section>
-
-            <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-              <div className="flex items-center justify-between gap-3">
+          <section className="grid gap-6 xl:grid-cols-2">
+            <div className="rounded-3xl border border-zinc-800 bg-zinc-800/70 p-6">
+              <div className="flex items-center justify-between gap-4">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-xl font-semibold text-white">
-                      Gmail — needs attention
-                    </h2>
-                    {activeFilterLabel ? (
-                      <span className="rounded-full bg-[rgba(79,142,247,0.14)] px-3 py-1 text-xs text-[#78a9ff]">
-                        label: {activeFilterLabel}
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 text-sm text-text-secondary">
-                    Unread messages that likely need your attention.
+                  <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                    Active Projects
                   </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">
+                    Recently updated delivery work
+                  </h2>
                 </div>
-                {!emailConnected ? (
-                  <button
-                    type="button"
-                    onClick={() => void handleGmailConnect()}
-                    className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white"
-                  >
-                    Connect Gmail
-                  </button>
-                ) : null}
+                <Link href="/projects" className="text-sm text-zinc-300 hover:text-white">
+                  View all projects →
+                </Link>
               </div>
 
-              {!emailConnected ? (
-                <p className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-5 text-sm text-text-secondary">
-                  Connect Gmail to surface starred or unread emails that need
-                  action.
-                </p>
-              ) : emails.length === 0 ? (
-                <p className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-5 text-sm text-text-secondary">
-                  No action-required emails right now.
-                </p>
-              ) : (
-                <div className="mt-5 space-y-3">
-                  {emails.slice(0, 10).map((email) => (
-                    <div
-                      key={email.id}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-text-secondary">
-                            {extractSenderName(email.from)}
-                          </p>
-                          <p className="mt-1 truncate text-sm font-semibold text-white">
-                            {email.subject}
-                          </p>
-                          <p className="mt-1 text-sm text-text-secondary">
-                            {truncate(email.snippet, 80)}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-text-muted">
-                            {formatRelativeDate(email.date)}
-                          </p>
-                          <a
-                            href={email.gmailUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-2 inline-block text-sm font-medium text-[#78a9ff]"
-                          >
-                            Open
-                          </a>
-                        </div>
-                      </div>
+              <div className="mt-5 space-y-3">
+                {activeProjects.map((project) => (
+                  <Link
+                    key={project.id}
+                    href={project.defaultWorkspacePath ?? `/projects/${project.id}`}
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4 transition hover:border-zinc-500"
+                  >
+                    <div>
+                      <p className="font-medium text-white">{project.name}</p>
+                      <p className="mt-1 text-sm text-zinc-400">{project.clientName}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-
-          <div className="min-w-0 space-y-6">
-            <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold text-white">
-                    Calendar meetings
-                  </h2>
-                  <p className="mt-1 text-sm text-text-secondary">
-                    Upcoming meetings across the next week, grouped by day.
-                  </p>
-                </div>
-                {!calendarConnected ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      window.location.href = "/api/workspace/calendar/auth";
-                    }}
-                    className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white"
-                  >
-                    Connect Google Calendar
-                  </button>
-                ) : null}
-              </div>
-
-              {!calendarConnected ? (
-                <p className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-5 text-sm text-text-secondary">
-                  Connect Google Calendar to show the next 7 days of meetings.
-                </p>
-              ) : calendarEvents.length === 0 ? (
-                <p className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-5 text-sm text-text-secondary">
-                  No calendar events in the next week.
-                </p>
-              ) : (
-                <div className="mt-5 max-h-96 space-y-5 overflow-y-auto pr-1">
-                  {groupedCalendarEvents.map((group) => {
-                    const isExpanded = expandedCalendarDays[group.key] === true;
-                    const visibleEvents = isExpanded
-                      ? group.events
-                      : group.events.slice(0, 4);
-                    const remainingCount = Math.max(group.events.length - 4, 0);
-
-                    return (
-                      <div key={group.key}>
-                        <div className="sticky top-0 z-10 -mx-1 bg-background-card/95 px-1 py-2 backdrop-blur">
-                          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                            {group.label}
-                          </p>
-                        </div>
-                        <div className="mt-1 space-y-3">
-                          {visibleEvents.map((event) => (
-                            <div
-                              key={event.id}
-                              className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-4"
-                            >
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs uppercase tracking-[0.12em] text-text-muted">
-                                    {formatTimeRange(event)}
-                                  </p>
-                                  <p className="mt-1 truncate text-sm font-semibold text-white">
-                                    {event.summary}
-                                  </p>
-                                  {event.location ? (
-                                    <p className="mt-1 text-sm text-text-secondary">
-                                      {event.location}
-                                    </p>
-                                  ) : event.hangoutLink ? (
-                                    <a
-                                      href={event.hangoutLink}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="mt-1 inline-block text-sm text-[#78a9ff]"
-                                    >
-                                      Join meeting
-                                    </a>
-                                  ) : null}
-                                </div>
-                                {event.attendees &&
-                                event.attendees.length > 1 ? (
-                                  <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary">
-                                    {event.attendees.length} attendees
-                                  </span>
-                                ) : null}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        {remainingCount > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => toggleCalendarDay(group.key)}
-                            className="mt-3 text-sm font-medium text-[#78a9ff]"
-                          >
-                            {isExpanded
-                              ? "Show less"
-                              : `Show ${remainingCount} more`}
-                          </button>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold text-white">
-                    Quotes pipeline
-                  </h2>
-                  <p className="mt-1 text-sm text-text-secondary">
-                    Commercial items still moving toward approval.
-                  </p>
-                </div>
-                <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-1 text-xs text-text-secondary">
-                  {quotes.length} open
-                </span>
-              </div>
-
-              {quotes.length === 0 ? (
-                <p className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-5 text-sm text-text-secondary">
-                  No quotes in pipeline.
-                </p>
-              ) : (
-                <div className="mt-5 overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.07)]">
-                  <div className="grid grid-cols-[1.1fr_1.2fr_0.8fr_0.8fr_0.8fr] gap-3 bg-[#0b1126] px-4 py-3 text-xs uppercase tracking-[0.14em] text-text-muted">
-                    <span>Client</span>
-                    <span>Project</span>
-                    <span>Amount</span>
-                    <span>Status</span>
-                    <span>Shared</span>
-                  </div>
-                  {quotes.map((quote) => (
-                    <button
-                      key={quote.id}
-                      type="button"
-                      onClick={() =>
-                        router.push(`/projects/${quote.projectId}/quote`)
-                      }
-                      className="grid w-full grid-cols-[1.1fr_1.2fr_0.8fr_0.8fr_0.8fr] gap-3 border-t border-[rgba(255,255,255,0.06)] px-4 py-4 text-left transition-colors hover:bg-background-elevated"
-                    >
-                      <span className="truncate text-sm text-white">
-                        {quote.clientName}
-                      </span>
-                      <span className="truncate text-sm text-white">
-                        {quote.projectName}
-                      </span>
-                      <span className="text-sm text-text-secondary">
-                        {formatCurrency(
-                          quote.currency,
-                          extractQuoteTotal(quote.totals)
-                        )}
-                      </span>
+                    <div className="text-right">
                       <span
-                        className={`inline-flex w-fit rounded-full px-2 py-1 text-xs font-medium ${getStatusBadgeClass(
-                          quote.status
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                          project.status
                         )}`}
                       >
-                        {quote.status}
+                        {formatStatusLabel(project.status)}
                       </span>
-                      <span className="text-sm text-text-secondary">
-                        {formatRelativeDate(quote.sharedAt)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-        </div>
-
-        <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-semibold text-white">
-                Active projects
-              </h2>
-              <p className="mt-1 text-sm text-text-secondary">
-                Delivery work still in motion across the workspace.
-              </p>
+                      <p className="mt-2 text-xs text-zinc-500">
+                        {formatRelativeTime(project.updatedAt)}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
-            <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-1 text-xs text-text-secondary">
-              {projects.length} active
-            </span>
-          </div>
 
-          {projectsError ? (
-            <div className="mt-5 rounded-2xl border border-[rgba(224,80,96,0.28)] bg-[rgba(58,21,32,0.72)] p-4 text-sm text-white">
-              Could not load projects.{" "}
-              <button
-                type="button"
-                onClick={() => void refetchProjects()}
-                className="underline"
-              >
-                Retry
-              </button>
-            </div>
-          ) : projects.length === 0 ? (
-            <p className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-5 text-sm text-text-secondary">
-              No active projects yet
-            </p>
-          ) : (
-            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {projects.map((project) => (
-                <button
-                  key={project.id}
-                  type="button"
-                  onClick={() =>
-                    router.push(`/projects/${project.id}/delivery`)
-                  }
-                  className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 text-left transition-colors hover:bg-background-elevated"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-semibold text-white">
-                      {project.name}
-                    </h3>
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusBadgeClass(
-                        project.status
-                      )}`}
-                    >
-                      {project.status}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm text-text-secondary">
-                    {project.client?.name ?? "No client assigned"}
+            <div className="rounded-3xl border border-zinc-800 bg-zinc-800/70 p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                    Recent Runs
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary">
-                      {project.engagementType.replace(/_/g, " ")}
-                    </span>
-                    <span className="rounded-full bg-[rgba(79,142,247,0.14)] px-3 py-1 text-xs text-[#78a9ff]">
-                      {project.openTaskCount} tasks open
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-semibold text-white">
-                Invoice summary
-              </h2>
-              <p className="mt-1 text-sm text-text-secondary">
-                Outstanding and overdue receivables from Xero.
-              </p>
-            </div>
-            {!xeroConnected ? (
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = "/api/workspace/xero/auth";
-                }}
-                className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white"
-              >
-                Connect Xero
-              </button>
-            ) : null}
-          </div>
-
-          {!xeroConnected ? (
-            <p className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-5 text-sm text-text-secondary">
-              Connect Xero to monitor outstanding and overdue invoices.
-            </p>
-          ) : (
-            <>
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                  <p className="text-sm text-text-secondary">Outstanding</p>
-                  <p className="mt-2 text-3xl font-semibold text-white">
-                    {formatCurrency(
-                      xeroSummary?.currency ?? "NZD",
-                      xeroSummary?.totalOutstanding ?? 0
-                    )}
-                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">
+                    Latest automation activity
+                  </h2>
                 </div>
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                  <p className="text-sm text-text-secondary">Overdue</p>
-                  <p className="mt-2 text-3xl font-semibold text-[#ff9aa7]">
-                    {formatCurrency(
-                      xeroSummary?.currency ?? "NZD",
-                      xeroSummary?.totalOverdue ?? 0
-                    )}
-                  </p>
-                </div>
+                <Link href="/runs" className="text-sm text-zinc-300 hover:text-white">
+                  View all runs →
+                </Link>
               </div>
 
-              {!xeroSummary?.invoices?.length ? (
-                <p className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-5 text-sm text-text-secondary">
-                  No outstanding invoices.
-                </p>
-              ) : (
-                <div className="mt-5 overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.07)]">
-                  <div className="grid grid-cols-[0.8fr_1.4fr_0.9fr_0.9fr_0.8fr] gap-3 bg-[#0b1126] px-4 py-3 text-xs uppercase tracking-[0.14em] text-text-muted">
-                    <span>Invoice</span>
-                    <span>Contact</span>
-                    <span>Due date</span>
-                    <span>Amount</span>
-                    <span>Status</span>
-                  </div>
-                  {xeroSummary.invoices.map((invoice) => (
-                    <div
-                      key={invoice.invoiceNumber}
-                      className="grid grid-cols-[0.8fr_1.4fr_0.9fr_0.9fr_0.8fr] gap-3 border-t border-[rgba(255,255,255,0.06)] px-4 py-4"
-                    >
-                      <span className="text-sm text-white">
-                        {invoice.invoiceNumber}
-                      </span>
-                      <span className="text-sm text-white">
-                        {invoice.contact}
-                      </span>
-                      <span className="text-sm text-text-secondary">
-                        {formatDateTime(invoice.dueDate)}
-                      </span>
-                      <span className="text-sm text-text-secondary">
-                        {formatCurrency(
-                          xeroSummary.currency,
-                          invoice.amountDue
-                        )}
-                      </span>
-                      <span
-                        className={`inline-flex w-fit rounded-full px-2 py-1 text-xs font-medium ${
-                          invoice.isOverdue
-                            ? "bg-[rgba(224,80,96,0.18)] text-[#ff9aa7]"
-                            : getStatusBadgeClass(invoice.status)
-                        }`}
-                      >
-                        {invoice.isOverdue ? "OVERDUE" : invoice.status}
-                      </span>
+              <div className="mt-5 space-y-3">
+                {recentRuns.map((run) => (
+                  <Link
+                    key={run.id}
+                    href="/runs"
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4 transition hover:border-zinc-500"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-white">{run.name}</p>
+                        <span className="rounded-full bg-zinc-700 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+                          {run.type}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-zinc-400">
+                        {run.projectName ?? "Workspace run"}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </section>
-      </main>
+                    <div className="text-right">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                          run.status
+                        )}`}
+                      >
+                        {formatStatusLabel(run.status)}
+                      </span>
+                      <p className="mt-2 text-xs text-zinc-500">
+                        {formatRelativeTime(run.createdAt)}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
     </AppShell>
   );
 }

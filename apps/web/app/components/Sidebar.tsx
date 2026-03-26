@@ -10,7 +10,6 @@ import {
   FolderKanban,
   Inbox,
   LayoutDashboard,
-  PanelsTopLeft,
   PlaySquare,
   ScrollText,
   Settings
@@ -39,27 +38,25 @@ function isProjectsRoute(pathname: string): boolean {
   }
 
   return (
-    pathname === "/" ||
     pathname.startsWith("/blueprint") ||
-    pathname.startsWith("/projects") ||
+    pathname === "/projects" ||
+    pathname.startsWith("/projects/") ||
     pathname.startsWith("/project")
   );
 }
 
-function isOperationsRoute(pathname: string): boolean {
-  return pathname === "/operations" || pathname.startsWith("/operations/");
-}
-
 const navGroups: NavGroup[] = [
   {
-    label: "Workspace",
+    label: "",
     items: [
       {
-        href: "/workspace",
+        href: "/",
         label: "Command Centre",
         icon: <LayoutDashboard size={18} />,
         isActive: (pathname) =>
-          pathname === "/workspace" || pathname.startsWith("/workspace/")
+          pathname === "/" ||
+          pathname === "/workspace" ||
+          pathname.startsWith("/workspace/")
       },
       {
         href: "/inbox",
@@ -72,10 +69,10 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    label: "Delivery",
+    label: "DELIVERY",
     items: [
       {
-        href: "/",
+        href: "/projects",
         label: "Projects",
         icon: <FolderKanban size={18} />,
         isActive: isProjectsRoute
@@ -90,14 +87,8 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    label: "Operations",
+    label: "OPERATIONS",
     items: [
-      {
-        href: "/operations",
-        label: "Operations Hub",
-        icon: <PanelsTopLeft size={18} />,
-        isActive: isOperationsRoute
-      },
       {
         href: "/projects/portal-ops",
         label: "Portal Ops",
@@ -125,7 +116,7 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    label: "Admin",
+    label: "ADMIN",
     items: [
       {
         href: "/templates",
@@ -180,9 +171,11 @@ export default function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-3 py-6">
         {navGroups.map((group) => (
           <div key={group.label} className="mb-6">
-            <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
-              {group.label}
-            </p>
+            {group.label ? (
+              <p className="mt-4 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500">
+                {group.label}
+              </p>
+            ) : null}
             <div className="space-y-1">
               {group.items.map((item) => {
                 const active = item.isActive(pathname);
