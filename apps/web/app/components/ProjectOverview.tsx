@@ -186,15 +186,15 @@ function getStatusBadgeClass(status: string) {
   switch (status) {
     case "completed":
     case "done":
-      return "bg-emerald-500/12 text-emerald-300";
+      return "brand-status-success";
     case "ready-for-execution":
     case "waiting_on_client":
-      return "bg-amber-500/12 text-amber-300";
+      return "brand-status-warning";
     case "blocked":
     case "failed":
-      return "bg-rose-500/12 text-rose-300";
+      return "brand-status-danger";
     default:
-      return "bg-zinc-700 text-zinc-200";
+      return "brand-status-neutral";
   }
 }
 
@@ -202,8 +202,8 @@ function InfoGrid(props: { items: Array<{ label: string; value: string | number 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {props.items.map((item) => (
-        <div key={item.label} className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+        <div key={item.label} className="brand-surface-soft rounded-2xl border p-4">
+          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
             {item.label}
           </p>
           <p className="mt-2 text-sm text-white">{item.value}</p>
@@ -731,7 +731,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             {[0, 1, 2].map((row) => (
               <div
                 key={row}
-                className="h-28 animate-pulse rounded-2xl border border-zinc-800 bg-zinc-800/60"
+                className="h-28 animate-pulse rounded-2xl border border-white/10 bg-white/5"
               />
             ))}
           </div>
@@ -744,7 +744,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     return (
       <AppShell>
         <div className="p-8">
-          <div className="rounded-2xl border border-rose-500/30 bg-zinc-800/70 p-8 text-white">
+          <div className="rounded-2xl border border-status-error/30 bg-status-error/10 p-8 text-white">
             {error ?? "Project not found"}
           </div>
         </div>
@@ -781,7 +781,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     type="button"
                     onClick={() => void generateSummary()}
                     disabled={summaryBusy}
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                   >
                     {summaryBusy ? "Refreshing..." : "Refresh summary"}
                   </button>
@@ -789,24 +789,24 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     type="button"
                     onClick={() => void resetSummary()}
                     disabled={summaryBusy}
-                    className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
                   >
                     Reset summary
                   </button>
                 </div>
-                {summaryError ? <p className="text-sm text-rose-300">{summaryError}</p> : null}
-                {summaryFeedback ? <p className="text-sm text-emerald-300">{summaryFeedback}</p> : null}
+                {summaryError ? <p className="text-sm text-status-error">{summaryError}</p> : null}
+                {summaryFeedback ? <p className="text-sm text-status-success">{summaryFeedback}</p> : null}
               </div>
             }
             inputsSummary={
               <div className="space-y-3">
-                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4">
+                <div className="brand-surface-soft rounded-2xl border p-4">
                   <p className="text-2xl font-semibold text-white">
                     {answeredQuestions}/{Math.max(totalQuestions, 1)}
                   </p>
-                  <p className="mt-1 text-sm text-zinc-400">Answered discovery fields</p>
+                  <p className="mt-1 text-sm text-text-secondary">Answered discovery fields</p>
                 </div>
-                <p className="text-sm text-zinc-300">
+                <p className="text-sm text-text-secondary">
                   {completedSessions} of {sessions.length || 4} discovery sessions have
                   meaningful input captured.
                 </p>
@@ -814,7 +814,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             }
             blueprintStatus={
               <div className="space-y-3">
-                <p className="text-sm text-zinc-300">
+                <p className="text-sm text-text-secondary">
                   {blueprint
                     ? `Blueprint generated ${formatDate(blueprint.generatedAt)} with ${blueprint.tasks.length} tasks.`
                     : "No blueprint generated yet."}
@@ -822,13 +822,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 <div className="flex flex-wrap gap-2">
                   <Link
                     href={`/projects/${project.id}/quote`}
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                   >
                     Open Quote →
                   </Link>
                   <Link
                     href={`/projects/${project.id}/proposal`}
-                    className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
                   >
                     Open Proposal →
                   </Link>
@@ -836,7 +836,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     type="button"
                     onClick={() => void generateBlueprint()}
                     disabled={blueprintBusy}
-                    className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
                   >
                     {blueprintBusy
                       ? "Generating..."
@@ -845,34 +845,34 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         : "Generate blueprint"}
                   </button>
                 </div>
-                {blueprintError ? <p className="text-sm text-rose-300">{blueprintError}</p> : null}
+                {blueprintError ? <p className="text-sm text-status-error">{blueprintError}</p> : null}
               </div>
             }
             agentSummary={
               <div className="space-y-4">
-                <p className="text-sm text-zinc-300">
+                <p className="text-sm text-text-secondary">
                   {discoverySummary?.executiveSummary ?? "No executive summary saved yet."}
                 </p>
                 <div className="grid gap-4 md:grid-cols-3">
-                  <div className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Risks</p>
-                    <ul className="mt-2 space-y-2 text-sm text-zinc-300">
+                  <div className="brand-surface-soft rounded-2xl border p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Risks</p>
+                    <ul className="mt-2 space-y-2 text-sm text-text-secondary">
                       {(discoverySummary?.keyRisks ?? ["No risks captured yet."]).slice(0, 3).map((item) => (
                         <li key={item}>{item}</li>
                       ))}
                     </ul>
                   </div>
-                  <div className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Tools</p>
-                    <ul className="mt-2 space-y-2 text-sm text-zinc-300">
+                  <div className="brand-surface-soft rounded-2xl border p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Tools</p>
+                    <ul className="mt-2 space-y-2 text-sm text-text-secondary">
                       {(discoverySummary?.supportingTools ?? ["No tools recommended yet."]).slice(0, 3).map((item) => (
                         <li key={item}>{item}</li>
                       ))}
                     </ul>
                   </div>
-                  <div className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Next questions</p>
-                    <ul className="mt-2 space-y-2 text-sm text-zinc-300">
+                  <div className="brand-surface-soft rounded-2xl border p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Next questions</p>
+                    <ul className="mt-2 space-y-2 text-sm text-text-secondary">
                       {(discoverySummary?.recommendedNextQuestions ?? [
                         "No follow-up questions suggested yet."
                       ]).slice(0, 3).map((item) => (
@@ -889,12 +889,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   {quickWins.map((quickWin) => (
                     <div
                       key={quickWin.id}
-                      className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4"
+                      className="brand-surface-soft rounded-2xl border p-4"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="font-medium text-white">{quickWin.title}</p>
-                          <p className="mt-2 text-sm text-zinc-300">
+                          <p className="mt-2 text-sm text-text-secondary">
                             {quickWin.description}
                           </p>
                         </div>
@@ -916,7 +916,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 )
                               }
                               disabled={quickWinBusyId === quickWin.id}
-                              className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-zinc-300"
+                              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-text-secondary"
                             >
                               {quickWinBusyId === quickWin.id
                                 ? "Saving..."
@@ -931,7 +931,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-zinc-400">No quick wins captured yet.</p>
+                <p className="text-sm text-text-secondary">No quick wins captured yet.</p>
               )
             }
           />
@@ -944,13 +944,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 {sessions.map((session) => (
                   <div
                     key={session.session}
-                    className="flex items-center justify-between rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4"
+                    className="flex items-center justify-between brand-surface-soft rounded-2xl border p-4"
                   >
                     <div>
                       <p className="font-medium text-white">
                         Session {session.session} — {session.title}
                       </p>
-                      <p className="mt-1 text-sm text-zinc-400">
+                      <p className="mt-1 text-sm text-text-secondary">
                         {Object.values(session.fields).filter((value) => value.trim().length > 0)
                           .length}
                         /{Object.keys(session.fields).length} fields answered
@@ -969,27 +969,27 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             }
             progressSummary={
               <div className="space-y-4">
-                <div className="h-3 overflow-hidden rounded-full bg-zinc-700">
+                <div className="h-3 overflow-hidden rounded-full bg-white/10">
                   <div
-                    className="h-full rounded-full bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]"
+                    className="h-full rounded-full bg-muloo-gradient"
                     style={{
                       width: `${sessions.length > 0 ? (completedSessions / sessions.length) * 100 : 0}%`
                     }}
                   />
                 </div>
-                <p className="text-sm text-zinc-300">
+                <p className="text-sm text-text-secondary">
                   {completedSessions}/{sessions.length || 4} sessions complete.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Link
                     href={`/projects/${project.id}/discovery`}
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                   >
                     Open Discovery →
                   </Link>
                   <Link
                     href={`/projects/${project.id}/prepare`}
-                    className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
                   >
                     Open Prepare →
                   </Link>
@@ -1002,16 +1002,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   supportingContext.slice(0, 3).map((item) => (
                     <div
                       key={item.id}
-                      className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4"
+                      className="brand-surface-soft rounded-2xl border p-4"
                     >
                       <p className="text-sm font-medium text-white">{item.sourceLabel}</p>
-                      <p className="mt-2 text-sm text-zinc-300">
+                      <p className="mt-2 text-sm text-text-secondary">
                         {(item.content ?? "No preview available").slice(0, 220)}
                       </p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-zinc-400">
+                  <p className="text-sm text-text-secondary">
                     No prepare notes or supporting context saved yet.
                   </p>
                 )}
@@ -1024,7 +1024,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           <PlanTab
             blueprintPanel={
               <div className="space-y-3">
-                <p className="text-sm text-zinc-300">
+                <p className="text-sm text-text-secondary">
                   {blueprint
                     ? `${blueprint.tasks.length} blueprint tasks generated on ${formatDate(
                         blueprint.generatedAt
@@ -1036,13 +1036,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     type="button"
                     onClick={() => void generateBlueprint()}
                     disabled={blueprintBusy}
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                   >
                     {blueprintBusy ? "Generating..." : blueprint ? "Regenerate Blueprint" : "Generate Blueprint"}
                   </button>
                   <Link
                     href={`/projects/${project.id}/proposal`}
-                    className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
                   >
                     View Proposal →
                   </Link>
@@ -1050,7 +1050,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               </div>
             }
             scopePanel={
-              <div className="space-y-3 text-sm text-zinc-300">
+              <div className="space-y-3 text-sm text-text-secondary">
                 <p>Project status: {formatLabel(project.status)}</p>
                 <p>Quote approval: {formatLabel(project.quoteApprovalStatus ?? "draft")}</p>
                 <p>
@@ -1059,13 +1059,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 <div className="flex flex-wrap gap-2">
                   <Link
                     href={`/projects/${project.id}/quote`}
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                   >
                     Open Quote →
                   </Link>
                   <Link
                     href={`/projects/${project.id}/proposal`}
-                    className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
                   >
                     Open Proposal →
                   </Link>
@@ -1073,11 +1073,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               </div>
             }
             workingDocPanel={
-              <div className="space-y-3 text-sm text-zinc-300">
+              <div className="space-y-3 text-sm text-text-secondary">
                 <p>Use the prepare workspace as the living working doc for discovery context and prep notes.</p>
                 <Link
                   href={`/projects/${project.id}/prepare`}
-                  className="inline-flex rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                  className="inline-flex brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                 >
                   Open Prepare Workspace →
                 </Link>
@@ -1103,7 +1103,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 <div className="flex flex-wrap gap-2">
                   <Link
                     href={`/projects/${project.id}/delivery`}
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                   >
                     Open Delivery Board →
                   </Link>
@@ -1111,13 +1111,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               </div>
             }
             changeManagement={
-              <div className="space-y-3 text-sm text-zinc-300">
+              <div className="space-y-3 text-sm text-text-secondary">
                 <p>
                   Use the change-management workspace to review scope changes once the approved plan starts moving.
                 </p>
                 <Link
                   href={`/projects/${project.id}/changes`}
-                  className="inline-flex rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300"
+                  className="inline-flex brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
                 >
                   View Changes →
                 </Link>
@@ -1133,7 +1133,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 <textarea
                   value={emailNotes}
                   onChange={(event) => setEmailNotes(event.target.value)}
-                  className="min-h-[220px] w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white outline-none"
+                  className="brand-input min-h-[220px] w-full rounded-2xl px-4 py-3 text-sm text-white outline-none"
                   placeholder="Add context for the message you want to draft."
                 />
                 <div className="flex flex-wrap gap-2">
@@ -1141,7 +1141,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     type="button"
                     onClick={() => void generateEmailDraft()}
                     disabled={emailBusy}
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                   >
                     {emailBusy ? "Generating..." : "Generate email"}
                   </button>
@@ -1150,14 +1150,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     onClick={() =>
                       void copyText(emailDraft, (value) => setEmailFeedback(value))
                     }
-                    className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
                   >
                     Copy draft
                   </button>
                 </div>
-                {emailError ? <p className="text-sm text-rose-300">{emailError}</p> : null}
-                {emailFeedback ? <p className="text-sm text-emerald-300">{emailFeedback}</p> : null}
-                <pre className="min-h-[220px] whitespace-pre-wrap rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4 text-sm text-zinc-300">
+                {emailError ? <p className="text-sm text-status-error">{emailError}</p> : null}
+                {emailFeedback ? <p className="text-sm text-status-success">{emailFeedback}</p> : null}
+                <pre className="min-h-[220px] whitespace-pre-wrap brand-surface-soft rounded-2xl border p-4 text-sm text-text-secondary">
                   {emailDraft || "Generate a draft to see it here."}
                 </pre>
               </div>
@@ -1165,7 +1165,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             agendaBuilder={
               <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <label className="space-y-2 text-sm text-zinc-300">
+                  <label className="space-y-2 text-sm text-text-secondary">
                     <span>Session type</span>
                     <select
                       value={agendaSessionType}
@@ -1174,7 +1174,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           event.target.value as (typeof agendaSessionTypeOptions)[number]
                         )
                       }
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+                      className="brand-input w-full rounded-xl px-3 py-2 text-white"
                     >
                       {agendaSessionTypeOptions.map((option) => (
                         <option key={option} value={option}>
@@ -1183,29 +1183,29 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       ))}
                     </select>
                   </label>
-                  <label className="space-y-2 text-sm text-zinc-300">
+                  <label className="space-y-2 text-sm text-text-secondary">
                     <span>Date</span>
                     <input
                       type="date"
                       value={agendaDate}
                       onChange={(event) => setAgendaDate(event.target.value)}
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+                      className="brand-input w-full rounded-xl px-3 py-2 text-white"
                     />
                   </label>
-                  <label className="space-y-2 text-sm text-zinc-300">
+                  <label className="space-y-2 text-sm text-text-secondary">
                     <span>Duration</span>
                     <input
                       value={agendaDuration}
                       onChange={(event) => setAgendaDuration(event.target.value)}
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+                      className="brand-input w-full rounded-xl px-3 py-2 text-white"
                     />
                   </label>
-                  <label className="space-y-2 text-sm text-zinc-300 md:col-span-2">
+                  <label className="space-y-2 text-sm text-text-secondary md:col-span-2">
                     <span>Notes</span>
                     <textarea
                       value={agendaNotes}
                       onChange={(event) => setAgendaNotes(event.target.value)}
-                      className="min-h-[120px] w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white"
+                      className="brand-input min-h-[120px] w-full rounded-2xl px-4 py-3 text-white"
                     />
                   </label>
                 </div>
@@ -1214,7 +1214,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     type="button"
                     onClick={() => void generateAgenda()}
                     disabled={agendaBusy}
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                   >
                     {agendaBusy ? "Generating..." : "Generate agenda"}
                   </button>
@@ -1225,7 +1225,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         setAgendaFeedback(value)
                       )
                     }
-                    className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
                   >
                     Copy agenda
                   </button>
@@ -1233,16 +1233,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     type="button"
                     onClick={() => void createCalendarEvent()}
                     disabled={!agendaDate || calendarBusy}
-                    className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 disabled:cursor-not-allowed disabled:text-zinc-500"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary disabled:cursor-not-allowed disabled:text-text-muted"
                   >
                     {calendarBusy ? "Creating..." : "+ Add to Google Calendar"}
                   </button>
                 </div>
-                {agendaError ? <p className="text-sm text-rose-300">{agendaError}</p> : null}
-                {agendaFeedback ? <p className="text-sm text-emerald-300">{agendaFeedback}</p> : null}
-                {calendarError ? <p className="text-sm text-rose-300">{calendarError}</p> : null}
-                {calendarFeedback ? <p className="text-sm text-emerald-300">{calendarFeedback}</p> : null}
-                <pre className="min-h-[220px] whitespace-pre-wrap rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4 text-sm text-zinc-300">
+                {agendaError ? <p className="text-sm text-status-error">{agendaError}</p> : null}
+                {agendaFeedback ? <p className="text-sm text-status-success">{agendaFeedback}</p> : null}
+                {calendarError ? <p className="text-sm text-status-error">{calendarError}</p> : null}
+                {calendarFeedback ? <p className="text-sm text-status-success">{calendarFeedback}</p> : null}
+                <pre className="min-h-[220px] whitespace-pre-wrap brand-surface-soft rounded-2xl border p-4 text-sm text-text-secondary">
                   {agendaResult?.content || "Generate an agenda to see it here."}
                 </pre>
                 {agendaHistory.length > 0 ? (
@@ -1250,12 +1250,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     {agendaHistory.map((historyItem, index) => (
                       <details
                         key={`${historyItem.generatedAt}-${index}`}
-                        className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4"
+                        className="brand-surface-soft rounded-2xl border p-4"
                       >
-                        <summary className="cursor-pointer text-sm text-zinc-300">
+                        <summary className="cursor-pointer text-sm text-text-secondary">
                           {historyItem.sessionType} · {formatDate(historyItem.generatedAt)}
                         </summary>
-                        <pre className="mt-3 whitespace-pre-wrap text-sm text-zinc-400">
+                        <pre className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
                           {historyItem.content}
                         </pre>
                       </details>
@@ -1281,7 +1281,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       }))
                     }
                     placeholder="First name"
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+                    className="brand-input rounded-xl px-3 py-2 text-white"
                   />
                   <input
                     value={clientUserDraft.lastName}
@@ -1292,7 +1292,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       }))
                     }
                     placeholder="Last name"
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+                    className="brand-input rounded-xl px-3 py-2 text-white"
                   />
                   <input
                     value={clientUserDraft.email}
@@ -1303,7 +1303,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       }))
                     }
                     placeholder="Email"
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-white md:col-span-2"
+                    className="brand-input rounded-xl px-3 py-2 text-white md:col-span-2"
                   />
                   <select
                     value={clientUserDraft.role}
@@ -1313,13 +1313,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         role: event.target.value
                       }))
                     }
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+                    className="brand-input rounded-xl px-3 py-2 text-white"
                   >
                     <option value="contributor">Contributor</option>
                     <option value="approver">Approver</option>
                     <option value="viewer">Viewer</option>
                   </select>
-                  <label className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 brand-input rounded-xl px-3 py-2 text-sm text-text-secondary">
                     <input
                       type="checkbox"
                       checked={clientUserDraft.questionnaireAccess}
@@ -1337,25 +1337,25 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   type="button"
                   onClick={() => void addClientUser()}
                   disabled={clientUserBusy}
-                  className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                  className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                 >
                   {clientUserBusy ? "Saving..." : "Invite client user"}
                 </button>
-                {clientUserError ? <p className="text-sm text-rose-300">{clientUserError}</p> : null}
-                {clientUserFeedback ? <p className="text-sm text-emerald-300">{clientUserFeedback}</p> : null}
+                {clientUserError ? <p className="text-sm text-status-error">{clientUserError}</p> : null}
+                {clientUserFeedback ? <p className="text-sm text-status-success">{clientUserFeedback}</p> : null}
                 <div className="space-y-3">
                   {clientUsers.map((user) => (
                     <div
                       key={user.id}
-                      className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4"
+                      className="brand-surface-soft rounded-2xl border p-4"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="font-medium text-white">
                             {user.firstName} {user.lastName}
                           </p>
-                          <p className="mt-1 text-sm text-zinc-400">{user.email}</p>
-                          <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-500">
+                          <p className="mt-1 text-sm text-text-secondary">{user.email}</p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.18em] text-text-muted">
                             {user.role} · {user.authStatus ?? "invite_pending"}
                           </p>
                         </div>
@@ -1364,7 +1364,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             type="button"
                             onClick={() => void copyClientAccessLink(user.id, "invite-link")}
                             disabled={linkBusyId === user.id}
-                            className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-zinc-300"
+                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-text-secondary"
                           >
                             Invite link
                           </button>
@@ -1372,7 +1372,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             type="button"
                             onClick={() => void copyClientAccessLink(user.id, "reset-link")}
                             disabled={linkBusyId === user.id}
-                            className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-zinc-300"
+                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-text-secondary"
                           >
                             Reset link
                           </button>
@@ -1384,8 +1384,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               </div>
             }
             portalActions={
-              <div className="space-y-4 text-sm text-zinc-300">
-                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4">
+              <div className="space-y-4 text-sm text-text-secondary">
+                <div className="brand-surface-soft rounded-2xl border p-4">
                   <p className="font-medium text-white">HubSpot portal connection</p>
                   <p className="mt-2">
                     {project.portal?.connected
@@ -1396,13 +1396,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 <div className="flex flex-wrap gap-2">
                   <Link
                     href="/projects/portal-ops"
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                   >
                     Open Portal Ops →
                   </Link>
                   <Link
                     href={`/projects/${project.id}/quote`}
-                    className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
                   >
                     Open client quote →
                   </Link>
@@ -1416,7 +1416,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
   return (
     <AppShell>
-      <div className="bg-zinc-900 p-4 sm:p-6 xl:p-8">
+      <div className="brand-page p-4 sm:p-6 xl:p-8">
         <ProjectDetailLayout
           backHref="/projects"
           title={project.name}
@@ -1430,19 +1430,19 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             <>
               <Link
                 href={`/projects/${project.id}/discovery`}
-                className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
               >
                 Discovery
               </Link>
               <Link
                 href={`/projects/${project.id}/delivery`}
-                className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
               >
                 Delivery Board
               </Link>
               <Link
                 href={`/projects/${project.id}/quote`}
-                className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300"
+                className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
               >
                 Quote
               </Link>

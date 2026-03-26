@@ -3,18 +3,20 @@
 @tailwind utilities;
 
 :root {
-  --background-primary: #080d1f;
-  --background-card: #0e1530;
-  --background-elevated: #141d3d;
+  --background-primary: #050a30;
+  --background-card: #0a1236;
+  --background-elevated: #0a1040;
   --border-subtle: rgba(255, 255, 255, 0.07);
   --text-primary: #ffffff;
-  --text-secondary: #8b93b0;
-  --text-muted: #555e7a;
-  --accent-solid: #e0529c;
-  --status-success: #2dd4a0;
-  --status-warning: #f0a050;
-  --status-error: #e05060;
-  --interactive-blue: #4f8ef7;
+  --text-secondary: #a0abc7;
+  --text-muted: #7b86a8;
+  --accent-solid: #00c4cc;
+  --accent-purple: #c140ff;
+  --accent-orange: #f47621;
+  --status-success: #59bf96;
+  --status-warning: #f47621;
+  --status-error: #fb2c36;
+  --interactive-blue: #155dfc;
 }
 
 * {
@@ -30,15 +32,17 @@ body {
   background-color: var(--background-primary);
   color: var(--text-primary);
   font-family:
+    "Montserrat",
     system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
     sans-serif;
 }
 
 body {
   line-height: 1.6;
+  background:
+    radial-gradient(circle at top center, rgba(0, 196, 204, 0.08), transparent 32%),
+    radial-gradient(circle at 80% 0%, rgba(0, 196, 204, 0.05), transparent 24%),
+    var(--background-primary);
 }
 
 /* Custom scrollbar */
@@ -61,10 +65,68 @@ body {
 
 /* Gradient text utility */
 .gradient-text {
-  background: linear-gradient(135deg, #7c5cbf 0%, #e0529c 50%, #f0824a 100%);
+  background: linear-gradient(135deg, #00c4cc 0%, #c140ff 52%, #f47621 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.brand-page {
+  background:
+    radial-gradient(circle at top center, rgba(0, 196, 204, 0.08), transparent 32%),
+    radial-gradient(circle at 80% 0%, rgba(0, 196, 204, 0.05), transparent 24%),
+    var(--background-primary);
+}
+
+.brand-surface {
+  background: var(--background-card);
+  border-color: var(--border-subtle);
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.2);
+}
+
+.brand-surface-soft {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.brand-surface-elevated {
+  background: var(--background-elevated);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.brand-input {
+  background: rgba(5, 10, 48, 0.5);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.brand-input::placeholder {
+  color: var(--text-muted);
+}
+
+.brand-status-neutral {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.brand-status-success {
+  background: rgba(89, 191, 150, 0.15);
+  color: #bff0dc;
+}
+
+.brand-status-warning {
+  background: rgba(244, 118, 33, 0.15);
+  color: #ffd4b3;
+}
+
+.brand-status-danger {
+  background: rgba(251, 44, 54, 0.15);
+  color: #ffc0c4;
+}
+
+.brand-status-info {
+  background: rgba(21, 93, 252, 0.15);
+  color: #c6dbff;
 }
 
 /* Status badge styles */

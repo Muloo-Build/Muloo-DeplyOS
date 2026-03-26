@@ -160,7 +160,7 @@ export default function Sidebar() {
   }, [pathname]);
 
   return (
-    <aside className="fixed left-0 top-0 flex h-screen w-sidebar flex-col border-r border-[rgba(255,255,255,0.07)] bg-[#0a0f24]">
+    <aside className="fixed left-0 top-0 flex h-screen w-sidebar flex-col border-r border-[rgba(255,255,255,0.07)] bg-[#060e2b]">
       <div className="border-b border-[rgba(255,255,255,0.07)] px-6 py-5">
         <img src="/muloo-logo.svg" alt="Muloo" className="h-10 w-auto" />
         <p className="mt-3 text-sm font-medium text-text-secondary">
@@ -172,7 +172,7 @@ export default function Sidebar() {
         {navGroups.map((group) => (
           <div key={group.label} className="mb-6">
             {group.label ? (
-              <p className="mt-4 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500">
+              <p className="mt-4 px-3 py-2 text-xs uppercase tracking-wider text-text-muted">
                 {group.label}
               </p>
             ) : null}
@@ -188,12 +188,12 @@ export default function Sidebar() {
                       item.compact ? "h-10 ml-3" : "h-12"
                     } ${
                       active
-                        ? "bg-[#141d3d] text-white"
-                        : "text-text-secondary hover:bg-[#141d3d] hover:text-white"
+                        ? "bg-background-elevated text-white"
+                        : "text-text-secondary hover:bg-background-elevated hover:text-white"
                     }`}
                   >
                     {active ? (
-                      <span className="absolute left-0 top-2 h-6 w-1 rounded-r bg-[linear-gradient(180deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]" />
+                      <span className="absolute left-0 top-2 h-6 w-1 rounded-r bg-muloo-gradient" />
                     ) : null}
                     <span
                       className={`flex items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-white ${

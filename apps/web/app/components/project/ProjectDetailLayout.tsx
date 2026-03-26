@@ -35,22 +35,22 @@ export default function ProjectDetailLayout(props: {
 }) {
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-zinc-800 bg-zinc-800/80 p-6">
+      <section className="brand-surface rounded-3xl border p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <Link href={props.backHref} className="text-sm text-zinc-400 hover:text-white">
+            <Link href={props.backHref} className="text-sm text-text-secondary hover:text-white">
               ← Back to projects
             </Link>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <h1 className="text-3xl font-semibold text-white">{props.title}</h1>
               <button
                 type="button"
-                className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-zinc-200"
+                className="brand-surface-soft rounded-full border px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-white"
               >
                 {props.statusLabel}
               </button>
             </div>
-            <p className="mt-3 text-sm text-zinc-300">
+            <p className="mt-3 text-sm text-text-secondary">
               {props.clientName} · {props.projectType} ·{" "}
               {props.hubsInScope.length > 0
                 ? props.hubsInScope.join(", ")
@@ -60,7 +60,7 @@ export default function ProjectDetailLayout(props: {
           <div className="flex flex-wrap gap-2">{props.actions}</div>
         </div>
 
-        <div className="mt-6 border-b border-zinc-800">
+        <div className="mt-6 border-b border-[rgba(255,255,255,0.07)]">
           <nav className="flex flex-wrap gap-4">
             {tabs.map((tab) => {
               const active = tab.key === props.activeTab;
@@ -71,8 +71,8 @@ export default function ProjectDetailLayout(props: {
                   onClick={() => props.onTabChange(tab.key)}
                   className={`border-b-2 px-1 pb-3 text-sm font-medium transition ${
                     active
-                      ? "border-b-2 border-violet-500 text-white"
-                      : "border-transparent text-zinc-400 hover:text-white"
+                      ? "border-b-2 border-brand-teal text-white"
+                      : "border-transparent text-text-secondary hover:text-white"
                   }`}
                 >
                   {tab.label}

@@ -96,29 +96,29 @@ function getStatusBadgeClass(status: string) {
   switch (status) {
     case "completed":
     case "complete":
-      return "bg-emerald-500/12 text-emerald-300";
+      return "brand-status-success";
     case "queued":
     case "waiting_on_client":
     case "ready-for-execution":
-      return "bg-amber-500/12 text-amber-300";
+      return "brand-status-warning";
     case "failed":
     case "blocked":
-      return "bg-rose-500/12 text-rose-300";
+      return "brand-status-danger";
     default:
-      return "bg-zinc-700 text-zinc-200";
+      return "brand-status-neutral";
   }
 }
 
 function getAttentionTone(reasonKey: NeedsAttentionItem["reasonKey"]) {
   switch (reasonKey) {
     case "overdue":
-      return "border-rose-500/30 bg-rose-500/8 text-rose-200";
+      return "border-status-error/35 bg-status-error/10 text-white";
     case "awaiting_client":
-      return "border-amber-500/30 bg-amber-500/8 text-amber-200";
+      return "border-status-warning/35 bg-status-warning/10 text-white";
     case "blueprint_approved_no_delivery":
-      return "border-emerald-500/30 bg-emerald-500/8 text-emerald-200";
+      return "border-status-success/35 bg-status-success/10 text-white";
     default:
-      return "border-zinc-700 bg-zinc-800 text-zinc-200";
+      return "brand-surface-soft text-white";
   }
 }
 
@@ -130,17 +130,17 @@ function StatCard(props: {
 }) {
   const toneClass =
     props.tone === "danger"
-      ? "border-rose-500/25 bg-rose-500/8 text-rose-200"
+      ? "border-status-error/30 bg-status-error/10 text-white"
       : props.tone === "warning"
-        ? "border-amber-500/25 bg-amber-500/8 text-amber-200"
-        : "border-zinc-700 bg-zinc-800 text-white";
+        ? "border-status-warning/30 bg-status-warning/10 text-white"
+        : "border-brand-teal/25 bg-brand-teal/10 text-white";
 
   return (
     <Link
       href={props.href}
-      className={`rounded-2xl border p-5 transition hover:border-zinc-500 ${toneClass}`}
+      className={`rounded-2xl border p-5 transition hover:border-brand-teal/60 ${toneClass}`}
     >
-      <p className="text-sm text-zinc-300">{props.label}</p>
+      <p className="text-sm text-text-secondary">{props.label}</p>
       <p className="mt-3 text-4xl font-semibold">{props.value}</p>
     </Link>
   );
@@ -229,14 +229,14 @@ export default function MulooCommandCentre() {
 
   return (
     <AppShell>
-      <div className="min-h-screen bg-zinc-900 p-8 text-white">
+      <div className="brand-page min-h-screen p-4 text-white sm:p-6 lg:p-8">
         <div className="space-y-8">
-          <header className="rounded-3xl border border-zinc-800 bg-zinc-800/80 p-8">
-            <p className="text-sm uppercase tracking-[0.25em] text-zinc-500">
+          <header className="brand-surface rounded-3xl border p-6 sm:p-8">
+            <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
               Command Centre
             </p>
             <h1 className="mt-3 text-3xl font-semibold">{heading.greeting}</h1>
-            <p className="mt-2 text-zinc-300">{heading.dateLabel}</p>
+            <p className="mt-2 text-text-secondary">{heading.dateLabel}</p>
           </header>
 
           <section className="grid gap-4 xl:grid-cols-4">
@@ -266,28 +266,28 @@ export default function MulooCommandCentre() {
             />
           </section>
 
-          <section className="rounded-3xl border border-zinc-800 bg-zinc-800/70 p-6">
+          <section className="brand-surface rounded-3xl border p-6">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
                   Needs Attention
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">
                   The next five things to unblock
                 </h2>
               </div>
-              <Link href="/projects" className="text-sm text-zinc-300 hover:text-white">
+              <Link href="/projects" className="text-sm text-text-secondary hover:text-brand-teal">
                 View all projects →
               </Link>
             </div>
 
             <div className="mt-5 space-y-3">
               {loading ? (
-                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-5 text-zinc-400">
+                <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
                   Loading attention queue...
                 </div>
               ) : needsAttention.length === 0 ? (
-                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/70 p-5 text-zinc-400">
+                <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
                   Nothing urgent is flagged right now.
                 </div>
               ) : (
@@ -295,7 +295,7 @@ export default function MulooCommandCentre() {
                   <Link
                     key={item.id}
                     href={item.href}
-                    className={`block rounded-2xl border p-4 transition hover:border-zinc-500 ${getAttentionTone(
+                    className={`block rounded-2xl border p-4 transition hover:border-brand-teal/55 ${getAttentionTone(
                       item.reasonKey
                     )}`}
                   >
@@ -304,13 +304,13 @@ export default function MulooCommandCentre() {
                         <p className="text-base font-semibold text-white">
                           {item.projectName}
                         </p>
-                        <p className="mt-1 text-sm text-zinc-300">
+                        <p className="mt-1 text-sm text-text-secondary">
                           {item.clientName} · {item.reason}
                         </p>
                       </div>
-                      <div className="text-right text-sm text-zinc-300">
+                      <div className="text-right text-sm text-text-secondary">
                         <p>{item.age}</p>
-                        <p className="mt-1 rounded-full bg-zinc-900/70 px-2 py-1 text-xs uppercase tracking-[0.18em]">
+                        <p className="brand-surface-soft mt-1 inline-flex rounded-full border px-2 py-1 text-xs uppercase tracking-[0.18em] text-white">
                           {formatStatusLabel(item.reasonKey)}
                         </p>
                       </div>
@@ -322,17 +322,17 @@ export default function MulooCommandCentre() {
           </section>
 
           <section className="grid gap-6 xl:grid-cols-2">
-            <div className="rounded-3xl border border-zinc-800 bg-zinc-800/70 p-6">
+            <div className="brand-surface rounded-3xl border p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
                     Active Projects
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold text-white">
                     Recently updated delivery work
                   </h2>
                 </div>
-                <Link href="/projects" className="text-sm text-zinc-300 hover:text-white">
+                <Link href="/projects" className="text-sm text-text-secondary hover:text-brand-teal">
                   View all projects →
                 </Link>
               </div>
@@ -342,11 +342,11 @@ export default function MulooCommandCentre() {
                   <Link
                     key={project.id}
                     href={project.defaultWorkspacePath ?? `/projects/${project.id}`}
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4 transition hover:border-zinc-500"
+                    className="brand-surface-soft flex items-center justify-between gap-4 rounded-2xl border p-4 transition hover:border-brand-teal/55"
                   >
                     <div>
                       <p className="font-medium text-white">{project.name}</p>
-                      <p className="mt-1 text-sm text-zinc-400">{project.clientName}</p>
+                      <p className="mt-1 text-sm text-text-secondary">{project.clientName}</p>
                     </div>
                     <div className="text-right">
                       <span
@@ -356,7 +356,7 @@ export default function MulooCommandCentre() {
                       >
                         {formatStatusLabel(project.status)}
                       </span>
-                      <p className="mt-2 text-xs text-zinc-500">
+                      <p className="mt-2 text-xs text-text-muted">
                         {formatRelativeTime(project.updatedAt)}
                       </p>
                     </div>
@@ -365,17 +365,17 @@ export default function MulooCommandCentre() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-zinc-800 bg-zinc-800/70 p-6">
+            <div className="brand-surface rounded-3xl border p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
                     Recent Runs
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold text-white">
                     Latest automation activity
                   </h2>
                 </div>
-                <Link href="/runs" className="text-sm text-zinc-300 hover:text-white">
+                <Link href="/runs" className="text-sm text-text-secondary hover:text-brand-teal">
                   View all runs →
                 </Link>
               </div>
@@ -385,16 +385,16 @@ export default function MulooCommandCentre() {
                   <Link
                     key={run.id}
                     href="/runs"
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-700 bg-zinc-900/70 p-4 transition hover:border-zinc-500"
+                    className="brand-surface-soft flex items-center justify-between gap-4 rounded-2xl border p-4 transition hover:border-brand-teal/55"
                   >
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-white">{run.name}</p>
-                        <span className="rounded-full bg-zinc-700 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
                           {run.type}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-zinc-400">
+                      <p className="mt-1 text-sm text-text-secondary">
                         {run.projectName ?? "Workspace run"}
                       </p>
                     </div>
@@ -406,7 +406,7 @@ export default function MulooCommandCentre() {
                       >
                         {formatStatusLabel(run.status)}
                       </span>
-                      <p className="mt-2 text-xs text-zinc-500">
+                      <p className="mt-2 text-xs text-text-muted">
                         {formatRelativeTime(run.createdAt)}
                       </p>
                     </div>

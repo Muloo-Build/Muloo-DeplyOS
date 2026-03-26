@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 function OverviewCard(props: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-3xl border border-zinc-800 bg-zinc-800/70 p-6">
+    <section className="brand-surface rounded-3xl border p-6">
       <h3 className="text-lg font-semibold text-white">{props.title}</h3>
       <div className="mt-4">{props.children}</div>
     </section>

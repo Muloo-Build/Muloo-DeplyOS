@@ -10,39 +10,47 @@ module.exports = {
       colors: {
         // Muloo brand colors
         background: {
-          primary: "#080d1f",
-          card: "#0e1530",
-          elevated: "#141d3d"
+          primary: "#050a30",
+          card: "#0a1236",
+          elevated: "#0a1040"
         },
         text: {
           primary: "#ffffff",
-          secondary: "#8b93b0",
-          muted: "#555e7a"
+          secondary: "#a0abc7",
+          muted: "#7b86a8"
+        },
+        brand: {
+          teal: "#00c4cc",
+          purple: "#c140ff",
+          orange: "#f47621",
+          blue: "#155dfc",
+          green: "#59bf96",
+          navy: "#050a30"
         },
         accent: {
-          solid: "#e0529c"
+          solid: "#00c4cc"
         },
         status: {
-          success: "#2dd4a0",
-          warning: "#f0a050",
-          error: "#e05060",
-          info: "#4f8ef7"
+          success: "#59bf96",
+          warning: "#f47621",
+          error: "#fb2c36",
+          info: "#155dfc"
         },
         hub: {
-          sales: "#4f8ef7",
-          marketing: "#2dd4a0",
-          service: "#f0a050",
-          cms: "#a07cf0",
-          ops: "#8b93b0"
+          sales: "#155dfc",
+          marketing: "#59bf96",
+          service: "#f47621",
+          cms: "#c140ff",
+          ops: "#a0abc7"
         }
       },
       fontFamily: {
-        sans: ["system-ui", "sans-serif"],
-        heading: ["system-ui", "sans-serif"]
+        sans: ["Montserrat", "system-ui", "sans-serif"],
+        heading: ["Montserrat", "system-ui", "sans-serif"]
       },
       backgroundImage: {
         "muloo-gradient":
-          "linear-gradient(135deg, #7c5cbf 0%, #e0529c 50%, #f0824a 100%)"
+          "linear-gradient(135deg, #00c4cc 0%, #c140ff 52%, #f47621 100%)"
       },
       spacing: {
         sidebar: "240px"
