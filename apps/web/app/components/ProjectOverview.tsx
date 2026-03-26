@@ -50,6 +50,14 @@ interface Project {
     requiredProductTiers: Record<string, string>;
     selectedProductTiers: Record<string, string>;
   } | null;
+  lastAgenda?: {
+    sessionType: string;
+    date?: string | null;
+    duration?: string | null;
+    notes?: string | null;
+    content: string;
+    generatedAt: string;
+  } | null;
   clientChampionFirstName?: string | null;
   clientChampionLastName?: string | null;
   clientChampionEmail?: string | null;
@@ -217,17 +225,13 @@ interface SavedClientContact {
   canApproveQuotes?: boolean;
 }
 
-interface ProviderConnectionSummary {
-  providerKey: string;
-  label: string;
-  defaultModel?: string | null;
-  isEnabled: boolean;
-  hasApiKey: boolean;
-}
-
-interface EmailSettingsSummary {
-  enabled: boolean;
-  fromEmail?: string | null;
+interface ProjectAgenda {
+  sessionType: string;
+  date?: string | null;
+  duration?: string | null;
+  notes?: string | null;
+  content: string;
+  generatedAt: string;
 }
 
 function isSessionComplete(session: SessionDetail | undefined) {
@@ -248,24 +252,6 @@ function waitForDelay(delayMs: number) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, delayMs);
   });
-}
-
-function appendRecipientList(currentValue: string, nextEmail: string) {
-  const normalizedEmail = nextEmail.trim();
-  if (!normalizedEmail) {
-    return currentValue;
-  }
-
-  const recipients = currentValue
-    .split(/[,\n;]/)
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  if (recipients.includes(normalizedEmail)) {
-    return recipients.join(", ");
-  }
-
-  return [...recipients, normalizedEmail].join(", ");
 }
 
 const industryOptions = [
@@ -300,12 +286,22 @@ type EditableField =
 type SectionKey =
   | "context"
   | "email"
+  | "agenda"
   | "sessions"
   | "portal"
   | "inputs"
   | "discovery"
   | "agent"
   | "quickWins";
+
+const agendaSessionTypeOptions = [
+  "Workshop / Onboarding Session",
+  "Discovery Session",
+  "Kick-off Meeting",
+  "Check-in / Status Call"
+] as const;
+
+const agendaDurationOptions = ["1hr", "2hrs", "Half day", "Full day"] as const;
 
 const engagementOptions = [
   { value: "IMPLEMENTATION", label: "Implementation" },
@@ -652,11 +648,6 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       createDefaultClientQuestionnaireDefinitionMap()
     );
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
-  const [aiProviders, setAiProviders] = useState<ProviderConnectionSummary[]>(
-    []
-  );
-  const [emailSettings, setEmailSettings] =
-    useState<EmailSettingsSummary | null>(null);
   const [clientUsers, setClientUsers] = useState<ClientPortalUser[]>([]);
   const [savedClientContacts, setSavedClientContacts] = useState<
     SavedClientContact[]
@@ -718,23 +709,28 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [questionnaireFeedback, setQuestionnaireFeedback] = useState<
     string | null
   >(null);
-  const [emailIntent, setEmailIntent] = useState("next_steps");
-  const [emailProviderKey, setEmailProviderKey] = useState("openai");
-  const [emailModelOverride, setEmailModelOverride] = useState("");
-  const [emailInstructions, setEmailInstructions] = useState("");
-  const [emailTo, setEmailTo] = useState("");
-  const [emailCc, setEmailCc] = useState("");
-  const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [emailBusy, setEmailBusy] = useState(false);
-  const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [emailFeedback, setEmailFeedback] = useState<string | null>(null);
+  const [emailCopied, setEmailCopied] = useState(false);
+  const [agendaSessionType, setAgendaSessionType] = useState<
+    (typeof agendaSessionTypeOptions)[number]
+  >(agendaSessionTypeOptions[0]);
+  const [agendaDate, setAgendaDate] = useState("");
+  const [agendaDuration, setAgendaDuration] = useState("");
+  const [agendaNotes, setAgendaNotes] = useState("");
+  const [agendaBusy, setAgendaBusy] = useState(false);
+  const [agendaError, setAgendaError] = useState<string | null>(null);
+  const [agendaFeedback, setAgendaFeedback] = useState<string | null>(null);
+  const [agendaCopied, setAgendaCopied] = useState(false);
+  const [agendaResult, setAgendaResult] = useState<ProjectAgenda | null>(null);
   const [dictationActive, setDictationActive] = useState(false);
   const speechRecognitionRef = useRef<any>(null);
   const sectionRefs = {
     context: useRef<HTMLDivElement>(null),
     email: useRef<HTMLDivElement>(null),
+    agenda: useRef<HTMLDivElement>(null),
     sessions: useRef<HTMLDivElement>(null),
     portal: useRef<HTMLDivElement>(null),
     inputs: useRef<HTMLDivElement>(null),
@@ -746,6 +742,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     {
       context: true,
       email: false,
+      agenda: false,
       sessions: false,
       portal: true,
       inputs: false,
@@ -763,8 +760,6 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       blueprintResponse,
       summaryResponse,
       usersResponse,
-      providersResponse,
-      emailSettingsResponse,
       clientUsersResponse,
       supportingContextResponse,
       clientsResponse,
@@ -776,8 +771,6 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery-summary`),
       fetch("/api/users"),
-      fetch("/api/provider-connections"),
-      fetch("/api/email-settings"),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`),
       fetch(
         `/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`
@@ -791,8 +784,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       !projectResponse.ok ||
       !sessionsResponse.ok ||
       !summaryResponse.ok ||
-      !usersResponse.ok ||
-      !providersResponse.ok
+      !usersResponse.ok
     ) {
       throw new Error("Failed to load project");
     }
@@ -801,10 +793,6 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     const sessionsBody = await sessionsResponse.json();
     const summaryBody = await summaryResponse.json();
     const usersBody = await usersResponse.json();
-    const providersBody = await providersResponse.json();
-    const emailSettingsBody = emailSettingsResponse.ok
-      ? await emailSettingsResponse.json().catch(() => null)
-      : null;
     const clientUsersBody = await clientUsersResponse.json();
     const supportingContextBody = await supportingContextResponse.json();
     const clientsBody = clientsResponse.ok
@@ -824,19 +812,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         projectBody.project.clientQuestionnaireConfig
       )
     );
+    setAgendaResult(projectBody.project?.lastAgenda ?? null);
     setSessions(sessionsBody.sessionDetails ?? []);
     setDiscoverySummary(summaryBody.summary ?? null);
     setTeamUsers(usersBody.users ?? []);
-    const enabledDraftProviders = (providersBody.providers ?? []).filter(
-      (provider: ProviderConnectionSummary) =>
-        provider.isEnabled &&
-        provider.hasApiKey &&
-        (provider.providerKey === "openai" ||
-          provider.providerKey === "anthropic" ||
-          provider.providerKey === "perplexity")
-    );
-    setAiProviders(enabledDraftProviders);
-    setEmailSettings(emailSettingsBody?.settings ?? null);
     setClientUsers(clientUsersBody.clientUsers ?? []);
     setSupportingContext(supportingContextBody.evidenceItems ?? []);
     const matchingClient =
@@ -847,28 +826,6 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     setSavedClientContacts(matchingClient?.contacts ?? []);
     setPortalOptions(portalsBody?.portals ?? []);
     setFindings(findingsBody?.findings ?? []);
-    if (enabledDraftProviders.length > 0) {
-      setEmailProviderKey((currentKey) =>
-        enabledDraftProviders.some(
-          (provider) => provider.providerKey === currentKey
-        )
-          ? currentKey
-          : enabledDraftProviders[0].providerKey
-      );
-      setEmailModelOverride((currentModel) => {
-        if (currentModel.trim()) {
-          return currentModel;
-        }
-
-        return (
-          enabledDraftProviders.find(
-            (provider) => provider.providerKey === emailProviderKey
-          )?.defaultModel ??
-          enabledDraftProviders[0].defaultModel ??
-          ""
-        );
-      });
-    }
 
     if (blueprintResponse.ok) {
       const blueprintBody = await blueprintResponse.json();
@@ -947,46 +904,29 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   }, [projectId]);
 
   useEffect(() => {
-    if (aiProviders.length === 0) {
-      return;
-    }
-
-    const selectedProvider =
-      aiProviders.find(
-        (provider) => provider.providerKey === emailProviderKey
-      ) ?? aiProviders[0];
-
-    if (selectedProvider && selectedProvider.providerKey !== emailProviderKey) {
-      setEmailProviderKey(selectedProvider.providerKey);
-    }
-
-    if (!emailModelOverride.trim() && selectedProvider?.defaultModel) {
-      setEmailModelOverride(selectedProvider.defaultModel);
-    }
-  }, [aiProviders, emailModelOverride, emailProviderKey]);
+    setAgendaResult(project?.lastAgenda ?? null);
+  }, [project?.lastAgenda]);
 
   useEffect(() => {
-    if (!project) {
+    if (!project?.lastAgenda) {
       return;
     }
 
-    const defaultRecipients = Array.from(
-      new Set(
-        [
-          project.clientChampionEmail ?? "",
-          ...clientUsers.map((clientUser) => clientUser.email)
-        ].filter(Boolean)
+    if (
+      agendaSessionTypeOptions.includes(
+        project.lastAgenda.sessionType as (typeof agendaSessionTypeOptions)[number]
       )
-    ).join(", ");
-
-    if (!emailTo.trim() && defaultRecipients) {
-      setEmailTo(defaultRecipients);
+    ) {
+      setAgendaSessionType(
+        project.lastAgenda
+          .sessionType as (typeof agendaSessionTypeOptions)[number]
+      );
     }
 
-    if (!emailSubject.trim()) {
-      setEmailSubject(`${project.client.name} | ${project.name}`);
-    }
-  }, [clientUsers, emailSubject, emailTo, project]);
+    setAgendaDate(project.lastAgenda.date ?? "");
+    setAgendaDuration(project.lastAgenda.duration ?? "");
+    setAgendaNotes(project.lastAgenda.notes ?? "");
+  }, [project?.lastAgenda]);
 
   useEffect(() => {
     return () => {
@@ -1071,7 +1011,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     },
     {
       key: "email" as SectionKey,
-      label: "Emails",
+      label: "Email",
+      show: Boolean(project)
+    },
+    {
+      key: "agenda" as SectionKey,
+      label: "Agenda",
       show: Boolean(project)
     },
     {
@@ -1799,17 +1744,6 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     );
   }
 
-  function addRecipient(target: "to" | "cc", email: string, label?: string) {
-    if (target === "to") {
-      setEmailTo((currentValue) => appendRecipientList(currentValue, email));
-    } else {
-      setEmailCc((currentValue) => appendRecipientList(currentValue, email));
-    }
-
-    setEmailFeedback(`${label || email} added to ${target.toUpperCase()}.`);
-    setEmailError(null);
-  }
-
   async function copyClientQuoteLink() {
     if (!project) {
       return;
@@ -2064,7 +1998,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }
   }
 
-  async function generateEmailDraft(mode: "generate" | "cleanup" = "generate") {
+  async function generateEmailDraft() {
     if (!project) {
       return;
     }
@@ -2075,18 +2009,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
     try {
       const response = await fetch(
-        `/api/projects/${encodeURIComponent(project.id)}/email-draft`,
+        `/api/projects/${encodeURIComponent(project.id)}/email/draft`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            intent: emailIntent,
-            mode,
-            providerKey: emailProviderKey,
-            modelOverride: emailModelOverride,
-            sourceSubject: emailSubject,
-            sourceBody: emailBody,
-            customInstructions: emailInstructions
+            notes: emailBody
           })
         }
       );
@@ -2097,13 +2025,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         throw new Error(body?.error ?? "Failed to draft email");
       }
 
-      setEmailSubject(body.draft?.subject ?? emailSubject);
-      setEmailBody(body.draft?.body ?? emailBody);
-      setEmailFeedback(
-        mode === "cleanup"
-          ? "Email cleaned up with AI."
-          : "Email draft generated from the current project context."
-      );
+      setEmailBody(body.draft ?? emailBody);
+      setEmailFeedback("Email draft generated from the current project context.");
     } catch (draftError) {
       setEmailError(
         draftError instanceof Error
@@ -2116,14 +2039,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   }
 
   async function copyEmailDraft() {
-    if (typeof navigator === "undefined") {
+    if (typeof navigator === "undefined" || !emailBody.trim()) {
       return;
     }
 
-    await navigator.clipboard.writeText(
-      `Subject: ${emailSubject}\n\n${emailBody}`
-    );
-    setEmailFeedback("Email draft copied to clipboard.");
+    await navigator.clipboard.writeText(emailBody);
+    setEmailCopied(true);
+    window.setTimeout(() => setEmailCopied(false), 2000);
   }
 
   function toggleVoiceDictation() {
@@ -2192,47 +2114,73 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     recognition.start();
   }
 
-  async function sendProjectEmail() {
+  async function generateAgenda() {
     if (!project) {
       return;
     }
 
-    setEmailSending(true);
-    setEmailError(null);
-    setEmailFeedback(null);
+    setAgendaBusy(true);
+    setAgendaError(null);
+    setAgendaFeedback(null);
 
     try {
       const response = await fetch(
-        `/api/projects/${encodeURIComponent(project.id)}/send-email`,
+        `/api/projects/${encodeURIComponent(project.id)}/agenda/generate`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            to: emailTo,
-            cc: emailCc,
-            subject: emailSubject,
-            body: emailBody
+            sessionType: agendaSessionType,
+            date: agendaDate || null,
+            duration: agendaDuration || null,
+            notes: agendaNotes || null
           })
         }
       );
 
       const body = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to send email");
+        throw new Error(body?.error ?? "Failed to generate agenda");
       }
 
-      setEmailFeedback(
-        body?.result?.transport === "google_mailbox"
-          ? "Project email sent via the connected Google mailbox."
-          : "Project email sent via SMTP relay."
+      const nextAgenda = body?.lastAgenda ?? {
+        sessionType: agendaSessionType,
+        date: agendaDate || null,
+        duration: agendaDuration || null,
+        notes: agendaNotes || null,
+        content: body?.agenda ?? "",
+        generatedAt: new Date().toISOString()
+      };
+
+      setAgendaResult(nextAgenda);
+      setProject((currentProject) =>
+        currentProject
+          ? {
+              ...currentProject,
+              lastAgenda: nextAgenda
+            }
+          : currentProject
       );
-    } catch (sendError) {
-      setEmailError(
-        sendError instanceof Error ? sendError.message : "Failed to send email"
+      setAgendaFeedback("Agenda generated from the current project context.");
+    } catch (agendaGenerationError) {
+      setAgendaError(
+        agendaGenerationError instanceof Error
+          ? agendaGenerationError.message
+          : "Failed to generate agenda"
       );
     } finally {
-      setEmailSending(false);
+      setAgendaBusy(false);
     }
+  }
+
+  async function copyAgenda() {
+    if (typeof navigator === "undefined" || !agendaResult?.content.trim()) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(agendaResult.content);
+    setAgendaCopied(true);
+    window.setTimeout(() => setAgendaCopied(false), 2000);
   }
 
   async function handleBlueprintAction() {
@@ -3754,12 +3702,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   >
                     <div>
                       <p className="font-semibold text-sm text-white">
-                        Project Email Context
+                        Email Composer
                       </p>
                       <p className="text-xs text-zinc-400">
-                        {emailSettings?.enabled && emailSettings.fromEmail
-                          ? `Sending from ${emailSettings.fromEmail}`
-                          : "Draft workspace"}
+                        Plain-text notes in, AI draft out.
                       </p>
                     </div>
                     <span className="text-sm text-zinc-400">
@@ -3768,299 +3714,26 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </button>
                   <div
                     className={`overflow-hidden transition-all duration-200 ${
-                      openSections.email ? "max-h-[9000px]" : "max-h-0"
+                      openSections.email ? "max-h-[4000px]" : "max-h-0"
                     }`}
                   >
                     <div className="p-6">
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                          <h2 className="text-lg font-semibold text-white">
-                            Project Email Composer
-                          </h2>
-                          <p className="mt-2 text-sm text-text-secondary">
-                            Plain-text project emails with dictation, AI
-                            cleanup, and AI drafting. Use this as a copy-first
-                            drafting space, then paste into your own email tool
-                            when that suits your workflow better.
-                          </p>
-                        </div>
-                        <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs text-text-secondary">
-                          {emailSettings?.enabled && emailSettings.fromEmail
-                            ? `Sending from ${emailSettings.fromEmail}`
-                            : "Outbound email not connected yet"}
-                        </div>
+                      <div>
+                        <h2 className="text-lg font-semibold text-white">
+                          Project Email Composer
+                        </h2>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          Capture rough notes or dictate freely, then let AI
+                          draft the client email from live project context.
+                        </p>
                       </div>
 
-                      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                        <label className="block">
-                          <span className="text-sm font-medium text-white">
-                            Email intent
-                          </span>
-                          <select
-                            value={emailIntent}
-                            onChange={(event) =>
-                              setEmailIntent(event.target.value)
-                            }
-                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                          >
-                            <option value="next_steps">Next steps</option>
-                            <option value="questionnaire_invite">
-                              Project inputs invite
-                            </option>
-                            <option value="quote_ready">
-                              Quote ready for review
-                            </option>
-                            <option value="approval_follow_up">
-                              Approval follow-up
-                            </option>
-                          </select>
-                        </label>
-                        <label className="block">
-                          <span className="text-sm font-medium text-white">
-                            AI provider
-                          </span>
-                          <select
-                            value={emailProviderKey}
-                            onChange={(event) => {
-                              const nextProviderKey = event.target.value;
-                              setEmailProviderKey(nextProviderKey);
-                              const nextProvider = aiProviders.find(
-                                (provider) =>
-                                  provider.providerKey === nextProviderKey
-                              );
-                              setEmailModelOverride(
-                                nextProvider?.defaultModel ?? ""
-                              );
-                            }}
-                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                          >
-                            {aiProviders.length > 0 ? (
-                              aiProviders.map((provider) => (
-                                <option
-                                  key={provider.providerKey}
-                                  value={provider.providerKey}
-                                >
-                                  {provider.label}
-                                </option>
-                              ))
-                            ) : (
-                              <option value="">No enabled AI providers</option>
-                            )}
-                          </select>
-                        </label>
-                        <label className="block">
-                          <span className="text-sm font-medium text-white">
-                            Model
-                          </span>
-                          <input
-                            value={emailModelOverride}
-                            onChange={(event) =>
-                              setEmailModelOverride(event.target.value)
-                            }
-                            placeholder="Use provider default model"
-                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-sm font-medium text-white">
-                            Extra instruction
-                          </span>
-                          <textarea
-                            value={emailInstructions}
-                            onChange={(event) =>
-                              setEmailInstructions(event.target.value)
-                            }
-                            placeholder="Example: mention that Magnusol should nominate one operations lead and one sales owner for discovery."
-                            className="mt-3 min-h-[88px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                          />
-                        </label>
-                      </div>
-
-                      {savedClientContacts.length > 0 ||
-                      clientUsers.length > 0 ? (
-                        <div className="mt-5 rounded-2xl bg-[#0b1126] p-4">
-                          <p className="text-sm font-medium text-white">
-                            Quick recipients
-                          </p>
-                          <p className="mt-2 text-sm text-text-secondary">
-                            Pull people into the email without typing addresses
-                            again.
-                          </p>
-
-                          {savedClientContacts.length > 0 ? (
-                            <div className="mt-4">
-                              <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
-                                Saved client contacts
-                              </p>
-                              <div className="mt-3 flex flex-wrap gap-3">
-                                {savedClientContacts.map((contact) => {
-                                  const contactLabel = [
-                                    contact.firstName,
-                                    contact.lastName
-                                  ]
-                                    .filter(Boolean)
-                                    .join(" ");
-
-                                  return (
-                                    <div
-                                      key={`email-contact-${contact.id}`}
-                                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-3"
-                                    >
-                                      <p className="text-sm font-medium text-white">
-                                        {contactLabel || contact.email}
-                                      </p>
-                                      <p className="mt-1 text-xs text-text-secondary">
-                                        {contact.email}
-                                        {contact.canApproveQuotes
-                                          ? " · Quote approver"
-                                          : ""}
-                                      </p>
-                                      <div className="mt-3 flex flex-wrap gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            addRecipient(
-                                              "to",
-                                              contact.email,
-                                              contactLabel
-                                            )
-                                          }
-                                          className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
-                                        >
-                                          Add to To
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            addRecipient(
-                                              "cc",
-                                              contact.email,
-                                              contactLabel
-                                            )
-                                          }
-                                          className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
-                                        >
-                                          Add to Cc
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {clientUsers.length > 0 ? (
-                            <div className="mt-4">
-                              <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
-                                Portal users
-                              </p>
-                              <div className="mt-3 flex flex-wrap gap-3">
-                                {clientUsers.map((clientUser) => {
-                                  const contactLabel = [
-                                    clientUser.firstName,
-                                    clientUser.lastName
-                                  ]
-                                    .filter(Boolean)
-                                    .join(" ");
-
-                                  return (
-                                    <div
-                                      key={`email-client-user-${clientUser.id}`}
-                                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-3"
-                                    >
-                                      <p className="text-sm font-medium text-white">
-                                        {contactLabel || clientUser.email}
-                                      </p>
-                                      <p className="mt-1 text-xs text-text-secondary">
-                                        {clientUser.email} · {clientUser.role}
-                                      </p>
-                                      <div className="mt-3 flex flex-wrap gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            addRecipient(
-                                              "to",
-                                              clientUser.email,
-                                              contactLabel
-                                            )
-                                          }
-                                          className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
-                                        >
-                                          Add to To
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            addRecipient(
-                                              "cc",
-                                              clientUser.email,
-                                              contactLabel
-                                            )
-                                          }
-                                          className="rounded-lg border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
-                                        >
-                                          Add to Cc
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : null}
-
-                      <div className="mt-5 grid gap-4 md:grid-cols-2">
-                        <label className="block">
-                          <span className="text-sm font-medium text-white">
-                            To
-                          </span>
-                          <input
-                            value={emailTo}
-                            onChange={(event) => setEmailTo(event.target.value)}
-                            placeholder="Comma-separated recipients"
-                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-sm font-medium text-white">
-                            Cc
-                          </span>
-                          <input
-                            value={emailCc}
-                            onChange={(event) => setEmailCc(event.target.value)}
-                            placeholder="Optional comma-separated recipients"
-                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                          />
-                        </label>
-                      </div>
-
-                      <label className="mt-5 block">
-                        <span className="text-sm font-medium text-white">
-                          Subject
-                        </span>
-                        <input
-                          value={emailSubject}
-                          onChange={(event) =>
-                            setEmailSubject(event.target.value)
-                          }
-                          className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
-                        />
-                      </label>
-
-                      <label className="mt-5 block">
-                        <span className="text-sm font-medium text-white">
-                          Plain-text body
-                        </span>
-                        <textarea
-                          value={emailBody}
-                          onChange={(event) => setEmailBody(event.target.value)}
-                          placeholder="Write freely here like a project note. Keep it plain text. Use dictation, then clean it up with AI if needed."
-                          className="mt-3 min-h-[320px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#09111f] px-4 py-4 font-mono text-sm leading-6 text-white outline-none"
-                        />
-                      </label>
+                      <textarea
+                        value={emailBody}
+                        onChange={(event) => setEmailBody(event.target.value)}
+                        placeholder="Write notes here or use voice dictation. AI will use the project context to draft your email."
+                        className="mt-5 min-h-[320px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#09111f] px-4 py-4 font-mono text-sm leading-6 text-white outline-none"
+                      />
 
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
                         <div>
@@ -4074,8 +3747,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             </p>
                           ) : (
                             <p className="text-sm text-text-secondary">
-                              This editor stays plain text on purpose, closer to
-                              a fast note tool than a formatted email builder.
+                              The draft uses project context like quick wins,
+                              platform packaging, status, and blueprint state.
                             </p>
                           )}
                         </div>
@@ -4091,44 +3764,175 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                           </button>
                           <button
                             type="button"
-                            onClick={() => void generateEmailDraft("cleanup")}
-                            disabled={emailBusy || !emailBody.trim()}
-                            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                          >
-                            {emailBusy ? "Working..." : "Clean up with AI"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void generateEmailDraft("generate")}
-                            disabled={emailBusy || aiProviders.length === 0}
+                            onClick={() => void generateEmailDraft()}
+                            disabled={emailBusy}
                             className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                           >
-                            {emailBusy ? "Drafting..." : "AI generate email"}
+                            {emailBusy ? "Drafting..." : "Draft email"}
                           </button>
                           <button
                             type="button"
                             onClick={() => void copyEmailDraft()}
-                            disabled={!emailSubject.trim() && !emailBody.trim()}
+                            disabled={!emailBody.trim()}
                             className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            Copy email
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void sendProjectEmail()}
-                            disabled={
-                              emailSending ||
-                              !emailSettings?.enabled ||
-                              !emailTo.trim() ||
-                              !emailSubject.trim() ||
-                              !emailBody.trim()
-                            }
-                            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
-                          >
-                            {emailSending ? "Sending..." : "Send email"}
+                            {emailCopied ? "Copied!" : "Copy"}
                           </button>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section
+                  ref={sectionRefs.agenda}
+                  className="scroll-mt-32 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/60"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSection("agenda")}
+                    className="flex w-full items-center justify-between gap-3 bg-zinc-800 px-5 py-4 text-left"
+                  >
+                    <div>
+                      <p className="font-semibold text-sm text-white">
+                        Agenda Builder
+                      </p>
+                      <p className="text-xs text-zinc-400">
+                        Generate a session plan from project context.
+                      </p>
+                    </div>
+                    <span className="text-sm text-zinc-400">
+                      {openSections.agenda ? "▴" : "▾"}
+                    </span>
+                  </button>
+                  <div
+                    className={`overflow-hidden transition-all duration-200 ${
+                      openSections.agenda ? "max-h-[5000px]" : "max-h-0"
+                    }`}
+                  >
+                    <div className="p-6">
+                      <div>
+                        <h2 className="text-lg font-semibold text-white">
+                          Agenda Builder
+                        </h2>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          Build a practical, time-boxed agenda using quick wins,
+                          open work, discovery progress, client inputs, and
+                          prep notes already attached to this project.
+                        </p>
+                      </div>
+
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Session type
+                          </span>
+                          <select
+                            value={agendaSessionType}
+                            onChange={(event) =>
+                              setAgendaSessionType(
+                                event.target
+                                  .value as (typeof agendaSessionTypeOptions)[number]
+                              )
+                            }
+                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          >
+                            {agendaSessionTypeOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Date
+                          </span>
+                          <input
+                            type="date"
+                            value={agendaDate}
+                            onChange={(event) => setAgendaDate(event.target.value)}
+                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Duration
+                          </span>
+                          <select
+                            value={agendaDuration}
+                            onChange={(event) => setAgendaDuration(event.target.value)}
+                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          >
+                            <option value="">Optional</option>
+                            {agendaDurationOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Notes
+                          </span>
+                          <input
+                            value={agendaNotes}
+                            onChange={(event) => setAgendaNotes(event.target.value)}
+                            placeholder="Focus on pipeline setup and reporting"
+                            className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          {agendaError ? (
+                            <p className="text-sm text-[#ff8f9c]">
+                              {agendaError}
+                            </p>
+                          ) : agendaFeedback ? (
+                            <p className="text-sm text-status-success">
+                              {agendaFeedback}
+                            </p>
+                          ) : agendaResult?.generatedAt ? (
+                            <p className="text-sm text-text-secondary">
+                              Last generated{" "}
+                              {new Date(agendaResult.generatedAt).toLocaleString()}
+                            </p>
+                          ) : (
+                            <p className="text-sm text-text-secondary">
+                              Generate once and the latest agenda will stay with
+                              the project across reloads.
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void generateAgenda()}
+                          disabled={agendaBusy}
+                          className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                        >
+                          {agendaBusy ? "Generating..." : "Generate Agenda"}
+                        </button>
+                      </div>
+
+                      {agendaResult?.content ? (
+                        <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#09111f] p-5">
+                          <pre className="whitespace-pre-wrap font-mono text-sm leading-6 text-white">
+                            {agendaResult.content}
+                          </pre>
+                          <div className="mt-4 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => void copyAgenda()}
+                              className="rounded-xl bg-[linear-gradient(135deg,#2f7d6b_0%,#4fa88c_100%)] px-4 py-3 text-sm font-medium text-white"
+                            >
+                              {agendaCopied ? "Copied!" : "Copy agenda"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </section>

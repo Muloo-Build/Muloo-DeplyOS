@@ -11,6 +11,8 @@
     { "path": "../../packages/core" },
     { "path": "../../packages/diff-engine" },
     { "path": "../../packages/hubspot-client" },
+    { "path": "../../packages/browser-session-executor" },
+    { "path": "../../packages/report-templates" },
     { "path": "../../packages/shared" }
   ]
 }

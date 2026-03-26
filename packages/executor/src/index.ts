@@ -1,5 +1,6 @@
 export * from "./contracts";
 export * from "./agents/portalAuditAgent";
+export * from "./agents/marketingDashboardAgent";
 export * from "./dryRunExecutor";
 export * from "./moduleContracts";
 export * from "./pipelineDryRunExecutor";

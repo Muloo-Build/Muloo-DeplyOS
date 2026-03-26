@@ -3,6 +3,7 @@ import path from "node:path";
 
 import type { OnboardingSpec, SpecFile } from "@muloo/core";
 import { createPropertySpecFromProject as createPropertySpec } from "@muloo/executor";
+import { PrismaClient } from "@prisma/client";
 import {
   createProjectFromTemplateRequestSchema,
   createProjectRequestSchema,
@@ -33,6 +34,8 @@ import {
 
 import { loadTemplateById } from "./templates";
 
+const prisma = new PrismaClient();
+
 function getProjectsDirectory(cwd: string): string {
   return path.resolve(cwd, "data", "projects");
 }
@@ -53,6 +56,34 @@ async function loadValidatedProjectFile(
     raw,
     spec
   };
+}
+
+async function loadProjectFromPrisma(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      discoveryData: true
+    }
+  });
+
+  const rawProject =
+    project?.discoveryData &&
+    typeof project.discoveryData === "object" &&
+    !Array.isArray(project.discoveryData)
+      ? ("projectFile" in project.discoveryData
+          ? (project.discoveryData as { projectFile?: unknown }).projectFile
+          : project.discoveryData)
+      : null;
+
+  if (!rawProject) {
+    return null;
+  }
+
+  try {
+    return onboardingProjectSchema.parse(rawProject);
+  } catch {
+    return null;
+  }
 }
 
 function dedupeStrings(values: string[]): string[] {
@@ -598,10 +629,22 @@ export async function loadProjectById(
   projectId: string,
   options?: { cwd?: string }
 ): Promise<OnboardingProject> {
+  const prismaProject = await loadProjectFromPrisma(projectId);
+
+  if (prismaProject) {
+    return prismaProject;
+  }
+
   const cwd = options?.cwd ?? process.cwd();
   const filePath = getProjectFilePath(cwd, projectId);
 
   try {
+    process.emitWarning(
+      `Project ${projectId} is being loaded from the legacy filesystem fallback.`,
+      {
+        code: "MULOO_FILESYSTEM_FALLBACK"
+      }
+    );
     return (await loadValidatedProjectFile(filePath)).spec;
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {

@@ -15,6 +15,15 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noImplicitOverride": true,
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@muloo/core": ["packages/core/dist/index.d.ts"],
+      "@muloo/diff-engine": ["packages/diff-engine/dist/index.d.ts"],
+      "@muloo/hubspot-client": ["packages/hubspot-client/dist/index.d.ts"],
+      "@muloo/browser-session-executor": ["packages/browser-session-executor/dist/index.d.ts"],
+      "@muloo/report-templates": ["packages/report-templates/dist/index.d.ts"],
+      "@muloo/shared": ["packages/shared/dist/index.d.ts"]
+    }
   }
 }

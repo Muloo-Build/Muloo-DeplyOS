@@ -39,8 +39,11 @@ import {
   updateProjectScopeRequestSchema
 } from "@muloo/shared";
 import { type Context, Hono, type Next } from "hono";
-import { ZodError } from "zod";
+import { rateLimiter } from "hono-rate-limiter";
+import { z, ZodError } from "zod";
 import { prisma } from "./prisma";
+import { executionQueue } from "./queue/index";
+import { startWorker } from "./queue/worker";
 import {
   clientAuthCookieName,
   createAgentDefinition,
@@ -79,6 +82,8 @@ import {
   extractDiscoveryFields,
   getAuthenticatedClientUserId,
   generateProjectEmailDraft,
+  generateProjectAgenda,
+  generateSimplifiedProjectEmailDraft,
   generateSolutionOptions,
   industryOptions,
   isAuthenticated,
@@ -104,6 +109,7 @@ import {
   createHubSpotOAuthStart,
   buildHubSpotAgentCapabilitiesPayload,
   inviteClientContactToProjects,
+  resolveInternalActor,
   resolveHubSpotAgentConnection,
   resolveSimpleAuthCredentials,
   serializeWorkspaceUser,
@@ -142,8 +148,10 @@ import {
   loadProjectFindings,
   loadProjectRecommendations,
   loadProjectExecutionJobStatus,
+  loadProjectTaskBoard,
   loadProjectsDirectory,
   loadProjectTasks,
+  loadTaskApproval,
   loadWorkspaceApiKeys,
   loadWorkflowRuns,
   loadLatestPortalSnapshot,
@@ -152,6 +160,9 @@ import {
   loadProjectMessages,
   markProjectMessagesSeenByInternal,
   markProjectMessagesSeenByClient,
+  requestTaskApproval,
+  approveTaskApproval,
+  rejectTaskApproval,
   resetDiscoverySummary,
   saveClientInputSubmission,
   saveDiscoverySession,
@@ -160,10 +171,13 @@ import {
   deleteProjectFinding,
   deleteProjectTaskRecord,
   createProjectTask,
+  executeProjectTask,
   generateDiscoverySummary,
   generateBlueprintForProject,
   generateProjectTaskPlan,
   queueAgentRun,
+  audit,
+  hashPassword,
   runTrackedHubSpotAgentRequest,
   runTrackedProjectPortalAudit,
   runTrackedProjectPrepareBrief,
@@ -177,6 +191,7 @@ import {
   updateAgentRun,
   updateClientProjectAccess,
   updateProjectTaskRecord,
+  transitionProjectTaskStatus,
   updateWorkRequest,
   updateWorkspaceUser,
   ensureProjectPlanGenerationAllowed,
@@ -193,7 +208,8 @@ import {
   getWorkspaceXeroInvoices,
   saveWorkspaceAiRouting,
   saveWorkspaceApiKey,
-  saveProjectContext
+  saveProjectContext,
+  verifyPassword
 } from "./server";
 
 type HonoBindings = {
@@ -223,8 +239,81 @@ function normalizeWorkspaceLoginIdentifier(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function getRateLimitKey(c: Context<HonoBindings>) {
+  return c.req.header("x-forwarded-for") ?? "unknown";
+}
+
+const authLoginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1)
+});
+
+const clientLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1)
+});
+
+const clientSetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8)
+});
+
+const taskStatusSchema = z.object({
+  status: z.string().min(1)
+});
+
+const taskApprovalSchema = z.object({
+  notes: z.string().trim().optional()
+});
+
+const taskRejectSchema = z.object({
+  notes: z.string().trim().min(1)
+});
+
+const taskExecuteSchema = z.object({
+  dryRun: z.boolean().optional(),
+  sessionId: z.string().trim().optional()
+});
+
+const marketingDashboardSchema = z.object({
+  portalId: z.string().min(1),
+  projectId: z.string().min(1),
+  dashboardName: z.string().trim().optional(),
+  sessionId: z.string().trim().optional(),
+  primaryLeadSourceProperty: z.string().trim().optional(),
+  lastKeyActionProperty: z.string().trim().optional(),
+  sectionsToInclude: z.array(z.string().min(1)).optional(),
+  dryRun: z.boolean().optional()
+});
+
+const researchRequestSchema = z.object({
+  query: z.string().min(1),
+  context: z.string().optional(),
+  projectId: z.string().min(1)
+});
+
+const coworkStartSchema = z.object({
+  output: z.string().optional()
+});
+
+const coworkCompleteSchema = z.object({
+  success: z.boolean(),
+  output: z.string().min(1),
+  screenshots: z.array(z.string().url()).optional()
+});
+
 export function createApiApp(config: BaseConfig) {
   const app = new Hono<HonoBindings>();
+  const authLimiter = rateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    keyGenerator: getRateLimitKey
+  });
+  const apiLimiter = rateLimiter({
+    windowMs: 60 * 1000,
+    limit: 200,
+    keyGenerator: getRateLimitKey
+  });
   const internalAuth = async (c: Context<HonoBindings>, next: Next) => {
     if (!(await isAuthenticated(c.env.incoming))) {
       return c.json({ error: "Unauthorized" }, 401);
@@ -258,6 +347,10 @@ export function createApiApp(config: BaseConfig) {
 
     return c.json({ error: message }, statusCode);
   });
+
+  app.use("/api/*", apiLimiter);
+  app.use("/api/auth/*", authLimiter);
+  app.use("/api/client-auth/*", authLimiter);
 
   app.use("/api/modules", internalAuth);
   app.use("/api/settings", internalAuth);
@@ -311,21 +404,37 @@ export function createApiApp(config: BaseConfig) {
   );
 
   app.post("/api/auth/login", async (c) => {
-    const body = (await readJsonBodyOrEmpty(c)) as {
-      password?: string;
-      username?: string;
-    };
-    const loginIdentifier = body.username?.trim() ?? "";
+    const parsed = authLoginSchema.safeParse(await readJsonBodyOrEmpty(c));
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    const body = parsed.data;
+    const loginIdentifier = body.username.trim();
     const credentials = resolveSimpleAuthCredentials();
     const matchesSimpleAuthUsername =
-      loginIdentifier.toLowerCase() === credentials.username.toLowerCase();
+      Boolean(credentials) &&
+      loginIdentifier.toLowerCase() ===
+        (credentials?.username.toLowerCase() ?? "");
 
-    if (matchesSimpleAuthUsername && body.password === credentials.password) {
+    if (
+      credentials &&
+      matchesSimpleAuthUsername &&
+      body.password === credentials.password
+    ) {
       c.header(
         "Set-Cookie",
         createCookieHeader(createSimpleAuthToken(credentials.username), {
           maxAge: 60 * 60 * 12
         })
+      );
+
+      await audit(
+        credentials.username,
+        "auth.login",
+        "WorkspaceSession",
+        credentials.username
       );
 
       return c.json({ authenticated: true });
@@ -353,7 +462,7 @@ export function createApiApp(config: BaseConfig) {
 
     if (
       !matchingWorkspaceUser ||
-      matchingWorkspaceUser.password !== body.password
+      !(await verifyPassword(body.password, matchingWorkspaceUser.password))
     ) {
       return c.json({ error: "Invalid credentials" }, 401);
     }
@@ -368,15 +477,30 @@ export function createApiApp(config: BaseConfig) {
       )
     );
 
+    await audit(
+      matchingWorkspaceUser.email,
+      "auth.login",
+      "WorkspaceUser",
+      matchingWorkspaceUser.id
+    );
+
     return c.json({ authenticated: true });
   });
 
-  app.post("/api/auth/logout", (c) => {
+  app.post("/api/auth/logout", async (c) => {
+    const actor = await resolveInternalActor(c.env.incoming);
     c.header(
       "Set-Cookie",
       createCookieHeader("", {
         maxAge: 0
       })
+    );
+
+    await audit(
+      actor.actor,
+      "auth.logout",
+      "WorkspaceSession",
+      actor.userId ?? actor.actor
     );
 
     return c.json({ authenticated: false });
@@ -400,12 +524,14 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/client-auth/login", async (c) => {
-    const body = (await readJsonBodyOrEmpty(c)) as {
-      email?: string;
-      password?: string;
-    };
-    const email = body.email?.trim().toLowerCase() ?? "";
-    const password = body.password ?? "";
+    const parsed = clientLoginSchema.safeParse(await readJsonBodyOrEmpty(c));
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    const email = parsed.data.email.trim().toLowerCase();
+    const password = parsed.data.password;
 
     const user = email
       ? await prisma.clientPortalUser.findUnique({
@@ -413,7 +539,7 @@ export function createApiApp(config: BaseConfig) {
         })
       : null;
 
-    if (!user || user.password !== password) {
+    if (!user || !(await verifyPassword(password, user.password))) {
       return c.json({ error: "Invalid client credentials" }, 401);
     }
 
@@ -425,6 +551,8 @@ export function createApiApp(config: BaseConfig) {
       })
     );
 
+    await audit(user.email, "auth.login", "ClientPortalUser", user.id);
+
     return c.json({
       authenticated: true,
       user: serializeClientPortalUser(user)
@@ -432,22 +560,16 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/client-auth/set-password", async (c) => {
-    const body = (await readJsonBodyOrEmpty(c)) as {
-      password?: string;
-      token?: string;
-    };
-    const token = body.token?.trim() ?? "";
-    const password = body.password?.trim() ?? "";
+    const parsed = clientSetPasswordSchema.safeParse(
+      await readJsonBodyOrEmpty(c)
+    );
 
-    if (!token || password.length < 8) {
-      return c.json(
-        {
-          error:
-            "A valid token and password of at least 8 characters are required"
-        },
-        400
-      );
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
     }
+
+    const token = parsed.data.token.trim();
+    const password = parsed.data.password.trim();
 
     const now = new Date();
     const user =
@@ -482,7 +604,7 @@ export function createApiApp(config: BaseConfig) {
     const updatedUser = await prisma.clientPortalUser.update({
       where: { id: user.id },
       data: {
-        password,
+        password: await hashPassword(password),
         inviteToken: null,
         inviteTokenExpiresAt: null,
         passwordResetToken: null,
@@ -499,13 +621,21 @@ export function createApiApp(config: BaseConfig) {
       })
     );
 
+    await audit(
+      updatedUser.email,
+      "auth.password_set",
+      "ClientPortalUser",
+      updatedUser.id
+    );
+
     return c.json({
       authenticated: true,
       user: serializeClientPortalUser(updatedUser)
     });
   });
 
-  app.post("/api/client-auth/logout", (c) => {
+  app.post("/api/client-auth/logout", async (c) => {
+    const clientUserId = getAuthenticatedClientUserId(c.env.incoming);
     c.header(
       "Set-Cookie",
       createCookieHeader("", {
@@ -513,6 +643,17 @@ export function createApiApp(config: BaseConfig) {
         maxAge: 0
       })
     );
+
+    if (clientUserId) {
+      const user = await prisma.clientPortalUser.findUnique({
+        where: { id: clientUserId },
+        select: { id: true, email: true }
+      });
+
+      if (user) {
+        await audit(user.email, "auth.logout", "ClientPortalUser", user.id);
+      }
+    }
 
     return c.json({ authenticated: false });
   });
@@ -1295,6 +1436,8 @@ export function createApiApp(config: BaseConfig) {
           coworkBrief?: unknown;
           manualInstructions?: unknown;
           apiPayload?: unknown;
+          agentModuleKey?: unknown;
+          executionPayload?: unknown;
           validationStatus?: unknown;
           validationEvidence?: unknown;
           findingId?: unknown;
@@ -1323,6 +1466,178 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.get("/api/projects/:projectId/tasks/board", async (c) => {
+    return c.json(
+      await loadProjectTaskBoard(c.req.param("projectId"))
+    );
+  });
+
+  app.patch("/api/projects/:projectId/tasks/:taskId/status", async (c) => {
+    const parsed = taskStatusSchema.safeParse(await readJsonBodyOrEmpty(c));
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      const task = await transitionProjectTaskStatus({
+        actor: actor.actor,
+        projectId: c.req.param("projectId"),
+        taskId: c.req.param("taskId"),
+        status: parsed.data.status
+      });
+
+      return c.json({ task });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to transition task";
+      const statusCode =
+        message === "Task not found"
+          ? 404
+          : message === "This task requires approval before completion"
+            ? 403
+            : 400;
+
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
+  app.post(
+    "/api/projects/:projectId/tasks/:taskId/request-approval",
+    async (c) => {
+      const parsed = taskApprovalSchema.safeParse(await readJsonBodyOrEmpty(c));
+
+      if (!parsed.success) {
+        return c.json({ error: parsed.error.flatten() }, 400);
+      }
+
+      try {
+        const actor = await resolveInternalActor(c.env.incoming);
+        const result = await requestTaskApproval({
+          actor: actor.actor,
+          projectId: c.req.param("projectId"),
+          taskId: c.req.param("taskId"),
+          notes: parsed.data.notes ?? null
+        });
+
+        return c.json(result, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to request approval"
+          },
+          error instanceof Error && error.message === "Task not found" ? 404 : 400
+        );
+      }
+    }
+  );
+
+  app.post("/api/projects/:projectId/tasks/:taskId/approve", async (c) => {
+    const parsed = taskApprovalSchema.safeParse(await readJsonBodyOrEmpty(c));
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      return c.json(
+        await approveTaskApproval({
+          actor: actor.actor,
+          projectId: c.req.param("projectId"),
+          taskId: c.req.param("taskId"),
+          notes: parsed.data.notes ?? null
+        })
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to approve task"
+        },
+        error instanceof Error && error.message === "Task approval not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
+  app.post("/api/projects/:projectId/tasks/:taskId/reject", async (c) => {
+    const parsed = taskRejectSchema.safeParse(await readJsonBodyOrEmpty(c));
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      return c.json(
+        await rejectTaskApproval({
+          actor: actor.actor,
+          projectId: c.req.param("projectId"),
+          taskId: c.req.param("taskId"),
+          notes: parsed.data.notes
+        })
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to reject task"
+        },
+        error instanceof Error && error.message === "Task approval not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
+  app.get("/api/projects/:projectId/tasks/:taskId/approval", async (c) =>
+    c.json({
+      approval: await loadTaskApproval(
+        c.req.param("projectId"),
+        c.req.param("taskId")
+      )
+    })
+  );
+
+  app.post("/api/projects/:projectId/tasks/:taskId/execute", async (c) => {
+    const parsed = taskExecuteSchema.safeParse(await readJsonBodyOrEmpty(c));
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      return c.json(
+        await executeProjectTask({
+          actor: actor.actor,
+          projectId: c.req.param("projectId"),
+          taskId: c.req.param("taskId"),
+          dryRun: parsed.data.dryRun ?? false,
+          sessionId: parsed.data.sessionId ?? null
+        }),
+        202
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to execute task";
+      const statusCode =
+        message === "Task not found"
+          ? 404
+          : message.includes("requires approval")
+            ? 403
+            : 400;
+
+      return c.json({ error: message }, statusCode);
+    }
   });
 
   app.post("/api/projects/:projectId/tasks/generate-plan", async (c) => {
@@ -1361,6 +1676,8 @@ export function createApiApp(config: BaseConfig) {
           coworkBrief?: unknown;
           manualInstructions?: unknown;
           apiPayload?: unknown;
+          agentModuleKey?: unknown;
+          executionPayload?: unknown;
           validationStatus?: unknown;
           validationEvidence?: unknown;
           findingId?: unknown;
@@ -1943,6 +2260,33 @@ export function createApiApp(config: BaseConfig) {
     }
   });
 
+  app.post("/api/projects/:projectId/email/draft", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        notes?: unknown;
+      };
+
+      const draft = await generateSimplifiedProjectEmailDraft({
+        projectId: c.req.param("projectId"),
+        notes: typeof body.notes === "string" ? body.notes : ""
+      });
+
+      return c.json({ draft });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to draft project email"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
   app.post("/api/projects/:projectId/send-email", async (c) => {
     try {
       const body = (await readJsonBodyOrEmpty(c)) as {
@@ -1982,6 +2326,49 @@ export function createApiApp(config: BaseConfig) {
           error: error instanceof Error ? error.message : "Failed to send email"
         },
         400
+      );
+    }
+  });
+
+  app.post("/api/projects/:projectId/agenda/generate", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        sessionType?: unknown;
+        date?: unknown;
+        duration?: unknown;
+        notes?: unknown;
+      };
+
+      if (
+        typeof body.sessionType !== "string" ||
+        body.sessionType.trim().length === 0
+      ) {
+        throw new Error("sessionType is required");
+      }
+
+      const lastAgenda = await generateProjectAgenda({
+        projectId: c.req.param("projectId"),
+        sessionType: body.sessionType.trim(),
+        date: typeof body.date === "string" ? body.date : null,
+        duration: typeof body.duration === "string" ? body.duration : null,
+        notes: typeof body.notes === "string" ? body.notes : null
+      });
+
+      return c.json({
+        agenda: lastAgenda.content,
+        lastAgenda
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to generate agenda"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 400
       );
     }
   });
@@ -3717,7 +4104,450 @@ export function createApiApp(config: BaseConfig) {
     }
   );
 
+  // Tier 2: Browser Session Executor endpoints
+  app.post("/api/portal-session", async (c) => {
+    try {
+      const { portalId, csrfToken, baseUrl, capturedBy } = await c.req.json();
+
+      // Validate inputs
+      if (!portalId || !csrfToken || !baseUrl) {
+        return c.json(
+          { error: "Missing required fields: portalId, csrfToken, baseUrl" },
+          400
+        );
+      }
+
+      // Create PortalSession record in database
+      const session = await (prisma as any).portalSession.create({
+        data: {
+          portalId,
+          csrfToken,
+          baseUrl,
+          capturedBy: capturedBy || "unknown",
+          valid: true
+        }
+      });
+
+      return c.json({ sessionId: session.id, valid: true });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to create portal session"
+        },
+        500
+      );
+    }
+  });
+
+  app.get("/api/portal-session/:portalId/valid", async (c) => {
+    try {
+      const { portalId } = c.req.param();
+
+      if (!portalId) {
+        return c.json({ error: "Missing portalId" }, 400);
+      }
+
+      // Check if a valid PortalSession exists for this portalId
+      const session = await (prisma as any).portalSession.findFirst({
+        where: {
+          portalId,
+          valid: true
+        }
+      });
+
+      if (!session) {
+        return c.json({ sessionExists: false, sessionId: null }, 200);
+      }
+
+      return c.json({
+        sessionExists: true,
+        sessionId: session.id,
+        capturedAt: session.capturedAt,
+        capturedBy: session.capturedBy
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to check portal session"
+        },
+        500
+      );
+    }
+  });
+
+  // Report Templates endpoints
+  app.get("/api/report-templates", async (c) => {
+    try {
+      const { TemplateEngine } = await import("@muloo/report-templates");
+      const engine = new TemplateEngine();
+      const templates = engine.getAllTemplateMetadata();
+      return c.json({ templates });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to list report templates"
+        },
+        500
+      );
+    }
+  });
+
+  app.get("/api/report-templates/:templateId", async (c) => {
+    try {
+      const { TemplateEngine } = await import("@muloo/report-templates");
+      const engine = new TemplateEngine();
+      const templateId = c.req.param("templateId");
+      const template = engine.getTemplate(templateId);
+
+      if (!template) {
+        return c.json({ error: "Template not found" }, 404);
+      }
+
+      return c.json({
+        id: template.id,
+        name: template.name,
+        section: template.section,
+        chartType: template.chartType,
+        requiredProperties: template.requiredProperties,
+        description: template.description,
+        displayOrder: template.displayOrder
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to get report template"
+        },
+        500
+      );
+    }
+  });
+
+  // Marketing Dashboard Agent endpoint
+  app.post("/api/agents/marketing-dashboard", async (c) => {
+    try {
+      const parsed = marketingDashboardSchema.safeParse(
+        await readJsonBodyOrEmpty(c)
+      );
+
+      if (!parsed.success) {
+        return c.json({ error: parsed.error.flatten() }, 400);
+      }
+
+      const body = parsed.data;
+
+      // Create execution job
+      const payload: Record<string, any> = {};
+      Object.keys(body).forEach((key) => {
+        payload[key] = body[key as keyof typeof body];
+      });
+
+      const job = await prisma.executionJob.create({
+        data: {
+          projectId: String(body.projectId),
+          jobType: "marketing-dashboard",
+          moduleKey: "dashboard_build",
+          executionMethod: "agent",
+          mode: body.dryRun ? "dry-run" : "apply",
+          status: "queued",
+          payload
+        }
+      });
+
+      // Add to BullMQ queue — worker picks this up immediately
+      await executionQueue.add(
+        job.moduleKey,
+        {
+          executionJobId: job.id,
+          moduleKey: job.moduleKey,
+          projectId: job.projectId,
+          portalId: String(body.portalId),
+          sessionId: body.sessionId ? String(body.sessionId) : undefined,
+          dryRun: job.mode === 'dry-run',
+          payload: {
+            dashboardName: body.dashboardName,
+            primaryLeadSourceProperty: body.primaryLeadSourceProperty,
+            lastKeyActionProperty: body.lastKeyActionProperty,
+            sectionsToInclude: body.sectionsToInclude,
+          },
+        },
+        { jobId: job.id } // use same ID for traceability
+      );
+
+      return c.json({ jobId: job.id, status: "queued" }, 202);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to start marketing dashboard agent"
+        },
+        500
+      );
+    }
+  });
+
+  app.post("/api/agents/research", async (c) => {
+    const parsed = researchRequestSchema.safeParse(await readJsonBodyOrEmpty(c));
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    try {
+      const job = await prisma.executionJob.create({
+        data: {
+          projectId: parsed.data.projectId,
+          jobType: "research",
+          moduleKey: "research",
+          executionMethod: "agent",
+          mode: "apply",
+          status: "queued",
+          resultStatus: "pending",
+          payload: {
+            query: parsed.data.query,
+            context: parsed.data.context ?? null
+          }
+        }
+      });
+
+      await executionQueue.add(
+        job.moduleKey,
+        {
+          executionJobId: job.id,
+          moduleKey: job.moduleKey,
+          projectId: job.projectId,
+          dryRun: false,
+          payload: job.payload as Record<string, unknown>
+        },
+        { jobId: job.id }
+      );
+
+      return c.json({ jobId: job.id, status: "queued" }, 202);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to queue research agent"
+        },
+        500
+      );
+    }
+  });
+
+  // Execution Job Cowork Instruction endpoint
+  app.get("/api/execution-jobs/:jobId/cowork-instruction", async (c) => {
+    try {
+      const jobId = c.req.param("jobId");
+
+      if (!jobId) {
+        return c.json({ error: "Missing jobId" }, 400);
+      }
+
+      const job = await prisma.executionJob.findUnique({
+        where: { id: jobId }
+      });
+
+      if (!job) {
+        return c.json({ error: "Job not found" }, 404);
+      }
+
+      const coworkInstruction = job.coworkInstruction ?? null;
+
+      if (!coworkInstruction) {
+        return c.json(
+          { error: "No cowork instruction for this job" },
+          404
+        );
+      }
+
+      return c.json(coworkInstruction);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to get cowork instruction"
+        },
+        500
+      );
+    }
+  });
+
+  app.get("/api/cowork/pending-instructions", async (c) => {
+    const sessionId = c.req.query("sessionId")?.trim() ?? "";
+    const portalId = c.req.query("portalId")?.trim() ?? "";
+
+    if (!sessionId) {
+      return c.json({ error: "sessionId is required" }, 400);
+    }
+
+    try {
+      const jobs = await prisma.$transaction(async (tx) => {
+        const pendingJobs = await tx.executionJob.findMany({
+          where: {
+            status: "queued",
+            executionTier: 3,
+            coworkSessionId: null,
+            ...(portalId
+              ? {
+                  OR: [
+                    { payload: { path: ["portalId"], equals: portalId } },
+                    { coworkInstruction: { path: ["portalId"], equals: portalId } }
+                  ]
+                }
+              : {})
+          },
+          orderBy: [{ createdAt: "asc" }]
+        });
+        const claimableJobs = pendingJobs.filter(
+          (job) => job.coworkInstruction !== null
+        );
+
+        if (claimableJobs.length === 0) {
+          return [];
+        }
+
+        const jobIds = claimableJobs.map((job) => job.id);
+
+        await tx.executionJob.updateMany({
+          where: {
+            id: { in: jobIds },
+            coworkSessionId: null
+          },
+          data: {
+            coworkSessionId: sessionId,
+            coworkClaimedAt: new Date()
+          }
+        });
+
+        return tx.executionJob.findMany({
+          where: { id: { in: jobIds }, coworkSessionId: sessionId },
+          orderBy: [{ createdAt: "asc" }]
+        });
+      });
+
+      return c.json(
+        jobs.map((job) => ({
+          jobId: job.id,
+          coworkInstruction: job.coworkInstruction,
+          createdAt: job.createdAt
+        }))
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to claim cowork instructions"
+        },
+        500
+      );
+    }
+  });
+
+  app.post("/api/cowork/instructions/:jobId/start", async (c) => {
+    const body = coworkStartSchema.safeParse(await readJsonBodyOrEmpty(c));
+
+    if (!body.success) {
+      return c.json({ error: body.error.flatten() }, 400);
+    }
+
+    await prisma.executionJob.update({
+      where: { id: c.req.param("jobId") },
+      data: {
+        status: "running",
+        startedAt: new Date()
+      }
+    });
+
+    return c.json({ ok: true });
+  });
+
+  app.post("/api/cowork/instructions/:jobId/complete", async (c) => {
+    const parsed = coworkCompleteSchema.safeParse(await readJsonBodyOrEmpty(c));
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    const currentJob = await prisma.executionJob.findUnique({
+      where: { id: c.req.param("jobId") }
+    });
+
+    if (!currentJob) {
+      return c.json({ error: "Job not found" }, 404);
+    }
+
+    await prisma.executionJob.update({
+      where: { id: c.req.param("jobId") },
+      data: {
+        status: parsed.data.success ? "complete" : "failed",
+        resultStatus: parsed.data.success ? "success" : "error",
+        outputLog: parsed.data.output,
+        errorLog: parsed.data.success ? null : parsed.data.output,
+        completedAt: new Date()
+      }
+    });
+
+    if (currentJob.taskId) {
+      await prisma.task.update({
+        where: { id: currentJob.taskId },
+        data: {
+          status: parsed.data.success ? "done" : "blocked"
+        }
+      });
+    }
+
+    return c.json({ ok: true });
+  });
+
   app.notFound((c) => c.json({ error: "Not Found" }, 404));
+
+  // Poll job status
+  app.get('/api/execution-jobs/:id/status', async (c) => {
+    const job = await prisma.executionJob.findUnique({
+      where: { id: c.req.param('id') },
+      select: {
+        id: true,
+        status: true,
+        resultStatus: true,
+        moduleKey: true,
+        mode: true,
+        startedAt: true,
+        completedAt: true,
+        outputLog: true,
+        errorLog: true,
+        executionTier: true,
+        coworkInstruction: true,
+      },
+    });
+
+    if (!job) return c.json({ error: 'Job not found' }, 404);
+    return c.json(job);
+  });
+
+  // Start the background job worker
+  if (process.env.NODE_ENV !== 'test') {
+    startWorker();
+    console.info('[worker] BullMQ execution worker started');
+  }
 
   return app;
 }

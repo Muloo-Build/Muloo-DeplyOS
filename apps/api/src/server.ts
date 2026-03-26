@@ -1,5 +1,6 @@
 import type * as http from "node:http";
 import crypto from "node:crypto";
+import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
 import { getIntegrationStatus } from "@muloo/config";
 import { runPortalAuditAgent } from "@muloo/executor";
@@ -17,6 +18,7 @@ import Prisma from "@prisma/client";
 import { DEFAULT_WORKSPACE_ID, getApiKey, moduleCatalog } from "@muloo/shared";
 import { z, ZodError } from "zod";
 import { prisma } from "./prisma";
+import { executionQueue } from "./queue/index";
 
 type PrismaTransactionClient = Parameters<
   Parameters<typeof prisma.$transaction>[0]
@@ -25,8 +27,10 @@ type PrismaTransactionClient = Parameters<
 const pendingPortalPrefix = "pending-portal-";
 export const authCookieName = "muloo_deploy_os_auth";
 export const clientAuthCookieName = "muloo_deploy_os_client_auth";
-const defaultSimpleAuthUsername = "jarrud";
-const defaultSimpleAuthPassword = "deployos";
+const defaultSimpleAuthUsername =
+  process.env.NODE_ENV === "development" ? "jarrud" : "";
+const defaultSimpleAuthPassword =
+  process.env.NODE_ENV === "development" ? "deployos" : "";
 const validEngagementTypes = [
   "AUDIT",
   "IMPLEMENTATION",
@@ -1492,6 +1496,14 @@ const projectEmailDraftSchema = z.object({
   subject: z.string().trim().min(1),
   body: z.string().trim().min(1)
 });
+const projectAgendaRecordSchema = z.object({
+  sessionType: z.string().trim().min(1),
+  date: z.string().trim().min(1).nullable().optional(),
+  duration: z.string().trim().min(1).nullable().optional(),
+  notes: z.string().trim().min(1).nullable().optional(),
+  content: z.string().trim().min(1),
+  generatedAt: z.string().datetime()
+});
 type DiscoverySummaryPayload = z.output<typeof discoverySummarySchema>;
 const discoverySummaryLooseSchema = z.object({
   executiveSummary: z.string().trim().optional(),
@@ -2042,12 +2054,13 @@ export async function createWorkspaceUser(value: {
           select: { sortOrder: true }
         })
         .then((user) => (user?.sortOrder ?? 0) + 10);
+  const passwordHash = password ? await hashPassword(password) : null;
 
   const user = await prisma.workspaceUser.create({
     data: {
       name,
       email,
-      password: password || null,
+      password: passwordHash,
       role,
       isActive: value.isActive === false ? false : true,
       sortOrder: nextSortOrder
@@ -2095,7 +2108,7 @@ export async function updateWorkspaceUser(
       throw new Error("password must be at least 8 characters");
     }
 
-    data.password = password || null;
+    data.password = password ? await hashPassword(password) : null;
   }
 
   if (value.role !== undefined) {
@@ -2705,10 +2718,42 @@ export function createCookieHeader(
 }
 
 export function resolveSimpleAuthCredentials() {
+  const username =
+    process.env.SIMPLE_AUTH_USERNAME ?? defaultSimpleAuthUsername;
+  const password =
+    process.env.SIMPLE_AUTH_PASSWORD ?? defaultSimpleAuthPassword;
+
+  if (!username.trim() || !password.trim()) {
+    return null;
+  }
+
   return {
-    username: process.env.SIMPLE_AUTH_USERNAME ?? defaultSimpleAuthUsername,
-    password: process.env.SIMPLE_AUTH_PASSWORD ?? defaultSimpleAuthPassword
+    username: username.trim(),
+    password: password.trim()
   };
+}
+
+function isBcryptHash(value: string | null | undefined) {
+  return typeof value === "string" && /^\$2[aby]\$\d{2}\$/.test(value);
+}
+
+export async function hashPassword(password: string) {
+  return bcrypt.hash(password, 12);
+}
+
+export async function verifyPassword(
+  inputPassword: string,
+  storedPassword: string | null | undefined
+) {
+  if (!storedPassword) {
+    return false;
+  }
+
+  if (isBcryptHash(storedPassword)) {
+    return bcrypt.compare(inputPassword, storedPassword);
+  }
+
+  return storedPassword === inputPassword;
 }
 
 export function createSimpleAuthToken(username: string) {
@@ -2811,16 +2856,29 @@ function getAuthenticatedWorkspaceUserId(request: http.IncomingMessage) {
   }
 }
 
+function humanizeTokenLabel(value: string) {
+  return value
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function normalizeStoredProjectAgenda(value: unknown) {
+  const parsed = projectAgendaRecordSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
 export async function isAuthenticated(request: http.IncomingMessage) {
   const cookies = parseCookies(request);
-  const { username } = resolveSimpleAuthCredentials();
+  const credentials = resolveSimpleAuthCredentials();
   const token = cookies[authCookieName];
 
   if (!token) {
     return false;
   }
 
-  if (token === createSimpleAuthToken(username)) {
+  if (credentials && token === createSimpleAuthToken(credentials.username)) {
     return true;
   }
 
@@ -2838,6 +2896,70 @@ export async function isAuthenticated(request: http.IncomingMessage) {
     .catch(() => null);
 
   return Boolean(workspaceUser?.isActive);
+}
+
+export async function resolveInternalActor(
+  request: http.IncomingMessage
+): Promise<{ actor: string; userId?: string | null }> {
+  const userId = getAuthenticatedWorkspaceUserId(request);
+
+  if (userId) {
+    const user = await prisma.workspaceUser.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true }
+    });
+
+    if (user) {
+      return { actor: user.email, userId: user.id };
+    }
+  }
+
+  const credentials = resolveSimpleAuthCredentials();
+  if (
+    credentials &&
+    parseCookies(request)[authCookieName] ===
+      createSimpleAuthToken(credentials.username)
+  ) {
+    return { actor: credentials.username, userId: null };
+  }
+
+  return { actor: "system", userId: null };
+}
+
+export async function audit(
+  actor: string,
+  action: string,
+  entityType: string,
+  entityId: string,
+  opts?: {
+    before?: object | null;
+    after?: object | null;
+    metadata?: object | null;
+    projectId?: string | null;
+  }
+) {
+  if (process.env.NODE_ENV === "test") {
+    return;
+  }
+
+  try {
+    await prisma.auditLog.create({
+      data: {
+        actor,
+        action,
+        entityType,
+        entityId,
+        ...(opts?.before ? { before: opts.before } : {}),
+        ...(opts?.after ? { after: opts.after } : {}),
+        ...(opts?.metadata ? { metadata: opts.metadata } : {}),
+        ...(opts?.projectId ? { projectId: opts.projectId } : {})
+      }
+    });
+  } catch (error) {
+    if (process.env.NODE_ENV !== "test") {
+      console.warn("Audit log write skipped.", error);
+    }
+  }
 }
 
 export function getAuthenticatedClientUserId(request: http.IncomingMessage) {
@@ -3014,6 +3136,7 @@ function serializeProject<
     scopeType?: string | null;
     deliveryTemplateId?: string | null;
     commercialBrief?: string | null;
+    lastAgenda?: unknown | null;
     clientChampionFirstName?: string | null;
     clientChampionLastName?: string | null;
     clientChampionEmail?: string | null;
@@ -3090,6 +3213,7 @@ function serializeProject<
     packagingAssessment,
     clientName: normalizedProject.client.name,
     hubsInScope: normalizedProject.selectedHubs,
+    lastAgenda: normalizeStoredProjectAgenda(normalizedProject.lastAgenda),
     defaultWorkspacePath
   };
 }
@@ -3861,6 +3985,8 @@ export function serializeTask<
     coworkBrief?: string | null;
     manualInstructions?: string | null;
     apiPayload?: Prisma.Prisma.JsonValue | null;
+    agentModuleKey?: string | null;
+    executionPayload?: Prisma.Prisma.JsonValue | null;
     validationStatus?: string;
     validationEvidence?: string | null;
     findingId?: string | null;
@@ -3885,11 +4011,22 @@ export function serializeTask<
       createdAt: Date;
       completedAt: Date | null;
     }>;
+    approvals?: Array<{
+      id: string;
+      status: string;
+      requestedAt: Date;
+      approvedAt: Date | null;
+      rejectedAt: Date | null;
+      approvedBy: string | null;
+      rejectedBy: string | null;
+      notes: string | null;
+    }>;
     createdAt: Date;
     updatedAt: Date;
   }
 >(task: T) {
   const latestExecutionJob = task.executionJobs?.[0] ?? null;
+  const latestApproval = task.approvals?.[0] ?? null;
   const executionPath = deriveTaskExecutionPath({
     title: task.title,
     description: task.description,
@@ -3910,6 +4047,8 @@ export function serializeTask<
     coworkBrief: task.coworkBrief ?? null,
     manualInstructions: task.manualInstructions ?? null,
     apiPayload: task.apiPayload ?? null,
+    agentModuleKey: task.agentModuleKey ?? null,
+    executionPayload: task.executionPayload ?? null,
     validationStatus: task.validationStatus ?? "pending",
     validationEvidence: task.validationEvidence ?? null,
     findingId: task.findingId ?? null,
@@ -3928,6 +4067,18 @@ export function serializeTask<
     changeRequestId: task.changeRequestId ?? null,
     assignedAgentId: task.assignedAgentId ?? null,
     assignedAgentName: task.assignedAgent?.name ?? null,
+    latestApproval: latestApproval
+      ? {
+          id: latestApproval.id,
+          status: latestApproval.status,
+          requestedAt: latestApproval.requestedAt.toISOString(),
+          approvedAt: latestApproval.approvedAt?.toISOString() ?? null,
+          rejectedAt: latestApproval.rejectedAt?.toISOString() ?? null,
+          approvedBy: latestApproval.approvedBy ?? null,
+          rejectedBy: latestApproval.rejectedBy ?? null,
+          notes: latestApproval.notes ?? null
+        }
+      : null,
     latestExecutionJob: latestExecutionJob
       ? {
           id: latestExecutionJob.id,
@@ -4359,17 +4510,16 @@ export async function startProjectPortalAuditExecutionJob(projectId: string) {
     data: {
       projectId: project.id,
       jobType: "portal_audit",
-      moduleKey: "portal-audit-agent",
-      executionMethod: "openai",
+      moduleKey: "portal_audit",
+      executionMethod: "agent",
       mode: "async",
-      status: "RUNNING",
-      resultStatus: "queued",
+      status: "queued",
+      resultStatus: "pending",
       outputSummary: "Queued portal audit agent.",
       payload: {
         projectId: project.id,
         portalId: project.portalId
-      },
-      startedAt: new Date()
+      }
     },
     include: {
       project: { select: { name: true } },
@@ -4377,15 +4527,19 @@ export async function startProjectPortalAuditExecutionJob(projectId: string) {
     }
   });
 
-  setImmediate(() => {
-    void runPortalAuditAgent({
-      jobId: job.id,
+  // Add to BullMQ queue — worker picks this up immediately
+  await executionQueue.add(
+    job.moduleKey,
+    {
+      executionJobId: job.id,
+      moduleKey: job.moduleKey,
       projectId: project.id,
-      portalId: project.portalId as string,
-      workspaceId: DEFAULT_WORKSPACE_ID,
-      prisma
-    });
-  });
+      portalId: project.portalId,
+      dryRun: false,
+      payload: job.payload,
+    },
+    { jobId: job.id } // use same ID for traceability
+  );
 
   return serializeExecutionJob(job);
 }
@@ -7137,6 +7291,20 @@ export async function loadProjectTasks(projectId: string) {
     where: { projectId },
     include: {
       assignedAgent: { select: { name: true } },
+      approvals: {
+        select: {
+          id: true,
+          status: true,
+          requestedAt: true,
+          approvedAt: true,
+          rejectedAt: true,
+          approvedBy: true,
+          rejectedBy: true,
+          notes: true
+        },
+        orderBy: [{ requestedAt: "desc" }],
+        take: 1
+      },
       executionJobs: {
         select: {
           id: true,
@@ -7155,6 +7323,587 @@ export async function loadProjectTasks(projectId: string) {
   return tasks.map((task) => serializeTask(task));
 }
 
+const validTaskStatusTransitions = new Map<string, string[]>([
+  ["backlog", ["todo"]],
+  ["todo", ["in_progress"]],
+  ["in_progress", ["blocked", "waiting_on_client", "done"]],
+  ["waiting_on_client", ["in_progress"]],
+  ["blocked", ["in_progress"]],
+  ["done", ["in_progress"]]
+]);
+
+function isValidTaskTransition(currentStatus: string, nextStatus: string) {
+  return validTaskStatusTransitions.get(currentStatus)?.includes(nextStatus) ?? false;
+}
+
+function buildGenericCoworkInstruction(input: {
+  taskId: string;
+  taskTitle: string;
+  portalId?: string | null;
+  brief?: string | null;
+  manualInstructions?: string | null;
+}) {
+  const steps = (input.manualInstructions ?? input.brief ?? "")
+    .split(/\n+/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((description, index) => ({
+      order: index + 1,
+      action: "verify" as const,
+      target: input.taskTitle,
+      description
+    }));
+
+  return {
+    id: `cowork-${input.taskId}`,
+    taskType: "hubspot_dashboard_create" as const,
+    portalId: input.portalId ?? "unknown",
+    targetUrl: input.portalId
+      ? `https://app-eu1.hubspot.com/home-dashboard?portalId=${encodeURIComponent(
+          input.portalId
+        )}`
+      : "https://app-eu1.hubspot.com/",
+    steps:
+      steps.length > 0
+        ? steps
+        : [
+            {
+              order: 1,
+              action: "verify" as const,
+              target: input.taskTitle,
+              description:
+                input.brief ??
+                "Review the task brief and complete the requested browser workflow."
+            }
+          ],
+    expectedOutcome: `Task "${input.taskTitle}" completed in HubSpot.`,
+    fallbackToManual: []
+  };
+}
+
+async function loadLatestTaskApprovalRecord(projectId: string, taskId: string) {
+  return prisma.taskApproval.findFirst({
+    where: { projectId, taskId },
+    orderBy: [{ requestedAt: "desc" }]
+  });
+}
+
+async function createExecutionJobForTask(input: {
+  actor: string;
+  projectId: string;
+  task: {
+    id: string;
+    title: string;
+    executionType: string;
+    agentModuleKey: string | null;
+    executionPayload: Prisma.Prisma.JsonValue | null;
+    coworkBrief: string | null;
+    manualInstructions: string | null;
+    project: {
+      portalId: string;
+      name: string;
+    };
+  };
+  dryRun?: boolean;
+  sessionId?: string | null;
+}) {
+  const executionPayload =
+    input.task.executionPayload &&
+    typeof input.task.executionPayload === "object" &&
+    !Array.isArray(input.task.executionPayload)
+      ? (input.task.executionPayload as Record<string, unknown>)
+      : {};
+  const executionType = input.task.executionType.trim().toLowerCase();
+  const moduleKey =
+    input.task.agentModuleKey?.trim() ||
+    (executionType === "api" ? "generic" : "cowork");
+  const isDryRun = input.dryRun ?? false;
+
+  if (executionType === "cowork") {
+    const coworkInstruction = buildGenericCoworkInstruction({
+      taskId: input.task.id,
+      taskTitle: input.task.title,
+      portalId:
+        typeof executionPayload.portalId === "string"
+          ? executionPayload.portalId
+          : input.task.project.portalId,
+      brief: input.task.coworkBrief,
+      manualInstructions: input.task.manualInstructions
+    });
+
+    const job = await prisma.executionJob.create({
+      data: {
+        projectId: input.projectId,
+        taskId: input.task.id,
+        moduleKey,
+        executionMethod: "cowork",
+        mode: isDryRun ? "dry-run" : "apply",
+        status: "queued",
+        resultStatus: "cowork_pending",
+        executionTier: 3,
+        coworkInstruction,
+        payload: executionPayload as Prisma.Prisma.InputJsonValue,
+        outputSummary: "Queued cowork execution."
+      },
+      include: {
+        project: { select: { name: true } },
+        task: { select: { title: true } }
+      }
+    });
+
+    await audit(input.actor, "execution.created", "ExecutionJob", job.id, {
+      projectId: input.projectId,
+      after: {
+        moduleKey: job.moduleKey,
+        executionMethod: job.executionMethod,
+        status: job.status
+      },
+      metadata: { taskId: input.task.id, executionType }
+    });
+
+    return serializeExecutionJob(job);
+  }
+
+  const payload: Record<string, unknown> = {
+    ...executionPayload,
+    ...(input.sessionId ? { sessionId: input.sessionId } : {})
+  };
+
+  const job = await prisma.executionJob.create({
+    data: {
+      projectId: input.projectId,
+      taskId: input.task.id,
+      moduleKey,
+      executionMethod: "queue",
+      mode: isDryRun ? "dry-run" : "apply",
+      status: "queued",
+      resultStatus: "pending",
+      payload: payload as Prisma.Prisma.InputJsonValue,
+      outputSummary: isDryRun
+        ? "Queued dry-run task execution."
+        : "Queued task execution."
+    },
+    include: {
+      project: { select: { name: true } },
+      task: { select: { title: true } }
+    }
+  });
+
+  await executionQueue.add(
+    job.moduleKey,
+    {
+      executionJobId: job.id,
+      moduleKey: job.moduleKey,
+      projectId: input.projectId,
+      portalId:
+        typeof payload["portalId"] === "string"
+          ? (payload["portalId"] as string)
+          : undefined,
+      sessionId:
+        typeof payload["sessionId"] === "string"
+          ? (payload["sessionId"] as string)
+          : undefined,
+      dryRun: isDryRun,
+      payload
+    },
+    { jobId: job.id }
+  );
+
+  await audit(input.actor, "execution.created", "ExecutionJob", job.id, {
+    projectId: input.projectId,
+    after: {
+      moduleKey: job.moduleKey,
+      executionMethod: job.executionMethod,
+      status: job.status
+    },
+    metadata: { taskId: input.task.id, executionType }
+  });
+
+  return serializeExecutionJob(job);
+}
+
+export async function loadProjectTaskBoard(projectId: string) {
+  const tasks = await prisma.task.findMany({
+    where: { projectId },
+    include: {
+      assignedAgent: { select: { name: true } },
+      approvals: {
+        select: {
+          id: true,
+          status: true,
+          requestedAt: true,
+          approvedAt: true,
+          rejectedAt: true,
+          approvedBy: true,
+          rejectedBy: true,
+          notes: true
+        },
+        orderBy: [{ requestedAt: "desc" }],
+        take: 1
+      },
+      executionJobs: {
+        select: {
+          id: true,
+          status: true,
+          resultStatus: true,
+          createdAt: true,
+          completedAt: true
+        },
+        orderBy: [{ createdAt: "desc" }],
+        take: 1
+      }
+    },
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  const serializedTasks = tasks.map((task) => serializeTask(task));
+  const columns = {
+    backlog: serializedTasks.filter((task) => task.status === "backlog"),
+    todo: serializedTasks.filter((task) => task.status === "todo"),
+    in_progress: serializedTasks.filter((task) => task.status === "in_progress"),
+    waiting_on_client: serializedTasks.filter(
+      (task) => task.status === "waiting_on_client"
+    ),
+    blocked: serializedTasks.filter((task) => task.status === "blocked"),
+    done: serializedTasks.filter((task) => task.status === "done")
+  };
+  const executionJobs = Object.fromEntries(
+    serializedTasks
+      .filter((task) => task.latestExecutionJob)
+      .map((task) => [
+        task.id,
+        {
+          jobId: task.latestExecutionJob?.id,
+          status: task.latestExecutionJob?.status,
+          completedAt: task.latestExecutionJob?.completedAt ?? null
+        }
+      ])
+  );
+
+  return { columns, executionJobs };
+}
+
+export async function loadTaskApproval(projectId: string, taskId: string) {
+  const approval = await loadLatestTaskApprovalRecord(projectId, taskId);
+
+  if (!approval) {
+    return null;
+  }
+
+  return {
+    id: approval.id,
+    taskId: approval.taskId,
+    projectId: approval.projectId,
+    status: approval.status,
+    requestedAt: approval.requestedAt.toISOString(),
+    approvedAt: approval.approvedAt?.toISOString() ?? null,
+    rejectedAt: approval.rejectedAt?.toISOString() ?? null,
+    approvedBy: approval.approvedBy ?? null,
+    rejectedBy: approval.rejectedBy ?? null,
+    notes: approval.notes ?? null
+  };
+}
+
+export async function requestTaskApproval(input: {
+  actor: string;
+  projectId: string;
+  taskId: string;
+  notes?: string | null;
+}) {
+  const task = await prisma.task.findFirst({
+    where: { id: input.taskId, projectId: input.projectId }
+  });
+
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  const approval = await prisma.taskApproval.create({
+    data: {
+      taskId: input.taskId,
+      projectId: input.projectId,
+      notes: input.notes?.trim() || null
+    }
+  });
+
+  await audit(input.actor, "task.approval_requested", "Task", task.id, {
+    projectId: input.projectId,
+    metadata: { approvalId: approval.id }
+  });
+
+  return { approvalId: approval.id };
+}
+
+export async function approveTaskApproval(input: {
+  actor: string;
+  projectId: string;
+  taskId: string;
+  notes?: string | null;
+}) {
+  const approval = await loadLatestTaskApprovalRecord(input.projectId, input.taskId);
+
+  if (!approval) {
+    throw new Error("Task approval not found");
+  }
+
+  const updated = await prisma.taskApproval.update({
+    where: { id: approval.id },
+    data: {
+      status: "approved",
+      approvedAt: new Date(),
+      approvedBy: input.actor,
+      rejectedAt: null,
+      rejectedBy: null,
+      notes: input.notes?.trim() || approval.notes
+    }
+  });
+
+  await audit(input.actor, "task.approved", "Task", input.taskId, {
+    projectId: input.projectId,
+    metadata: { approvalId: updated.id }
+  });
+
+  return { approved: true };
+}
+
+export async function rejectTaskApproval(input: {
+  actor: string;
+  projectId: string;
+  taskId: string;
+  notes?: string | null;
+}) {
+  const approval = await loadLatestTaskApprovalRecord(input.projectId, input.taskId);
+
+  if (!approval) {
+    throw new Error("Task approval not found");
+  }
+
+  const updated = await prisma.taskApproval.update({
+    where: { id: approval.id },
+    data: {
+      status: "rejected",
+      rejectedAt: new Date(),
+      rejectedBy: input.actor,
+      notes: input.notes?.trim() || approval.notes
+    }
+  });
+
+  await audit(input.actor, "task.rejected", "Task", input.taskId, {
+    projectId: input.projectId,
+    metadata: { approvalId: updated.id }
+  });
+
+  return { rejected: true };
+}
+
+export async function transitionProjectTaskStatus(input: {
+  actor: string;
+  projectId: string;
+  taskId: string;
+  status: string;
+}) {
+  const task = await prisma.task.findFirst({
+    where: { id: input.taskId, projectId: input.projectId },
+    include: {
+      assignedAgent: { select: { name: true } },
+      approvals: {
+        select: {
+          id: true,
+          status: true,
+          requestedAt: true,
+          approvedAt: true,
+          rejectedAt: true,
+          approvedBy: true,
+          rejectedBy: true,
+          notes: true
+        },
+        orderBy: [{ requestedAt: "desc" }],
+        take: 1
+      },
+      executionJobs: {
+        select: {
+          id: true,
+          status: true,
+          resultStatus: true,
+          createdAt: true,
+          completedAt: true
+        },
+        orderBy: [{ createdAt: "desc" }],
+        take: 1
+      },
+      project: {
+        select: { portalId: true, name: true }
+      }
+    }
+  });
+
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  const nextStatus = input.status.trim();
+
+  if (!validTaskStatusValues.includes(nextStatus as (typeof validTaskStatusValues)[number])) {
+    throw new Error("Invalid task status");
+  }
+
+  if (!isValidTaskTransition(task.status, nextStatus)) {
+    throw new Error("Invalid task status transition");
+  }
+
+  if (nextStatus === "done" && task.approvalRequired) {
+    const latestApproval = task.approvals[0] ?? null;
+    if (!latestApproval || latestApproval.status !== "approved") {
+      throw new Error("This task requires approval before completion");
+    }
+  }
+
+  const updatedTask = await prisma.task.update({
+    where: { id: task.id },
+    data: { status: nextStatus },
+    include: {
+      assignedAgent: { select: { name: true } },
+      approvals: {
+        select: {
+          id: true,
+          status: true,
+          requestedAt: true,
+          approvedAt: true,
+          rejectedAt: true,
+          approvedBy: true,
+          rejectedBy: true,
+          notes: true
+        },
+        orderBy: [{ requestedAt: "desc" }],
+        take: 1
+      },
+      executionJobs: {
+        select: {
+          id: true,
+          status: true,
+          resultStatus: true,
+          createdAt: true,
+          completedAt: true
+        },
+        orderBy: [{ createdAt: "desc" }],
+        take: 1
+      }
+    }
+  });
+
+  await audit(input.actor, "task.status_changed", "Task", task.id, {
+    projectId: input.projectId,
+    before: { status: task.status },
+    after: { status: nextStatus }
+  });
+
+  if (task.executionType.trim().toLowerCase() === "api" && nextStatus === "in_progress") {
+    await createExecutionJobForTask({
+      actor: input.actor,
+      projectId: input.projectId,
+      task
+    });
+
+    const refreshedTask = await prisma.task.findFirstOrThrow({
+      where: { id: task.id, projectId: input.projectId },
+      include: {
+        assignedAgent: { select: { name: true } },
+        approvals: {
+          select: {
+            id: true,
+            status: true,
+            requestedAt: true,
+            approvedAt: true,
+            rejectedAt: true,
+            approvedBy: true,
+            rejectedBy: true,
+            notes: true
+          },
+          orderBy: [{ requestedAt: "desc" }],
+          take: 1
+        },
+        executionJobs: {
+          select: {
+            id: true,
+            status: true,
+            resultStatus: true,
+            createdAt: true,
+            completedAt: true
+          },
+          orderBy: [{ createdAt: "desc" }],
+          take: 1
+        }
+      }
+    });
+
+    return serializeTask(refreshedTask);
+  }
+
+  return serializeTask(updatedTask);
+}
+
+export async function executeProjectTask(input: {
+  actor: string;
+  projectId: string;
+  taskId: string;
+  dryRun?: boolean;
+  sessionId?: string | null;
+}) {
+  const task = await prisma.task.findFirst({
+    where: { id: input.taskId, projectId: input.projectId },
+    include: {
+      project: {
+        select: { portalId: true, name: true }
+      }
+    }
+  });
+
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  const executionType = task.executionType.trim().toLowerCase();
+
+  if (!["api", "cowork"].includes(executionType)) {
+    throw new Error("Task execution type is not runnable");
+  }
+
+  if (task.executionReadiness === "not_ready") {
+    throw new Error("Task is not ready for execution");
+  }
+
+  if (task.approvalRequired) {
+    const latestApproval = await loadLatestTaskApprovalRecord(
+      input.projectId,
+      input.taskId
+    );
+
+    if (!latestApproval || latestApproval.status !== "approved") {
+      throw new Error("This task requires approval before execution");
+    }
+  }
+
+  const serializedJob = await createExecutionJobForTask({
+    actor: input.actor,
+    projectId: input.projectId,
+    task,
+    ...(input.dryRun !== undefined ? { dryRun: input.dryRun } : {}),
+    ...(input.sessionId ? { sessionId: input.sessionId } : {})
+  });
+
+  await prisma.task.update({
+    where: { id: task.id },
+    data: { status: "in_progress" }
+  });
+
+  await audit(input.actor, "task.execution_started", "Task", task.id, {
+    projectId: input.projectId,
+    metadata: { jobId: serializedJob.id }
+  });
+
+  return { jobId: serializedJob.id, status: "queued" };
+}
+
 export async function createProjectTask(
   projectId: string,
   value: {
@@ -7167,6 +7916,8 @@ export async function createProjectTask(
     coworkBrief?: unknown;
     manualInstructions?: unknown;
     apiPayload?: unknown;
+    agentModuleKey?: unknown;
+    executionPayload?: unknown;
     validationStatus?: unknown;
     validationEvidence?: unknown;
     findingId?: unknown;
@@ -7228,6 +7979,10 @@ export async function createProjectTask(
     value.apiPayload,
     "apiPayload"
   );
+  const normalizedExecutionPayload = normalizeOptionalJsonObject(
+    value.executionPayload,
+    "executionPayload"
+  );
   const resolvedAssignedAgentId = await resolveAssignedAgentIdForTask(
     projectId,
     {
@@ -7255,8 +8010,12 @@ export async function createProjectTask(
       ),
       coworkBrief: normalizeOptionalTaskString(value.coworkBrief),
       manualInstructions: normalizeOptionalTaskString(value.manualInstructions),
+      agentModuleKey: normalizeOptionalTaskString(value.agentModuleKey),
       ...(normalizedApiPayload !== undefined
         ? { apiPayload: normalizedApiPayload }
+        : {}),
+      ...(normalizedExecutionPayload !== undefined
+        ? { executionPayload: normalizedExecutionPayload }
         : {}),
       validationStatus: normalizeTaskValidationStatus(value.validationStatus),
       validationEvidence: normalizeOptionalTaskString(value.validationEvidence),
@@ -7308,6 +8067,8 @@ export async function updateProjectTaskRecord(
     coworkBrief?: unknown;
     manualInstructions?: unknown;
     apiPayload?: unknown;
+    agentModuleKey?: unknown;
+    executionPayload?: unknown;
     validationStatus?: unknown;
     validationEvidence?: unknown;
     findingId?: unknown;
@@ -7352,6 +8113,8 @@ export async function updateProjectTaskRecord(
       "coworkBrief",
       "manualInstructions",
       "apiPayload",
+      "agentModuleKey",
+      "executionPayload",
       "priority",
       "plannedHours",
       "qaRequired",
@@ -7425,6 +8188,17 @@ export async function updateProjectTaskRecord(
     data.apiPayload = normalizeOptionalJsonObject(
       value.apiPayload,
       "apiPayload"
+    );
+  }
+
+  if (value.agentModuleKey !== undefined) {
+    data.agentModuleKey = normalizeOptionalTaskString(value.agentModuleKey);
+  }
+
+  if (value.executionPayload !== undefined) {
+    data.executionPayload = normalizeOptionalJsonObject(
+      value.executionPayload,
+      "executionPayload"
     );
   }
 
@@ -7902,6 +8676,387 @@ Rules:
     projectEmailDraftSchema,
     "project-email-draft"
   );
+}
+
+function formatProjectTypeForAiContext(input: {
+  engagementType: string;
+  scopeType?: string | null;
+}) {
+  return [input.engagementType, input.scopeType?.trim()]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => humanizeTokenLabel(value))
+    .join(" / ");
+}
+
+function formatProjectPackagingForAiContext(
+  project: ReturnType<typeof serializeProject>
+) {
+  const packagingSummary = project.packagingAssessment?.summary?.trim() ?? "";
+  const tier = project.customerPlatformTier?.trim()
+    ? humanizeTokenLabel(project.customerPlatformTier)
+    : "";
+
+  return [tier, packagingSummary].filter(Boolean).join(" | ") || "Not set";
+}
+
+function collectAnsweredProjectInputs(
+  config: ClientQuestionnaireConfig,
+  submissions: Array<{
+    sessionNumber: number;
+    answers: unknown;
+    updatedAt: Date;
+  }>
+) {
+  const questionMap = new Map<
+    string,
+    { sessionNumber: number; label: string }
+  >();
+
+  for (const [sessionNumberText, session] of Object.entries(config)) {
+    const sessionNumber = Number(sessionNumberText);
+    if (!Number.isFinite(sessionNumber) || session.enabled === false) {
+      continue;
+    }
+
+    for (const question of session.questions) {
+      if (question.enabled === false) {
+        continue;
+      }
+
+      questionMap.set(`${sessionNumber}:${question.key}`, {
+        sessionNumber,
+        label: question.label
+      });
+    }
+  }
+
+  const latestAnswers = new Map<
+    string,
+    { sessionNumber: number; question: string; answer: string }
+  >();
+  const sortedSubmissions = [...submissions].sort(
+    (left, right) => right.updatedAt.getTime() - left.updatedAt.getTime()
+  );
+
+  for (const submission of sortedSubmissions) {
+    const answers =
+      submission.answers &&
+      typeof submission.answers === "object" &&
+      !Array.isArray(submission.answers)
+        ? (submission.answers as Record<string, unknown>)
+        : {};
+
+    for (const [answerKey, rawAnswer] of Object.entries(answers)) {
+      const answer =
+        typeof rawAnswer === "string" ? rawAnswer.trim() : String(rawAnswer ?? "").trim();
+      const question = questionMap.get(`${submission.sessionNumber}:${answerKey}`);
+
+      if (!question || !answer || latestAnswers.has(`${question.sessionNumber}:${answerKey}`)) {
+        continue;
+      }
+
+      latestAnswers.set(`${question.sessionNumber}:${answerKey}`, {
+        sessionNumber: question.sessionNumber,
+        question: question.label,
+        answer
+      });
+    }
+  }
+
+  return [...latestAnswers.values()].sort(
+    (left, right) =>
+      left.sessionNumber - right.sessionNumber ||
+      left.question.localeCompare(right.question)
+  );
+}
+
+async function loadProjectAiComposerContext(projectId: string) {
+  const [
+    project,
+    blueprint,
+    discoverySubmissions,
+    quickWins,
+    openTasks,
+    clientInputSubmissions,
+    sessionPrepEntry
+  ] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        client: true,
+        portal: true
+      }
+    }),
+    loadBlueprint(projectId).catch(() => null),
+    prisma.discoverySubmission.findMany({
+      where: { projectId },
+      orderBy: { version: "asc" },
+      select: {
+        version: true,
+        status: true,
+        sections: true,
+        completedSections: true
+      }
+    }),
+    prisma.finding.findMany({
+      where: {
+        projectId,
+        quickWin: true
+      },
+      orderBy: [{ updatedAt: "desc" }],
+      take: 8,
+      select: {
+        title: true,
+        status: true
+      }
+    }),
+    prisma.task.findMany({
+      where: {
+        projectId,
+        status: {
+          not: "done"
+        }
+      },
+      orderBy: [{ updatedAt: "desc" }],
+      take: 8,
+      select: {
+        title: true,
+        status: true,
+        category: true
+      }
+    }),
+    prisma.clientInputSubmission.findMany({
+      where: { projectId },
+      orderBy: [{ updatedAt: "desc" }],
+      select: {
+        sessionNumber: true,
+        answers: true,
+        updatedAt: true
+      }
+    }),
+    prisma.projectContext.findUnique({
+      where: {
+        projectId_contextType: {
+          projectId,
+          contextType: "session_prep"
+        }
+      },
+      select: {
+        content: true
+      }
+    })
+  ]);
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const serializedProject = serializeProject(project);
+  const questionnaireConfig = normalizeClientQuestionnaireConfig(
+    project.clientQuestionnaireConfig
+  );
+  const answeredInputs = collectAnsweredProjectInputs(
+    questionnaireConfig,
+    clientInputSubmissions
+  );
+  const discoveryProgress = buildDiscoverySessionsWithStatus(discoverySubmissions)
+    .filter((session) => session.status !== "complete")
+    .map((session) => ({
+      title: session.title,
+      status: session.status
+    }));
+  const outstandingTasks =
+    openTasks.length > 0
+      ? openTasks.map((task) => ({
+          title: task.title,
+          status: task.status,
+          category: task.category
+        }))
+      : (blueprint?.tasks ?? []).slice(0, 8).map((task) => ({
+          title: task.name,
+          status: "planned",
+          category: task.phaseName
+        }));
+
+  return {
+    project,
+    serializedProject,
+    blueprintGenerated: Boolean(blueprint),
+    quickWins: quickWins.map((quickWin) => ({
+      title: quickWin.title,
+      status: quickWin.status
+    })),
+    outstandingTasks,
+    discoveryProgress,
+    answeredInputs,
+    prepareNotes: sessionPrepEntry?.content?.trim() ?? ""
+  };
+}
+
+function buildSimplifiedProjectEmailContext(context: Awaited<ReturnType<typeof loadProjectAiComposerContext>>) {
+  return [
+    `Client: ${context.serializedProject.clientName}`,
+    `Project: ${context.serializedProject.name}`,
+    `Project type: ${formatProjectTypeForAiContext(context.project)}`,
+    `Hubs in scope: ${
+      context.serializedProject.hubsInScope.length > 0
+        ? context.serializedProject.hubsInScope.map((hub) => humanizeTokenLabel(hub)).join(", ")
+        : "Not set"
+    }`,
+    `Platform packaging: ${formatProjectPackagingForAiContext(context.serializedProject)}`,
+    `Status: ${context.serializedProject.status}`,
+    context.quickWins.length > 0
+      ? `Quick wins: ${context.quickWins
+          .slice(0, 4)
+          .map((quickWin) => quickWin.title)
+          .join("; ")}`
+      : null,
+    context.blueprintGenerated
+      ? "Blueprint generated: yes"
+      : "Blueprint generated: no"
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join("\n");
+}
+
+function buildProjectAgendaContext(context: Awaited<ReturnType<typeof loadProjectAiComposerContext>>) {
+  const quickWinLines = context.quickWins
+    .map((quickWin) => `- ${quickWin.title}`)
+    .slice(0, 8);
+  const taskLines = context.outstandingTasks
+    .slice(0, 8)
+    .map((task) =>
+      `- ${task.title}${task.category ? ` (${task.category})` : ""}`
+    );
+  const discoveryLines = context.discoveryProgress.map(
+    (session) => `- ${session.title} (${humanizeTokenLabel(session.status)})`
+  );
+  const answeredInputLines = context.answeredInputs
+    .slice(0, 8)
+    .map((entry) => `- ${entry.question}: ${entry.answer}`);
+
+  return [
+    `Client: ${context.serializedProject.clientName}`,
+    `Project: ${context.serializedProject.name}`,
+    `Project type: ${formatProjectTypeForAiContext(context.project)}`,
+    `Hubs in scope: ${
+      context.serializedProject.hubsInScope.length > 0
+        ? context.serializedProject.hubsInScope.map((hub) => humanizeTokenLabel(hub)).join(", ")
+        : "Not set"
+    }`,
+    `Platform packaging: ${formatProjectPackagingForAiContext(context.serializedProject)}`,
+    `Status: ${context.serializedProject.status}`,
+    quickWinLines.length > 0
+      ? `Quick wins identified:\n${quickWinLines.join("\n")}`
+      : null,
+    taskLines.length > 0
+      ? `Outstanding blueprint tasks:\n${taskLines.join("\n")}`
+      : null,
+    discoveryLines.length > 0
+      ? `Open discovery areas:\n${discoveryLines.join("\n")}`
+      : null,
+    answeredInputLines.length > 0
+      ? `Project inputs answered:\n${answeredInputLines.join("\n")}`
+      : null,
+    context.prepareNotes
+      ? `Prepare notes:\n${context.prepareNotes.slice(0, 600)}`
+      : null
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join("\n\n");
+}
+
+export async function generateSimplifiedProjectEmailDraft(input: {
+  projectId: string;
+  notes?: string;
+}) {
+  const context = await loadProjectAiComposerContext(input.projectId);
+  const resolvedWorkflow = await resolveAiWorkflow("project_email_drafting");
+  const draft = await callResolvedAiWorkflow(
+    resolvedWorkflow,
+    `You are writing a professional but warm email on behalf of a HubSpot consultant. Use the project context provided and the user's notes to draft a concise, friendly email. Do not add fluff. Sound like a human consultant, not a corporation.
+
+Return only the email body as plain text. Do not add a subject line, markdown, commentary, or placeholders.
+
+Project context:
+${buildSimplifiedProjectEmailContext(context)}`,
+    input.notes?.trim() || "Draft a brief project update email.",
+    { maxTokens: 1400 }
+  );
+
+  const normalizedDraft = draft.trim();
+
+  if (!normalizedDraft) {
+    throw new Error("Email draft came back empty");
+  }
+
+  return normalizedDraft;
+}
+
+export async function generateProjectAgenda(input: {
+  projectId: string;
+  sessionType: string;
+  date?: string | null;
+  duration?: string | null;
+  notes?: string | null;
+}) {
+  const context = await loadProjectAiComposerContext(input.projectId);
+  const resolvedWorkflow = await resolveAiWorkflow("project_agenda_generation");
+  const promptParts = [`Build an agenda for a ${input.sessionType}.`];
+
+  if (input.date?.trim()) {
+    promptParts.push(`Scheduled for: ${input.date.trim()}.`);
+  }
+
+  if (input.duration?.trim()) {
+    promptParts.push(`Duration: ${input.duration.trim()}.`);
+  }
+
+  if (input.notes?.trim()) {
+    promptParts.push(`Additional focus: ${input.notes.trim()}.`);
+  }
+
+  promptParts.push(
+    "Use the project context to make every agenda item specific and relevant."
+  );
+
+  const agenda = await callResolvedAiWorkflow(
+    resolvedWorkflow,
+    `You are a HubSpot implementation consultant building a structured meeting agenda.
+Use the project context below to create a relevant, time-boxed agenda.
+Make it practical and specific to what this project actually needs.
+Format the response as plain text with a title, optional date and duration lines, and time-boxed agenda items using HH:MM - HH:MM ranges followed by concise bullet points.
+Do not use markdown headings, tables, or commentary before or after the agenda.
+
+Project context:
+${buildProjectAgendaContext(context)}`,
+    promptParts.join(" "),
+    { maxTokens: 1800 }
+  );
+
+  const content = agenda.trim();
+
+  if (!content) {
+    throw new Error("Agenda came back empty");
+  }
+
+  const lastAgenda = projectAgendaRecordSchema.parse({
+    sessionType: input.sessionType.trim(),
+    date: input.date?.trim() ? input.date.trim() : null,
+    duration: input.duration?.trim() ? input.duration.trim() : null,
+    notes: input.notes?.trim() ? input.notes.trim() : null,
+    content,
+    generatedAt: new Date().toISOString()
+  });
+
+  await prisma.project.update({
+    where: { id: input.projectId },
+    data: {
+      lastAgenda: lastAgenda as Prisma.Prisma.InputJsonValue
+    }
+  });
+
+  return lastAgenda;
 }
 
 async function generateStandaloneScopeSummary(

@@ -10,9 +10,11 @@
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
   },
   "dependencies": {
+    "@muloo/browser-session-executor": "workspace:*",
     "@muloo/core": "workspace:*",
     "@muloo/diff-engine": "workspace:*",
     "@muloo/hubspot-client": "workspace:*",
+    "@muloo/report-templates": "workspace:*",
     "@muloo/shared": "workspace:*",
     "@prisma/client": "5.22.0"
   }

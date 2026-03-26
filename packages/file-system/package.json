@@ -12,6 +12,7 @@
   "dependencies": {
     "@muloo/core": "workspace:*",
     "@muloo/executor": "workspace:*",
-    "@muloo/shared": "workspace:*"
+    "@muloo/shared": "workspace:*",
+    "@prisma/client": "5.22.0"
   }
 }

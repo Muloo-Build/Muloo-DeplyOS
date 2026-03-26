@@ -261,6 +261,18 @@ interface HubSpotObjectRecordInput {
   properties: Record<string, string | number | boolean | null>;
 }
 
+interface HubSpotContactSearchFilter {
+  propertyName: string;
+  operator: string;
+  value: string;
+}
+
+interface HubSpotContactSearchInput {
+  filters?: HubSpotContactSearchFilter[];
+  limit?: number;
+  after?: number;
+}
+
 function normalizeOptions(
   options?: HubSpotPropertyOptionResponse[]
 ): PropertyOption[] | undefined {
@@ -567,11 +579,18 @@ export class HubSpotClient {
     this.logger = options.logger;
   }
 
+  private assertAccessToken() {
+    if (!this.accessToken?.trim()) {
+      throw new Error("HubSpot access token is not configured");
+    }
+  }
+
   private async requestJson<T>(
     path: string,
     init: RequestInit,
     errorLabel: string
   ): Promise<T> {
+    this.assertAccessToken();
     const url = `${this.baseUrl}${path}`;
 
     const response = await fetch(url, {
@@ -696,10 +715,59 @@ export class HubSpotClient {
     return payload.results.map(normalizeProperty);
   }
 
+  /**
+   * Check if a specific property exists by exact internal name.
+   * Uses GET /crm/v3/properties/{objectType}/{propertyName}
+   * Returns the property definition if found, null if not found (404).
+   */
+  public async getPropertyByName(
+    objectType: string,
+    propertyName: string
+  ): Promise<ComparablePropertyDefinition | null> {
+    this.assertAccessToken();
+    const url = `${this.baseUrl}/crm/v3/properties/${objectType}/${propertyName}`;
+    this.logger.info("Fetching HubSpot CRM property by name.", {
+      objectType,
+      propertyName,
+      url
+    });
+
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (response.status === 404) {
+        this.logger.info("Property not found.", { objectType, propertyName });
+        return null;
+      }
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(
+          `HubSpot property fetch failed with status ${response.status}: ${body}`
+        );
+      }
+
+      const payload = (await response.json()) as HubSpotPropertyResponse;
+      return normalizeProperty(payload);
+    } catch (err: any) {
+      if (err?.code === 404 || err?.response?.status === 404) {
+        return null;
+      }
+      throw err;
+    }
+  }
+
   public async createProperty(
     objectType: string,
     property: ComparablePropertyDefinition
   ): Promise<ComparablePropertyDefinition> {
+    this.assertAccessToken();
     const url = `${this.baseUrl}/crm/v3/properties/${objectType}`;
     this.logger.info("Creating HubSpot CRM property.", {
       objectType,
@@ -752,6 +820,25 @@ export class HubSpotClient {
     }
 
     const payload = (await response.json()) as HubSpotPropertyResponse;
+    return normalizeProperty(payload);
+  }
+
+  public async updateProperty(
+    objectType: string,
+    name: string,
+    updates: Partial<ComparablePropertyDefinition>
+  ): Promise<ComparablePropertyDefinition> {
+    this.assertAccessToken();
+
+    const payload = await this.requestJson<HubSpotPropertyResponse>(
+      `/crm/v3/properties/${objectType}/${encodeURIComponent(name)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(updates)
+      },
+      "HubSpot property update"
+    );
+
     return normalizeProperty(payload);
   }
 
@@ -878,6 +965,7 @@ export class HubSpotClient {
     objectType: PipelineObjectType,
     pipeline: HubSpotCreatePipelineInput
   ): Promise<ComparablePipelineDefinition> {
+    this.assertAccessToken();
     this.logger.info("Creating HubSpot pipeline.", {
       objectType,
       label: pipeline.label
@@ -915,6 +1003,77 @@ export class HubSpotClient {
     );
 
     return normalizePipeline(objectType, payload);
+  }
+
+  public async updatePipelineStage(
+    objectType: PipelineObjectType,
+    pipelineId: string,
+    stageId: string,
+    updates: {
+      label?: string;
+      displayOrder?: number;
+      probability?: number;
+    }
+  ): Promise<ComparablePipelineStageDefinition> {
+    this.assertAccessToken();
+
+    const payload = await this.requestJson<HubSpotPipelineStageResponse>(
+      `/crm/v3/pipelines/${objectType}/${encodeURIComponent(
+        pipelineId
+      )}/stages/${encodeURIComponent(stageId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...(updates.label ? { label: updates.label } : {}),
+          ...(updates.displayOrder !== undefined
+            ? { displayOrder: updates.displayOrder }
+            : {}),
+          ...(updates.probability !== undefined
+            ? { metadata: { probability: String(updates.probability) } }
+            : {})
+        })
+      },
+      "HubSpot pipeline stage update"
+    );
+
+    return normalizePipelineStage(pipelineId, payload, 0);
+  }
+
+  public async updateContactProperty(
+    contactId: string,
+    properties: Record<string, string>
+  ): Promise<void> {
+    this.assertAccessToken();
+
+    await this.requestJson<Record<string, unknown>>(
+      `/crm/v3/objects/contacts/${encodeURIComponent(contactId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ properties })
+      },
+      "HubSpot contact update"
+    );
+  }
+
+  public async searchContacts(input: HubSpotContactSearchInput) {
+    this.assertAccessToken();
+
+    return this.requestJson<Record<string, unknown>>(
+      "/crm/v3/objects/contacts/search",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          filterGroups: [
+            {
+              filters: input.filters ?? []
+            }
+          ],
+          ...(input.limit !== undefined ? { limit: input.limit } : {}),
+          ...(input.after !== undefined ? { after: input.after } : {})
+        })
+      },
+      "HubSpot contact search"
+    );
   }
 
   public async upsertObjectRecord(

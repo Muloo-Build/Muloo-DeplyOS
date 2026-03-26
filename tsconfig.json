@@ -7,7 +7,9 @@
     { "path": "packages/file-system" },
     { "path": "packages/hubspot-client" },
     { "path": "packages/diff-engine" },
+    { "path": "packages/report-templates" },
     { "path": "packages/executor" },
+    { "path": "packages/browser-session-executor" },
     { "path": "apps/api" },
     { "path": "apps/cli" }
   ]

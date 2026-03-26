@@ -14,6 +14,8 @@ interface ProjectTask {
   coworkBrief: string | null;
   manualInstructions: string | null;
   apiPayload: Record<string, unknown> | null;
+  agentModuleKey: string | null;
+  executionPayload: Record<string, unknown> | null;
   validationStatus: string;
   validationEvidence: string | null;
   findingId: string | null;
@@ -39,6 +41,16 @@ interface ProjectTask {
   changeRequestId?: string | null;
   assignedAgentId: string | null;
   assignedAgentName: string | null;
+  latestApproval?: {
+    id: string;
+    status: string;
+    requestedAt: string;
+    approvedAt: string | null;
+    rejectedAt: string | null;
+    approvedBy: string | null;
+    rejectedBy: string | null;
+    notes: string | null;
+  } | null;
   latestExecutionJob?: {
     id: string;
     status: string;
@@ -193,6 +205,8 @@ export default function DeliveryBoard({
   >(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [queueingTaskId, setQueueingTaskId] = useState<string | null>(null);
+  const [executingTaskId, setExecutingTaskId] = useState<string | null>(null);
+  const [approvalTaskId, setApprovalTaskId] = useState<string | null>(null);
   const [activePanel, setActivePanel] = useState<"board" | "quick_wins">(
     "board"
   );
@@ -217,6 +231,7 @@ export default function DeliveryBoard({
     mode === "client"
       ? `/api/client/projects/${encodeURIComponent(projectId)}/tasks`
       : `/api/projects/${encodeURIComponent(projectId)}/tasks`;
+  const boardUrl = `/api/projects/${encodeURIComponent(projectId)}/tasks/board`;
 
   async function loadTasks() {
     setLoading(true);
@@ -225,7 +240,7 @@ export default function DeliveryBoard({
     try {
       const [tasksResponse, agentsResponse, projectResponse] =
         await Promise.all([
-          fetch(baseUrl, {
+          fetch(mode === "client" ? baseUrl : boardUrl, {
             ...(mode === "client" ? { credentials: "include" } : {})
           }),
           mode === "internal" ? fetch("/api/agents") : Promise.resolve(null),
@@ -246,7 +261,12 @@ export default function DeliveryBoard({
         throw new Error(body?.error ?? "Failed to load delivery board");
       }
 
-      setTasks(body?.tasks ?? []);
+      if (mode === "internal") {
+        const flattenedTasks = Object.values(body?.columns ?? {}).flat() as ProjectTask[];
+        setTasks(flattenedTasks);
+      } else {
+        setTasks(body?.tasks ?? []);
+      }
       if (findingsResponse?.ok) {
         const findingsBody = await findingsResponse.json().catch(() => null);
         setFindings(findingsBody?.findings ?? []);
@@ -302,6 +322,64 @@ export default function DeliveryBoard({
   useEffect(() => {
     void loadTasks();
   }, [projectId, mode]);
+
+  useEffect(() => {
+    if (mode !== "internal") {
+      return;
+    }
+
+    const activeJobs = tasks
+      .filter((task) =>
+        task.latestExecutionJob &&
+        ["queued", "running"].includes(task.latestExecutionJob.status)
+      )
+      .map((task) => ({
+        taskId: task.id,
+        jobId: task.latestExecutionJob?.id ?? ""
+      }))
+      .filter((item) => item.jobId);
+
+    if (activeJobs.length === 0) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void Promise.all(
+        activeJobs.map(async ({ taskId, jobId }) => {
+          const response = await fetch(
+            `/api/execution-jobs/${encodeURIComponent(jobId)}/status`
+          );
+          const body = await response.json().catch(() => null);
+
+          if (!response.ok) {
+            return;
+          }
+
+          setTasks((currentTasks) =>
+            currentTasks.map((task) =>
+              task.id === taskId
+                ? {
+                    ...task,
+                    latestExecutionJob: task.latestExecutionJob
+                      ? {
+                          ...task.latestExecutionJob,
+                          status: body.status,
+                          resultStatus: body.resultStatus ?? null,
+                          completedAt: body.completedAt ?? null
+                        }
+                      : task.latestExecutionJob
+                  }
+                : task
+            )
+          );
+        })
+      );
+    }, 3000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [mode, tasks]);
 
   function resetTaskDraft() {
     setTaskDraft({
@@ -386,7 +464,7 @@ export default function DeliveryBoard({
 
     try {
       const response = await fetch(
-        `/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`,
+        `/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/status`,
         {
           method: "PATCH",
           headers: {
@@ -505,6 +583,105 @@ export default function DeliveryBoard({
       );
     } finally {
       setQueueingTaskId(null);
+    }
+  }
+
+  async function executeTask(taskId: string) {
+    setExecutingTaskId(taskId);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/execute`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ dryRun: false })
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to execute task");
+      }
+
+      await loadTasks();
+    } catch (executionError) {
+      setError(
+        executionError instanceof Error
+          ? executionError.message
+          : "Failed to execute task"
+      );
+    } finally {
+      setExecutingTaskId(null);
+    }
+  }
+
+  async function requestApproval(taskId: string) {
+    setApprovalTaskId(taskId);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/request-approval`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({})
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to request approval");
+      }
+
+      await loadTasks();
+    } catch (approvalError) {
+      setError(
+        approvalError instanceof Error
+          ? approvalError.message
+          : "Failed to request approval"
+      );
+    } finally {
+      setApprovalTaskId(null);
+    }
+  }
+
+  async function approveTask(taskId: string) {
+    setApprovalTaskId(taskId);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/approve`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({})
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to approve task");
+      }
+
+      await loadTasks();
+    } catch (approvalError) {
+      setError(
+        approvalError instanceof Error
+          ? approvalError.message
+          : "Failed to approve task"
+      );
+    } finally {
+      setApprovalTaskId(null);
     }
   }
 
@@ -1263,6 +1440,11 @@ export default function DeliveryBoard({
                                       : ""}
                                   </span>
                                 ) : null}
+                                {task.latestApproval ? (
+                                  <span>
+                                    Approval: {formatLabel(task.latestApproval.status)}
+                                  </span>
+                                ) : null}
                               </div>
                               {task.executionLaneRationale ? (
                                 <p className="mt-3 text-xs text-text-secondary">
@@ -1521,6 +1703,23 @@ export default function DeliveryBoard({
                                         >
                                           Edit
                                         </button>
+                                        {["api", "cowork"].includes(
+                                          task.executionType.toLowerCase()
+                                        ) &&
+                                        ["ready", "ready_with_review"].includes(
+                                          task.executionReadiness
+                                        ) ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => void executeTask(task.id)}
+                                            disabled={executingTaskId === task.id}
+                                            className="rounded-xl border border-[rgba(45,212,160,0.35)] px-3 py-2 text-xs font-medium text-[#2dd4a0] disabled:opacity-60"
+                                          >
+                                            {executingTaskId === task.id
+                                              ? "Running..."
+                                              : "Run"}
+                                          </button>
+                                        ) : null}
                                         {task.assigneeType?.toLowerCase() ===
                                           "agent" &&
                                         task.assignedAgentId &&
@@ -1543,6 +1742,32 @@ export default function DeliveryBoard({
                                               : task.executionPath.apiEligible
                                                 ? "Queue API Agent Run"
                                                 : "Queue Review Run"}
+                                          </button>
+                                        ) : null}
+                                        {task.approvalRequired &&
+                                        !task.latestApproval ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => void requestApproval(task.id)}
+                                            disabled={approvalTaskId === task.id}
+                                            className="rounded-xl border border-[rgba(255,214,102,0.35)] px-3 py-2 text-xs font-medium text-[#ffd666] disabled:opacity-60"
+                                          >
+                                            {approvalTaskId === task.id
+                                              ? "Requesting..."
+                                              : "Request Approval"}
+                                          </button>
+                                        ) : null}
+                                        {task.approvalRequired &&
+                                        task.latestApproval?.status === "pending" ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => void approveTask(task.id)}
+                                            disabled={approvalTaskId === task.id}
+                                            className="rounded-xl border border-[rgba(123,226,239,0.35)] px-3 py-2 text-xs font-medium text-[#7be2ef] disabled:opacity-60"
+                                          >
+                                            {approvalTaskId === task.id
+                                              ? "Approving..."
+                                              : "Approve"}
                                           </button>
                                         ) : null}
                                         <button
@@ -1600,6 +1825,17 @@ export default function DeliveryBoard({
                                             : !task.assignedAgentId
                                               ? "Assign an agent before queueing execution."
                                               : "Move readiness to Ready with review or Ready before queueing execution."}
+                                        </p>
+                                      ) : null}
+                                      {["api", "cowork"].includes(
+                                        task.executionType.toLowerCase()
+                                      ) &&
+                                      !["ready", "ready_with_review"].includes(
+                                        task.executionReadiness
+                                      ) ? (
+                                        <p className="mt-3 text-xs text-text-secondary">
+                                          API and cowork runs unlock when readiness is set
+                                          to Ready or Ready with review.
                                         </p>
                                       ) : null}
                                     </>

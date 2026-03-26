@@ -1,0 +1,12 @@
+{
+  "name": "@muloo/report-templates",
+  "version": "1.0.0",
+  "description": "Report template system for HubSpot marketing dashboards",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {}
+}

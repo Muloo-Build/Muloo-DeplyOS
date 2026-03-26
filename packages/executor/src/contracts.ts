@@ -63,6 +63,10 @@ export interface PropertyReader {
   fetchProperties(
     objectType: OnboardingSpec["crm"]["objectType"]
   ): Promise<ComparablePropertyDefinition[]>;
+  getPropertyByName(
+    objectType: OnboardingSpec["crm"]["objectType"],
+    propertyName: string
+  ): Promise<ComparablePropertyDefinition | null>;
 }
 
 export interface PropertyWriter {

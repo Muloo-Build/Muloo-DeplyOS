@@ -41,6 +41,10 @@ interface PropertyApplyReader {
   fetchProperties(
     objectType: OnboardingSpec["crm"]["objectType"]
   ): Promise<ComparablePropertyDefinition[]>;
+  getPropertyByName(
+    objectType: OnboardingSpec["crm"]["objectType"],
+    propertyName: string
+  ): Promise<ComparablePropertyDefinition | null>;
 }
 
 interface WriteArtifact {
@@ -199,6 +203,25 @@ export async function executePropertyApply(
       )?.property;
 
       if (!propertyToCreate) {
+        continue;
+      }
+
+      // Check if property already exists before attempting to create
+      const existingProperty = await options.hubSpotClient.getPropertyByName(
+        "contacts",
+        propertyToCreate.name
+      );
+
+      if (existingProperty) {
+        options.logger.info("Property already exists, skipping create.", {
+          propertyName: propertyToCreate.name
+        });
+        createdProperties.push(existingProperty);
+        executedOperations.push({
+          ...requestedOperation,
+          status: "executed",
+          message: "Contact property already exists in HubSpot."
+        });
         continue;
       }
 

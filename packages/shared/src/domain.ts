@@ -129,6 +129,12 @@ export const executionOperationStatusSchema = z.enum([
   "executed",
   "blocked"
 ]);
+export const aiProviderSchema = z.enum([
+  "openai",
+  "anthropic",
+  "perplexity",
+  "gemini"
+]);
 
 export const clientSchema = z
   .object({
@@ -997,6 +1003,28 @@ export const executionJobSchema = z
   })
   .strict();
 
+export const coworkStepSchema = z
+  .object({
+    order: z.number().int().positive(),
+    action: z.enum(["navigate", "click", "fill_field", "select_option", "verify"]),
+    target: z.string().min(1),
+    value: z.string().optional(),
+    description: z.string().min(1)
+  })
+  .strict();
+
+export const coworkInstructionSchema = z
+  .object({
+    id: z.string().min(1),
+    taskType: z.enum(["hubspot_property_create", "hubspot_report_create", "hubspot_dashboard_create"]),
+    portalId: z.string().min(1),
+    targetUrl: z.string().url(),
+    steps: z.array(coworkStepSchema),
+    expectedOutcome: z.string().min(1),
+    fallbackToManual: z.array(z.unknown()).optional()
+  })
+  .strict();
+
 export const auditLogSchema = z
   .object({
     id: z.string().min(1),
@@ -1086,4 +1114,7 @@ export type ExecutionOperationSummary = z.infer<
 export type ExecutionJobRecord = z.infer<typeof executionJobRecordSchema>;
 export type ExecutionJob = z.infer<typeof executionJobSchema>;
 export type ExecutionStep = z.infer<typeof executionStepSchema>;
+export type CoworkStep = z.infer<typeof coworkStepSchema>;
+export type CoworkInstruction = z.infer<typeof coworkInstructionSchema>;
 export type AuditLog = z.infer<typeof auditLogSchema>;
+export type AIProvider = z.infer<typeof aiProviderSchema>;
