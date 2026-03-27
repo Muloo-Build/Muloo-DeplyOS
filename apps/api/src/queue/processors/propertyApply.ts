@@ -84,15 +84,26 @@ export async function runPropertyApply(data: JobPayload): Promise<JobResult> {
     throw new Error("properties array is required for property_apply");
   }
 
-  const portalSession = await prisma.portalSession.findFirst({
-    where: { portalId: data.portalId, valid: true },
-    orderBy: { capturedAt: "desc" }
-  });
+  const [portalSession, hubspotPortal] = await Promise.all([
+    prisma.portalSession.findFirst({
+      where: { portalId: data.portalId, valid: true },
+      orderBy: { capturedAt: "desc" }
+    }),
+    prisma.hubSpotPortal.findFirst({
+      where: { portalId: data.portalId }
+    })
+  ]);
 
-  if (!portalSession?.privateAppToken?.trim()) {
+  // Use private app token if set, otherwise fall back to OAuth access token.
+  // The OAuth connection already includes crm.schemas.*.write scopes.
+  const resolvedToken =
+    portalSession?.privateAppToken?.trim() ||
+    hubspotPortal?.accessToken?.trim();
+
+  if (!resolvedToken) {
     const output: PropertyApplyOutput = {
       status: "queued_for_cowork",
-      summary: "Private app token missing. Property apply queued for cowork follow-up.",
+      summary: "No HubSpot token available. Reconnect the portal in Settings → Providers.",
       executionTier: 3,
       coworkInstruction: buildCoworkInstruction(data.portalId)
     };
@@ -115,7 +126,7 @@ export async function runPropertyApply(data: JobPayload): Promise<JobResult> {
 
   const client = new HubSpotWriteClient({
     portalId: data.portalId,
-    privateAppToken: portalSession.privateAppToken
+    privateAppToken: resolvedToken
   });
 
   const created: PropertyDiffEntry[] = [];

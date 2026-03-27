@@ -162,15 +162,27 @@ export async function runPortalAudit(data: JobPayload): Promise<JobResult> {
     throw new Error("portalId and projectId are required for portal_audit");
   }
 
-  const portalSession = await prisma.portalSession.findFirst({
-    where: { portalId: data.portalId, valid: true },
-    orderBy: { capturedAt: "desc" }
-  });
+  const [portalSession, hubspotPortal] = await Promise.all([
+    prisma.portalSession.findFirst({
+      where: { portalId: data.portalId, valid: true },
+      orderBy: { capturedAt: "desc" }
+    }),
+    prisma.hubSpotPortal.findFirst({
+      where: { portalId: data.portalId }
+    })
+  ]);
 
-  if (!portalSession?.privateAppToken?.trim()) {
+  // Use private app token if available, otherwise fall back to OAuth access token.
+  // The OAuth connection already includes crm.schemas.*.write scopes so it can
+  // create and update properties without a separate private app.
+  const resolvedToken =
+    portalSession?.privateAppToken?.trim() ||
+    hubspotPortal?.accessToken?.trim();
+
+  if (!resolvedToken) {
     const output: AuditOutput = {
       status: "queued_for_cowork",
-      summary: "Private app token missing. Portal audit queued for cowork follow-up.",
+      summary: "No HubSpot token available. Reconnect the portal in Settings → Providers.",
       executionTier: 3,
       coworkInstruction: buildCoworkInstruction(data.portalId)
     };
@@ -193,7 +205,7 @@ export async function runPortalAudit(data: JobPayload): Promise<JobResult> {
 
   const client = new HubSpotWriteClient({
     portalId: data.portalId,
-    privateAppToken: portalSession.privateAppToken
+    privateAppToken: resolvedToken
   });
 
   const latestSnapshot = await prisma.portalSnapshot.findFirst({

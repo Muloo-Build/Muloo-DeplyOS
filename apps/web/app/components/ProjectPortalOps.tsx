@@ -616,13 +616,20 @@ export default function ProjectPortalOps() {
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="mb-4 text-xs text-text-secondary">
+                        <span className="font-semibold text-white">Optional.</span>{" "}
+                        Your existing OAuth connection already supports property and workflow creation — you don't need to add anything here unless you want a long-lived token for automated runs that won't need re-authentication.
+                      </p>
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
                         <div className="min-w-0 flex-1">
                           <label
                             htmlFor="portal-private-app-token"
                             className="text-xs uppercase tracking-[0.18em] text-text-muted"
                           >
-                            HubSpot Private App Token
+                            Private App Token{" "}
+                            <span className="ml-1 normal-case tracking-normal text-text-muted">
+                              — optional
+                            </span>
                           </label>
                           <input
                             id="portal-private-app-token"
@@ -644,9 +651,14 @@ export default function ProjectPortalOps() {
                             className="brand-input mt-3 w-full rounded-2xl px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
                           />
                           <p className="mt-3 text-xs text-text-secondary">
-                            Required for property creation and workflow building.
-                            Create a private app in HubSpot → Settings →
-                            Integrations → Private Apps.
+                            To create one: in the client's HubSpot go to{" "}
+                            <strong className="text-white">Settings → Integrations → Private Apps → Create app</strong>.
+                            Name it "Muloo DeployOS", add scopes:{" "}
+                            <code className="text-text-primary">crm.schemas.contacts.write</code>,{" "}
+                            <code className="text-text-primary">crm.objects.contacts.write</code>,{" "}
+                            <code className="text-text-primary">automation</code>,{" "}
+                            <code className="text-text-primary">content</code>.
+                            Then copy the token and paste above.
                           </p>
                         </div>
                         <div className="flex flex-col gap-2 lg:items-end">
