@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import ClientShell from "./ClientShell";
+import { type PortalExperience } from "./portalExperience";
 
 interface ClientProjectOption {
   role: string;
@@ -56,7 +57,11 @@ const serviceFamilies = [
   { value: "ai_automation", label: "AI Automation" }
 ];
 
-export default function ClientWorkRequestPortal() {
+export default function ClientWorkRequestPortal({
+  portalExperience = "client"
+}: {
+  portalExperience?: PortalExperience;
+}) {
   const [sessionUser, setSessionUser] = useState<ClientSessionUser | null>(
     null
   );
@@ -182,6 +187,7 @@ export default function ClientWorkRequestPortal() {
 
   return (
     <ClientShell
+      portalExperience={portalExperience}
       title="Request Work"
       subtitle="Submit a quote request, job spec, project brief, or change request for Muloo to review."
     >

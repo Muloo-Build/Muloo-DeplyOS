@@ -18377,7 +18377,7 @@ export async function createClientPortalUserForProject(
   return {
     ...serializeClientPortalUser(user),
     inviteLink: inviteToken
-      ? buildClientAccessUrl("/client/activate", inviteToken)
+      ? await buildClientAccessUrlForEmail(user.email, inviteToken)
       : null,
     role,
     questionnaireAccess,
@@ -18394,12 +18394,60 @@ function getAppBaseUrl() {
   );
 }
 
-function buildClientAccessUrl(pathname: string, token: string) {
-  return `${getAppBaseUrl()}${pathname}?token=${encodeURIComponent(token)}`;
+async function resolvePortalBasePathForEmail(email?: string | null) {
+  const normalizedEmail = email?.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return "/client" as const;
+  }
+
+  const partnerClient = await prisma.client.findFirst({
+    where: {
+      clientRoles: {
+        has: "partner"
+      },
+      contacts: {
+        some: {
+          email: {
+            equals: normalizedEmail,
+            mode: "insensitive"
+          }
+        }
+      }
+    },
+    select: {
+      id: true
+    }
+  });
+
+  return partnerClient ? ("/partner" as const) : ("/client" as const);
 }
 
-function buildClientPortalLoginUrl() {
-  return `${getAppBaseUrl()}/client/login`;
+export async function resolvePortalBasePathForClientUser(userId: string) {
+  const user = await prisma.clientPortalUser.findUnique({
+    where: { id: userId },
+    select: { email: true }
+  });
+
+  return resolvePortalBasePathForEmail(user?.email);
+}
+
+function buildPortalAccessUrl(
+  portalBasePath: "/client" | "/partner",
+  pathname: string,
+  token: string
+) {
+  return `${getAppBaseUrl()}${portalBasePath}${pathname}?token=${encodeURIComponent(token)}`;
+}
+
+async function buildClientAccessUrlForEmail(email: string, token: string) {
+  const portalBasePath = await resolvePortalBasePathForEmail(email);
+  return buildPortalAccessUrl(portalBasePath, "/activate", token);
+}
+
+async function buildClientPortalLoginUrl(email: string) {
+  const portalBasePath = await resolvePortalBasePathForEmail(email);
+  return `${getAppBaseUrl()}${portalBasePath}/login`;
 }
 
 function buildClientPortalInviteEmail(input: {
@@ -18491,7 +18539,10 @@ export async function createClientInviteLink(
 
   return {
     user: serializeClientPortalUser(access.user),
-    inviteLink: buildClientAccessUrl("/client/activate", inviteToken)
+    inviteLink: await buildClientAccessUrlForEmail(
+      access.user.email,
+      inviteToken
+    )
   };
 }
 
@@ -18525,7 +18576,7 @@ export async function createClientResetLink(userId: string, projectId: string) {
 
   return {
     user: serializeClientPortalUser(access.user),
-    resetLink: buildClientAccessUrl("/client/activate", resetToken)
+    resetLink: await buildClientAccessUrlForEmail(access.user.email, resetToken)
   };
 }
 
@@ -18690,7 +18741,7 @@ export async function inviteClientContactToProjects(
     });
   }
 
-  const accessUrl = inviteLink ?? buildClientPortalLoginUrl();
+  const accessUrl = inviteLink ?? (await buildClientPortalLoginUrl(contact.email));
   let emailSent = false;
   let emailError: string | null = null;
 

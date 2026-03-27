@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import ClientShell from "./ClientShell";
+import { type PortalExperience } from "./portalExperience";
 
 interface ClientInboxMessage {
   id: string;
@@ -39,7 +40,11 @@ interface ClientProjectOption {
   };
 }
 
-export default function ClientInbox() {
+export default function ClientInbox({
+  portalExperience = "client"
+}: {
+  portalExperience?: PortalExperience;
+}) {
   const [messages, setMessages] = useState<ClientInboxMessage[]>([]);
   const [requests, setRequests] = useState<ClientInboxRequest[]>([]);
   const [projects, setProjects] = useState<ClientProjectOption[]>([]);
@@ -144,6 +149,7 @@ export default function ClientInbox() {
 
   return (
     <ClientShell
+      portalExperience={portalExperience}
       title="Inbox"
       subtitle="Project-linked messages, updates, and work requests in one place."
     >

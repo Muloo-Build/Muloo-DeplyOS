@@ -9,6 +9,11 @@ import {
   createDefaultClientQuestionnaireDefinitionMap,
   type ClientQuestionnaireDefinitionMap
 } from "./clientQuestionnaire";
+import {
+  type PortalExperience,
+  getPortalDeliveryPath,
+  getPortalQuotePath
+} from "./portalExperience";
 
 type WorkspaceTab = "overview" | "tasks" | "messages" | "delivery";
 
@@ -131,7 +136,13 @@ function projectStatusColor(status: string) {
   return "text-text-secondary";
 }
 
-export default function ClientProjectWorkspace({ projectId }: { projectId: string }) {
+export default function ClientProjectWorkspace({
+  projectId,
+  portalExperience = "client"
+}: {
+  projectId: string;
+  portalExperience?: PortalExperience;
+}) {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [questionnaireDefinitions, setQuestionnaireDefinitions] =
     useState<ClientQuestionnaireDefinitionMap>(createDefaultClientQuestionnaireDefinitionMap());
@@ -348,7 +359,7 @@ export default function ClientProjectWorkspace({ projectId }: { projectId: strin
   ];
 
   return (
-    <ClientShell>
+    <ClientShell portalExperience={portalExperience}>
       {loading ? (
         <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8 text-text-secondary">
           Loading project...
@@ -437,7 +448,10 @@ export default function ClientProjectWorkspace({ projectId }: { projectId: strin
                     </div>
                     {quoteApprovalStatus !== "draft" ? (
                       <Link
-                        href={`/client/projects/${detail.project.id}/quote`}
+                        href={getPortalQuotePath(
+                          portalExperience,
+                          detail.project.id
+                        )}
                         className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-2.5 text-sm font-medium text-white"
                       >
                         {quoteApprovalStatus === "approved" ? "View quote" : "Review & approve"}
@@ -640,7 +654,10 @@ export default function ClientProjectWorkspace({ projectId }: { projectId: strin
                 Track the delivery plan and current progress for this project. Each item represents a piece of work that's been planned or completed.
               </p>
               <Link
-                href={`/client/projects/${detail.project.id}/delivery`}
+                href={getPortalDeliveryPath(
+                  portalExperience,
+                  detail.project.id
+                )}
                 className="inline-flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-3 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.14)]"
               >
                 Open full delivery board →

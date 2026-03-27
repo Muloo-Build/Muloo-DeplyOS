@@ -4,15 +4,21 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
+import {
+  getPortalLabel,
+  getPortalLoginPath,
+  isPublicPortalRoute,
+  resolvePortalExperienceFromPathname
+} from "./portalExperience";
+
 export default function ClientAuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [checked, setChecked] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
-  const isPublicClientRoute =
-    pathname === "/client/login" ||
-    pathname === "/client/activate" ||
-    pathname === "/client/forgot-password";
+  const portalExperience = resolvePortalExperienceFromPathname(pathname);
+  const loginPath = getPortalLoginPath(portalExperience);
+  const isPublicClientRoute = isPublicPortalRoute(pathname, portalExperience);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,7 +52,7 @@ export default function ClientAuthGate({ children }: { children: ReactNode }) {
         setChecked(true);
 
         if (!nextAuthenticated) {
-          router.replace("/client/login");
+          router.replace(loginPath);
         }
       } catch {
         if (cancelled) {
@@ -55,7 +61,7 @@ export default function ClientAuthGate({ children }: { children: ReactNode }) {
 
         setAuthenticated(false);
         setChecked(true);
-        router.replace("/client/login");
+        router.replace(loginPath);
       }
     }
 
@@ -64,7 +70,7 @@ export default function ClientAuthGate({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [isPublicClientRoute, pathname, router]);
+  }, [isPublicClientRoute, loginPath, pathname, router]);
 
   if (isPublicClientRoute) {
     return <>{children}</>;
@@ -74,7 +80,7 @@ export default function ClientAuthGate({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background-primary text-white">
         <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-5 text-sm text-text-secondary">
-          Checking client access...
+          Checking {getPortalLabel(portalExperience).toLowerCase()} access...
         </div>
       </div>
     );

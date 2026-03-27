@@ -5,13 +5,26 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { markPendingHubSpotPortalLogin } from "./hubspotClientTracking";
+import {
+  type PortalExperience,
+  getPortalLabel,
+  getPortalLoginPath,
+  getPortalProjectsPath
+} from "./portalExperience";
 
-export default function ClientActivateForm({ token }: { token: string }) {
+export default function ClientActivateForm({
+  token,
+  portalExperience = "client"
+}: {
+  token: string;
+  portalExperience?: PortalExperience;
+}) {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const portalLabel = getPortalLabel(portalExperience);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,7 +62,7 @@ export default function ClientActivateForm({ token }: { token: string }) {
       }
 
       markPendingHubSpotPortalLogin();
-      router.replace("/client/projects");
+      router.replace(getPortalProjectsPath(portalExperience));
       router.refresh();
     } catch (submitError) {
       setError(
@@ -68,13 +81,13 @@ export default function ClientActivateForm({ token }: { token: string }) {
         <div className="w-full rounded-[32px] border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
           <img src="/muloo-logo.svg" alt="Muloo" className="h-10 w-auto" />
           <p className="mt-6 text-sm uppercase tracking-[0.3em] text-text-muted">
-            Client access
+            {portalLabel} access
           </p>
           <h1 className="mt-3 text-3xl font-bold font-heading text-white">
             Set your password
           </h1>
           <p className="mt-3 text-text-secondary">
-            Use this link to activate your client portal access or reset your
+            Use this link to activate your Muloo portal access or reset your
             password.
           </p>
 
@@ -116,7 +129,10 @@ export default function ClientActivateForm({ token }: { token: string }) {
 
           <div className="mt-6 text-sm text-text-secondary">
             Already have access?{" "}
-            <Link href="/client/login" className="text-white underline">
+            <Link
+              href={getPortalLoginPath(portalExperience)}
+              className="text-white underline"
+            >
               Go to sign in
             </Link>
           </div>

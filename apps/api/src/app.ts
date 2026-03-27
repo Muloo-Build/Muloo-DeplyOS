@@ -165,6 +165,7 @@ import {
   approveTaskApproval,
   rejectTaskApproval,
   resetDiscoverySummary,
+  resolvePortalBasePathForClientUser,
   saveClientInputSubmission,
   saveDiscoverySession,
   serializeTask,
@@ -1050,7 +1051,11 @@ export function createApiApp(config: BaseConfig) {
       })
     );
 
-    return c.redirect(`/client/projects/${record.projectId}`, 302);
+    const portalBasePath = await resolvePortalBasePathForClientUser(
+      record.clientUserId
+    );
+
+    return c.redirect(`${portalBasePath}/projects/${record.projectId}`, 302);
   });
 
   app.all("/api/health", async (c) => {

@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import ClientShell from "./ClientShell";
+import {
+  type PortalExperience,
+  getPortalProjectPath
+} from "./portalExperience";
 
 interface ClientProject {
   role: string;
@@ -46,7 +50,11 @@ function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString("en-ZA", { dateStyle: "medium" });
 }
 
-export default function ClientProjectsDashboard() {
+export default function ClientProjectsDashboard({
+  portalExperience = "client"
+}: {
+  portalExperience?: PortalExperience;
+}) {
   const [projects, setProjects] = useState<ClientProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +85,7 @@ export default function ClientProjectsDashboard() {
   );
 
   return (
-    <ClientShell>
+    <ClientShell portalExperience={portalExperience}>
       {loading ? (
         <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8 text-text-secondary">
           Loading your projects...
@@ -102,7 +110,7 @@ export default function ClientProjectsDashboard() {
                 {activeProjects.map(({ project, role }) => (
                   <Link
                     key={project.id}
-                    href={`/client/projects/${project.id}`}
+                    href={getPortalProjectPath(portalExperience, project.id)}
                     className="flex items-center justify-between gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-5 transition hover:border-[rgba(255,255,255,0.13)] hover:bg-[rgba(255,255,255,0.02)]"
                   >
                     <div className="min-w-0">
@@ -140,7 +148,7 @@ export default function ClientProjectsDashboard() {
                 {otherProjects.map(({ project, role }) => (
                   <Link
                     key={project.id}
-                    href={`/client/projects/${project.id}`}
+                    href={getPortalProjectPath(portalExperience, project.id)}
                     className="flex items-center justify-between gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-5 opacity-70 transition hover:border-[rgba(255,255,255,0.1)] hover:opacity-100"
                   >
                     <div className="min-w-0">

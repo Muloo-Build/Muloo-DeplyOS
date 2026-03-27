@@ -124,6 +124,8 @@ interface PortalInviteDraft {
   sendEmail: boolean;
 }
 
+type ClientsWorkspaceMode = "clients" | "partners";
+
 const alphabet = ["All", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
 const industryOptions = [
   "Accounting & Advisory",
@@ -177,7 +179,9 @@ function createEmptyContactDraft(): ContactDraft {
   };
 }
 
-function createEmptyClientDraft(): ClientProfileDraft {
+function createEmptyClientDraft(
+  workspaceMode: ClientsWorkspaceMode = "clients"
+): ClientProfileDraft {
   return {
     name: "",
     website: "",
@@ -191,7 +195,7 @@ function createEmptyClientDraft(): ClientProfileDraft {
     instagramUrl: "",
     xUrl: "",
     youtubeUrl: "",
-    clientRoles: ["client"],
+    clientRoles: workspaceMode === "partners" ? ["partner"] : ["client"],
     parentClientId: "",
     visibleToPartnerIds: []
   };
@@ -462,10 +466,18 @@ function buildClientPayload(
 }
 
 export default function ClientsWorkspace({
-  focusClientId
+  focusClientId,
+  workspaceMode = "clients"
 }: {
   focusClientId?: string;
+  workspaceMode?: ClientsWorkspaceMode;
 }) {
+  const isPartnerWorkspace = workspaceMode === "partners";
+  const workspaceLabel = isPartnerWorkspace ? "Partner" : "Client";
+  const workspaceLabelPlural = isPartnerWorkspace ? "Partners" : "Clients";
+  const workspaceDescription = isPartnerWorkspace
+    ? "A dedicated directory for partner-tagged companies, their portal users, and the projects they are connected to."
+    : "A tighter CRM-lite directory: active clients first, fast search, expandable company records, linked contacts, and linked projects without turning this into a full CRM.";
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -504,7 +516,9 @@ export default function ClientsWorkspace({
   const [hubSpotInstallProfiles, setHubSpotInstallProfiles] = useState<
     Record<string, HubSpotInstallProfile>
   >({});
-  const [clientDraft, setClientDraft] = useState(createEmptyClientDraft);
+  const [clientDraft, setClientDraft] = useState(() =>
+    createEmptyClientDraft(workspaceMode)
+  );
   const [contactDrafts, setContactDrafts] = useState<
     Record<string, ContactDraft>
   >({});
@@ -585,6 +599,12 @@ export default function ClientsWorkspace({
   }, []);
 
   useEffect(() => {
+    setClientDraft((currentDraft) =>
+      currentDraft.name.trim().length > 0 ? currentDraft : createEmptyClientDraft(workspaceMode)
+    );
+  }, [workspaceMode]);
+
+  useEffect(() => {
     if (!focusClientId || clients.length === 0) {
       return;
     }
@@ -600,25 +620,35 @@ export default function ClientsWorkspace({
     );
   }, [clients, focusClientId]);
 
-  const totalProjects = clients.reduce(
+  const directoryClients = useMemo(
+    () =>
+      clients.filter((client) =>
+        isPartnerWorkspace
+          ? client.clientRoles.includes("partner")
+          : !client.clientRoles.includes("partner")
+      ),
+    [clients, isPartnerWorkspace]
+  );
+
+  const totalProjects = directoryClients.reduce(
     (total, client) => total + client.projects.length,
     0
   );
-  const totalContacts = clients.reduce(
+  const totalContacts = directoryClients.reduce(
     (total, client) => total + client.contacts.length,
     0
   );
-  const activeClientCount = clients.filter(
+  const activeClientCount = directoryClients.filter(
     (client) => client.projects.length > 0
   ).length;
 
   const filteredClients = useMemo(
     () =>
-      clients
+      directoryClients
         .filter((client) => matchesClientSearch(client, searchQuery))
         .filter((client) => matchesAlphabet(client, alphabetFilter))
         .sort((left, right) => left.name.localeCompare(right.name)),
-    [alphabetFilter, clients, searchQuery]
+    [alphabetFilter, directoryClients, searchQuery]
   );
 
   const activeClients = filteredClients
@@ -807,7 +837,7 @@ export default function ClientsWorkspace({
         throw new Error(body?.error ?? "Failed to create client");
       }
 
-      setClientDraft(createEmptyClientDraft());
+      setClientDraft(createEmptyClientDraft(workspaceMode));
       setExpandedClientIds((currentIds) => [body.client.id, ...currentIds]);
       setNewClientPanelOpen(false);
       setFeedback("Client added to the workspace.");
@@ -1216,7 +1246,7 @@ export default function ClientsWorkspace({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <Link
-                  href={`/clients/${client.id}`}
+                  href={`/${workspaceMode}/${client.id}`}
                   className="truncate text-lg font-semibold text-white transition hover:text-[#8be4ff]"
                 >
                   {client.name}
@@ -1335,7 +1365,7 @@ export default function ClientsWorkspace({
                       </p>
                       {!canDeleteClient ? (
                         <p className="mt-3 text-xs text-text-muted">
-                          Delete is only available once this client has no
+                          Delete is only available once this {workspaceLabel.toLowerCase()} has no
                           linked projects.
                         </p>
                       ) : null}
@@ -1353,7 +1383,7 @@ export default function ClientsWorkspace({
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <label className="block">
                       <span className="text-sm font-medium text-white">
-                        Client name
+                        {workspaceLabel} name
                       </span>
                       <input
                         value={profileDraft.name}
@@ -1484,7 +1514,7 @@ export default function ClientsWorkspace({
                   <div className="mt-5 grid gap-4 lg:grid-cols-2">
                     <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
                       <p className="text-sm font-medium text-white">
-                        Client roles
+                        {workspaceLabel} roles
                       </p>
                       <div className="mt-3 flex flex-wrap gap-3">
                         {clientRoleOptions.map((role) => (
@@ -1548,11 +1578,11 @@ export default function ClientsWorkspace({
 
                   <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
                     <p className="text-sm font-medium text-white">
-                      Client HubSpot portal
+                      {workspaceLabel} HubSpot portal
                     </p>
                     <p className="mt-2 text-sm text-text-secondary">
-                      Connect the client’s HubSpot portal once here. Every
-                      project for this client will use the same canonical portal
+                      Connect the {workspaceLabel.toLowerCase()}'s HubSpot portal once here. Every
+                      project for this {workspaceLabel.toLowerCase()} will use the same canonical portal
                       automatically.
                     </p>
 
@@ -1614,7 +1644,7 @@ export default function ClientsWorkspace({
                           ))}
                         </select>
                         <p className="mt-2 text-xs text-text-muted">
-                          Start with `Core CRM install` for most client portals.
+                          Start with `Core CRM install` for most portal installs.
                         </p>
                       </label>
 
@@ -1657,7 +1687,7 @@ export default function ClientsWorkspace({
                       ) : (
                         <p>
                           No HubSpot portal linked yet. Once you connect it
-                          here, all of this client’s projects will inherit that
+                          here, all of this {workspaceLabel.toLowerCase()}'s projects will inherit that
                           portal automatically.
                         </p>
                       )}
@@ -1670,7 +1700,7 @@ export default function ClientsWorkspace({
                     </p>
                     <p className="mt-2 text-sm text-text-secondary">
                       Choose which partner-tagged companies should be able to
-                      see this client’s downstream work.
+                      see this {workspaceLabel.toLowerCase()}'s downstream work.
                     </p>
                     <div className="mt-4 flex flex-wrap gap-3">
                       {availablePartnerOptions.length > 0 ? (
@@ -1836,7 +1866,7 @@ export default function ClientsWorkspace({
                       </p>
                       {canDeleteClient ? (
                         <p className="text-xs text-[#ff8f9c]">
-                          This client has no linked projects, so it can be
+                          This {workspaceLabel.toLowerCase()} has no linked projects, so it can be
                           removed if it is junk or old test data.
                         </p>
                       ) : null}
@@ -1862,7 +1892,7 @@ export default function ClientsWorkspace({
                             ? "Deleting..."
                             : isConfirmingDelete
                               ? "Confirm delete"
-                              : "Delete client"}
+                              : `Delete ${workspaceLabel.toLowerCase()}`}
                         </button>
                       ) : null}
                       {isConfirmingDelete ? (
@@ -1885,7 +1915,7 @@ export default function ClientsWorkspace({
                       >
                         {savingProfileForClient === client.id
                           ? "Saving..."
-                          : "Save client"}
+                          : `Save ${workspaceLabel.toLowerCase()}`}
                       </button>
                     </div>
                   </div>
@@ -2093,7 +2123,7 @@ export default function ClientsWorkspace({
                                     })
                                   ) : (
                                     <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-4 py-4 text-sm text-text-secondary">
-                                      This client does not have any linked
+                                      This {workspaceLabel.toLowerCase()} does not have any linked
                                       projects yet.
                                     </div>
                                   )}
@@ -2181,7 +2211,7 @@ export default function ClientsWorkspace({
                       })
                     ) : (
                       <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-4 py-4 text-sm text-text-secondary">
-                        No contacts added yet for this client.
+                        No contacts added yet for this {workspaceLabel.toLowerCase()}.
                       </div>
                     )}
                   </div>
@@ -2292,7 +2322,7 @@ export default function ClientsWorkspace({
                       Linked Projects
                     </p>
                     <p className="mt-2 text-sm text-text-secondary">
-                      We pull projects in from the direct client link plus any
+                      We pull projects in from the direct {workspaceLabel.toLowerCase()} link plus any
                       matching contact emails already used in portal access or
                       client champion fields.
                     </p>
@@ -2344,13 +2374,13 @@ export default function ClientsWorkspace({
     return (
       <div className="space-y-5">
         <p className="text-sm text-text-secondary">
-          Add the company once, then keep everything else inside the client
+          Add the company once, then keep everything else inside the {workspaceLabel.toLowerCase()}
           record when you need it.
         </p>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="text-sm font-medium text-white">Client name</span>
+            <span className="text-sm font-medium text-white">{workspaceLabel} name</span>
             <input
               value={clientDraft.name}
               onChange={(event) =>
@@ -2450,7 +2480,7 @@ export default function ClientsWorkspace({
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-            <p className="text-sm font-medium text-white">Client roles</p>
+            <p className="text-sm font-medium text-white">{workspaceLabel} roles</p>
             <div className="mt-3 flex flex-wrap gap-3">
               {clientRoleOptions.map((role) => (
                 <label
@@ -2602,7 +2632,7 @@ export default function ClientsWorkspace({
               <p className="text-sm text-text-secondary">
                 Search keeps the directory clean, regions stay controlled, and
                 profiles can model partner and group relationships without
-                flattening everything into one client type.
+                flattening everything into one company type.
               </p>
             )}
           </div>
@@ -2611,7 +2641,7 @@ export default function ClientsWorkspace({
               type="button"
               onClick={() => {
                 setNewClientPanelOpen(false);
-                setClientDraft(createEmptyClientDraft());
+                setClientDraft(createEmptyClientDraft(workspaceMode));
               }}
               className="rounded-2xl border border-[rgba(255,255,255,0.08)] px-5 py-3 text-sm font-medium text-white"
             >
@@ -2623,7 +2653,7 @@ export default function ClientsWorkspace({
               disabled={creatingClient}
               className="rounded-2xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {creatingClient ? "Saving..." : "Add client"}
+              {creatingClient ? "Saving..." : `Add ${workspaceLabel.toLowerCase()}`}
             </button>
           </div>
         </div>
@@ -2631,7 +2661,7 @@ export default function ClientsWorkspace({
     );
   }
 
-  const hasNoClients = !loading && clients.length === 0;
+  const hasNoClients = !loading && directoryClients.length === 0;
 
   return (
     <AppShell>
@@ -2641,15 +2671,13 @@ export default function ClientsWorkspace({
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-text-muted">
-                  Client Workspace
+                  {workspaceLabel} Workspace
                 </p>
                 <h1 className="mt-3 text-3xl font-semibold text-white">
-                  Clients and key contacts
+                  {workspaceLabelPlural} and key contacts
                 </h1>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">
-                  A tighter CRM-lite directory: active clients first, fast
-                  search, expandable company records, linked contacts, and
-                  linked projects without turning this into a full CRM.
+                  {workspaceDescription}
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -2658,7 +2686,7 @@ export default function ClientsWorkspace({
                   onClick={() => setNewClientPanelOpen(true)}
                   className="rounded-2xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white"
                 >
-                  + New Client
+                  + New {workspaceLabel}
                 </button>
                 <Link
                   href="/projects/new"
@@ -2671,8 +2699,8 @@ export default function ClientsWorkspace({
 
             <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {[
-                { label: "Clients", value: clients.length },
-                { label: "Active Clients", value: activeClientCount },
+                { label: workspaceLabelPlural, value: directoryClients.length },
+                { label: `Active ${workspaceLabelPlural}`, value: activeClientCount },
                 { label: "Contacts", value: totalContacts },
                 { label: "Projects", value: totalProjects }
               ].map((item) => (
@@ -2712,7 +2740,7 @@ export default function ClientsWorkspace({
                   <input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search client, contact, email, or project"
+                    placeholder={`Search ${workspaceLabel.toLowerCase()}, contact, email, or project`}
                     className="w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
                   />
                 </label>
@@ -2746,13 +2774,13 @@ export default function ClientsWorkspace({
           ) : hasNoClients ? (
             <div className="rounded-3xl border border-dashed border-[rgba(255,255,255,0.12)] bg-background-card px-8 py-16 text-center">
               <p className="text-sm uppercase tracking-[0.22em] text-text-muted">
-                Clients
+                {workspaceLabelPlural}
               </p>
               <h2 className="mt-3 text-2xl font-semibold text-white">
-                No clients in the directory yet
+                No {workspaceLabelPlural.toLowerCase()} in the directory yet
               </h2>
               <p className="mx-auto mt-3 max-w-2xl text-sm text-text-secondary">
-                Add the first client company to start linking projects,
+                Add the first {workspaceLabel.toLowerCase()} company to start linking projects,
                 contacts, and portal history without cluttering the workspace.
               </p>
               <div className="mt-6 flex justify-center">
@@ -2761,13 +2789,13 @@ export default function ClientsWorkspace({
                   onClick={() => setNewClientPanelOpen(true)}
                   className="rounded-2xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white"
                 >
-                  + New Client
+                  + New {workspaceLabel}
                 </button>
               </div>
             </div>
           ) : filteredClients.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-[rgba(255,255,255,0.12)] bg-background-card p-8 text-text-secondary">
-              No clients match this search yet.
+              No {workspaceLabelPlural.toLowerCase()} match this search yet.
             </div>
           ) : (
             <>
@@ -2775,10 +2803,10 @@ export default function ClientsWorkspace({
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[rgba(255,255,255,0.07)] pb-4">
                   <div>
                     <h2 className="text-xl font-semibold text-white">
-                      Active Clients
+                      Active {workspaceLabelPlural}
                     </h2>
                     <p className="mt-2 text-sm text-text-secondary">
-                      Clients with linked projects stay at the top so current
+                      {workspaceLabelPlural} with linked projects stay at the top so current
                       work is always easier to reach.
                     </p>
                   </div>
@@ -2789,7 +2817,7 @@ export default function ClientsWorkspace({
 
                 {activeClients.length === 0 ? (
                   <div className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-5 py-5 text-sm text-text-secondary">
-                    No active clients match the current search or filter.
+                    No active {workspaceLabelPlural.toLowerCase()} match the current search or filter.
                   </div>
                 ) : (
                   <div className="mt-5 space-y-4">
@@ -2802,7 +2830,7 @@ export default function ClientsWorkspace({
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[rgba(255,255,255,0.07)] pb-4">
                   <div>
                     <h2 className="text-xl font-semibold text-white">
-                      Other Clients
+                      Other {workspaceLabelPlural}
                     </h2>
                     <p className="mt-2 text-sm text-text-secondary">
                       The rest of the directory stays lighter and alphabetised
@@ -2810,13 +2838,13 @@ export default function ClientsWorkspace({
                     </p>
                   </div>
                   <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-4 py-2 text-xs font-medium text-text-secondary">
-                    {otherClients.length} clients
+                    {otherClients.length} {workspaceLabelPlural.toLowerCase()}
                   </div>
                 </div>
 
                 {otherClients.length === 0 ? (
                   <div className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-5 py-5 text-sm text-text-secondary">
-                    No other clients match the current search or filter.
+                    No other {workspaceLabelPlural.toLowerCase()} match the current search or filter.
                   </div>
                 ) : (
                   <div className="mt-6 space-y-8">
@@ -2843,7 +2871,7 @@ export default function ClientsWorkspace({
       <SlideOver
         open={newClientPanelOpen}
         onClose={() => setNewClientPanelOpen(false)}
-        title="Add client company"
+        title={`Add ${workspaceLabel.toLowerCase()} company`}
       >
         {renderNewClientForm()}
       </SlideOver>

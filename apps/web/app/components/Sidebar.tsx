@@ -85,6 +85,14 @@ const navGroups: NavGroup[] = [
         icon: <Building2 size={18} />,
         isActive: (pathname) =>
           pathname === "/clients" || pathname.startsWith("/clients/")
+      },
+      {
+        href: "/partners",
+        label: "Partners",
+        icon: <Building2 size={16} />,
+        compact: true,
+        isActive: (pathname) =>
+          pathname === "/partners" || pathname.startsWith("/partners/")
       }
     ]
   },

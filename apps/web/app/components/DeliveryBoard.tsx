@@ -186,7 +186,7 @@ export default function DeliveryBoard({
   mode = "internal"
 }: {
   projectId: string;
-  mode?: "internal" | "client";
+  mode?: "internal" | "client" | "partner";
 }) {
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [findings, setFindings] = useState<FindingRecord[]>([]);
@@ -228,8 +228,9 @@ export default function DeliveryBoard({
   });
   const [error, setError] = useState<string | null>(null);
 
+  const isPortalMode = mode !== "internal";
   const baseUrl =
-    mode === "client"
+    isPortalMode
       ? `/api/client/projects/${encodeURIComponent(projectId)}/tasks`
       : `/api/projects/${encodeURIComponent(projectId)}/tasks`;
   const boardUrl = `/api/projects/${encodeURIComponent(projectId)}/tasks/board`;
@@ -241,8 +242,8 @@ export default function DeliveryBoard({
     try {
       const [tasksResponse, agentsResponse, projectResponse] =
         await Promise.all([
-          fetch(mode === "client" ? baseUrl : boardUrl, {
-            ...(mode === "client" ? { credentials: "include" } : {})
+          fetch(isPortalMode ? baseUrl : boardUrl, {
+            ...(isPortalMode ? { credentials: "include" } : {})
           }),
           mode === "internal" ? fetch("/api/agents") : Promise.resolve(null),
           mode === "internal"
@@ -842,7 +843,7 @@ export default function DeliveryBoard({
         <div>
           <h2 className="text-lg font-semibold text-white">Delivery Board</h2>
           <p className="mt-2 text-sm text-text-secondary">
-            {mode === "client"
+            {isPortalMode
               ? "Track the delivery plan and current progress for this project."
               : "Use the generated delivery plan as your repeatable working board for this project."}
           </p>
@@ -1001,10 +1002,10 @@ export default function DeliveryBoard({
         </div>
       ) : (
         <>
-          <div className={`mt-4 grid gap-3 md:grid-cols-2 ${mode === "client" ? "xl:grid-cols-3" : "xl:grid-cols-4"}`}>
+          <div className={`mt-4 grid gap-3 md:grid-cols-2 ${isPortalMode ? "xl:grid-cols-3" : "xl:grid-cols-4"}`}>
             <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
               <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                {mode === "client" ? "Planned Time" : "Planned Human Hours"}
+                {isPortalMode ? "Planned Time" : "Planned Human Hours"}
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
                 {boardMetrics.plannedHours}h
@@ -1012,7 +1013,7 @@ export default function DeliveryBoard({
             </div>
             <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
               <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                {mode === "client" ? "Time Logged" : "Actual Human Hours"}
+                {isPortalMode ? "Time Logged" : "Actual Human Hours"}
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
                 {boardMetrics.actualHours}h

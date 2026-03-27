@@ -5,18 +5,34 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
+import {
+  type PortalExperience,
+  getPortalInboxPath,
+  getPortalLoginPath,
+  getPortalProjectsPath,
+  getPortalRequestWorkPath,
+  getPortalSupportPath,
+  resolvePortalExperienceFromPathname
+} from "./portalExperience";
+
 export default function ClientShell({
   children,
+  portalExperience,
   title: _title,
   subtitle: _subtitle
 }: {
   children: ReactNode;
+  portalExperience?: PortalExperience;
   title?: string;
   subtitle?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const [inboxCount, setInboxCount] = useState(0);
+  const resolvedPortalExperience =
+    portalExperience ?? resolvePortalExperienceFromPathname(pathname);
+  const projectsPath = getPortalProjectsPath(resolvedPortalExperience);
+  const loginPath = getPortalLoginPath(resolvedPortalExperience);
 
   useEffect(() => {
     async function loadSummary() {
@@ -38,22 +54,29 @@ export default function ClientShell({
       method: "POST",
       credentials: "include"
     });
-    router.replace("/client/login");
+    router.replace(loginPath);
     router.refresh();
   }
 
   const navItems = [
-    { href: "/client/projects", label: "Projects" },
-    { href: "/client/inbox", label: "Inbox", badge: inboxCount },
-    { href: "/client/support", label: "Support" },
-    { href: "/client/request-work", label: "Request Work" }
+    { href: projectsPath, label: "Projects" },
+    {
+      href: getPortalInboxPath(resolvedPortalExperience),
+      label: "Inbox",
+      badge: inboxCount
+    },
+    { href: getPortalSupportPath(resolvedPortalExperience), label: "Support" },
+    {
+      href: getPortalRequestWorkPath(resolvedPortalExperience),
+      label: "Request Work"
+    }
   ];
 
   return (
     <div className="min-h-screen bg-background-primary text-white">
       <header className="border-b border-[rgba(255,255,255,0.06)] bg-[#060c1e]">
         <div className="mx-auto flex w-full max-w-7xl items-center gap-8 px-6 py-4">
-          <Link href="/client/projects" className="flex items-center gap-3 flex-shrink-0">
+          <Link href={projectsPath} className="flex items-center gap-3 flex-shrink-0">
             <img src="/muloo-logo.svg" alt="Muloo" className="h-8 w-auto" />
           </Link>
 

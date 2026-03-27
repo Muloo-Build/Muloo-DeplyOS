@@ -7,6 +7,11 @@ import AppShell from "./AppShell";
 import ClientShell from "./ClientShell";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
 import {
+  type PortalExperience,
+  getPortalProjectPath,
+  getPortalQuotePath
+} from "./portalExperience";
+import {
   getDisplayKeyRisks,
   getDisplayNextQuestions,
   getDisplaySupportingTools
@@ -308,7 +313,7 @@ export default function QuoteDocument({
   mode = "internal"
 }: {
   projectId: string;
-  mode?: "internal" | "client";
+  mode?: "internal" | "client" | "partner";
 }) {
   const [project, setProject] = useState<Project | null>(null);
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
@@ -329,7 +334,9 @@ export default function QuoteDocument({
   const [approveBusy, setApproveBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const isClientMode = mode === "client";
+  const isPortalMode = mode !== "internal";
+  const portalExperience: PortalExperience =
+    mode === "partner" ? "partner" : "client";
 
   useEffect(() => {
     async function loadDocument() {
@@ -337,7 +344,7 @@ export default function QuoteDocument({
       setError(null);
 
       try {
-        if (isClientMode) {
+        if (isPortalMode) {
           const response = await fetch(
             `/api/client/projects/${encodeURIComponent(projectId)}/quote`,
             {
@@ -427,7 +434,7 @@ export default function QuoteDocument({
     }
 
     void loadDocument();
-  }, [isClientMode, projectId]);
+  }, [isPortalMode, projectId]);
 
   useEffect(() => {
     if (products.length === 0) {
@@ -642,11 +649,11 @@ export default function QuoteDocument({
     : (summary?.recommendedNextQuestions ?? []);
   const quoteContext = savedQuote?.context;
   const displayPhaseCommercials =
-    isClientMode && savedQuote ? savedQuote.phaseLines : phaseCommercials;
+    isPortalMode && savedQuote ? savedQuote.phaseLines : phaseCommercials;
   const displaySelectedProductLines =
-    isClientMode && savedQuote ? savedQuote.productLines : selectedProductLines;
+    isPortalMode && savedQuote ? savedQuote.productLines : selectedProductLines;
   const displayTotals =
-    isClientMode && savedQuote
+    isPortalMode && savedQuote
       ? savedQuote.totals
       : {
           totalHumanHours,
@@ -656,27 +663,27 @@ export default function QuoteDocument({
           paymentAmountZar
         };
   const displayPaymentSchedule =
-    isClientMode && savedQuote ? savedQuote.paymentSchedule : paymentSchedule;
+    isPortalMode && savedQuote ? savedQuote.paymentSchedule : paymentSchedule;
   const displayInScopeItems =
-    isClientMode && quoteContext ? quoteContext.inScopeItems : inScopeItems;
+    isPortalMode && quoteContext ? quoteContext.inScopeItems : inScopeItems;
   const displayOutOfScopeItems =
-    isClientMode && quoteContext
+    isPortalMode && quoteContext
       ? quoteContext.outOfScopeItems
       : outOfScopeItems;
   const displaySupportingTools =
-    isClientMode && quoteContext
+    isPortalMode && quoteContext
       ? quoteContext.supportingTools
       : supportingTools;
   const displayKeyRisks =
-    isClientMode && quoteContext ? quoteContext.keyRisks : keyRisks;
+    isPortalMode && quoteContext ? quoteContext.keyRisks : keyRisks;
   const displayNextQuestions =
-    isClientMode && quoteContext ? quoteContext.nextQuestions : nextQuestions;
+    isPortalMode && quoteContext ? quoteContext.nextQuestions : nextQuestions;
   const displayClientResponsibilities =
-    isClientMode && quoteContext
+    isPortalMode && quoteContext
       ? quoteContext.clientResponsibilities
       : clientResponsibilities;
   const displayQuoteContextSummary =
-    isClientMode && quoteContext
+    isPortalMode && quoteContext
       ? quoteContext.quoteContextSummary
       : isStandaloneQuote
         ? (summary?.executiveSummary ??
@@ -689,7 +696,7 @@ export default function QuoteDocument({
           session1.business_overview ??
           "No executive summary generated yet.");
   const displayBlueprintGeneratedAt =
-    isClientMode && quoteContext?.blueprintGeneratedAt
+    isPortalMode && quoteContext?.blueprintGeneratedAt
       ? quoteContext.blueprintGeneratedAt
       : (blueprint?.generatedAt ?? null);
   const documentationProduct = products.find(
@@ -728,13 +735,14 @@ export default function QuoteDocument({
         throw new Error("Window is not available");
       }
 
-      const shareUrl = isClientMode
+      const shareUrl = isPortalMode
         ? window.location.href
-        : `${window.location.origin}/client/projects/${encodeURIComponent(projectId)}/quote`;
+        : `${window.location.origin}${getPortalQuotePath(
+            portalExperience,
+            projectId
+          )}`;
       await navigator.clipboard.writeText(shareUrl);
-      setShareMessage(
-        isClientMode ? "Quote link copied" : "Client portal quote link copied"
-      );
+      setShareMessage(isPortalMode ? "Quote link copied" : "Portal quote link copied");
       window.setTimeout(() => setShareMessage(null), 2500);
     } catch {
       setShareMessage("Unable to copy link");
@@ -743,7 +751,7 @@ export default function QuoteDocument({
   }
 
   async function pushToClientPortal() {
-    if (isClientMode) {
+    if (isPortalMode) {
       return;
     }
 
@@ -840,7 +848,7 @@ export default function QuoteDocument({
   }
 
   async function approveQuote() {
-    if (!isClientMode) {
+    if (!isPortalMode) {
       return;
     }
 
@@ -904,13 +912,13 @@ export default function QuoteDocument({
               <div>
                 <Link
                   href={
-                    isClientMode
-                      ? `/client/projects/${project.id}`
+                    isPortalMode
+                      ? getPortalProjectPath(portalExperience, project.id)
                       : `/projects/${project.id}`
                   }
                   className="text-sm text-text-muted"
                 >
-                  {isClientMode ? "Back to project" : "Back to overview"}
+                  {isPortalMode ? "Back to project" : "Back to overview"}
                 </Link>
                 <h1 className="mt-3 text-3xl font-bold font-heading text-white">
                   {isStandaloneQuote
@@ -924,7 +932,7 @@ export default function QuoteDocument({
                 </p>
               </div>
               <div className="document-toolbar flex flex-wrap items-center gap-3">
-                {!isClientMode ? (
+                {!isPortalMode ? (
                   <button
                     type="button"
                     onClick={pushToClientPortal}
@@ -938,7 +946,7 @@ export default function QuoteDocument({
                         : "Push to Client Portal"}
                   </button>
                 ) : null}
-                {isClientMode && quoteApprovalStatus === "shared" ? (
+                {isPortalMode && quoteApprovalStatus === "shared" ? (
                   <button
                     type="button"
                     onClick={approveQuote}
@@ -953,7 +961,7 @@ export default function QuoteDocument({
                   onClick={copyShareLink}
                   className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
                 >
-                  {isClientMode ? "Copy Quote Link" : "Copy Client Quote Link"}
+                  {isPortalMode ? "Copy Quote Link" : "Copy Portal Quote Link"}
                 </button>
                 <button
                   type="button"
@@ -1029,12 +1037,12 @@ export default function QuoteDocument({
 
                 <div className="border-l border-[rgba(255,255,255,0.07)] bg-[#10172f] p-8">
                   <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
-                    {isClientMode
+                    {isPortalMode
                       ? "Commercial Snapshot"
                       : "Commercial Controls"}
                   </p>
 
-                  {isClientMode ? (
+                  {isPortalMode ? (
                     <p className="mt-6 text-sm leading-7 text-text-secondary">
                       This client portal view is read-only. Currency, hours, and
                       commercial shaping are controlled by the Muloo team before
@@ -1127,7 +1135,7 @@ export default function QuoteDocument({
               </div>
             </section>
 
-            {!isClientMode && phaseCommercials.length > 0 ? (
+            {!isPortalMode && phaseCommercials.length > 0 ? (
               <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                 <SectionEyebrow>Commercial Composition</SectionEyebrow>
                 <SectionTitle>
@@ -1713,7 +1721,7 @@ export default function QuoteDocument({
                               phaseDrafts[phase.phase]?.humanHours ??
                               String(phase.humanHours)
                             }
-                            disabled={isClientMode}
+                            disabled={isPortalMode}
                             onChange={(event) =>
                               setPhaseDrafts((currentDrafts) => ({
                                 ...currentDrafts,
@@ -1744,7 +1752,7 @@ export default function QuoteDocument({
                               value={
                                 phaseDrafts[phase.phase]?.rate ?? defaultRate
                               }
-                              disabled={isClientMode}
+                              disabled={isPortalMode}
                               onChange={(event) =>
                                 setPhaseDrafts((currentDrafts) => ({
                                   ...currentDrafts,
@@ -1787,7 +1795,7 @@ export default function QuoteDocument({
               </section>
             ) : null}
 
-            {!isClientMode ? (
+            {!isPortalMode ? (
               <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                 <SectionEyebrow>Additional Products</SectionEyebrow>
                 <SectionTitle>Retainers and add-on services</SectionTitle>
@@ -1838,7 +1846,7 @@ export default function QuoteDocument({
                             </span>
                             <input
                               value={selection.quantity}
-                              disabled={isClientMode}
+                              disabled={isPortalMode}
                               onChange={(event) =>
                                 setSelectedProducts((currentProducts) => ({
                                   ...currentProducts,
@@ -1858,7 +1866,7 @@ export default function QuoteDocument({
                             </span>
                             <input
                               value={selection.unitPrice}
-                              disabled={isClientMode}
+                              disabled={isPortalMode}
                               onChange={(event) =>
                                 setSelectedProducts((currentProducts) => ({
                                   ...currentProducts,
@@ -1877,7 +1885,7 @@ export default function QuoteDocument({
                               <input
                                 type="checkbox"
                                 checked={selection.included}
-                                disabled={isClientMode}
+                                disabled={isPortalMode}
                                 onChange={(event) =>
                                   setSelectedProducts((currentProducts) => ({
                                     ...currentProducts,
@@ -2051,7 +2059,7 @@ export default function QuoteDocument({
                     routing are finalized during planning after client approval.
                   </p>
                   <p>
-                    {isClientMode
+                    {isPortalMode
                       ? "The discovery document and quote remain separate so the client can review the recommended scope alongside the commercial offer."
                       : "Commercials can be refined before approval, including currency, hours, and per-phase rates. The discovery document and quote intentionally remain separate so the client can approve all or only part of the recommended scope."}
                   </p>
@@ -2073,7 +2081,8 @@ export default function QuoteDocument({
           aside,
           button,
           a[href^="/projects/"],
-          a[href^="/client/projects/"] {
+          a[href^="/client/projects/"],
+          a[href^="/partner/projects/"] {
             display: none !important;
           }
 
@@ -2111,9 +2120,10 @@ export default function QuoteDocument({
     </>
   );
 
-  if (isClientMode) {
+  if (isPortalMode) {
     return (
       <ClientShell
+        portalExperience={portalExperience}
         title={project?.name ? `${project.name} Quote` : "Quote"}
         subtitle="Shared quote, commercial scope, and approval reference"
       >

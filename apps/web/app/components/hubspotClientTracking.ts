@@ -99,19 +99,22 @@ export function resolveHubSpotPortalEventForPath(
   pathname: string,
   eventIds: HubSpotPortalEventIds
 ) {
-  if (/^\/client\/projects\/[^/]+\/quote$/.test(pathname)) {
+  if (/^\/(?:client|partner)\/projects\/[^/]+\/quote$/.test(pathname)) {
     return eventIds.quoteViewed ?? null;
   }
 
-  if (/^\/client\/projects\/[^/]+\/delivery$/.test(pathname)) {
+  if (/^\/(?:client|partner)\/projects\/[^/]+\/delivery$/.test(pathname)) {
     return eventIds.deliveryViewed ?? null;
   }
 
-  if (pathname === "/client/support") {
+  if (pathname === "/client/support" || pathname === "/partner/support") {
     return eventIds.supportViewed ?? null;
   }
 
-  if (pathname === "/client/request-work") {
+  if (
+    pathname === "/client/request-work" ||
+    pathname === "/partner/request-work"
+  ) {
     return eventIds.requestWorkViewed ?? null;
   }
 

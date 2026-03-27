@@ -14,7 +14,11 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function checkSession() {
-      if (pathname === "/login" || pathname.startsWith("/client")) {
+      if (
+        pathname === "/login" ||
+        pathname.startsWith("/client") ||
+        pathname.startsWith("/partner")
+      ) {
         if (!cancelled) {
           setAuthenticated(true);
           setChecked(true);
@@ -62,7 +66,11 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     };
   }, [pathname, router]);
 
-  if (pathname === "/login" || pathname.startsWith("/client")) {
+  if (
+    pathname === "/login" ||
+    pathname.startsWith("/client") ||
+    pathname.startsWith("/partner")
+  ) {
     return <>{children}</>;
   }
 
