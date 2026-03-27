@@ -3,6 +3,7 @@ import { HubSpotWriteClient } from "@muloo/hubspot-client";
 import type { CoworkInstruction } from "@muloo/shared";
 import { prisma } from "../../prisma";
 import { JobPayload, JobResult } from "../jobRouter";
+import { resolveHubSpotWriteToken } from "./resolveHubSpotWriteToken";
 
 interface AuditIssue {
   severity: "critical" | "medium" | "low";
@@ -162,22 +163,7 @@ export async function runPortalAudit(data: JobPayload): Promise<JobResult> {
     throw new Error("portalId and projectId are required for portal_audit");
   }
 
-  const [portalSession, hubspotPortal] = await Promise.all([
-    prisma.portalSession.findFirst({
-      where: { portalId: data.portalId, valid: true },
-      orderBy: { capturedAt: "desc" }
-    }),
-    prisma.hubSpotPortal.findFirst({
-      where: { portalId: data.portalId }
-    })
-  ]);
-
-  // Use private app token if available, otherwise fall back to OAuth access token.
-  // The OAuth connection already includes crm.schemas.*.write scopes so it can
-  // create and update properties without a separate private app.
-  const resolvedToken =
-    portalSession?.privateAppToken?.trim() ||
-    hubspotPortal?.accessToken?.trim();
+  const resolvedToken = await resolveHubSpotWriteToken(data.portalId);
 
   if (!resolvedToken) {
     const output: AuditOutput = {

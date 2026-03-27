@@ -7,6 +7,7 @@ import {
 import type { CoworkInstruction } from "@muloo/shared";
 import { prisma } from "../../prisma";
 import { JobPayload, JobResult } from "../jobRouter";
+import { resolveHubSpotWriteToken } from "./resolveHubSpotWriteToken";
 
 interface PropertyDiffEntry {
   objectType: string;
@@ -84,21 +85,7 @@ export async function runPropertyApply(data: JobPayload): Promise<JobResult> {
     throw new Error("properties array is required for property_apply");
   }
 
-  const [portalSession, hubspotPortal] = await Promise.all([
-    prisma.portalSession.findFirst({
-      where: { portalId: data.portalId, valid: true },
-      orderBy: { capturedAt: "desc" }
-    }),
-    prisma.hubSpotPortal.findFirst({
-      where: { portalId: data.portalId }
-    })
-  ]);
-
-  // Use private app token if set, otherwise fall back to OAuth access token.
-  // The OAuth connection already includes crm.schemas.*.write scopes.
-  const resolvedToken =
-    portalSession?.privateAppToken?.trim() ||
-    hubspotPortal?.accessToken?.trim();
+  const resolvedToken = await resolveHubSpotWriteToken(data.portalId);
 
   if (!resolvedToken) {
     const output: PropertyApplyOutput = {
