@@ -3,7 +3,6 @@
   "version": "0.2.0",
   "private": true,
   "description": "Internal execution platform for Muloo delivery operations and HubSpot onboarding automation",
-  "packageManager": "pnpm@9.15.4",
   "scripts": {
     "build": "cd apps/api && npx prisma generate && cd ../.. && node node_modules/typescript/lib/tsc.js -b tsconfig.json && cd apps/web && next build",
     "typecheck": "node node_modules/typescript/lib/tsc.js -b tsconfig.json",

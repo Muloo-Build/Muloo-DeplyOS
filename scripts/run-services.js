@@ -2,9 +2,8 @@ const { spawn } = require("node:child_process");
 
 const mode = process.argv[2] === "dev" ? "dev" : "start";
 const nextCli = require.resolve("next/dist/bin/next");
-const publicPort = process.env.PORT || "3000";
-const publicHost =
-  process.env.HOST || (mode === "start" ? "0.0.0.0" : "localhost");
+const publicPort = process.env.PORT || "5000";
+const publicHost = process.env.HOST || "0.0.0.0";
 
 const children = [];
 let shuttingDown = false;
