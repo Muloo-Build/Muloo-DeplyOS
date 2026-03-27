@@ -492,6 +492,61 @@ function inferAssistantActions(input: {
   return actions;
 }
 
+async function loadAssistantWorkspaceContext() {
+  try {
+    const [projects, clients, tasks] = await Promise.all([
+      prisma.project.findMany({
+        where: { status: { in: ["draft", "scoping", "designed", "ready-for-execution", "in-flight"] } },
+        select: { id: true, name: true, status: true, updatedAt: true, client: { select: { name: true } } },
+        orderBy: { updatedAt: "desc" },
+        take: 20
+      }),
+      prisma.client.findMany({
+        select: { id: true, name: true, industry: true },
+        orderBy: { updatedAt: "desc" },
+        take: 15
+      }),
+      prisma.task.findMany({
+        where: { status: { notIn: ["done", "cancelled"] } },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          priority: true,
+          assigneeType: true,
+          project: { select: { id: true, name: true, client: { select: { name: true } } } }
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 30
+      })
+    ]);
+
+    const tasksByStatus = tasks.reduce<Record<string, number>>((acc, t) => {
+      acc[t.status] = (acc[t.status] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      activeProjectCount: projects.length,
+      activeProjects: projects.map(p => ({
+        id: p.id,
+        name: p.name,
+        status: p.status,
+        client: p.client?.name ?? "Unknown",
+        updatedAt: p.updatedAt.toISOString().split("T")[0]
+      })),
+      clientCount: clients.length,
+      recentClients: clients.map(c => ({ id: c.id, name: c.name, industry: c.industry })),
+      openTaskCount: tasks.length,
+      tasksByStatus,
+      agentTaskCount: tasks.filter(t => t.assigneeType?.toLowerCase() === "agent").length,
+      blockedTaskCount: tasks.filter(t => t.status === "blocked").length
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function generateAssistantAnswer(input: {
   message: string;
   pathname?: string;
@@ -504,6 +559,7 @@ async function generateAssistantAnswer(input: {
     portalId?: string | null;
   };
   actions: AssistantAction[];
+  workspaceContext?: Awaited<ReturnType<typeof loadAssistantWorkspaceContext>>;
 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   const fallbackContext = input.project
@@ -530,9 +586,17 @@ async function generateAssistantAnswer(input: {
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 600,
-      system:
-        "You are Muloo Deploy OS's embedded assistant. Answer briefly using the supplied page and project context. Do not invent capabilities. If suggested actions are supplied separately, assume the UI will render them and focus your answer on guidance.",
+      max_tokens: 800,
+      system: [
+        "You are the embedded AI assistant for Muloo Deploy OS — an internal platform for running HubSpot implementation and delivery operations.",
+        "You have full admin visibility across all clients, projects, tasks, and jobs in the workspace.",
+        "Answer concisely and directly. Reference real data from the workspace context when it is relevant to the question.",
+        "Do not reveal to clients that AI agents or automation deliver any work — this is for internal use only.",
+        "If suggested actions are listed, the UI will render them as buttons — focus on guidance, not repeating the action names.",
+        input.workspaceContext
+          ? `\nLive workspace data (as of now):\n${JSON.stringify(input.workspaceContext, null, 2)}`
+          : ""
+      ].join(" "),
       messages: [
         {
           role: "user",
@@ -1013,17 +1077,21 @@ export function createApiApp(config: BaseConfig) {
               : {})
           }
         : undefined;
-      const actions = inferAssistantActions({
-        message: parsed.data.message,
-        ...(parsed.data.pathname ? { pathname: parsed.data.pathname } : {}),
-        ...(assistantProjectContext ? { project: assistantProjectContext } : {})
-      });
+      const [actions, workspaceContext] = await Promise.all([
+        Promise.resolve(inferAssistantActions({
+          message: parsed.data.message,
+          ...(parsed.data.pathname ? { pathname: parsed.data.pathname } : {}),
+          ...(assistantProjectContext ? { project: assistantProjectContext } : {})
+        })),
+        loadAssistantWorkspaceContext()
+      ]);
       const answer = await generateAssistantAnswer({
         message: parsed.data.message,
         ...(parsed.data.pathname ? { pathname: parsed.data.pathname } : {}),
         ...(parsed.data.pageLabel ? { pageLabel: parsed.data.pageLabel } : {}),
         ...(assistantProjectContext ? { project: assistantProjectContext } : {}),
-        actions
+        actions,
+        workspaceContext
       });
 
       return c.json({

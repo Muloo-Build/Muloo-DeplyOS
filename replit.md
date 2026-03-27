@@ -61,3 +61,13 @@ Note: The API startup requires `DATABASE_URL` (Prisma) and `REDIS_URL` (BullMQ).
 ## Package Manager
 
 Uses **pnpm** (v10+, included with nodejs-18 module). The `packageManager` field was removed from root `package.json` to avoid corepack version enforcement issues on Replit.
+
+## Completed Features (recent)
+
+- **DB migration**: `executionTier` and `coworkInstruction` columns added to `ExecutionJob` table
+- **AI assistant**: Enhanced with live workspace context (active projects, clients, open tasks, blocked counts)
+- **Client project workspace**: Messaging thread added at bottom for client-visible comms
+- **Comms tab**: `ProjectMessagesPanel` allows operators to send client-visible messages per project
+- **Human QA review panel**: Added to Delivery Board — shows agent output summary when `qaRequired=true` and the execution job completes; operators can "Mark QA Passed" (→ done) or "Send Back for Rework" (→ todo)
+- **Task status transitions**: Updated to allow `in_progress → todo` and `done → todo` for rework scenarios
+- **`outputSummary`**: Now returned in all serialized task `latestExecutionJob` responses from the API

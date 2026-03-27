@@ -76,7 +76,7 @@ export default function LoginPage() {
             <input
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              placeholder="jarrud@muloo.co or muloo-operator"
+              placeholder="Your workspace email or username"
               className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
             />
           </label>

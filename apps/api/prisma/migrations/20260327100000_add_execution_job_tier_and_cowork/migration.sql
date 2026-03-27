@@ -1,0 +1,3 @@
+ALTER TABLE "ExecutionJob"
+ADD COLUMN IF NOT EXISTS "executionTier" INTEGER,
+ADD COLUMN IF NOT EXISTS "coworkInstruction" JSONB;

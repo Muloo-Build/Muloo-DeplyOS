@@ -55,6 +55,7 @@ interface ProjectTask {
     id: string;
     status: string;
     resultStatus: string | null;
+    outputSummary: string | null;
     createdAt: string;
     completedAt: string | null;
   } | null;
@@ -1465,6 +1466,47 @@ export default function DeliveryBoard({
                                 <p className="mt-2 text-xs text-text-secondary">
                                   Validation evidence: {task.validationEvidence}
                                 </p>
+                              ) : null}
+                              {mode === "internal" &&
+                              task.qaRequired &&
+                              task.status !== "done" &&
+                              task.latestExecutionJob?.status === "completed" ? (
+                                <div className="mt-4 rounded-2xl border border-[rgba(123,226,239,0.25)] bg-[#0b1733] p-4 space-y-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7be2ef]">
+                                      QA Review Required
+                                    </span>
+                                    <span className="rounded-full bg-[rgba(123,226,239,0.15)] px-2 py-0.5 text-xs text-[#7be2ef]">
+                                      Agent completed
+                                    </span>
+                                  </div>
+                                  {task.latestExecutionJob.outputSummary ? (
+                                    <div className="rounded-xl bg-[#0b1126] px-4 py-3">
+                                      <p className="text-xs uppercase tracking-[0.15em] text-text-muted mb-2">Agent output summary</p>
+                                      <p className="text-sm text-text-secondary whitespace-pre-wrap">{task.latestExecutionJob.outputSummary}</p>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-text-muted">No output summary available. Check the Runs log for full details.</p>
+                                  )}
+                                  <div className="flex flex-wrap gap-2 pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => void updateTaskStatus(task.id, "done")}
+                                      disabled={updatingTaskId === task.id}
+                                      className="rounded-xl border border-[rgba(45,212,160,0.4)] px-4 py-2 text-xs font-medium text-[#2dd4a0] disabled:opacity-60"
+                                    >
+                                      {updatingTaskId === task.id ? "Updating..." : "Mark QA Passed — Move to Done"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void updateTaskStatus(task.id, "todo")}
+                                      disabled={updatingTaskId === task.id}
+                                      className="rounded-xl border border-[rgba(255,154,165,0.35)] px-4 py-2 text-xs font-medium text-[#ff9aa5] disabled:opacity-60"
+                                    >
+                                      Send Back for Rework
+                                    </button>
+                                  </div>
+                                </div>
                               ) : null}
                               {mode === "internal" ? (
                                 <>

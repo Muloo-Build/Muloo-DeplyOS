@@ -4008,6 +4008,7 @@ export function serializeTask<
       id: string;
       status: string;
       resultStatus: string | null;
+      outputSummary?: string | null;
       createdAt: Date;
       completedAt: Date | null;
     }>;
@@ -4084,6 +4085,7 @@ export function serializeTask<
           id: latestExecutionJob.id,
           status: latestExecutionJob.status,
           resultStatus: latestExecutionJob.resultStatus,
+          outputSummary: latestExecutionJob.outputSummary ?? null,
           createdAt: latestExecutionJob.createdAt.toISOString(),
           completedAt: latestExecutionJob.completedAt?.toISOString() ?? null
         }
@@ -7310,6 +7312,7 @@ export async function loadProjectTasks(projectId: string) {
           id: true,
           status: true,
           resultStatus: true,
+          outputSummary: true,
           createdAt: true,
           completedAt: true
         },
@@ -7326,10 +7329,10 @@ export async function loadProjectTasks(projectId: string) {
 const validTaskStatusTransitions = new Map<string, string[]>([
   ["backlog", ["todo"]],
   ["todo", ["in_progress"]],
-  ["in_progress", ["blocked", "waiting_on_client", "done"]],
+  ["in_progress", ["blocked", "waiting_on_client", "done", "todo"]],
   ["waiting_on_client", ["in_progress"]],
   ["blocked", ["in_progress"]],
-  ["done", ["in_progress"]]
+  ["done", ["in_progress", "todo"]]
 ]);
 
 function isValidTaskTransition(currentStatus: string, nextStatus: string) {
@@ -7546,6 +7549,7 @@ export async function loadProjectTaskBoard(projectId: string) {
           id: true,
           status: true,
           resultStatus: true,
+          outputSummary: true,
           createdAt: true,
           completedAt: true
         },
@@ -7725,6 +7729,7 @@ export async function transitionProjectTaskStatus(input: {
           id: true,
           status: true,
           resultStatus: true,
+          outputSummary: true,
           createdAt: true,
           completedAt: true
         },
@@ -7782,6 +7787,7 @@ export async function transitionProjectTaskStatus(input: {
           id: true,
           status: true,
           resultStatus: true,
+          outputSummary: true,
           createdAt: true,
           completedAt: true
         },
@@ -7827,6 +7833,7 @@ export async function transitionProjectTaskStatus(input: {
             id: true,
             status: true,
             resultStatus: true,
+            outputSummary: true,
             createdAt: true,
             completedAt: true
           },

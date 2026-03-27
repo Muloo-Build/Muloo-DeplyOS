@@ -3,6 +3,128 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+interface ClientMessage {
+  id: string;
+  senderType: string;
+  senderName: string;
+  body: string;
+  createdAt: string;
+}
+
+function formatTs(value: string) {
+  const d = new Date(value);
+  return isNaN(d.getTime())
+    ? ""
+    : d.toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function ClientProjectMessages({ projectId, clientName }: { projectId: string; clientName: string }) {
+  const [messages, setMessages] = useState<ClientMessage[]>([]);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch(`/api/client/projects/${encodeURIComponent(projectId)}/messages`, { credentials: "include" });
+        if (!res.ok) return;
+        const body = await res.json();
+        setMessages((body.messages ?? []).slice().reverse());
+      } catch {
+      }
+    }
+    void load();
+  }, [projectId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  async function send() {
+    if (!draft.trim()) return;
+    setSending(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/client/projects/${encodeURIComponent(projectId)}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ body: draft.trim(), senderName: clientName })
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? "Failed to send");
+      setMessages((prev) => [...prev, body.message]);
+      setDraft("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Messages</p>
+      <h3 className="mt-3 text-2xl font-semibold text-white">Project conversation</h3>
+      <p className="mt-2 text-text-secondary">
+        Leave notes or questions for the Muloo team here. We'll respond as soon as possible.
+      </p>
+
+      <div className="mt-6 max-h-[360px] overflow-y-auto space-y-3 pr-1">
+        {messages.length === 0 ? (
+          <div className="rounded-2xl bg-[#0b1126] px-5 py-4 text-sm text-text-muted">
+            No messages yet. Use the box below to send a note or question to the Muloo team.
+          </div>
+        ) : (
+          messages.map((msg) => {
+            const isFromMuloo = msg.senderType === "internal";
+            return (
+              <div
+                key={msg.id}
+                className={`rounded-2xl p-4 ${isFromMuloo ? "border border-[rgba(123,226,239,0.2)] bg-[#0b1733]" : "border border-[rgba(255,255,255,0.07)] bg-[#0b1126]"}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-xs font-semibold ${isFromMuloo ? "text-[#7be2ef]" : "text-text-muted"}`}>
+                    {isFromMuloo ? "Muloo" : msg.senderName}
+                  </span>
+                  <span className="text-xs text-text-muted">{formatTs(msg.createdAt)}</span>
+                </div>
+                <p className="mt-2 text-sm text-text-secondary whitespace-pre-wrap">{msg.body}</p>
+              </div>
+            );
+          })
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {error ? <p className="mt-3 text-xs text-[#ff8f9c]">{error}</p> : null}
+
+      <div className="mt-5 flex gap-3">
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send();
+          }}
+          placeholder="Write a message or question for the Muloo team... (Ctrl+Enter to send)"
+          rows={3}
+          className="flex-1 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none resize-none"
+        />
+        <button
+          type="button"
+          onClick={() => void send()}
+          disabled={sending || !draft.trim()}
+          className="self-end rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {sending ? "Sending..." : "Send"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 import ClientShell from "./ClientShell";
 import {
   clientSessionDefinitions,
@@ -717,6 +839,11 @@ export default function ClientProjectWorkspace({
               );
             })
           )}
+
+          <ClientProjectMessages
+            projectId={detail.project.id}
+            clientName={`${detail.user.firstName} ${detail.user.lastName}`}
+          />
         </div>
       )}
     </ClientShell>

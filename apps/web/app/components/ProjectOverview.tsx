@@ -1132,6 +1132,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       case "comms":
         return (
           <CommsTab
+            projectId={projectId}
             emailComposer={
               <div className="space-y-4">
                 <textarea
