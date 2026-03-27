@@ -28,9 +28,9 @@ const pendingPortalPrefix = "pending-portal-";
 export const authCookieName = "muloo_deploy_os_auth";
 export const clientAuthCookieName = "muloo_deploy_os_client_auth";
 const defaultSimpleAuthUsername =
-  process.env.NODE_ENV === "development" ? "jarrud" : "";
+  process.env.MULOO_DEV_BYPASS === "true" ? "jarrud" : "";
 const defaultSimpleAuthPassword =
-  process.env.NODE_ENV === "development" ? "deployos" : "";
+  process.env.MULOO_DEV_BYPASS === "true" ? "deployos" : "";
 const validEngagementTypes = [
   "AUDIT",
   "IMPLEMENTATION",

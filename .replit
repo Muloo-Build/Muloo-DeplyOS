@@ -47,7 +47,10 @@ MULOO_EXECUTION_MODE = "dry-run"
 NODE_ENV = "development"
 API_PORT = "3001"
 
+[userenv.development]
+MULOO_DEV_BYPASS = "true"
+
 [deployment]
 deploymentTarget = "vm"
 run = ["pnpm", "start"]
-build = ["bash", "-c", "pnpm install --no-frozen-lockfile && pnpm build"]
+build = ["bash", "scripts/build.sh"]
