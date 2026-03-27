@@ -46,3 +46,8 @@ MULOO_ARTIFACT_DIR = "artifacts"
 MULOO_EXECUTION_MODE = "dry-run"
 NODE_ENV = "development"
 API_PORT = "3001"
+
+[deployment]
+deploymentTarget = "vm"
+run = ["pnpm", "start"]
+build = ["bash", "-c", "pnpm install --no-frozen-lockfile && pnpm build"]
