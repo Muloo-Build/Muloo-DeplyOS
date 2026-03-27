@@ -388,7 +388,7 @@ export default function ClientProjectWorkspace({
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                 {detail.project.client.name}
@@ -402,28 +402,30 @@ export default function ClientProjectWorkspace({
             </span>
           </div>
 
-          <nav className="flex gap-1 border-b border-[rgba(255,255,255,0.07)] pb-0">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                  activeTab === tab.key
-                    ? "border-white text-white"
-                    : "border-transparent text-text-secondary hover:text-white"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+          <div className="border-b border-[rgba(255,255,255,0.07)]">
+            <nav className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`whitespace-nowrap rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${
+                    activeTab === tab.key
+                      ? "border-white/20 bg-white/12 text-white"
+                      : "border-transparent text-text-secondary hover:border-white/10 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
 
           {activeTab === "overview" ? (
             <div className="space-y-5">
               <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
                 <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                     <div>
                       <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
                         Project summary
@@ -486,7 +488,7 @@ export default function ClientProjectWorkspace({
                         key={`${step.title}-${index}`}
                         className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
                       >
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <p className="text-sm font-semibold text-white">
                             {step.title}
                           </p>
@@ -535,7 +537,7 @@ export default function ClientProjectWorkspace({
 
               {portalQuoteEnabled ? (
                 <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                     <div>
                       <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Quote & approval</p>
                       <h3 className="mt-2 text-lg font-semibold text-white">
@@ -759,12 +761,12 @@ export default function ClientProjectWorkspace({
 
               {messageError ? <p className="text-xs text-[#ff8f9c]">{messageError}</p> : null}
 
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <textarea
                   value={messageDraft}
                   onChange={(e) => setMessageDraft(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void sendMessage(); }}
-                  placeholder="Write a message or question for the Muloo team... (Ctrl+Enter to send)"
+                  placeholder="Write a message or question for the Muloo team..."
                   rows={3}
                   className="flex-1 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none resize-none"
                 />
@@ -772,11 +774,14 @@ export default function ClientProjectWorkspace({
                   type="button"
                   onClick={() => void sendMessage()}
                   disabled={messageSending || !messageDraft.trim()}
-                  className="self-end rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                  className="w-full rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
                 >
                   {messageSending ? "Sending..." : "Send"}
                 </button>
               </div>
+              <p className="text-xs text-text-muted">
+                On desktop you can still use Ctrl+Enter or Cmd+Enter to send quickly.
+              </p>
             </div>
           ) : null}
 

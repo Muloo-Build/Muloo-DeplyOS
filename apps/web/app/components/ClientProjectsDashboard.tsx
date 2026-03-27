@@ -111,7 +111,7 @@ export default function ClientProjectsDashboard({
                   <Link
                     key={project.id}
                     href={getPortalProjectPath(portalExperience, project.id)}
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-5 transition hover:border-[rgba(255,255,255,0.13)] hover:bg-[rgba(255,255,255,0.02)]"
+                    className="flex flex-col items-start gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-5 py-5 transition hover:border-[rgba(255,255,255,0.13)] hover:bg-[rgba(255,255,255,0.02)] sm:flex-row sm:items-center sm:justify-between sm:px-6"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-base font-semibold text-white">
@@ -124,14 +124,14 @@ export default function ClientProjectsDashboard({
                           : ""}
                       </p>
                     </div>
-                    <div className="flex flex-shrink-0 items-center gap-3">
+                    <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:flex-shrink-0 sm:justify-end">
                       <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusColor(project.status)}`}>
                         {statusLabel(project.status)}
                       </span>
-                      <span className="text-xs text-text-muted hidden sm:block">
+                      <span className="text-xs text-text-muted">
                         Updated {formatDate(project.updatedAt)}
                       </span>
-                      <span className="text-text-muted">→</span>
+                      <span className="ml-auto text-text-muted sm:ml-0">→</span>
                     </div>
                   </Link>
                 ))}
@@ -149,7 +149,7 @@ export default function ClientProjectsDashboard({
                   <Link
                     key={project.id}
                     href={getPortalProjectPath(portalExperience, project.id)}
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-5 opacity-70 transition hover:border-[rgba(255,255,255,0.1)] hover:opacity-100"
+                    className="flex flex-col items-start gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-5 py-5 opacity-70 transition hover:border-[rgba(255,255,255,0.1)] hover:opacity-100 sm:flex-row sm:items-center sm:justify-between sm:px-6"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-base font-semibold text-white">
@@ -159,11 +159,11 @@ export default function ClientProjectsDashboard({
                         {project.client.name}
                       </p>
                     </div>
-                    <div className="flex flex-shrink-0 items-center gap-3">
+                    <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:flex-shrink-0 sm:justify-end">
                       <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusColor(project.status)}`}>
                         {statusLabel(project.status)}
                       </span>
-                      <span className="text-text-muted">→</span>
+                      <span className="ml-auto text-text-muted sm:ml-0">→</span>
                     </div>
                   </Link>
                 ))}
