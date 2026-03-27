@@ -18,6 +18,7 @@
     "@muloo/executor": "workspace:*",
     "@muloo/file-system": "workspace:*",
     "@muloo/hubspot-client": "workspace:*",
+    "@muloo/report-templates": "workspace:*",
     "@muloo/shared": "workspace:*",
     "@prisma/client": "5.22.0",
     "@types/bcrypt": "^6.0.0",

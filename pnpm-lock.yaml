@@ -75,6 +75,9 @@ importers:
       '@muloo/hubspot-client':
         specifier: workspace:*
         version: link:../../packages/hubspot-client
+      '@muloo/report-templates':
+        specifier: workspace:*
+        version: link:../../packages/report-templates
       '@muloo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
