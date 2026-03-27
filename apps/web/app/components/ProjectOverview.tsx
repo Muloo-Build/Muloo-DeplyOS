@@ -1881,6 +1881,29 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     <p className="mt-2 text-xs text-status-error">{partnerPreviewError}</p>
                   ) : null}
                 </div>
+                <div className="brand-surface-soft rounded-2xl border border-dashed p-4 opacity-80">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-medium text-white">Marketing Hub Delivery</p>
+                      <p className="mt-1 text-xs text-text-muted">
+                        Subscription-locked partner workspace for SEO tools, content creation,
+                        blogs, and recurring marketing execution inside approved portals.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                      Locked
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled
+                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-text-muted opacity-80"
+                    >
+                      Monthly subscription required
+                    </button>
+                  </div>
+                </div>
                 <div className="brand-surface-soft rounded-2xl border p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>

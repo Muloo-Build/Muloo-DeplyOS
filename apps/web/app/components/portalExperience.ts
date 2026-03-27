@@ -53,6 +53,13 @@ export function getPortalDeliveryPath(
   return `${getPortalProjectPath(portalExperience, projectId)}/delivery`;
 }
 
+export function getPortalMarketingHubPath(
+  portalExperience: PortalExperience,
+  projectId: string
+) {
+  return `${getPortalProjectPath(portalExperience, projectId)}/marketing-hub`;
+}
+
 export function getPortalInboxPath(portalExperience: PortalExperience) {
   return `${getPortalBasePath(portalExperience)}/inbox`;
 }

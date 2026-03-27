@@ -12,6 +12,7 @@ import {
 import {
   type PortalExperience,
   getPortalDeliveryPath,
+  getPortalMarketingHubPath,
   getPortalQuotePath
 } from "./portalExperience";
 
@@ -488,6 +489,31 @@ export default function ClientProjectWorkspace({
                     View delivery board →
                   </button>
                 </div>
+                {portalExperience === "partner" ? (
+                  <Link
+                    href={getPortalMarketingHubPath(
+                      portalExperience,
+                      detail.project.id
+                    )}
+                    className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] p-5 opacity-80 transition hover:border-[rgba(255,255,255,0.18)] hover:bg-[rgba(255,255,255,0.05)]"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-white">
+                        Marketing Hub Delivery
+                      </p>
+                      <span className="rounded-full border border-[rgba(255,255,255,0.12)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                        Locked
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      SEO tools, blogs, content creation, and partner-led marketing
+                      execution will live here once your monthly subscription is active.
+                    </p>
+                    <span className="mt-3 inline-flex text-sm font-medium text-text-muted">
+                      Open marketing hub →
+                    </span>
+                  </Link>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -653,15 +679,45 @@ export default function ClientProjectWorkspace({
               <p className="text-sm text-text-secondary">
                 Track the delivery plan and current progress for this project. Each item represents a piece of work that's been planned or completed.
               </p>
-              <Link
-                href={getPortalDeliveryPath(
-                  portalExperience,
-                  detail.project.id
-                )}
-                className="inline-flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-3 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.14)]"
-              >
-                Open full delivery board →
-              </Link>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Link
+                  href={getPortalDeliveryPath(
+                    portalExperience,
+                    detail.project.id
+                  )}
+                  className="inline-flex items-center justify-between gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-4 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.14)]"
+                >
+                  <div>
+                    <p className="font-medium text-white">Technical delivery board</p>
+                    <p className="mt-1 text-sm text-text-secondary">
+                      Track scoped implementation work and current progress.
+                    </p>
+                  </div>
+                  <span>→</span>
+                </Link>
+                {portalExperience === "partner" ? (
+                  <Link
+                    href={getPortalMarketingHubPath(
+                      portalExperience,
+                      detail.project.id
+                    )}
+                    className="inline-flex items-center justify-between gap-3 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-5 py-4 text-sm font-medium text-white opacity-80 hover:border-[rgba(255,255,255,0.18)]"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-white">Marketing Hub delivery</p>
+                        <span className="rounded-full border border-[rgba(255,255,255,0.12)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                          Subscription
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        Partner SEO, content, and campaign execution will run here once enabled.
+                      </p>
+                    </div>
+                    <span className="text-text-muted">→</span>
+                  </Link>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </div>
