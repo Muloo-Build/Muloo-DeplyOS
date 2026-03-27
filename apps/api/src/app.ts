@@ -66,6 +66,7 @@ import {
   createWorkspaceGoogleEmailOAuthStart,
   createWorkspaceCalendarOAuthStart,
   createWorkspaceTodo,
+  createWorkspaceTodoFromEmail,
   createWorkspaceXeroOAuthStart,
   createSimpleAuthToken,
   clearCompletedWorkspaceTodos,
@@ -204,6 +205,7 @@ import {
   generateWorkspaceDailySummary,
   getActiveProjects,
   getWorkspaceCalendarStatus,
+  getWorkspaceClientEmailQueues,
   getWorkspaceXeroStatus,
   getCalendarEvents,
   getGmailActionRequired,
@@ -3438,6 +3440,27 @@ export function createApiApp(config: BaseConfig) {
     c.json(await getGmailActionRequired())
   );
 
+  app.get("/api/workspace/emails/client-queues", async (c) =>
+    c.json(await getWorkspaceClientEmailQueues())
+  );
+
+  app.post("/api/workspace/todos/from-email", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      return c.json(await createWorkspaceTodoFromEmail(body), 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to create todo from email"
+        },
+        400
+      );
+    }
+  });
+
   app.patch("/api/workspace/email-filter", async (c) => {
     try {
       const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
@@ -4152,6 +4175,7 @@ export function createApiApp(config: BaseConfig) {
       industry?: string;
       region?: string;
       hubSpotPortalId?: string;
+      gmailLabel?: string;
       additionalWebsites?: string[];
       linkedinUrl?: string;
       facebookUrl?: string;
@@ -4189,6 +4213,7 @@ export function createApiApp(config: BaseConfig) {
         industry?: unknown;
         region?: unknown;
         hubSpotPortalId?: unknown;
+        gmailLabel?: unknown;
         additionalWebsites?: unknown;
         linkedinUrl?: unknown;
         facebookUrl?: unknown;

@@ -73,6 +73,7 @@ interface ClientRecord {
   instagramUrl?: string | null;
   xUrl?: string | null;
   youtubeUrl?: string | null;
+  gmailLabel?: string | null;
   lastEnrichedAt?: string | null;
   childClients: Array<{
     id: string;
@@ -113,6 +114,7 @@ interface ClientProfileDraft {
   instagramUrl: string;
   xUrl: string;
   youtubeUrl: string;
+  gmailLabel: string;
   clientRoles: string[];
   parentClientId: string;
   visibleToPartnerIds: string[];
@@ -195,6 +197,7 @@ function createEmptyClientDraft(
     instagramUrl: "",
     xUrl: "",
     youtubeUrl: "",
+    gmailLabel: "",
     clientRoles: workspaceMode === "partners" ? ["partner"] : ["client"],
     parentClientId: "",
     visibleToPartnerIds: []
@@ -215,6 +218,7 @@ function createClientProfileDraft(client: ClientRecord): ClientProfileDraft {
     instagramUrl: client.instagramUrl ?? "",
     xUrl: client.xUrl ?? "",
     youtubeUrl: client.youtubeUrl ?? "",
+    gmailLabel: client.gmailLabel ?? "",
     clientRoles: client.clientRoles ?? ["client"],
     parentClientId: client.parentClientId ?? "",
     visibleToPartnerIds: client.visibleToPartners.map((partner) => partner.id)
@@ -416,6 +420,7 @@ function createFallbackClientProfileDraft(): ClientProfileDraft {
     instagramUrl: "",
     xUrl: "",
     youtubeUrl: "",
+    gmailLabel: "",
     clientRoles: ["client"],
     parentClientId: "",
     visibleToPartnerIds: []
@@ -438,6 +443,7 @@ function buildClientPayload(
         instagramUrl: string;
         xUrl: string;
         youtubeUrl: string;
+        gmailLabel: string;
         clientRoles: string[];
         parentClientId: string;
         visibleToPartnerIds: string[];
@@ -459,6 +465,7 @@ function buildClientPayload(
     instagramUrl: draft.instagramUrl,
     xUrl: draft.xUrl,
     youtubeUrl: draft.youtubeUrl,
+    gmailLabel: draft.gmailLabel,
     clientRoles: draft.clientRoles,
     parentClientId: draft.parentClientId,
     visibleToPartnerIds: draft.visibleToPartnerIds
@@ -1509,6 +1516,27 @@ export default function ClientsWorkspace({
                         ))}
                       </select>
                     </label>
+                    <label className="block">
+                      <span className="text-sm font-medium text-white">
+                        Gmail label
+                      </span>
+                      <input
+                        value={profileDraft.gmailLabel}
+                        onChange={(event) =>
+                          updateProfileDraft(
+                            client.id,
+                            "gmailLabel",
+                            event.target.value
+                          )
+                        }
+                        placeholder="EPIUSE"
+                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                      />
+                      <p className="mt-2 text-xs text-text-muted">
+                        Match the Gmail label used in your mailbox filters for
+                        this client.
+                      </p>
+                    </label>
                   </div>
 
                   <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -2459,6 +2487,24 @@ export default function ClientsWorkspace({
                 </option>
               ))}
             </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-white">Gmail label</span>
+            <input
+              value={clientDraft.gmailLabel}
+              onChange={(event) =>
+                setClientDraft((currentDraft) => ({
+                  ...currentDraft,
+                  gmailLabel: event.target.value
+                }))
+              }
+              placeholder="EPIUSE"
+              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+            <p className="mt-2 text-xs text-text-muted">
+              Optional. Match the Gmail label you use for this client so the
+              command centre can watch unread mail in that queue.
+            </p>
           </label>
           <label className="block md:col-span-2">
             <span className="text-sm font-medium text-white">

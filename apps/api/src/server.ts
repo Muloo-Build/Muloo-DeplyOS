@@ -3802,6 +3802,7 @@ function serializeClientDirectoryRecord<
     instagramUrl: string | null;
     xUrl: string | null;
     youtubeUrl: string | null;
+    gmailLabel: string | null;
     lastEnrichedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -3848,6 +3849,7 @@ function serializeClientDirectoryRecord<
     instagramUrl: client.instagramUrl,
     xUrl: client.xUrl,
     youtubeUrl: client.youtubeUrl,
+    gmailLabel: client.gmailLabel,
     lastEnrichedAt: client.lastEnrichedAt?.toISOString() ?? null,
     createdAt: client.createdAt.toISOString(),
     updatedAt: client.updatedAt.toISOString(),
@@ -15341,38 +15343,33 @@ export async function clearCompletedWorkspaceTodos() {
   });
 }
 
-export async function getGmailActionRequired() {
-  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+type GmailMessageSummary = {
+  id: string;
+  subject: string;
+  from: string;
+  date: string;
+  snippet: string;
+  gmailUrl: string;
+};
 
-  const connection = await prisma.workspaceEmailOAuthConnection.findUnique({
-    where: { providerKey: "google_workspace" }
-  });
+function buildUnreadLabelQuery(label: string) {
+  return `label:"${label.replace(/"/g, "").trim()}" is:unread`;
+}
 
-  if (!connection?.enabled) {
-    return { connected: false as const };
-  }
-
-  const refreshedConnection =
-    await refreshGoogleWorkspaceEmailAccessTokenIfNeeded(5 * 60_000);
-
-  if (!refreshedConnection?.accessToken) {
-    return { connected: false as const };
-  }
-
-  const gmailFilterLabel = refreshedConnection.gmailFilterLabel?.trim() || null;
-  const query = gmailFilterLabel
-    ? `label:${gmailFilterLabel} is:unread`
-    : "is:unread from:(-me) category:primary newer_than:14d";
-
+async function loadGmailMessagesMatchingQuery(
+  accessToken: string,
+  query: string,
+  maxResults = 20
+) {
   const messagesResponse = await fetch(
     "https://gmail.googleapis.com/gmail/v1/users/me/messages?" +
       new URLSearchParams({
         q: query,
-        maxResults: "20"
+        maxResults: String(maxResults)
       }).toString(),
     {
       headers: {
-        Authorization: `Bearer ${refreshedConnection.accessToken}`
+        Authorization: `Bearer ${accessToken}`
       }
     }
   );
@@ -15388,7 +15385,7 @@ export async function getGmailActionRequired() {
     );
   }
 
-  const emails = await Promise.all(
+  return Promise.all(
     (messagesBody?.messages ?? [])
       .map((message) => message.id?.trim())
       .filter((messageId): messageId is string => Boolean(messageId))
@@ -15406,7 +15403,7 @@ export async function getGmailActionRequired() {
             `?${detailParams.toString()}`,
           {
             headers: {
-              Authorization: `Bearer ${refreshedConnection.accessToken}`
+              Authorization: `Bearer ${accessToken}`
             }
           }
         );
@@ -15443,8 +15440,37 @@ export async function getGmailActionRequired() {
           date: headers.get("date") ?? "",
           snippet: detailBody.snippet ?? "",
           gmailUrl: `https://mail.google.com/mail/u/0/#inbox/${detailBody.id}`
-        };
+        } satisfies GmailMessageSummary;
       })
+  );
+}
+
+export async function getGmailActionRequired() {
+  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+
+  const connection = await prisma.workspaceEmailOAuthConnection.findUnique({
+    where: { providerKey: "google_workspace" }
+  });
+
+  if (!connection?.enabled) {
+    return { connected: false as const };
+  }
+
+  const refreshedConnection =
+    await refreshGoogleWorkspaceEmailAccessTokenIfNeeded(5 * 60_000);
+
+  if (!refreshedConnection?.accessToken) {
+    return { connected: false as const };
+  }
+
+  const gmailFilterLabel = refreshedConnection.gmailFilterLabel?.trim() || null;
+  const query = gmailFilterLabel
+    ? buildUnreadLabelQuery(gmailFilterLabel)
+    : "is:unread from:(-me) category:primary newer_than:14d";
+
+  const emails = await loadGmailMessagesMatchingQuery(
+    refreshedConnection.accessToken,
+    query
   );
 
   return {
@@ -15452,6 +15478,144 @@ export async function getGmailActionRequired() {
     activeFilterLabel: gmailFilterLabel,
     emails
   };
+}
+
+export async function getWorkspaceClientEmailQueues() {
+  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+
+  const connection = await prisma.workspaceEmailOAuthConnection.findUnique({
+    where: { providerKey: "google_workspace" }
+  });
+
+  if (!connection?.enabled) {
+    return { connected: false as const, queues: [] };
+  }
+
+  const refreshedConnection =
+    await refreshGoogleWorkspaceEmailAccessTokenIfNeeded(5 * 60_000);
+
+  if (!refreshedConnection?.accessToken) {
+    return { connected: false as const, queues: [] };
+  }
+
+  const clients = await prisma.client.findMany({
+    where: {
+      gmailLabel: {
+        not: null
+      }
+    },
+    include: {
+      projects: {
+        where: {
+          status: {
+            notIn: ["complete", "cancelled", "closed"]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          updatedAt: true
+        },
+        orderBy: [{ updatedAt: "desc" }]
+      }
+    },
+    orderBy: [{ name: "asc" }]
+  });
+
+  const labeledClients = clients.filter(
+    (client) => client.projects.length > 0 && client.gmailLabel?.trim().length
+  );
+
+  const queues = await Promise.all(
+    labeledClients.map(async (client) => {
+      const gmailLabel = client.gmailLabel?.trim() ?? "";
+      const emails = await loadGmailMessagesMatchingQuery(
+        refreshedConnection.accessToken as string,
+        buildUnreadLabelQuery(gmailLabel),
+        8
+      );
+
+      return {
+        clientId: client.id,
+        clientName: client.name,
+        gmailLabel,
+        unreadCount: emails.length,
+        projects: client.projects.map((project) => ({
+          id: project.id,
+          name: project.name,
+          status: project.status,
+          updatedAt: project.updatedAt.toISOString()
+        })),
+        emails
+      };
+    })
+  );
+
+  return {
+    connected: true as const,
+    queues: queues
+      .filter((queue) => queue.unreadCount > 0)
+      .sort((left, right) => right.unreadCount - left.unreadCount)
+  };
+}
+
+export async function createWorkspaceTodoFromEmail(value: {
+  clientId?: unknown;
+  clientName?: unknown;
+  projectId?: unknown;
+  projectName?: unknown;
+  gmailLabel?: unknown;
+  emailId?: unknown;
+  emailSubject?: unknown;
+  emailFrom?: unknown;
+  emailDate?: unknown;
+  gmailUrl?: unknown;
+  snippet?: unknown;
+  notes?: unknown;
+}) {
+  const subject =
+    typeof value.emailSubject === "string" ? value.emailSubject.trim() : "";
+  const clientName =
+    typeof value.clientName === "string" ? value.clientName.trim() : "";
+  const projectName =
+    typeof value.projectName === "string" ? value.projectName.trim() : "";
+  const emailFrom =
+    typeof value.emailFrom === "string" ? value.emailFrom.trim() : "";
+  const emailDate =
+    typeof value.emailDate === "string" ? value.emailDate.trim() : "";
+  const gmailLabel =
+    typeof value.gmailLabel === "string" ? value.gmailLabel.trim() : "";
+  const gmailUrl =
+    typeof value.gmailUrl === "string" ? value.gmailUrl.trim() : "";
+  const snippet =
+    typeof value.snippet === "string" ? value.snippet.trim() : "";
+  const extraNotes =
+    typeof value.notes === "string" ? value.notes.trim() : "";
+
+  if (!subject) {
+    throw new Error("emailSubject is required");
+  }
+
+  const titlePrefix = projectName || clientName || "Client email";
+  const title = `[${titlePrefix}] ${subject}`.slice(0, 191);
+  const notes = [
+    clientName ? `Client: ${clientName}` : null,
+    projectName ? `Project: ${projectName}` : null,
+    gmailLabel ? `Gmail label: ${gmailLabel}` : null,
+    emailFrom ? `From: ${emailFrom}` : null,
+    emailDate ? `Date: ${emailDate}` : null,
+    gmailUrl ? `Open in Gmail: ${gmailUrl}` : null,
+    snippet ? `\nEmail summary:\n${snippet}` : null,
+    extraNotes ? `\nNotes:\n${extraNotes}` : null
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return createWorkspaceTodo({
+    title,
+    notes
+  });
 }
 
 async function refreshWorkspaceCalendarAccessTokenIfNeeded(
@@ -17978,6 +18142,7 @@ export async function createClientDirectoryRecord(value: {
   instagramUrl?: string;
   xUrl?: string;
   youtubeUrl?: string;
+  gmailLabel?: string;
   clientRoles?: string[];
   parentClientId?: string;
   visibleToPartnerIds?: string[];
@@ -18028,6 +18193,10 @@ export async function createClientDirectoryRecord(value: {
       youtubeUrl:
         typeof value.youtubeUrl === "string"
           ? value.youtubeUrl.trim() || null
+          : null,
+      gmailLabel:
+        typeof value.gmailLabel === "string"
+          ? value.gmailLabel.trim() || null
           : null,
       clientRoles: normalizeClientRoleTags(value.clientRoles),
       ...(requestedHubSpotPortalId
@@ -18125,6 +18294,7 @@ export async function updateClientDirectoryRecord(
     instagramUrl?: unknown;
     xUrl?: unknown;
     youtubeUrl?: unknown;
+    gmailLabel?: unknown;
     clientRoles?: unknown;
     parentClientId?: unknown;
     visibleToPartnerIds?: unknown;
@@ -18220,6 +18390,14 @@ export async function updateClientDirectoryRecord(
 
   if (typeof value.youtubeUrl === "string") {
     updateData.youtubeUrl = value.youtubeUrl.trim() || null;
+  }
+
+  if (value.gmailLabel !== undefined) {
+    if (typeof value.gmailLabel !== "string") {
+      throw new Error("gmailLabel must be a string");
+    }
+
+    updateData.gmailLabel = value.gmailLabel.trim() || null;
   }
 
   if (value.clientRoles !== undefined) {

@@ -423,6 +423,83 @@ export default function ClientProjectWorkspace({
 
           {activeTab === "overview" ? (
             <div className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Status</p>
+                  <p className={`mt-3 text-lg font-semibold ${projectStatusColor(detail.project.status)}`}>
+                    {projectStatusLabel(detail.project.status)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                    {isStandaloneQuote ? "Project type" : "Input progress"}
+                  </p>
+                  <p className="mt-3 text-lg font-semibold text-white">
+                    {isStandaloneQuote ? "Scoped project" : `${completedCount} of ${sessionNumbers.length} complete`}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Hubs in scope</p>
+                  <p className="mt-3 text-lg font-semibold text-white">
+                    {detail.project.selectedHubs.length > 0 ? detail.project.selectedHubs.join(", ") : "—"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
+                  <p className="text-sm font-medium text-white">Need to get in touch?</p>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    Use the Messages tab to send a note or question to the Muloo team.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("messages")}
+                    className="mt-3 text-sm font-medium text-[#51d0b0] hover:underline"
+                  >
+                    Go to messages →
+                  </button>
+                </div>
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
+                  <p className="text-sm font-medium text-white">Delivery progress</p>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    Track what's being built and the current status of each item.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("delivery")}
+                    className="mt-3 text-sm font-medium text-[#51d0b0] hover:underline"
+                  >
+                    View delivery board →
+                  </button>
+                </div>
+                {portalExperience === "partner" ? (
+                  <Link
+                    href={getPortalMarketingHubPath(
+                      portalExperience,
+                      detail.project.id
+                    )}
+                    className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] p-5 opacity-80 transition hover:border-[rgba(255,255,255,0.18)] hover:bg-[rgba(255,255,255,0.05)] sm:col-span-2"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-white">
+                        Marketing Hub Delivery
+                      </p>
+                      <span className="rounded-full border border-[rgba(255,255,255,0.12)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                        Locked
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      SEO tools, blogs, content creation, and partner-led marketing
+                      execution will live here once your monthly subscription is active.
+                    </p>
+                    <span className="mt-3 inline-flex text-sm font-medium text-text-muted">
+                      Open marketing hub →
+                    </span>
+                  </Link>
+                ) : null}
+              </div>
+
               <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
                 <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
@@ -512,29 +589,6 @@ export default function ClientProjectWorkspace({
                 summary={detail.portalSummary}
               />
 
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Status</p>
-                  <p className={`mt-3 text-lg font-semibold ${projectStatusColor(detail.project.status)}`}>
-                    {projectStatusLabel(detail.project.status)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                    {isStandaloneQuote ? "Project type" : "Input progress"}
-                  </p>
-                  <p className="mt-3 text-lg font-semibold text-white">
-                    {isStandaloneQuote ? "Scoped project" : `${completedCount} of ${sessionNumbers.length} complete`}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Hubs in scope</p>
-                  <p className="mt-3 text-lg font-semibold text-white">
-                    {detail.project.selectedHubs.length > 0 ? detail.project.selectedHubs.join(", ") : "—"}
-                  </p>
-                </div>
-              </div>
-
               {portalQuoteEnabled ? (
                 <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
@@ -569,60 +623,6 @@ export default function ClientProjectWorkspace({
                   </div>
                 </div>
               ) : null}
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
-                  <p className="text-sm font-medium text-white">Need to get in touch?</p>
-                  <p className="mt-2 text-sm text-text-secondary">
-                    Use the Messages tab to send a note or question to the Muloo team.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("messages")}
-                    className="mt-3 text-sm font-medium text-[#51d0b0] hover:underline"
-                  >
-                    Go to messages →
-                  </button>
-                </div>
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
-                  <p className="text-sm font-medium text-white">Delivery progress</p>
-                  <p className="mt-2 text-sm text-text-secondary">
-                    Track what's being built and the current status of each item.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("delivery")}
-                    className="mt-3 text-sm font-medium text-[#51d0b0] hover:underline"
-                  >
-                    View delivery board →
-                  </button>
-                </div>
-                {portalExperience === "partner" ? (
-                  <Link
-                    href={getPortalMarketingHubPath(
-                      portalExperience,
-                      detail.project.id
-                    )}
-                    className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] p-5 opacity-80 transition hover:border-[rgba(255,255,255,0.18)] hover:bg-[rgba(255,255,255,0.05)]"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-white">
-                        Marketing Hub Delivery
-                      </p>
-                      <span className="rounded-full border border-[rgba(255,255,255,0.12)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
-                        Locked
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm text-text-secondary">
-                      SEO tools, blogs, content creation, and partner-led marketing
-                      execution will live here once your monthly subscription is active.
-                    </p>
-                    <span className="mt-3 inline-flex text-sm font-medium text-text-muted">
-                      Open marketing hub →
-                    </span>
-                  </Link>
-                ) : null}
-              </div>
             </div>
           ) : null}
 

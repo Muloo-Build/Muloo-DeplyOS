@@ -34,6 +34,7 @@ model Client {
   instagramUrl       String?
   xUrl               String?
   youtubeUrl         String?
+  gmailLabel         String?
   lastEnrichedAt     DateTime?
   createdAt          DateTime                  @default(now())
   updatedAt          DateTime                  @updatedAt
