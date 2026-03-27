@@ -268,6 +268,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [quickWinBusyId, setQuickWinBusyId] = useState<string | null>(null);
   const [portalQuoteEnabled, setPortalQuoteEnabled] = useState<boolean>(true);
   const [portalQuoteToggleBusy, setPortalQuoteToggleBusy] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
+  const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
 
   async function loadProjectData() {
     const [
@@ -712,6 +714,32 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }
   }
 
+  async function changeProjectStatus(newStatus: string) {
+    if (!project || statusBusy) return;
+    setStatusBusy(true);
+    setStatusFeedback(null);
+    const prevStatus = project.status;
+    setProject((p) => p ? { ...p, status: newStatus } : p);
+    try {
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/status`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus })
+        }
+      );
+      if (!res.ok) throw new Error("Failed to update status");
+      setStatusFeedback("Status updated");
+      setTimeout(() => setStatusFeedback(null), 3000);
+    } catch {
+      setProject((p) => p ? { ...p, status: prevStatus } : p);
+      setStatusFeedback("Failed to update status");
+    } finally {
+      setStatusBusy(false);
+    }
+  }
+
   async function updateQuickWinStatus(
     findingId: string,
     status: FindingRecord["status"]
@@ -832,6 +860,48 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     }
                   ]}
                 />
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Set status:</p>
+                  {(["draft", "active", "complete", "archived"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      disabled={statusBusy || project.status === s}
+                      onClick={() => void changeProjectStatus(s)}
+                      className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+                        project.status === s
+                          ? "border-[rgba(73,205,225,0.28)] bg-[rgba(73,205,225,0.12)] text-[#7be2ef]"
+                          : "border-[rgba(255,255,255,0.1)] bg-white/5 text-white hover:border-[rgba(255,255,255,0.2)]"
+                      } disabled:cursor-not-allowed disabled:opacity-50`}
+                    >
+                      {formatLabel(s)}
+                    </button>
+                  ))}
+                  {statusFeedback ? (
+                    <span className="text-xs text-status-success">{statusFeedback}</span>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={portalQuoteEnabled}
+                    onClick={() => void togglePortalQuote()}
+                    disabled={portalQuoteToggleBusy}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
+                      portalQuoteEnabled ? "bg-brand-teal/70" : "bg-white/20"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                        portalQuoteEnabled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-sm text-text-secondary">
+                    {portalQuoteEnabled ? "Quote visible in client portal" : "Quote hidden from client portal"}
+                  </span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"

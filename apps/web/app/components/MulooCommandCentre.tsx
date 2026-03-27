@@ -341,7 +341,7 @@ export default function MulooCommandCentre() {
                 {activeProjects.map((project) => (
                   <Link
                     key={project.id}
-                    href={project.defaultWorkspacePath ?? `/projects/${project.id}`}
+                    href={`/projects/${project.id}`}
                     className="brand-surface-soft flex items-center justify-between gap-4 rounded-2xl border p-4 transition hover:border-brand-teal/55"
                   >
                     <div>

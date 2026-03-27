@@ -99,6 +99,12 @@ export default function ProjectWorkflowNav({
             {workspaceMode.summary}
           </p>
         </div>
+        <Link
+          href={`/projects/${projectId}`}
+          className="rounded-xl border border-[rgba(255,255,255,0.1)] bg-white/5 px-4 py-2 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.18)] transition-colors"
+        >
+          ← Project Overview
+        </Link>
       </div>
       <div className="mt-5 grid gap-4 xl:grid-cols-4">
         {clusters.map((cluster) => (

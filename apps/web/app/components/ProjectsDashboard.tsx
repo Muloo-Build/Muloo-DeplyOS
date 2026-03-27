@@ -242,7 +242,7 @@ export default function ProjectsDashboard() {
             <div>
               <div className="flex flex-wrap items-center gap-3">
                 <Link
-                  href={project.defaultWorkspacePath ?? `/projects/${project.id}`}
+                  href={`/projects/${project.id}`}
                   className="text-lg font-semibold text-white transition-opacity hover:opacity-80"
                 >
                   {project.name}
@@ -279,7 +279,7 @@ export default function ProjectsDashboard() {
 
             <div className="flex items-start justify-end gap-3 text-sm font-medium">
               <Link
-                href={project.defaultWorkspacePath ?? `/projects/${project.id}`}
+                href={`/projects/${project.id}`}
                 className="text-white"
               >
                 View
