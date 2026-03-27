@@ -50,11 +50,13 @@ const navGroups: NavGroup[] = [
     label: "",
     items: [
       {
-        href: "/",
+        href: "/command-centre",
         label: "Command Centre",
         icon: <LayoutDashboard size={18} />,
         isActive: (pathname) =>
           pathname === "/" ||
+          pathname === "/command-centre" ||
+          pathname.startsWith("/command-centre/") ||
           pathname === "/workspace" ||
           pathname.startsWith("/workspace/")
       },

@@ -689,6 +689,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const completedSessions = sessions.filter((session) =>
     isSessionComplete(session)
   ).length;
+  const summaryInScopeItems = discoverySummary?.inScopeItems ?? [];
   const totalQuestions = sessions.reduce(
     (total, session) => total + Object.keys(session.fields).length,
     0
@@ -1054,7 +1055,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 <p>Project status: {formatLabel(project.status)}</p>
                 <p>Quote approval: {formatLabel(project.quoteApprovalStatus ?? "draft")}</p>
                 <p>
-                  In scope now: {discoverySummary?.inScopeItems.slice(0, 3).join(", ") || "No scoped items summarised yet."}
+                  In scope now:{" "}
+                  {summaryInScopeItems.length > 0
+                    ? summaryInScopeItems.slice(0, 3).join(", ")
+                    : "No scoped items summarised yet."}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Link

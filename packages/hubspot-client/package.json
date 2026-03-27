@@ -10,6 +10,7 @@
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
   },
   "dependencies": {
-    "@muloo/core": "workspace:*"
+    "@muloo/core": "workspace:*",
+    "axios": "^1.6.0"
   }
 }

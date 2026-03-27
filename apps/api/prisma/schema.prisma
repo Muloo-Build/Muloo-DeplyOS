@@ -802,6 +802,7 @@ model PortalSession {
   portalId    String
   csrfToken   String
   baseUrl     String
+  privateAppToken String?
   capturedAt  DateTime @default(now())
   expiresAt   DateTime?
   capturedBy  String

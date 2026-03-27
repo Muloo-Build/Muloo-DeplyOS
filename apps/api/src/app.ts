@@ -361,6 +361,10 @@ const taskExecuteSchema = z.object({
   sessionId: z.string().trim().optional()
 });
 
+const portalPrivateAppTokenSchema = z.object({
+  privateAppToken: z.string().min(1)
+});
+
 const marketingDashboardSchema = z.object({
   portalId: z.string().min(1),
   projectId: z.string().min(1),
@@ -387,6 +391,171 @@ const coworkCompleteSchema = z.object({
   output: z.string().min(1),
   screenshots: z.array(z.string().url()).optional()
 });
+
+const assistantChatSchema = z.object({
+  message: z.string().trim().min(1),
+  pathname: z.string().trim().optional(),
+  pageLabel: z.string().trim().optional(),
+  project: z
+    .object({
+      id: z.string().trim().min(1),
+      name: z.string().trim().min(1),
+      status: z.string().trim().optional(),
+      clientName: z.string().trim().optional(),
+      portalId: z.string().trim().optional().nullable()
+    })
+    .optional()
+});
+
+type AssistantAction = {
+  type:
+    | "run_portal_audit"
+    | "queue_dashboard_build"
+    | "generate_email_draft"
+    | "navigate";
+  label: string;
+  description?: string;
+  path?: string;
+};
+
+function inferAssistantActions(input: {
+  message: string;
+  pathname?: string;
+  project?: {
+    id: string;
+    name: string;
+    status?: string;
+    clientName?: string;
+    portalId?: string | null;
+  };
+}) {
+  const message = input.message.toLowerCase();
+  const actions: AssistantAction[] = [];
+
+  if (
+    input.project &&
+    (message.includes("audit") ||
+      message.includes("portal health") ||
+      message.includes("hubspot audit"))
+  ) {
+    actions.push({
+      type: "run_portal_audit",
+      label: "Run portal audit"
+    });
+  }
+
+  if (
+    input.project?.portalId &&
+    (message.includes("dashboard") || message.includes("report"))
+  ) {
+    actions.push({
+      type: "queue_dashboard_build",
+      label: "Plan dashboard build"
+    });
+  }
+
+  if (
+    input.project &&
+    (message.includes("email") ||
+      message.includes("draft reply") ||
+      message.includes("client update"))
+  ) {
+    actions.push({
+      type: "generate_email_draft",
+      label: "Generate email draft"
+    });
+  }
+
+  if (
+    message.includes("portal ops") ||
+    message.includes("private app token")
+  ) {
+    actions.push({
+      type: "navigate",
+      label: "Open Portal Ops",
+      path: "/projects/portal-ops"
+    });
+  }
+
+  if (
+    message.includes("runs") ||
+    message.includes("jobs") ||
+    message.includes("queue")
+  ) {
+    actions.push({
+      type: "navigate",
+      label: "Open Runs",
+      path: "/runs"
+    });
+  }
+
+  return actions;
+}
+
+async function generateAssistantAnswer(input: {
+  message: string;
+  pathname?: string;
+  pageLabel?: string;
+  project?: {
+    id: string;
+    name: string;
+    status?: string;
+    clientName?: string;
+    portalId?: string | null;
+  };
+  actions: AssistantAction[];
+}) {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  const fallbackContext = input.project
+    ? `You’re on ${input.pageLabel ?? "a project page"} for ${input.project.name} (${input.project.clientName ?? "unknown client"}), currently ${input.project.status ?? "in progress"}.`
+    : `You’re on ${input.pageLabel ?? "the workspace"} (${input.pathname ?? "/"}).`;
+
+  if (!apiKey) {
+    const actionHint =
+      input.actions.length > 0
+        ? ` I’ve suggested ${input.actions
+            .map((action) => action.label.toLowerCase())
+            .join(", ")} below.`
+        : "";
+
+    return `${fallbackContext} I can help explain the current context and steer you to the right workspace action.${actionHint}`;
+  }
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 600,
+      system:
+        "You are Muloo Deploy OS's embedded assistant. Answer briefly using the supplied page and project context. Do not invent capabilities. If suggested actions are supplied separately, assume the UI will render them and focus your answer on guidance.",
+      messages: [
+        {
+          role: "user",
+          content: `Current page: ${input.pageLabel ?? "Workspace"}\nPath: ${input.pathname ?? "/"}\nProject context: ${JSON.stringify(
+            input.project ?? null,
+            null,
+            2
+          )}\nSuggested actions: ${JSON.stringify(input.actions, null, 2)}\n\nUser question: ${input.message}`
+        }
+      ]
+    })
+  });
+
+  const body = (await response.json().catch(() => null)) as
+    | { content?: Array<{ text?: string }>; error?: { message?: string } }
+    | null;
+
+  if (!response.ok || !body?.content?.[0]?.text?.trim()) {
+    return fallbackContext;
+  }
+
+  return body.content[0].text.trim();
+}
 
 export function createApiApp(config: BaseConfig) {
   const app = new Hono<HonoBindings>();
@@ -819,6 +988,59 @@ export function createApiApp(config: BaseConfig) {
       applyEnabled: config.applyEnabled,
       integrationStatus: getIntegrationStatus(config)
     });
+  });
+
+  app.post("/api/assistant/chat", async (c) => {
+    const parsed = assistantChatSchema.safeParse(await readJsonBodyOrEmpty(c));
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    try {
+      const assistantProjectContext = parsed.data.project
+        ? {
+            id: parsed.data.project.id,
+            name: parsed.data.project.name,
+            ...(parsed.data.project.status
+              ? { status: parsed.data.project.status }
+              : {}),
+            ...(parsed.data.project.clientName
+              ? { clientName: parsed.data.project.clientName }
+              : {}),
+            ...(parsed.data.project.portalId !== undefined
+              ? { portalId: parsed.data.project.portalId }
+              : {})
+          }
+        : undefined;
+      const actions = inferAssistantActions({
+        message: parsed.data.message,
+        ...(parsed.data.pathname ? { pathname: parsed.data.pathname } : {}),
+        ...(assistantProjectContext ? { project: assistantProjectContext } : {})
+      });
+      const answer = await generateAssistantAnswer({
+        message: parsed.data.message,
+        ...(parsed.data.pathname ? { pathname: parsed.data.pathname } : {}),
+        ...(parsed.data.pageLabel ? { pageLabel: parsed.data.pageLabel } : {}),
+        ...(assistantProjectContext ? { project: assistantProjectContext } : {}),
+        actions
+      });
+
+      return c.json({
+        answer,
+        actions
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to generate assistant response"
+        },
+        500
+      );
+    }
   });
 
   app.all("/api/industries", (c) => {
@@ -4449,6 +4671,11 @@ export function createApiApp(config: BaseConfig) {
         );
       }
 
+      const existingSession = await (prisma as any).portalSession.findFirst({
+        where: { portalId },
+        orderBy: { capturedAt: "desc" }
+      });
+
       // Create PortalSession record in database
       const session = await (prisma as any).portalSession.create({
         data: {
@@ -4456,7 +4683,8 @@ export function createApiApp(config: BaseConfig) {
           csrfToken,
           baseUrl,
           capturedBy: capturedBy || "unknown",
-          valid: true
+          valid: true,
+          privateAppToken: existingSession?.privateAppToken ?? null
         }
       });
 
@@ -4487,7 +4715,8 @@ export function createApiApp(config: BaseConfig) {
         where: {
           portalId,
           valid: true
-        }
+        },
+        orderBy: { capturedAt: "desc" }
       });
 
       if (!session) {
@@ -4498,7 +4727,8 @@ export function createApiApp(config: BaseConfig) {
         sessionExists: true,
         sessionId: session.id,
         capturedAt: session.capturedAt,
-        capturedBy: session.capturedBy
+        capturedBy: session.capturedBy,
+        privateAppTokenConfigured: Boolean(session.privateAppToken?.trim())
       });
     } catch (error) {
       return c.json(
@@ -4507,6 +4737,53 @@ export function createApiApp(config: BaseConfig) {
             error instanceof Error
               ? error.message
               : "Failed to check portal session"
+        },
+        500
+      );
+    }
+  });
+
+  app.patch("/api/portal-sessions/:portalId/token", async (c) => {
+    const parsed = portalPrivateAppTokenSchema.safeParse(
+      await readJsonBodyOrEmpty(c)
+    );
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    try {
+      const portalId = c.req.param("portalId")?.trim();
+
+      if (!portalId) {
+        return c.json({ error: "portalId is required" }, 400);
+      }
+
+      const existingSession = await prisma.portalSession.findFirst({
+        where: { portalId },
+        orderBy: { capturedAt: "desc" }
+      });
+
+      if (!existingSession) {
+        return c.json(
+          { error: "No PortalSession found for this portal. Capture a portal session first." },
+          404
+        );
+      }
+
+      await prisma.portalSession.update({
+        where: { id: existingSession.id },
+        data: { privateAppToken: parsed.data.privateAppToken.trim() }
+      });
+
+      return c.json({ success: true });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update portal private app token"
         },
         500
       );

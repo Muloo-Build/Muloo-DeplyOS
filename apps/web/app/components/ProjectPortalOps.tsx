@@ -19,6 +19,14 @@ interface PortalSnapshot {
   customObjectCount?: number | null;
 }
 
+interface PortalSessionValidityResponse {
+  sessionExists: boolean;
+  sessionId: string | null;
+  capturedAt?: string;
+  capturedBy?: string | null;
+  privateAppTokenConfigured?: boolean;
+}
+
 interface HubSpotCapabilitiesResponse {
   connection: {
     ready: boolean;
@@ -111,6 +119,8 @@ Output format:
 5. Dashboard structure
 6. Fastest Version 1 plan
 7. Risks, dependencies, and manual limitations`;
+
+const MASKED_PRIVATE_APP_TOKEN = "pat-••••••••••••••••••••••••";
 
 function formatSupportMode(value: HubSpotAgentRequestPlan["mode"]) {
   return value === "execute_action" ? "Ready to execute" : "Manual plan";
@@ -256,6 +266,11 @@ export default function ProjectPortalOps() {
   const [recentRuns, setRecentRuns] = useState<PortalExecutionRun[]>([]);
   const [snapshot, setSnapshot] = useState<PortalSnapshot | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [privateAppToken, setPrivateAppToken] = useState("");
+  const [privateAppTokenConfigured, setPrivateAppTokenConfigured] =
+    useState(false);
+  const [savingPrivateAppToken, setSavingPrivateAppToken] = useState(false);
+  const [privateAppTokenSaved, setPrivateAppTokenSaved] = useState(false);
 
   useEffect(() => {
     async function loadCapabilities() {
@@ -312,13 +327,21 @@ export default function ProjectPortalOps() {
         setSnapshot(null);
         setWorkflowRuns([]);
         setRecentRuns([]);
+        setPrivateAppToken("");
+        setPrivateAppTokenConfigured(false);
+        setPrivateAppTokenSaved(false);
         return;
       }
 
       setSnapshotLoading(true);
 
       try {
-        const [snapshotResponse, workflowRunsResponse, executionRunsResponse] =
+        const [
+          snapshotResponse,
+          workflowRunsResponse,
+          executionRunsResponse,
+          portalSessionResponse
+        ] =
           await Promise.all([
             fetch(`/api/portals/${encodeURIComponent(portalRecordId)}/snapshot`),
             fetch(
@@ -328,6 +351,9 @@ export default function ProjectPortalOps() {
               `/api/execution-jobs?portalId=${encodeURIComponent(
                 portalRecordId
               )}&limit=5`
+            ),
+            fetch(
+              `/api/portal-session/${encodeURIComponent(portalRecordId)}/valid`
             )
           ]);
 
@@ -338,14 +364,26 @@ export default function ProjectPortalOps() {
         const executionRunsBody = await executionRunsResponse
           .json()
           .catch(() => null);
+        const portalSessionBody = (await portalSessionResponse
+          .json()
+          .catch(() => null)) as PortalSessionValidityResponse | null;
 
         setSnapshot(snapshotResponse.ok ? snapshotBody?.snapshot ?? null : null);
         setWorkflowRuns(workflowRunsBody?.workflowRuns ?? []);
         setRecentRuns(executionRunsBody?.runs ?? []);
+        const configured = Boolean(
+          portalSessionBody?.privateAppTokenConfigured && portalSessionBody.sessionExists
+        );
+        setPrivateAppTokenConfigured(configured);
+        setPrivateAppToken(configured ? MASKED_PRIVATE_APP_TOKEN : "");
+        setPrivateAppTokenSaved(false);
       } catch {
         setSnapshot(null);
         setWorkflowRuns([]);
         setRecentRuns([]);
+        setPrivateAppToken("");
+        setPrivateAppTokenConfigured(false);
+        setPrivateAppTokenSaved(false);
       } finally {
         setSnapshotLoading(false);
       }
@@ -426,6 +464,59 @@ export default function ProjectPortalOps() {
     }
   }
 
+  async function savePrivateAppToken() {
+    if (!portalRecordId) {
+      setError("Select a client portal before saving the private app token.");
+      return;
+    }
+
+    const trimmedToken = privateAppToken.trim();
+
+    if (!trimmedToken || trimmedToken === MASKED_PRIVATE_APP_TOKEN) {
+      setError("Paste a private app token before saving.");
+      return;
+    }
+
+    setSavingPrivateAppToken(true);
+    setPrivateAppTokenSaved(false);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/portal-sessions/${encodeURIComponent(portalRecordId)}/token`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            privateAppToken: trimmedToken
+          })
+        }
+      );
+
+      const body = (await response.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(body?.error || "Failed to save private app token");
+      }
+
+      setPrivateAppTokenConfigured(true);
+      setPrivateAppToken(MASKED_PRIVATE_APP_TOKEN);
+      setPrivateAppTokenSaved(true);
+    } catch (tokenError) {
+      setError(
+        tokenError instanceof Error
+          ? tokenError.message
+          : "Failed to save private app token"
+      );
+    } finally {
+      setSavingPrivateAppToken(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <section className="brand-surface rounded-3xl border p-6 sm:p-8">
@@ -498,28 +589,99 @@ export default function ProjectPortalOps() {
 
               {selectedPortal ? (
                 <div className="brand-surface-soft mt-5 rounded-2xl border p-5">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                        Selected Portal
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-white">
-                        {selectedPortal.displayName}
-                      </p>
-                      <p className="mt-1 text-sm text-text-secondary">
-                        Portal ID {selectedPortal.portalId}
-                        {selectedPortal.connectedEmail
-                          ? ` · Connected as ${selectedPortal.connectedEmail}`
-                          : ""}
-                      </p>
+                  <div className="flex flex-col gap-5">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                          Selected Portal
+                        </p>
+                        <p className="mt-2 text-lg font-semibold text-white">
+                          {selectedPortal.displayName}
+                        </p>
+                        <p className="mt-1 text-sm text-text-secondary">
+                          Portal ID {selectedPortal.portalId}
+                          {selectedPortal.connectedEmail
+                            ? ` · Connected as ${selectedPortal.connectedEmail}`
+                            : ""}
+                        </p>
+                      </div>
+                      <div
+                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs uppercase tracking-[0.18em] ${portalHealth.badge}`}
+                      >
+                        <span
+                          className={`inline-block h-2.5 w-2.5 rounded-full ${portalHealth.dot}`}
+                        />
+                        {portalHealth.label}
+                      </div>
                     </div>
-                    <div
-                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs uppercase tracking-[0.18em] ${portalHealth.badge}`}
-                    >
-                      <span
-                        className={`inline-block h-2.5 w-2.5 rounded-full ${portalHealth.dot}`}
-                      />
-                      {portalHealth.label}
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                        <div className="min-w-0 flex-1">
+                          <label
+                            htmlFor="portal-private-app-token"
+                            className="text-xs uppercase tracking-[0.18em] text-text-muted"
+                          >
+                            HubSpot Private App Token
+                          </label>
+                          <input
+                            id="portal-private-app-token"
+                            type="password"
+                            value={privateAppToken}
+                            onFocus={() => {
+                              if (
+                                privateAppToken === MASKED_PRIVATE_APP_TOKEN
+                              ) {
+                                setPrivateAppToken("");
+                                setPrivateAppTokenSaved(false);
+                              }
+                            }}
+                            onChange={(event) => {
+                              setPrivateAppToken(event.target.value);
+                              setPrivateAppTokenSaved(false);
+                            }}
+                            placeholder="pat-na1-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                            className="brand-input mt-3 w-full rounded-2xl px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+                          />
+                          <p className="mt-3 text-xs text-text-secondary">
+                            Required for property creation and workflow building.
+                            Create a private app in HubSpot → Settings →
+                            Integrations → Private Apps.
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2 lg:items-end">
+                          <button
+                            type="button"
+                            onClick={() => void savePrivateAppToken()}
+                            disabled={
+                              savingPrivateAppToken ||
+                              !portalRecordId ||
+                              !privateAppToken.trim() ||
+                              privateAppToken.trim() ===
+                                MASKED_PRIVATE_APP_TOKEN
+                            }
+                            className="rounded-xl bg-muloo-gradient px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
+                          >
+                            {savingPrivateAppToken ? "Saving..." : "Save token"}
+                          </button>
+                          <div className="flex flex-wrap gap-2">
+                            {privateAppTokenConfigured ? (
+                              <span className="brand-status-success rounded-full px-3 py-1 text-xs uppercase tracking-[0.18em]">
+                                Configured
+                              </span>
+                            ) : (
+                              <span className="brand-status-warning rounded-full px-3 py-1 text-xs uppercase tracking-[0.18em]">
+                                Not saved yet
+                              </span>
+                            )}
+                            {privateAppTokenSaved ? (
+                              <span className="rounded-full border border-status-success/30 bg-status-success/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-white">
+                                Saved
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -703,6 +865,10 @@ export default function ProjectPortalOps() {
                     : "No snapshot captured yet"}
                 </p>
                 <p>Hub tier: {snapshot?.hubTier ?? "Not captured"}</p>
+                <p>
+                  Private app token:{" "}
+                  {privateAppTokenConfigured ? "Saved" : "Not configured"}
+                </p>
               </div>
 
               {snapshotLoading ? (
