@@ -1,21 +1,27 @@
 import { Queue, QueueEvents } from 'bullmq';
 import IORedis from 'ioredis';
 
-const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379';
+const redisUrl = process.env.REDIS_URL;
 const isTest = process.env.NODE_ENV === 'test';
+export const hasRedis = Boolean(redisUrl) && !isTest;
 
-export const connection = isTest
+const noQueue = isTest || !hasRedis;
+
+export const connection = noQueue
   ? (null as unknown as IORedis)
-  : new IORedis(redisUrl, {
+  : new IORedis(redisUrl!, {
       maxRetriesPerRequest: null, // required by BullMQ
       lazyConnect: true,
       enableOfflineQueue: false,
       retryStrategy: () => null,
     });
 
-export const executionQueue = isTest
+export const executionQueue = noQueue
   ? ({
-      add: async () => null,
+      add: async () => {
+        console.warn('[queue] REDIS_URL not set — job queuing is disabled');
+        return null;
+      },
     } as unknown as Queue)
   : new Queue('execution-jobs', {
       connection,
@@ -27,6 +33,6 @@ export const executionQueue = isTest
       },
     });
 
-export const queueEvents = isTest
+export const queueEvents = noQueue
   ? (null as unknown as QueueEvents)
   : new QueueEvents('execution-jobs', { connection });

@@ -9,6 +9,11 @@ function serializeOutput(value: unknown) {
 }
 
 export function startWorker() {
+  if (!process.env.REDIS_URL) {
+    console.info('[worker] REDIS_URL not set — background job worker is disabled');
+    return null;
+  }
+
   const worker = new Worker(
     'execution-jobs',
     async (job: Job<any>) => {

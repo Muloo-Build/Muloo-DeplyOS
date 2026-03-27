@@ -3,7 +3,6 @@ const nextConfig = {
   ...(process.env.NEXT_OUTPUT_MODE === "standalone"
     ? { output: "standalone" }
     : {}),
-  allowedDevOrigins: ["*"],
   async rewrites() {
     return [
       {
