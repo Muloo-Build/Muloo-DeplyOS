@@ -1470,7 +1470,7 @@ export default function DeliveryBoard({
                               {mode === "internal" &&
                               task.qaRequired &&
                               task.status !== "done" &&
-                              task.latestExecutionJob?.status === "completed" ? (
+                              (task.latestExecutionJob?.status === "complete" || task.latestExecutionJob?.status === "completed") ? (
                                 <div className="mt-4 rounded-2xl border border-[rgba(123,226,239,0.25)] bg-[#0b1733] p-4 space-y-3">
                                   <div className="flex items-center gap-2">
                                     <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7be2ef]">

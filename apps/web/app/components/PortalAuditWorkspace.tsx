@@ -362,6 +362,10 @@ export default function PortalAuditWorkspace({
   const [aiAuditBusy, setAiAuditBusy] = useState(false);
   const [aiAuditFeedback, setAiAuditFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [auditProviderKey, setAuditProviderKey] = useState("anthropic");
+  const [availableProviders, setAvailableProviders] = useState<
+    Array<{ providerKey: string; label: string; defaultModel: string | null; isEnabled: boolean; hasApiKey: boolean }>
+  >([]);
   const [activeFindingArea, setActiveFindingArea] = useState<
     (typeof auditAreas)[number] | null
   >(null);
@@ -449,6 +453,18 @@ export default function PortalAuditWorkspace({
 
   useEffect(() => {
     void loadAuditData();
+    fetch("/api/provider-connections")
+      .then((r) => r.json())
+      .then((body: { providers?: Array<{ providerKey: string; label: string; defaultModel: string | null; isEnabled: boolean; hasApiKey: boolean }> }) => {
+        const aiProviders = (body.providers ?? []).filter(
+          (p) => p.isEnabled && p.hasApiKey && p.providerKey !== "hubspot_oauth"
+        );
+        setAvailableProviders(aiProviders);
+        if (aiProviders.length > 0 && !aiProviders.find((p) => p.providerKey === "anthropic")) {
+          setAuditProviderKey(aiProviders[0].providerKey);
+        }
+      })
+      .catch(() => null);
   }, [projectId]);
 
   async function pollAuditJobStatus(jobId: string) {
@@ -532,7 +548,9 @@ export default function PortalAuditWorkspace({
       const response = await fetch(
         `/api/projects/${encodeURIComponent(projectId)}/run/portal-audit`,
         {
-          method: "POST"
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ providerKey: auditProviderKey })
         }
       );
       const body = await response.json().catch(() => null);
@@ -697,7 +715,21 @@ export default function PortalAuditWorkspace({
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {availableProviders.length > 1 ? (
+                <select
+                  value={auditProviderKey}
+                  onChange={(e) => setAuditProviderKey(e.target.value)}
+                  disabled={aiAuditBusy}
+                  className="rounded-xl border border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-3 py-3 text-sm text-text-secondary focus:outline-none disabled:opacity-60"
+                >
+                  {availableProviders.map((p) => (
+                    <option key={p.providerKey} value={p.providerKey}>
+                      {p.label}{p.defaultModel ? ` (${p.defaultModel})` : ""}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void runAiAudit()}

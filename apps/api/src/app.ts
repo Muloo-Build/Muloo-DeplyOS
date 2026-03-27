@@ -29,7 +29,6 @@ import {
 import {
   createProjectFromTemplateRequestSchema,
   DEFAULT_WORKSPACE_ID,
-  getApiKey,
   moduleCatalog,
   updateProjectDiscoverySectionRequestSchema,
   updateProjectLifecycleDesignRequestSchema,
@@ -625,7 +624,7 @@ export function createApiApp(config: BaseConfig) {
   const app = new Hono<HonoBindings>();
   const authLimiter = rateLimiter({
     windowMs: 15 * 60 * 1000,
-    limit: 10,
+    limit: 100,
     keyGenerator: getRateLimitKey
   });
   const apiLimiter = rateLimiter({
@@ -2454,25 +2453,15 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/projects/:projectId/run/portal-audit", async (c) => {
-    const openAiApiKey = await getApiKey(
-      DEFAULT_WORKSPACE_ID,
-      "openai",
-      prisma
-    );
-
-    if (!openAiApiKey) {
-      return c.json(
-        {
-          error:
-            "OpenAI API key not configured. Go to Settings → API Keys to add it."
-        },
-        503
-      );
-    }
+    const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+    const providerKey = typeof body.providerKey === "string" ? body.providerKey : "anthropic";
+    const modelId = typeof body.modelId === "string" ? body.modelId : undefined;
 
     try {
       const job = await startProjectPortalAuditExecutionJob(
-        c.req.param("projectId")
+        c.req.param("projectId"),
+        providerKey,
+        modelId
       );
       return c.json({ job }, 202);
     } catch (error) {

@@ -79,13 +79,66 @@ function extractJsonObject<T>(raw: string): T | null {
   }
 }
 
-async function callClaudeAudit(system: string, user: string) {
-  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-
-  if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY not configured");
+async function callAuditModel(
+  system: string,
+  user: string,
+  providerKey: string,
+  modelId?: string
+): Promise<string> {
+  if (providerKey === "openai") {
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
+    const model = modelId ?? "gpt-4o";
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1800,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user }
+        ]
+      })
+    });
+    const body = (await response.json().catch(() => null)) as
+      | { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } }
+      | null;
+    if (!response.ok || !body?.choices?.[0]?.message?.content) {
+      throw new Error(body?.error?.message ?? "OpenAI portal audit request failed");
+    }
+    return body.choices[0].message.content;
   }
 
+  if (providerKey === "gemini") {
+    const apiKey = process.env.GEMINI_API_KEY?.trim() ?? process.env.GOOGLE_AI_API_KEY?.trim();
+    if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
+    const model = modelId ?? "gemini-2.5-pro";
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: system }] },
+          contents: [{ role: "user", parts: [{ text: user }] }],
+          generationConfig: { maxOutputTokens: 1800 }
+        })
+      }
+    );
+    const body = (await response.json().catch(() => null)) as
+      | { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>; error?: { message?: string } }
+      | null;
+    if (!response.ok || !body?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      throw new Error(body?.error?.message ?? "Gemini portal audit request failed");
+    }
+    return body.candidates[0].content!.parts![0].text!;
+  }
+
+  // Default: Anthropic Claude
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
+  const model = modelId ?? "claude-sonnet-4-20250514";
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -93,22 +146,14 @@ async function callClaudeAudit(system: string, user: string) {
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01"
     },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1800,
-      system,
-      messages: [{ role: "user", content: user }]
-    })
+    body: JSON.stringify({ model, max_tokens: 1800, system, messages: [{ role: "user", content: user }] })
   });
-
   const body = (await response.json().catch(() => null)) as
     | { content?: Array<{ text?: string }>; error?: { message?: string } }
     | null;
-
   if (!response.ok || !body?.content?.[0]?.text) {
-    throw new Error(body?.error?.message || "Anthropic portal audit request failed");
+    throw new Error(body?.error?.message ?? "Anthropic portal audit request failed");
   }
-
   return body.content[0].text;
 }
 
@@ -174,7 +219,9 @@ export async function runPortalAudit(data: JobPayload): Promise<JobResult> {
     2
   )}\n\nLatest portal snapshot:\n${JSON.stringify(latestSnapshot, null, 2)}\n\nTop 10 issues only. Quick wins max 5.`;
 
-  const rawResponse = await callClaudeAudit(system, user);
+  const providerKey = typeof data.providerKey === "string" ? data.providerKey : "anthropic";
+  const modelId = typeof data.modelId === "string" ? data.modelId : undefined;
+  const rawResponse = await callAuditModel(system, user, providerKey, modelId);
   const parsed = extractJsonObject<{
     healthScore?: number;
     summary?: string;

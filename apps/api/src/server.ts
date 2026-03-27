@@ -4478,19 +4478,11 @@ export async function loadProjectExecutionJobStatus(
   return serializeExecutionJob(job);
 }
 
-export async function startProjectPortalAuditExecutionJob(projectId: string) {
-  const openAiApiKey = await getApiKey(
-    DEFAULT_WORKSPACE_ID,
-    "openai",
-    prisma
-  );
-
-  if (!openAiApiKey) {
-    throw new Error(
-      "OpenAI API key not configured. Go to Settings → API Keys to add it."
-    );
-  }
-
+export async function startProjectPortalAuditExecutionJob(
+  projectId: string,
+  providerKey = "anthropic",
+  modelId?: string
+) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: {
@@ -4520,7 +4512,9 @@ export async function startProjectPortalAuditExecutionJob(projectId: string) {
       outputSummary: "Queued portal audit agent.",
       payload: {
         projectId: project.id,
-        portalId: project.portalId
+        portalId: project.portalId,
+        providerKey,
+        ...(modelId ? { modelId } : {})
       }
     },
     include: {
@@ -4539,6 +4533,8 @@ export async function startProjectPortalAuditExecutionJob(projectId: string) {
       portalId: project.portalId,
       dryRun: false,
       payload: job.payload,
+      providerKey,
+      ...(modelId ? { modelId } : {})
     },
     { jobId: job.id } // use same ID for traceability
   );

@@ -11,6 +11,8 @@ export interface JobPayload {
   sessionId?: string;
   dryRun?: boolean;
   payload?: Record<string, unknown>;
+  providerKey?: string;
+  modelId?: string;
 }
 
 export interface JobResult {

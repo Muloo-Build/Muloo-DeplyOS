@@ -43,7 +43,7 @@ externalPort = 80
 APP_BASE_URL = "https://deploy.wearemulo.com"
 MULOO_ALLOW_DESTRUCTIVE_ACTIONS = "false"
 MULOO_ARTIFACT_DIR = "artifacts"
-MULOO_EXECUTION_MODE = "dry-run"
+MULOO_EXECUTION_MODE = "guarded-apply"
 NODE_ENV = "development"
 API_PORT = "3001"
 
