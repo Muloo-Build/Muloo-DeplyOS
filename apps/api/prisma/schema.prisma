@@ -271,6 +271,7 @@ model Project {
   clientQuestionnaireConfig Json?
   scopeType                 String?
   commercialBrief           String?
+  portalQuoteEnabled        Boolean                 @default(true)
   deliveryTemplateId        String?
   lastAgenda                Json?
   blueprintData             Json?

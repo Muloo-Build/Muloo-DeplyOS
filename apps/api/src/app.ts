@@ -2766,6 +2766,29 @@ export function createApiApp(config: BaseConfig) {
     return c.json({ error: "Method Not Allowed" }, 405);
   });
 
+  app.delete("/api/projects/:projectId/messages/:messageId", async (c) => {
+    const { projectId, messageId } = c.req.param();
+    const msg = await prisma.projectMessage.findFirst({
+      where: { id: messageId, projectId }
+    });
+    if (!msg) return c.json({ error: "Message not found" }, 404);
+    await prisma.projectMessage.delete({ where: { id: messageId } });
+    return c.json({ deleted: true });
+  });
+
+  app.patch("/api/projects/:projectId/portal-settings", async (c) => {
+    const projectId = c.req.param("projectId");
+    const body = (await readJsonBodyOrEmpty(c)) as { portalQuoteEnabled?: unknown };
+    if (typeof body.portalQuoteEnabled !== "boolean") {
+      return c.json({ error: "portalQuoteEnabled must be a boolean" }, 400);
+    }
+    const project = await prisma.project.update({
+      where: { id: projectId },
+      data: { portalQuoteEnabled: body.portalQuoteEnabled }
+    });
+    return c.json({ portalQuoteEnabled: project.portalQuoteEnabled });
+  });
+
   app.post("/api/projects/:projectId/quote/share", async (c) => {
     try {
       const result = await shareProjectQuote(
@@ -4637,6 +4660,21 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.delete("/api/client/projects/:projectId/messages/:messageId", async (c) => {
+    const { projectId, messageId } = c.req.param();
+    const clientUserId = c.get("clientUserId");
+    const access = await prisma.clientProjectAccess.findFirst({
+      where: { projectId, userId: clientUserId }
+    });
+    if (!access) return c.json({ error: "Project not found" }, 404);
+    const msg = await prisma.projectMessage.findFirst({
+      where: { id: messageId, projectId, senderType: "client" }
+    });
+    if (!msg) return c.json({ error: "Message not found" }, 404);
+    await prisma.projectMessage.delete({ where: { id: messageId } });
+    return c.json({ deleted: true });
   });
 
   app.all("/api/client/*", (c) =>

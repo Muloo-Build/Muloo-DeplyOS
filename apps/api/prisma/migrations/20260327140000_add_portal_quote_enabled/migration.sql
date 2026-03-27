@@ -1,0 +1,1 @@
+ALTER TABLE "Project" ADD COLUMN "portalQuoteEnabled" BOOLEAN NOT NULL DEFAULT true;

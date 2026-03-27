@@ -31,6 +31,7 @@ interface Project {
   scopeType?: string | null;
   engagementType: string;
   updatedAt: string;
+  portalQuoteEnabled?: boolean;
   lastAgenda?: ProjectAgenda | null;
   packagingAssessment?: {
     fit: "good" | "attention" | "upgrade_needed";
@@ -265,6 +266,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [portalPreviewBusy, setPortalPreviewBusy] = useState(false);
   const [portalPreviewError, setPortalPreviewError] = useState<string | null>(null);
   const [quickWinBusyId, setQuickWinBusyId] = useState<string | null>(null);
+  const [portalQuoteEnabled, setPortalQuoteEnabled] = useState<boolean>(true);
+  const [portalQuoteToggleBusy, setPortalQuoteToggleBusy] = useState(false);
 
   async function loadProjectData() {
     const [
@@ -300,6 +303,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     const taskBoardBody = await taskBoardResponse.json().catch(() => null);
 
     setProject(projectBody.project ?? null);
+    setPortalQuoteEnabled(projectBody.project?.portalQuoteEnabled !== false);
     setSessions(sessionsBody.sessionDetails ?? []);
     setDiscoverySummary(summaryBody.summary ?? null);
     setClientUsers(clientUsersBody?.clientUsers ?? []);
@@ -685,6 +689,26 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       );
     } finally {
       setPortalPreviewBusy(false);
+    }
+  }
+
+  async function togglePortalQuote() {
+    const next = !portalQuoteEnabled;
+    setPortalQuoteToggleBusy(true);
+    setPortalQuoteEnabled(next);
+    try {
+      await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/portal-settings`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ portalQuoteEnabled: next })
+        }
+      );
+    } catch {
+      setPortalQuoteEnabled(!next);
+    } finally {
+      setPortalQuoteToggleBusy(false);
     }
   }
 
@@ -1468,6 +1492,24 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   {portalPreviewError ? (
                     <p className="mt-2 text-xs text-status-error">{portalPreviewError}</p>
                   ) : null}
+                </div>
+                <div className="brand-surface-soft rounded-2xl border p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-medium text-white">Show quote to client</p>
+                      <p className="mt-1 text-xs text-text-muted">When enabled, the quote section is visible in the client portal for this project.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void togglePortalQuote()}
+                      disabled={portalQuoteToggleBusy}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-60 ${portalQuoteEnabled ? "bg-[#51d0b0]" : "bg-white/20"}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${portalQuoteEnabled ? "translate-x-5" : "translate-x-0"}`}
+                      />
+                    </button>
+                  </div>
                 </div>
                 <div className="brand-surface-soft rounded-2xl border p-4">
                   <p className="font-medium text-white">HubSpot portal connection</p>

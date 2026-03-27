@@ -3143,6 +3143,7 @@ function serializeProject<
     selectedHubs: string[];
     engagementType: Prisma.$Enums.EngagementType;
     includesPortalAudit?: boolean;
+    portalQuoteEnabled?: boolean | null;
     createdAt: Date;
     updatedAt: Date;
     client: {
@@ -3214,7 +3215,8 @@ function serializeProject<
     clientName: normalizedProject.client.name,
     hubsInScope: normalizedProject.selectedHubs,
     lastAgenda: normalizeStoredProjectAgenda(normalizedProject.lastAgenda),
-    defaultWorkspacePath
+    defaultWorkspacePath,
+    portalQuoteEnabled: normalizedProject.portalQuoteEnabled !== false
   };
 }
 
@@ -3237,6 +3239,7 @@ function serializeClientProject<
     engagementType: Prisma.$Enums.EngagementType;
     selectedHubs: string[];
     updatedAt: Date;
+    portalQuoteEnabled?: boolean | null;
     client: {
       name: string;
       website: string | null;
@@ -3263,6 +3266,7 @@ function serializeClientProject<
     engagementType: project.engagementType,
     selectedHubs: project.selectedHubs,
     updatedAt: project.updatedAt.toISOString(),
+    portalQuoteEnabled: project.portalQuoteEnabled !== false,
     client: {
       name: project.client.name,
       website: project.client.website

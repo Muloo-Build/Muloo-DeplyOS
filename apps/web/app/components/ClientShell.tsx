@@ -1,20 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 export default function ClientShell({
   children,
-  title = "Client Workspace",
-  subtitle = "Discovery inputs, documents, and approvals"
+  title: _title,
+  subtitle: _subtitle
 }: {
   children: ReactNode;
   title?: string;
   subtitle?: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [inboxCount, setInboxCount] = useState(0);
 
   useEffect(() => {
@@ -23,18 +24,12 @@ export default function ClientShell({
         const response = await fetch("/api/client/inbox/summary", {
           credentials: "include"
         });
-
-        if (!response.ok) {
-          return;
-        }
-
+        if (!response.ok) return;
         const body = await response.json();
         setInboxCount(body.summary?.total ?? 0);
       } catch {
-        // Ignore nav badge failures.
       }
     }
-
     void loadSummary();
   }, []);
 
@@ -47,74 +42,56 @@ export default function ClientShell({
     router.refresh();
   }
 
+  const navItems = [
+    { href: "/client/projects", label: "Projects" },
+    { href: "/client/inbox", label: "Inbox", badge: inboxCount },
+    { href: "/client/support", label: "Support" },
+    { href: "/client/request-work", label: "Request Work" }
+  ];
+
   return (
     <div className="min-h-screen bg-background-primary text-white">
-      <header className="border-b border-[rgba(255,255,255,0.07)] bg-[#0a0f24]">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5">
-          <div className="flex items-center gap-4">
-            <img src="/muloo-logo.svg" alt="Muloo" className="h-10 w-auto" />
-            <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-text-muted">
-                Client workspace
-              </p>
-              <h1 className="mt-2 text-2xl font-bold font-heading text-white">
-                Deploy OS
-              </h1>
-            </div>
-          </div>
-          <div className="hidden min-w-0 flex-1 px-8 lg:block">
-            <p className="mt-2 text-sm text-text-secondary">{subtitle}</p>
-          </div>
-          <nav className="flex flex-wrap items-center gap-3 text-sm">
-            <Link
-              href="/client/projects"
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-white"
-            >
-              Projects
-            </Link>
-            <Link
-              href="/client/inbox"
-              className="relative rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-white"
-            >
-              Inbox
-              {inboxCount > 0 ? (
-                <span className="ml-2 inline-flex min-w-6 items-center justify-center rounded-full bg-[rgba(224,80,96,0.9)] px-2 py-1 text-[10px] font-semibold text-white">
-                  {inboxCount}
-                </span>
-              ) : null}
-            </Link>
-            <Link
-              href="/client/support"
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-white"
-            >
-              Support
-            </Link>
-            <Link
-              href="/client/request-work"
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-white"
-            >
-              Request Work
-            </Link>
-            <button
-              type="button"
-              onClick={() => void handleLogout()}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-white"
-            >
-              Sign Out
-            </button>
+      <header className="border-b border-[rgba(255,255,255,0.06)] bg-[#060c1e]">
+        <div className="mx-auto flex w-full max-w-7xl items-center gap-8 px-6 py-4">
+          <Link href="/client/projects" className="flex items-center gap-3 flex-shrink-0">
+            <img src="/muloo-logo.svg" alt="Muloo" className="h-8 w-auto" />
+          </Link>
+
+          <nav className="flex flex-1 items-center gap-1 text-sm">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`relative flex items-center gap-2 rounded-xl px-4 py-2 font-medium transition-colors ${
+                    isActive
+                      ? "bg-white/10 text-white"
+                      : "text-text-secondary hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  {item.label}
+                  {item.badge && item.badge > 0 ? (
+                    <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-[rgba(224,80,96,0.9)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
           </nav>
+
+          <button
+            type="button"
+            onClick={() => void handleLogout()}
+            className="flex-shrink-0 text-sm text-text-muted hover:text-white transition-colors"
+          >
+            Sign out
+          </button>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-7xl px-6 py-8">
-        <div className="mb-8">
-          <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-            Client Portal
-          </p>
-          <h2 className="mt-3 text-3xl font-bold font-heading text-white">
-            {title}
-          </h2>
-        </div>
         {children}
       </main>
     </div>

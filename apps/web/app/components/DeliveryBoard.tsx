@@ -1001,10 +1001,10 @@ export default function DeliveryBoard({
         </div>
       ) : (
         <>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className={`mt-4 grid gap-3 md:grid-cols-2 ${mode === "client" ? "xl:grid-cols-3" : "xl:grid-cols-4"}`}>
             <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
               <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                Planned Human Hours
+                {mode === "client" ? "Planned Time" : "Planned Human Hours"}
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
                 {boardMetrics.plannedHours}h
@@ -1012,7 +1012,7 @@ export default function DeliveryBoard({
             </div>
             <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
               <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                Actual Human Hours
+                {mode === "client" ? "Time Logged" : "Actual Human Hours"}
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
                 {boardMetrics.actualHours}h
@@ -1020,7 +1020,7 @@ export default function DeliveryBoard({
             </div>
             <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
               <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                Human Variance
+                Variance
               </p>
               <p
                 className={`mt-2 text-xl font-semibold ${boardMetrics.variance > 0 ? "text-[#ff9aa5]" : boardMetrics.variance < 0 ? "text-[#2dd4a0]" : "text-white"}`}
@@ -1029,18 +1029,20 @@ export default function DeliveryBoard({
                 {boardMetrics.variance}h
               </p>
             </div>
-            <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                Ready Agent Tasks
-              </p>
-              <p className="mt-2 text-xl font-semibold text-white">
-                {boardMetrics.readyAgentTasks}
-              </p>
-              <p className="mt-1 text-xs text-text-secondary">
-                {boardMetrics.apiEligibleTasks} API-ready ·{" "}
-                {boardMetrics.reviewFirstTasks} review-first
-              </p>
-            </div>
+            {mode !== "client" ? (
+              <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  Ready Agent Tasks
+                </p>
+                <p className="mt-2 text-xl font-semibold text-white">
+                  {boardMetrics.readyAgentTasks}
+                </p>
+                <p className="mt-1 text-xs text-text-secondary">
+                  {boardMetrics.apiEligibleTasks} API-ready ·{" "}
+                  {boardMetrics.reviewFirstTasks} review-first
+                </p>
+              </div>
+            ) : null}
           </div>
 
           {mode === "internal" && projectServiceFamily ? (
@@ -1373,26 +1375,30 @@ export default function DeliveryBoard({
                                   {task.description}
                                 </p>
                               ) : null}
-                              <div className="mt-3 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#0b1126] px-3 py-3">
-                                <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
-                                  Best execution path
-                                </p>
-                                <p className="mt-2 text-sm text-white">
-                                  {task.executionPath.summary}
-                                </p>
-                                {task.executionPath.directActions.length > 0 ? (
-                                  <p className="mt-2 text-xs text-text-secondary">
-                                    API actions:{" "}
-                                    {task.executionPath.directActions.join(
-                                      ", "
-                                    )}
+                              {mode !== "client" ? (
+                                <div className="mt-3 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#0b1126] px-3 py-3">
+                                  <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                                    Best execution path
                                   </p>
-                                ) : null}
-                              </div>
+                                  <p className="mt-2 text-sm text-white">
+                                    {task.executionPath.summary}
+                                  </p>
+                                  {task.executionPath.directActions.length > 0 ? (
+                                    <p className="mt-2 text-xs text-text-secondary">
+                                      API actions:{" "}
+                                      {task.executionPath.directActions.join(
+                                        ", "
+                                      )}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ) : null}
                               <div className="mt-3 flex flex-wrap gap-2 text-xs text-text-muted">
-                                <span>
-                                  Execution: {formatLabel(task.executionType)}
-                                </span>
+                                {mode !== "client" ? (
+                                  <span>
+                                    Execution: {formatLabel(task.executionType)}
+                                  </span>
+                                ) : null}
                                 <span>
                                   Priority: {formatLabel(task.priority)}
                                 </span>
@@ -1402,67 +1408,71 @@ export default function DeliveryBoard({
                                 {task.actualHours !== null ? (
                                   <span>Actual: {task.actualHours}h</span>
                                 ) : null}
-                                <span>
-                                  Readiness:{" "}
-                                  {formatLabel(task.executionReadiness)}
-                                </span>
-                                <span>
-                                  Validation:{" "}
-                                  {formatLabel(task.validationStatus)}
-                                </span>
-                                {task.qaRequired ? (
-                                  <span>QA required</span>
-                                ) : null}
-                                {task.approvalRequired ? (
-                                  <span>Approval required</span>
-                                ) : null}
-                                {task.hubspotTierRequired ? (
-                                  <span>
-                                    Hub tier: {task.hubspotTierRequired}
-                                  </span>
-                                ) : null}
-                                {task.changeRequestId ? (
-                                  <span>Change linked</span>
-                                ) : null}
-                                {task.findingId ? (
-                                  <span>Linked finding</span>
-                                ) : null}
-                                {task.assignedAgentName ? (
-                                  <span>Agent: {task.assignedAgentName}</span>
-                                ) : null}
-                                {task.latestExecutionJob ? (
-                                  <span>
-                                    Latest run:{" "}
-                                    {formatLabel(
-                                      task.latestExecutionJob.status
-                                    )}
-                                    {task.latestExecutionJob.resultStatus
-                                      ? ` (${formatLabel(task.latestExecutionJob.resultStatus)})`
-                                      : ""}
-                                  </span>
-                                ) : null}
-                                {task.latestApproval ? (
-                                  <span>
-                                    Approval: {formatLabel(task.latestApproval.status)}
-                                  </span>
+                                {mode !== "client" ? (
+                                  <>
+                                    <span>
+                                      Readiness:{" "}
+                                      {formatLabel(task.executionReadiness)}
+                                    </span>
+                                    <span>
+                                      Validation:{" "}
+                                      {formatLabel(task.validationStatus)}
+                                    </span>
+                                    {task.qaRequired ? (
+                                      <span>QA required</span>
+                                    ) : null}
+                                    {task.approvalRequired ? (
+                                      <span>Approval required</span>
+                                    ) : null}
+                                    {task.hubspotTierRequired ? (
+                                      <span>
+                                        Hub tier: {task.hubspotTierRequired}
+                                      </span>
+                                    ) : null}
+                                    {task.changeRequestId ? (
+                                      <span>Change linked</span>
+                                    ) : null}
+                                    {task.findingId ? (
+                                      <span>Linked finding</span>
+                                    ) : null}
+                                    {task.assignedAgentName ? (
+                                      <span>Assignee: {task.assignedAgentName}</span>
+                                    ) : null}
+                                    {task.latestExecutionJob ? (
+                                      <span>
+                                        Latest run:{" "}
+                                        {formatLabel(
+                                          task.latestExecutionJob.status
+                                        )}
+                                        {task.latestExecutionJob.resultStatus
+                                          ? ` (${formatLabel(task.latestExecutionJob.resultStatus)})`
+                                          : ""}
+                                      </span>
+                                    ) : null}
+                                    {task.latestApproval ? (
+                                      <span>
+                                        Approval: {formatLabel(task.latestApproval.status)}
+                                      </span>
+                                    ) : null}
+                                  </>
                                 ) : null}
                               </div>
-                              {task.executionLaneRationale ? (
+                              {mode !== "client" && task.executionLaneRationale ? (
                                 <p className="mt-3 text-xs text-text-secondary">
                                   Lane rationale: {task.executionLaneRationale}
                                 </p>
                               ) : null}
-                              {task.coworkBrief ? (
+                              {mode !== "client" && task.coworkBrief ? (
                                 <p className="mt-2 text-xs text-text-secondary">
                                   Cowork brief: {task.coworkBrief}
                                 </p>
                               ) : null}
-                              {task.manualInstructions ? (
+                              {mode !== "client" && task.manualInstructions ? (
                                 <p className="mt-2 text-xs text-text-secondary">
                                   Manual instructions: {task.manualInstructions}
                                 </p>
                               ) : null}
-                              {task.validationEvidence ? (
+                              {mode !== "client" && task.validationEvidence ? (
                                 <p className="mt-2 text-xs text-text-secondary">
                                   Validation evidence: {task.validationEvidence}
                                 </p>
