@@ -265,6 +265,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [linkBusyId, setLinkBusyId] = useState<string | null>(null);
   const [portalPreviewBusy, setPortalPreviewBusy] = useState(false);
   const [portalPreviewError, setPortalPreviewError] = useState<string | null>(null);
+  const [partnerPreviewBusy, setPartnerPreviewBusy] = useState(false);
+  const [partnerPreviewError, setPartnerPreviewError] = useState<string | null>(null);
   const [quickWinBusyId, setQuickWinBusyId] = useState<string | null>(null);
   const [portalQuoteEnabled, setPortalQuoteEnabled] = useState<boolean>(true);
   const [portalQuoteToggleBusy, setPortalQuoteToggleBusy] = useState(false);
@@ -694,6 +696,35 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }
   }
 
+  async function openPartnerPortalPreview() {
+    setPartnerPreviewBusy(true);
+    setPartnerPreviewError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/partner-portal-preview-token`,
+        { method: "POST" }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to generate partner preview link");
+      }
+
+      if (body?.previewUrl) {
+        window.open(body.previewUrl, "_blank", "noopener");
+      }
+    } catch (previewError) {
+      setPartnerPreviewError(
+        previewError instanceof Error
+          ? previewError.message
+          : "Failed to open partner portal preview"
+      );
+    } finally {
+      setPartnerPreviewBusy(false);
+    }
+  }
+
   async function togglePortalQuote() {
     const next = !portalQuoteEnabled;
     setPortalQuoteToggleBusy(true);
@@ -1034,9 +1065,22 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       {portalPreviewBusy ? "Opening..." : "Preview client portal →"}
                     </button>
                   ) : null}
+                  {clientUsers.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => void openPartnerPortalPreview()}
+                      disabled={partnerPreviewBusy}
+                      className="rounded-xl border border-[rgba(123,176,239,0.25)] bg-[rgba(123,176,239,0.12)] px-4 py-2 text-sm font-medium text-[#7bb0ef] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {partnerPreviewBusy ? "Opening..." : "Preview partner portal →"}
+                    </button>
+                  ) : null}
                 </div>
                 {portalPreviewError ? (
                   <p className="text-sm text-status-error">{portalPreviewError}</p>
+                ) : null}
+                {partnerPreviewError ? (
+                  <p className="text-sm text-status-error">{partnerPreviewError}</p>
                 ) : null}
               </div>
             }
@@ -1561,6 +1605,23 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </div>
                   {portalPreviewError ? (
                     <p className="mt-2 text-xs text-status-error">{portalPreviewError}</p>
+                  ) : null}
+                </div>
+                <div className="brand-surface-soft rounded-2xl border p-4">
+                  <p className="font-medium text-white">Preview partner portal</p>
+                  <p className="mt-1 text-xs text-text-muted">Opens the portal as your partner sees it (requires a portal user whose email is linked to a partner client).</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void openPartnerPortalPreview()}
+                      disabled={partnerPreviewBusy}
+                      className="rounded-xl border border-[rgba(123,176,239,0.25)] bg-[rgba(123,176,239,0.12)] px-4 py-2 text-sm font-medium text-[#7bb0ef] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {partnerPreviewBusy ? "Opening..." : "Preview partner portal →"}
+                    </button>
+                  </div>
+                  {partnerPreviewError ? (
+                    <p className="mt-2 text-xs text-status-error">{partnerPreviewError}</p>
                   ) : null}
                 </div>
                 <div className="brand-surface-soft rounded-2xl border p-4">

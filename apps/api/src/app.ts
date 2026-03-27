@@ -1616,6 +1616,59 @@ export function createApiApp(config: BaseConfig) {
     return c.json({ token, previewUrl: `/api/client-auth/preview?token=${token}` });
   });
 
+  app.post("/api/projects/:projectId/partner-portal-preview-token", async (c) => {
+    const projectId = c.req.param("projectId");
+
+    const allAccess = await prisma.clientProjectAccess.findMany({
+      where: { projectId },
+      include: { user: { select: { id: true, email: true } } },
+      orderBy: { createdAt: "asc" }
+    });
+
+    if (allAccess.length === 0) {
+      return c.json({ error: "No portal users have been invited to this project yet." }, 400);
+    }
+
+    let partnerAccess: (typeof allAccess)[number] | null = null;
+
+    for (const access of allAccess) {
+      const email = access.user.email?.toLowerCase();
+      if (!email) continue;
+
+      const partnerClient = await prisma.client.findFirst({
+        where: {
+          clientRoles: { has: "partner" },
+          contacts: { some: { email: { equals: email, mode: "insensitive" } } }
+        },
+        select: { id: true }
+      });
+
+      if (partnerClient) {
+        partnerAccess = access;
+        break;
+      }
+    }
+
+    if (!partnerAccess) {
+      return c.json({ error: "No partner users have been invited to this project yet. Invite a partner user from the Portal tab first." }, 400);
+    }
+
+    for (const [tok, rec] of portalPreviewTokens) {
+      if (rec.expiresAt < Date.now()) {
+        portalPreviewTokens.delete(tok);
+      }
+    }
+
+    const token = crypto.randomUUID();
+    portalPreviewTokens.set(token, {
+      clientUserId: partnerAccess.user.id,
+      projectId,
+      expiresAt: Date.now() + 60 * 60 * 1000
+    });
+
+    return c.json({ token, previewUrl: `/api/client-auth/preview?token=${token}` });
+  });
+
   app.all("/api/projects/:projectId/design", async (c) => {
     if (c.req.method !== "GET") {
       return c.json({ error: "Method Not Allowed" }, 405);
