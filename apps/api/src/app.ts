@@ -620,6 +620,11 @@ async function generateAssistantAnswer(input: {
   return body.content[0].text.trim();
 }
 
+const portalPreviewTokens = new Map<
+  string,
+  { clientUserId: string; projectId: string; expiresAt: number }
+>();
+
 export function createApiApp(config: BaseConfig) {
   const app = new Hono<HonoBindings>();
   const authLimiter = rateLimiter({
@@ -1019,6 +1024,33 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ authenticated: false });
+  });
+
+  app.get("/api/client-auth/preview", async (c) => {
+    const token = c.req.query("token");
+
+    if (!token) {
+      return c.text("Missing preview token", 400);
+    }
+
+    const record = portalPreviewTokens.get(token);
+
+    if (!record || record.expiresAt < Date.now()) {
+      portalPreviewTokens.delete(token);
+      return c.text("Preview link expired or invalid", 400);
+    }
+
+    portalPreviewTokens.delete(token);
+
+    c.header(
+      "Set-Cookie",
+      createCookieHeader(createClientAuthToken(record.clientUserId), {
+        name: clientAuthCookieName,
+        maxAge: 60 * 60
+      })
+    );
+
+    return c.redirect(`/client/projects/${record.projectId}`, 302);
   });
 
   app.all("/api/health", async (c) => {
@@ -1549,6 +1581,35 @@ export function createApiApp(config: BaseConfig) {
       executions: await loadProjectExecutions(c.req.param("projectId"))
     })
   );
+
+  app.post("/api/projects/:projectId/client-portal-preview-token", async (c) => {
+    const projectId = c.req.param("projectId");
+
+    const access = await prisma.clientProjectAccess.findFirst({
+      where: { projectId },
+      include: { user: { select: { id: true } } },
+      orderBy: { createdAt: "asc" }
+    });
+
+    if (!access) {
+      return c.json({ error: "No client users have been invited to this project yet. Invite a client user from the Portal tab first." }, 400);
+    }
+
+    for (const [tok, rec] of portalPreviewTokens) {
+      if (rec.expiresAt < Date.now()) {
+        portalPreviewTokens.delete(tok);
+      }
+    }
+
+    const token = crypto.randomUUID();
+    portalPreviewTokens.set(token, {
+      clientUserId: access.user.id,
+      projectId,
+      expiresAt: Date.now() + 60 * 60 * 1000
+    });
+
+    return c.json({ token, previewUrl: `/api/client-auth/preview?token=${token}` });
+  });
 
   app.all("/api/projects/:projectId/design", async (c) => {
     if (c.req.method !== "GET") {

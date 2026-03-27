@@ -262,6 +262,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [clientUserFeedback, setClientUserFeedback] = useState<string | null>(null);
   const [clientUserError, setClientUserError] = useState<string | null>(null);
   const [linkBusyId, setLinkBusyId] = useState<string | null>(null);
+  const [portalPreviewBusy, setPortalPreviewBusy] = useState(false);
+  const [portalPreviewError, setPortalPreviewError] = useState<string | null>(null);
   const [quickWinBusyId, setQuickWinBusyId] = useState<string | null>(null);
 
   async function loadProjectData() {
@@ -657,6 +659,35 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }
   }
 
+  async function openClientPortalPreview() {
+    setPortalPreviewBusy(true);
+    setPortalPreviewError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/client-portal-preview-token`,
+        { method: "POST" }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to generate preview link");
+      }
+
+      if (body?.previewUrl) {
+        window.open(body.previewUrl, "_blank", "noopener");
+      }
+    } catch (previewError) {
+      setPortalPreviewError(
+        previewError instanceof Error
+          ? previewError.message
+          : "Failed to open portal preview"
+      );
+    } finally {
+      setPortalPreviewBusy(false);
+    }
+  }
+
   async function updateQuickWinStatus(
     findingId: string,
     status: FindingRecord["status"]
@@ -882,6 +913,37 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     </ul>
                   </div>
                 </div>
+              </div>
+            }
+            clientAccess={
+              <div className="space-y-3">
+                <p className="text-sm text-text-secondary">
+                  {clientUsers.length > 0
+                    ? `${clientUsers.length} client user${clientUsers.length === 1 ? "" : "s"} invited — ${clientUsers.map((u) => u.firstName + " " + u.lastName).join(", ")}`
+                    : "No client users have been invited yet."}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("portal")}
+                    className="rounded-xl border border-[rgba(255,255,255,0.1)] bg-white/5 px-4 py-2 text-sm font-medium text-white"
+                  >
+                    {clientUsers.length === 0 ? "Invite client user →" : "Manage client access →"}
+                  </button>
+                  {clientUsers.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => void openClientPortalPreview()}
+                      disabled={portalPreviewBusy}
+                      className="rounded-xl border border-[rgba(81,208,176,0.25)] bg-[rgba(81,208,176,0.12)] px-4 py-2 text-sm font-medium text-[#51d0b0] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {portalPreviewBusy ? "Opening..." : "Preview client portal →"}
+                    </button>
+                  ) : null}
+                </div>
+                {portalPreviewError ? (
+                  <p className="text-sm text-status-error">{portalPreviewError}</p>
+                ) : null}
               </div>
             }
             quickWins={
@@ -1390,6 +1452,23 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             }
             portalActions={
               <div className="space-y-4 text-sm text-text-secondary">
+                <div className="brand-surface-soft rounded-2xl border p-4">
+                  <p className="font-medium text-white">Preview client portal</p>
+                  <p className="mt-1 text-xs text-text-muted">Opens the portal as your client sees it (requires at least one invited client user).</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void openClientPortalPreview()}
+                      disabled={portalPreviewBusy}
+                      className="rounded-xl border border-[rgba(81,208,176,0.25)] bg-[rgba(81,208,176,0.12)] px-4 py-2 text-sm font-medium text-[#51d0b0] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {portalPreviewBusy ? "Opening..." : "Preview client portal →"}
+                    </button>
+                  </div>
+                  {portalPreviewError ? (
+                    <p className="mt-2 text-xs text-status-error">{portalPreviewError}</p>
+                  ) : null}
+                </div>
                 <div className="brand-surface-soft rounded-2xl border p-4">
                   <p className="font-medium text-white">HubSpot portal connection</p>
                   <p className="mt-2">
