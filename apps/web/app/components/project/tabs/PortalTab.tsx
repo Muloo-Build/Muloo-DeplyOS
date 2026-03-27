@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 export default function PortalTab(props: {
   userManagement: ReactNode;
+  partnerManagement: ReactNode;
   portalActions: ReactNode;
 }) {
   return (
@@ -11,6 +12,10 @@ export default function PortalTab(props: {
       <section className="brand-surface rounded-3xl border p-6">
         <h3 className="text-lg font-semibold text-white">Client portal users</h3>
         <div className="mt-4">{props.userManagement}</div>
+      </section>
+      <section className="brand-surface rounded-3xl border p-6">
+        <h3 className="text-lg font-semibold text-white">Partner portal users</h3>
+        <div className="mt-4">{props.partnerManagement}</div>
       </section>
       <section className="brand-surface rounded-3xl border p-6">
         <h3 className="text-lg font-semibold text-white">Portal Ops</h3>

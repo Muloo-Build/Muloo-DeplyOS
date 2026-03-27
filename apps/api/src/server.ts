@@ -18609,6 +18609,51 @@ export async function loadClientUsersForProject(projectId: string) {
   }));
 }
 
+export async function loadPartnerUsersForProject(projectId: string) {
+  const accessRecords = await prisma.clientProjectAccess.findMany({
+    where: { projectId },
+    include: { user: { select: { id: true, email: true, firstName: true, lastName: true, inviteAcceptedAt: true } } },
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  const partnerUsers: Array<{
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    authStatus: string;
+    partnerClientId: string | null;
+    partnerClientName: string | null;
+  }> = [];
+
+  for (const record of accessRecords) {
+    const email = record.user.email?.toLowerCase();
+    if (!email) continue;
+    const partnerClient = await prisma.client.findFirst({
+      where: {
+        clientRoles: { has: "partner" },
+        contacts: { some: { email: { equals: email, mode: "insensitive" } } }
+      },
+      select: { id: true, name: true }
+    });
+    if (partnerClient) {
+      partnerUsers.push({
+        id: record.user.id,
+        email: record.user.email,
+        firstName: record.user.firstName,
+        lastName: record.user.lastName,
+        role: record.role,
+        authStatus: record.user.inviteAcceptedAt ? "active" : "invite_pending",
+        partnerClientId: partnerClient.id,
+        partnerClientName: partnerClient.name
+      });
+    }
+  }
+
+  return partnerUsers;
+}
+
 export async function inviteClientContactToProjects(
   clientId: string,
   contactId: string,

@@ -221,6 +221,21 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [discoverySummary, setDiscoverySummary] =
     useState<DiscoverySummary | null>(null);
   const [clientUsers, setClientUsers] = useState<ClientPortalUser[]>([]);
+  const [partnerUsers, setPartnerUsers] = useState<Array<{
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    authStatus: string;
+    partnerClientId: string | null;
+    partnerClientName: string | null;
+  }>>([]);
+  const [partnerClients, setPartnerClients] = useState<Array<{
+    id: string;
+    name: string;
+    contacts: Array<{ id: string; firstName: string; lastName: string; email: string }>;
+  }>>([]);
   const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
   const [findings, setFindings] = useState<FindingRecord[]>([]);
   const [portalSnapshot, setPortalSnapshot] = useState<PortalSnapshot | null>(null);
@@ -263,6 +278,17 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [clientUserFeedback, setClientUserFeedback] = useState<string | null>(null);
   const [clientUserError, setClientUserError] = useState<string | null>(null);
   const [linkBusyId, setLinkBusyId] = useState<string | null>(null);
+  const [partnerUserDraft, setPartnerUserDraft] = useState({
+    selectedPartnerId: "",
+    selectedContactEmail: "",
+    firstName: "",
+    lastName: "",
+    email: ""
+  });
+  const [partnerUserBusy, setPartnerUserBusy] = useState(false);
+  const [partnerUserFeedback, setPartnerUserFeedback] = useState<string | null>(null);
+  const [partnerUserError, setPartnerUserError] = useState<string | null>(null);
+  const [partnerLinkBusyId, setPartnerLinkBusyId] = useState<string | null>(null);
   const [portalPreviewBusy, setPortalPreviewBusy] = useState(false);
   const [portalPreviewError, setPortalPreviewError] = useState<string | null>(null);
   const [partnerPreviewBusy, setPartnerPreviewBusy] = useState(false);
@@ -280,6 +306,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       summaryResponse,
       blueprintResponse,
       clientUsersResponse,
+      partnerUsersResponse,
+      partnerClientsResponse,
       contextResponse,
       findingsResponse,
       taskBoardResponse
@@ -289,6 +317,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery-summary`),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`),
+      fetch(`/api/projects/${encodeURIComponent(projectId)}/partner-users`),
+      fetch(`/api/clients`),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/findings`),
       fetch(`/api/projects/${encodeURIComponent(projectId)}/tasks/board`)
@@ -302,6 +332,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     const sessionsBody = await sessionsResponse.json();
     const summaryBody = await summaryResponse.json();
     const clientUsersBody = await clientUsersResponse.json().catch(() => null);
+    const partnerUsersBody = await partnerUsersResponse.json().catch(() => null);
+    const partnerClientsBody = await partnerClientsResponse.json().catch(() => null);
     const contextBody = await contextResponse.json().catch(() => null);
     const findingsBody = await findingsResponse.json().catch(() => null);
     const taskBoardBody = await taskBoardResponse.json().catch(() => null);
@@ -311,6 +343,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     setSessions(sessionsBody.sessionDetails ?? []);
     setDiscoverySummary(summaryBody.summary ?? null);
     setClientUsers(clientUsersBody?.clientUsers ?? []);
+    setPartnerUsers(partnerUsersBody?.partnerUsers ?? []);
+    const allClients: Array<{ id: string; name: string; clientRoles: string[]; contacts: Array<{ id: string; firstName: string; lastName: string; email: string }> }> = partnerClientsBody?.clients ?? [];
+    setPartnerClients(allClients.filter((c) => c.clientRoles?.includes("partner")).map((c) => ({
+      id: c.id,
+      name: c.name,
+      contacts: c.contacts ?? []
+    })));
     setSupportingContext(contextBody?.evidenceItems ?? []);
     setFindings(findingsBody?.findings ?? []);
     setTaskBoard(taskBoardBody ?? null);
@@ -664,6 +703,76 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       );
     } finally {
       setLinkBusyId(null);
+    }
+  }
+
+  async function addPartnerUser() {
+    if (!partnerUserDraft.email.trim()) return;
+    setPartnerUserBusy(true);
+    setPartnerUserError(null);
+    setPartnerUserFeedback(null);
+
+    const selectedPartner = partnerClients.find((p) => p.id === partnerUserDraft.selectedPartnerId);
+    const selectedContact = selectedPartner?.contacts.find(
+      (c) => c.email === partnerUserDraft.selectedContactEmail
+    );
+
+    const payload = {
+      firstName: partnerUserDraft.firstName || selectedContact?.firstName || "",
+      lastName: partnerUserDraft.lastName || selectedContact?.lastName || "",
+      email: partnerUserDraft.email,
+      role: "contributor",
+      questionnaireAccess: false
+    };
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/client-users`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to add partner user");
+      }
+      const partnerRes = await fetch(`/api/projects/${encodeURIComponent(projectId)}/partner-users`);
+      const partnerBody = await partnerRes.json().catch(() => null);
+      setPartnerUsers(partnerBody?.partnerUsers ?? []);
+      setPartnerUserDraft({ selectedPartnerId: "", selectedContactEmail: "", firstName: "", lastName: "", email: "" });
+      setPartnerUserFeedback("Partner user added.");
+    } catch (err) {
+      setPartnerUserError(err instanceof Error ? err.message : "Failed to add partner user");
+    } finally {
+      setPartnerUserBusy(false);
+    }
+  }
+
+  async function copyPartnerAccessLink(userId: string, action: "invite-link" | "reset-link") {
+    setPartnerLinkBusyId(userId);
+    setPartnerUserError(null);
+    setPartnerUserFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/client-users/${encodeURIComponent(userId)}/${action}`,
+        { method: "POST" }
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to create access link");
+      }
+      const link = action === "invite-link" ? body?.inviteLink : body?.resetLink;
+      if (typeof navigator !== "undefined" && typeof link === "string") {
+        await navigator.clipboard.writeText(link);
+      }
+      setPartnerUserFeedback(action === "invite-link" ? "Invite link copied." : "Reset link copied.");
+    } catch (linkError) {
+      setPartnerUserError(linkError instanceof Error ? linkError.message : "Failed to create access link");
+    } finally {
+      setPartnerLinkBusyId(null);
     }
   }
 
@@ -1079,6 +1188,37 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 {portalPreviewError ? (
                   <p className="text-sm text-status-error">{portalPreviewError}</p>
                 ) : null}
+                {partnerPreviewError ? (
+                  <p className="text-sm text-status-error">{partnerPreviewError}</p>
+                ) : null}
+              </div>
+            }
+            partnerAccess={
+              <div className="space-y-3">
+                <p className="text-sm text-text-secondary">
+                  {partnerUsers.length > 0
+                    ? `${partnerUsers.length} partner user${partnerUsers.length === 1 ? "" : "s"} — ${partnerUsers.map((u) => u.firstName + " " + u.lastName).join(", ")}`
+                    : "No partner users have been invited yet."}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("portal")}
+                    className="rounded-xl border border-[rgba(255,255,255,0.1)] bg-white/5 px-4 py-2 text-sm font-medium text-white"
+                  >
+                    {partnerUsers.length === 0 ? "Invite partner user →" : "Manage partner access →"}
+                  </button>
+                  {partnerUsers.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => void openPartnerPortalPreview()}
+                      disabled={partnerPreviewBusy}
+                      className="rounded-xl border border-[rgba(123,176,239,0.25)] bg-[rgba(123,176,239,0.12)] px-4 py-2 text-sm font-medium text-[#7bb0ef] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {partnerPreviewBusy ? "Opening..." : "Preview partner portal →"}
+                    </button>
+                  ) : null}
+                </div>
                 {partnerPreviewError ? (
                   <p className="text-sm text-status-error">{partnerPreviewError}</p>
                 ) : null}
@@ -1577,6 +1717,123 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             type="button"
                             onClick={() => void copyClientAccessLink(user.id, "reset-link")}
                             disabled={linkBusyId === user.id}
+                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-text-secondary"
+                          >
+                            Reset link
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            }
+            partnerManagement={
+              <div className="space-y-4">
+                {partnerClients.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <select
+                        value={partnerUserDraft.selectedPartnerId}
+                        onChange={(event) => {
+                          const partnerId = event.target.value;
+                          setPartnerUserDraft((d) => ({
+                            ...d,
+                            selectedPartnerId: partnerId,
+                            selectedContactEmail: "",
+                            firstName: "",
+                            lastName: "",
+                            email: ""
+                          }));
+                        }}
+                        className="brand-input rounded-xl px-3 py-2 text-white md:col-span-2"
+                      >
+                        <option value="">Select a partner…</option>
+                        {partnerClients.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                      {partnerUserDraft.selectedPartnerId ? (
+                        <select
+                          value={partnerUserDraft.selectedContactEmail}
+                          onChange={(event) => {
+                            const email = event.target.value;
+                            const partner = partnerClients.find((p) => p.id === partnerUserDraft.selectedPartnerId);
+                            const contact = partner?.contacts.find((c) => c.email === email);
+                            setPartnerUserDraft((d) => ({
+                              ...d,
+                              selectedContactEmail: email,
+                              email: email,
+                              firstName: contact?.firstName ?? d.firstName,
+                              lastName: contact?.lastName ?? d.lastName
+                            }));
+                          }}
+                          className="brand-input rounded-xl px-3 py-2 text-white md:col-span-2"
+                        >
+                          <option value="">Pick a contact or enter manually below…</option>
+                          {(partnerClients.find((p) => p.id === partnerUserDraft.selectedPartnerId)?.contacts ?? []).map((c) => (
+                            <option key={c.id} value={c.email}>{c.firstName} {c.lastName} — {c.email}</option>
+                          ))}
+                        </select>
+                      ) : null}
+                      <input
+                        value={partnerUserDraft.firstName}
+                        onChange={(event) => setPartnerUserDraft((d) => ({ ...d, firstName: event.target.value }))}
+                        placeholder="First name"
+                        className="brand-input rounded-xl px-3 py-2 text-white"
+                      />
+                      <input
+                        value={partnerUserDraft.lastName}
+                        onChange={(event) => setPartnerUserDraft((d) => ({ ...d, lastName: event.target.value }))}
+                        placeholder="Last name"
+                        className="brand-input rounded-xl px-3 py-2 text-white"
+                      />
+                      <input
+                        value={partnerUserDraft.email}
+                        onChange={(event) => setPartnerUserDraft((d) => ({ ...d, email: event.target.value }))}
+                        placeholder="Email"
+                        type="email"
+                        className="brand-input rounded-xl px-3 py-2 text-white md:col-span-2"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void addPartnerUser()}
+                      disabled={partnerUserBusy || !partnerUserDraft.email.trim()}
+                      className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {partnerUserBusy ? "Saving..." : "Invite partner user"}
+                    </button>
+                    {partnerUserError ? <p className="text-sm text-status-error">{partnerUserError}</p> : null}
+                    {partnerUserFeedback ? <p className="text-sm text-status-success">{partnerUserFeedback}</p> : null}
+                  </div>
+                ) : (
+                  <p className="text-sm text-text-secondary">No partner clients found. Add a client with a "Partner" role from the Clients section first.</p>
+                )}
+                <div className="space-y-3">
+                  {partnerUsers.map((user) => (
+                    <div key={user.id} className="brand-surface-soft rounded-2xl border p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-white">{user.firstName} {user.lastName}</p>
+                          <p className="mt-1 text-sm text-text-secondary">{user.email}</p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                            {user.partnerClientName ?? "Partner"} · {user.authStatus}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void copyPartnerAccessLink(user.id, "invite-link")}
+                            disabled={partnerLinkBusyId === user.id}
+                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-text-secondary"
+                          >
+                            Invite link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void copyPartnerAccessLink(user.id, "reset-link")}
+                            disabled={partnerLinkBusyId === user.id}
                             className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-text-secondary"
                           >
                             Reset link

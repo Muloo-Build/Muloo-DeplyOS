@@ -18,10 +18,14 @@ export default function OverviewTab(props: {
   agentSummary: ReactNode;
   quickWins: ReactNode;
   clientAccess: ReactNode;
+  partnerAccess: ReactNode;
 }) {
   return (
     <div className="space-y-6">
-      <OverviewCard title="Client access">{props.clientAccess}</OverviewCard>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <OverviewCard title="Client access">{props.clientAccess}</OverviewCard>
+        <OverviewCard title="Partner access">{props.partnerAccess}</OverviewCard>
+      </div>
       <OverviewCard title="Project status">{props.statusCard}</OverviewCard>
       <div className="grid gap-6 xl:grid-cols-2">
         <OverviewCard title="Human inputs">{props.inputsSummary}</OverviewCard>

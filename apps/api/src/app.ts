@@ -139,6 +139,7 @@ import {
   loadClientProjectsForUser,
   loadClientQuoteDocument,
   loadClientUsersForProject,
+  loadPartnerUsersForProject,
   loadDiscoveryEvidence,
   loadDiscoverySessionsPayload,
   loadDiscoverySummary,
@@ -4774,6 +4775,12 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.get("/api/projects/:projectId/partner-users", async (c) => {
+    return c.json({
+      partnerUsers: await loadPartnerUsersForProject(c.req.param("projectId"))
+    });
   });
 
   app.all("/api/projects/:projectId/client-users/:userId", async (c) => {
