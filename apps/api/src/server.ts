@@ -3274,6 +3274,245 @@ function serializeClientProject<
   };
 }
 
+function humanizePortalValue(value: string | null | undefined) {
+  if (!value) {
+    return "Not set";
+  }
+
+  return value
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatPortalHubList(hubs: string[]) {
+  if (hubs.length === 0) {
+    return "the selected HubSpot setup";
+  }
+
+  return hubs.map((hub) => humanizePortalValue(hub)).join(", ");
+}
+
+type PortalSummaryStep = {
+  title: string;
+  detail: string;
+  owner: string;
+};
+
+type PortalProjectSummary = {
+  headline: string;
+  summary: string;
+  currentPhaseLabel: string;
+  currentPhaseDetail: string;
+  progressLabel: string;
+  progressDetail: string;
+  waitingOnLabel: string;
+  nextSteps: PortalSummaryStep[];
+  lastUpdatedAt: string;
+};
+
+function buildPortalProjectSummary(input: {
+  project: {
+    name: string;
+    status: string;
+    quoteApprovalStatus?: string | null;
+    commercialBrief?: string | null;
+    engagementType: Prisma.$Enums.EngagementType;
+    selectedHubs: string[];
+    updatedAt: Date;
+    client: {
+      name: string;
+    };
+  };
+  assignedInputSections: number[];
+  submissions: Array<{
+    sessionNumber: number;
+    status: string;
+  }>;
+  tasks: Array<{
+    title: string;
+    status: string;
+    description: string | null;
+  }>;
+}): PortalProjectSummary {
+  const quoteApprovalStatus = input.project.quoteApprovalStatus ?? "draft";
+  const totalTasks = input.tasks.length;
+  const completedTasks = input.tasks.filter((task) => task.status === "done").length;
+  const openTasks = input.tasks.filter((task) => task.status !== "done");
+  const inProgressTasks = input.tasks.filter((task) =>
+    ["in_progress", "todo", "backlog"].includes(task.status)
+  );
+  const blockedTasks = input.tasks.filter((task) => task.status === "blocked");
+  const waitingOnClientTasks = input.tasks.filter(
+    (task) => task.status === "waiting_on_client"
+  );
+  const incompleteInputSections = input.assignedInputSections.filter((section) => {
+    const submission = input.submissions.find(
+      (candidate) => candidate.sessionNumber === section
+    );
+
+    return submission?.status !== "complete";
+  });
+
+  let currentPhaseLabel = "Project underway";
+  let currentPhaseDetail =
+    "Muloo is managing the current phase of delivery for this project.";
+
+  if (input.project.status === "complete") {
+    currentPhaseLabel = "Completed";
+    currentPhaseDetail =
+      "The planned work for this project has been completed and is ready for review or follow-up support.";
+  } else if (quoteApprovalStatus === "shared") {
+    currentPhaseLabel = "Quote review";
+    currentPhaseDetail =
+      "The commercial scope is ready for review before the next delivery phase begins.";
+  } else if (
+    ["draft", "scoping", "designed"].includes(input.project.status)
+  ) {
+    currentPhaseLabel = "Scoping & planning";
+    currentPhaseDetail =
+      "Muloo is shaping the project scope, inputs, and recommended delivery path.";
+  } else if (input.project.status === "ready-for-execution") {
+    currentPhaseLabel = "Ready for execution";
+    currentPhaseDetail =
+      "The plan is prepared and the project is being lined up for active delivery.";
+  } else if (
+    ["active", "in_progress", "in-flight"].includes(input.project.status)
+  ) {
+    currentPhaseLabel = "Delivery in progress";
+    currentPhaseDetail =
+      "Muloo is actively progressing the approved scope and tracking delivery through the portal.";
+  } else if (input.project.status === "on_hold") {
+    currentPhaseLabel = "On hold";
+    currentPhaseDetail =
+      "This project is paused for now. Use Messages if you need clarity on what is blocking the next step.";
+  }
+
+  const summary =
+    input.project.commercialBrief?.trim() ||
+    `This ${humanizePortalValue(
+      input.project.engagementType
+    ).toLowerCase()} project for ${input.project.client.name} is focused on ${formatPortalHubList(
+      input.project.selectedHubs
+    )}. Use this portal to follow progress, review scope, and see what happens next.`;
+
+  let progressLabel = "Project setup in progress";
+  let progressDetail =
+    "Muloo is preparing the next stage of work and will surface progress here as the project advances.";
+
+  if (totalTasks > 0) {
+    progressLabel = `${completedTasks} of ${totalTasks} delivery items complete`;
+    progressDetail =
+      openTasks.length > 0
+        ? `${openTasks.length} delivery item${
+            openTasks.length === 1 ? "" : "s"
+          } still active or queued in the current plan.`
+        : "All delivery items currently on the board have been completed.";
+  } else if (quoteApprovalStatus === "shared") {
+    progressLabel = "Waiting for quote approval";
+    progressDetail =
+      "Delivery planning is ready, but approval is needed before the scope can move fully into execution.";
+  } else if (incompleteInputSections.length > 0) {
+    progressLabel = "Waiting for project inputs";
+    progressDetail =
+      "Muloo is collecting the remaining project inputs needed to shape the delivery plan.";
+  }
+
+  let waitingOnLabel = "Muloo";
+  if (quoteApprovalStatus === "shared") {
+    waitingOnLabel = "Your team";
+  } else if (
+    incompleteInputSections.length > 0 ||
+    waitingOnClientTasks.length > 0
+  ) {
+    waitingOnLabel = "Your team";
+  } else if (input.project.status === "complete") {
+    waitingOnLabel = "No immediate action";
+  }
+
+  const nextSteps: PortalSummaryStep[] = [];
+
+  if (quoteApprovalStatus === "shared") {
+    nextSteps.push({
+      title: "Review the shared quote",
+      detail:
+        "Check the scope and commercial breakdown in the portal, then approve it if it matches what your team is expecting.",
+      owner: "Your team"
+    });
+  }
+
+  if (incompleteInputSections.length > 0) {
+    nextSteps.push({
+      title: "Complete the remaining project inputs",
+      detail: `Finish the open input section${
+        incompleteInputSections.length === 1 ? "" : "s"
+      } so Muloo can finalize the next stage cleanly.`,
+      owner: "Your team"
+    });
+  }
+
+  waitingOnClientTasks.slice(0, 2).forEach((task) => {
+    nextSteps.push({
+      title: task.title,
+      detail:
+        task.description?.trim() ||
+        "This item is waiting on a response or input from your team before Muloo can move it forward.",
+      owner: "Your team"
+    });
+  });
+
+  if (nextSteps.length < 3) {
+    inProgressTasks.slice(0, 3 - nextSteps.length).forEach((task) => {
+      nextSteps.push({
+        title: `Muloo is progressing: ${task.title}`,
+        detail:
+          task.description?.trim() ||
+          "This delivery item is actively being worked on inside the current plan.",
+        owner: "Muloo"
+      });
+    });
+  }
+
+  if (nextSteps.length === 0 && blockedTasks.length > 0) {
+    nextSteps.push({
+      title: "Muloo is working through a blocker",
+      detail:
+        blockedTasks[0]?.description?.trim() ||
+        "The next delivery step is currently blocked. Use Messages if you want an update on what is being resolved.",
+      owner: "Muloo"
+    });
+  }
+
+  if (nextSteps.length === 0 && input.project.status === "complete") {
+    nextSteps.push({
+      title: "Review completed outputs",
+      detail:
+        "Check the delivered work and use Messages or Support if you want to request refinements or follow-on work.",
+      owner: "Your team"
+    });
+  }
+
+  if (nextSteps.length === 0) {
+    nextSteps.push({
+      title: "Stay aligned through the portal",
+      detail:
+        "Use Messages to ask questions and the Delivery tab to follow the latest progress as the project moves forward.",
+      owner: "Shared"
+    });
+  }
+
+  return {
+    headline: `${input.project.name} overview`,
+    summary,
+    currentPhaseLabel,
+    currentPhaseDetail,
+    progressLabel,
+    progressDetail,
+    waitingOnLabel,
+    nextSteps,
+    lastUpdatedAt: input.project.updatedAt.toISOString()
+  };
+}
+
 function serializeClientContact<
   T extends {
     id: string;
@@ -4096,6 +4335,26 @@ export function serializeTask<
       : null,
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString()
+  };
+}
+
+export function serializePortalTask<
+  T extends Parameters<typeof serializeTask>[0]
+>(task: T) {
+  const serialized = serializeTask(task);
+
+  return {
+    ...serialized,
+    executionLaneRationale: null,
+    hubspotTierRequired: null,
+    coworkBrief: null,
+    manualInstructions: null,
+    apiPayload: null,
+    executionPayload: null,
+    validationEvidence: null,
+    assignedAgentName: null,
+    latestExecutionJob: null,
+    latestApproval: null
   };
 }
 
@@ -18986,13 +19245,26 @@ export async function loadClientProjectDetail(
     return null;
   }
 
-  const submissions = await prisma.clientInputSubmission.findMany({
-    where: {
-      projectId,
-      userId
-    },
-    orderBy: [{ sessionNumber: "asc" }]
-  });
+  const [submissions, portalTasks] = await Promise.all([
+    prisma.clientInputSubmission.findMany({
+      where: {
+        projectId,
+        userId
+      },
+      orderBy: [{ sessionNumber: "asc" }]
+    }),
+    prisma.task.findMany({
+      where: {
+        projectId
+      },
+      select: {
+        title: true,
+        status: true,
+        description: true
+      },
+      orderBy: [{ createdAt: "asc" }]
+    })
+  ]);
   const normalizedInputConfig = normalizeClientQuestionnaireConfig(
     access.project.clientQuestionnaireConfig
   );
@@ -19032,9 +19304,122 @@ export async function loadClientProjectDetail(
           ])
       ) as ClientQuestionnaireConfig
     },
+    portalSummary: buildPortalProjectSummary({
+      project: access.project,
+      assignedInputSections,
+      submissions,
+      tasks: portalTasks
+    }),
     submissions: submissions.map((submission) =>
       serializeClientInputSubmission(submission)
     )
+  };
+}
+
+export async function loadPortalAssistantProjectContext(
+  projectId: string,
+  userId: string
+) {
+  const access = await prisma.clientProjectAccess.findUnique({
+    where: {
+      userId_projectId: {
+        userId,
+        projectId
+      }
+    },
+    include: {
+      project: {
+        include: {
+          client: true
+        }
+      }
+    }
+  });
+
+  if (!access) {
+    return null;
+  }
+
+  const [submissions, visibleTasks, recentMessages] = await Promise.all([
+    prisma.clientInputSubmission.findMany({
+      where: {
+        projectId,
+        userId
+      },
+      orderBy: [{ sessionNumber: "asc" }]
+    }),
+    prisma.task.findMany({
+      where: {
+        projectId
+      },
+      select: {
+        title: true,
+        status: true,
+        description: true
+      },
+      orderBy: [{ updatedAt: "desc" }],
+      take: 10
+    }),
+    prisma.projectMessage.findMany({
+      where: {
+        projectId
+      },
+      select: {
+        senderType: true,
+        senderName: true,
+        body: true,
+        createdAt: true
+      },
+      orderBy: [{ createdAt: "desc" }],
+      take: 6
+    })
+  ]);
+
+  const normalizedInputConfig = normalizeClientQuestionnaireConfig(
+    access.project.clientQuestionnaireConfig
+  );
+  const availableInputSections = getEnabledClientInputSections(
+    normalizedInputConfig
+  );
+  const assignedInputSections = resolveAssignedInputSectionsForAccess({
+    questionnaireAccess: access.questionnaireAccess,
+    assignedInputSections: access.assignedInputSections,
+    availableSections: availableInputSections
+  });
+  const portalSummary = buildPortalProjectSummary({
+    project: access.project,
+    assignedInputSections,
+    submissions,
+    tasks: visibleTasks
+  });
+
+  return {
+    portalRole: access.role,
+    project: {
+      id: access.project.id,
+      name: access.project.name,
+      clientName: access.project.client.name,
+      status: access.project.status,
+      engagementType: access.project.engagementType,
+      scopeType: access.project.scopeType ?? "discovery",
+      selectedHubs: access.project.selectedHubs,
+      updatedAt: access.project.updatedAt.toISOString(),
+      portalSummary
+    },
+    visibleTasks: visibleTasks.map((task) => ({
+      title: task.title,
+      status: task.status,
+      description: task.description
+    })),
+    recentMessages: recentMessages
+      .slice()
+      .reverse()
+      .map((message) => ({
+        senderType: message.senderType,
+        senderName: message.senderName,
+        body: message.body,
+        createdAt: message.createdAt.toISOString()
+      }))
   };
 }
 

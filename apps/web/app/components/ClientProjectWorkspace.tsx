@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import ClientShell from "./ClientShell";
+import PortalProjectAssistant from "./PortalProjectAssistant";
 import {
   clientSessionDefinitions,
   createDefaultClientQuestionnaireDefinitionMap,
@@ -35,6 +36,7 @@ interface ClientProjectDetail {
   };
   role: string;
   canCompleteQuestionnaire: boolean;
+  assignedInputSections?: number[];
   project: {
     id: string;
     name: string;
@@ -56,6 +58,21 @@ interface ClientProjectDetail {
       name: string;
       website?: string | null;
     };
+  };
+  portalSummary: {
+    headline: string;
+    summary: string;
+    currentPhaseLabel: string;
+    currentPhaseDetail: string;
+    progressLabel: string;
+    progressDetail: string;
+    waitingOnLabel: string;
+    nextSteps: Array<{
+      title: string;
+      detail: string;
+      owner: string;
+    }>;
+    lastUpdatedAt: string;
   };
   submissions: Array<{
     id: string;
@@ -404,6 +421,95 @@ export default function ClientProjectWorkspace({
 
           {activeTab === "overview" ? (
             <div className="space-y-5">
+              <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                        Project summary
+                      </p>
+                      <h2 className="mt-2 text-xl font-semibold text-white">
+                        {detail.portalSummary.headline}
+                      </h2>
+                    </div>
+                    <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-text-muted">
+                      Updated {formatTs(detail.portalSummary.lastUpdatedAt)}
+                    </span>
+                  </div>
+                  <p className="mt-4 text-sm leading-7 text-text-secondary">
+                    {detail.portalSummary.summary}
+                  </p>
+                  <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                      <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                        Current phase
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-white">
+                        {detail.portalSummary.currentPhaseLabel}
+                      </p>
+                      <p className="mt-2 text-xs leading-6 text-text-secondary">
+                        {detail.portalSummary.currentPhaseDetail}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                      <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                        Progress
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-white">
+                        {detail.portalSummary.progressLabel}
+                      </p>
+                      <p className="mt-2 text-xs leading-6 text-text-secondary">
+                        {detail.portalSummary.progressDetail}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                      <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                        Waiting on
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-white">
+                        {detail.portalSummary.waitingOnLabel}
+                      </p>
+                      <p className="mt-2 text-xs leading-6 text-text-secondary">
+                        This highlights where the next visible move sits right now.
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                    What happens next
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    {detail.portalSummary.nextSteps.map((step, index) => (
+                      <div
+                        key={`${step.title}-${index}`}
+                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-semibold text-white">
+                            {step.title}
+                          </p>
+                          <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                            {step.owner}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-text-secondary">
+                          {step.detail}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
+              <PortalProjectAssistant
+                projectId={detail.project.id}
+                projectName={detail.project.name}
+                portalExperience={portalExperience}
+                summary={detail.portalSummary}
+              />
+
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
                   <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Status</p>

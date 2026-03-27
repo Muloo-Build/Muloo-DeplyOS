@@ -139,6 +139,7 @@ import {
   loadClientProjectsForUser,
   loadClientQuoteDocument,
   loadClientUsersForProject,
+  loadPortalAssistantProjectContext,
   loadPartnerUsersForProject,
   loadDiscoveryEvidence,
   loadDiscoverySessionsPayload,
@@ -169,6 +170,7 @@ import {
   resolvePortalBasePathForClientUser,
   saveClientInputSubmission,
   saveDiscoverySession,
+  serializePortalTask,
   serializeTask,
   deleteProjectRecord,
   deleteProjectFinding,
@@ -408,6 +410,13 @@ const assistantChatSchema = z.object({
     .optional()
 });
 
+const portalAssistantChatSchema = z.object({
+  message: z.string().trim().min(1),
+  projectId: z.string().trim().min(1),
+  pathname: z.string().trim().optional(),
+  pageLabel: z.string().trim().optional()
+});
+
 type AssistantAction = {
   type:
     | "run_portal_audit"
@@ -622,6 +631,77 @@ async function generateAssistantAnswer(input: {
   return body.content[0].text.trim();
 }
 
+async function generatePortalAssistantAnswer(input: {
+  message: string;
+  pathname?: string;
+  pageLabel?: string;
+  portalContext: Awaited<ReturnType<typeof loadPortalAssistantProjectContext>>;
+}) {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  const summary = input.portalContext?.project.portalSummary;
+  const fallback = [
+    summary?.summary,
+    summary ? `Current phase: ${summary.currentPhaseLabel}.` : null,
+    summary?.nextSteps?.length
+      ? `Next steps: ${summary.nextSteps
+          .map((step) => step.title)
+          .join("; ")}.`
+      : null
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  if (!apiKey) {
+    return (
+      fallback ||
+      "I can help explain the parts of this project that are visible in your portal."
+    );
+  }
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 700,
+      system: [
+        "You are the project assistant inside the Muloo client and partner portal.",
+        "You may only answer using the project context provided in this request.",
+        "Never reveal internal-only notes, private implementation details, other clients, workspace-wide data, task execution internals, or hidden operational processes.",
+        "Do not mention AI agents, automation mechanics, or internal delivery tooling unless that information is explicitly visible in the supplied portal context.",
+        "If the user asks for information outside what is visible in this portal, say that you can only help with what is available in this project view and suggest using Messages to ask Muloo for clarification.",
+        "Answer clearly, directly, and in plain client-friendly language."
+      ].join(" "),
+      messages: [
+        {
+          role: "user",
+          content: `Current page: ${input.pageLabel ?? "Project portal"}\nPath: ${
+            input.pathname ?? "/client/projects"
+          }\nVisible portal context:\n${JSON.stringify(
+            input.portalContext,
+            null,
+            2
+          )}\n\nUser question: ${input.message}`
+        }
+      ]
+    })
+  });
+
+  const body = (await response.json().catch(() => null)) as
+    | { content?: Array<{ text?: string }>; error?: { message?: string } }
+    | null;
+
+  if (!response.ok || !body?.content?.[0]?.text?.trim()) {
+    return fallback;
+  }
+
+  return body.content[0].text.trim();
+}
+
 const portalPreviewTokens = new Map<
   string,
   { clientUserId: string; projectId: string; expiresAt: number }
@@ -697,6 +777,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/ai-routing/*", internalAuth);
   app.use("/api/products", internalAuth);
   app.use("/api/products/*", internalAuth);
+  app.use("/api/assistant", internalAuth);
+  app.use("/api/assistant/*", internalAuth);
   app.use("/api/agents", internalAuth);
   app.use("/api/agents/*", internalAuth);
   app.use("/api/delivery-templates", internalAuth);
@@ -1142,6 +1224,50 @@ export function createApiApp(config: BaseConfig) {
             error instanceof Error
               ? error.message
               : "Failed to generate assistant response"
+        },
+        500
+      );
+    }
+  });
+
+  app.post("/api/client/assistant/chat", async (c) => {
+    const parsed = portalAssistantChatSchema.safeParse(
+      await readJsonBodyOrEmpty(c)
+    );
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    const portalContext = await loadPortalAssistantProjectContext(
+      parsed.data.projectId,
+      c.get("clientUserId")
+    );
+
+    if (!portalContext) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    try {
+      const answer = await generatePortalAssistantAnswer({
+        message: parsed.data.message,
+        ...(parsed.data.pathname
+          ? { pathname: parsed.data.pathname }
+          : {}),
+        ...(parsed.data.pageLabel
+          ? { pageLabel: parsed.data.pageLabel }
+          : {}),
+        portalContext
+      });
+
+      return c.json({ answer });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to generate portal assistant response"
         },
         500
       );
@@ -4612,7 +4738,7 @@ export function createApiApp(config: BaseConfig) {
     });
 
     return c.json({
-      tasks: tasks.map((task) => serializeTask(task))
+      tasks: tasks.map((task) => serializePortalTask(task))
     });
   });
 

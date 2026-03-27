@@ -1030,7 +1030,7 @@ export default function DeliveryBoard({
                 {boardMetrics.variance}h
               </p>
             </div>
-            {mode !== "client" ? (
+            {mode === "internal" ? (
               <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
                 <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
                   Ready Agent Tasks
@@ -1376,7 +1376,7 @@ export default function DeliveryBoard({
                                   {task.description}
                                 </p>
                               ) : null}
-                              {mode !== "client" ? (
+                              {mode === "internal" ? (
                                 <div className="mt-3 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#0b1126] px-3 py-3">
                                   <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
                                     Best execution path
@@ -1395,7 +1395,7 @@ export default function DeliveryBoard({
                                 </div>
                               ) : null}
                               <div className="mt-3 flex flex-wrap gap-2 text-xs text-text-muted">
-                                {mode !== "client" ? (
+                                {mode === "internal" ? (
                                   <span>
                                     Execution: {formatLabel(task.executionType)}
                                   </span>
@@ -1409,7 +1409,7 @@ export default function DeliveryBoard({
                                 {task.actualHours !== null ? (
                                   <span>Actual: {task.actualHours}h</span>
                                 ) : null}
-                                {mode !== "client" ? (
+                                {mode === "internal" ? (
                                   <>
                                     <span>
                                       Readiness:{" "}
@@ -1458,22 +1458,22 @@ export default function DeliveryBoard({
                                   </>
                                 ) : null}
                               </div>
-                              {mode !== "client" && task.executionLaneRationale ? (
+                              {mode === "internal" && task.executionLaneRationale ? (
                                 <p className="mt-3 text-xs text-text-secondary">
                                   Lane rationale: {task.executionLaneRationale}
                                 </p>
                               ) : null}
-                              {mode !== "client" && task.coworkBrief ? (
+                              {mode === "internal" && task.coworkBrief ? (
                                 <p className="mt-2 text-xs text-text-secondary">
                                   Cowork brief: {task.coworkBrief}
                                 </p>
                               ) : null}
-                              {mode !== "client" && task.manualInstructions ? (
+                              {mode === "internal" && task.manualInstructions ? (
                                 <p className="mt-2 text-xs text-text-secondary">
                                   Manual instructions: {task.manualInstructions}
                                 </p>
                               ) : null}
-                              {mode !== "client" && task.validationEvidence ? (
+                              {mode === "internal" && task.validationEvidence ? (
                                 <p className="mt-2 text-xs text-text-secondary">
                                   Validation evidence: {task.validationEvidence}
                                 </p>
