@@ -32,3 +32,13 @@ waitForPort = 5000
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+APP_BASE_URL = "https://deploy.wearemulo.com"
+MULOO_ALLOW_DESTRUCTIVE_ACTIONS = "false"
+MULOO_ARTIFACT_DIR = "artifacts"
+MULOO_EXECUTION_MODE = "dry-run"
+NODE_ENV = "development"
+API_PORT = "3001"
