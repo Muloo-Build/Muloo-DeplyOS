@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 
 export default function GoogleEmailOAuthCallback({
   code,
@@ -13,7 +12,6 @@ export default function GoogleEmailOAuthCallback({
   state?: string;
   error?: string;
 }) {
-  const router = useRouter();
   const [message, setMessage] = useState(
     "Completing Google mailbox connection..."
   );
@@ -52,11 +50,10 @@ export default function GoogleEmailOAuthCallback({
         }
 
         setMessage(
-          `Google mailbox connected as ${body.connection?.connectedEmail ?? "your Google account"}. Redirecting back to Email settings...`
+          `Google mailbox connected as ${body.connection?.connectedEmail ?? "your Google account"}. Finishing Google Workspace setup...`
         );
         window.setTimeout(() => {
-          router.replace("/settings/email");
-          router.refresh();
+          window.location.assign("/api/workspace/google/connect");
         }, 1200);
       } catch (callbackError) {
         if (cancelled) {
@@ -77,7 +74,7 @@ export default function GoogleEmailOAuthCallback({
     return () => {
       cancelled = true;
     };
-  }, [code, error, router, state]);
+  }, [code, error, state]);
 
   return (
     <div className="min-h-screen bg-background-primary px-6 text-white">
@@ -92,8 +89,8 @@ export default function GoogleEmailOAuthCallback({
           </h1>
           <p className="mt-4 text-text-secondary">{message}</p>
           <div className="mt-8">
-            <Link href="/settings/email" className="text-white underline">
-              Back to Email settings
+            <Link href="/command-centre" className="text-white underline">
+              Back to Command Centre
             </Link>
           </div>
         </div>

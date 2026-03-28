@@ -15128,6 +15128,54 @@ function resolveGoogleWorkspaceEmailOAuthRedirectUri(
   return `${resolveAppBaseUrl()}/settings/email/google/callback`;
 }
 
+async function resolveWorkspaceGoogleEmailOauthConfig() {
+  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+
+  const emailConnection = await prisma.workspaceEmailOAuthConnection
+    .findUnique({
+      where: { providerKey: "google_workspace" }
+    })
+    .catch(() => null);
+  const calendarConnection = await prisma.workspaceCalendarConnection
+    .findUnique({
+      where: { providerKey: "google_calendar" }
+    })
+    .catch(() => null);
+
+  const clientId =
+    emailConnection?.clientId?.trim() ||
+    calendarConnection?.clientId?.trim() ||
+    process.env.GOOGLE_CLIENT_ID?.trim() ||
+    "";
+  const clientSecret =
+    emailConnection?.clientSecret?.trim() ||
+    calendarConnection?.clientSecret?.trim() ||
+    process.env.GOOGLE_CLIENT_SECRET?.trim() ||
+    "";
+  const redirectUri = resolveGoogleWorkspaceEmailOAuthRedirectUri(
+    emailConnection?.redirectUri
+  );
+  const scopes = ensureScope(
+    emailConnection?.scopes.length
+      ? emailConnection.scopes
+      : [
+          "openid",
+          "email",
+          "profile",
+          "https://www.googleapis.com/auth/gmail.send"
+        ],
+    "https://www.googleapis.com/auth/gmail.readonly"
+  );
+
+  return {
+    emailConnection,
+    clientId,
+    clientSecret,
+    redirectUri,
+    scopes
+  };
+}
+
 function resolveWorkspaceGoogleLoginRedirectUri() {
   return `${resolveAppBaseUrl()}/api/auth/google/callback`;
 }
@@ -15404,6 +15452,10 @@ function buildUnreadLabelQuery(label: string) {
   return `label:"${label.replace(/"/g, "").trim()}" is:unread`;
 }
 
+function buildRecentLabelQuery(label: string) {
+  return `label:"${label.replace(/"/g, "").trim()}" newer_than:14d`;
+}
+
 async function loadGmailMessagesMatchingQuery(
   accessToken: string,
   query: string,
@@ -15578,17 +15630,25 @@ export async function getWorkspaceClientEmailQueues() {
   const queues = await Promise.all(
     labeledClients.map(async (client) => {
       const gmailLabel = client.gmailLabel?.trim() ?? "";
-      const emails = await loadGmailMessagesMatchingQuery(
+      const unreadEmails = await loadGmailMessagesMatchingQuery(
         refreshedConnection.accessToken as string,
         buildUnreadLabelQuery(gmailLabel),
         8
       );
+      const emails =
+        unreadEmails.length > 0
+          ? unreadEmails
+          : await loadGmailMessagesMatchingQuery(
+              refreshedConnection.accessToken as string,
+              buildRecentLabelQuery(gmailLabel),
+              4
+            );
 
       return {
         clientId: client.id,
         clientName: client.name,
         gmailLabel,
-        unreadCount: emails.length,
+        unreadCount: unreadEmails.length,
         projects: client.projects.map((project) => ({
           id: project.id,
           name: project.name,
@@ -15602,9 +15662,15 @@ export async function getWorkspaceClientEmailQueues() {
 
   return {
     connected: true as const,
-    queues: queues
-      .filter((queue) => queue.unreadCount > 0)
-      .sort((left, right) => right.unreadCount - left.unreadCount)
+    queues: queues.sort((left, right) => {
+      if (left.unreadCount !== right.unreadCount) {
+        return right.unreadCount - left.unreadCount;
+      }
+
+      const leftLatest = new Date(left.emails[0]?.date ?? 0).getTime();
+      const rightLatest = new Date(right.emails[0]?.date ?? 0).getTime();
+      return rightLatest - leftLatest;
+    })
   };
 }
 
@@ -20799,39 +20865,20 @@ export async function updateWorkspaceEmailOAuthConnection(value: {
 }
 
 export async function createWorkspaceGoogleEmailOAuthStart() {
-  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+  const { clientId, redirectUri, scopes } =
+    await resolveWorkspaceGoogleEmailOauthConfig();
 
-  const connection =
-    await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
-      where: { providerKey: "google_workspace" }
-    });
-
-  if (!connection.clientId?.trim()) {
+  if (!clientId) {
     throw new Error("Google OAuth client ID is not configured yet");
   }
-
-  const redirectUri = resolveGoogleWorkspaceEmailOAuthRedirectUri(
-    connection.redirectUri
-  );
   const state = createSignedStateToken({
     providerKey: "google_workspace",
     redirectUri,
     expiresAt: Date.now() + 1000 * 60 * 10
   });
-  const scopes = ensureScope(
-    connection.scopes.length
-      ? connection.scopes
-      : [
-          "openid",
-          "email",
-          "profile",
-          "https://www.googleapis.com/auth/gmail.send"
-        ],
-    "https://www.googleapis.com/auth/gmail.readonly"
-  );
 
   const params = new URLSearchParams({
-    client_id: connection.clientId,
+    client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
     access_type: "offline",
@@ -20867,14 +20914,14 @@ export async function completeWorkspaceGoogleEmailOAuthCallback(value: {
     throw new Error("OAuth redirect URI is missing from state");
   }
 
-  await ensureWorkspaceEmailOAuthConnectionsSeeded();
+  const { emailConnection, clientId, clientSecret, scopes } =
+    await resolveWorkspaceGoogleEmailOauthConfig();
 
-  const connection =
-    await prisma.workspaceEmailOAuthConnection.findUniqueOrThrow({
-      where: { providerKey: "google_workspace" }
-    });
+  if (!emailConnection) {
+    throw new Error("Google email connection settings are not configured");
+  }
 
-  if (!connection.clientId?.trim() || !connection.clientSecret?.trim()) {
+  if (!clientId || !clientSecret) {
     throw new Error("Google OAuth client credentials are incomplete");
   }
 
@@ -20885,8 +20932,8 @@ export async function completeWorkspaceGoogleEmailOAuthCallback(value: {
     },
     body: new URLSearchParams({
       code,
-      client_id: connection.clientId,
-      client_secret: connection.clientSecret,
+      client_id: clientId,
+      client_secret: clientSecret,
       redirect_uri: redirectUri,
       grant_type: "authorization_code"
     }).toString()
@@ -20927,21 +20974,13 @@ export async function completeWorkspaceGoogleEmailOAuthCallback(value: {
   }
 
   const updatedConnection = await prisma.workspaceEmailOAuthConnection.update({
-    where: { id: connection.id },
+    where: { id: emailConnection.id },
     data: {
-      scopes: ensureScope(
-        connection.scopes.length
-          ? connection.scopes
-          : [
-              "openid",
-              "email",
-              "profile",
-              "https://www.googleapis.com/auth/gmail.send"
-            ],
-        "https://www.googleapis.com/auth/gmail.readonly"
-      ),
+      clientId,
+      clientSecret,
+      scopes,
       accessToken: tokenBody.access_token,
-      refreshToken: tokenBody.refresh_token ?? connection.refreshToken,
+      refreshToken: tokenBody.refresh_token ?? emailConnection.refreshToken,
       tokenType: tokenBody.token_type ?? "Bearer",
       connectedEmail: profileBody.email.trim().toLowerCase(),
       connectedName: profileBody.name?.trim() || null,

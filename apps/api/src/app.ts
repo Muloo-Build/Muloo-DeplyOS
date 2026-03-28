@@ -3387,6 +3387,23 @@ export function createApiApp(config: BaseConfig) {
     })
   );
 
+  app.get("/api/email-oauth/google/start", async (c) => {
+    try {
+      const { authUrl } = await createWorkspaceGoogleEmailOAuthStart();
+      return c.redirect(authUrl);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to start Google OAuth"
+        },
+        400
+      );
+    }
+  });
+
   app.get("/api/workspace/todos", async (c) =>
     c.json(await loadWorkspaceTodos())
   );
@@ -3467,6 +3484,29 @@ export function createApiApp(config: BaseConfig) {
   app.get("/api/workspace/private-tasks", async (c) =>
     c.json(await loadWorkspacePrivateTasks())
   );
+
+  app.get("/api/workspace/google/connect", async (c) => {
+    const gmailConnection = await loadWorkspaceEmailOAuthConnection();
+    const calendarStatus = await getWorkspaceCalendarStatus();
+
+    if (
+      !calendarStatus.configured &&
+      !gmailConnection.clientId &&
+      !gmailConnection.hasClientSecret
+    ) {
+      return c.redirect("/settings/workspace?googleSetup=credentials");
+    }
+
+    if (!calendarStatus.connected || calendarStatus.requiresReconnect) {
+      return c.redirect("/api/workspace/calendar/auth");
+    }
+
+    if (!gmailConnection.isConnected) {
+      return c.redirect("/api/email-oauth/google/start");
+    }
+
+    return c.redirect("/command-centre?googleConnected=true");
+  });
 
   app.post("/api/workspace/private-tasks", async (c) => {
     try {
@@ -3646,7 +3686,7 @@ export function createApiApp(config: BaseConfig) {
         code: c.req.query("code"),
         state: c.req.query("state")
       });
-      return c.redirect("/workspace?calendarConnected=true");
+      return c.redirect("/api/workspace/google/connect");
     } catch (error) {
       return c.json(
         {

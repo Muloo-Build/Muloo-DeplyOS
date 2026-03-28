@@ -55,6 +55,8 @@ interface AuthSessionResponse {
 
 interface GmailConnectionResponse {
   connection?: {
+    clientId?: string | null;
+    hasClientSecret?: boolean;
     isConnected?: boolean;
     connectedEmail?: string | null;
     gmailFilterLabel?: string | null;
@@ -82,6 +84,33 @@ interface ClientEmailQueue {
     updatedAt: string;
   }>;
   emails: ClientEmailItem[];
+}
+
+interface CalendarEventItem {
+  id: string;
+  summary: string;
+  start?: {
+    dateTime?: string;
+    date?: string;
+  };
+  end?: {
+    dateTime?: string;
+    date?: string;
+  };
+  location?: string;
+}
+
+interface CalendarStatusResponse {
+  configured?: boolean;
+  connected?: boolean;
+  connectedEmail?: string | null;
+  requiresReconnect?: boolean;
+}
+
+interface CalendarEventsResponse {
+  connected?: boolean;
+  connectedEmail?: string | null;
+  events?: CalendarEventItem[];
 }
 
 interface PrivateTaskItem {
@@ -151,6 +180,33 @@ function formatStatusLabel(value: string | null | undefined) {
   return value.replace(/[_-]/g, " ");
 }
 
+function isSameDay(left: Date, right: Date) {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+function formatCalendarRange(event: CalendarEventItem) {
+  if (event.start?.date && !event.start.dateTime) {
+    return "All day";
+  }
+
+  if (!event.start?.dateTime) {
+    return "Time to be confirmed";
+  }
+
+  const start = new Date(event.start.dateTime);
+  const end = event.end?.dateTime ? new Date(event.end.dateTime) : null;
+  const formatter = new Intl.DateTimeFormat("en-ZA", {
+    hour: "numeric",
+    minute: "2-digit"
+  });
+
+  return end ? `${formatter.format(start)} - ${formatter.format(end)}` : formatter.format(start);
+}
+
 function getStatusBadgeClass(status: string) {
   switch (status) {
     case "completed":
@@ -218,9 +274,18 @@ export default function MulooCommandCentre() {
     []
   );
   const [gmailConnected, setGmailConnected] = useState(false);
+  const [gmailConfigured, setGmailConfigured] = useState(false);
   const [gmailConnectedEmail, setGmailConnectedEmail] = useState<string | null>(
     null
   );
+  const [calendarConfigured, setCalendarConfigured] = useState(false);
+  const [calendarConnected, setCalendarConnected] = useState(false);
+  const [calendarRequiresReconnect, setCalendarRequiresReconnect] =
+    useState(false);
+  const [calendarConnectedEmail, setCalendarConnectedEmail] = useState<
+    string | null
+  >(null);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEventItem[]>([]);
   const [creatingTodoEmailId, setCreatingTodoEmailId] = useState<string | null>(
     null
   );
@@ -264,7 +329,9 @@ export default function MulooCommandCentre() {
           recentRunsResponse,
           clientEmailQueuesResponse,
           gmailConnectionResponse,
-          privateTasksResponse
+          privateTasksResponse,
+          calendarStatusResponse,
+          calendarEventsResponse
         ] = await Promise.all([
           fetch("/api/auth/session", { credentials: "include" }),
           fetch("/api/projects?status=in-flight&count=true"),
@@ -276,7 +343,9 @@ export default function MulooCommandCentre() {
           fetch("/api/execution-jobs?limit=5"),
           fetch("/api/workspace/emails/client-queues"),
           fetch("/api/email-oauth/google"),
-          fetch("/api/workspace/private-tasks")
+          fetch("/api/workspace/private-tasks"),
+          fetch("/api/workspace/calendar/status"),
+          fetch("/api/workspace/calendar/events")
         ]);
 
         const sessionBody = (await sessionResponse.json().catch(() => null)) as
@@ -326,6 +395,12 @@ export default function MulooCommandCentre() {
         const privateTasksBody = (
           await privateTasksResponse.json().catch(() => null)
         ) as PrivateTasksResponse | null;
+        const calendarStatusBody = (
+          await calendarStatusResponse.json().catch(() => null)
+        ) as CalendarStatusResponse | null;
+        const calendarEventsBody = (
+          await calendarEventsResponse.json().catch(() => null)
+        ) as CalendarEventsResponse | null;
 
         setActiveProjectsCount(activeProjectsCountBody?.count ?? 0);
         setAwaitingClientCount(awaitingClientCountBody?.count ?? 0);
@@ -335,8 +410,23 @@ export default function MulooCommandCentre() {
         setActiveProjects(activeProjectsBody?.projects ?? []);
         setRecentRuns(recentRunsBody?.runs ?? []);
         setClientEmailQueues(clientEmailQueuesBody?.queues ?? []);
+        setGmailConfigured(
+          Boolean(
+            gmailConnectionBody?.connection?.clientId ||
+              gmailConnectionBody?.connection?.hasClientSecret
+          )
+        );
         setGmailConnected(gmailConnectionBody?.connection?.isConnected === true);
         setGmailConnectedEmail(gmailConnectionBody?.connection?.connectedEmail ?? null);
+        setCalendarConfigured(calendarStatusBody?.configured === true);
+        setCalendarConnected(calendarStatusBody?.connected === true);
+        setCalendarRequiresReconnect(calendarStatusBody?.requiresReconnect === true);
+        setCalendarConnectedEmail(
+          calendarStatusBody?.connectedEmail ??
+            calendarEventsBody?.connectedEmail ??
+            null
+        );
+        setCalendarEvents(calendarEventsBody?.events ?? []);
         setPrivateTasks(privateTasksBody?.tasks ?? []);
         setPrivateTasksConfigured(Boolean(privateTasksBody?.configured));
         setPrivateTasksConnected(privateTasksBody?.connected === true);
@@ -362,6 +452,26 @@ export default function MulooCommandCentre() {
       dateLabel: formatDateHeading(now)
     };
   }, [name]);
+
+  const todayCalendarEvents = useMemo(() => {
+    const now = new Date();
+    const todaysEvents = calendarEvents.filter((event) => {
+      const iso = event.start?.dateTime ?? event.start?.date;
+      return iso ? isSameDay(new Date(iso), now) : false;
+    });
+
+    if (todaysEvents.length > 0) {
+      return todaysEvents;
+    }
+
+    return calendarEvents.slice(0, 4);
+  }, [calendarEvents]);
+
+  const needsGoogleWorkspaceSetup =
+    !calendarConnected || calendarRequiresReconnect || !gmailConnected;
+  const googleSetupHref = needsGoogleWorkspaceSetup
+    ? "/api/workspace/google/connect"
+    : "/settings/workspace";
 
   async function loadPrivateTasks() {
     const response = await fetch("/api/workspace/private-tasks");
@@ -597,77 +707,94 @@ export default function MulooCommandCentre() {
             />
           </section>
 
-          <section className="brand-surface rounded-3xl border p-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                  Client email watchlists
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">
-                  Unread Gmail labels for active clients
-                </h2>
-                <p className="mt-2 text-text-secondary">
-                  Surface the client labels you maintain in Gmail, spot unread
-                  mail quickly, and turn an email into a task without leaving
-                  DeployOS.
-                </p>
-                <p className="mt-3 text-sm text-text-secondary">
-                  How it works: connect Gmail in Settings, add the matching
-                  Gmail label to each client record, and keep your Gmail filters
-                  moving mail into those labels. DeployOS will only surface
-                  unread mail from those client queues here.
-                </p>
-              </div>
-              <Link
-                href="/clients"
-                className="text-sm text-text-secondary hover:text-brand-teal"
-              >
-                Manage client labels →
-              </Link>
-            </div>
-
-            {emailFeedback ? (
-              <div className="mt-5 rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-3 text-sm text-white">
-                {emailFeedback}
-              </div>
-            ) : null}
-
-            <div className="mt-5 space-y-4">
-              {loading ? (
-                <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
-                  Loading client email watchlists...
+          <section className="grid gap-6 xl:grid-cols-2">
+            <div className="brand-surface rounded-3xl border p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                    Client Email Watchlists
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">
+                    Gmail labels for active clients
+                  </h2>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    Track important client mail by Gmail label, even when today
+                    has no unread items yet.
+                  </p>
                 </div>
-              ) : clientEmailQueues.length === 0 ? (
-                <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
-                  {!gmailConnected
-                    ? "Connect Gmail in Settings first, then add a Gmail label to a client record and let your mailbox filters move that client mail into the label."
-                    : "No unread client-labeled Gmail queues are visible yet. Add a Gmail label to a client record and keep using your mailbox filters to feed it."}
-                  {gmailConnectedEmail
-                    ? ` Connected as ${gmailConnectedEmail}.`
-                    : ""}
+                <div className="text-right">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                    Google mail
+                  </p>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    {gmailConnectedEmail ?? "Not connected"}
+                  </p>
                 </div>
-              ) : (
-                clientEmailQueues.map((queue) => (
-                  <div
-                    key={queue.clientId}
-                    className="brand-surface-soft rounded-3xl border p-5"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-lg font-semibold text-white">
-                            {queue.clientName}
-                          </p>
-                          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
-                            {queue.gmailLabel}
-                          </span>
-                          <span className="rounded-full border border-status-warning/35 bg-status-warning/10 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
-                            {queue.unreadCount} unread
-                          </span>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {queue.projects.length > 0 ? (
-                            queue.projects.map((project) => (
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text-secondary">
+                {needsGoogleWorkspaceSetup
+                  ? "Use one Google Workspace setup flow for calendar, tasks, and Gmail labels from the Command Centre."
+                  : "Labels are active. DeployOS is showing unread mail first, then recent labeled mail so you can confirm the queues are live."}
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <a
+                  href={googleSetupHref}
+                  className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55"
+                >
+                  {needsGoogleWorkspaceSetup
+                    ? "Finish Google Workspace setup"
+                    : "Review Google Workspace"}
+                </a>
+                <Link
+                  href="/clients"
+                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20"
+                >
+                  Manage client labels
+                </Link>
+              </div>
+
+              {emailFeedback ? (
+                <div className="mt-4 rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-3 text-sm text-white">
+                  {emailFeedback}
+                </div>
+              ) : null}
+
+              <div className="mt-5 space-y-3">
+                {loading ? (
+                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                    Loading client email watchlists...
+                  </div>
+                ) : clientEmailQueues.length === 0 ? (
+                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                    {gmailConnected
+                      ? "No client labels are showing yet. Add the exact Gmail label on the client record, then keep your mailbox filters moving that client mail into the label."
+                      : "Google Workspace mail is not connected yet. Finish the shared Google setup first, then add Gmail labels to client records."}
+                  </div>
+                ) : (
+                  clientEmailQueues.slice(0, 4).map((queue) => (
+                    <div
+                      key={queue.clientId}
+                      className="brand-surface-soft rounded-2xl border p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-base font-semibold text-white">
+                              {queue.clientName}
+                            </p>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
+                              {queue.gmailLabel}
+                            </span>
+                            <span className="rounded-full border border-status-warning/35 bg-status-warning/10 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
+                              {queue.unreadCount > 0
+                                ? `${queue.unreadCount} unread`
+                                : "recent label mail"}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {queue.projects.map((project) => (
                               <Link
                                 key={project.id}
                                 href={`/projects/${project.id}`}
@@ -675,64 +802,158 @@ export default function MulooCommandCentre() {
                               >
                                 {project.name}
                               </Link>
-                            ))
-                          ) : (
-                            <span className="text-xs text-text-muted">
-                              No linked project yet
-                            </span>
-                          )}
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 space-y-3">
+                        {queue.emails.length === 0 ? (
+                          <div className="rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+                            The label is linked, but no recent mail is visible
+                            in Gmail for this queue yet.
+                          </div>
+                        ) : (
+                          queue.emails.slice(0, 2).map((email) => (
+                            <div
+                              key={email.id}
+                              className="rounded-2xl border border-white/10 bg-[#0b1126] p-4"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium text-white">
+                                    {email.subject}
+                                  </p>
+                                  <p className="mt-1 text-sm text-text-secondary">
+                                    {email.from}
+                                  </p>
+                                </div>
+                                <p className="text-xs text-text-muted">
+                                  {formatRelativeTime(email.date)}
+                                </p>
+                              </div>
+                              <p className="mt-3 text-sm leading-6 text-text-secondary">
+                                {email.snippet || "No preview available yet."}
+                              </p>
+                              <div className="mt-4 flex flex-wrap gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void createTaskFromEmail(queue, email)
+                                  }
+                                  disabled={creatingTodoEmailId === email.id}
+                                  className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
+                                >
+                                  {creatingTodoEmailId === email.id
+                                    ? "Creating task..."
+                                    : "Create task"}
+                                </button>
+                                <a
+                                  href={email.gmailUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20"
+                                >
+                                  Open in Gmail
+                                </a>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="brand-surface rounded-3xl border p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                    Today&apos;s Calendar
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">
+                    Google Calendar
+                  </h2>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    See the current day at a glance so the Command Centre opens
+                    with what matters right now.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                    Calendar
+                  </p>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    {calendarConnectedEmail ?? "Not connected"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text-secondary">
+                {calendarRequiresReconnect
+                  ? "Reconnect Google Workspace once to add Google Tasks to the same shared setup."
+                  : calendarConnected
+                    ? `Showing ${todayCalendarEvents.length > 0 ? "today's schedule" : "your next upcoming slots"} from Google Calendar.`
+                    : "Finish Google Workspace setup to bring calendar, tasks, and Gmail into one guided flow."}
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <a
+                  href={googleSetupHref}
+                  className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55"
+                >
+                  {calendarConnected && !calendarRequiresReconnect
+                    ? "Review Google Workspace"
+                    : "Connect Google Workspace"}
+                </a>
+                <Link
+                  href="/settings/workspace"
+                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20"
+                >
+                  Workspace settings
+                </Link>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {loading ? (
+                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                    Loading calendar...
+                  </div>
+                ) : !calendarConnected ? (
+                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                    No calendar connection is active yet.
+                  </div>
+                ) : todayCalendarEvents.length === 0 ? (
+                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                    No events are scheduled for today.
+                  </div>
+                ) : (
+                  todayCalendarEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="brand-surface-soft rounded-2xl border p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-base font-semibold text-white">
+                            {event.summary}
+                          </p>
+                          <p className="mt-1 text-sm text-text-secondary">
+                            {formatCalendarRange(event)}
+                          </p>
+                          {event.location ? (
+                            <p className="mt-2 text-sm text-text-muted">
+                              {event.location}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     </div>
-
-                    <div className="mt-4 space-y-3">
-                      {queue.emails.map((email) => (
-                        <div
-                          key={email.id}
-                          className="rounded-2xl border border-white/10 bg-[#0b1126] p-4"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-base font-medium text-white">
-                                {email.subject}
-                              </p>
-                              <p className="mt-1 text-sm text-text-secondary">
-                                {email.from}
-                              </p>
-                            </div>
-                            <p className="text-xs text-text-muted">
-                              {formatRelativeTime(email.date)}
-                            </p>
-                          </div>
-                          <p className="mt-3 text-sm leading-6 text-text-secondary">
-                            {email.snippet || "No preview available yet."}
-                          </p>
-                          <div className="mt-4 flex flex-wrap gap-3">
-                            <button
-                              type="button"
-                              onClick={() => void createTaskFromEmail(queue, email)}
-                              disabled={creatingTodoEmailId === email.id}
-                              className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
-                            >
-                              {creatingTodoEmailId === email.id
-                                ? "Creating task..."
-                                : "Create task"}
-                            </button>
-                            <a
-                              href={email.gmailUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20"
-                            >
-                              Open in Gmail
-                            </a>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </section>
 
@@ -900,21 +1121,21 @@ export default function MulooCommandCentre() {
                   </p>
                 </div>
                 <Link
-                  href="/settings"
+                  href={googleSetupHref}
                   className="text-sm text-text-secondary hover:text-brand-teal"
                 >
-                  Google setup →
+                  Finish Google setup →
                 </Link>
               </div>
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text-secondary">
                 {privateTasksRequiresReconnect
-                  ? "Reconnect Google Calendar in Settings to grant Google Tasks access for your private list."
+                  ? "Reconnect Google Workspace once to grant Google Tasks access for your private list."
                   : privateTasksConnected
                     ? `Synced with ${privateTaskListTitle} in Google Tasks${privateTasksConnectedEmail ? ` as ${privateTasksConnectedEmail}` : ""}.`
                     : privateTasksConfigured
-                      ? "Connect your Google workspace in Settings to sync a private task list."
-                      : "Add Google OAuth credentials in Settings, then connect your Google account to use private tasks."}
+                      ? "Finish Google Workspace setup to sync your private task list."
+                      : "Add Google Workspace credentials once, then use the shared Google setup flow to connect calendar, tasks, and Gmail."}
               </div>
 
               {privateTaskFeedback ? (
