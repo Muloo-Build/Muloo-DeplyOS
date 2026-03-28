@@ -399,12 +399,10 @@ export default function MulooCommandCentre() {
   const [industrySignals, setIndustrySignals] = useState<IndustrySignalItem[]>(
     []
   );
-  const [composerTo, setComposerTo] = useState("");
-  const [composerSubject, setComposerSubject] = useState("");
-  const [composerBody, setComposerBody] = useState("");
+  const [emailNotes, setEmailNotes] = useState("");
+  const [emailDraft, setEmailDraft] = useState("");
   const [composerFeedback, setComposerFeedback] = useState<string | null>(null);
   const [draftingComposer, setDraftingComposer] = useState(false);
-  const [sendingComposer, setSendingComposer] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -791,7 +789,7 @@ export default function MulooCommandCentre() {
   }
 
   async function draftWorkspaceEmail() {
-    if (!composerBody.trim() && !composerSubject.trim()) {
+    if (!emailNotes.trim()) {
       setComposerFeedback("Add a short brief first so AI has something to shape.");
       return;
     }
@@ -806,9 +804,7 @@ export default function MulooCommandCentre() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          prompt: composerBody,
-          subject: composerSubject,
-          body: composerBody
+          prompt: emailNotes
         })
       });
       const body = (await response.json().catch(() => null)) as
@@ -819,8 +815,13 @@ export default function MulooCommandCentre() {
         throw new Error(body?.error ?? "Failed to draft email");
       }
 
-      setComposerSubject(body?.subject?.trim() ?? composerSubject);
-      setComposerBody(body?.body?.trim() ?? composerBody);
+      const subject = body?.subject?.trim() ?? "";
+      const draftBody = body?.body?.trim() ?? "";
+      setEmailDraft(
+        [subject ? `Subject: ${subject}` : "", draftBody]
+          .filter(Boolean)
+          .join("\n\n")
+      );
       setComposerFeedback("AI drafted the email. Tweak anything before sending.");
     } catch (error) {
       setComposerFeedback(
@@ -831,45 +832,13 @@ export default function MulooCommandCentre() {
     }
   }
 
-  async function sendWorkspaceEmail() {
-    if (!composerTo.trim() || !composerSubject.trim() || !composerBody.trim()) {
-      setComposerFeedback("To, subject, and message are all required before sending.");
+  async function copyDraft() {
+    if (typeof navigator === "undefined" || !emailDraft.trim()) {
       return;
     }
 
-    setSendingComposer(true);
-    setComposerFeedback(null);
-
-    try {
-      const response = await fetch("/api/workspace/email/send", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          to: composerTo,
-          subject: composerSubject,
-          body: composerBody
-        })
-      });
-      const body = (await response.json().catch(() => null)) as
-        | { error?: string }
-        | null;
-
-      if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to send email");
-      }
-
-      setComposerFeedback("Email sent from the Command Centre.");
-      setComposerSubject("");
-      setComposerBody("");
-    } catch (error) {
-      setComposerFeedback(
-        error instanceof Error ? error.message : "Failed to send email"
-      );
-    } finally {
-      setSendingComposer(false);
-    }
+    await navigator.clipboard.writeText(emailDraft);
+    setComposerFeedback("Copied to clipboard.");
   }
 
   function toggleVoiceTyping() {
@@ -902,7 +871,7 @@ export default function MulooCommandCentre() {
         return;
       }
 
-      setComposerBody((current) =>
+      setEmailNotes((current) =>
         current.trim().length > 0
           ? `${current.trim()}\n${transcript}`
           : transcript
@@ -1309,11 +1278,8 @@ export default function MulooCommandCentre() {
                 <SectionLabel
                   label="Compose"
                   title="AI-assisted email composer"
-                  body="Draft in plain text, use voice typing when you're moving fast, then send without leaving the Command Centre."
+                  body="Use the same plain-text drafting flow from the project workspace, now available in the Command Centre."
                 />
-                <p className="text-sm text-text-secondary">
-                  {gmailConnectedEmail ?? "Workspace mail not connected"}
-                </p>
               </div>
 
               {composerFeedback ? (
@@ -1323,25 +1289,11 @@ export default function MulooCommandCentre() {
               ) : null}
 
               <div className="mt-5 space-y-4">
-                <input
-                  type="text"
-                  value={composerTo}
-                  onChange={(event) => setComposerTo(event.target.value)}
-                  placeholder="To"
-                  className="block w-full rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
-                />
-                <input
-                  type="text"
-                  value={composerSubject}
-                  onChange={(event) => setComposerSubject(event.target.value)}
-                  placeholder="Subject"
-                  className="block w-full rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
-                />
                 <textarea
-                  value={composerBody}
-                  onChange={(event) => setComposerBody(event.target.value)}
-                  placeholder="Write the plain-text brief or the full email here. AI can tighten it, expand it, or turn voice notes into a polished draft."
-                  rows={10}
+                  value={emailNotes}
+                  onChange={(event) => setEmailNotes(event.target.value)}
+                  placeholder="Add context for the message you want to draft."
+                  rows={9}
                   className="block w-full rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
                 />
                 <div className="flex flex-wrap gap-3">
@@ -1363,13 +1315,15 @@ export default function MulooCommandCentre() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void sendWorkspaceEmail()}
-                    disabled={sendingComposer}
-                    className="rounded-2xl border border-white/10 bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-white/90 disabled:opacity-60"
+                    onClick={() => void copyDraft()}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20 disabled:opacity-60"
                   >
-                    {sendingComposer ? "Sending..." : "Send email"}
+                    Copy draft
                   </button>
                 </div>
+                <pre className="min-h-[220px] whitespace-pre-wrap rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-text-secondary">
+                  {emailDraft || "Generate a draft to see it here."}
+                </pre>
               </div>
             </div>
 
