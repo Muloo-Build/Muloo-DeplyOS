@@ -284,8 +284,16 @@ function getProjectStatusMatch(
   }
 
   switch (requestedStatus) {
+    case "live":
+      return project.status !== "archived";
+    case "in_delivery":
+      return project.status === "in-flight";
     case "active":
       return activeProjectStatuses.has(project.status);
+    case "awaiting_approval":
+      return project.quoteApprovalStatus === "shared";
+    case "blocked_external":
+      return waitingOnExternalProjectIds.has(project.id);
     case "awaiting_client":
       return (
         waitingOnExternalProjectIds.has(project.id) ||

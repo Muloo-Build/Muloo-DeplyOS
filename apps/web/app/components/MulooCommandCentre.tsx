@@ -14,6 +14,7 @@ interface ProjectListItem {
   name: string;
   clientName: string;
   status: string;
+  quoteApprovalStatus?: string;
   updatedAt: string;
 }
 
@@ -312,6 +313,7 @@ function resolveSpeechRecognition() {
 function StatCard(props: {
   href: string;
   label: string;
+  helper: string;
   value: number;
   tone: "neutral" | "warning" | "danger";
 }) {
@@ -329,6 +331,7 @@ function StatCard(props: {
     >
       <p className="text-sm text-text-secondary">{props.label}</p>
       <p className="mt-3 text-4xl font-semibold">{props.value}</p>
+      <p className="mt-2 text-xs text-text-secondary">{props.helper}</p>
     </Link>
   );
 }
@@ -349,10 +352,10 @@ function SectionLabel(props: { label: string; title: string; body?: string }) {
 
 export default function MulooCommandCentre() {
   const [name, setName] = useState("team");
-  const [activeProjectsCount, setActiveProjectsCount] = useState(0);
-  const [awaitingClientCount, setAwaitingClientCount] = useState(0);
-  const [overdueTasksCount, setOverdueTasksCount] = useState(0);
-  const [queuedRunsCount, setQueuedRunsCount] = useState(0);
+  const [liveProjectsCount, setLiveProjectsCount] = useState(0);
+  const [deliveryProjectsCount, setDeliveryProjectsCount] = useState(0);
+  const [awaitingApprovalCount, setAwaitingApprovalCount] = useState(0);
+  const [blockedExternalCount, setBlockedExternalCount] = useState(0);
   const [activeProjects, setActiveProjects] = useState<ProjectListItem[]>([]);
   const [recentRuns, setRecentRuns] = useState<ExecutionRun[]>([]);
   const [clientEmailQueues, setClientEmailQueues] = useState<ClientEmailQueue[]>([]);
@@ -422,10 +425,10 @@ export default function MulooCommandCentre() {
       try {
         const [
           sessionResponse,
-          activeProjectsCountResponse,
-          awaitingClientCountResponse,
-          overdueTasksCountResponse,
-          queuedRunsCountResponse,
+          liveProjectsCountResponse,
+          deliveryProjectsCountResponse,
+          awaitingApprovalCountResponse,
+          blockedExternalCountResponse,
           activeProjectsResponse,
           recentRunsResponse,
           clientEmailQueuesResponse,
@@ -437,11 +440,11 @@ export default function MulooCommandCentre() {
           industrySignalsResponse
         ] = await Promise.all([
           fetch("/api/auth/session", { credentials: "include" }),
-          fetch("/api/projects?status=active&count=true"),
-          fetch("/api/projects?status=awaiting_client&count=true"),
-          fetch("/api/tasks?overdue=true&count=true"),
-          fetch("/api/execution-jobs?status=queued&count=true"),
-          fetch("/api/projects?status=active&limit=4"),
+          fetch("/api/projects?status=live&count=true"),
+          fetch("/api/projects?status=in_delivery&count=true"),
+          fetch("/api/projects?status=awaiting_approval&count=true"),
+          fetch("/api/projects?status=blocked_external&count=true"),
+          fetch("/api/projects?status=in_delivery&limit=4"),
           fetch("/api/execution-jobs?limit=4"),
           fetch("/api/workspace/emails/client-queues"),
           fetch("/api/email-oauth/google"),
@@ -460,14 +463,14 @@ export default function MulooCommandCentre() {
           setName(sessionName.split(" ")[0] ?? sessionName);
         }
 
-        const activeProjectsCountBody =
-          (await activeProjectsCountResponse.json().catch(() => null)) as CountResponse | null;
-        const awaitingClientCountBody =
-          (await awaitingClientCountResponse.json().catch(() => null)) as CountResponse | null;
-        const overdueTasksCountBody =
-          (await overdueTasksCountResponse.json().catch(() => null)) as CountResponse | null;
-        const queuedRunsCountBody =
-          (await queuedRunsCountResponse.json().catch(() => null)) as CountResponse | null;
+        const liveProjectsCountBody =
+          (await liveProjectsCountResponse.json().catch(() => null)) as CountResponse | null;
+        const deliveryProjectsCountBody =
+          (await deliveryProjectsCountResponse.json().catch(() => null)) as CountResponse | null;
+        const awaitingApprovalCountBody =
+          (await awaitingApprovalCountResponse.json().catch(() => null)) as CountResponse | null;
+        const blockedExternalCountBody =
+          (await blockedExternalCountResponse.json().catch(() => null)) as CountResponse | null;
         const activeProjectsBody = (await activeProjectsResponse.json().catch(() => null)) as
           | { projects?: ProjectListItem[] }
           | null;
@@ -498,10 +501,10 @@ export default function MulooCommandCentre() {
           await industrySignalsResponse.json().catch(() => null)
         ) as IndustrySignalsResponse | null;
 
-        setActiveProjectsCount(activeProjectsCountBody?.count ?? 0);
-        setAwaitingClientCount(awaitingClientCountBody?.count ?? 0);
-        setOverdueTasksCount(overdueTasksCountBody?.count ?? 0);
-        setQueuedRunsCount(queuedRunsCountBody?.count ?? 0);
+        setLiveProjectsCount(liveProjectsCountBody?.count ?? 0);
+        setDeliveryProjectsCount(deliveryProjectsCountBody?.count ?? 0);
+        setAwaitingApprovalCount(awaitingApprovalCountBody?.count ?? 0);
+        setBlockedExternalCount(blockedExternalCountBody?.count ?? 0);
         setActiveProjects(activeProjectsBody?.projects ?? []);
         setRecentRuns(recentRunsBody?.runs ?? []);
         setClientEmailQueues(clientEmailQueuesBody?.queues ?? []);
@@ -938,28 +941,32 @@ export default function MulooCommandCentre() {
 
           <section className="grid gap-4 xl:grid-cols-4">
             <StatCard
-              href="/projects?status=in-flight"
-              label="Active projects"
-              value={activeProjectsCount}
+              href="/projects?status=live"
+              label="Live projects"
+              helper="All non-archived projects in the workspace."
+              value={liveProjectsCount}
               tone="neutral"
             />
             <StatCard
-              href="/projects?status=awaiting_client"
-              label="Awaiting client"
-              value={awaitingClientCount}
+              href="/projects?status=in_delivery"
+              label="In delivery"
+              helper="Projects currently being executed right now."
+              value={deliveryProjectsCount}
+              tone="neutral"
+            />
+            <StatCard
+              href="/projects?status=awaiting_approval"
+              label="Awaiting approval"
+              helper="Projects with a quote shared and waiting for approval."
+              value={awaitingApprovalCount}
               tone="warning"
             />
             <StatCard
-              href="/projects?status=attention"
-              label="Overdue tasks"
-              value={overdueTasksCount}
+              href="/projects?status=blocked_external"
+              label="Blocked external"
+              helper="Projects waiting on client or partner input."
+              value={blockedExternalCount}
               tone="danger"
-            />
-            <StatCard
-              href="/runs?status=queued"
-              label="Runs queued"
-              value={queuedRunsCount}
-              tone="warning"
             />
           </section>
 
@@ -1346,10 +1353,10 @@ export default function MulooCommandCentre() {
               <div className="flex items-center justify-between gap-4">
                 <SectionLabel
                   label="Projects"
-                  title="Active projects"
-                  body="The delivery work that moved most recently."
+                  title="Projects in delivery"
+                  body="Only projects currently in execution are surfaced here."
                 />
-                <Link href="/projects" className="text-sm text-text-secondary hover:text-brand-teal">
+                <Link href="/projects?status=in_delivery" className="text-sm text-text-secondary hover:text-brand-teal">
                   View all →
                 </Link>
               </div>
@@ -1361,7 +1368,7 @@ export default function MulooCommandCentre() {
                   </div>
                 ) : activeProjects.length === 0 ? (
                   <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
-                    No active projects are visible yet.
+                    No projects are currently in delivery.
                   </div>
                 ) : (
                   activeProjects.map((project) => (

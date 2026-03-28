@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import AppShell from "./AppShell";
 
@@ -10,6 +11,7 @@ interface Project {
   name: string;
   clientName: string;
   status: string;
+  quoteApprovalStatus?: string;
   hubsInScope: string[];
   updatedAt: string;
   defaultWorkspacePath?: string;
@@ -27,7 +29,7 @@ function calculateStats(items: Project[]): ProjectStats {
     (acc, project) => {
       acc.total += 1;
       if (project.status === "in-flight") acc.inExecution += 1;
-      if (project.status === "ready-for-execution") {
+      if (project.quoteApprovalStatus === "shared") {
         acc.awaitingApproval += 1;
       }
       if (project.status === "completed") acc.completed += 1;
@@ -88,7 +90,43 @@ function formatRelativeDate(dateString: string) {
   return `${Math.floor(diffDays / 30)} months ago`;
 }
 
-export default function ProjectsDashboard() {
+function getFilterMeta(status: string | null) {
+  switch (status) {
+    case "live":
+      return {
+        title: "Live projects",
+        body: "All non-archived projects in the workspace."
+      };
+    case "in_delivery":
+      return {
+        title: "In delivery",
+        body: "Projects currently in active execution."
+      };
+    case "awaiting_approval":
+      return {
+        title: "Awaiting approval",
+        body: "Projects with a shared quote waiting for client approval."
+      };
+    case "blocked_external":
+      return {
+        title: "Blocked external",
+        body: "Projects waiting on client or partner input."
+      };
+    case "awaiting_client":
+      return {
+        title: "Awaiting response",
+        body: "Projects waiting on external input or a shared quote response."
+      };
+    default:
+      return null;
+  }
+}
+
+export default function ProjectsDashboard({
+  initialStatus = null
+}: {
+  initialStatus?: string | null;
+}) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [stats, setStats] = useState<ProjectStats>({
     total: 0,
@@ -105,11 +143,17 @@ export default function ProjectsDashboard() {
   const [updatingProjectId, setUpdatingProjectId] = useState<string | null>(
     null
   );
+  const searchParams = useSearchParams();
+  const statusFilter = searchParams.get("status") ?? initialStatus;
+  const filterMeta = getFilterMeta(statusFilter);
 
   useEffect(() => {
     async function fetchProjects() {
       try {
-        const response = await fetch("/api/projects");
+        const query = statusFilter
+          ? `?status=${encodeURIComponent(statusFilter)}`
+          : "";
+        const response = await fetch(`/api/projects${query}`);
         if (!response.ok) {
           throw new Error("Failed to fetch projects");
         }
@@ -129,7 +173,7 @@ export default function ProjectsDashboard() {
     }
 
     fetchProjects();
-  }, []);
+  }, [statusFilter]);
 
   async function deleteProject(project: Project) {
     const confirmed = window.confirm(
@@ -406,6 +450,29 @@ export default function ProjectsDashboard() {
           </div>
         ) : (
           <div className="space-y-8">
+            {filterMeta ? (
+              <div className="rounded-2xl border border-[rgba(123,226,239,0.22)] bg-[rgba(123,226,239,0.08)] px-6 py-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  Filter
+                </p>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-white">
+                      {filterMeta.title}
+                    </p>
+                    <p className="mt-1 text-sm text-text-secondary">
+                      {filterMeta.body}
+                    </p>
+                  </div>
+                  <Link
+                    href="/projects"
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-2 text-sm font-medium text-white"
+                  >
+                    Show all projects
+                  </Link>
+                </div>
+              </div>
+            ) : null}
             <div>
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-white">
