@@ -356,6 +356,7 @@ export default function MulooCommandCentre() {
   const [activeProjects, setActiveProjects] = useState<ProjectListItem[]>([]);
   const [recentRuns, setRecentRuns] = useState<ExecutionRun[]>([]);
   const [clientEmailQueues, setClientEmailQueues] = useState<ClientEmailQueue[]>([]);
+  const [dismissedEmailIds, setDismissedEmailIds] = useState<string[]>([]);
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailConnectedEmail, setGmailConnectedEmail] = useState<string | null>(
     null
@@ -436,7 +437,7 @@ export default function MulooCommandCentre() {
           industrySignalsResponse
         ] = await Promise.all([
           fetch("/api/auth/session", { credentials: "include" }),
-          fetch("/api/projects?status=in-flight&count=true"),
+          fetch("/api/projects?status=active&count=true"),
           fetch("/api/projects?status=awaiting_client&count=true"),
           fetch("/api/tasks?overdue=true&count=true"),
           fetch("/api/execution-jobs?status=queued&count=true"),
@@ -504,6 +505,7 @@ export default function MulooCommandCentre() {
         setActiveProjects(activeProjectsBody?.projects ?? []);
         setRecentRuns(recentRunsBody?.runs ?? []);
         setClientEmailQueues(clientEmailQueuesBody?.queues ?? []);
+        setDismissedEmailIds([]);
         setGmailConnected(gmailConnectionBody?.connection?.isConnected === true);
         setGmailConnectedEmail(gmailConnectionBody?.connection?.connectedEmail ?? null);
         setCalendarConnected(calendarStatusBody?.connected === true);
@@ -633,6 +635,9 @@ export default function MulooCommandCentre() {
       setEmailFeedback(
         `Task created for ${queue.clientName}: ${body.title ?? email.subject}`
       );
+      setDismissedEmailIds((current) =>
+        current.includes(email.id) ? current : [...current, email.id]
+      );
     } catch (error) {
       setEmailFeedback(
         error instanceof Error
@@ -642,6 +647,12 @@ export default function MulooCommandCentre() {
     } finally {
       setCreatingTodoEmailId(null);
     }
+  }
+
+  function dismissClientEmail(emailId: string) {
+    setDismissedEmailIds((current) =>
+      current.includes(emailId) ? current : [...current, emailId]
+    );
   }
 
   async function createPrivateTask() {
@@ -995,90 +1006,105 @@ export default function MulooCommandCentre() {
                     No client label queues are visible yet. Connect Gmail, add the label to the client, and let your mailbox rules keep feeding it.
                   </div>
                 ) : (
-                  clientEmailQueues.slice(0, 3).map((queue) => (
-                    <div
-                      key={queue.clientId}
-                      className="brand-surface-soft rounded-2xl border p-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-base font-semibold text-white">
-                              {queue.clientName}
-                            </p>
-                            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
-                              {queue.gmailLabel}
-                            </span>
-                            <span className="rounded-full border border-status-warning/35 bg-status-warning/10 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
-                              {queue.unreadCount > 0
-                                ? `${queue.unreadCount} unread in label`
-                                : "last 5 emails"}
-                            </span>
-                          </div>
-                        </div>
-                        <Link
-                          href="/clients"
-                          className="text-sm text-text-secondary hover:text-brand-teal"
-                        >
-                          Manage labels →
-                        </Link>
-                      </div>
+                  clientEmailQueues.slice(0, 3).map((queue) => {
+                    const visibleEmails = queue.emails
+                      .filter((email) => !dismissedEmailIds.includes(email.id))
+                      .slice(0, 5);
 
-                      <div className="mt-4 space-y-3">
-                        {queue.emails.length === 0 ? (
-                          <div className="rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
-                            The label is live, but Gmail is not returning any messages for it yet.
+                    return (
+                      <div
+                        key={queue.clientId}
+                        className="brand-surface-soft rounded-2xl border p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-base font-semibold text-white">
+                                {queue.clientName}
+                              </p>
+                              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
+                                {queue.gmailLabel}
+                              </span>
+                              <span className="rounded-full border border-status-warning/35 bg-status-warning/10 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
+                                {queue.unreadCount > 0
+                                  ? `${queue.unreadCount} unread in label`
+                                  : "last 5 emails"}
+                              </span>
+                            </div>
                           </div>
-                        ) : (
-                          queue.emails.slice(0, 5).map((email) => (
-                            <div
-                              key={email.id}
-                              className="rounded-2xl border border-white/10 bg-[#0b1126] p-4"
-                            >
-                              <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-sm font-medium text-white">
-                                    {email.subject}
-                                  </p>
-                                  <p className="mt-1 text-sm text-text-secondary">
-                                    {email.from}
+                          <Link
+                            href="/clients"
+                            className="text-sm text-text-secondary hover:text-brand-teal"
+                          >
+                            Manage labels →
+                          </Link>
+                        </div>
+
+                        <div className="mt-4 space-y-3">
+                          {visibleEmails.length === 0 ? (
+                            <div className="rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+                              {queue.emails.length === 0
+                                ? "The label is live, but Gmail is not returning any messages for it yet."
+                                : "No more recent emails are showing in this label right now."}
+                            </div>
+                          ) : (
+                            visibleEmails.map((email) => (
+                              <div
+                                key={email.id}
+                                className="rounded-2xl border border-white/10 bg-[#0b1126] p-4"
+                              >
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium text-white">
+                                      {email.subject}
+                                    </p>
+                                    <p className="mt-1 text-sm text-text-secondary">
+                                      {email.from}
+                                    </p>
+                                  </div>
+                                  <p className="text-xs text-text-muted">
+                                    {formatRelativeTime(email.date)}
                                   </p>
                                 </div>
-                                <p className="text-xs text-text-muted">
-                                  {formatRelativeTime(email.date)}
+                                <p className="mt-3 text-sm leading-6 text-text-secondary">
+                                  {email.snippet || "No preview available yet."}
                                 </p>
+                                <div className="mt-4 flex flex-wrap gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      void createTaskFromEmail(queue, email)
+                                    }
+                                    disabled={creatingTodoEmailId === email.id}
+                                    className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
+                                  >
+                                    {creatingTodoEmailId === email.id
+                                      ? "Creating..."
+                                      : "Create task"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => dismissClientEmail(email.id)}
+                                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20"
+                                  >
+                                    Remove
+                                  </button>
+                                  <a
+                                    href={email.gmailUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20"
+                                  >
+                                    Open in Gmail
+                                  </a>
+                                </div>
                               </div>
-                              <p className="mt-3 text-sm leading-6 text-text-secondary">
-                                {email.snippet || "No preview available yet."}
-                              </p>
-                              <div className="mt-4 flex flex-wrap gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void createTaskFromEmail(queue, email)
-                                  }
-                                  disabled={creatingTodoEmailId === email.id}
-                                  className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
-                                >
-                                  {creatingTodoEmailId === email.id
-                                    ? "Creating..."
-                                    : "Create task"}
-                                </button>
-                                <a
-                                  href={email.gmailUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20"
-                                >
-                                  Open in Gmail
-                                </a>
-                              </div>
-                            </div>
-                          ))
-                        )}
+                            ))
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

@@ -15566,12 +15566,62 @@ type GmailMessageSummary = {
   gmailUrl: string;
 };
 
+type GmailLabelSummary = {
+  id: string;
+  name: string;
+};
+
 function buildUnreadLabelQuery(label: string) {
   return `label:"${label.replace(/"/g, "").trim()}" is:unread`;
 }
 
 function buildRecentLabelQuery(label: string) {
   return `label:"${label.replace(/"/g, "").trim()}"`;
+}
+
+function normalizeGmailLabelName(label: string) {
+  return label.trim().toLowerCase();
+}
+
+async function loadWorkspaceGmailLabels(accessToken: string) {
+  const labelsResponse = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    }
+  );
+
+  const labelsBody = (await labelsResponse.json().catch(() => null)) as {
+    labels?: Array<{ id?: string; name?: string }>;
+    error?: { message?: string };
+  } | null;
+
+  if (!labelsResponse.ok) {
+    throw new Error(labelsBody?.error?.message || "Failed to load Gmail labels");
+  }
+
+  return (labelsBody?.labels ?? [])
+    .filter(
+      (label): label is { id: string; name: string } =>
+        typeof label.id === "string" && typeof label.name === "string"
+    )
+    .map((label) => ({
+      id: label.id,
+      name: label.name
+    })) satisfies GmailLabelSummary[];
+}
+
+function resolveWorkspaceGmailLabelId(
+  labels: GmailLabelSummary[],
+  labelName: string
+) {
+  const normalizedLabelName = normalizeGmailLabelName(labelName);
+  return (
+    labels.find((label) => normalizeGmailLabelName(label.name) === normalizedLabelName)
+      ?.id ?? null
+  );
 }
 
 async function loadGmailMessagesMatchingQuery(
@@ -15600,6 +15650,99 @@ async function loadGmailMessagesMatchingQuery(
   if (!messagesResponse.ok) {
     throw new Error(
       messagesBody?.error?.message || "Failed to load Gmail messages"
+    );
+  }
+
+  return Promise.all(
+    (messagesBody?.messages ?? [])
+      .map((message) => message.id?.trim())
+      .filter((messageId): messageId is string => Boolean(messageId))
+      .map(async (messageId) => {
+        const detailParams = new URLSearchParams({
+          format: "metadata"
+        });
+        detailParams.append("metadataHeaders", "subject");
+        detailParams.append("metadataHeaders", "from");
+        detailParams.append("metadataHeaders", "date");
+
+        const detailResponse = await fetch(
+          "https://gmail.googleapis.com/gmail/v1/users/me/messages/" +
+            encodeURIComponent(messageId) +
+            `?${detailParams.toString()}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
+        );
+
+        const detailBody = (await detailResponse.json().catch(() => null)) as {
+          id?: string;
+          snippet?: string;
+          payload?: {
+            headers?: Array<{ name?: string; value?: string }>;
+          };
+          error?: { message?: string };
+        } | null;
+
+        if (!detailResponse.ok || !detailBody?.id) {
+          throw new Error(
+            detailBody?.error?.message || "Failed to load Gmail message detail"
+          );
+        }
+
+        const headers = new Map(
+          (detailBody.payload?.headers ?? [])
+            .filter(
+              (header): header is { name: string; value: string } =>
+                typeof header.name === "string" &&
+                typeof header.value === "string"
+            )
+            .map((header) => [header.name.toLowerCase(), header.value])
+        );
+
+        return {
+          id: detailBody.id,
+          subject: headers.get("subject") ?? "(No subject)",
+          from: headers.get("from") ?? "",
+          date: headers.get("date") ?? "",
+          snippet: detailBody.snippet ?? "",
+          gmailUrl: `https://mail.google.com/mail/u/0/#inbox/${detailBody.id}`
+        } satisfies GmailMessageSummary;
+      })
+  );
+}
+
+async function loadGmailMessagesForLabel(
+  accessToken: string,
+  labelId: string,
+  options?: {
+    maxResults?: number;
+    unreadOnly?: boolean;
+  }
+) {
+  const messagesResponse = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages?" +
+      new URLSearchParams({
+        labelIds: labelId,
+        maxResults: String(options?.maxResults ?? 20),
+        ...(options?.unreadOnly ? { q: "is:unread" } : {})
+      }).toString(),
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    }
+  );
+
+  const messagesBody = (await messagesResponse.json().catch(() => null)) as {
+    messages?: Array<{ id?: string }>;
+    error?: { message?: string };
+  } | null;
+
+  if (!messagesResponse.ok) {
+    throw new Error(
+      messagesBody?.error?.message || "Failed to load Gmail label messages"
     );
   }
 
@@ -15726,20 +15869,33 @@ export async function getWorkspaceClientEmailQueues() {
   });
 
   const labeledClients = clients.filter((client) => client.gmailLabel?.trim().length);
+  const gmailLabels = await loadWorkspaceGmailLabels(
+    refreshedConnection.accessToken as string
+  );
 
   const queues = await Promise.all(
     labeledClients.map(async (client) => {
       const gmailLabel = client.gmailLabel?.trim() ?? "";
-      const unreadEmails = await loadGmailMessagesMatchingQuery(
-        refreshedConnection.accessToken as string,
-        buildUnreadLabelQuery(gmailLabel),
-        10
-      );
-      const emails = await loadGmailMessagesMatchingQuery(
-        refreshedConnection.accessToken as string,
-        buildRecentLabelQuery(gmailLabel),
-        5
-      );
+      const gmailLabelId = resolveWorkspaceGmailLabelId(gmailLabels, gmailLabel);
+      const unreadEmails = gmailLabelId
+        ? await loadGmailMessagesForLabel(
+            refreshedConnection.accessToken as string,
+            gmailLabelId,
+            {
+              maxResults: 20,
+              unreadOnly: true
+            }
+          )
+        : [];
+      const emails = gmailLabelId
+        ? await loadGmailMessagesForLabel(
+            refreshedConnection.accessToken as string,
+            gmailLabelId,
+            {
+              maxResults: 12
+            }
+          )
+        : [];
 
       return {
         clientId: client.id,
