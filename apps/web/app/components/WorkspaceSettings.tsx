@@ -12,6 +12,7 @@ interface CalendarStatusState {
   configured: boolean;
   connected: boolean;
   connectedEmail?: string | null;
+  requiresReconnect?: boolean;
 }
 
 interface CalendarConnectionState {
@@ -678,7 +679,8 @@ export default function WorkspaceSettings() {
           <div>
             <h2 className="text-xl font-semibold text-white">Gmail</h2>
             <p className="mt-2 text-sm text-text-secondary">
-              Connect the mailbox used for action-required email triage.
+              Connect the mailbox used for client email watchlists and
+              action-required triage.
             </p>
           </div>
           {gmail?.connected ? (
@@ -733,9 +735,10 @@ export default function WorkspaceSettings() {
             className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
           />
           <p className="mt-2 text-xs text-text-secondary">
-            Create a label in Gmail, drag emails there, and we&apos;ll only show
-            those. Leave blank to show unread Primary emails from the last 14
-            days.
+            Create a label in Gmail, let your mailbox filters move client emails
+            there, then save the same label on the client record. DeployOS will
+            only show unread emails from those client labels here. Leave blank
+            to show unread Primary emails from the last 14 days.
           </p>
           {savingGmailFilter ? (
             <p className="mt-2 text-xs text-text-secondary">Saving filter...</p>
@@ -753,7 +756,8 @@ export default function WorkspaceSettings() {
               Google Calendar
             </h2>
             <p className="mt-2 text-sm text-text-secondary">
-              Connect the shared calendar feed used by the Command Centre.
+              Connect the shared calendar feed used by the Command Centre and
+              the private Google Tasks list used for your personal to-dos.
             </p>
           </div>
           {calendarStatus?.connected ? (
@@ -768,6 +772,10 @@ export default function WorkspaceSettings() {
             ? `Connected as ${calendarStatus.connectedEmail ?? "your Google account"}.`
             : "No Google Calendar connection configured yet."}
         </p>
+
+        {calendarStatus?.requiresReconnect ? (
+          <InlineWarning message="Reconnect your Google account to grant Google Tasks access for the private task list in Command Centre." />
+        ) : null}
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <label className="block">

@@ -44,6 +44,23 @@ interface UsersResponse {
   users?: Array<{ name: string; email: string; isActive?: boolean }>;
 }
 
+interface AuthSessionResponse {
+  authenticated?: boolean;
+  user?: {
+    id?: string;
+    name?: string;
+    email?: string;
+  } | null;
+}
+
+interface GmailConnectionResponse {
+  connection?: {
+    isConnected?: boolean;
+    connectedEmail?: string | null;
+    gmailFilterLabel?: string | null;
+  } | null;
+}
+
 interface ClientEmailItem {
   id: string;
   subject: string;
@@ -65,6 +82,25 @@ interface ClientEmailQueue {
     updatedAt: string;
   }>;
   emails: ClientEmailItem[];
+}
+
+interface PrivateTaskItem {
+  id: string;
+  title: string;
+  notes?: string;
+  completed: boolean;
+  due?: string;
+  completedAt?: string;
+  updatedAt?: string;
+}
+
+interface PrivateTasksResponse {
+  configured?: boolean;
+  connected?: boolean;
+  requiresReconnect?: boolean;
+  connectedEmail?: string | null;
+  taskListTitle?: string;
+  tasks?: PrivateTaskItem[];
 }
 
 function formatDateHeading(date = new Date()) {
@@ -181,17 +217,44 @@ export default function MulooCommandCentre() {
   const [clientEmailQueues, setClientEmailQueues] = useState<ClientEmailQueue[]>(
     []
   );
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [gmailConnectedEmail, setGmailConnectedEmail] = useState<string | null>(
+    null
+  );
   const [creatingTodoEmailId, setCreatingTodoEmailId] = useState<string | null>(
     null
   );
   const [emailFeedback, setEmailFeedback] = useState<string | null>(null);
+  const [privateTasks, setPrivateTasks] = useState<PrivateTaskItem[]>([]);
+  const [privateTasksConnected, setPrivateTasksConnected] = useState(false);
+  const [privateTasksConfigured, setPrivateTasksConfigured] = useState(false);
+  const [privateTasksRequiresReconnect, setPrivateTasksRequiresReconnect] =
+    useState(false);
+  const [privateTasksConnectedEmail, setPrivateTasksConnectedEmail] = useState<
+    string | null
+  >(null);
+  const [privateTaskListTitle, setPrivateTaskListTitle] = useState(
+    "Muloo DeployOS Private"
+  );
+  const [privateTaskTitle, setPrivateTaskTitle] = useState("");
+  const [privateTaskNotes, setPrivateTaskNotes] = useState("");
+  const [privateTaskFeedback, setPrivateTaskFeedback] = useState<string | null>(
+    null
+  );
+  const [savingPrivateTask, setSavingPrivateTask] = useState(false);
+  const [updatingPrivateTaskId, setUpdatingPrivateTaskId] = useState<
+    string | null
+  >(null);
+  const [deletingPrivateTaskId, setDeletingPrivateTaskId] = useState<
+    string | null
+  >(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadCommandCentre() {
       try {
         const [
-          usersResponse,
+          sessionResponse,
           activeProjectsCountResponse,
           awaitingClientCountResponse,
           overdueTasksCountResponse,
@@ -199,9 +262,11 @@ export default function MulooCommandCentre() {
           needsAttentionResponse,
           activeProjectsResponse,
           recentRunsResponse,
-          clientEmailQueuesResponse
+          clientEmailQueuesResponse,
+          gmailConnectionResponse,
+          privateTasksResponse
         ] = await Promise.all([
-          fetch("/api/users"),
+          fetch("/api/auth/session", { credentials: "include" }),
           fetch("/api/projects?status=in-flight&count=true"),
           fetch("/api/projects?status=awaiting_client&count=true"),
           fetch("/api/tasks?overdue=true&count=true"),
@@ -209,13 +274,28 @@ export default function MulooCommandCentre() {
           fetch("/api/projects/needs-attention"),
           fetch("/api/projects?status=active&limit=6"),
           fetch("/api/execution-jobs?limit=5"),
-          fetch("/api/workspace/emails/client-queues")
+          fetch("/api/workspace/emails/client-queues"),
+          fetch("/api/email-oauth/google"),
+          fetch("/api/workspace/private-tasks")
         ]);
 
-        const usersBody = (await usersResponse.json().catch(() => null)) as UsersResponse | null;
-        const firstActiveUser = usersBody?.users?.find((user) => user.isActive !== false);
-        if (firstActiveUser?.name?.trim()) {
-          setName(firstActiveUser.name.split(" ")[0] ?? firstActiveUser.name);
+        const sessionBody = (await sessionResponse.json().catch(() => null)) as
+          | AuthSessionResponse
+          | null;
+        const sessionName = sessionBody?.user?.name?.trim();
+        if (sessionName) {
+          setName(sessionName.split(" ")[0] ?? sessionName);
+        } else {
+          const usersFallbackResponse = await fetch("/api/users");
+          const usersBody = (await usersFallbackResponse
+            .json()
+            .catch(() => null)) as UsersResponse | null;
+          const firstActiveUser = usersBody?.users?.find(
+            (user) => user.isActive !== false
+          );
+          if (firstActiveUser?.name?.trim()) {
+            setName(firstActiveUser.name.split(" ")[0] ?? firstActiveUser.name);
+          }
         }
 
         const activeProjectsCountBody =
@@ -240,6 +320,12 @@ export default function MulooCommandCentre() {
         ) as
           | { queues?: ClientEmailQueue[]; connected?: boolean }
           | null;
+        const gmailConnectionBody = (
+          await gmailConnectionResponse.json().catch(() => null)
+        ) as GmailConnectionResponse | null;
+        const privateTasksBody = (
+          await privateTasksResponse.json().catch(() => null)
+        ) as PrivateTasksResponse | null;
 
         setActiveProjectsCount(activeProjectsCountBody?.count ?? 0);
         setAwaitingClientCount(awaitingClientCountBody?.count ?? 0);
@@ -249,6 +335,18 @@ export default function MulooCommandCentre() {
         setActiveProjects(activeProjectsBody?.projects ?? []);
         setRecentRuns(recentRunsBody?.runs ?? []);
         setClientEmailQueues(clientEmailQueuesBody?.queues ?? []);
+        setGmailConnected(gmailConnectionBody?.connection?.isConnected === true);
+        setGmailConnectedEmail(gmailConnectionBody?.connection?.connectedEmail ?? null);
+        setPrivateTasks(privateTasksBody?.tasks ?? []);
+        setPrivateTasksConfigured(Boolean(privateTasksBody?.configured));
+        setPrivateTasksConnected(privateTasksBody?.connected === true);
+        setPrivateTasksRequiresReconnect(
+          privateTasksBody?.requiresReconnect === true
+        );
+        setPrivateTasksConnectedEmail(privateTasksBody?.connectedEmail ?? null);
+        setPrivateTaskListTitle(
+          privateTasksBody?.taskListTitle?.trim() || "Muloo DeployOS Private"
+        );
       } finally {
         setLoading(false);
       }
@@ -264,6 +362,26 @@ export default function MulooCommandCentre() {
       dateLabel: formatDateHeading(now)
     };
   }, [name]);
+
+  async function loadPrivateTasks() {
+    const response = await fetch("/api/workspace/private-tasks");
+    const body = (await response.json().catch(() => null)) as
+      | PrivateTasksResponse
+      | null;
+
+    if (!response.ok) {
+      throw new Error("Failed to load private tasks");
+    }
+
+    setPrivateTasks(body?.tasks ?? []);
+    setPrivateTasksConfigured(Boolean(body?.configured));
+    setPrivateTasksConnected(body?.connected === true);
+    setPrivateTasksRequiresReconnect(body?.requiresReconnect === true);
+    setPrivateTasksConnectedEmail(body?.connectedEmail ?? null);
+    setPrivateTaskListTitle(
+      body?.taskListTitle?.trim() || "Muloo DeployOS Private"
+    );
+  }
 
   async function createTaskFromEmail(
     queue: ClientEmailQueue,
@@ -321,6 +439,125 @@ export default function MulooCommandCentre() {
     }
   }
 
+  async function createPrivateTask() {
+    const title = privateTaskTitle.trim();
+    const notes = privateTaskNotes.trim();
+
+    if (!title) {
+      setPrivateTaskFeedback("Give the private task a title first.");
+      return;
+    }
+
+    setSavingPrivateTask(true);
+    setPrivateTaskFeedback(null);
+
+    try {
+      const response = await fetch("/api/workspace/private-tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          title,
+          notes
+        })
+      });
+
+      const body = (await response.json().catch(() => null)) as
+        | PrivateTaskItem
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          body && "error" in body && typeof body.error === "string"
+            ? body.error
+            : "Failed to create private task"
+        );
+      }
+
+      setPrivateTaskTitle("");
+      setPrivateTaskNotes("");
+      setPrivateTaskFeedback("Private task added to Google Tasks.");
+      await loadPrivateTasks();
+    } catch (error) {
+      setPrivateTaskFeedback(
+        error instanceof Error ? error.message : "Failed to create private task"
+      );
+    } finally {
+      setSavingPrivateTask(false);
+    }
+  }
+
+  async function togglePrivateTask(task: PrivateTaskItem) {
+    setUpdatingPrivateTaskId(task.id);
+    setPrivateTaskFeedback(null);
+
+    try {
+      const response = await fetch(`/api/workspace/private-tasks/${task.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          completed: !task.completed
+        })
+      });
+
+      const body = (await response.json().catch(() => null)) as
+        | PrivateTaskItem
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          body && "error" in body && typeof body.error === "string"
+            ? body.error
+            : "Failed to update private task"
+        );
+      }
+
+      await loadPrivateTasks();
+    } catch (error) {
+      setPrivateTaskFeedback(
+        error instanceof Error ? error.message : "Failed to update private task"
+      );
+    } finally {
+      setUpdatingPrivateTaskId(null);
+    }
+  }
+
+  async function removePrivateTask(taskId: string) {
+    setDeletingPrivateTaskId(taskId);
+    setPrivateTaskFeedback(null);
+
+    try {
+      const response = await fetch(`/api/workspace/private-tasks/${taskId}`, {
+        method: "DELETE"
+      });
+
+      const body = (await response.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          typeof body?.error === "string"
+            ? body.error
+            : "Failed to delete private task"
+        );
+      }
+
+      await loadPrivateTasks();
+    } catch (error) {
+      setPrivateTaskFeedback(
+        error instanceof Error ? error.message : "Failed to delete private task"
+      );
+    } finally {
+      setDeletingPrivateTaskId(null);
+    }
+  }
+
   return (
     <AppShell>
       <div className="brand-page min-h-screen p-4 text-white sm:p-6 lg:p-8">
@@ -374,6 +611,12 @@ export default function MulooCommandCentre() {
                   mail quickly, and turn an email into a task without leaving
                   DeployOS.
                 </p>
+                <p className="mt-3 text-sm text-text-secondary">
+                  How it works: connect Gmail in Settings, add the matching
+                  Gmail label to each client record, and keep your Gmail filters
+                  moving mail into those labels. DeployOS will only surface
+                  unread mail from those client queues here.
+                </p>
               </div>
               <Link
                 href="/clients"
@@ -396,9 +639,12 @@ export default function MulooCommandCentre() {
                 </div>
               ) : clientEmailQueues.length === 0 ? (
                 <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
-                  No unread client-labeled Gmail queues are visible yet. Add a
-                  Gmail label to a client record and keep using your mailbox
-                  filters to feed it.
+                  {!gmailConnected
+                    ? "Connect Gmail in Settings first, then add a Gmail label to a client record and let your mailbox filters move that client mail into the label."
+                    : "No unread client-labeled Gmail queues are visible yet. Add a Gmail label to a client record and keep using your mailbox filters to feed it."}
+                  {gmailConnectedEmail
+                    ? ` Connected as ${gmailConnectedEmail}.`
+                    : ""}
                 </div>
               ) : (
                 clientEmailQueues.map((queue) => (
@@ -545,7 +791,7 @@ export default function MulooCommandCentre() {
             </div>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-2">
+          <section className="grid gap-6 xl:grid-cols-3">
             <div className="brand-surface rounded-3xl border p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -636,6 +882,147 @@ export default function MulooCommandCentre() {
                     </div>
                   </Link>
                 ))}
+              </div>
+            </div>
+
+            <div className="brand-surface rounded-3xl border p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                    Private Tasks
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">
+                    Personal Google Tasks
+                  </h2>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    Keep a private to-do list for your own follow-ups, separate
+                    from the PMO board.
+                  </p>
+                </div>
+                <Link
+                  href="/settings"
+                  className="text-sm text-text-secondary hover:text-brand-teal"
+                >
+                  Google setup →
+                </Link>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text-secondary">
+                {privateTasksRequiresReconnect
+                  ? "Reconnect Google Calendar in Settings to grant Google Tasks access for your private list."
+                  : privateTasksConnected
+                    ? `Synced with ${privateTaskListTitle} in Google Tasks${privateTasksConnectedEmail ? ` as ${privateTasksConnectedEmail}` : ""}.`
+                    : privateTasksConfigured
+                      ? "Connect your Google workspace in Settings to sync a private task list."
+                      : "Add Google OAuth credentials in Settings, then connect your Google account to use private tasks."}
+              </div>
+
+              {privateTaskFeedback ? (
+                <div className="mt-4 rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-3 text-sm text-white">
+                  {privateTaskFeedback}
+                </div>
+              ) : null}
+
+              <div className="mt-5 space-y-3">
+                <input
+                  type="text"
+                  value={privateTaskTitle}
+                  onChange={(event) => setPrivateTaskTitle(event.target.value)}
+                  placeholder="Add a private task"
+                  className="block w-full rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+                />
+                <textarea
+                  value={privateTaskNotes}
+                  onChange={(event) => setPrivateTaskNotes(event.target.value)}
+                  placeholder="Optional notes"
+                  rows={3}
+                  className="block w-full rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+                />
+                <button
+                  type="button"
+                  onClick={() => void createPrivateTask()}
+                  disabled={
+                    savingPrivateTask ||
+                    !privateTasksConnected ||
+                    privateTasksRequiresReconnect
+                  }
+                  className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
+                >
+                  {savingPrivateTask ? "Adding..." : "Add private task"}
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {loading ? (
+                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                    Loading private tasks...
+                  </div>
+                ) : privateTasks.length === 0 ? (
+                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                    No private tasks yet. Add one here and it will stay out of
+                    the PMO board.
+                  </div>
+                ) : (
+                  privateTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="brand-surface-soft rounded-2xl border p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <button
+                          type="button"
+                          onClick={() => void togglePrivateTask(task)}
+                          disabled={updatingPrivateTaskId === task.id}
+                          className={`mt-0.5 h-5 w-5 rounded-full border transition ${
+                            task.completed
+                              ? "border-brand-teal bg-brand-teal"
+                              : "border-white/20 bg-transparent"
+                          }`}
+                          aria-label={
+                            task.completed
+                              ? "Mark task as incomplete"
+                              : "Mark task as complete"
+                          }
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`text-sm font-medium ${
+                              task.completed
+                                ? "text-text-muted line-through"
+                                : "text-white"
+                            }`}
+                          >
+                            {task.title}
+                          </p>
+                          {task.notes ? (
+                            <p className="mt-1 text-sm text-text-secondary">
+                              {task.notes}
+                            </p>
+                          ) : null}
+                          <p className="mt-2 text-xs text-text-muted">
+                            {task.completed
+                              ? `Completed ${formatRelativeTime(
+                                  task.completedAt ?? task.updatedAt ?? new Date().toISOString()
+                                )}`
+                              : `Updated ${formatRelativeTime(
+                                  task.updatedAt ?? new Date().toISOString()
+                                )}`}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void removePrivateTask(task.id)}
+                          disabled={deletingPrivateTaskId === task.id}
+                          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-text-secondary transition hover:border-white/20 hover:text-white disabled:opacity-60"
+                        >
+                          {deletingPrivateTaskId === task.id
+                            ? "Removing..."
+                            : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </section>

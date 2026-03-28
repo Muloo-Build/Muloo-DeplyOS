@@ -75,6 +75,7 @@ import {
   completeWorkspaceGoogleEmailOAuthCallback,
   completeWorkspaceXeroOAuthCallback,
   completeHubSpotOAuthCallback,
+  createWorkspacePrivateTask,
   createDiscoveryEvidence,
   disconnectWorkspaceGoogleEmailOAuthConnection,
   disconnectWorkspaceCalendarConnection,
@@ -90,6 +91,7 @@ import {
   industryOptions,
   isAuthenticated,
   isUniqueConstraintError,
+  loadAuthenticatedWorkspaceSession,
   loadAgentRuns,
   loadAgentCatalog,
   loadAiRouting,
@@ -105,6 +107,7 @@ import {
   loadWorkspaceEmailOAuthConnection,
   loadWorkspaceCalendarConnection,
   loadWorkspaceEmailSettings,
+  loadWorkspacePrivateTasks,
   loadWorkspaceTodos,
   loadWorkspaceUsers,
   markAllProjectMessagesSeenByInternal,
@@ -128,8 +131,10 @@ import {
   updateDeliveryTemplate,
   deleteProjectContext,
   deleteWorkspaceApiKey,
+  deleteWorkspacePrivateTask,
   updateWorkspaceEmailOAuthConnection,
   updateWorkspaceCalendarConnection,
+  updateWorkspacePrivateTask,
   updateWorkspaceEmailSettings,
   updateProductCatalogItem,
   updateWorkspaceProviderConnection,
@@ -807,9 +812,7 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/client/*", clientAuth);
 
   app.all("/api/auth/session", async (c) =>
-    c.json({
-      authenticated: await isAuthenticated(c.env.incoming)
-    })
+    c.json(await loadAuthenticatedWorkspaceSession(c.env.incoming))
   );
 
   app.post("/api/auth/login", async (c) => {
@@ -3455,6 +3458,62 @@ export function createApiApp(config: BaseConfig) {
             error instanceof Error
               ? error.message
               : "Failed to create todo from email"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/workspace/private-tasks", async (c) =>
+    c.json(await loadWorkspacePrivateTasks())
+  );
+
+  app.post("/api/workspace/private-tasks", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      return c.json(await createWorkspacePrivateTask(body), 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to create private task"
+        },
+        400
+      );
+    }
+  });
+
+  app.patch("/api/workspace/private-tasks/:taskId", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      return c.json(
+        await updateWorkspacePrivateTask(c.req.param("taskId"), body)
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update private task"
+        },
+        400
+      );
+    }
+  });
+
+  app.delete("/api/workspace/private-tasks/:taskId", async (c) => {
+    try {
+      return c.json(await deleteWorkspacePrivateTask(c.req.param("taskId")));
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to delete private task"
         },
         400
       );

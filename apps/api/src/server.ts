@@ -31,6 +31,8 @@ const defaultSimpleAuthUsername =
   process.env.MULOO_DEV_BYPASS === "true" ? "jarrud" : "";
 const defaultSimpleAuthPassword =
   process.env.MULOO_DEV_BYPASS === "true" ? "deployos" : "";
+const googleTasksScope = "https://www.googleapis.com/auth/tasks";
+const workspacePrivateTaskListTitle = "Muloo DeployOS Private";
 const validEngagementTypes = [
   "AUDIT",
   "IMPLEMENTATION",
@@ -2896,6 +2898,52 @@ export async function isAuthenticated(request: http.IncomingMessage) {
     .catch(() => null);
 
   return Boolean(workspaceUser?.isActive);
+}
+
+export async function loadAuthenticatedWorkspaceSession(
+  request: http.IncomingMessage
+) {
+  const userId = getAuthenticatedWorkspaceUserId(request);
+
+  if (userId) {
+    const user = await prisma.workspaceUser.findUnique({
+      where: { id: userId }
+    });
+
+    if (user?.isActive) {
+      return {
+        authenticated: true as const,
+        user: serializeWorkspaceUser(user)
+      };
+    }
+  }
+
+  const credentials = resolveSimpleAuthCredentials();
+  if (
+    credentials &&
+    parseCookies(request)[authCookieName] ===
+      createSimpleAuthToken(credentials.username)
+  ) {
+    return {
+      authenticated: true as const,
+      user: {
+        id: "simple-auth",
+        name: credentials.username,
+        email: "",
+        hasPassword: false,
+        role: "Administrator",
+        isActive: true,
+        sortOrder: 0,
+        createdAt: new Date(0).toISOString(),
+        updatedAt: new Date(0).toISOString()
+      }
+    };
+  }
+
+  return {
+    authenticated: false as const,
+    user: null
+  };
 }
 
 export async function resolveInternalActor(
@@ -15694,6 +15742,7 @@ export async function loadWorkspaceCalendarConnection() {
       label: "Google Calendar",
       scopes: [
         "https://www.googleapis.com/auth/calendar.readonly",
+        googleTasksScope,
         "openid",
         "email",
         "profile"
@@ -15785,6 +15834,7 @@ export async function updateWorkspaceCalendarConnection(value: {
       label: "Google Calendar",
       scopes: [
         "https://www.googleapis.com/auth/calendar.readonly",
+        googleTasksScope,
         "openid",
         "email",
         "profile"
@@ -15839,12 +15889,13 @@ export async function updateWorkspaceCalendarConnection(value: {
       normalizedScopes,
       "https://www.googleapis.com/auth/calendar.readonly"
     );
+    const nextScopesWithTasks = ensureScope(nextScopes, googleTasksScope);
 
-    if (nextScopes.length === 0) {
+    if (nextScopesWithTasks.length === 0) {
       throw new Error("At least one Calendar OAuth scope is required");
     }
 
-    updateData.scopes = nextScopes;
+    updateData.scopes = nextScopesWithTasks;
   }
 
   const updatedConnection = await prisma.workspaceCalendarConnection.update({
@@ -15870,9 +15921,16 @@ async function resolveWorkspaceCalendarOauthConfig() {
     connection?.redirectUri?.trim() || resolveWorkspaceCalendarRedirectUri();
   const scopes =
     connection?.scopes.length && connection.scopes.some(Boolean)
-      ? ensureScope(connection.scopes, "https://www.googleapis.com/auth/calendar.readonly")
+      ? ensureScope(
+          ensureScope(
+            connection.scopes,
+            "https://www.googleapis.com/auth/calendar.readonly"
+          ),
+          googleTasksScope
+        )
       : [
           "https://www.googleapis.com/auth/calendar.readonly",
+          googleTasksScope,
           "openid",
           "email",
           "profile"
@@ -16046,10 +16104,23 @@ export async function completeWorkspaceGoogleLoginCallback(value: {
     );
   }
 
+  const connectedName = profileBody?.name?.trim() || workspaceUser.name;
+  const refreshedWorkspaceUser =
+    connectedName && connectedName !== workspaceUser.name
+      ? await prisma.workspaceUser.update({
+          where: { id: workspaceUser.id },
+          data: {
+            name: connectedName
+          }
+        })
+      : await prisma.workspaceUser.findUniqueOrThrow({
+          where: { id: workspaceUser.id }
+        });
+
   return {
-    workspaceUser,
+    workspaceUser: refreshedWorkspaceUser,
     connectedEmail: email,
-    connectedName: profileBody?.name?.trim() || workspaceUser.name
+    connectedName
   };
 }
 
@@ -16297,8 +16368,381 @@ export async function getWorkspaceCalendarStatus() {
   return {
     configured: Boolean(clientId && clientSecret),
     connected: Boolean(connection?.enabled && connection.connectedEmail),
-    connectedEmail: connection?.connectedEmail ?? null
+    connectedEmail: connection?.connectedEmail ?? null,
+    requiresReconnect: Boolean(
+      connection?.enabled &&
+        connection.connectedEmail &&
+        !connection.scopes.includes(googleTasksScope)
+    )
   };
+}
+
+type GoogleTaskRecord = {
+  id: string;
+  title: string;
+  notes?: string;
+  completed: boolean;
+  due?: string;
+  completedAt?: string;
+  updatedAt?: string;
+};
+
+async function getWorkspaceGoogleTasksConnection() {
+  const { connection, clientId, clientSecret } =
+    await resolveWorkspaceCalendarOauthConfig();
+
+  if (!clientId || !clientSecret) {
+    return {
+      configured: false as const,
+      connected: false as const,
+      requiresReconnect: false as const,
+      connectedEmail: null as string | null,
+      accessToken: null as string | null
+    };
+  }
+
+  if (!connection?.enabled || !connection.connectedEmail) {
+    return {
+      configured: true as const,
+      connected: false as const,
+      requiresReconnect: false as const,
+      connectedEmail: null as string | null,
+      accessToken: null as string | null
+    };
+  }
+
+  if (!connection.scopes.includes(googleTasksScope)) {
+    return {
+      configured: true as const,
+      connected: false as const,
+      requiresReconnect: true as const,
+      connectedEmail: connection.connectedEmail,
+      accessToken: null as string | null
+    };
+  }
+
+  const refreshedConnection = await refreshWorkspaceCalendarAccessTokenIfNeeded(
+    5 * 60_000
+  );
+
+  return {
+    configured: true as const,
+    connected: Boolean(refreshedConnection?.accessToken),
+    requiresReconnect: false as const,
+    connectedEmail: refreshedConnection?.connectedEmail ?? null,
+    accessToken: refreshedConnection?.accessToken ?? null
+  };
+}
+
+async function getWorkspacePrivateTaskListId(accessToken: string) {
+  const taskListsResponse = await fetch(
+    "https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=100",
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    }
+  );
+
+  const taskListsBody = (await taskListsResponse.json().catch(() => null)) as {
+    items?: Array<{ id?: string; title?: string }>;
+    error?: { message?: string };
+  } | null;
+
+  if (!taskListsResponse.ok) {
+    throw new Error(
+      taskListsBody?.error?.message || "Failed to load Google Task lists"
+    );
+  }
+
+  const existingTaskList = (taskListsBody?.items ?? []).find(
+    (taskList) =>
+      typeof taskList.id === "string" &&
+      typeof taskList.title === "string" &&
+      taskList.title.trim().toLowerCase() ===
+        workspacePrivateTaskListTitle.toLowerCase()
+  );
+
+  if (existingTaskList?.id) {
+    return existingTaskList.id;
+  }
+
+  const createTaskListResponse = await fetch(
+    "https://tasks.googleapis.com/tasks/v1/users/@me/lists",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        title: workspacePrivateTaskListTitle
+      })
+    }
+  );
+
+  const createTaskListBody = (await createTaskListResponse
+    .json()
+    .catch(() => null)) as {
+    id?: string;
+    error?: { message?: string };
+  } | null;
+
+  if (!createTaskListResponse.ok || !createTaskListBody?.id) {
+    throw new Error(
+      createTaskListBody?.error?.message ||
+        "Failed to create a private Google Task list"
+    );
+  }
+
+  return createTaskListBody.id;
+}
+
+function serializeGoogleTaskRecord(value: {
+  id?: string;
+  title?: string;
+  notes?: string;
+  status?: string;
+  due?: string;
+  completed?: string;
+  updated?: string;
+}) {
+  if (typeof value.id !== "string" || !value.id.trim()) {
+    return null;
+  }
+
+  return {
+    id: value.id,
+    title:
+      typeof value.title === "string" && value.title.trim()
+        ? value.title.trim()
+        : "Untitled task",
+    ...(typeof value.notes === "string" && value.notes.trim()
+      ? { notes: value.notes.trim() }
+      : {}),
+    completed: value.status === "completed",
+    ...(typeof value.due === "string" ? { due: value.due } : {}),
+    ...(typeof value.completed === "string"
+      ? { completedAt: value.completed }
+      : {}),
+    ...(typeof value.updated === "string" ? { updatedAt: value.updated } : {})
+  } satisfies GoogleTaskRecord;
+}
+
+export async function loadWorkspacePrivateTasks() {
+  const connection = await getWorkspaceGoogleTasksConnection();
+
+  if (!connection.connected || !connection.accessToken) {
+    return {
+      configured: connection.configured,
+      connected: false as const,
+      requiresReconnect: connection.requiresReconnect,
+      connectedEmail: connection.connectedEmail,
+      taskListTitle: workspacePrivateTaskListTitle,
+      tasks: [] as GoogleTaskRecord[]
+    };
+  }
+
+  const taskListId = await getWorkspacePrivateTaskListId(connection.accessToken);
+  const tasksResponse = await fetch(
+    `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(
+      taskListId
+    )}/tasks?showCompleted=true&showHidden=false&maxResults=50`,
+    {
+      headers: {
+        Authorization: `Bearer ${connection.accessToken}`
+      }
+    }
+  );
+
+  const tasksBody = (await tasksResponse.json().catch(() => null)) as {
+    items?: Array<{
+      id?: string;
+      title?: string;
+      notes?: string;
+      status?: string;
+      due?: string;
+      completed?: string;
+      updated?: string;
+    }>;
+    error?: { message?: string };
+  } | null;
+
+  if (!tasksResponse.ok) {
+    throw new Error(tasksBody?.error?.message || "Failed to load Google Tasks");
+  }
+
+  const tasks = (tasksBody?.items ?? [])
+    .map((task) => serializeGoogleTaskRecord(task))
+    .filter((task): task is GoogleTaskRecord => Boolean(task))
+    .sort((left, right) => {
+      if (left.completed !== right.completed) {
+        return left.completed ? 1 : -1;
+      }
+
+      return (
+        new Date(right.updatedAt ?? 0).getTime() -
+        new Date(left.updatedAt ?? 0).getTime()
+      );
+    });
+
+  return {
+    configured: true as const,
+    connected: true as const,
+    requiresReconnect: false as const,
+    connectedEmail: connection.connectedEmail,
+    taskListTitle: workspacePrivateTaskListTitle,
+    tasks
+  };
+}
+
+export async function createWorkspacePrivateTask(value: {
+  title?: unknown;
+  notes?: unknown;
+}) {
+  const title = typeof value.title === "string" ? value.title.trim() : "";
+  const notes = typeof value.notes === "string" ? value.notes.trim() : "";
+
+  if (!title) {
+    throw new Error("title is required");
+  }
+
+  const connection = await getWorkspaceGoogleTasksConnection();
+
+  if (!connection.connected || !connection.accessToken) {
+    throw new Error("Google Tasks is not connected");
+  }
+
+  const taskListId = await getWorkspacePrivateTaskListId(connection.accessToken);
+  const createResponse = await fetch(
+    `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(
+      taskListId
+    )}/tasks`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${connection.accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        title,
+        ...(notes ? { notes } : {})
+      })
+    }
+  );
+
+  const createBody = (await createResponse.json().catch(() => null)) as {
+    id?: string;
+    title?: string;
+    notes?: string;
+    status?: string;
+    due?: string;
+    completed?: string;
+    updated?: string;
+    error?: { message?: string };
+  } | null;
+
+  if (!createResponse.ok) {
+    throw new Error(
+      createBody?.error?.message || "Failed to create private Google Task"
+    );
+  }
+
+  const task = serializeGoogleTaskRecord(createBody ?? {});
+
+  if (!task) {
+    throw new Error("Could not parse the created Google Task");
+  }
+
+  return task;
+}
+
+export async function updateWorkspacePrivateTask(
+  taskId: string,
+  value: {
+    completed?: unknown;
+  }
+) {
+  const connection = await getWorkspaceGoogleTasksConnection();
+
+  if (!connection.connected || !connection.accessToken) {
+    throw new Error("Google Tasks is not connected");
+  }
+
+  const taskListId = await getWorkspacePrivateTaskListId(connection.accessToken);
+  const completed = Boolean(value.completed);
+  const updateResponse = await fetch(
+    `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(
+      taskListId
+    )}/tasks/${encodeURIComponent(taskId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${connection.accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        status: completed ? "completed" : "needsAction",
+        completed: completed ? new Date().toISOString() : null
+      })
+    }
+  );
+
+  const updateBody = (await updateResponse.json().catch(() => null)) as {
+    id?: string;
+    title?: string;
+    notes?: string;
+    status?: string;
+    due?: string;
+    completed?: string;
+    updated?: string;
+    error?: { message?: string };
+  } | null;
+
+  if (!updateResponse.ok) {
+    throw new Error(
+      updateBody?.error?.message || "Failed to update private Google Task"
+    );
+  }
+
+  const task = serializeGoogleTaskRecord(updateBody ?? {});
+
+  if (!task) {
+    throw new Error("Could not parse the updated Google Task");
+  }
+
+  return task;
+}
+
+export async function deleteWorkspacePrivateTask(taskId: string) {
+  const connection = await getWorkspaceGoogleTasksConnection();
+
+  if (!connection.connected || !connection.accessToken) {
+    throw new Error("Google Tasks is not connected");
+  }
+
+  const taskListId = await getWorkspacePrivateTaskListId(connection.accessToken);
+  const response = await fetch(
+    `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(
+      taskListId
+    )}/tasks/${encodeURIComponent(taskId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${connection.accessToken}`
+      }
+    }
+  );
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: { message?: string };
+    } | null;
+
+    throw new Error(body?.error?.message || "Failed to delete private task");
+  }
+
+  return { success: true as const };
 }
 
 function buildXeroBasicAuth(clientId: string, clientSecret: string) {
