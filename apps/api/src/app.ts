@@ -262,7 +262,11 @@ const activeProjectStatuses = new Set([
   "in-flight"
 ]);
 
-const taskAttentionStatuses = ["blocked", "waiting_on_client"] as const;
+const taskAttentionStatuses = [
+  "blocked",
+  "waiting_on_client",
+  "waiting_on_partner"
+] as const;
 
 function getProjectStatusMatch(
   project: {
@@ -272,7 +276,7 @@ function getProjectStatusMatch(
     updatedAt: string | Date;
     id: string;
   },
-  waitingOnClientProjectIds: Set<string>,
+  waitingOnExternalProjectIds: Set<string>,
   requestedStatus: string | null
 ) {
   if (!requestedStatus) {
@@ -284,7 +288,7 @@ function getProjectStatusMatch(
       return activeProjectStatuses.has(project.status);
     case "awaiting_client":
       return (
-        waitingOnClientProjectIds.has(project.id) ||
+        waitingOnExternalProjectIds.has(project.id) ||
         project.quoteApprovalStatus === "shared"
       );
     case "blueprint_approved_no_delivery":
@@ -1430,11 +1434,11 @@ export function createApiApp(config: BaseConfig) {
   app.get("/api/projects/needs-attention", async (c) => {
     const projects = await loadProjectsDirectory();
     const waitingTasks = await prisma.task.findMany({
-      where: { status: { in: ["waiting_on_client"] } },
+      where: { status: { in: ["waiting_on_client", "waiting_on_partner"] } },
       select: { projectId: true }
     });
 
-    const waitingOnClientProjectIds = new Set(
+    const waitingOnExternalProjectIds = new Set(
       waitingTasks.map((task) => task.projectId)
     );
 
@@ -1465,7 +1469,7 @@ export function createApiApp(config: BaseConfig) {
         }
 
         if (
-          waitingOnClientProjectIds.has(project.id) ||
+          waitingOnExternalProjectIds.has(project.id) ||
           project.quoteApprovalStatus === "shared"
         ) {
           return {
@@ -1474,8 +1478,8 @@ export function createApiApp(config: BaseConfig) {
             projectName: project.name,
             clientName: project.clientName,
             href: project.defaultWorkspacePath ?? `/projects/${project.id}`,
-            reason: waitingOnClientProjectIds.has(project.id)
-              ? "Waiting on client task input"
+            reason: waitingOnExternalProjectIds.has(project.id)
+              ? "Waiting on external delivery dependency"
               : "Quote shared and awaiting client response",
             reasonKey: "awaiting_client",
             age: getRelativeAgeLabel(project.updatedAt),
@@ -1515,14 +1519,14 @@ export function createApiApp(config: BaseConfig) {
       const limit = Number.parseInt(c.req.query("limit") ?? "", 10);
       const projects = await loadProjectsDirectory();
       const waitingTasks = await prisma.task.findMany({
-        where: { status: { in: ["waiting_on_client"] } },
+        where: { status: { in: ["waiting_on_client", "waiting_on_partner"] } },
         select: { projectId: true }
       });
-      const waitingOnClientProjectIds = new Set(
+      const waitingOnExternalProjectIds = new Set(
         waitingTasks.map((task) => task.projectId)
       );
       const filteredProjects = projects.filter((project) =>
-        getProjectStatusMatch(project, waitingOnClientProjectIds, requestedStatus)
+        getProjectStatusMatch(project, waitingOnExternalProjectIds, requestedStatus)
       );
 
       if (countOnly) {

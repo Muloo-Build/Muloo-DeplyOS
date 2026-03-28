@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 interface ProjectTask {
@@ -67,6 +68,7 @@ const boardColumns = [
   { key: "backlog", label: "Backlog" },
   { key: "todo", label: "To Do" },
   { key: "waiting_on_client", label: "Waiting on Client" },
+  { key: "waiting_on_partner", label: "Waiting on Partner" },
   { key: "in_progress", label: "In Progress" },
   { key: "blocked", label: "Blocked" },
   { key: "done", label: "Done" }
@@ -128,6 +130,8 @@ function formatAssigneeType(value: string | null) {
       return "Agent";
     case "client":
       return "Client";
+    case "partner":
+      return "Partner";
     default:
       return "Human";
   }
@@ -139,6 +143,8 @@ function assigneeTypeClass(value: string | null) {
       return "bg-[rgba(79,142,247,0.18)] text-[#4f8ef7]";
     case "client":
       return "bg-[rgba(45,212,160,0.18)] text-[#2dd4a0]";
+    case "partner":
+      return "bg-[rgba(190,120,255,0.18)] text-[#d2a8ff]";
     default:
       return "bg-[rgba(240,160,80,0.18)] text-[#f0a050]";
   }
@@ -502,7 +508,9 @@ export default function DeliveryBoard({
             current.executionReadiness === "ready_with_review"
           ) {
             nextDraft.executionReadiness =
-              value === "Client" ? "not_ready" : "assisted";
+              value === "Client" || value === "Partner"
+                ? "not_ready"
+                : "assisted";
           }
         } else if (
           current.executionReadiness === "not_ready" ||
@@ -905,7 +913,8 @@ export default function DeliveryBoard({
     const humanTasks = tasks.filter(
       (task) =>
         task.assigneeType?.toLowerCase() !== "agent" &&
-        task.assigneeType?.toLowerCase() !== "client"
+        task.assigneeType?.toLowerCase() !== "client" &&
+        task.assigneeType?.toLowerCase() !== "partner"
     );
     const plannedHours = humanTasks.reduce(
       (sum, task) =>
@@ -972,6 +981,12 @@ export default function DeliveryBoard({
           </div>
           {mode === "internal" ? (
             <>
+              <Link
+                href="/templates"
+                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-text-secondary transition hover:border-[rgba(123,226,239,0.4)] hover:text-white"
+              >
+                Edit Templates
+              </Link>
               <button
                 type="button"
                 onClick={() => {
@@ -1335,6 +1350,7 @@ export default function DeliveryBoard({
                     <option value="Human">Human</option>
                     <option value="Agent">Agent</option>
                     <option value="Client">Client</option>
+                    <option value="Partner">Partner</option>
                   </select>
                 </label>
                 {taskDraft.assigneeType === "Agent" ? (
@@ -1504,7 +1520,7 @@ export default function DeliveryBoard({
 
           {loading ? (
             <div className="mt-6 overflow-x-auto">
-              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:min-w-[1800px] xl:grid-cols-6">
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:min-w-[2100px] xl:grid-cols-7">
                 {boardColumns.map((column) => (
                   <div
                     key={column.key}
@@ -1515,7 +1531,7 @@ export default function DeliveryBoard({
             </div>
           ) : totalCount > 0 ? (
             <div className="mt-6 overflow-x-auto">
-              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:min-w-[1800px] xl:grid-cols-6">
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:min-w-[2100px] xl:grid-cols-7">
                 {boardColumns.map((column) => {
                   const columnTasks = tasks.filter(
                     (task) => task.status === column.key
@@ -1809,6 +1825,7 @@ export default function DeliveryBoard({
                                           <option value="Human">Human</option>
                                           <option value="Agent">Agent</option>
                                           <option value="Client">Client</option>
+                                          <option value="Partner">Partner</option>
                                         </select>
                                         {taskDraft.assigneeType === "Agent" ? (
                                           <select

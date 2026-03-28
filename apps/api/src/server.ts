@@ -64,11 +64,17 @@ const validTaskStatusValues = [
   "backlog",
   "todo",
   "waiting_on_client",
+  "waiting_on_partner",
   "in_progress",
   "blocked",
   "done"
 ] as const;
-const validTaskAssigneeTypeValues = ["Human", "Agent", "Client"] as const;
+const validTaskAssigneeTypeValues = [
+  "Human",
+  "Agent",
+  "Client",
+  "Partner"
+] as const;
 const validTaskPriorityValues = ["low", "medium", "high"] as const;
 const validTaskExecutionReadinessValues = [
   "not_ready",
@@ -908,7 +914,7 @@ type ChangeDeliveryTaskPlan = {
   description: string;
   category: string;
   plannedHours: number;
-  assigneeType: "Human" | "Agent" | "Client";
+  assigneeType: "Human" | "Agent" | "Client" | "Partner";
   executionType: string;
   priority: string;
   qaRequired: boolean;
@@ -1443,7 +1449,7 @@ const defaultClientQuestionnaireConfig: ClientQuestionnaireConfig = {
     ]
   }
 };
-const blueprintTaskTypeValues = ["Agent", "Human", "Client"] as const;
+const blueprintTaskTypeValues = ["Agent", "Human", "Client", "Partner"] as const;
 const discoveryEvidenceTypeValues = [
   "transcript",
   "summary",
@@ -3922,7 +3928,7 @@ function serializeClientDirectoryRecord<
 const projectQuotePhaseTaskSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  type: z.enum(["Agent", "Human", "Client"]),
+  type: z.enum(["Agent", "Human", "Client", "Partner"]),
   effortHours: z.number().finite().nonnegative()
 });
 
@@ -5474,7 +5480,9 @@ function normalizeChangeDeliveryTasks(
           ? task.assigneeType.trim()
           : "Human";
       const normalizedAssigneeType =
-        assigneeType === "Agent" || assigneeType === "Client"
+        assigneeType === "Agent" ||
+        assigneeType === "Client" ||
+        assigneeType === "Partner"
           ? assigneeType
           : "Human";
       const priority =
@@ -6590,6 +6598,7 @@ function normalizeBlueprintEffort(
     case "Agent":
       return Math.min(Math.max(roundedHours, 1), 4);
     case "Client":
+    case "Partner":
       return Math.min(Math.max(roundedHours, 1), 6);
     case "Human":
       return Math.min(Math.max(roundedHours, 2), 12);
@@ -7744,14 +7753,14 @@ export async function loadProjectTasks(projectId: string) {
   return tasks.map((task) => serializeTask(task));
 }
 
-const validTaskStatusTransitions = new Map<string, string[]>([
-  ["backlog", ["todo"]],
-  ["todo", ["in_progress"]],
-  ["in_progress", ["blocked", "waiting_on_client", "done", "todo"]],
-  ["waiting_on_client", ["in_progress"]],
-  ["blocked", ["in_progress"]],
-  ["done", ["in_progress", "todo"]]
-]);
+const validTaskStatusTransitions = new Map<string, string[]>(
+  validTaskStatusValues.map(
+    (status): [string, string[]] => [
+      status,
+      validTaskStatusValues.filter((nextStatus) => nextStatus !== status)
+    ]
+  )
+);
 
 function isValidTaskTransition(currentStatus: string, nextStatus: string) {
   return validTaskStatusTransitions.get(currentStatus)?.includes(nextStatus) ?? false;
@@ -7982,10 +7991,13 @@ export async function loadProjectTaskBoard(projectId: string) {
   const columns = {
     backlog: serializedTasks.filter((task) => task.status === "backlog"),
     todo: serializedTasks.filter((task) => task.status === "todo"),
-    in_progress: serializedTasks.filter((task) => task.status === "in_progress"),
     waiting_on_client: serializedTasks.filter(
       (task) => task.status === "waiting_on_client"
     ),
+    waiting_on_partner: serializedTasks.filter(
+      (task) => task.status === "waiting_on_partner"
+    ),
+    in_progress: serializedTasks.filter((task) => task.status === "in_progress"),
     blocked: serializedTasks.filter((task) => task.status === "blocked"),
     done: serializedTasks.filter((task) => task.status === "done")
   };
