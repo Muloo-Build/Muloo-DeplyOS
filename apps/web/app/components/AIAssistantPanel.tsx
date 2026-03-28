@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Bot, Loader2, Send, Sparkles, X } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 
 type AssistantActionType =
   | "run_portal_audit"
@@ -347,58 +347,101 @@ export default function AIAssistantPanel() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-muloo-gradient text-white shadow-[0_20px_45px_rgba(0,0,0,0.35)] transition hover:scale-[1.02] sm:bottom-6 sm:right-6"
-        aria-label="Open AI Assistant"
-      >
-        <Bot size={22} />
-      </button>
-
       {open ? (
-        <>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-40 bg-[rgba(3,7,18,0.55)]"
-            aria-label="Close AI Assistant"
-          />
-          <aside className="fixed right-0 top-0 z-50 flex h-screen w-full max-w-[28rem] flex-col border-l border-white/10 bg-[#071030] shadow-[0_28px_80px_rgba(0,0,0,0.45)]">
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
+        <div
+          className="fixed inset-0 z-40 bg-[#020617]/55 backdrop-blur-[2px]"
+          onClick={() => setOpen(false)}
+          aria-hidden="true"
+        />
+      ) : null}
+
+      <div className="fixed bottom-5 right-5 z-50 flex items-end justify-end sm:bottom-7 sm:right-7">
+        {open ? (
+          <section className="mb-4 w-[min(92vw,28rem)] rounded-[28px] border border-[rgba(255,255,255,0.1)] bg-[#071127] p-5 shadow-[0_24px_80px_rgba(3,8,20,0.55)]">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2">
-                  <Sparkles size={16} className="text-brand-teal" />
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                    AI Assistant
-                  </p>
-                </div>
-                <h2 className="mt-2 text-lg font-semibold text-white">{pageLabel}</h2>
-                <p className="mt-1 text-sm text-text-secondary">
+                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  AI Assistant
+                </p>
+                <h3 className="mt-2 text-lg font-semibold text-white">
+                  Ask Muloo
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-text-secondary">
                   {projectContext
-                    ? `${projectContext.name} · ${projectContext.clientName}`
-                    : "Workspace-aware help and actions"}
+                    ? `You’re working inside ${projectContext.name} for ${projectContext.clientName}. I can explain the project, answer workspace questions, and trigger safe actions.`
+                    : `You’re on ${pageLabel}. I can help with workspace navigation, page questions, and safe operational actions.`}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-xl border border-white/10 bg-white/5 p-2 text-text-secondary transition hover:text-white"
+                className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-sm text-text-secondary transition hover:border-[rgba(255,255,255,0.14)] hover:text-white"
+                aria-label="Close AI assistant"
               >
-                <X size={18} />
+                Close
               </button>
             </div>
 
-            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+            <div className="mt-4 flex flex-wrap gap-2">
+              {projectContext ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void handleAction({
+                        type: "run_portal_audit",
+                        label: "Run portal audit"
+                      })
+                    }
+                    disabled={busy}
+                    className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white transition hover:border-[rgba(255,255,255,0.14)] disabled:opacity-60"
+                  >
+                    Run portal audit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void handleAction({
+                        type: "generate_email_draft",
+                        label: "Draft project email"
+                      })
+                    }
+                    disabled={busy}
+                    className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white transition hover:border-[rgba(255,255,255,0.14)] disabled:opacity-60"
+                  >
+                    Draft project email
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void handleAction({
+                      type: "navigate",
+                      label: "Open projects",
+                      path: "/projects"
+                    })
+                  }
+                  className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white transition hover:border-[rgba(255,255,255,0.14)]"
+                >
+                  Open projects
+                </button>
+              )}
+            </div>
+
+            <div className="mt-5 max-h-[45vh] space-y-3 overflow-y-auto pr-1">
               {messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`rounded-2xl border p-4 text-sm ${
+                  className={`rounded-2xl px-4 py-3 text-sm ${
                     message.role === "assistant"
-                      ? "border-white/10 bg-white/5 text-text-secondary"
-                      : "border-brand-teal/20 bg-brand-teal/10 text-white"
+                      ? "border border-[rgba(123,226,239,0.18)] bg-[#0b1733] text-white"
+                      : "border border-[rgba(255,255,255,0.07)] bg-[#0b1126] text-text-secondary"
                   }`}
                 >
+                  <p className="mb-1 text-[11px] uppercase tracking-[0.16em] text-text-muted">
+                    {message.role === "assistant" ? "Assistant" : "You"}
+                  </p>
                   <p className="whitespace-pre-wrap">{message.text}</p>
                   {message.actions && message.actions.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -418,35 +461,69 @@ export default function AIAssistantPanel() {
               ))}
             </div>
 
-            <div className="border-t border-white/10 px-4 py-4">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-2">
-                <textarea
-                  value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  placeholder="Ask about this page or request a safe action..."
-                  className="min-h-[96px] w-full resize-none bg-transparent px-2 py-2 text-sm text-white outline-none placeholder:text-text-muted"
-                />
-                <div className="flex items-center justify-between gap-3 px-2 pb-1">
-                  <p className="text-xs text-text-muted">
-                    {projectContext
-                      ? "Project context is attached."
-                      : "Page context is attached."}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void submitMessage()}
-                    disabled={busy || !input.trim()}
-                    className="inline-flex items-center gap-2 rounded-xl bg-muloo-gradient px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-                  >
-                    {busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                    Send
-                  </button>
-                </div>
+            <form
+              className="mt-5 flex flex-col gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitMessage();
+              }}
+            >
+              <textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                rows={3}
+                placeholder="Ask about this page or request a safe action..."
+                className="w-full resize-none rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+              />
+              <div className="flex items-center justify-between gap-3">
+                <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-text-muted">
+                  {projectContext ? "Project context attached" : "Page context attached"}
+                </span>
+                <button
+                  type="submit"
+                  disabled={busy || !input.trim()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  Send
+                </button>
               </div>
-            </div>
-          </aside>
-        </>
-      ) : null}
+            </form>
+          </section>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+          className="flex items-center gap-3 rounded-full border border-[rgba(123,226,239,0.22)] bg-[linear-gradient(135deg,#0d1d3d_0%,#132b54_45%,#143f5e_100%)] px-4 py-3 text-left text-white shadow-[0_18px_45px_rgba(5,10,24,0.45)] transition hover:border-[rgba(123,226,239,0.42)] hover:shadow-[0_22px_55px_rgba(5,10,24,0.6)]"
+          aria-label={open ? "Hide AI assistant" : "Open AI assistant"}
+        >
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#51d0b0_0%,#7be2ef_100%)] text-[#071127] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="h-7 w-7"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.9"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M7 10h10" />
+              <path d="M7 14h6" />
+              <path d="M12 3c5.523 0 10 3.806 10 8.5S17.523 20 12 20c-1.09 0-2.14-.148-3.118-.42L4 21l1.462-3.736C3.925 15.73 2 13.73 2 11.5 2 6.806 6.477 3 12 3Z" />
+            </svg>
+          </span>
+          <span className="hidden min-w-0 sm:block">
+            <span className="block text-[11px] uppercase tracking-[0.18em] text-[#9fddea]">
+              AI Help
+            </span>
+            <span className="mt-1 block text-sm font-semibold leading-5 text-white">
+              Ask Muloo
+            </span>
+          </span>
+        </button>
+      </div>
     </>
   );
 }
