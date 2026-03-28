@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -10,6 +10,7 @@ import {
   FolderKanban,
   Inbox,
   LayoutDashboard,
+  LogOut,
   PlaySquare,
   ScrollText,
   Settings
@@ -148,6 +149,7 @@ const navGroups: NavGroup[] = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [inboxCount, setInboxCount] = useState(0);
 
   useEffect(() => {
@@ -168,6 +170,18 @@ export default function Sidebar() {
 
     void loadSummary();
   }, [pathname]);
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
+  }
 
   return (
     <aside className="fixed left-0 top-0 flex h-screen w-sidebar flex-col border-r border-[rgba(255,255,255,0.07)] bg-[#060e2b]">
@@ -228,8 +242,18 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-[rgba(255,255,255,0.07)] px-6 py-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+      <div className="border-t border-[rgba(255,255,255,0.07)] px-4 py-4">
+        <button
+          type="button"
+          onClick={() => void handleLogout()}
+          className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-text-secondary transition-colors hover:bg-background-elevated hover:text-white"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-white">
+            <LogOut size={18} />
+          </span>
+          <span className="font-medium">Sign out</span>
+        </button>
+        <p className="mt-4 px-2 text-xs uppercase tracking-[0.2em] text-text-muted">
           Internal delivery workspace
         </p>
       </div>
