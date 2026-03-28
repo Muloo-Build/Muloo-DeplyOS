@@ -1285,7 +1285,7 @@ export default function DeliveryBoard({
 
           {loading ? (
             <div className="mt-6 overflow-x-auto">
-              <div className="grid min-w-[1800px] gap-4 xl:grid-cols-6">
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:min-w-[1800px] xl:grid-cols-6">
                 {boardColumns.map((column) => (
                   <div
                     key={column.key}
@@ -1296,7 +1296,7 @@ export default function DeliveryBoard({
             </div>
           ) : totalCount > 0 ? (
             <div className="mt-6 overflow-x-auto">
-              <div className="grid min-w-[1800px] gap-4 xl:grid-cols-6">
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:min-w-[1800px] xl:grid-cols-6">
                 {boardColumns.map((column) => {
                   const columnTasks = tasks.filter(
                     (task) => task.status === column.key

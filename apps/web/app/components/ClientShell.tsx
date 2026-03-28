@@ -80,7 +80,7 @@ export default function ClientShell({
   ];
 
   return (
-    <div className="min-h-screen bg-background-primary text-white">
+    <div className="min-h-screen overflow-x-clip bg-background-primary text-white">
       <header className="border-b border-[rgba(255,255,255,0.06)] bg-[#060c1e]">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link href={projectsPath} className="flex flex-shrink-0 items-center gap-3">
@@ -177,7 +177,7 @@ export default function ClientShell({
         </div>
       ) : null}
 
-      <main className="mx-auto w-full max-w-7xl px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-8">
+      <main className="mx-auto w-full max-w-7xl overflow-x-clip px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-8">
         {children}
       </main>
 
