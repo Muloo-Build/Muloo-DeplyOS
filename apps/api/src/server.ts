@@ -17433,6 +17433,186 @@ export async function getLatestWorkspaceDailySummary() {
   return summary ? serializeWorkspaceDailySummary(summary) : { content: null };
 }
 
+type WorkspaceIndustrySignalItem = {
+  title: string;
+  link: string;
+  source: string;
+  category: string;
+  summary: string;
+  publishedAt: string | null;
+};
+
+const workspaceIndustrySignalFeeds = [
+  {
+    source: "HubSpot Marketing",
+    category: "marketing automation",
+    url: "https://blog.hubspot.com/marketing/rss.xml"
+  },
+  {
+    source: "HubSpot Sales",
+    category: "crm",
+    url: "https://blog.hubspot.com/sales/rss.xml"
+  },
+  {
+    source: "Google Search & AI",
+    category: "ai improvements",
+    url: "https://blog.google/products-and-platforms/products/search/rss/"
+  },
+  {
+    source: "Search Engine Journal",
+    category: "seo",
+    url: "https://www.searchenginejournal.com/feed/"
+  },
+  {
+    source: "Salesforce",
+    category: "crm platforms",
+    url: "https://www.salesforce.com/blog/feed/"
+  }
+] as const;
+
+function decodeXmlEntities(value: string) {
+  return value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&#x2F;/gi, "/")
+    .replace(/&#(\d+);/g, (_, code) =>
+      String.fromCharCode(Number.parseInt(code, 10))
+    );
+}
+
+function stripXmlTags(value: string) {
+  return decodeXmlEntities(value)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractXmlTag(block: string, tag: string) {
+  const match = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return match?.[1]?.trim() ?? "";
+}
+
+function parseWorkspaceIndustryFeed(
+  xml: string,
+  feed: (typeof workspaceIndustrySignalFeeds)[number]
+) {
+  const items = [...xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)];
+
+  return items
+    .map<WorkspaceIndustrySignalItem | null>((match) => {
+      const block = match[0];
+      const title = stripXmlTags(extractXmlTag(block, "title"));
+      const link = stripXmlTags(extractXmlTag(block, "link"));
+      const publishedAt = stripXmlTags(extractXmlTag(block, "pubDate"));
+      const summary =
+        stripXmlTags(extractXmlTag(block, "description")) ||
+        stripXmlTags(extractXmlTag(block, "content:encoded"));
+
+      if (!title || !link) {
+        return null;
+      }
+
+      const publishedDate = new Date(publishedAt);
+
+      return {
+        title,
+        link,
+        source: feed.source,
+        category: feed.category,
+        summary: summary.slice(0, 220),
+        publishedAt:
+          Number.isNaN(publishedDate.getTime()) === false
+            ? publishedDate.toISOString()
+            : null
+      };
+    })
+    .filter((item): item is WorkspaceIndustrySignalItem => item !== null);
+}
+
+export async function getWorkspaceIndustrySignals() {
+  const responses = await Promise.allSettled(
+    workspaceIndustrySignalFeeds.map(async (feed) => {
+      const response = await fetch(feed.url, {
+        headers: {
+          "User-Agent": "Muloo DeployOS Command Centre"
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Feed request failed: ${feed.source}`);
+      }
+
+      return parseWorkspaceIndustryFeed(await response.text(), feed);
+    })
+  );
+
+  const items = responses.flatMap((result) =>
+    result.status === "fulfilled" ? result.value : []
+  );
+  const dedupedItems = Array.from(
+    new Map(items.map((item) => [item.link, item])).values()
+  );
+
+  return {
+    items: dedupedItems
+      .sort((left, right) => {
+        const leftTime = left.publishedAt
+          ? new Date(left.publishedAt).getTime()
+          : 0;
+        const rightTime = right.publishedAt
+          ? new Date(right.publishedAt).getTime()
+          : 0;
+        return rightTime - leftTime;
+      })
+      .slice(0, 8)
+  };
+}
+
+export async function generateWorkspaceEmailDraft(value: {
+  prompt?: unknown;
+  subject?: unknown;
+  body?: unknown;
+}) {
+  const prompt = typeof value.prompt === "string" ? value.prompt.trim() : "";
+  const subject =
+    typeof value.subject === "string" ? value.subject.trim() : "";
+  const body = typeof value.body === "string" ? value.body.trim() : "";
+
+  if (!prompt && !subject && !body) {
+    throw new Error("prompt, subject, or body is required");
+  }
+
+  const rawDraft = await callAiWorkflow(
+    "workspace_email_drafting",
+    `You draft concise, high-trust business emails for Muloo.
+
+Rules:
+- Return ONLY valid JSON.
+- Use exactly this structure: {"subject":"...","body":"..."}
+- Keep the tone warm, direct, and commercially sharp.
+- Prefer short paragraphs and plain English.
+- Do not add placeholders like [Your Name] or [Company].
+- If an existing subject or body is provided, improve it rather than replacing the intent.`,
+    JSON.stringify(
+      {
+        prompt,
+        existingSubject: subject,
+        existingBody: body
+      },
+      null,
+      2
+    ),
+    { maxTokens: 1400 }
+  );
+
+  return parseModelJson(rawDraft, projectEmailDraftSchema, "workspace-email");
+}
+
 export async function getWorkspaceAiRouting(workflowKey: string) {
   const route = await prisma.workspaceAiRouting.findFirst({
     where: { workflowKey }

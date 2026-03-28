@@ -85,6 +85,7 @@ import {
   extractDiscoveryFields,
   getAuthenticatedClientUserId,
   generateProjectEmailDraft,
+  generateWorkspaceEmailDraft,
   generateProjectAgenda,
   generateSimplifiedProjectEmailDraft,
   generateSolutionOptions,
@@ -211,6 +212,7 @@ import {
   getActiveProjects,
   getWorkspaceCalendarStatus,
   getWorkspaceClientEmailQueues,
+  getWorkspaceIndustrySignals,
   getWorkspaceXeroStatus,
   getCalendarEvents,
   getGmailActionRequired,
@@ -3464,6 +3466,42 @@ export function createApiApp(config: BaseConfig) {
     c.json(await getWorkspaceClientEmailQueues())
   );
 
+  app.post("/api/workspace/email/draft", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      return c.json(await generateWorkspaceEmailDraft(body));
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to draft workspace email"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/workspace/email/send", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        to?: unknown;
+        cc?: unknown;
+        subject?: unknown;
+        body?: unknown;
+      };
+      return c.json({ sent: true, result: await sendWorkspaceEmail(body) });
+    } catch (error) {
+      return c.json(
+        {
+          error: error instanceof Error ? error.message : "Failed to send email"
+        },
+        400
+      );
+    }
+  });
+
   app.post("/api/workspace/todos/from-email", async (c) => {
     try {
       const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
@@ -3702,6 +3740,10 @@ export function createApiApp(config: BaseConfig) {
 
   app.get("/api/workspace/calendar/events", async (c) =>
     c.json(await getCalendarEvents())
+  );
+
+  app.get("/api/workspace/industry-signals", async (c) =>
+    c.json(await getWorkspaceIndustrySignals())
   );
 
   app.delete("/api/workspace/calendar/connection", async (c) =>

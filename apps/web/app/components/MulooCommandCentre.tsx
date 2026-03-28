@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import AppShell from "./AppShell";
 
@@ -9,24 +9,11 @@ interface CountResponse {
   count: number;
 }
 
-interface NeedsAttentionItem {
-  id: string;
-  projectId: string;
-  projectName: string;
-  clientName: string;
-  href: string;
-  reason: string;
-  reasonKey: "overdue" | "awaiting_client" | "blueprint_approved_no_delivery";
-  age: string;
-  status: string;
-}
-
 interface ProjectListItem {
   id: string;
   name: string;
   clientName: string;
   status: string;
-  defaultWorkspacePath?: string;
   updatedAt: string;
 }
 
@@ -38,10 +25,6 @@ interface ExecutionRun {
   status: string;
   resultStatus: string | null;
   createdAt: string;
-}
-
-interface UsersResponse {
-  users?: Array<{ name: string; email: string; isActive?: boolean }>;
 }
 
 interface AuthSessionResponse {
@@ -130,6 +113,63 @@ interface PrivateTasksResponse {
   connectedEmail?: string | null;
   taskListTitle?: string;
   tasks?: PrivateTaskItem[];
+}
+
+interface DailySummaryResponse {
+  content?: string | null;
+  generatedBy?: string | null;
+  createdAt?: string | null;
+  error?: string;
+}
+
+interface IndustrySignalItem {
+  title: string;
+  link: string;
+  source: string;
+  category: string;
+  summary: string;
+  publishedAt: string | null;
+}
+
+interface IndustrySignalsResponse {
+  items?: IndustrySignalItem[];
+}
+
+interface WorkspaceEmailDraftResponse {
+  subject?: string;
+  body?: string;
+  error?: string;
+}
+
+interface SpeechRecognitionResultLike {
+  readonly isFinal: boolean;
+  readonly length: number;
+  [index: number]: {
+    transcript: string;
+  };
+}
+
+interface SpeechRecognitionEventLike {
+  readonly resultIndex: number;
+  readonly results: {
+    readonly length: number;
+    [index: number]: SpeechRecognitionResultLike;
+  };
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionLike;
 }
 
 function formatDateHeading(date = new Date()) {
@@ -224,17 +264,49 @@ function getStatusBadgeClass(status: string) {
   }
 }
 
-function getAttentionTone(reasonKey: NeedsAttentionItem["reasonKey"]) {
-  switch (reasonKey) {
-    case "overdue":
-      return "border-status-error/35 bg-status-error/10 text-white";
-    case "awaiting_client":
-      return "border-status-warning/35 bg-status-warning/10 text-white";
-    case "blueprint_approved_no_delivery":
-      return "border-status-success/35 bg-status-success/10 text-white";
-    default:
-      return "brand-surface-soft text-white";
+function extractLeadQuote(summary: string | null | undefined) {
+  if (!summary?.trim()) {
+    return null;
   }
+
+  const candidate = summary
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(/^#+\s*/, "")
+        .replace(/^\-\s*/, "")
+        .replace(/\*\*/g, "")
+        .trim()
+    )
+    .find((line) => line.length > 24);
+
+  return candidate ? candidate.replace(/\s+/g, " ").slice(0, 180) : null;
+}
+
+function getFallbackQuote(name: string) {
+  const quotes = [
+    `Build with rhythm today, ${name}, not rush.`,
+    `The sharpest momentum comes from one clean decision at a time.`,
+    `Make the work feel inevitable by making the next step obvious.`,
+    `Quiet execution compounds faster than noisy ambition.`
+  ];
+
+  return quotes[new Date().getDate() % quotes.length];
+}
+
+function resolveSpeechRecognition() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const speechWindow = window as Window & {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
+
+  return (
+    speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null
+  );
 }
 
 function StatCard(props: {
@@ -261,24 +333,33 @@ function StatCard(props: {
   );
 }
 
+function SectionLabel(props: { label: string; title: string; body?: string }) {
+  return (
+    <div>
+      <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+        {props.label}
+      </p>
+      <h2 className="mt-2 text-2xl font-semibold text-white">{props.title}</h2>
+      {props.body ? (
+        <p className="mt-2 text-sm text-text-secondary">{props.body}</p>
+      ) : null}
+    </div>
+  );
+}
+
 export default function MulooCommandCentre() {
   const [name, setName] = useState("team");
   const [activeProjectsCount, setActiveProjectsCount] = useState(0);
   const [awaitingClientCount, setAwaitingClientCount] = useState(0);
   const [overdueTasksCount, setOverdueTasksCount] = useState(0);
   const [queuedRunsCount, setQueuedRunsCount] = useState(0);
-  const [needsAttention, setNeedsAttention] = useState<NeedsAttentionItem[]>([]);
   const [activeProjects, setActiveProjects] = useState<ProjectListItem[]>([]);
   const [recentRuns, setRecentRuns] = useState<ExecutionRun[]>([]);
-  const [clientEmailQueues, setClientEmailQueues] = useState<ClientEmailQueue[]>(
-    []
-  );
+  const [clientEmailQueues, setClientEmailQueues] = useState<ClientEmailQueue[]>([]);
   const [gmailConnected, setGmailConnected] = useState(false);
-  const [gmailConfigured, setGmailConfigured] = useState(false);
   const [gmailConnectedEmail, setGmailConnectedEmail] = useState<string | null>(
     null
   );
-  const [calendarConfigured, setCalendarConfigured] = useState(false);
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [calendarRequiresReconnect, setCalendarRequiresReconnect] =
     useState(false);
@@ -302,7 +383,6 @@ export default function MulooCommandCentre() {
     "Muloo DeployOS Private"
   );
   const [privateTaskTitle, setPrivateTaskTitle] = useState("");
-  const [privateTaskNotes, setPrivateTaskNotes] = useState("");
   const [privateTaskFeedback, setPrivateTaskFeedback] = useState<string | null>(
     null
   );
@@ -313,7 +393,30 @@ export default function MulooCommandCentre() {
   const [deletingPrivateTaskId, setDeletingPrivateTaskId] = useState<
     string | null
   >(null);
+  const [summaryContent, setSummaryContent] = useState<string | null>(null);
+  const [summaryUpdatedAt, setSummaryUpdatedAt] = useState<string | null>(null);
+  const [refreshingBrief, setRefreshingBrief] = useState(false);
+  const [industrySignals, setIndustrySignals] = useState<IndustrySignalItem[]>(
+    []
+  );
+  const [composerTo, setComposerTo] = useState("");
+  const [composerSubject, setComposerSubject] = useState("");
+  const [composerBody, setComposerBody] = useState("");
+  const [composerFeedback, setComposerFeedback] = useState<string | null>(null);
+  const [draftingComposer, setDraftingComposer] = useState(false);
+  const [sendingComposer, setSendingComposer] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setVoiceSupported(Boolean(resolveSpeechRecognition()));
+    return () => {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     async function loadCommandCentre() {
@@ -324,28 +427,30 @@ export default function MulooCommandCentre() {
           awaitingClientCountResponse,
           overdueTasksCountResponse,
           queuedRunsCountResponse,
-          needsAttentionResponse,
           activeProjectsResponse,
           recentRunsResponse,
           clientEmailQueuesResponse,
           gmailConnectionResponse,
           privateTasksResponse,
           calendarStatusResponse,
-          calendarEventsResponse
+          calendarEventsResponse,
+          latestSummaryResponse,
+          industrySignalsResponse
         ] = await Promise.all([
           fetch("/api/auth/session", { credentials: "include" }),
           fetch("/api/projects?status=in-flight&count=true"),
           fetch("/api/projects?status=awaiting_client&count=true"),
           fetch("/api/tasks?overdue=true&count=true"),
           fetch("/api/execution-jobs?status=queued&count=true"),
-          fetch("/api/projects/needs-attention"),
-          fetch("/api/projects?status=active&limit=6"),
-          fetch("/api/execution-jobs?limit=5"),
+          fetch("/api/projects?status=active&limit=4"),
+          fetch("/api/execution-jobs?limit=4"),
           fetch("/api/workspace/emails/client-queues"),
           fetch("/api/email-oauth/google"),
           fetch("/api/workspace/private-tasks"),
           fetch("/api/workspace/calendar/status"),
-          fetch("/api/workspace/calendar/events")
+          fetch("/api/workspace/calendar/events"),
+          fetch("/api/workspace/summary/latest"),
+          fetch("/api/workspace/industry-signals")
         ]);
 
         const sessionBody = (await sessionResponse.json().catch(() => null)) as
@@ -354,17 +459,6 @@ export default function MulooCommandCentre() {
         const sessionName = sessionBody?.user?.name?.trim();
         if (sessionName) {
           setName(sessionName.split(" ")[0] ?? sessionName);
-        } else {
-          const usersFallbackResponse = await fetch("/api/users");
-          const usersBody = (await usersFallbackResponse
-            .json()
-            .catch(() => null)) as UsersResponse | null;
-          const firstActiveUser = usersBody?.users?.find(
-            (user) => user.isActive !== false
-          );
-          if (firstActiveUser?.name?.trim()) {
-            setName(firstActiveUser.name.split(" ")[0] ?? firstActiveUser.name);
-          }
         }
 
         const activeProjectsCountBody =
@@ -375,9 +469,6 @@ export default function MulooCommandCentre() {
           (await overdueTasksCountResponse.json().catch(() => null)) as CountResponse | null;
         const queuedRunsCountBody =
           (await queuedRunsCountResponse.json().catch(() => null)) as CountResponse | null;
-        const needsAttentionBody = (await needsAttentionResponse.json().catch(() => null)) as
-          | { items?: NeedsAttentionItem[] }
-          | null;
         const activeProjectsBody = (await activeProjectsResponse.json().catch(() => null)) as
           | { projects?: ProjectListItem[] }
           | null;
@@ -387,7 +478,7 @@ export default function MulooCommandCentre() {
         const clientEmailQueuesBody = (
           await clientEmailQueuesResponse.json().catch(() => null)
         ) as
-          | { queues?: ClientEmailQueue[]; connected?: boolean }
+          | { queues?: ClientEmailQueue[] }
           | null;
         const gmailConnectionBody = (
           await gmailConnectionResponse.json().catch(() => null)
@@ -401,24 +492,22 @@ export default function MulooCommandCentre() {
         const calendarEventsBody = (
           await calendarEventsResponse.json().catch(() => null)
         ) as CalendarEventsResponse | null;
+        const latestSummaryBody = (
+          await latestSummaryResponse.json().catch(() => null)
+        ) as DailySummaryResponse | null;
+        const industrySignalsBody = (
+          await industrySignalsResponse.json().catch(() => null)
+        ) as IndustrySignalsResponse | null;
 
         setActiveProjectsCount(activeProjectsCountBody?.count ?? 0);
         setAwaitingClientCount(awaitingClientCountBody?.count ?? 0);
         setOverdueTasksCount(overdueTasksCountBody?.count ?? 0);
         setQueuedRunsCount(queuedRunsCountBody?.count ?? 0);
-        setNeedsAttention(needsAttentionBody?.items ?? []);
         setActiveProjects(activeProjectsBody?.projects ?? []);
         setRecentRuns(recentRunsBody?.runs ?? []);
         setClientEmailQueues(clientEmailQueuesBody?.queues ?? []);
-        setGmailConfigured(
-          Boolean(
-            gmailConnectionBody?.connection?.clientId ||
-              gmailConnectionBody?.connection?.hasClientSecret
-          )
-        );
         setGmailConnected(gmailConnectionBody?.connection?.isConnected === true);
         setGmailConnectedEmail(gmailConnectionBody?.connection?.connectedEmail ?? null);
-        setCalendarConfigured(calendarStatusBody?.configured === true);
         setCalendarConnected(calendarStatusBody?.connected === true);
         setCalendarRequiresReconnect(calendarStatusBody?.requiresReconnect === true);
         setCalendarConnectedEmail(
@@ -437,6 +526,9 @@ export default function MulooCommandCentre() {
         setPrivateTaskListTitle(
           privateTasksBody?.taskListTitle?.trim() || "Muloo DeployOS Private"
         );
+        setSummaryContent(latestSummaryBody?.content ?? null);
+        setSummaryUpdatedAt(latestSummaryBody?.createdAt ?? null);
+        setIndustrySignals(industrySignalsBody?.items ?? []);
       } finally {
         setLoading(false);
       }
@@ -452,6 +544,11 @@ export default function MulooCommandCentre() {
       dateLabel: formatDateHeading(now)
     };
   }, [name]);
+
+  const leadQuote = useMemo(
+    () => extractLeadQuote(summaryContent) ?? getFallbackQuote(name),
+    [name, summaryContent]
+  );
 
   const todayCalendarEvents = useMemo(() => {
     const now = new Date();
@@ -551,7 +648,6 @@ export default function MulooCommandCentre() {
 
   async function createPrivateTask() {
     const title = privateTaskTitle.trim();
-    const notes = privateTaskNotes.trim();
 
     if (!title) {
       setPrivateTaskFeedback("Give the private task a title first.");
@@ -568,8 +664,7 @@ export default function MulooCommandCentre() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          title,
-          notes
+          title
         })
       });
 
@@ -587,7 +682,6 @@ export default function MulooCommandCentre() {
       }
 
       setPrivateTaskTitle("");
-      setPrivateTaskNotes("");
       setPrivateTaskFeedback("Private task added to Google Tasks.");
       await loadPrivateTasks();
     } catch (error) {
@@ -668,16 +762,198 @@ export default function MulooCommandCentre() {
     }
   }
 
+  async function refreshMorningBrief() {
+    setRefreshingBrief(true);
+
+    try {
+      const response = await fetch("/api/workspace/summary/generate", {
+        method: "POST"
+      });
+      const body = (await response.json().catch(() => null)) as
+        | DailySummaryResponse
+        | null;
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to refresh morning brief");
+      }
+
+      setSummaryContent(body?.content ?? null);
+      setSummaryUpdatedAt(body?.createdAt ?? new Date().toISOString());
+    } catch (error) {
+      setComposerFeedback(
+        error instanceof Error
+          ? error.message
+          : "Failed to refresh morning brief"
+      );
+    } finally {
+      setRefreshingBrief(false);
+    }
+  }
+
+  async function draftWorkspaceEmail() {
+    if (!composerBody.trim() && !composerSubject.trim()) {
+      setComposerFeedback("Add a short brief first so AI has something to shape.");
+      return;
+    }
+
+    setDraftingComposer(true);
+    setComposerFeedback(null);
+
+    try {
+      const response = await fetch("/api/workspace/email/draft", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          prompt: composerBody,
+          subject: composerSubject,
+          body: composerBody
+        })
+      });
+      const body = (await response.json().catch(() => null)) as
+        | WorkspaceEmailDraftResponse
+        | null;
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to draft email");
+      }
+
+      setComposerSubject(body?.subject?.trim() ?? composerSubject);
+      setComposerBody(body?.body?.trim() ?? composerBody);
+      setComposerFeedback("AI drafted the email. Tweak anything before sending.");
+    } catch (error) {
+      setComposerFeedback(
+        error instanceof Error ? error.message : "Failed to draft email"
+      );
+    } finally {
+      setDraftingComposer(false);
+    }
+  }
+
+  async function sendWorkspaceEmail() {
+    if (!composerTo.trim() || !composerSubject.trim() || !composerBody.trim()) {
+      setComposerFeedback("To, subject, and message are all required before sending.");
+      return;
+    }
+
+    setSendingComposer(true);
+    setComposerFeedback(null);
+
+    try {
+      const response = await fetch("/api/workspace/email/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          to: composerTo,
+          subject: composerSubject,
+          body: composerBody
+        })
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to send email");
+      }
+
+      setComposerFeedback("Email sent from the Command Centre.");
+      setComposerSubject("");
+      setComposerBody("");
+    } catch (error) {
+      setComposerFeedback(
+        error instanceof Error ? error.message : "Failed to send email"
+      );
+    } finally {
+      setSendingComposer(false);
+    }
+  }
+
+  function toggleVoiceTyping() {
+    const Recognition = resolveSpeechRecognition();
+
+    if (!Recognition) {
+      setComposerFeedback("Voice typing is not supported in this browser.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const recognition = new Recognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = "en-ZA";
+    recognition.onresult = (event) => {
+      const transcript = Array.from(
+        { length: event.results.length - event.resultIndex },
+        (_, offset) => event.results[event.resultIndex + offset]
+      )
+        .map((result) => result[0]?.transcript?.trim() ?? "")
+        .filter(Boolean)
+        .join(" ");
+
+      if (!transcript) {
+        return;
+      }
+
+      setComposerBody((current) =>
+        current.trim().length > 0
+          ? `${current.trim()}\n${transcript}`
+          : transcript
+      );
+    };
+    recognition.onerror = () => {
+      setComposerFeedback("Voice typing stopped unexpectedly. Try again.");
+      setIsListening(false);
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+    setComposerFeedback("Listening... speak naturally and it will drop into the email.");
+    setIsListening(true);
+    recognition.start();
+  }
+
   return (
     <AppShell>
-      <div className="brand-page min-h-screen p-4 text-white sm:p-6 lg:p-8">
+      <div className="brand-page min-h-screen overflow-x-hidden p-4 text-white sm:p-6 lg:p-8">
         <div className="space-y-8">
           <header className="brand-surface rounded-3xl border p-6 sm:p-8">
-            <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
-              Command Centre
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold">{heading.greeting}</h1>
-            <p className="mt-2 text-text-secondary">{heading.dateLabel}</p>
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
+                  Command Centre
+                </p>
+                <h1 className="mt-3 text-3xl font-semibold">{heading.greeting}</h1>
+                <p className="mt-2 text-text-secondary">{heading.dateLabel}</p>
+                <p className="mt-5 max-w-4xl text-lg font-medium leading-8 text-white/95 sm:text-xl">
+                  {leadQuote}
+                </p>
+                {summaryUpdatedAt ? (
+                  <p className="mt-3 text-sm text-text-muted">
+                    Morning brief updated {formatRelativeTime(summaryUpdatedAt)}
+                  </p>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void refreshMorningBrief()}
+                disabled={refreshingBrief}
+                className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
+              >
+                {refreshingBrief ? "Refreshing..." : "Refresh morning brief"}
+              </button>
+            </div>
           </header>
 
           <section className="grid gap-4 xl:grid-cols-4">
@@ -707,52 +983,31 @@ export default function MulooCommandCentre() {
             />
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-2">
+          <section className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr_0.8fr]">
             <div className="brand-surface rounded-3xl border p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                    Client Email Watchlists
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">
-                    Gmail labels for active clients
-                  </h2>
-                  <p className="mt-2 text-sm text-text-secondary">
-                    Track important client mail by Gmail label, even when today
-                    has no unread items yet.
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                    Google mail
-                  </p>
-                  <p className="mt-2 text-sm text-text-secondary">
-                    {gmailConnectedEmail ?? "Not connected"}
-                  </p>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <SectionLabel
+                  label="Email"
+                  title="Client Gmail watchlists"
+                  body="Important labeled client mail, ready for quick triage or task creation."
+                />
+                <div className="text-right text-sm text-text-secondary">
+                  <p>{gmailConnectedEmail ?? "Not connected"}</p>
+                  <a
+                    href={googleSetupHref}
+                    className="mt-2 inline-flex text-brand-teal hover:text-white"
+                  >
+                    {needsGoogleWorkspaceSetup
+                      ? "Finish Google setup"
+                      : "Review Google setup"}
+                  </a>
                 </div>
               </div>
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text-secondary">
-                {needsGoogleWorkspaceSetup
-                  ? "Use one Google Workspace setup flow for calendar, tasks, and Gmail labels from the Command Centre."
-                  : "Labels are active. DeployOS is showing unread mail first, then recent labeled mail so you can confirm the queues are live."}
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                <a
-                  href={googleSetupHref}
-                  className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55"
-                >
-                  {needsGoogleWorkspaceSetup
-                    ? "Finish Google Workspace setup"
-                    : "Review Google Workspace"}
-                </a>
-                <Link
-                  href="/clients"
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20"
-                >
-                  Manage client labels
-                </Link>
+                {gmailConnected
+                  ? "Add the exact Gmail label on the client record and keep your inbox filters feeding it. DeployOS shows unread first, then recent labeled mail."
+                  : "Connect Google once and the Command Centre will use the same workspace auth for Gmail, Calendar, and Google Tasks."}
               </div>
 
               {emailFeedback ? (
@@ -768,17 +1023,15 @@ export default function MulooCommandCentre() {
                   </div>
                 ) : clientEmailQueues.length === 0 ? (
                   <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
-                    {gmailConnected
-                      ? "No client labels are showing yet. Add the exact Gmail label on the client record, then keep your mailbox filters moving that client mail into the label."
-                      : "Google Workspace mail is not connected yet. Finish the shared Google setup first, then add Gmail labels to client records."}
+                    No client label queues are visible yet. Connect Gmail, add the label to the client, and let your mailbox rules keep feeding it.
                   </div>
                 ) : (
-                  clientEmailQueues.slice(0, 4).map((queue) => (
+                  clientEmailQueues.slice(0, 3).map((queue) => (
                     <div
                       key={queue.clientId}
                       className="brand-surface-soft rounded-2xl border p-4"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-base font-semibold text-white">
@@ -790,7 +1043,7 @@ export default function MulooCommandCentre() {
                             <span className="rounded-full border border-status-warning/35 bg-status-warning/10 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
                               {queue.unreadCount > 0
                                 ? `${queue.unreadCount} unread`
-                                : "recent label mail"}
+                                : "recent mail"}
                             </span>
                           </div>
                           <div className="mt-2 flex flex-wrap gap-2">
@@ -805,13 +1058,18 @@ export default function MulooCommandCentre() {
                             ))}
                           </div>
                         </div>
+                        <Link
+                          href="/clients"
+                          className="text-sm text-text-secondary hover:text-brand-teal"
+                        >
+                          Manage labels →
+                        </Link>
                       </div>
 
                       <div className="mt-4 space-y-3">
                         {queue.emails.length === 0 ? (
                           <div className="rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
-                            The label is linked, but no recent mail is visible
-                            in Gmail for this queue yet.
+                            The label is live, but there is no recent mail showing yet.
                           </div>
                         ) : (
                           queue.emails.slice(0, 2).map((email) => (
@@ -845,7 +1103,7 @@ export default function MulooCommandCentre() {
                                   className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
                                 >
                                   {creatingTodoEmailId === email.id
-                                    ? "Creating task..."
+                                    ? "Creating..."
                                     : "Create task"}
                                 </button>
                                 <a
@@ -868,52 +1126,23 @@ export default function MulooCommandCentre() {
             </div>
 
             <div className="brand-surface rounded-3xl border p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                    Today&apos;s Calendar
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">
-                    Google Calendar
-                  </h2>
-                  <p className="mt-2 text-sm text-text-secondary">
-                    See the current day at a glance so the Command Centre opens
-                    with what matters right now.
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-                    Calendar
-                  </p>
-                  <p className="mt-2 text-sm text-text-secondary">
-                    {calendarConnectedEmail ?? "Not connected"}
-                  </p>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <SectionLabel
+                  label="Calendar"
+                  title="Today in Google Calendar"
+                  body="Your current-day view so the Command Centre opens around time, not just tasks."
+                />
+                <div className="text-right text-sm text-text-secondary">
+                  <p>{calendarConnectedEmail ?? "Not connected"}</p>
                 </div>
               </div>
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text-secondary">
                 {calendarRequiresReconnect
-                  ? "Reconnect Google Workspace once to add Google Tasks to the same shared setup."
+                  ? "Reconnect Google once to keep calendar and Google Tasks in the same flow."
                   : calendarConnected
-                    ? `Showing ${todayCalendarEvents.length > 0 ? "today's schedule" : "your next upcoming slots"} from Google Calendar.`
-                    : "Finish Google Workspace setup to bring calendar, tasks, and Gmail into one guided flow."}
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                <a
-                  href={googleSetupHref}
-                  className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55"
-                >
-                  {calendarConnected && !calendarRequiresReconnect
-                    ? "Review Google Workspace"
-                    : "Connect Google Workspace"}
-                </a>
-                <Link
-                  href="/settings/workspace"
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20"
-                >
-                  Workspace settings
-                </Link>
+                    ? "Showing today first, then upcoming events if the day is still clear."
+                    : "Finish the shared Google setup to bring in calendar and tasks."}
               </div>
 
               <div className="mt-5 space-y-3">
@@ -930,212 +1159,51 @@ export default function MulooCommandCentre() {
                     No events are scheduled for today.
                   </div>
                 ) : (
-                  todayCalendarEvents.map((event) => (
+                  todayCalendarEvents.slice(0, 4).map((event) => (
                     <div
                       key={event.id}
                       className="brand-surface-soft rounded-2xl border p-4"
                     >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="text-base font-semibold text-white">
-                            {event.summary}
-                          </p>
-                          <p className="mt-1 text-sm text-text-secondary">
-                            {formatCalendarRange(event)}
-                          </p>
-                          {event.location ? (
-                            <p className="mt-2 text-sm text-text-muted">
-                              {event.location}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
+                      <p className="text-sm font-semibold text-white">
+                        {event.summary}
+                      </p>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        {formatCalendarRange(event)}
+                      </p>
+                      {event.location ? (
+                        <p className="mt-2 text-xs text-text-muted">
+                          {event.location}
+                        </p>
+                      ) : null}
                     </div>
                   ))
                 )}
               </div>
             </div>
-          </section>
-
-          <section className="brand-surface rounded-3xl border p-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                  Needs Attention
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">
-                  The next five things to unblock
-                </h2>
-              </div>
-              <Link href="/projects" className="text-sm text-text-secondary hover:text-brand-teal">
-                View all projects →
-              </Link>
-            </div>
-
-            <div className="mt-5 space-y-3">
-              {loading ? (
-                <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
-                  Loading attention queue...
-                </div>
-              ) : needsAttention.length === 0 ? (
-                <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
-                  Nothing urgent is flagged right now.
-                </div>
-              ) : (
-                needsAttention.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className={`block rounded-2xl border p-4 transition hover:border-brand-teal/55 ${getAttentionTone(
-                      item.reasonKey
-                    )}`}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-base font-semibold text-white">
-                          {item.projectName}
-                        </p>
-                        <p className="mt-1 text-sm text-text-secondary">
-                          {item.clientName} · {item.reason}
-                        </p>
-                      </div>
-                      <div className="text-right text-sm text-text-secondary">
-                        <p>{item.age}</p>
-                        <p className="brand-surface-soft mt-1 inline-flex rounded-full border px-2 py-1 text-xs uppercase tracking-[0.18em] text-white">
-                          {formatStatusLabel(item.reasonKey)}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
-
-          <section className="grid gap-6 xl:grid-cols-3">
-            <div className="brand-surface rounded-3xl border p-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                    Active Projects
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">
-                    Recently updated delivery work
-                  </h2>
-                </div>
-                <Link href="/projects" className="text-sm text-text-secondary hover:text-brand-teal">
-                  View all projects →
-                </Link>
-              </div>
-
-              <div className="mt-5 space-y-3">
-                {activeProjects.map((project) => (
-                  <Link
-                    key={project.id}
-                    href={`/projects/${project.id}`}
-                    className="brand-surface-soft flex items-center justify-between gap-4 rounded-2xl border p-4 transition hover:border-brand-teal/55"
-                  >
-                    <div>
-                      <p className="font-medium text-white">{project.name}</p>
-                      <p className="mt-1 text-sm text-text-secondary">{project.clientName}</p>
-                    </div>
-                    <div className="text-right">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${getStatusBadgeClass(
-                          project.status
-                        )}`}
-                      >
-                        {formatStatusLabel(project.status)}
-                      </span>
-                      <p className="mt-2 text-xs text-text-muted">
-                        {formatRelativeTime(project.updatedAt)}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
 
             <div className="brand-surface rounded-3xl border p-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                    Recent Runs
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">
-                    Latest automation activity
-                  </h2>
-                </div>
-                <Link href="/runs" className="text-sm text-text-secondary hover:text-brand-teal">
-                  View all runs →
-                </Link>
-              </div>
-
-              <div className="mt-5 space-y-3">
-                {recentRuns.map((run) => (
-                  <Link
-                    key={run.id}
-                    href="/runs"
-                    className="brand-surface-soft flex items-center justify-between gap-4 rounded-2xl border p-4 transition hover:border-brand-teal/55"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-white">{run.name}</p>
-                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
-                          {run.type}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-text-secondary">
-                        {run.projectName ?? "Workspace run"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${getStatusBadgeClass(
-                          run.status
-                        )}`}
-                      >
-                        {formatStatusLabel(run.status)}
-                      </span>
-                      <p className="mt-2 text-xs text-text-muted">
-                        {formatRelativeTime(run.createdAt)}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div className="brand-surface rounded-3xl border p-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                    Private Tasks
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">
-                    Personal Google Tasks
-                  </h2>
-                  <p className="mt-2 text-sm text-text-secondary">
-                    Keep a private to-do list for your own follow-ups, separate
-                    from the PMO board.
-                  </p>
-                </div>
-                <Link
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <SectionLabel
+                  label="Tasks"
+                  title="Private Google Tasks"
+                  body="A personal list that stays out of the PMO board."
+                />
+                <a
                   href={googleSetupHref}
                   className="text-sm text-text-secondary hover:text-brand-teal"
                 >
-                  Finish Google setup →
-                </Link>
+                  Google setup →
+                </a>
               </div>
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text-secondary">
                 {privateTasksRequiresReconnect
-                  ? "Reconnect Google Workspace once to grant Google Tasks access for your private list."
+                  ? "Reconnect Google once to grant Google Tasks access."
                   : privateTasksConnected
-                    ? `Synced with ${privateTaskListTitle} in Google Tasks${privateTasksConnectedEmail ? ` as ${privateTasksConnectedEmail}` : ""}.`
+                    ? `Synced with ${privateTaskListTitle}${privateTasksConnectedEmail ? ` as ${privateTasksConnectedEmail}` : ""}.`
                     : privateTasksConfigured
-                      ? "Finish Google Workspace setup to sync your private task list."
-                      : "Add Google Workspace credentials once, then use the shared Google setup flow to connect calendar, tasks, and Gmail."}
+                      ? "Finish Google setup to sync your private task list."
+                      : "Add Google Workspace credentials once, then connect the shared Google flow."}
               </div>
 
               {privateTaskFeedback ? (
@@ -1144,20 +1212,13 @@ export default function MulooCommandCentre() {
                 </div>
               ) : null}
 
-              <div className="mt-5 space-y-3">
+              <div className="mt-5 flex gap-3">
                 <input
                   type="text"
                   value={privateTaskTitle}
                   onChange={(event) => setPrivateTaskTitle(event.target.value)}
                   placeholder="Add a private task"
-                  className="block w-full rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
-                />
-                <textarea
-                  value={privateTaskNotes}
-                  onChange={(event) => setPrivateTaskNotes(event.target.value)}
-                  placeholder="Optional notes"
-                  rows={3}
-                  className="block w-full rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+                  className="block min-w-0 flex-1 rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
                 />
                 <button
                   type="button"
@@ -1169,7 +1230,7 @@ export default function MulooCommandCentre() {
                   }
                   className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
                 >
-                  {savingPrivateTask ? "Adding..." : "Add private task"}
+                  {savingPrivateTask ? "Adding..." : "Add"}
                 </button>
               </div>
 
@@ -1180,11 +1241,10 @@ export default function MulooCommandCentre() {
                   </div>
                 ) : privateTasks.length === 0 ? (
                   <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
-                    No private tasks yet. Add one here and it will stay out of
-                    the PMO board.
+                    No private tasks yet. Add one here and it stays off the PMO board.
                   </div>
                 ) : (
-                  privateTasks.map((task) => (
+                  privateTasks.slice(0, 5).map((task) => (
                     <div
                       key={task.id}
                       className="brand-surface-soft rounded-2xl border p-4"
@@ -1215,15 +1275,12 @@ export default function MulooCommandCentre() {
                           >
                             {task.title}
                           </p>
-                          {task.notes ? (
-                            <p className="mt-1 text-sm text-text-secondary">
-                              {task.notes}
-                            </p>
-                          ) : null}
                           <p className="mt-2 text-xs text-text-muted">
                             {task.completed
                               ? `Completed ${formatRelativeTime(
-                                  task.completedAt ?? task.updatedAt ?? new Date().toISOString()
+                                  task.completedAt ??
+                                    task.updatedAt ??
+                                    new Date().toISOString()
                                 )}`
                               : `Updated ${formatRelativeTime(
                                   task.updatedAt ?? new Date().toISOString()
@@ -1236,15 +1293,246 @@ export default function MulooCommandCentre() {
                           disabled={deletingPrivateTaskId === task.id}
                           className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-text-secondary transition hover:border-white/20 hover:text-white disabled:opacity-60"
                         >
-                          {deletingPrivateTaskId === task.id
-                            ? "Removing..."
-                            : "Delete"}
+                          {deletingPrivateTaskId === task.id ? "..." : "Delete"}
                         </button>
                       </div>
                     </div>
                   ))
                 )}
               </div>
+            </div>
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr_0.8fr]">
+            <div className="brand-surface rounded-3xl border p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <SectionLabel
+                  label="Compose"
+                  title="AI-assisted email composer"
+                  body="Draft in plain text, use voice typing when you're moving fast, then send without leaving the Command Centre."
+                />
+                <p className="text-sm text-text-secondary">
+                  {gmailConnectedEmail ?? "Workspace mail not connected"}
+                </p>
+              </div>
+
+              {composerFeedback ? (
+                <div className="mt-5 rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-3 text-sm text-white">
+                  {composerFeedback}
+                </div>
+              ) : null}
+
+              <div className="mt-5 space-y-4">
+                <input
+                  type="text"
+                  value={composerTo}
+                  onChange={(event) => setComposerTo(event.target.value)}
+                  placeholder="To"
+                  className="block w-full rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+                />
+                <input
+                  type="text"
+                  value={composerSubject}
+                  onChange={(event) => setComposerSubject(event.target.value)}
+                  placeholder="Subject"
+                  className="block w-full rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+                />
+                <textarea
+                  value={composerBody}
+                  onChange={(event) => setComposerBody(event.target.value)}
+                  placeholder="Write the plain-text brief or the full email here. AI can tighten it, expand it, or turn voice notes into a polished draft."
+                  rows={10}
+                  className="block w-full rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+                />
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void draftWorkspaceEmail()}
+                    disabled={draftingComposer}
+                    className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
+                  >
+                    {draftingComposer ? "Drafting..." : "Draft with AI"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleVoiceTyping}
+                    disabled={!voiceSupported}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20 disabled:opacity-60"
+                  >
+                    {isListening ? "Stop voice typing" : "Voice typing"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void sendWorkspaceEmail()}
+                    disabled={sendingComposer}
+                    className="rounded-2xl border border-white/10 bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-white/90 disabled:opacity-60"
+                  >
+                    {sendingComposer ? "Sending..." : "Send email"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="brand-surface rounded-3xl border p-6">
+              <div className="flex items-center justify-between gap-4">
+                <SectionLabel
+                  label="Projects"
+                  title="Active projects"
+                  body="The delivery work that moved most recently."
+                />
+                <Link href="/projects" className="text-sm text-text-secondary hover:text-brand-teal">
+                  View all →
+                </Link>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {loading ? (
+                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                    Loading projects...
+                  </div>
+                ) : activeProjects.length === 0 ? (
+                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                    No active projects are visible yet.
+                  </div>
+                ) : (
+                  activeProjects.map((project) => (
+                    <Link
+                      key={project.id}
+                      href={`/projects/${project.id}`}
+                      className="brand-surface-soft flex items-center justify-between gap-4 rounded-2xl border p-4 transition hover:border-brand-teal/55"
+                    >
+                      <div>
+                        <p className="font-medium text-white">{project.name}</p>
+                        <p className="mt-1 text-sm text-text-secondary">
+                          {project.clientName}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                            project.status
+                          )}`}
+                        >
+                          {formatStatusLabel(project.status)}
+                        </span>
+                        <p className="mt-2 text-xs text-text-muted">
+                          {formatRelativeTime(project.updatedAt)}
+                        </p>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="brand-surface rounded-3xl border p-6">
+              <div className="flex items-center justify-between gap-4">
+                <SectionLabel
+                  label="Runs"
+                  title="Recent automation"
+                  body="The latest workflow and agent activity."
+                />
+                <Link href="/runs" className="text-sm text-text-secondary hover:text-brand-teal">
+                  View all →
+                </Link>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {loading ? (
+                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                    Loading runs...
+                  </div>
+                ) : recentRuns.length === 0 ? (
+                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                    No automation runs are visible yet.
+                  </div>
+                ) : (
+                  recentRuns.map((run) => (
+                    <Link
+                      key={run.id}
+                      href="/runs"
+                      className="brand-surface-soft block rounded-2xl border p-4 transition hover:border-brand-teal/55"
+                    >
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-white">{run.name}</p>
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
+                          {run.type}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        {run.projectName ?? "Workspace run"}
+                      </p>
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                            run.resultStatus ?? run.status
+                          )}`}
+                        >
+                          {formatStatusLabel(run.resultStatus ?? run.status)}
+                        </span>
+                        <p className="text-xs text-text-muted">
+                          {formatRelativeTime(run.createdAt)}
+                        </p>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="brand-surface rounded-3xl border p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <SectionLabel
+                label="Daily Signal"
+                title="Industry movement worth knowing"
+                body="Fresh reading across AI improvements, marketing automation, SEO, HubSpot, and CRM platforms."
+              />
+              <p className="text-sm text-text-secondary">
+                Updated from live external feeds
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {loading ? (
+                <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary md:col-span-2 xl:col-span-4">
+                  Loading daily industry signal...
+                </div>
+              ) : industrySignals.length === 0 ? (
+                <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary md:col-span-2 xl:col-span-4">
+                  No industry feed items are available right now.
+                </div>
+              ) : (
+                industrySignals.map((item) => (
+                  <a
+                    key={item.link}
+                    href={item.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="brand-surface-soft rounded-2xl border p-4 transition hover:border-brand-teal/55"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
+                        {item.source}
+                      </span>
+                      <span className="rounded-full border border-brand-teal/30 bg-brand-teal/10 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
+                        {item.category}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm font-semibold leading-6 text-white">
+                      {item.title}
+                    </p>
+                    <p className="mt-3 text-sm leading-6 text-text-secondary">
+                      {item.summary || "Open the article to read the full update."}
+                    </p>
+                    <p className="mt-4 text-xs text-text-muted">
+                      {item.publishedAt
+                        ? formatRelativeTime(item.publishedAt)
+                        : "Recently published"}
+                    </p>
+                  </a>
+                ))
+              )}
             </div>
           </section>
         </div>
