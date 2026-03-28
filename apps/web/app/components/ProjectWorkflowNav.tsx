@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import {
@@ -27,6 +27,7 @@ export default function ProjectWorkflowNav({
   engagementType?: string | null;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [resolvedProject, setResolvedProject] = useState<{
     engagementType: string | null;
     includesPortalAudit: boolean;
@@ -85,6 +86,23 @@ export default function ProjectWorkflowNav({
     hasPortalAudit
   });
 
+  function isLinkActive(href: string) {
+    const [targetPath, targetQuery] = href.split("?");
+
+    if (pathname !== targetPath) {
+      return false;
+    }
+
+    if (!targetQuery) {
+      return true;
+    }
+
+    const targetParams = new URLSearchParams(targetQuery);
+    return Array.from(targetParams.entries()).every(
+      ([key, value]) => searchParams.get(key) === value
+    );
+  }
+
   return (
     <nav className="mb-6 rounded-[28px] border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -120,7 +138,7 @@ export default function ProjectWorkflowNav({
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={navClass(pathname === link.href)}
+                  className={navClass(isLinkActive(link.href))}
                 >
                   {link.label}
                 </Link>

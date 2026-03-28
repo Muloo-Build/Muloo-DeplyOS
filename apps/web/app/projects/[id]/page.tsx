@@ -1,16 +1,9 @@
 import ProjectWorkspaceLanding from "../../components/ProjectWorkspaceLanding";
 
 export default function ProjectOverviewPage({
-  params,
-  searchParams
+  params
 }: {
   params: { id: string };
-  searchParams?: { view?: string };
 }) {
-  return (
-    <ProjectWorkspaceLanding
-      projectId={params.id}
-      forceSummary={searchParams?.view === "summary"}
-    />
-  );
+  return <ProjectWorkspaceLanding projectId={params.id} />;
 }

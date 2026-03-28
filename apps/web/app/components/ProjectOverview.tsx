@@ -8,6 +8,7 @@ import ProjectContextSidebar from "./project/ProjectContextSidebar";
 import ProjectDetailLayout, {
   type ProjectDetailTabKey
 } from "./project/ProjectDetailLayout";
+import ProjectWorkflowNav from "./ProjectWorkflowNav";
 import CommsTab from "./project/tabs/CommsTab";
 import DeliveryTab from "./project/tabs/DeliveryTab";
 import DiscoveryTab from "./project/tabs/DiscoveryTab";
@@ -1954,6 +1955,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   return (
     <AppShell>
       <div className="brand-page p-4 sm:p-6 xl:p-8">
+        <ProjectWorkflowNav
+          projectId={project.id}
+          engagementType={project.engagementType}
+        />
         <ProjectDetailLayout
           backHref="/projects"
           title={project.name}
