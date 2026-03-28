@@ -1563,25 +1563,29 @@ export default function DeliveryBoard({
 
                                 return (
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <span
-                                      className={`rounded px-2 py-1 text-xs font-medium ${assigneeTypeClass(
-                                        task.assigneeType
-                                      )}`}
-                                    >
-                                      {formatAssigneeType(task.assigneeType)}
-                                    </span>
-                                    <span
-                                      className={`rounded px-2 py-1 text-xs font-medium ${executionLaneClass(
-                                        task.executionPath.lane
-                                      )}`}
-                                    >
-                                      {task.executionPath.label}
-                                    </span>
-                                    <span
-                                      className={`rounded px-2 py-1 text-xs font-medium ${badge.className}`}
-                                    >
-                                      {badge.label}
-                                    </span>
+                                    {mode === "internal" ? (
+                                      <>
+                                        <span
+                                          className={`rounded px-2 py-1 text-xs font-medium ${assigneeTypeClass(
+                                            task.assigneeType
+                                          )}`}
+                                        >
+                                          {formatAssigneeType(task.assigneeType)}
+                                        </span>
+                                        <span
+                                          className={`rounded px-2 py-1 text-xs font-medium ${executionLaneClass(
+                                            task.executionPath.lane
+                                          )}`}
+                                        >
+                                          {task.executionPath.label}
+                                        </span>
+                                        <span
+                                          className={`rounded px-2 py-1 text-xs font-medium ${badge.className}`}
+                                        >
+                                          {badge.label}
+                                        </span>
+                                      </>
+                                    ) : null}
                                     <span
                                       className={`rounded px-2 py-1 text-xs font-medium ${
                                         task.scopeOrigin?.toLowerCase() ===
