@@ -142,6 +142,7 @@ import {
   deleteClientDirectoryRecord,
   loadClientInbox,
   loadClientInboxSummary,
+  loadClientInvoiceWorkspace,
   loadClientProjectDetail,
   loadClientProjectsForUser,
   loadClientQuoteDocument,
@@ -167,7 +168,10 @@ import {
   loadLatestPortalSnapshot,
   loadProjectChangeRequests,
   refreshClientEnrichment,
+  completeWorkspacePasswordReset,
   loadProjectMessages,
+  requestClientPasswordReset,
+  requestWorkspacePasswordReset,
   markProjectMessagesSeenByInternal,
   markProjectMessagesSeenByClient,
   requestTaskApproval,
@@ -359,9 +363,22 @@ const authLoginSchema = z.object({
   password: z.string().min(1)
 });
 
+const authPasswordResetRequestSchema = z.object({
+  identifier: z.string().min(1)
+});
+
+const authSetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8)
+});
+
 const clientLoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1)
+});
+
+const clientPasswordResetRequestSchema = z.object({
+  email: z.string().email()
 });
 
 const clientSetPasswordSchema = z.object({
@@ -834,6 +851,34 @@ export function createApiApp(config: BaseConfig) {
     c.json(await loadAuthenticatedWorkspaceSession(c.env.incoming))
   );
 
+  app.post("/api/auth/request-password-reset", async (c) => {
+    const parsed = authPasswordResetRequestSchema.safeParse(
+      await readJsonBodyOrEmpty(c)
+    );
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    try {
+      return c.json(
+        await requestWorkspacePasswordReset({
+          identifier: parsed.data.identifier
+        })
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to request password reset"
+        },
+        400
+      );
+    }
+  });
+
   app.post("/api/auth/login", async (c) => {
     const parsed = authLoginSchema.safeParse(await readJsonBodyOrEmpty(c));
 
@@ -933,6 +978,44 @@ export function createApiApp(config: BaseConfig) {
     return c.json({ authenticated: false });
   });
 
+  app.post("/api/auth/set-password", async (c) => {
+    const parsed = authSetPasswordSchema.safeParse(
+      await readJsonBodyOrEmpty(c)
+    );
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    try {
+      const user = await completeWorkspacePasswordReset(parsed.data);
+
+      c.header(
+        "Set-Cookie",
+        createCookieHeader(createWorkspaceUserAuthToken(user.id), {
+          maxAge: 60 * 60 * 12
+        })
+      );
+
+      await audit(user.email, "auth.password_set", "WorkspaceUser", user.id);
+
+      return c.json({
+        authenticated: true,
+        user
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to set password"
+        },
+        400
+      );
+    }
+  });
+
   app.get("/api/auth/google/start", async (c) => {
     try {
       const { authUrl } = await createWorkspaceGoogleLoginStart();
@@ -997,6 +1080,34 @@ export function createApiApp(config: BaseConfig) {
       authenticated: Boolean(user),
       user: user ? serializeClientPortalUser(user) : null
     });
+  });
+
+  app.post("/api/client-auth/request-password-reset", async (c) => {
+    const parsed = clientPasswordResetRequestSchema.safeParse(
+      await readJsonBodyOrEmpty(c)
+    );
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    try {
+      return c.json(
+        await requestClientPasswordReset({
+          email: parsed.data.email
+        })
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to request password reset"
+        },
+        400
+      );
+    }
   });
 
   app.post("/api/client-auth/login", async (c) => {
@@ -4793,6 +4904,14 @@ export function createApiApp(config: BaseConfig) {
     await markProjectMessagesSeenByClient(projectIds);
 
     return c.json(await loadClientInbox(clientUserId));
+  });
+
+  app.all("/api/client/invoices", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    return c.json(await loadClientInvoiceWorkspace(c.get("clientUserId")));
   });
 
   app.all("/api/client/work-requests", async (c) => {

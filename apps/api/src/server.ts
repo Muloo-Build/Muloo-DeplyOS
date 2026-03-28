@@ -2149,6 +2149,14 @@ export async function updateWorkspaceUser(
   return serializeWorkspaceUser(user);
 }
 
+function normalizeWorkspaceLoginIdentifier(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function inferDefaultHubsForServiceFamily(serviceFamily: string) {
   switch (serviceFamily) {
     case "custom_engineering":
@@ -2950,6 +2958,136 @@ export async function loadAuthenticatedWorkspaceSession(
     authenticated: false as const,
     user: null
   };
+}
+
+function buildWorkspaceResetUrl(token: string) {
+  return `${getAppBaseUrl()}/set-password?token=${encodeURIComponent(token)}`;
+}
+
+function buildWorkspacePasswordResetEmail(input: {
+  user: { name: string; email: string };
+  resetUrl: string;
+}) {
+  const greetingName = input.user.name.trim() || "there";
+
+  return {
+    subject: "Reset your workspace password",
+    body: [
+      `Hi ${greetingName},`,
+      "",
+      "We received a request to reset your password for the business admin workspace.",
+      "",
+      `Set a new password: ${input.resetUrl}`,
+      "",
+      "This secure link expires in 24 hours.",
+      "",
+      "If you did not request this, you can ignore this email.",
+      "",
+      "Muloo"
+    ].join("\n")
+  };
+}
+
+export async function requestWorkspacePasswordReset(value: {
+  identifier?: unknown;
+}) {
+  const identifier =
+    typeof value.identifier === "string" ? value.identifier.trim() : "";
+
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  const normalizedIdentifier =
+    normalizeWorkspaceLoginIdentifier(identifier);
+  const workspaceUsers = await loadWorkspaceUsers();
+  const matchingWorkspaceUser = workspaceUsers.find((user) => {
+    const normalizedName = normalizeWorkspaceLoginIdentifier(user.name);
+    const normalizedEmail = user.email.trim().toLowerCase();
+    const normalizedEmailLocalPart = normalizedEmail.split("@")[0] ?? "";
+
+    return (
+      user.isActive &&
+      (normalizedEmail === identifier.toLowerCase() ||
+        normalizedEmailLocalPart === normalizedIdentifier ||
+        normalizedName === normalizedIdentifier)
+    );
+  });
+
+  if (!matchingWorkspaceUser) {
+    return { requested: true as const };
+  }
+
+  const passwordResetToken = crypto.randomBytes(24).toString("hex");
+  const passwordResetTokenExpiresAt = new Date(
+    Date.now() + 1000 * 60 * 60 * 24
+  );
+
+  await prisma.workspaceUser.update({
+    where: { id: matchingWorkspaceUser.id },
+    data: {
+      passwordResetToken,
+      passwordResetTokenExpiresAt
+    }
+  });
+
+  const resetUrl = buildWorkspaceResetUrl(passwordResetToken);
+  const email = buildWorkspacePasswordResetEmail({
+    user: matchingWorkspaceUser,
+    resetUrl
+  });
+
+  await sendWorkspaceEmail({
+    to: matchingWorkspaceUser.email,
+    subject: email.subject,
+    body: email.body
+  });
+
+  return {
+    requested: true as const
+  };
+}
+
+export async function completeWorkspacePasswordReset(value: {
+  token?: unknown;
+  password?: unknown;
+}) {
+  const token = typeof value.token === "string" ? value.token.trim() : "";
+  const password =
+    typeof value.password === "string" ? value.password.trim() : "";
+
+  if (!token) {
+    throw new Error("token is required");
+  }
+
+  if (!password || password.length < 8) {
+    throw new Error("password must be at least 8 characters");
+  }
+
+  const now = new Date();
+  const user = await prisma.workspaceUser.findFirst({
+    where: {
+      passwordResetToken: token,
+      passwordResetTokenExpiresAt: {
+        gt: now
+      }
+    }
+  });
+
+  if (!user?.isActive) {
+    throw new Error("This reset link is invalid or has expired");
+  }
+
+  const updatedUser = await prisma.workspaceUser.update({
+    where: { id: user.id },
+    data: {
+      password: await hashPassword(password),
+      passwordResetToken: null,
+      passwordResetTokenExpiresAt: null
+    }
+  });
+
+  return serializeWorkspaceUser(updatedUser);
 }
 
 export async function resolveInternalActor(
@@ -19837,6 +19975,36 @@ async function buildClientPortalLoginUrl(email: string) {
   return `${getAppBaseUrl()}${portalBasePath}/login`;
 }
 
+function buildClientPortalPasswordResetEmail(input: {
+  contact: {
+    firstName: string;
+    email: string;
+  };
+  resetUrl: string;
+  loginUrl: string;
+}) {
+  const greetingName = input.contact.firstName.trim() || "there";
+
+  return {
+    subject: "Reset your portal password",
+    body: [
+      `Hi ${greetingName},`,
+      "",
+      "We received a request to reset your password for the portal.",
+      "",
+      `Set a new password: ${input.resetUrl}`,
+      "",
+      `After you reset it, sign in here: ${input.loginUrl}`,
+      "",
+      "This secure link expires in 24 hours.",
+      "",
+      "If you did not request this, you can ignore this email.",
+      "",
+      "Muloo"
+    ].join("\n")
+  };
+}
+
 function buildClientPortalInviteEmail(input: {
   contact: {
     firstName: string;
@@ -19964,6 +20132,57 @@ export async function createClientResetLink(userId: string, projectId: string) {
   return {
     user: serializeClientPortalUser(access.user),
     resetLink: await buildClientAccessUrlForEmail(access.user.email, resetToken)
+  };
+}
+
+export async function requestClientPasswordReset(value: {
+  email?: unknown;
+}) {
+  const email =
+    typeof value.email === "string" ? value.email.trim().toLowerCase() : "";
+
+  if (!email) {
+    throw new Error("email is required");
+  }
+
+  const user = await prisma.clientPortalUser.findUnique({
+    where: { email }
+  });
+
+  if (!user) {
+    return { requested: true as const };
+  }
+
+  const resetToken = crypto.randomBytes(24).toString("hex");
+  const resetExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+  await prisma.clientPortalUser.update({
+    where: { id: user.id },
+    data: {
+      passwordResetToken: resetToken,
+      passwordResetTokenExpiresAt: resetExpiresAt
+    }
+  });
+
+  const resetUrl = await buildClientAccessUrlForEmail(user.email, resetToken);
+  const loginUrl = await buildClientPortalLoginUrl(user.email);
+  const resetEmail = buildClientPortalPasswordResetEmail({
+    contact: {
+      firstName: user.firstName,
+      email: user.email
+    },
+    resetUrl,
+    loginUrl
+  });
+
+  await sendWorkspaceEmail({
+    to: user.email,
+    subject: resetEmail.subject,
+    body: resetEmail.body
+  });
+
+  return {
+    requested: true as const
   };
 }
 
@@ -20346,6 +20565,114 @@ export async function loadClientProjectsForUser(userId: string) {
     role: record.role,
     project: serializeClientProject(record.project)
   }));
+}
+
+function normalizeBillingEntityName(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function matchesInvoiceContactName(contactName: string, matcherValues: string[]) {
+  const normalizedContactName = normalizeBillingEntityName(contactName);
+
+  return matcherValues.some((matcherValue) => {
+    if (!matcherValue || !normalizedContactName) {
+      return false;
+    }
+
+    return (
+      normalizedContactName === matcherValue ||
+      normalizedContactName.includes(matcherValue) ||
+      matcherValue.includes(normalizedContactName)
+    );
+  });
+}
+
+export async function loadClientInvoiceWorkspace(userId: string) {
+  const accessRecords = await prisma.clientProjectAccess.findMany({
+    where: { userId },
+    include: {
+      project: {
+        include: {
+          client: true
+        }
+      }
+    },
+    orderBy: {
+      project: {
+        updatedAt: "desc"
+      }
+    }
+  });
+
+  const accessibleClients = Array.from(
+    new Map(
+      accessRecords.map((record) => [
+        record.project.client.id,
+        {
+          id: record.project.client.id,
+          name: record.project.client.name
+        }
+      ])
+    ).values()
+  );
+  const accessibleProjects = accessRecords.map((record) => ({
+    id: record.project.id,
+    name: record.project.name,
+    clientName: record.project.client.name,
+    role: record.role
+  }));
+
+  const invoicesState = await getWorkspaceXeroInvoices();
+
+  if (!invoicesState.connected) {
+    return {
+      connected: false as const,
+      matchingStrategy: "xero_contact_name" as const,
+      accessibleClients,
+      accessibleProjects
+    };
+  }
+
+  const matcherValues = Array.from(
+    new Set(
+      [
+        ...accessibleClients.map((client) => client.name),
+        ...accessibleProjects.map((project) => project.clientName)
+      ]
+        .map((value) => normalizeBillingEntityName(value))
+        .filter(Boolean)
+    )
+  );
+
+  const invoices = invoicesState.summary.invoices.filter((invoice) =>
+    matchesInvoiceContactName(invoice.contact, matcherValues)
+  );
+  const totalOutstanding = invoices.reduce(
+    (sum, invoice) => sum + invoice.amountDue,
+    0
+  );
+  const totalOverdue = invoices
+    .filter((invoice) => invoice.isOverdue)
+    .reduce((sum, invoice) => sum + invoice.amountDue, 0);
+
+  return {
+    connected: true as const,
+    tenantName: invoicesState.tenantName,
+    matchingStrategy: "xero_contact_name" as const,
+    accessibleClients,
+    accessibleProjects,
+    summary: {
+      currency: invoicesState.summary.currency,
+      totalOutstanding,
+      totalOverdue,
+      invoices
+    }
+  };
 }
 
 export async function loadClientProjectDetail(

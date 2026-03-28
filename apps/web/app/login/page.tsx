@@ -93,6 +93,15 @@ export default function LoginPage() {
             />
           </label>
 
+          <div className="-mt-1 flex justify-end">
+            <a
+              href="/forgot-password"
+              className="text-sm text-text-secondary underline-offset-4 hover:text-white hover:underline"
+            >
+              Forgot password?
+            </a>
+          </div>
+
           {error || oauthError ? (
             <p className="text-sm text-[#ff8f9c]">{error ?? oauthError}</p>
           ) : null}

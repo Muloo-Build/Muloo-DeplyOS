@@ -70,6 +70,13 @@ const navGroups: NavGroup[] = [
         isActive: (pathname) =>
           pathname === "/inbox" || pathname.startsWith("/inbox/"),
         badge: "inbox"
+      },
+      {
+        href: "/business",
+        label: "Business",
+        icon: <Building2 size={18} />,
+        isActive: (pathname) =>
+          pathname === "/business" || pathname.startsWith("/business/")
       }
     ]
   },
