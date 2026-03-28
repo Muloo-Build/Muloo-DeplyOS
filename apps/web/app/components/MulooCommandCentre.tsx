@@ -1011,20 +1011,9 @@ export default function MulooCommandCentre() {
                             </span>
                             <span className="rounded-full border border-status-warning/35 bg-status-warning/10 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
                               {queue.unreadCount > 0
-                                ? `${queue.unreadCount} unread`
-                                : "recent mail"}
+                                ? `${queue.unreadCount} unread in label`
+                                : "last 5 emails"}
                             </span>
-                          </div>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {queue.projects.map((project) => (
-                              <Link
-                                key={project.id}
-                                href={`/projects/${project.id}`}
-                                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-text-secondary transition hover:border-brand-teal/50 hover:text-white"
-                              >
-                                {project.name}
-                              </Link>
-                            ))}
                           </div>
                         </div>
                         <Link
@@ -1038,10 +1027,10 @@ export default function MulooCommandCentre() {
                       <div className="mt-4 space-y-3">
                         {queue.emails.length === 0 ? (
                           <div className="rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
-                            The label is live, but there is no recent mail showing yet.
+                            The label is live, but Gmail is not returning any messages for it yet.
                           </div>
                         ) : (
-                          queue.emails.slice(0, 2).map((email) => (
+                          queue.emails.slice(0, 5).map((email) => (
                             <div
                               key={email.id}
                               className="rounded-2xl border border-white/10 bg-[#0b1126] p-4"

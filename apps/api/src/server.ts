@@ -15453,7 +15453,7 @@ function buildUnreadLabelQuery(label: string) {
 }
 
 function buildRecentLabelQuery(label: string) {
-  return `label:"${label.replace(/"/g, "").trim()}" newer_than:14d`;
+  return `label:"${label.replace(/"/g, "").trim()}"`;
 }
 
 async function loadGmailMessagesMatchingQuery(
@@ -15604,28 +15604,10 @@ export async function getWorkspaceClientEmailQueues() {
         not: null
       }
     },
-    include: {
-      projects: {
-        where: {
-          status: {
-            notIn: ["complete", "cancelled", "closed"]
-          }
-        },
-        select: {
-          id: true,
-          name: true,
-          status: true,
-          updatedAt: true
-        },
-        orderBy: [{ updatedAt: "desc" }]
-      }
-    },
     orderBy: [{ name: "asc" }]
   });
 
-  const labeledClients = clients.filter(
-    (client) => client.projects.length > 0 && client.gmailLabel?.trim().length
-  );
+  const labeledClients = clients.filter((client) => client.gmailLabel?.trim().length);
 
   const queues = await Promise.all(
     labeledClients.map(async (client) => {
@@ -15633,28 +15615,20 @@ export async function getWorkspaceClientEmailQueues() {
       const unreadEmails = await loadGmailMessagesMatchingQuery(
         refreshedConnection.accessToken as string,
         buildUnreadLabelQuery(gmailLabel),
-        8
+        10
       );
-      const emails =
-        unreadEmails.length > 0
-          ? unreadEmails
-          : await loadGmailMessagesMatchingQuery(
-              refreshedConnection.accessToken as string,
-              buildRecentLabelQuery(gmailLabel),
-              4
-            );
+      const emails = await loadGmailMessagesMatchingQuery(
+        refreshedConnection.accessToken as string,
+        buildRecentLabelQuery(gmailLabel),
+        5
+      );
 
       return {
         clientId: client.id,
         clientName: client.name,
         gmailLabel,
         unreadCount: unreadEmails.length,
-        projects: client.projects.map((project) => ({
-          id: project.id,
-          name: project.name,
-          status: project.status,
-          updatedAt: project.updatedAt.toISOString()
-        })),
+        projects: [],
         emails
       };
     })
