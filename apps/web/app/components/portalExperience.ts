@@ -64,10 +64,6 @@ export function getPortalInboxPath(portalExperience: PortalExperience) {
   return `${getPortalBasePath(portalExperience)}/inbox`;
 }
 
-export function getPortalInvoicesPath(portalExperience: PortalExperience) {
-  return `${getPortalBasePath(portalExperience)}/invoices`;
-}
-
 export function getPortalSupportPath(portalExperience: PortalExperience) {
   return `${getPortalBasePath(portalExperience)}/support`;
 }

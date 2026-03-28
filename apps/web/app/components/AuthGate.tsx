@@ -9,18 +9,16 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [checked, setChecked] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
-  const isPublicWorkspaceRoute =
-    pathname === "/login" ||
-    pathname === "/forgot-password" ||
-    pathname === "/set-password" ||
-    pathname.startsWith("/client") ||
-    pathname.startsWith("/partner");
 
   useEffect(() => {
     let cancelled = false;
 
     async function checkSession() {
-      if (isPublicWorkspaceRoute) {
+      if (
+        pathname === "/login" ||
+        pathname.startsWith("/client") ||
+        pathname.startsWith("/partner")
+      ) {
         if (!cancelled) {
           setAuthenticated(true);
           setChecked(true);
@@ -66,9 +64,13 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [isPublicWorkspaceRoute, pathname, router]);
+  }, [pathname, router]);
 
-  if (isPublicWorkspaceRoute) {
+  if (
+    pathname === "/login" ||
+    pathname.startsWith("/client") ||
+    pathname.startsWith("/partner")
+  ) {
     return <>{children}</>;
   }
 

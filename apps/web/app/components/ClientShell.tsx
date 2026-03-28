@@ -9,7 +9,6 @@ import {
   type PortalExperience,
   getPortalLabel,
   getPortalInboxPath,
-  getPortalInvoicesPath,
   getPortalLoginPath,
   getPortalProjectsPath,
   getPortalRequestWorkPath,
@@ -72,10 +71,6 @@ export default function ClientShell({
       href: getPortalInboxPath(resolvedPortalExperience),
       label: "Inbox",
       badge: inboxCount
-    },
-    {
-      href: getPortalInvoicesPath(resolvedPortalExperience),
-      label: "Invoices"
     },
     { href: getPortalSupportPath(resolvedPortalExperience), label: "Support" },
     {
@@ -187,7 +182,7 @@ export default function ClientShell({
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[rgba(255,255,255,0.08)] bg-[#081127]/95 px-2 py-2 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-7xl grid-cols-5 gap-2">
+        <div className="mx-auto grid max-w-7xl grid-cols-4 gap-2">
           {navItems.map((item) => {
             const isActive =
               pathname === item.href || pathname?.startsWith(item.href + "/");
