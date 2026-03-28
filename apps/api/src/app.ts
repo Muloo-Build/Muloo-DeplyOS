@@ -187,6 +187,7 @@ import {
   generateDiscoverySummary,
   generateBlueprintForProject,
   generateProjectTaskPlan,
+  loadProjectTaskTemplates,
   queueAgentRun,
   audit,
   hashPassword,
@@ -371,6 +372,10 @@ const taskRejectSchema = z.object({
 const taskExecuteSchema = z.object({
   dryRun: z.boolean().optional(),
   sessionId: z.string().trim().optional()
+});
+
+const projectTaskTemplateLoadSchema = z.object({
+  templateIds: z.array(z.string().min(1)).min(1)
 });
 
 const portalPrivateAppTokenSchema = z.object({
@@ -2534,6 +2539,53 @@ export function createApiApp(config: BaseConfig) {
     return c.json({
       tasks: await generateProjectTaskPlan(c.req.param("projectId"))
     });
+  });
+
+  app.post("/api/projects/:projectId/tasks/load-templates", async (c) => {
+    const parsed = projectTaskTemplateLoadSchema.safeParse(
+      await readJsonBodyOrEmpty(c)
+    );
+
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+
+    try {
+      await ensureProjectPlanGenerationAllowed(c.req.param("projectId"));
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load delivery templates"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 409
+      );
+    }
+
+    try {
+      return c.json({
+        tasks: await loadProjectTaskTemplates(
+          c.req.param("projectId"),
+          parsed.data.templateIds
+        )
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load delivery templates"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 400
+      );
+    }
   });
 
   app.all("/api/projects/:projectId/tasks/:taskId", async (c) => {

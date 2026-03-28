@@ -7562,6 +7562,115 @@ async function generateProjectPlan(projectId: string) {
   return generateBlueprintProjectPlan(projectId);
 }
 
+async function generateProjectPlanFromTemplates(
+  projectId: string,
+  templateIds: string[]
+) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      serviceFamily: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const normalizedTemplateIds = Array.from(
+    new Set(
+      templateIds
+        .map((templateId) => templateId.trim())
+        .filter((templateId) => templateId.length > 0)
+    )
+  );
+
+  if (normalizedTemplateIds.length === 0) {
+    throw new Error("Select at least one delivery template");
+  }
+
+  const templates = await prisma.deliveryTemplate.findMany({
+    where: {
+      id: {
+        in: normalizedTemplateIds
+      }
+    },
+    include: {
+      tasks: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+      }
+    }
+  });
+
+  if (templates.length !== normalizedTemplateIds.length) {
+    throw new Error("One or more delivery templates could not be found");
+  }
+
+  const templateOrder = new Map(
+    normalizedTemplateIds.map((templateId, index) => [templateId, index])
+  );
+  const orderedTemplates = templates.sort(
+    (left, right) =>
+      (templateOrder.get(left.id) ?? 0) - (templateOrder.get(right.id) ?? 0)
+  );
+
+  const availableAgents = await loadPreferredAgentIdsByServiceFamily(
+    project.serviceFamily
+  );
+
+  await prisma.executionJob.deleteMany({
+    where: {
+      projectId,
+      taskId: {
+        not: null
+      }
+    }
+  });
+  await prisma.task.deleteMany({
+    where: { projectId }
+  });
+
+  const createdTasks: Array<Awaited<ReturnType<typeof prisma.task.create>>> =
+    [];
+
+  for (const template of orderedTemplates) {
+    for (const templateTask of template.tasks) {
+      const task = await prisma.task.create({
+        data: {
+          projectId,
+          scopeOrigin: `template:${template.slug}`,
+          title: templateTask.title,
+          description: templateTask.description,
+          category: templateTask.category || template.name,
+          executionType: templateTask.executionType,
+          priority: templateTask.priority,
+          status: templateTask.status,
+          plannedHours: templateTask.plannedHours ?? null,
+          qaRequired: templateTask.qaRequired,
+          approvalRequired: templateTask.approvalRequired,
+          assigneeType: templateTask.assigneeType ?? "Human",
+          assignedAgentId: pickAgentForTask(availableAgents, {
+            title: templateTask.title,
+            description: templateTask.description ?? template.name,
+            category: templateTask.category ?? template.name,
+            executionType: templateTask.executionType,
+            assigneeType: templateTask.assigneeType ?? "Human"
+          }),
+          executionReadiness:
+            templateTask.assigneeType === "Agent"
+              ? "ready_with_review"
+              : "not_ready"
+        }
+      });
+
+      createdTasks.push(task);
+    }
+  }
+
+  return createdTasks;
+}
+
 export async function ensureProjectPlanGenerationAllowed(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
@@ -8366,6 +8475,15 @@ export async function createProjectTask(
 export async function generateProjectTaskPlan(projectId: string) {
   return (await generateProjectPlan(projectId)).map((task) =>
     serializeTask(task)
+  );
+}
+
+export async function loadProjectTaskTemplates(
+  projectId: string,
+  templateIds: string[]
+) {
+  return (await generateProjectPlanFromTemplates(projectId, templateIds)).map(
+    (task) => serializeTask(task)
   );
 }
 

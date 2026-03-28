@@ -181,6 +181,55 @@ interface AgentOption {
   serviceFamily?: string;
 }
 
+interface DeliveryTemplateOption {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  serviceFamily: string;
+  category: string;
+  scopeType: string;
+  recommendedHubs: string[];
+  defaultPlannedHours: number | null;
+  tasks: Array<{
+    id: string;
+    title: string;
+  }>;
+}
+
+function deriveRecommendedTemplateIds(
+  project: {
+    scopeType?: string | null;
+    selectedHubs?: string[];
+  },
+  templates: DeliveryTemplateOption[]
+) {
+  const selectedHubs = new Set(project.selectedHubs ?? []);
+  const scopeType = project.scopeType?.toLowerCase() ?? "";
+
+  return Array.from(
+    new Set(
+      templates
+        .filter((template) => {
+          const matchesScope =
+            scopeType.length > 0 &&
+            template.scopeType.toLowerCase() === scopeType;
+          const matchesHub = template.recommendedHubs.some((hub) =>
+            selectedHubs.has(hub)
+          );
+          const matchesCmsTheme =
+            selectedHubs.has("cms") &&
+            (template.slug.includes("theme") ||
+              template.name.toLowerCase().includes("theme") ||
+              template.description?.toLowerCase().includes("theme"));
+
+          return matchesScope || matchesHub || Boolean(matchesCmsTheme);
+        })
+        .map((template) => template.id)
+    )
+  );
+}
+
 export default function DeliveryBoard({
   projectId,
   mode = "internal"
@@ -191,13 +240,18 @@ export default function DeliveryBoard({
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [findings, setFindings] = useState<FindingRecord[]>([]);
   const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [templates, setTemplates] = useState<DeliveryTemplateOption[]>([]);
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
   const [projectServiceFamily, setProjectServiceFamily] = useState<
     string | null
   >(null);
+  const [projectScopeType, setProjectScopeType] = useState<string | null>(null);
+  const [projectSelectedHubs, setProjectSelectedHubs] = useState<string[]>([]);
   const [scopeLocked, setScopeLocked] = useState(false);
   const [quoteApproved, setQuoteApproved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [savingTask, setSavingTask] = useState(false);
@@ -240,6 +294,15 @@ export default function DeliveryBoard({
     setError(null);
 
     try {
+      let internalProject:
+        | {
+            serviceFamily?: string | null;
+            quoteApprovalStatus?: string | null;
+            scopeLockedAt?: string | null;
+            scopeType?: string | null;
+            selectedHubs?: string[];
+          }
+        | null = null;
       const [tasksResponse, agentsResponse, projectResponse] =
         await Promise.all([
           fetch(isPortalMode ? baseUrl : boardUrl, {
@@ -250,6 +313,8 @@ export default function DeliveryBoard({
             ? fetch(`/api/projects/${encodeURIComponent(projectId)}`)
             : Promise.resolve(null)
         ]);
+      const templatesResponse =
+        mode === "internal" ? await fetch("/api/delivery-templates") : null;
       const findingsResponse =
         mode === "internal"
           ? await fetch(
@@ -282,17 +347,20 @@ export default function DeliveryBoard({
 
         if (projectResponse?.ok) {
           const projectBody = await projectResponse.json().catch(() => null);
-          currentServiceFamily = projectBody?.project?.serviceFamily ?? null;
+          internalProject = projectBody?.project ?? null;
+          currentServiceFamily = internalProject?.serviceFamily ?? null;
           setQuoteApproved(
-            projectBody?.project?.quoteApprovalStatus === "approved"
+            internalProject?.quoteApprovalStatus === "approved"
           );
           setScopeLocked(
             Boolean(
-              projectBody?.project?.scopeLockedAt ||
-              projectBody?.project?.quoteApprovalStatus === "approved"
+              internalProject?.scopeLockedAt ||
+              internalProject?.quoteApprovalStatus === "approved"
             )
           );
           setProjectServiceFamily(currentServiceFamily);
+          setProjectScopeType(internalProject?.scopeType ?? null);
+          setProjectSelectedHubs(internalProject?.selectedHubs ?? []);
         }
 
         if (agentsResponse.ok) {
@@ -307,6 +375,24 @@ export default function DeliveryBoard({
                     agent.serviceFamily === currentServiceFamily
                 )
               : loadedAgents
+          );
+        }
+
+        if (templatesResponse?.ok) {
+          const templatesBody = await templatesResponse.json().catch(() => null);
+          const loadedTemplates = (templatesBody?.templates ??
+            []) as DeliveryTemplateOption[];
+          const recommendedTemplateIds = deriveRecommendedTemplateIds(
+            {
+              scopeType: internalProject?.scopeType ?? null,
+              selectedHubs: internalProject?.selectedHubs ?? []
+            },
+            loadedTemplates
+          );
+
+          setTemplates(loadedTemplates);
+          setSelectedTemplateIds((currentIds) =>
+            currentIds.length > 0 ? currentIds : recommendedTemplateIds
           );
         }
       }
@@ -431,29 +517,50 @@ export default function DeliveryBoard({
   }
 
   async function generatePlan() {
+    if (selectedTemplateIds.length === 0) {
+      setError("Select at least one delivery template to load.");
+      return;
+    }
+
+    if (
+      totalCount > 0 &&
+      !window.confirm(
+        "Replace the current delivery board with the selected delivery templates?"
+      )
+    ) {
+      return;
+    }
+
     setGenerating(true);
     setError(null);
 
     try {
       const response = await fetch(
-        `/api/projects/${encodeURIComponent(projectId)}/tasks/generate-plan`,
+        `/api/projects/${encodeURIComponent(projectId)}/tasks/load-templates`,
         {
-          method: "POST"
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            templateIds: selectedTemplateIds
+          })
         }
       );
 
       const body = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to generate project plan");
+        throw new Error(body?.error ?? "Failed to load delivery templates");
       }
 
       setTasks(body?.tasks ?? []);
+      setShowTemplatePicker(false);
     } catch (generationError) {
       setError(
         generationError instanceof Error
           ? generationError.message
-          : "Failed to generate project plan"
+          : "Failed to load delivery templates"
       );
     } finally {
       setGenerating(false);
@@ -789,6 +896,11 @@ export default function DeliveryBoard({
   }, [quickWins]);
   const canGenerateLockedApprovedPlan =
     mode === "internal" && scopeLocked && quoteApproved && totalCount === 0;
+  const selectedTemplateSummaries = useMemo(
+    () =>
+      templates.filter((template) => selectedTemplateIds.includes(template.id)),
+    [selectedTemplateIds, templates]
+  );
   const boardMetrics = useMemo(() => {
     const humanTasks = tasks.filter(
       (task) =>
@@ -845,7 +957,7 @@ export default function DeliveryBoard({
           <p className="mt-2 text-sm text-text-secondary">
             {isPortalMode
               ? "Track the delivery plan and current progress for this project."
-              : "Use the generated delivery plan as your repeatable working board for this project."}
+              : "Load prescribed delivery templates or use the board as your repeatable working workspace for this project."}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -873,19 +985,13 @@ export default function DeliveryBoard({
               </button>
               <button
                 type="button"
-                onClick={() => void generatePlan()}
+                onClick={() => setShowTemplatePicker((current) => !current)}
                 disabled={
                   generating || (scopeLocked && !canGenerateLockedApprovedPlan)
                 }
                 className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
               >
-                {generating
-                  ? "Generating Plan..."
-                  : canGenerateLockedApprovedPlan
-                    ? "Push Approved Scope to Delivery"
-                    : totalCount > 0
-                      ? "Refresh Project Plan"
-                      : "Generate Project Plan"}
+                {showTemplatePicker ? "Hide Templates" : "Load Templates"}
               </button>
             </>
           ) : null}
@@ -893,6 +999,119 @@ export default function DeliveryBoard({
       </div>
 
       {error ? <p className="mt-4 text-sm text-[#ff8f9c]">{error}</p> : null}
+
+      {mode === "internal" && showTemplatePicker ? (
+        <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-white">
+                Load prescribed delivery templates
+              </p>
+              <p className="mt-1 text-sm text-text-secondary">
+                Build the delivery board from checked scope tracks instead of
+                generating a generic plan.
+              </p>
+              <p className="mt-2 text-xs uppercase tracking-[0.16em] text-text-muted">
+                Scope type: {formatLabel(projectScopeType ?? "not_set")} · Hubs:{" "}
+                {projectSelectedHubs.length > 0
+                  ? projectSelectedHubs.join(", ")
+                  : "none set"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void generatePlan()}
+              disabled={
+                generating ||
+                selectedTemplateIds.length === 0 ||
+                (scopeLocked && !canGenerateLockedApprovedPlan)
+              }
+              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-white px-4 py-3 text-sm font-medium text-[#081120] disabled:cursor-not-allowed disabled:bg-[rgba(255,255,255,0.08)] disabled:text-text-muted"
+            >
+              {generating
+                ? "Loading Templates..."
+                : totalCount > 0
+                  ? "Replace Board with Templates"
+                  : "Load Selected Templates"}
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 xl:grid-cols-2">
+            {templates.map((template) => {
+              const active = selectedTemplateIds.includes(template.id);
+
+              return (
+                <label
+                  key={template.id}
+                  className={`flex cursor-pointer gap-3 rounded-2xl border p-4 transition-colors ${
+                    active
+                      ? "border-[rgba(81,208,176,0.55)] bg-[rgba(81,208,176,0.08)]"
+                      : "border-[rgba(255,255,255,0.07)] bg-background-card"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={active}
+                    onChange={(event) => {
+                      setSelectedTemplateIds((currentIds) =>
+                        event.target.checked
+                          ? [...currentIds, template.id]
+                          : currentIds.filter((templateId) => templateId !== template.id)
+                      );
+                    }}
+                    className="mt-1 h-4 w-4 rounded border-[rgba(255,255,255,0.18)] bg-[#081120] text-[#51d0b0]"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-white">
+                        {template.name}
+                      </p>
+                      <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+                        {formatLabel(template.scopeType)}
+                      </span>
+                      {template.recommendedHubs.map((hub) => (
+                        <span
+                          key={`${template.id}-${hub}`}
+                          className="rounded-full bg-[rgba(79,142,247,0.16)] px-2 py-0.5 text-[11px] font-medium text-[#8fb4ff]"
+                        >
+                          {hub}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      {template.description ?? "No template description yet."}
+                    </p>
+                    <p className="mt-3 text-xs uppercase tracking-[0.16em] text-text-muted">
+                      {template.tasks.length} tasks
+                      {template.defaultPlannedHours
+                        ? ` · ${template.defaultPlannedHours}h default`
+                        : ""}
+                    </p>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+
+          {selectedTemplateSummaries.length > 0 ? (
+            <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                Selected template stack
+              </p>
+              <p className="mt-2 text-sm text-white">
+                {selectedTemplateSummaries.map((template) => template.name).join(" + ")}
+              </p>
+              <p className="mt-1 text-sm text-text-secondary">
+                {selectedTemplateSummaries.reduce(
+                  (sum, template) => sum + template.tasks.length,
+                  0
+                )}{" "}
+                templated tasks will be loaded onto this board.
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {mode === "internal" && quickWins.length > 0 ? (
         <div className="mt-4 flex gap-2">
@@ -1915,7 +2134,7 @@ export default function DeliveryBoard({
           ) : (
             <div className="mt-6 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary">
               {mode === "internal"
-                ? "Generate the project plan to create a repeatable delivery board for this project."
+                ? "Load the prescribed delivery templates to create the working delivery board for this project."
                 : "No delivery board has been published for this project yet."}
             </div>
           )}
