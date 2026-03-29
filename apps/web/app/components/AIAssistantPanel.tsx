@@ -355,7 +355,7 @@ export default function AIAssistantPanel() {
         />
       ) : null}
 
-      <div className="fixed bottom-5 right-5 z-50 flex items-end justify-end sm:bottom-7 sm:right-7">
+      <div className="fixed bottom-4 right-4 z-50 flex items-end justify-end sm:bottom-5 sm:right-5">
         {open ? (
           <section className="mb-4 w-[min(92vw,28rem)] rounded-[28px] border border-[rgba(255,255,255,0.1)] bg-[#071127] p-5 shadow-[0_24px_80px_rgba(3,8,20,0.55)]">
             <div className="flex items-start justify-between gap-4">
@@ -495,14 +495,15 @@ export default function AIAssistantPanel() {
         <button
           type="button"
           onClick={() => setOpen((current) => !current)}
-          className="flex items-center gap-3 rounded-full border border-[rgba(123,226,239,0.22)] bg-[linear-gradient(135deg,#0d1d3d_0%,#132b54_45%,#143f5e_100%)] px-4 py-3 text-left text-white shadow-[0_18px_45px_rgba(5,10,24,0.45)] transition hover:border-[rgba(123,226,239,0.42)] hover:shadow-[0_22px_55px_rgba(5,10,24,0.6)]"
+          className="group flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(123,226,239,0.18)] bg-[linear-gradient(180deg,rgba(10,20,38,0.96)_0%,rgba(8,14,28,0.98)_100%)] text-[#dff7fb] shadow-[0_14px_36px_rgba(5,10,24,0.36)] transition hover:-translate-y-0.5 hover:border-[rgba(123,226,239,0.34)] hover:text-white hover:shadow-[0_18px_44px_rgba(5,10,24,0.44)]"
           aria-label={open ? "Hide AI assistant" : "Open AI assistant"}
+          title="Open AI assistant"
         >
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#51d0b0_0%,#7be2ef_100%)] text-[#071127] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(123,226,239,0.14)] bg-[radial-gradient(circle_at_top,rgba(123,226,239,0.16),rgba(123,226,239,0.02)_70%)]">
             <svg
               aria-hidden="true"
               viewBox="0 0 24 24"
-              className="h-7 w-7"
+              className="h-[18px] w-[18px] transition group-hover:scale-105"
               fill="none"
               stroke="currentColor"
               strokeWidth="1.9"
@@ -513,14 +514,6 @@ export default function AIAssistantPanel() {
               <path d="M7 14h6" />
               <path d="M12 3c5.523 0 10 3.806 10 8.5S17.523 20 12 20c-1.09 0-2.14-.148-3.118-.42L4 21l1.462-3.736C3.925 15.73 2 13.73 2 11.5 2 6.806 6.477 3 12 3Z" />
             </svg>
-          </span>
-          <span className="hidden min-w-0 sm:block">
-            <span className="block text-[11px] uppercase tracking-[0.18em] text-[#9fddea]">
-              AI Help
-            </span>
-            <span className="mt-1 block text-sm font-semibold leading-5 text-white">
-              Ask Muloo
-            </span>
           </span>
         </button>
       </div>
