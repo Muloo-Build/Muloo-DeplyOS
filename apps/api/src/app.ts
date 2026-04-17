@@ -58,6 +58,8 @@ import {
   createProjectRecommendation,
   createProductCatalogItem,
   createPortalSnapshotForPortal,
+  createRetainerRecord,
+  createRetainerTopUpQuote,
   createWorkRequest,
   createWorkspaceUser,
   createClientAuthToken,
@@ -107,6 +109,8 @@ import {
   loadClientsDirectory,
   loadProductCatalog,
   loadProviderConnections,
+  loadRetainerDetail,
+  loadRetainers,
   loadWorkRequests,
   loadWorkspaceEmailOAuthConnection,
   loadWorkspaceCalendarConnection,
@@ -806,6 +810,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/ai-routing/*", internalAuth);
   app.use("/api/products", internalAuth);
   app.use("/api/products/*", internalAuth);
+  app.use("/api/retainers", internalAuth);
+  app.use("/api/retainers/*", internalAuth);
   app.use("/api/assistant", internalAuth);
   app.use("/api/assistant/*", internalAuth);
   app.use("/api/agents", internalAuth);
@@ -3997,6 +4003,70 @@ export function createApiApp(config: BaseConfig) {
       }
 
       throw error;
+    }
+  });
+
+  app.get("/api/retainers", async (c) => {
+    try {
+      return c.json({
+        retainers: await loadRetainers({
+          clientId: c.req.query("clientId") || undefined,
+          status: c.req.query("status") || undefined,
+          serviceLine: c.req.query("serviceLine") || undefined
+        })
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to load retainers"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/retainers", async (c) => {
+    try {
+      const retainer = await createRetainerRecord(await readJsonBodyOrEmpty(c));
+      return c.json({ retainer }, 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to create retainer"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/retainers/:retainerId", async (c) => {
+    const retainer = await loadRetainerDetail(c.req.param("retainerId"));
+    if (!retainer) {
+      return c.json({ error: "Retainer not found" }, 404);
+    }
+
+    return c.json({ retainer });
+  });
+
+  app.post("/api/retainers/:retainerId/top-ups", async (c) => {
+    try {
+      const topUp = await createRetainerTopUpQuote(
+        c.req.param("retainerId"),
+        await readJsonBodyOrEmpty(c)
+      );
+      return c.json({ topUp }, 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to create top-up quote"
+        },
+        400
+      );
     }
   });
 
