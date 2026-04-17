@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import AppShell from "./AppShell";
+import { isLiveProjectStatus } from "./projectStatus";
 
 interface Project {
   id: string;
@@ -256,8 +257,8 @@ export default function ProjectsDashboard({
     }
   }
 
-  const activeProjects = projects.filter(
-    (project) => project.status !== "archived"
+  const activeProjects = projects.filter((project) =>
+    isLiveProjectStatus(project.status)
   );
   const archivedProjects = projects.filter(
     (project) => project.status === "archived"
@@ -322,10 +323,7 @@ export default function ProjectsDashboard({
             </div>
 
             <div className="flex items-start justify-end gap-3 text-sm font-medium">
-              <Link
-                href={`/projects/${project.id}`}
-                className="text-white"
-              >
+              <Link href={`/projects/${project.id}`} className="text-white">
                 View
               </Link>
               {archived ? (

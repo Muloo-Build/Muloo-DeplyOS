@@ -85,6 +85,7 @@ import {
   executeHubSpotAgentAction,
   extractDiscoveryFields,
   getAuthenticatedClientUserId,
+  getLiveProjectCount,
   generateProjectEmailDraft,
   generateWorkspaceEmailDraft,
   generateProjectAgenda,
@@ -92,6 +93,7 @@ import {
   generateSolutionOptions,
   industryOptions,
   isAuthenticated,
+  isLiveProjectStatus,
   isUniqueConstraintError,
   loadAuthenticatedWorkspaceSession,
   loadAgentRuns,
@@ -286,7 +288,7 @@ function getProjectStatusMatch(
 
   switch (requestedStatus) {
     case "live":
-      return project.status !== "archived";
+      return isLiveProjectStatus(project.status);
     case "in_delivery":
       return project.status === "in-flight";
     case "active":
@@ -1526,6 +1528,11 @@ export function createApiApp(config: BaseConfig) {
       const requestedStatus = c.req.query("status")?.trim() || null;
       const countOnly = c.req.query("count") === "true";
       const limit = Number.parseInt(c.req.query("limit") ?? "", 10);
+
+      if (countOnly && requestedStatus === "live") {
+        return c.json({ count: await getLiveProjectCount() });
+      }
+
       const projects = await loadProjectsDirectory();
       const waitingTasks = await prisma.task.findMany({
         where: { status: { in: ["waiting_on_client", "waiting_on_partner"] } },

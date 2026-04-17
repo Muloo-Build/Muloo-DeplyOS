@@ -17470,6 +17470,20 @@ export async function getActiveProjects(options?: { take?: number }) {
   }));
 }
 
+export function isLiveProjectStatus(status: string) {
+  return status !== "archived";
+}
+
+export async function getLiveProjectCount() {
+  return prisma.project.count({
+    where: {
+      NOT: {
+        status: "archived"
+      }
+    }
+  });
+}
+
 export async function getQuotesPipeline() {
   const quotes = await prisma.projectQuote.findMany({
     where: { status: { in: ["shared", "pending"] } },
