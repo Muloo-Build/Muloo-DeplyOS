@@ -892,8 +892,10 @@ const workRequestTypeOptions = [
   "quote_request",
   "job_spec",
   "project_brief",
-  "change_request"
+  "change_request",
+  "support_ticket"
 ] as const;
+const supportTicketUrgencies = ["Low", "Medium", "High", "Urgent"] as const;
 const changeRequestStatusOptions = [
   "new",
   "under_review",
@@ -18581,6 +18583,107 @@ export async function createWorkRequest(value: {
   });
 
   return serializeWorkRequest(request);
+}
+
+export async function createClientSupportTicket(
+  userId: string,
+  value: {
+    subject?: unknown;
+    projectId?: unknown;
+    urgency?: unknown;
+    description?: unknown;
+  }
+) {
+  const subject = typeof value.subject === "string" ? value.subject.trim() : "";
+  const projectId =
+    typeof value.projectId === "string" ? value.projectId.trim() : "";
+  const urgency =
+    typeof value.urgency === "string" && value.urgency.trim()
+      ? value.urgency.trim()
+      : "Medium";
+  const description =
+    typeof value.description === "string" ? value.description.trim() : "";
+
+  if (!subject) {
+    throw new Error("Subject is required");
+  }
+
+  if (
+    !supportTicketUrgencies.includes(
+      urgency as (typeof supportTicketUrgencies)[number]
+    )
+  ) {
+    throw new Error("Urgency must be Low, Medium, High, or Urgent");
+  }
+
+  if (description.length < 10) {
+    throw new Error("Description must be at least 10 characters");
+  }
+
+  const clientUser = await prisma.clientPortalUser.findUnique({
+    where: { id: userId }
+  });
+
+  if (!clientUser) {
+    throw new Error("Client unauthorized");
+  }
+
+  const projectAccess = projectId
+    ? await prisma.clientProjectAccess.findUnique({
+        where: {
+          userId_projectId: {
+            userId,
+            projectId
+          }
+        },
+        include: {
+          project: {
+            include: {
+              client: true
+            }
+          }
+        }
+      })
+    : null;
+
+  if (projectId && !projectAccess) {
+    throw new Error("Project not found");
+  }
+
+  const fallbackAccess = projectId
+    ? null
+    : await prisma.clientProjectAccess.findFirst({
+        where: { userId },
+        include: {
+          project: {
+            include: {
+              client: true
+            }
+          }
+        },
+        orderBy: {
+          project: {
+            updatedAt: "desc"
+          }
+        }
+      });
+
+  return createWorkRequest({
+    projectId: projectAccess?.projectId,
+    title: subject,
+    serviceFamily:
+      projectAccess?.project.serviceFamily ?? "hubspot_architecture",
+    requestType: "support_ticket",
+    companyName:
+      projectAccess?.project.client.name ?? fallbackAccess?.project.client.name,
+    contactName: `${clientUser.firstName} ${clientUser.lastName}`.trim(),
+    contactEmail: clientUser.email,
+    summary: description,
+    details: projectAccess?.project.name
+      ? `Related project: ${projectAccess.project.name}`
+      : "No related project selected.",
+    urgency
+  });
 }
 
 export async function updateWorkRequest(

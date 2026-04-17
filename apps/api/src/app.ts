@@ -53,6 +53,7 @@ import {
   createClientResetLink,
   createDeliveryTemplate,
   createProjectRecord,
+  createClientSupportTicket,
   createProjectFinding,
   createProjectRecommendation,
   createProductCatalogItem,
@@ -4852,6 +4853,31 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/client/support/tickets", async (c) => {
+    if (c.req.method !== "POST") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const ticket = await createClientSupportTicket(
+        c.get("clientUserId"),
+        body
+      );
+      return c.json({ ticket }, 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to create support ticket"
+        },
+        400
+      );
+    }
   });
 
   app.all("/api/client/projects/:projectId/quote/approve", async (c) => {
