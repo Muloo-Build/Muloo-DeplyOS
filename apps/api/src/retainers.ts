@@ -41,22 +41,22 @@ const retainerRateBands = [
   {
     minHours: 10,
     maxHours: 50,
-    ratesZar: { TECHNICAL_DELIVERY: 1700, CONSULTING: 2200 }
+    technicalDeliveryRateZar: 1700
   },
   {
     minHours: 51,
     maxHours: 100,
-    ratesZar: { TECHNICAL_DELIVERY: 1615, CONSULTING: 2090 }
+    technicalDeliveryRateZar: 1615
   },
   {
     minHours: 101,
     maxHours: 150,
-    ratesZar: { TECHNICAL_DELIVERY: 1564, CONSULTING: 2024 }
+    technicalDeliveryRateZar: 1564
   },
   {
     minHours: 151,
     maxHours: Number.POSITIVE_INFINITY,
-    ratesZar: { TECHNICAL_DELIVERY: 1530, CONSULTING: 1980 }
+    technicalDeliveryRateZar: 1530
   }
 ] as const;
 
@@ -77,25 +77,30 @@ export function deriveRetainerRate(input: {
   currency: RetainerCurrency;
   fxRateFromZar?: number;
 }) {
+  if (input.serviceLine === "CONSULTING") {
+    return convertZarRateToCurrency({
+    zarRate: baseRatesZar.CONSULTING,
+    currency: input.currency,
+    ...(input.fxRateFromZar !== undefined
+      ? { fxRateFromZar: input.fxRateFromZar }
+      : {}),
+    rateKind: "retainers"
+  });
+  }
+
   const band = getRetainerRateBand(input.blockSize);
   if (!band) {
     throw new Error("No retainer rate band found for block size.");
   }
 
-  const zarRate = band.ratesZar[input.serviceLine];
-  if (input.currency === "ZAR") {
-    return roundMoney(zarRate);
-  }
-
-  if (
-    typeof input.fxRateFromZar !== "number" ||
-    !Number.isFinite(input.fxRateFromZar) ||
-    input.fxRateFromZar <= 0
-  ) {
-    throw new Error("fxRateFromZar is required for non-ZAR retainers.");
-  }
-
-  return roundMoney(zarRate * input.fxRateFromZar);
+  return convertZarRateToCurrency({
+    zarRate: band.technicalDeliveryRateZar,
+    currency: input.currency,
+    ...(input.fxRateFromZar !== undefined
+      ? { fxRateFromZar: input.fxRateFromZar }
+      : {}),
+    rateKind: "retainers"
+  });
 }
 
 export function deriveTopUpRate(input: {
@@ -103,20 +108,14 @@ export function deriveTopUpRate(input: {
   currency: RetainerCurrency;
   fxRateFromZar?: number;
 }) {
-  const zarRate = getBaseHourlyRateZar(input.serviceLine);
-  if (input.currency === "ZAR") {
-    return roundMoney(zarRate);
-  }
-
-  if (
-    typeof input.fxRateFromZar !== "number" ||
-    !Number.isFinite(input.fxRateFromZar) ||
-    input.fxRateFromZar <= 0
-  ) {
-    throw new Error("fxRateFromZar is required for non-ZAR top-ups.");
-  }
-
-  return roundMoney(zarRate * input.fxRateFromZar);
+  return convertZarRateToCurrency({
+    zarRate: getBaseHourlyRateZar(input.serviceLine),
+    currency: input.currency,
+    ...(input.fxRateFromZar !== undefined
+      ? { fxRateFromZar: input.fxRateFromZar }
+      : {}),
+    rateKind: "top-ups"
+  });
 }
 
 export function getBorrowForwardCap(blockHours: number) {
@@ -256,4 +255,25 @@ function roundMoney(value: number) {
 
 function roundHours(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function convertZarRateToCurrency(input: {
+  zarRate: number;
+  currency: RetainerCurrency;
+  fxRateFromZar?: number;
+  rateKind: string;
+}) {
+  if (input.currency === "ZAR") {
+    return roundMoney(input.zarRate);
+  }
+
+  if (
+    typeof input.fxRateFromZar !== "number" ||
+    !Number.isFinite(input.fxRateFromZar) ||
+    input.fxRateFromZar <= 0
+  ) {
+    throw new Error(`fxRateFromZar is required for non-ZAR ${input.rateKind}.`);
+  }
+
+  return roundMoney(input.zarRate * input.fxRateFromZar);
 }
