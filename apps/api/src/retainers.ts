@@ -12,12 +12,7 @@ export const retainerCurrencies = [
   "CAD"
 ] as const;
 
-export const retainerStatuses = [
-  "DRAFT",
-  "ACTIVE",
-  "PAUSED",
-  "ENDED"
-] as const;
+export const retainerStatuses = ["DRAFT", "ACTIVE", "PAUSED", "ENDED"] as const;
 
 export const retainerProducedByValues = ["HUMAN", "AGENT", "HYBRID"] as const;
 
@@ -79,13 +74,13 @@ export function deriveRetainerRate(input: {
 }) {
   if (input.serviceLine === "CONSULTING") {
     return convertZarRateToCurrency({
-    zarRate: baseRatesZar.CONSULTING,
-    currency: input.currency,
-    ...(input.fxRateFromZar !== undefined
-      ? { fxRateFromZar: input.fxRateFromZar }
-      : {}),
-    rateKind: "retainers"
-  });
+      zarRate: baseRatesZar.CONSULTING,
+      currency: input.currency,
+      ...(input.fxRateFromZar !== undefined
+        ? { fxRateFromZar: input.fxRateFromZar }
+        : {}),
+      rateKind: "retainers"
+    });
   }
 
   const band = getRetainerRateBand(input.blockSize);
@@ -148,7 +143,11 @@ export function getOverageTriggerHours(input: {
   blockHours: number;
   rolledInHours: number;
 }) {
-  return input.blockHours + input.rolledInHours + getBorrowForwardCap(input.blockHours);
+  return (
+    input.blockHours +
+    input.rolledInHours +
+    getBorrowForwardCap(input.blockHours)
+  );
 }
 
 export function getPeriodUsageState(input: {
@@ -189,10 +188,81 @@ export function getPeriodUsageState(input: {
 
 export function calculateRolledOutHours(input: {
   blockHours: number;
+  rolledInHours?: number;
   consumedHours: number;
 }) {
-  const unusedHours = Math.max(0, input.blockHours - input.consumedHours);
+  const unusedHours = Math.max(
+    0,
+    input.blockHours + (input.rolledInHours ?? 0) - input.consumedHours
+  );
   return Math.min(getRolloverCap(input.blockHours), Math.floor(unusedHours));
+}
+
+export type RolloverBucketForConsumption = {
+  id: string;
+  hoursRemaining: number;
+  expiresAt: Date;
+};
+
+export type ConsumptionBucketBreakdown = {
+  rollover: Array<{
+    bucketId: string;
+    hours: number;
+    expiresAt: string;
+  }>;
+  currentBlockHours: number;
+};
+
+export function calculateConsumptionBucketBreakdown(input: {
+  hoursToConsume: number;
+  rolloverBuckets: RolloverBucketForConsumption[];
+}) {
+  if (!Number.isFinite(input.hoursToConsume) || input.hoursToConsume < 0) {
+    throw new Error("Hours to consume must be a valid non-negative number.");
+  }
+
+  let remaining = roundHours(input.hoursToConsume);
+  const rollover: ConsumptionBucketBreakdown["rollover"] = [];
+  const sortedBuckets = [...input.rolloverBuckets].sort((left, right) => {
+    const expiryDiff = left.expiresAt.getTime() - right.expiresAt.getTime();
+    return expiryDiff !== 0 ? expiryDiff : left.id.localeCompare(right.id);
+  });
+
+  for (const bucket of sortedBuckets) {
+    if (remaining <= 0) {
+      break;
+    }
+
+    const available = Math.max(0, roundHours(bucket.hoursRemaining));
+    if (available <= 0) {
+      continue;
+    }
+
+    const consumed = roundHours(Math.min(available, remaining));
+    rollover.push({
+      bucketId: bucket.id,
+      hours: consumed,
+      expiresAt: bucket.expiresAt.toISOString()
+    });
+    remaining = roundHours(remaining - consumed);
+  }
+
+  return {
+    rollover,
+    currentBlockHours: remaining
+  };
+}
+
+export function addDaysUtc(date: Date, days: number) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+export function addMonthsUtc(date: Date, months: number) {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1)
+  );
 }
 
 export function validateRetainerStartDate(startDate: Date) {
@@ -236,16 +306,17 @@ export function validateBilledHoursOverride(input: {
     differsByMoreThanTwentyFivePercent &&
     !(input.overrideReason && input.overrideReason.trim())
   ) {
-    throw new Error("Override reason is required when billed hours differ by more than 25%.");
+    throw new Error(
+      "Override reason is required when billed hours differ by more than 25%."
+    );
   }
 }
 
 export function assertValidBlockSize(blockSize: number) {
-  if (
-    !Number.isInteger(blockSize) ||
-    blockSize < minimumRetainerBlockHours
-  ) {
-    throw new Error("Retainer block size must be an integer of at least 10 hours.");
+  if (!Number.isInteger(blockSize) || blockSize < minimumRetainerBlockHours) {
+    throw new Error(
+      "Retainer block size must be an integer of at least 10 hours."
+    );
   }
 }
 
