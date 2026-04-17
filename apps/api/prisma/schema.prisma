@@ -231,7 +231,7 @@ model HubSpotPortal {
   accessToken    String?
   refreshToken   String?
   tokenType      String?
-  scopes         String[]
+  scopes         String[]         @default([])
   tokenExpiresAt DateTime?
   connectedEmail String?
   connectedName  String?

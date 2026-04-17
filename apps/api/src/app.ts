@@ -1555,14 +1555,13 @@ export function createApiApp(config: BaseConfig) {
         const project = await createProjectRecord(body);
         return c.json({ project }, 201);
       } catch (error) {
+        console.error("Failed to create project", error);
         return c.json(
           {
             error:
-              error instanceof Error
-                ? error.message
-                : "Failed to create project"
+              "Something went wrong creating this project. Our team has been notified. Please try again or contact support."
           },
-          400
+          500
         );
       }
     }
@@ -1571,17 +1570,28 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/projects/from-template", async (c) => {
-    const payload = createProjectFromTemplateRequestSchema.parse(
-      await readJsonBodyOrEmpty(c)
-    );
-    const project = await createProjectFromTemplate(payload);
-    return c.json(
-      {
-        project,
-        summary: await summarizeProject(project)
-      },
-      201
-    );
+    try {
+      const payload = createProjectFromTemplateRequestSchema.parse(
+        await readJsonBodyOrEmpty(c)
+      );
+      const project = await createProjectFromTemplate(payload);
+      return c.json(
+        {
+          project,
+          summary: await summarizeProject(project)
+        },
+        201
+      );
+    } catch (error) {
+      console.error("Failed to create project from template", error);
+      return c.json(
+        {
+          error:
+            "Something went wrong creating this project. Our team has been notified. Please try again or contact support."
+        },
+        500
+      );
+    }
   });
 
   app.all("/api/projects/:projectId", async (c) => {

@@ -1,0 +1,1 @@
+ALTER TABLE "HubSpotPortal" ALTER COLUMN "scopes" SET DEFAULT ARRAY[]::TEXT[];
