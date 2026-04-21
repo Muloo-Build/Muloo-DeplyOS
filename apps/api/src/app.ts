@@ -53,10 +53,13 @@ import {
   createClientResetLink,
   createDeliveryTemplate,
   createProjectRecord,
+  createClientSupportTicket,
   createProjectFinding,
   createProjectRecommendation,
   createProductCatalogItem,
   createPortalSnapshotForPortal,
+  createRetainerRecord,
+  createRetainerTopUpQuote,
   createWorkRequest,
   createWorkspaceUser,
   createClientAuthToken,
@@ -84,6 +87,7 @@ import {
   executeHubSpotAgentAction,
   extractDiscoveryFields,
   getAuthenticatedClientUserId,
+  getLiveProjectCount,
   generateProjectEmailDraft,
   generateWorkspaceEmailDraft,
   generateProjectAgenda,
@@ -91,6 +95,7 @@ import {
   generateSolutionOptions,
   industryOptions,
   isAuthenticated,
+  isLiveProjectStatus,
   isUniqueConstraintError,
   loadAuthenticatedWorkspaceSession,
   loadAgentRuns,
@@ -104,6 +109,8 @@ import {
   loadClientsDirectory,
   loadProductCatalog,
   loadProviderConnections,
+  loadRetainerDetail,
+  loadRetainers,
   loadWorkRequests,
   loadWorkspaceEmailOAuthConnection,
   loadWorkspaceCalendarConnection,
@@ -285,7 +292,7 @@ function getProjectStatusMatch(
 
   switch (requestedStatus) {
     case "live":
-      return project.status !== "archived";
+      return isLiveProjectStatus(project.status);
     case "in_delivery":
       return project.status === "in-flight";
     case "active":
@@ -803,6 +810,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/ai-routing/*", internalAuth);
   app.use("/api/products", internalAuth);
   app.use("/api/products/*", internalAuth);
+  app.use("/api/retainers", internalAuth);
+  app.use("/api/retainers/*", internalAuth);
   app.use("/api/assistant", internalAuth);
   app.use("/api/assistant/*", internalAuth);
   app.use("/api/agents", internalAuth);
@@ -1525,6 +1534,11 @@ export function createApiApp(config: BaseConfig) {
       const requestedStatus = c.req.query("status")?.trim() || null;
       const countOnly = c.req.query("count") === "true";
       const limit = Number.parseInt(c.req.query("limit") ?? "", 10);
+
+      if (countOnly && requestedStatus === "live") {
+        return c.json({ count: await getLiveProjectCount() });
+      }
+
       const projects = await loadProjectsDirectory();
       const waitingTasks = await prisma.task.findMany({
         where: { status: { in: ["waiting_on_client", "waiting_on_partner"] } },
@@ -1555,14 +1569,13 @@ export function createApiApp(config: BaseConfig) {
         const project = await createProjectRecord(body);
         return c.json({ project }, 201);
       } catch (error) {
+        console.error("Failed to create project", error);
         return c.json(
           {
             error:
-              error instanceof Error
-                ? error.message
-                : "Failed to create project"
+              "Something went wrong creating this project. Our team has been notified. Please try again or contact support."
           },
-          400
+          500
         );
       }
     }
@@ -1571,17 +1584,28 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/projects/from-template", async (c) => {
-    const payload = createProjectFromTemplateRequestSchema.parse(
-      await readJsonBodyOrEmpty(c)
-    );
-    const project = await createProjectFromTemplate(payload);
-    return c.json(
-      {
-        project,
-        summary: await summarizeProject(project)
-      },
-      201
-    );
+    try {
+      const payload = createProjectFromTemplateRequestSchema.parse(
+        await readJsonBodyOrEmpty(c)
+      );
+      const project = await createProjectFromTemplate(payload);
+      return c.json(
+        {
+          project,
+          summary: await summarizeProject(project)
+        },
+        201
+      );
+    } catch (error) {
+      console.error("Failed to create project from template", error);
+      return c.json(
+        {
+          error:
+            "Something went wrong creating this project. Our team has been notified. Please try again or contact support."
+        },
+        500
+      );
+    }
   });
 
   app.all("/api/projects/:projectId", async (c) => {
@@ -3982,6 +4006,70 @@ export function createApiApp(config: BaseConfig) {
     }
   });
 
+  app.get("/api/retainers", async (c) => {
+    try {
+      return c.json({
+        retainers: await loadRetainers({
+          clientId: c.req.query("clientId") || undefined,
+          status: c.req.query("status") || undefined,
+          serviceLine: c.req.query("serviceLine") || undefined
+        })
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to load retainers"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/retainers", async (c) => {
+    try {
+      const retainer = await createRetainerRecord(await readJsonBodyOrEmpty(c));
+      return c.json({ retainer }, 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to create retainer"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/retainers/:retainerId", async (c) => {
+    const retainer = await loadRetainerDetail(c.req.param("retainerId"));
+    if (!retainer) {
+      return c.json({ error: "Retainer not found" }, 404);
+    }
+
+    return c.json({ retainer });
+  });
+
+  app.post("/api/retainers/:retainerId/top-ups", async (c) => {
+    try {
+      const topUp = await createRetainerTopUpQuote(
+        c.req.param("retainerId"),
+        await readJsonBodyOrEmpty(c)
+      );
+      return c.json({ topUp }, 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to create top-up quote"
+        },
+        400
+      );
+    }
+  });
+
   app.get("/api/agents", async (c) =>
     c.json({
       agents: await loadAgentCatalog()
@@ -4842,6 +4930,31 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/client/support/tickets", async (c) => {
+    if (c.req.method !== "POST") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const ticket = await createClientSupportTicket(
+        c.get("clientUserId"),
+        body
+      );
+      return c.json({ ticket }, 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to create support ticket"
+        },
+        400
+      );
+    }
   });
 
   app.all("/api/client/projects/:projectId/quote/approve", async (c) => {

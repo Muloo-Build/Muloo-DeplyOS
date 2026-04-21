@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import type { KeyboardEvent, RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import AppShell from "../../components/AppShell";
 
@@ -37,6 +38,8 @@ interface FormData {
   useTemplate: boolean;
   templateId: string;
 }
+
+type WizardErrors = Partial<Record<keyof FormData | "step2", string>>;
 
 interface TeamUser {
   id: string;
@@ -200,6 +203,9 @@ const projectContainerOptions = [
     engagementType: "OPTIMISATION"
   }
 ] as const;
+
+const friendlyProjectCreateError =
+  "Something went wrong creating this project. Our team has been notified. Please try again or contact support.";
 
 const industryOptions = [
   "Accounting & Advisory",
@@ -390,6 +396,7 @@ export default function NewProjectPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<WizardErrors>({});
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [clients, setClients] = useState<ClientLookupRecord[]>([]);
   const [deliveryTemplates, setDeliveryTemplates] = useState<
@@ -438,6 +445,14 @@ export default function NewProjectPage() {
     useTemplate: false,
     templateId: ""
   });
+  const projectNameRef = useRef<HTMLInputElement>(null);
+  const clientNameRef = useRef<HTMLInputElement>(null);
+  const championFirstNameRef = useRef<HTMLInputElement>(null);
+  const championLastNameRef = useRef<HTMLInputElement>(null);
+  const championEmailRef = useRef<HTMLInputElement>(null);
+  const commercialBriefRef = useRef<HTMLTextAreaElement>(null);
+  const problemStatementRef = useRef<HTMLTextAreaElement>(null);
+  const firstHubButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     async function loadUsers() {
@@ -692,6 +707,11 @@ export default function NewProjectPage() {
     value: string | boolean | string[]
   ) {
     setFormData((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({
+      ...current,
+      [field]: undefined,
+      step2: undefined
+    }));
   }
 
   function selectProjectContainer(scopeType: string) {
@@ -711,6 +731,7 @@ export default function NewProjectPage() {
         ? { useTemplate: false, templateId: "" }
         : {})
     }));
+    setFieldErrors((current) => ({ ...current, step2: undefined }));
   }
 
   function toggleHub(hubId: string) {
@@ -720,6 +741,7 @@ export default function NewProjectPage() {
         ? current.hubsInScope.filter((hub) => hub !== hubId)
         : [...current.hubsInScope, hubId]
     }));
+    setFieldErrors((current) => ({ ...current, step2: undefined }));
   }
 
   function selectOwner(ownerName: string) {
@@ -815,7 +837,121 @@ export default function NewProjectPage() {
       : formData.hubsInScope.length > 0 ||
         formData.problemStatement.trim().length > 0;
 
+  function validateStep1() {
+    const checks: Array<{
+      field: keyof FormData;
+      message: string;
+      ref: RefObject<HTMLInputElement>;
+    }> = [
+      {
+        field: "projectName",
+        message: "Project name is required",
+        ref: projectNameRef
+      },
+      {
+        field: "clientName",
+        message: "Client name is required",
+        ref: clientNameRef
+      },
+      {
+        field: "clientChampionFirstName",
+        message: "First name is required",
+        ref: championFirstNameRef
+      },
+      {
+        field: "clientChampionLastName",
+        message: "Last name is required",
+        ref: championLastNameRef
+      },
+      {
+        field: "clientChampionEmail",
+        message: "Email is required",
+        ref: championEmailRef
+      }
+    ];
+    const nextErrors: WizardErrors = {};
+    const firstInvalid = checks.find(({ field, message }) => {
+      const invalid = String(formData[field]).trim().length === 0;
+      if (invalid) {
+        nextErrors[field] = message;
+      }
+      return invalid;
+    });
+
+    setFieldErrors((current) => ({ ...current, ...nextErrors }));
+
+    if (firstInvalid) {
+      firstInvalid.ref.current?.focus();
+      return false;
+    }
+
+    return true;
+  }
+
+  function validateStep2() {
+    if (canContinueFromStep2) {
+      setFieldErrors((current) => ({ ...current, step2: undefined }));
+      return true;
+    }
+
+    const message =
+      formData.scopeType === "standalone_quote"
+        ? "Add a job brief, pain point, or executive summary before continuing"
+        : "Select at least one hub or add a pain point before continuing";
+
+    setFieldErrors((current) => ({ ...current, step2: message }));
+
+    if (formData.scopeType === "standalone_quote") {
+      commercialBriefRef.current?.focus();
+    } else {
+      firstHubButtonRef.current?.focus();
+    }
+
+    return false;
+  }
+
+  function handleNextStep() {
+    setError(null);
+
+    if (currentStep === 1 && !validateStep1()) {
+      return;
+    }
+
+    if (currentStep === 2 && !validateStep2()) {
+      return;
+    }
+
+    setCurrentStep((step) => Math.min(3, step + 1));
+  }
+
+  function handleWizardKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (currentStep >= 3 || event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+
+    if (target.tagName === "TEXTAREA" || target.tagName === "BUTTON") {
+      return;
+    }
+
+    event.preventDefault();
+    handleNextStep();
+  }
+
   async function handleSubmit() {
+    if (!canContinueFromStep1) {
+      setCurrentStep(1);
+      validateStep1();
+      return;
+    }
+
+    if (!canContinueFromStep2) {
+      setCurrentStep(2);
+      validateStep2();
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
@@ -875,8 +1011,8 @@ export default function NewProjectPage() {
       );
 
       if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.error ?? "Failed to create project");
+        await response.json().catch(() => null);
+        throw new Error(friendlyProjectCreateError);
       }
 
       const body = await response.json();
@@ -885,12 +1021,8 @@ export default function NewProjectPage() {
           ? `/projects/${body.project.id}/audit`
           : `/projects/${body.project.id}`;
       router.push(destination);
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "Failed to create project"
-      );
+    } catch {
+      setError(friendlyProjectCreateError);
     } finally {
       setSaving(false);
     }
@@ -937,7 +1069,10 @@ export default function NewProjectPage() {
           ))}
         </div>
 
-        <div className="max-w-3xl rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
+        <div
+          onKeyDown={handleWizardKeyDown}
+          className="max-w-3xl rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8"
+        >
           {currentStep === 1 ? (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-white">
@@ -973,29 +1108,71 @@ export default function NewProjectPage() {
                 </div>
 
                 <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    Project name
+                  <span
+                    aria-required="true"
+                    className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+                  >
+                    Project name <span className="text-[#ff8f9f]">*</span>
                   </span>
                   <input
+                    ref={projectNameRef}
+                    required
                     value={formData.projectName}
                     onChange={(event) =>
                       updateField("projectName", event.target.value)
                     }
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                    aria-invalid={Boolean(fieldErrors.projectName)}
+                    aria-describedby={
+                      fieldErrors.projectName ? "project-name-error" : undefined
+                    }
+                    className={`w-full rounded-xl border bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid ${
+                      fieldErrors.projectName
+                        ? "border-[rgba(224,80,96,0.6)]"
+                        : "border-[rgba(255,255,255,0.08)]"
+                    }`}
                   />
+                  {fieldErrors.projectName ? (
+                    <p
+                      id="project-name-error"
+                      className="mt-2 text-sm text-[#ff8f9f]"
+                    >
+                      {fieldErrors.projectName}
+                    </p>
+                  ) : null}
                 </label>
 
                 <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    Client name
+                  <span
+                    aria-required="true"
+                    className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+                  >
+                    Client name <span className="text-[#ff8f9f]">*</span>
                   </span>
                   <input
+                    ref={clientNameRef}
+                    required
                     value={formData.clientName}
                     onChange={(event) =>
                       updateField("clientName", event.target.value)
                     }
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                    aria-invalid={Boolean(fieldErrors.clientName)}
+                    aria-describedby={
+                      fieldErrors.clientName ? "client-name-error" : undefined
+                    }
+                    className={`w-full rounded-xl border bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid ${
+                      fieldErrors.clientName
+                        ? "border-[rgba(224,80,96,0.6)]"
+                        : "border-[rgba(255,255,255,0.08)]"
+                    }`}
                   />
+                  {fieldErrors.clientName ? (
+                    <p
+                      id="client-name-error"
+                      className="mt-2 text-sm text-[#ff8f9f]"
+                    >
+                      {fieldErrors.clientName}
+                    </p>
+                  ) : null}
                 </label>
 
                 <label className="block md:col-span-2">
@@ -1060,6 +1237,7 @@ export default function NewProjectPage() {
                         Job / scope brief
                       </span>
                       <textarea
+                        ref={commercialBriefRef}
                         value={formData.commercialBrief}
                         onChange={(event) =>
                           updateField("commercialBrief", event.target.value)
@@ -1213,43 +1391,115 @@ export default function NewProjectPage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    Client champion first name
+                  <span
+                    aria-required="true"
+                    className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+                  >
+                    Client champion first name{" "}
+                    <span className="text-[#ff8f9f]">*</span>
                   </span>
                   <input
+                    ref={championFirstNameRef}
+                    required
                     value={formData.clientChampionFirstName}
                     onChange={(event) =>
                       updateField("clientChampionFirstName", event.target.value)
                     }
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                    aria-invalid={Boolean(fieldErrors.clientChampionFirstName)}
+                    aria-describedby={
+                      fieldErrors.clientChampionFirstName
+                        ? "champion-first-name-error"
+                        : undefined
+                    }
+                    className={`w-full rounded-xl border bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid ${
+                      fieldErrors.clientChampionFirstName
+                        ? "border-[rgba(224,80,96,0.6)]"
+                        : "border-[rgba(255,255,255,0.08)]"
+                    }`}
                   />
+                  {fieldErrors.clientChampionFirstName ? (
+                    <p
+                      id="champion-first-name-error"
+                      className="mt-2 text-sm text-[#ff8f9f]"
+                    >
+                      {fieldErrors.clientChampionFirstName}
+                    </p>
+                  ) : null}
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    Client champion last name
+                  <span
+                    aria-required="true"
+                    className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+                  >
+                    Client champion last name{" "}
+                    <span className="text-[#ff8f9f]">*</span>
                   </span>
                   <input
+                    ref={championLastNameRef}
+                    required
                     value={formData.clientChampionLastName}
                     onChange={(event) =>
                       updateField("clientChampionLastName", event.target.value)
                     }
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                    aria-invalid={Boolean(fieldErrors.clientChampionLastName)}
+                    aria-describedby={
+                      fieldErrors.clientChampionLastName
+                        ? "champion-last-name-error"
+                        : undefined
+                    }
+                    className={`w-full rounded-xl border bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid ${
+                      fieldErrors.clientChampionLastName
+                        ? "border-[rgba(224,80,96,0.6)]"
+                        : "border-[rgba(255,255,255,0.08)]"
+                    }`}
                   />
+                  {fieldErrors.clientChampionLastName ? (
+                    <p
+                      id="champion-last-name-error"
+                      className="mt-2 text-sm text-[#ff8f9f]"
+                    >
+                      {fieldErrors.clientChampionLastName}
+                    </p>
+                  ) : null}
                 </label>
 
                 <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    Client champion email
+                  <span
+                    aria-required="true"
+                    className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+                  >
+                    Client champion email{" "}
+                    <span className="text-[#ff8f9f]">*</span>
                   </span>
                   <input
+                    ref={championEmailRef}
                     type="email"
+                    required
                     value={formData.clientChampionEmail}
                     onChange={(event) =>
                       updateField("clientChampionEmail", event.target.value)
                     }
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                    aria-invalid={Boolean(fieldErrors.clientChampionEmail)}
+                    aria-describedby={
+                      fieldErrors.clientChampionEmail
+                        ? "champion-email-error"
+                        : undefined
+                    }
+                    className={`w-full rounded-xl border bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid ${
+                      fieldErrors.clientChampionEmail
+                        ? "border-[rgba(224,80,96,0.6)]"
+                        : "border-[rgba(255,255,255,0.08)]"
+                    }`}
                   />
+                  {fieldErrors.clientChampionEmail ? (
+                    <p
+                      id="champion-email-error"
+                      className="mt-2 text-sm text-[#ff8f9f]"
+                    >
+                      {fieldErrors.clientChampionEmail}
+                    </p>
+                  ) : null}
                 </label>
               </div>
             </div>
@@ -1260,6 +1510,12 @@ export default function NewProjectPage() {
               <h2 className="text-xl font-semibold text-white">
                 Engagement + Scope
               </h2>
+
+              {fieldErrors.step2 ? (
+                <div className="rounded-xl border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-white">
+                  {fieldErrors.step2}
+                </div>
+              ) : null}
 
               <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5">
                 <p className="text-sm font-semibold text-white">
@@ -1272,6 +1528,7 @@ export default function NewProjectPage() {
                   packaging.
                 </p>
                 <textarea
+                  ref={problemStatementRef}
                   value={formData.problemStatement}
                   onChange={(event) =>
                     updateField("problemStatement", event.target.value)
@@ -1472,9 +1729,10 @@ export default function NewProjectPage() {
                     Core hubs
                   </p>
                   <div className="grid gap-3 md:grid-cols-2">
-                    {coreHubOptions.map((hub) => (
+                    {coreHubOptions.map((hub, index) => (
                       <button
                         key={hub.id}
+                        ref={index === 0 ? firstHubButtonRef : undefined}
                         type="button"
                         onClick={() => toggleHub(hub.id)}
                         className={`rounded-2xl border p-4 text-left transition-colors ${
@@ -1748,12 +2006,17 @@ export default function NewProjectPage() {
           {currentStep < 3 ? (
             <button
               type="button"
-              onClick={() => setCurrentStep((step) => Math.min(3, step + 1))}
-              disabled={
+              onClick={handleNextStep}
+              aria-disabled={
                 (currentStep === 1 && !canContinueFromStep1) ||
                 (currentStep === 2 && !canContinueFromStep2)
               }
-              className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className={`rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white ${
+                (currentStep === 1 && !canContinueFromStep1) ||
+                (currentStep === 2 && !canContinueFromStep2)
+                  ? "opacity-60"
+                  : ""
+              }`}
             >
               Next
             </button>

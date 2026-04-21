@@ -4,11 +4,39 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
+const protectedWorkspaceRoutePrefixes = [
+  "/agents",
+  "/blueprint",
+  "/clients",
+  "/command-centre",
+  "/discovery",
+  "/inbox",
+  "/operations",
+  "/partners",
+  "/products",
+  "/project",
+  "/projects",
+  "/runs",
+  "/settings",
+  "/templates",
+  "/workspace"
+];
+
+function isProtectedWorkspaceRoute(pathname: string) {
+  return (
+    pathname === "/" ||
+    protectedWorkspaceRoutePrefixes.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    )
+  );
+}
+
 export default function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [checked, setChecked] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const protectedWorkspaceRoute = isProtectedWorkspaceRoute(pathname);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +73,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         setAuthenticated(nextAuthenticated);
         setChecked(true);
 
-        if (!nextAuthenticated) {
+        if (!nextAuthenticated && protectedWorkspaceRoute) {
           router.replace("/login");
         }
       } catch {
@@ -55,7 +83,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
         setAuthenticated(false);
         setChecked(true);
-        router.replace("/login");
+        if (protectedWorkspaceRoute) {
+          router.replace("/login");
+        }
       }
     }
 
@@ -64,13 +94,17 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [pathname, router]);
+  }, [pathname, protectedWorkspaceRoute, router]);
 
   if (
     pathname === "/login" ||
     pathname.startsWith("/client") ||
     pathname.startsWith("/partner")
   ) {
+    return <>{children}</>;
+  }
+
+  if (!protectedWorkspaceRoute) {
     return <>{children}</>;
   }
 

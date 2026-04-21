@@ -245,7 +245,9 @@ function formatCalendarRange(event: CalendarEventItem) {
     minute: "2-digit"
   });
 
-  return end ? `${formatter.format(start)} - ${formatter.format(end)}` : formatter.format(start);
+  return end
+    ? `${formatter.format(start)} - ${formatter.format(end)}`
+    : formatter.format(start);
 }
 
 function getStatusBadgeClass(status: string) {
@@ -306,7 +308,9 @@ function resolveSpeechRecognition() {
   };
 
   return (
-    speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null
+    speechWindow.SpeechRecognition ??
+    speechWindow.webkitSpeechRecognition ??
+    null
   );
 }
 
@@ -314,7 +318,7 @@ function StatCard(props: {
   href: string;
   label: string;
   helper: string;
-  value: number;
+  value: number | null;
   tone: "neutral" | "warning" | "danger";
 }) {
   const toneClass =
@@ -330,7 +334,7 @@ function StatCard(props: {
       className={`rounded-2xl border p-5 transition hover:border-brand-teal/60 ${toneClass}`}
     >
       <p className="text-sm text-text-secondary">{props.label}</p>
-      <p className="mt-3 text-4xl font-semibold">{props.value}</p>
+      <p className="mt-3 text-4xl font-semibold">{props.value ?? "..."}</p>
       <p className="mt-2 text-xs text-text-secondary">{props.helper}</p>
     </Link>
   );
@@ -352,13 +356,23 @@ function SectionLabel(props: { label: string; title: string; body?: string }) {
 
 export default function MulooCommandCentre() {
   const [name, setName] = useState("team");
-  const [liveProjectsCount, setLiveProjectsCount] = useState(0);
-  const [deliveryProjectsCount, setDeliveryProjectsCount] = useState(0);
-  const [awaitingApprovalCount, setAwaitingApprovalCount] = useState(0);
-  const [blockedExternalCount, setBlockedExternalCount] = useState(0);
+  const [liveProjectsCount, setLiveProjectsCount] = useState<number | null>(
+    null
+  );
+  const [deliveryProjectsCount, setDeliveryProjectsCount] = useState<
+    number | null
+  >(null);
+  const [awaitingApprovalCount, setAwaitingApprovalCount] = useState<
+    number | null
+  >(null);
+  const [blockedExternalCount, setBlockedExternalCount] = useState<
+    number | null
+  >(null);
   const [activeProjects, setActiveProjects] = useState<ProjectListItem[]>([]);
   const [recentRuns, setRecentRuns] = useState<ExecutionRun[]>([]);
-  const [clientEmailQueues, setClientEmailQueues] = useState<ClientEmailQueue[]>([]);
+  const [clientEmailQueues, setClientEmailQueues] = useState<
+    ClientEmailQueue[]
+  >([]);
   const [dismissedEmailIds, setDismissedEmailIds] = useState<string[]>([]);
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailConnectedEmail, setGmailConnectedEmail] = useState<string | null>(
@@ -455,64 +469,92 @@ export default function MulooCommandCentre() {
           fetch("/api/workspace/industry-signals")
         ]);
 
-        const sessionBody = (await sessionResponse.json().catch(() => null)) as
-          | AuthSessionResponse
-          | null;
+        const sessionBody = (await sessionResponse
+          .json()
+          .catch(() => null)) as AuthSessionResponse | null;
         const sessionName = sessionBody?.user?.name?.trim();
         if (sessionName) {
           setName(sessionName.split(" ")[0] ?? sessionName);
         }
 
-        const liveProjectsCountBody =
-          (await liveProjectsCountResponse.json().catch(() => null)) as CountResponse | null;
-        const deliveryProjectsCountBody =
-          (await deliveryProjectsCountResponse.json().catch(() => null)) as CountResponse | null;
-        const awaitingApprovalCountBody =
-          (await awaitingApprovalCountResponse.json().catch(() => null)) as CountResponse | null;
-        const blockedExternalCountBody =
-          (await blockedExternalCountResponse.json().catch(() => null)) as CountResponse | null;
-        const activeProjectsBody = (await activeProjectsResponse.json().catch(() => null)) as
-          | { projects?: ProjectListItem[] }
-          | null;
-        const recentRunsBody = (await recentRunsResponse.json().catch(() => null)) as
-          | { runs?: ExecutionRun[] }
-          | null;
-        const clientEmailQueuesBody = (
-          await clientEmailQueuesResponse.json().catch(() => null)
-        ) as
-          | { queues?: ClientEmailQueue[] }
-          | null;
-        const gmailConnectionBody = (
-          await gmailConnectionResponse.json().catch(() => null)
-        ) as GmailConnectionResponse | null;
-        const privateTasksBody = (
-          await privateTasksResponse.json().catch(() => null)
-        ) as PrivateTasksResponse | null;
-        const calendarStatusBody = (
-          await calendarStatusResponse.json().catch(() => null)
-        ) as CalendarStatusResponse | null;
-        const calendarEventsBody = (
-          await calendarEventsResponse.json().catch(() => null)
-        ) as CalendarEventsResponse | null;
-        const latestSummaryBody = (
-          await latestSummaryResponse.json().catch(() => null)
-        ) as DailySummaryResponse | null;
-        const industrySignalsBody = (
-          await industrySignalsResponse.json().catch(() => null)
-        ) as IndustrySignalsResponse | null;
+        const liveProjectsCountBody = (await liveProjectsCountResponse
+          .json()
+          .catch(() => null)) as CountResponse | null;
+        const deliveryProjectsCountBody = (await deliveryProjectsCountResponse
+          .json()
+          .catch(() => null)) as CountResponse | null;
+        const awaitingApprovalCountBody = (await awaitingApprovalCountResponse
+          .json()
+          .catch(() => null)) as CountResponse | null;
+        const blockedExternalCountBody = (await blockedExternalCountResponse
+          .json()
+          .catch(() => null)) as CountResponse | null;
+        const activeProjectsBody = (await activeProjectsResponse
+          .json()
+          .catch(() => null)) as { projects?: ProjectListItem[] } | null;
+        const recentRunsBody = (await recentRunsResponse
+          .json()
+          .catch(() => null)) as { runs?: ExecutionRun[] } | null;
+        const clientEmailQueuesBody = (await clientEmailQueuesResponse
+          .json()
+          .catch(() => null)) as { queues?: ClientEmailQueue[] } | null;
+        const gmailConnectionBody = (await gmailConnectionResponse
+          .json()
+          .catch(() => null)) as GmailConnectionResponse | null;
+        const privateTasksBody = (await privateTasksResponse
+          .json()
+          .catch(() => null)) as PrivateTasksResponse | null;
+        const calendarStatusBody = (await calendarStatusResponse
+          .json()
+          .catch(() => null)) as CalendarStatusResponse | null;
+        const calendarEventsBody = (await calendarEventsResponse
+          .json()
+          .catch(() => null)) as CalendarEventsResponse | null;
+        const latestSummaryBody = (await latestSummaryResponse
+          .json()
+          .catch(() => null)) as DailySummaryResponse | null;
+        const industrySignalsBody = (await industrySignalsResponse
+          .json()
+          .catch(() => null)) as IndustrySignalsResponse | null;
 
-        setLiveProjectsCount(liveProjectsCountBody?.count ?? 0);
-        setDeliveryProjectsCount(deliveryProjectsCountBody?.count ?? 0);
-        setAwaitingApprovalCount(awaitingApprovalCountBody?.count ?? 0);
-        setBlockedExternalCount(blockedExternalCountBody?.count ?? 0);
+        if (
+          liveProjectsCountResponse.ok &&
+          typeof liveProjectsCountBody?.count === "number"
+        ) {
+          setLiveProjectsCount(liveProjectsCountBody.count);
+        }
+        if (
+          deliveryProjectsCountResponse.ok &&
+          typeof deliveryProjectsCountBody?.count === "number"
+        ) {
+          setDeliveryProjectsCount(deliveryProjectsCountBody.count);
+        }
+        if (
+          awaitingApprovalCountResponse.ok &&
+          typeof awaitingApprovalCountBody?.count === "number"
+        ) {
+          setAwaitingApprovalCount(awaitingApprovalCountBody.count);
+        }
+        if (
+          blockedExternalCountResponse.ok &&
+          typeof blockedExternalCountBody?.count === "number"
+        ) {
+          setBlockedExternalCount(blockedExternalCountBody.count);
+        }
         setActiveProjects(activeProjectsBody?.projects ?? []);
         setRecentRuns(recentRunsBody?.runs ?? []);
         setClientEmailQueues(clientEmailQueuesBody?.queues ?? []);
         setDismissedEmailIds([]);
-        setGmailConnected(gmailConnectionBody?.connection?.isConnected === true);
-        setGmailConnectedEmail(gmailConnectionBody?.connection?.connectedEmail ?? null);
+        setGmailConnected(
+          gmailConnectionBody?.connection?.isConnected === true
+        );
+        setGmailConnectedEmail(
+          gmailConnectionBody?.connection?.connectedEmail ?? null
+        );
         setCalendarConnected(calendarStatusBody?.connected === true);
-        setCalendarRequiresReconnect(calendarStatusBody?.requiresReconnect === true);
+        setCalendarRequiresReconnect(
+          calendarStatusBody?.requiresReconnect === true
+        );
         setCalendarConnectedEmail(
           calendarStatusBody?.connectedEmail ??
             calendarEventsBody?.connectedEmail ??
@@ -575,9 +617,9 @@ export default function MulooCommandCentre() {
 
   async function loadPrivateTasks() {
     const response = await fetch("/api/workspace/private-tasks");
-    const body = (await response.json().catch(() => null)) as
-      | PrivateTasksResponse
-      | null;
+    const body = (await response
+      .json()
+      .catch(() => null)) as PrivateTasksResponse | null;
 
     if (!response.ok) {
       throw new Error("Failed to load private tasks");
@@ -752,9 +794,10 @@ export default function MulooCommandCentre() {
         method: "DELETE"
       });
 
-      const body = (await response.json().catch(() => null)) as
-        | { success?: boolean; error?: string }
-        | null;
+      const body = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        error?: string;
+      } | null;
 
       if (!response.ok) {
         throw new Error(
@@ -781,9 +824,9 @@ export default function MulooCommandCentre() {
       const response = await fetch("/api/workspace/summary/generate", {
         method: "POST"
       });
-      const body = (await response.json().catch(() => null)) as
-        | DailySummaryResponse
-        | null;
+      const body = (await response
+        .json()
+        .catch(() => null)) as DailySummaryResponse | null;
 
       if (!response.ok) {
         throw new Error(body?.error ?? "Failed to refresh morning brief");
@@ -804,7 +847,9 @@ export default function MulooCommandCentre() {
 
   async function draftWorkspaceEmail() {
     if (!emailNotes.trim()) {
-      setComposerFeedback("Add a short brief first so AI has something to shape.");
+      setComposerFeedback(
+        "Add a short brief first so AI has something to shape."
+      );
       return;
     }
 
@@ -821,9 +866,9 @@ export default function MulooCommandCentre() {
           prompt: emailNotes
         })
       });
-      const body = (await response.json().catch(() => null)) as
-        | WorkspaceEmailDraftResponse
-        | null;
+      const body = (await response
+        .json()
+        .catch(() => null)) as WorkspaceEmailDraftResponse | null;
 
       if (!response.ok) {
         throw new Error(body?.error ?? "Failed to draft email");
@@ -836,7 +881,9 @@ export default function MulooCommandCentre() {
           .filter(Boolean)
           .join("\n\n")
       );
-      setComposerFeedback("AI drafted the email. Tweak anything before sending.");
+      setComposerFeedback(
+        "AI drafted the email. Tweak anything before sending."
+      );
     } catch (error) {
       setComposerFeedback(
         error instanceof Error ? error.message : "Failed to draft email"
@@ -901,7 +948,9 @@ export default function MulooCommandCentre() {
     };
 
     recognitionRef.current = recognition;
-    setComposerFeedback("Listening... speak naturally and it will drop into the email.");
+    setComposerFeedback(
+      "Listening... speak naturally and it will drop into the email."
+    );
     setIsListening(true);
     recognition.start();
   }
@@ -916,7 +965,9 @@ export default function MulooCommandCentre() {
                 <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
                   Command Centre
                 </p>
-                <h1 className="mt-3 text-3xl font-semibold">{heading.greeting}</h1>
+                <h1 className="mt-3 text-3xl font-semibold">
+                  {heading.greeting}
+                </h1>
                 <p className="mt-2 text-text-secondary">{heading.dateLabel}</p>
                 <p className="mt-5 max-w-4xl text-lg font-medium leading-8 text-white/95 sm:text-xl">
                   {leadQuote}
@@ -1010,7 +1061,9 @@ export default function MulooCommandCentre() {
                   </div>
                 ) : clientEmailQueues.length === 0 ? (
                   <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
-                    No client label queues are visible yet. Connect Gmail, add the label to the client, and let your mailbox rules keep feeding it.
+                    No client label queues are visible yet. Connect Gmail, add
+                    the label to the client, and let your mailbox rules keep
+                    feeding it.
                   </div>
                 ) : (
                   clientEmailQueues.slice(0, 3).map((queue) => {
@@ -1232,7 +1285,8 @@ export default function MulooCommandCentre() {
                   </div>
                 ) : privateTasks.length === 0 ? (
                   <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
-                    No private tasks yet. Add one here and it stays off the PMO board.
+                    No private tasks yet. Add one here and it stays off the PMO
+                    board.
                   </div>
                 ) : (
                   privateTasks.slice(0, 5).map((task) => (
@@ -1356,7 +1410,10 @@ export default function MulooCommandCentre() {
                   title="Projects in delivery"
                   body="Only projects currently in execution are surfaced here."
                 />
-                <Link href="/projects?status=in_delivery" className="text-sm text-text-secondary hover:text-brand-teal">
+                <Link
+                  href="/projects?status=in_delivery"
+                  className="text-sm text-text-secondary hover:text-brand-teal"
+                >
                   View all →
                 </Link>
               </div>
@@ -1408,7 +1465,10 @@ export default function MulooCommandCentre() {
                   title="Recent automation"
                   body="The latest workflow and agent activity."
                 />
-                <Link href="/runs" className="text-sm text-text-secondary hover:text-brand-teal">
+                <Link
+                  href="/runs"
+                  className="text-sm text-text-secondary hover:text-brand-teal"
+                >
                   View all →
                 </Link>
               </div>
@@ -1499,7 +1559,8 @@ export default function MulooCommandCentre() {
                       {item.title}
                     </p>
                     <p className="mt-3 text-sm leading-6 text-text-secondary">
-                      {item.summary || "Open the article to read the full update."}
+                      {item.summary ||
+                        "Open the article to read the full update."}
                     </p>
                     <p className="mt-4 text-xs text-text-muted">
                       {item.publishedAt

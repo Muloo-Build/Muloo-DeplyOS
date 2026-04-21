@@ -19,6 +19,22 @@ import { DEFAULT_WORKSPACE_ID, getApiKey, moduleCatalog } from "@muloo/shared";
 import { z, ZodError } from "zod";
 import { prisma } from "./prisma";
 import { executionQueue } from "./queue/index";
+import {
+  assertValidBlockSize,
+  calculateCurrentRetainerBalance,
+  deriveRetainerRate,
+  deriveTopUpRate,
+  getBorrowForwardCap,
+  getOverageTriggerHours,
+  getPeriodUsageState,
+  getRolloverCap,
+  retainerCurrencies,
+  retainerServiceLines,
+  retainerStatuses,
+  validateRetainerStartDate,
+  type RetainerCurrency,
+  type RetainerServiceLine
+} from "./retainers";
 
 type PrismaTransactionClient = Parameters<
   Parameters<typeof prisma.$transaction>[0]
@@ -892,8 +908,10 @@ const workRequestTypeOptions = [
   "quote_request",
   "job_spec",
   "project_brief",
-  "change_request"
+  "change_request",
+  "support_ticket"
 ] as const;
+const supportTicketUrgencies = ["Low", "Medium", "High", "Urgent"] as const;
 const changeRequestStatusOptions = [
   "new",
   "under_review",
@@ -2331,6 +2349,363 @@ export function isUniqueConstraintError(error: unknown): boolean {
     "code" in error &&
     error.code === "P2002"
   );
+}
+
+const retainerCreateSchema = z.object({
+  clientId: z.string().trim().min(1),
+  serviceLine: z.enum(retainerServiceLines),
+  blockSize: z.number().int().min(10),
+  currency: z.enum(retainerCurrencies),
+  startDate: z.coerce.date(),
+  status: z.enum(retainerStatuses).default("DRAFT"),
+  fxRateFromZar: z.number().finite().positive().optional()
+});
+
+const retainerListFilterSchema = z.object({
+  clientId: z.string().trim().min(1).optional(),
+  status: z.enum(retainerStatuses).optional(),
+  serviceLine: z.enum(retainerServiceLines).optional()
+});
+
+const retainerTopUpQuoteSchema = z.object({
+  hours: z.number().int().positive().default(10),
+  fxRateFromZar: z.number().finite().positive().optional()
+});
+
+function decimalToNumber(value: unknown) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    return Number(value);
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "toNumber" in value &&
+    typeof value.toNumber === "function"
+  ) {
+    return value.toNumber();
+  }
+
+  return 0;
+}
+
+function serializeRetainerPeriod<
+  T extends {
+    id: string;
+    retainerId: string;
+    periodMonth: Date;
+    blockHours: number;
+    rolledInHours: number;
+    borrowedFromNext: number;
+    consumedHours: unknown;
+    overageHours: number;
+    rolledOutHours: number;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+    topUps?: Array<{ hours: number; status: string }>;
+  }
+>(period: T) {
+  const approvedTopUpHours =
+    period.topUps
+      ?.filter((topUp) => topUp.status === "APPROVED" || topUp.status === "INVOICED")
+      .reduce((total, topUp) => total + topUp.hours, 0) ?? 0;
+  const consumedHours = decimalToNumber(period.consumedHours);
+  const usageState = getPeriodUsageState({
+    blockHours: period.blockHours,
+    rolledInHours: period.rolledInHours,
+    consumedHours
+  });
+
+  return {
+    id: period.id,
+    retainerId: period.retainerId,
+    periodMonth: period.periodMonth.toISOString(),
+    blockHours: period.blockHours,
+    rolledInHours: period.rolledInHours,
+    borrowedFromNext: period.borrowedFromNext,
+    consumedHours,
+    overageHours: period.overageHours,
+    rolledOutHours: period.rolledOutHours,
+    approvedTopUpHours,
+    borrowCap: getBorrowForwardCap(period.blockHours),
+    rolloverCap: getRolloverCap(period.blockHours),
+    overageTriggerHours: getOverageTriggerHours({
+      blockHours: period.blockHours,
+      rolledInHours: period.rolledInHours
+    }),
+    balance: calculateCurrentRetainerBalance({
+      blockHours: period.blockHours,
+      rolledInHours: period.rolledInHours,
+      approvedTopUpHours,
+      consumedHours,
+      borrowedFromNext: period.borrowedFromNext
+    }),
+    usageState,
+    status: period.status,
+    createdAt: period.createdAt.toISOString(),
+    updatedAt: period.updatedAt.toISOString()
+  };
+}
+
+function serializeRetainerTopUp<
+  T extends {
+    id: string;
+    retainerPeriodId: string;
+    hours: number;
+    rate: unknown;
+    status: string;
+    quotedAt: Date;
+    approvedAt: Date | null;
+    invoicedAt: Date | null;
+    approvedByClientUserId: string | null;
+  }
+>(topUp: T) {
+  return {
+    id: topUp.id,
+    retainerPeriodId: topUp.retainerPeriodId,
+    hours: topUp.hours,
+    rate: decimalToNumber(topUp.rate),
+    status: topUp.status,
+    quotedAt: topUp.quotedAt.toISOString(),
+    approvedAt: topUp.approvedAt?.toISOString() ?? null,
+    invoicedAt: topUp.invoicedAt?.toISOString() ?? null,
+    approvedByClientUserId: topUp.approvedByClientUserId
+  };
+}
+
+function serializeRetainerLedgerEntry<
+  T extends {
+    id: string;
+    retainerPeriodId: string;
+    taskId: string | null;
+    entryType: string;
+    hoursDelta: unknown;
+    plannedHours: unknown | null;
+    billedHours: unknown | null;
+    producedBy: string | null;
+    overrideReason: string | null;
+    createdBy: string;
+    createdAt: Date;
+  }
+>(entry: T) {
+  return {
+    id: entry.id,
+    retainerPeriodId: entry.retainerPeriodId,
+    taskId: entry.taskId,
+    entryType: entry.entryType,
+    hoursDelta: decimalToNumber(entry.hoursDelta),
+    plannedHours:
+      entry.plannedHours === null ? null : decimalToNumber(entry.plannedHours),
+    billedHours:
+      entry.billedHours === null ? null : decimalToNumber(entry.billedHours),
+    producedBy: entry.producedBy,
+    overrideReason: entry.overrideReason,
+    createdBy: entry.createdBy,
+    createdAt: entry.createdAt.toISOString()
+  };
+}
+
+function serializeRetainer<
+  T extends {
+    id: string;
+    clientId: string;
+    serviceLine: string;
+    blockSize: number;
+    rate: unknown;
+    currency: string;
+    startDate: Date;
+    endDate: Date | null;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+    client?: { id: string; name: string; slug: string } | null;
+    periods?: Array<Parameters<typeof serializeRetainerPeriod>[0]>;
+  }
+>(retainer: T) {
+  const currentPeriod = retainer.periods?.[0]
+    ? serializeRetainerPeriod(retainer.periods[0])
+    : null;
+
+  return {
+    id: retainer.id,
+    clientId: retainer.clientId,
+    client: retainer.client
+      ? {
+          id: retainer.client.id,
+          name: retainer.client.name,
+          slug: retainer.client.slug
+        }
+      : null,
+    serviceLine: retainer.serviceLine,
+    blockSize: retainer.blockSize,
+    rate: decimalToNumber(retainer.rate),
+    currency: retainer.currency,
+    startDate: retainer.startDate.toISOString(),
+    endDate: retainer.endDate?.toISOString() ?? null,
+    status: retainer.status,
+    currentPeriod,
+    createdAt: retainer.createdAt.toISOString(),
+    updatedAt: retainer.updatedAt.toISOString()
+  };
+}
+
+export async function loadRetainers(filters: unknown = {}) {
+  const normalizedFilters = retainerListFilterSchema.parse(filters);
+  const retainers = await prisma.retainer.findMany({
+    where: {
+      ...(normalizedFilters.clientId ? { clientId: normalizedFilters.clientId } : {}),
+      ...(normalizedFilters.status ? { status: normalizedFilters.status } : {}),
+      ...(normalizedFilters.serviceLine
+        ? { serviceLine: normalizedFilters.serviceLine }
+        : {})
+    },
+    include: {
+      client: { select: { id: true, name: true, slug: true } },
+      periods: {
+        orderBy: { periodMonth: "desc" },
+        take: 1,
+        include: { topUps: true }
+      }
+    },
+    orderBy: [{ status: "asc" }, { startDate: "desc" }, { createdAt: "desc" }]
+  });
+
+  return retainers.map(serializeRetainer);
+}
+
+export async function loadRetainerDetail(retainerId: string) {
+  const retainer = await prisma.retainer.findUnique({
+    where: { id: retainerId },
+    include: {
+      client: { select: { id: true, name: true, slug: true } },
+      periods: {
+        orderBy: { periodMonth: "desc" },
+        include: {
+          topUps: true,
+          ledgerEntries: { orderBy: { createdAt: "desc" } }
+        }
+      }
+    }
+  });
+
+  if (!retainer) {
+    return null;
+  }
+
+  return {
+    ...serializeRetainer(retainer),
+    periods: retainer.periods.map((period) => ({
+      ...serializeRetainerPeriod(period),
+      topUps: period.topUps.map(serializeRetainerTopUp),
+      ledgerEntries: period.ledgerEntries.map(serializeRetainerLedgerEntry)
+    }))
+  };
+}
+
+export async function createRetainerRecord(payload: unknown) {
+  const input = retainerCreateSchema.parse(payload);
+  assertValidBlockSize(input.blockSize);
+  validateRetainerStartDate(input.startDate);
+
+  const client = await prisma.client.findUnique({
+    where: { id: input.clientId },
+    select: { id: true }
+  });
+
+  if (!client) {
+    throw new Error("Client not found.");
+  }
+
+  const rate = deriveRetainerRate({
+    serviceLine: input.serviceLine as RetainerServiceLine,
+    blockSize: input.blockSize,
+    currency: input.currency as RetainerCurrency,
+    ...(input.fxRateFromZar !== undefined
+      ? { fxRateFromZar: input.fxRateFromZar }
+      : {})
+  });
+
+  const retainer = await prisma.retainer.create({
+    data: {
+      clientId: input.clientId,
+      serviceLine: input.serviceLine,
+      blockSize: input.blockSize,
+      rate,
+      currency: input.currency,
+      startDate: input.startDate,
+      status: input.status,
+      ...(input.status === "ACTIVE"
+        ? {
+            periods: {
+              create: {
+                periodMonth: input.startDate,
+                blockHours: input.blockSize
+              }
+            }
+          }
+        : {})
+    },
+    include: {
+      client: { select: { id: true, name: true, slug: true } },
+      periods: {
+        orderBy: { periodMonth: "desc" },
+        take: 1,
+        include: { topUps: true }
+      }
+    }
+  });
+
+  return serializeRetainer(retainer);
+}
+
+export async function createRetainerTopUpQuote(
+  retainerId: string,
+  payload: unknown
+) {
+  const input = retainerTopUpQuoteSchema.parse(payload);
+  const retainer = await prisma.retainer.findUnique({
+    where: { id: retainerId },
+    include: {
+      periods: {
+        where: { status: "OPEN" },
+        orderBy: { periodMonth: "desc" },
+        take: 1
+      }
+    }
+  });
+
+  if (!retainer) {
+    throw new Error("Retainer not found.");
+  }
+
+  const period = retainer.periods[0];
+  if (!period) {
+    throw new Error("Retainer has no open period for a top-up quote.");
+  }
+
+  const rate = deriveTopUpRate({
+    serviceLine: retainer.serviceLine as RetainerServiceLine,
+    currency: retainer.currency as RetainerCurrency,
+    ...(input.fxRateFromZar !== undefined
+      ? { fxRateFromZar: input.fxRateFromZar }
+      : {})
+  });
+
+  const topUp = await prisma.retainerTopUp.create({
+    data: {
+      retainerPeriodId: period.id,
+      hours: input.hours,
+      rate,
+      status: "QUOTED"
+    }
+  });
+
+  return serializeRetainerTopUp(topUp);
 }
 
 function createPendingPortalId(): string {
@@ -17468,6 +17843,20 @@ export async function getActiveProjects(options?: { take?: number }) {
   }));
 }
 
+export function isLiveProjectStatus(status: string) {
+  return status !== "archived";
+}
+
+export async function getLiveProjectCount() {
+  return prisma.project.count({
+    where: {
+      NOT: {
+        status: "archived"
+      }
+    }
+  });
+}
+
 export async function getQuotesPipeline() {
   const quotes = await prisma.projectQuote.findMany({
     where: { status: { in: ["shared", "pending"] } },
@@ -18581,6 +18970,107 @@ export async function createWorkRequest(value: {
   });
 
   return serializeWorkRequest(request);
+}
+
+export async function createClientSupportTicket(
+  userId: string,
+  value: {
+    subject?: unknown;
+    projectId?: unknown;
+    urgency?: unknown;
+    description?: unknown;
+  }
+) {
+  const subject = typeof value.subject === "string" ? value.subject.trim() : "";
+  const projectId =
+    typeof value.projectId === "string" ? value.projectId.trim() : "";
+  const urgency =
+    typeof value.urgency === "string" && value.urgency.trim()
+      ? value.urgency.trim()
+      : "Medium";
+  const description =
+    typeof value.description === "string" ? value.description.trim() : "";
+
+  if (!subject) {
+    throw new Error("Subject is required");
+  }
+
+  if (
+    !supportTicketUrgencies.includes(
+      urgency as (typeof supportTicketUrgencies)[number]
+    )
+  ) {
+    throw new Error("Urgency must be Low, Medium, High, or Urgent");
+  }
+
+  if (description.length < 10) {
+    throw new Error("Description must be at least 10 characters");
+  }
+
+  const clientUser = await prisma.clientPortalUser.findUnique({
+    where: { id: userId }
+  });
+
+  if (!clientUser) {
+    throw new Error("Client unauthorized");
+  }
+
+  const projectAccess = projectId
+    ? await prisma.clientProjectAccess.findUnique({
+        where: {
+          userId_projectId: {
+            userId,
+            projectId
+          }
+        },
+        include: {
+          project: {
+            include: {
+              client: true
+            }
+          }
+        }
+      })
+    : null;
+
+  if (projectId && !projectAccess) {
+    throw new Error("Project not found");
+  }
+
+  const fallbackAccess = projectId
+    ? null
+    : await prisma.clientProjectAccess.findFirst({
+        where: { userId },
+        include: {
+          project: {
+            include: {
+              client: true
+            }
+          }
+        },
+        orderBy: {
+          project: {
+            updatedAt: "desc"
+          }
+        }
+      });
+
+  return createWorkRequest({
+    projectId: projectAccess?.projectId,
+    title: subject,
+    serviceFamily:
+      projectAccess?.project.serviceFamily ?? "hubspot_architecture",
+    requestType: "support_ticket",
+    companyName:
+      projectAccess?.project.client.name ?? fallbackAccess?.project.client.name,
+    contactName: `${clientUser.firstName} ${clientUser.lastName}`.trim(),
+    contactEmail: clientUser.email,
+    summary: description,
+    details: projectAccess?.project.name
+      ? `Related project: ${projectAccess.project.name}`
+      : "No related project selected.",
+    urgency
+  });
 }
 
 export async function updateWorkRequest(
