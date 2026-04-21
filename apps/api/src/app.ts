@@ -44,6 +44,12 @@ import { prisma } from "./prisma";
 import { executionQueue } from "./queue/index";
 import { startWorker } from "./queue/worker";
 import {
+  approveRetainerTopUp,
+  approveTaskToBill,
+  reconcileRetainers,
+  RetainerOverageError
+} from "./retainerLedger";
+import {
   clientAuthCookieName,
   createAgentDefinition,
   createClientContact,
@@ -308,7 +314,8 @@ function getProjectStatusMatch(
       );
     case "blueprint_approved_no_delivery":
       return (
-        (project.quoteApprovalStatus === "approved" || Boolean(project.scopeLockedAt)) &&
+        (project.quoteApprovalStatus === "approved" ||
+          Boolean(project.scopeLockedAt)) &&
         project.status !== "in-flight" &&
         project.status !== "completed" &&
         project.status !== "archived"
@@ -509,10 +516,7 @@ function inferAssistantActions(input: {
     });
   }
 
-  if (
-    message.includes("portal ops") ||
-    message.includes("private app token")
-  ) {
+  if (message.includes("portal ops") || message.includes("private app token")) {
     actions.push({
       type: "navigate",
       label: "Open Portal Ops",
@@ -539,8 +543,24 @@ async function loadAssistantWorkspaceContext() {
   try {
     const [projects, clients, tasks] = await Promise.all([
       prisma.project.findMany({
-        where: { status: { in: ["draft", "scoping", "designed", "ready-for-execution", "in-flight"] } },
-        select: { id: true, name: true, status: true, updatedAt: true, client: { select: { name: true } } },
+        where: {
+          status: {
+            in: [
+              "draft",
+              "scoping",
+              "designed",
+              "ready-for-execution",
+              "in-flight"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          updatedAt: true,
+          client: { select: { name: true } }
+        },
         orderBy: { updatedAt: "desc" },
         take: 20
       }),
@@ -557,7 +577,9 @@ async function loadAssistantWorkspaceContext() {
           status: true,
           priority: true,
           assigneeType: true,
-          project: { select: { id: true, name: true, client: { select: { name: true } } } }
+          project: {
+            select: { id: true, name: true, client: { select: { name: true } } }
+          }
         },
         orderBy: { updatedAt: "desc" },
         take: 30
@@ -571,7 +593,7 @@ async function loadAssistantWorkspaceContext() {
 
     return {
       activeProjectCount: projects.length,
-      activeProjects: projects.map(p => ({
+      activeProjects: projects.map((p) => ({
         id: p.id,
         name: p.name,
         status: p.status,
@@ -579,11 +601,17 @@ async function loadAssistantWorkspaceContext() {
         updatedAt: p.updatedAt.toISOString().split("T")[0]
       })),
       clientCount: clients.length,
-      recentClients: clients.map(c => ({ id: c.id, name: c.name, industry: c.industry })),
+      recentClients: clients.map((c) => ({
+        id: c.id,
+        name: c.name,
+        industry: c.industry
+      })),
       openTaskCount: tasks.length,
       tasksByStatus,
-      agentTaskCount: tasks.filter(t => t.assigneeType?.toLowerCase() === "agent").length,
-      blockedTaskCount: tasks.filter(t => t.status === "blocked").length
+      agentTaskCount: tasks.filter(
+        (t) => t.assigneeType?.toLowerCase() === "agent"
+      ).length,
+      blockedTaskCount: tasks.filter((t) => t.status === "blocked").length
     };
   } catch {
     return null;
@@ -653,9 +681,10 @@ async function generateAssistantAnswer(input: {
     })
   });
 
-  const body = (await response.json().catch(() => null)) as
-    | { content?: Array<{ text?: string }>; error?: { message?: string } }
-    | null;
+  const body = (await response.json().catch(() => null)) as {
+    content?: Array<{ text?: string }>;
+    error?: { message?: string };
+  } | null;
 
   if (!response.ok || !body?.content?.[0]?.text?.trim()) {
     return fallbackContext;
@@ -676,9 +705,7 @@ async function generatePortalAssistantAnswer(input: {
     summary?.summary,
     summary ? `Current phase: ${summary.currentPhaseLabel}.` : null,
     summary?.nextSteps?.length
-      ? `Next steps: ${summary.nextSteps
-          .map((step) => step.title)
-          .join("; ")}.`
+      ? `Next steps: ${summary.nextSteps.map((step) => step.title).join("; ")}.`
       : null
   ]
     .filter(Boolean)
@@ -724,9 +751,10 @@ async function generatePortalAssistantAnswer(input: {
     })
   });
 
-  const body = (await response.json().catch(() => null)) as
-    | { content?: Array<{ text?: string }>; error?: { message?: string } }
-    | null;
+  const body = (await response.json().catch(() => null)) as {
+    content?: Array<{ text?: string }>;
+    error?: { message?: string };
+  } | null;
 
   if (!response.ok || !body?.content?.[0]?.text?.trim()) {
     return fallback;
@@ -802,6 +830,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/runs/*", internalAuth);
   app.use("/api/executions", internalAuth);
   app.use("/api/executions/*", internalAuth);
+  app.use("/api/jobs", internalAuth);
+  app.use("/api/jobs/*", internalAuth);
   app.use("/api/users", internalAuth);
   app.use("/api/users/*", internalAuth);
   app.use("/api/provider-connections", internalAuth);
@@ -824,6 +854,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/discovery/*", internalAuth);
   app.use("/api/projects", internalAuth);
   app.use("/api/projects/*", internalAuth);
+  app.use("/api/tasks", internalAuth);
+  app.use("/api/tasks/*", internalAuth);
   app.use("/api/solution-options", internalAuth);
   app.use("/api/hubspot", internalAuth);
   app.use("/api/hubspot/*", internalAuth);
@@ -964,9 +996,12 @@ export function createApiApp(config: BaseConfig) {
 
       c.header(
         "Set-Cookie",
-        createCookieHeader(createWorkspaceUserAuthToken(result.workspaceUser.id), {
-          maxAge: 60 * 60 * 12
-        })
+        createCookieHeader(
+          createWorkspaceUserAuthToken(result.workspaceUser.id),
+          {
+            maxAge: 60 * 60 * 12
+          }
+        )
       );
 
       await audit(
@@ -1230,18 +1265,24 @@ export function createApiApp(config: BaseConfig) {
           }
         : undefined;
       const [actions, workspaceContext] = await Promise.all([
-        Promise.resolve(inferAssistantActions({
-          message: parsed.data.message,
-          ...(parsed.data.pathname ? { pathname: parsed.data.pathname } : {}),
-          ...(assistantProjectContext ? { project: assistantProjectContext } : {})
-        })),
+        Promise.resolve(
+          inferAssistantActions({
+            message: parsed.data.message,
+            ...(parsed.data.pathname ? { pathname: parsed.data.pathname } : {}),
+            ...(assistantProjectContext
+              ? { project: assistantProjectContext }
+              : {})
+          })
+        ),
         loadAssistantWorkspaceContext()
       ]);
       const answer = await generateAssistantAnswer({
         message: parsed.data.message,
         ...(parsed.data.pathname ? { pathname: parsed.data.pathname } : {}),
         ...(parsed.data.pageLabel ? { pageLabel: parsed.data.pageLabel } : {}),
-        ...(assistantProjectContext ? { project: assistantProjectContext } : {}),
+        ...(assistantProjectContext
+          ? { project: assistantProjectContext }
+          : {}),
         actions,
         workspaceContext
       });
@@ -1284,12 +1325,8 @@ export function createApiApp(config: BaseConfig) {
     try {
       const answer = await generatePortalAssistantAnswer({
         message: parsed.data.message,
-        ...(parsed.data.pathname
-          ? { pathname: parsed.data.pathname }
-          : {}),
-        ...(parsed.data.pageLabel
-          ? { pageLabel: parsed.data.pageLabel }
-          : {}),
+        ...(parsed.data.pathname ? { pathname: parsed.data.pathname } : {}),
+        ...(parsed.data.pageLabel ? { pageLabel: parsed.data.pageLabel } : {}),
         portalContext
       });
 
@@ -1394,7 +1431,8 @@ export function createApiApp(config: BaseConfig) {
       .filter((run) => getExecutionStatusMatch(run.status, status))
       .sort(
         (left, right) =>
-          new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+          new Date(right.createdAt).getTime() -
+          new Date(left.createdAt).getTime()
       );
 
     if (countOnly) {
@@ -1548,7 +1586,11 @@ export function createApiApp(config: BaseConfig) {
         waitingTasks.map((task) => task.projectId)
       );
       const filteredProjects = projects.filter((project) =>
-        getProjectStatusMatch(project, waitingOnExternalProjectIds, requestedStatus)
+        getProjectStatusMatch(
+          project,
+          waitingOnExternalProjectIds,
+          requestedStatus
+        )
       );
 
       if (countOnly) {
@@ -1762,87 +1804,116 @@ export function createApiApp(config: BaseConfig) {
     })
   );
 
-  app.post("/api/projects/:projectId/client-portal-preview-token", async (c) => {
-    const projectId = c.req.param("projectId");
+  app.post(
+    "/api/projects/:projectId/client-portal-preview-token",
+    async (c) => {
+      const projectId = c.req.param("projectId");
 
-    const access = await prisma.clientProjectAccess.findFirst({
-      where: { projectId },
-      include: { user: { select: { id: true } } },
-      orderBy: { createdAt: "asc" }
-    });
-
-    if (!access) {
-      return c.json({ error: "No client users have been invited to this project yet. Invite a client user from the Portal tab first." }, 400);
-    }
-
-    for (const [tok, rec] of portalPreviewTokens) {
-      if (rec.expiresAt < Date.now()) {
-        portalPreviewTokens.delete(tok);
-      }
-    }
-
-    const token = crypto.randomUUID();
-    portalPreviewTokens.set(token, {
-      clientUserId: access.user.id,
-      projectId,
-      expiresAt: Date.now() + 60 * 60 * 1000
-    });
-
-    return c.json({ token, previewUrl: `/api/client-auth/preview?token=${token}` });
-  });
-
-  app.post("/api/projects/:projectId/partner-portal-preview-token", async (c) => {
-    const projectId = c.req.param("projectId");
-
-    const allAccess = await prisma.clientProjectAccess.findMany({
-      where: { projectId },
-      include: { user: { select: { id: true, email: true } } },
-      orderBy: { createdAt: "asc" }
-    });
-
-    if (allAccess.length === 0) {
-      return c.json({ error: "No portal users have been invited to this project yet." }, 400);
-    }
-
-    let partnerAccess: (typeof allAccess)[number] | null = null;
-
-    for (const access of allAccess) {
-      const email = access.user.email?.toLowerCase();
-      if (!email) continue;
-
-      const partnerClient = await prisma.client.findFirst({
-        where: {
-          clientRoles: { has: "partner" },
-          contacts: { some: { email: { equals: email, mode: "insensitive" } } }
-        },
-        select: { id: true }
+      const access = await prisma.clientProjectAccess.findFirst({
+        where: { projectId },
+        include: { user: { select: { id: true } } },
+        orderBy: { createdAt: "asc" }
       });
 
-      if (partnerClient) {
-        partnerAccess = access;
-        break;
+      if (!access) {
+        return c.json(
+          {
+            error:
+              "No client users have been invited to this project yet. Invite a client user from the Portal tab first."
+          },
+          400
+        );
       }
-    }
 
-    if (!partnerAccess) {
-      return c.json({ error: "No partner users have been invited to this project yet. Invite a partner user from the Portal tab first." }, 400);
-    }
-
-    for (const [tok, rec] of portalPreviewTokens) {
-      if (rec.expiresAt < Date.now()) {
-        portalPreviewTokens.delete(tok);
+      for (const [tok, rec] of portalPreviewTokens) {
+        if (rec.expiresAt < Date.now()) {
+          portalPreviewTokens.delete(tok);
+        }
       }
+
+      const token = crypto.randomUUID();
+      portalPreviewTokens.set(token, {
+        clientUserId: access.user.id,
+        projectId,
+        expiresAt: Date.now() + 60 * 60 * 1000
+      });
+
+      return c.json({
+        token,
+        previewUrl: `/api/client-auth/preview?token=${token}`
+      });
     }
+  );
 
-    const token = crypto.randomUUID();
-    portalPreviewTokens.set(token, {
-      clientUserId: partnerAccess.user.id,
-      projectId,
-      expiresAt: Date.now() + 60 * 60 * 1000
-    });
+  app.post(
+    "/api/projects/:projectId/partner-portal-preview-token",
+    async (c) => {
+      const projectId = c.req.param("projectId");
 
-    return c.json({ token, previewUrl: `/api/client-auth/preview?token=${token}` });
-  });
+      const allAccess = await prisma.clientProjectAccess.findMany({
+        where: { projectId },
+        include: { user: { select: { id: true, email: true } } },
+        orderBy: { createdAt: "asc" }
+      });
+
+      if (allAccess.length === 0) {
+        return c.json(
+          { error: "No portal users have been invited to this project yet." },
+          400
+        );
+      }
+
+      let partnerAccess: (typeof allAccess)[number] | null = null;
+
+      for (const access of allAccess) {
+        const email = access.user.email?.toLowerCase();
+        if (!email) continue;
+
+        const partnerClient = await prisma.client.findFirst({
+          where: {
+            clientRoles: { has: "partner" },
+            contacts: {
+              some: { email: { equals: email, mode: "insensitive" } }
+            }
+          },
+          select: { id: true }
+        });
+
+        if (partnerClient) {
+          partnerAccess = access;
+          break;
+        }
+      }
+
+      if (!partnerAccess) {
+        return c.json(
+          {
+            error:
+              "No partner users have been invited to this project yet. Invite a partner user from the Portal tab first."
+          },
+          400
+        );
+      }
+
+      for (const [tok, rec] of portalPreviewTokens) {
+        if (rec.expiresAt < Date.now()) {
+          portalPreviewTokens.delete(tok);
+        }
+      }
+
+      const token = crypto.randomUUID();
+      portalPreviewTokens.set(token, {
+        clientUserId: partnerAccess.user.id,
+        projectId,
+        expiresAt: Date.now() + 60 * 60 * 1000
+      });
+
+      return c.json({
+        token,
+        previewUrl: `/api/client-auth/preview?token=${token}`
+      });
+    }
+  );
 
   app.all("/api/projects/:projectId/design", async (c) => {
     if (c.req.method !== "GET") {
@@ -2384,9 +2455,40 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.get("/api/projects/:projectId/tasks/board", async (c) => {
-    return c.json(
-      await loadProjectTaskBoard(c.req.param("projectId"))
-    );
+    return c.json(await loadProjectTaskBoard(c.req.param("projectId")));
+  });
+
+  app.patch("/api/projects/:projectId/retainer", async (c) => {
+    const body = (await readJsonBodyOrEmpty(c)) as { retainerId?: unknown };
+    const retainerId =
+      typeof body.retainerId === "string" && body.retainerId.trim()
+        ? body.retainerId.trim()
+        : null;
+
+    try {
+      if (retainerId) {
+        const retainer = await prisma.retainer.findUnique({
+          where: { id: retainerId },
+          select: { id: true }
+        });
+
+        if (!retainer) {
+          return c.json({ error: "Retainer not found" }, 404);
+        }
+      }
+
+      const project = await prisma.project.update({
+        where: { id: c.req.param("projectId") },
+        data: { retainerId },
+        select: { id: true, retainerId: true }
+      });
+
+      return c.json({ project });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to link retainer";
+      return c.json({ error: message }, 400);
+    }
   });
 
   app.patch("/api/projects/:projectId/tasks/:taskId/status", async (c) => {
@@ -2447,7 +2549,9 @@ export function createApiApp(config: BaseConfig) {
                 ? error.message
                 : "Failed to request approval"
           },
-          error instanceof Error && error.message === "Task not found" ? 404 : 400
+          error instanceof Error && error.message === "Task not found"
+            ? 404
+            : 400
         );
       }
     }
@@ -2480,6 +2584,72 @@ export function createApiApp(config: BaseConfig) {
           ? 404
           : 400
       );
+    }
+  });
+
+  app.post(
+    "/api/projects/:projectId/tasks/:taskId/approve-to-bill",
+    async (c) => {
+      try {
+        const actor = await resolveInternalActor(c.env.incoming);
+        const result = await approveTaskToBill({
+          actor: actor.actor,
+          userId: actor.userId ?? null,
+          projectId: c.req.param("projectId"),
+          taskId: c.req.param("taskId"),
+          payload: await readJsonBodyOrEmpty(c)
+        });
+
+        return c.json(result);
+      } catch (error) {
+        if (error instanceof RetainerOverageError) {
+          return c.json(error.payload, 402);
+        }
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to approve task to bill";
+        const statusCode =
+          error instanceof Error && error.name === "TaskAlreadyApprovedToBill"
+            ? 409
+            : message === "Task not found"
+              ? 404
+              : 400;
+
+        return c.json({ error: message }, statusCode);
+      }
+    }
+  );
+
+  app.post("/api/tasks/:taskId/approve-to-bill", async (c) => {
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      const result = await approveTaskToBill({
+        actor: actor.actor,
+        userId: actor.userId ?? null,
+        taskId: c.req.param("taskId"),
+        payload: await readJsonBodyOrEmpty(c)
+      });
+
+      return c.json(result);
+    } catch (error) {
+      if (error instanceof RetainerOverageError) {
+        return c.json(error.payload, 402);
+      }
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to approve task to bill";
+      const statusCode =
+        error instanceof Error && error.name === "TaskAlreadyApprovedToBill"
+          ? 409
+          : message === "Task not found"
+            ? 404
+            : 400;
+
+      return c.json({ error: message }, statusCode);
     }
   });
 
@@ -2795,7 +2965,8 @@ export function createApiApp(config: BaseConfig) {
 
   app.post("/api/projects/:projectId/run/portal-audit", async (c) => {
     const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
-    const providerKey = typeof body.providerKey === "string" ? body.providerKey : "anthropic";
+    const providerKey =
+      typeof body.providerKey === "string" ? body.providerKey : "anthropic";
     const modelId = typeof body.modelId === "string" ? body.modelId : undefined;
 
     try {
@@ -2862,9 +3033,7 @@ export function createApiApp(config: BaseConfig) {
       return c.json(
         {
           run:
-            error &&
-            typeof error === "object" &&
-            "workflowRun" in error
+            error && typeof error === "object" && "workflowRun" in error
               ? (error as { workflowRun?: unknown }).workflowRun
               : null,
           error:
@@ -3058,7 +3227,9 @@ export function createApiApp(config: BaseConfig) {
 
   app.patch("/api/projects/:projectId/portal-settings", async (c) => {
     const projectId = c.req.param("projectId");
-    const body = (await readJsonBodyOrEmpty(c)) as { portalQuoteEnabled?: unknown };
+    const body = (await readJsonBodyOrEmpty(c)) as {
+      portalQuoteEnabled?: unknown;
+    };
     if (typeof body.portalQuoteEnabled !== "boolean") {
       return c.json({ error: "portalQuoteEnabled must be a boolean" }, 400);
     }
@@ -3337,9 +3508,7 @@ export function createApiApp(config: BaseConfig) {
       return c.json(
         {
           error:
-            error instanceof Error
-              ? error.message
-              : "Failed to generate agenda"
+            error instanceof Error ? error.message : "Failed to generate agenda"
         },
         error instanceof Error && error.message === "Project not found"
           ? 404
@@ -3377,9 +3546,7 @@ export function createApiApp(config: BaseConfig) {
       return c.json(
         {
           run:
-            error &&
-            typeof error === "object" &&
-            "workflowRun" in error
+            error && typeof error === "object" && "workflowRun" in error
               ? (error as { workflowRun?: unknown }).workflowRun
               : null,
           error:
@@ -3718,7 +3885,8 @@ export function createApiApp(config: BaseConfig) {
         {
           error:
             error instanceof Error &&
-            error.message === "Google Calendar OAuth credentials are not configured"
+            error.message ===
+              "Google Calendar OAuth credentials are not configured"
               ? "not_configured"
               : "start_failed",
           message:
@@ -3775,9 +3943,7 @@ export function createApiApp(config: BaseConfig) {
       return c.json(
         {
           error:
-            error instanceof Error
-              ? error.message
-              : "Failed to save API key"
+            error instanceof Error ? error.message : "Failed to save API key"
         },
         400
       );
@@ -3786,16 +3952,12 @@ export function createApiApp(config: BaseConfig) {
 
   app.delete("/api/workspace/api-keys/:keyName", async (c) => {
     try {
-      return c.json(
-        await deleteWorkspaceApiKey(c.req.param("keyName"))
-      );
+      return c.json(await deleteWorkspaceApiKey(c.req.param("keyName")));
     } catch (error) {
       return c.json(
         {
           error:
-            error instanceof Error
-              ? error.message
-              : "Failed to remove API key"
+            error instanceof Error ? error.message : "Failed to remove API key"
         },
         400
       );
@@ -4070,6 +4232,72 @@ export function createApiApp(config: BaseConfig) {
     }
   });
 
+  app.post("/api/retainers/:retainerId/top-ups/:topUpId/approve", async (c) => {
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      const result = await approveRetainerTopUp({
+        retainerId: c.req.param("retainerId"),
+        topUpId: c.req.param("topUpId"),
+        actor: actor.actor
+      });
+
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to approve top-up";
+      const statusCode = message === "Top-up quote not found" ? 404 : 400;
+
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
+  app.post(
+    "/api/client/retainers/:retainerId/top-ups/:topUpId/approve",
+    async (c) => {
+      try {
+        const clientUserId = c.get("clientUserId");
+        const result = await approveRetainerTopUp({
+          retainerId: c.req.param("retainerId"),
+          topUpId: c.req.param("topUpId"),
+          clientUserId,
+          actor: clientUserId
+        });
+
+        return c.json(result);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to approve top-up";
+        const statusCode = message === "Top-up quote not found" ? 404 : 400;
+
+        return c.json({ error: message }, statusCode);
+      }
+    }
+  );
+
+  app.all("/api/jobs/reconcile-retainers", async (c) => {
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      const nowQuery = c.req.query("now");
+      const result = await reconcileRetainers({
+        actor: actor.actor,
+        dryRun: c.req.query("dryRun") === "true",
+        ...(nowQuery ? { now: new Date(nowQuery) } : {})
+      });
+
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to reconcile retainers"
+        },
+        400
+      );
+    }
+  });
+
   app.get("/api/agents", async (c) =>
     c.json({
       agents: await loadAgentCatalog()
@@ -4298,9 +4526,7 @@ export function createApiApp(config: BaseConfig) {
       return c.json(
         {
           run:
-            error &&
-            typeof error === "object" &&
-            "workflowRun" in error
+            error && typeof error === "object" && "workflowRun" in error
               ? (error as { workflowRun?: unknown }).workflowRun
               : null,
           error:
@@ -5190,20 +5416,23 @@ export function createApiApp(config: BaseConfig) {
     return c.json({ error: "Method Not Allowed" }, 405);
   });
 
-  app.delete("/api/client/projects/:projectId/messages/:messageId", async (c) => {
-    const { projectId, messageId } = c.req.param();
-    const clientUserId = c.get("clientUserId");
-    const access = await prisma.clientProjectAccess.findFirst({
-      where: { projectId, userId: clientUserId }
-    });
-    if (!access) return c.json({ error: "Project not found" }, 404);
-    const msg = await prisma.projectMessage.findFirst({
-      where: { id: messageId, projectId, senderType: "client" }
-    });
-    if (!msg) return c.json({ error: "Message not found" }, 404);
-    await prisma.projectMessage.delete({ where: { id: messageId } });
-    return c.json({ deleted: true });
-  });
+  app.delete(
+    "/api/client/projects/:projectId/messages/:messageId",
+    async (c) => {
+      const { projectId, messageId } = c.req.param();
+      const clientUserId = c.get("clientUserId");
+      const access = await prisma.clientProjectAccess.findFirst({
+        where: { projectId, userId: clientUserId }
+      });
+      if (!access) return c.json({ error: "Project not found" }, 404);
+      const msg = await prisma.projectMessage.findFirst({
+        where: { id: messageId, projectId, senderType: "client" }
+      });
+      if (!msg) return c.json({ error: "Message not found" }, 404);
+      await prisma.projectMessage.delete({ where: { id: messageId } });
+      return c.json({ deleted: true });
+    }
+  );
 
   app.all("/api/client/*", (c) =>
     c.json({ error: "Client route not found" }, 404)
@@ -5456,7 +5685,10 @@ export function createApiApp(config: BaseConfig) {
 
       if (!existingSession) {
         return c.json(
-          { error: "No PortalSession found for this portal. Capture a portal session first." },
+          {
+            error:
+              "No PortalSession found for this portal. Capture a portal session first."
+          },
           404
         );
       }
@@ -5573,13 +5805,13 @@ export function createApiApp(config: BaseConfig) {
           projectId: job.projectId,
           portalId: String(body.portalId),
           sessionId: body.sessionId ? String(body.sessionId) : undefined,
-          dryRun: job.mode === 'dry-run',
+          dryRun: job.mode === "dry-run",
           payload: {
             dashboardName: body.dashboardName,
             primaryLeadSourceProperty: body.primaryLeadSourceProperty,
             lastKeyActionProperty: body.lastKeyActionProperty,
-            sectionsToInclude: body.sectionsToInclude,
-          },
+            sectionsToInclude: body.sectionsToInclude
+          }
         },
         { jobId: job.id } // use same ID for traceability
       );
@@ -5599,7 +5831,9 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/agents/research", async (c) => {
-    const parsed = researchRequestSchema.safeParse(await readJsonBodyOrEmpty(c));
+    const parsed = researchRequestSchema.safeParse(
+      await readJsonBodyOrEmpty(c)
+    );
 
     if (!parsed.success) {
       return c.json({ error: parsed.error.flatten() }, 400);
@@ -5668,10 +5902,7 @@ export function createApiApp(config: BaseConfig) {
       const coworkInstruction = job.coworkInstruction ?? null;
 
       if (!coworkInstruction) {
-        return c.json(
-          { error: "No cowork instruction for this job" },
-          404
-        );
+        return c.json({ error: "No cowork instruction for this job" }, 404);
       }
 
       return c.json(coworkInstruction);
@@ -5707,7 +5938,12 @@ export function createApiApp(config: BaseConfig) {
               ? {
                   OR: [
                     { payload: { path: ["portalId"], equals: portalId } },
-                    { coworkInstruction: { path: ["portalId"], equals: portalId } }
+                    {
+                      coworkInstruction: {
+                        path: ["portalId"],
+                        equals: portalId
+                      }
+                    }
                   ]
                 }
               : {})
@@ -5820,9 +6056,9 @@ export function createApiApp(config: BaseConfig) {
   app.notFound((c) => c.json({ error: "Not Found" }, 404));
 
   // Poll job status
-  app.get('/api/execution-jobs/:id/status', async (c) => {
+  app.get("/api/execution-jobs/:id/status", async (c) => {
     const job = await prisma.executionJob.findUnique({
-      where: { id: c.req.param('id') },
+      where: { id: c.req.param("id") },
       select: {
         id: true,
         status: true,
@@ -5834,18 +6070,18 @@ export function createApiApp(config: BaseConfig) {
         outputLog: true,
         errorLog: true,
         executionTier: true,
-        coworkInstruction: true,
-      },
+        coworkInstruction: true
+      }
     });
 
-    if (!job) return c.json({ error: 'Job not found' }, 404);
+    if (!job) return c.json({ error: "Job not found" }, 404);
     return c.json(job);
   });
 
   // Start the background job worker
-  if (process.env.NODE_ENV !== 'test') {
+  if (process.env.NODE_ENV !== "test") {
     startWorker();
-    console.info('[worker] BullMQ execution worker started');
+    console.info("[worker] BullMQ execution worker started");
   }
 
   return app;

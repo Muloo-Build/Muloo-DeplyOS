@@ -60,6 +60,12 @@ enum RetainerTopUpStatus {
   INVOICED
 }
 
+enum RolloverBucketStatus {
+  ACTIVE
+  CONSUMED
+  EXPIRED
+}
+
 model Client {
   id                 String                    @id @default(cuid())
   name               String
@@ -194,23 +200,23 @@ model WorkspaceEmailSettings {
 }
 
 model WorkspaceEmailOAuthConnection {
-  id             String    @id @default(cuid())
-  providerKey    String    @unique
-  label          String
-  clientId       String?
-  clientSecret   String?
-  redirectUri    String?
-  scopes         String[]
-  accessToken    String?
-  refreshToken   String?
-  tokenType      String?
-  connectedEmail String?
-  connectedName  String?
-  tokenExpiresAt DateTime?
+  id               String    @id @default(cuid())
+  providerKey      String    @unique
+  label            String
+  clientId         String?
+  clientSecret     String?
+  redirectUri      String?
+  scopes           String[]
+  accessToken      String?
+  refreshToken     String?
+  tokenType        String?
+  connectedEmail   String?
+  connectedName    String?
+  tokenExpiresAt   DateTime?
   gmailFilterLabel String?
-  enabled        Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  enabled          Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model WorkspaceTodo {
@@ -263,8 +269,8 @@ model WorkspaceXeroConnection {
 model WorkspaceDailySummary {
   id          String   @id @default(cuid())
   summaryDate DateTime @default(now())
-  content     String   // AI-generated markdown summary
-  generatedBy String   // providerKey used
+  content     String // AI-generated markdown summary
+  generatedBy String // providerKey used
   createdAt   DateTime @default(now())
 }
 
@@ -320,6 +326,7 @@ model Project {
   commercialBrief           String?
   portalQuoteEnabled        Boolean                 @default(true)
   deliveryTemplateId        String?
+  retainerId                String?
   lastAgenda                Json?
   blueprintData             Json?
   discoveryData             Json?
@@ -333,6 +340,7 @@ model Project {
   client                    Client                  @relation(fields: [clientId], references: [id])
   portal                    HubSpotPortal           @relation(fields: [portalId], references: [id])
   deliveryTemplate          DeliveryTemplate?       @relation(fields: [deliveryTemplateId], references: [id])
+  retainer                  Retainer?               @relation(fields: [retainerId], references: [id], onDelete: SetNull)
   discovery                 DiscoverySubmission[]
   discoveryEvidence         DiscoveryEvidence[]
   discoverySummary          DiscoverySummary?
@@ -350,6 +358,8 @@ model Project {
   workflowRuns              WorkflowRun[]
   taskApprovals             TaskApproval[]
   auditLogs                 AuditLog[]
+
+  @@index([retainerId])
 }
 
 model ProjectContext {
@@ -650,14 +660,14 @@ model BlueprintTask {
 }
 
 model Task {
-  id                     String           @id @default(cuid())
+  id                     String                @id @default(cuid())
   projectId              String
   changeRequestId        String?
-  scopeOrigin            String           @default("baseline")
+  scopeOrigin            String                @default("baseline")
   title                  String
   description            String?
   category               String?
-  executionType          String           @default("manual")
+  executionType          String                @default("manual")
   executionLaneRationale String?
   hubspotTierRequired    String?
   coworkBrief            String?
@@ -665,44 +675,50 @@ model Task {
   apiPayload             Json?
   agentModuleKey         String?
   executionPayload       Json?
-  validationStatus       String           @default("pending")
+  validationStatus       String                @default("pending")
   validationEvidence     String?
   findingId              String?
   recommendationId       String?
-  priority               String           @default("medium")
-  status                 String           @default("draft")
+  priority               String                @default("medium")
+  status                 String                @default("draft")
   plannedHours           Float?
   actualHours            Float?
-  qaRequired             Boolean          @default(false)
-  approvalRequired       Boolean          @default(false)
+  billApprovedAt         DateTime?
+  billApprovedBy         String?
+  billableHours          Float?
+  billingOverrideReason  String?
+  qaRequired             Boolean               @default(false)
+  approvalRequired       Boolean               @default(false)
   dependencyIds          String[]
   assigneeType           String?
-  executionReadiness     String           @default("not_ready")
+  executionReadiness     String                @default("not_ready")
   assignedAgentId        String?
-  createdAt              DateTime         @default(now())
-  updatedAt              DateTime         @updatedAt
-  project                Project          @relation(fields: [projectId], references: [id])
-  changeRequest          WorkRequest?     @relation(fields: [changeRequestId], references: [id], onDelete: SetNull)
-  assignedAgent          AgentDefinition? @relation(fields: [assignedAgentId], references: [id])
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  project                Project               @relation(fields: [projectId], references: [id])
+  changeRequest          WorkRequest?          @relation(fields: [changeRequestId], references: [id], onDelete: SetNull)
+  assignedAgent          AgentDefinition?      @relation(fields: [assignedAgentId], references: [id])
   executionJobs          ExecutionJob[]
   approvals              TaskApproval[]
   retainerLedgerEntries  RetainerLedgerEntry[]
 }
 
 model Retainer {
-  id          String              @id @default(cuid())
-  clientId    String
-  serviceLine RetainerServiceLine
-  blockSize   Int
-  rate        Decimal             @db.Decimal(12, 2)
-  currency    RetainerCurrency
-  startDate   DateTime
-  endDate     DateTime?
-  status      RetainerStatus      @default(DRAFT)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  periods     RetainerPeriod[]
+  id              String              @id @default(cuid())
+  clientId        String
+  serviceLine     RetainerServiceLine
+  blockSize       Int
+  rate            Decimal             @db.Decimal(12, 2)
+  currency        RetainerCurrency
+  startDate       DateTime
+  endDate         DateTime?
+  status          RetainerStatus      @default(DRAFT)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  client          Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  periods         RetainerPeriod[]
+  projects        Project[]
+  rolloverBuckets RolloverBucket[]
 
   @@index([clientId, status])
   @@index([serviceLine, status])
@@ -716,6 +732,7 @@ model RetainerPeriod {
   blockHours       Int
   rolledInHours    Int                   @default(0)
   borrowedFromNext Int                   @default(0)
+  borrowActive     Boolean               @default(false)
   consumedHours    Decimal               @default(0) @db.Decimal(10, 2)
   overageHours     Int                   @default(0)
   rolledOutHours   Int                   @default(0)
@@ -740,6 +757,7 @@ model RetainerLedgerEntry {
   billedHours      Decimal?                @db.Decimal(10, 2)
   producedBy       RetainerProducedBy?
   overrideReason   String?
+  metadata         Json?
   createdBy        String
   createdAt        DateTime                @default(now())
   retainerPeriod   RetainerPeriod          @relation(fields: [retainerPeriodId], references: [id], onDelete: Cascade)
@@ -751,60 +769,75 @@ model RetainerLedgerEntry {
 }
 
 model RetainerTopUp {
-  id                     String               @id @default(cuid())
+  id                     String              @id @default(cuid())
   retainerPeriodId       String
   hours                  Int
-  rate                   Decimal              @db.Decimal(12, 2)
-  status                 RetainerTopUpStatus  @default(QUOTED)
-  quotedAt               DateTime             @default(now())
+  rate                   Decimal             @db.Decimal(12, 2)
+  status                 RetainerTopUpStatus @default(QUOTED)
+  quotedAt               DateTime            @default(now())
   approvedAt             DateTime?
   invoicedAt             DateTime?
   approvedByClientUserId String?
-  retainerPeriod         RetainerPeriod       @relation(fields: [retainerPeriodId], references: [id], onDelete: Cascade)
-  approvedByClientUser   ClientPortalUser?    @relation(fields: [approvedByClientUserId], references: [id], onDelete: SetNull)
+  retainerPeriod         RetainerPeriod      @relation(fields: [retainerPeriodId], references: [id], onDelete: Cascade)
+  approvedByClientUser   ClientPortalUser?   @relation(fields: [approvedByClientUserId], references: [id], onDelete: SetNull)
 
   @@index([retainerPeriodId, status])
   @@index([approvedByClientUserId])
 }
 
+model RolloverBucket {
+  id             String               @id @default(cuid())
+  retainerId     String
+  hoursOriginal  Decimal              @db.Decimal(10, 2)
+  hoursRemaining Decimal              @db.Decimal(10, 2)
+  earnMonth      DateTime
+  expiresAt      DateTime
+  status         RolloverBucketStatus @default(ACTIVE)
+  createdAt      DateTime             @default(now())
+  retainer       Retainer             @relation(fields: [retainerId], references: [id], onDelete: Cascade)
+
+  @@index([retainerId, status, expiresAt])
+  @@index([expiresAt, status])
+}
+
 model ExecutionJob {
-  id              String    @id @default(cuid())
-  projectId       String
-  taskId          String?
-  jobType         String?
-  moduleKey       String
-  executionMethod String    @default("manual")
-  mode            String    @default("dry-run")
-  status          String    @default("queued")
-  payload         Json?
-  outputSummary   String?
-  resultStatus    String?
-  outputLog       String?
-  errorLog        String?
-  executionTier   Int?      // 1 | 2 | 3 | 4
-  coworkInstruction Json?   // CoworkInstruction payload if tier = 3
-  coworkSessionId String?
-  coworkClaimedAt DateTime?
-  startedAt       DateTime?
-  completedAt     DateTime?
-  createdAt       DateTime  @default(now())
-  project         Project   @relation(fields: [projectId], references: [id])
-  task            Task?     @relation(fields: [taskId], references: [id])
+  id                String    @id @default(cuid())
+  projectId         String
+  taskId            String?
+  jobType           String?
+  moduleKey         String
+  executionMethod   String    @default("manual")
+  mode              String    @default("dry-run")
+  status            String    @default("queued")
+  payload           Json?
+  outputSummary     String?
+  resultStatus      String?
+  outputLog         String?
+  errorLog          String?
+  executionTier     Int? // 1 | 2 | 3 | 4
+  coworkInstruction Json? // CoworkInstruction payload if tier = 3
+  coworkSessionId   String?
+  coworkClaimedAt   DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  project           Project   @relation(fields: [projectId], references: [id])
+  task              Task?     @relation(fields: [taskId], references: [id])
 }
 
 model TaskApproval {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   taskId      String
   projectId   String
-  requestedAt DateTime @default(now())
+  requestedAt DateTime  @default(now())
   approvedAt  DateTime?
   rejectedAt  DateTime?
   approvedBy  String?
   rejectedBy  String?
   notes       String?
-  status      String   @default("pending")
-  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status      String    @default("pending")
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([taskId, requestedAt])
   @@index([projectId, requestedAt])
@@ -883,21 +916,21 @@ model PortalSnapshot {
 }
 
 model Finding {
-  id                  String   @id @default(cuid())
+  id                  String           @id @default(cuid())
   projectId           String
-  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project             Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   area                String
   severity            String
   source              String?
   category            String?
   title               String
   description         String
-  quickWin            Boolean  @default(false)
-  phaseRecommendation String   @default("next")
+  quickWin            Boolean          @default(false)
+  phaseRecommendation String           @default("next")
   evidence            Json?
-  status              String   @default("open")
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  status              String           @default("open")
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
   recommendations     Recommendation[]
 
   @@index([projectId, area, severity])
@@ -926,15 +959,15 @@ model Recommendation {
 }
 
 model PortalSession {
-  id          String   @id @default(cuid())
-  portalId    String
-  csrfToken   String
-  baseUrl     String
+  id              String    @id @default(cuid())
+  portalId        String
+  csrfToken       String
+  baseUrl         String
   privateAppToken String?
-  capturedAt  DateTime @default(now())
-  expiresAt   DateTime?
-  capturedBy  String
-  valid       Boolean  @default(true)
+  capturedAt      DateTime  @default(now())
+  expiresAt       DateTime?
+  capturedBy      String
+  valid           Boolean   @default(true)
 
   @@index([portalId, valid])
 }
