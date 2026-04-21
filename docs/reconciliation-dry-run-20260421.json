@@ -1,0 +1,91 @@
+{
+  "dryRun": true,
+  "currentMonth": "2026-04-01T00:00:00.000Z",
+  "actions": [
+    {
+      "retainerId": "cmo8d7rtm000hv87zq92ntahg",
+      "clientName": "Seed Client - Scenario 2 (Under Utilised)",
+      "closePeriodId": "cmo8d7rto000nv87zkd62eehj",
+      "periodMonth": "2026-03-01T00:00:00.000Z",
+      "endedInBorrow": false,
+      "rolledOutHours": 10,
+      "borrowedFromNext": 0,
+      "expiredTopUpHours": 0,
+      "nextPeriodMonth": "2026-04-01T00:00:00.000Z",
+      "nextBlockHours": 40
+    },
+    {
+      "retainerId": "cmo8d7rtp000tv87z7z4b5gio",
+      "clientName": "Seed Client - Scenario 3 (Exactly At Block)",
+      "closePeriodId": "cmo8d7rtr000zv87z77vvozj6",
+      "periodMonth": "2026-03-01T00:00:00.000Z",
+      "endedInBorrow": false,
+      "rolledOutHours": 0,
+      "borrowedFromNext": 0,
+      "expiredTopUpHours": 0,
+      "nextPeriodMonth": "2026-04-01T00:00:00.000Z",
+      "nextBlockHours": 40
+    },
+    {
+      "retainerId": "cmo8d7rtt0015v87z8go0o281",
+      "clientName": "Seed Client - Scenario 4 (Borrow Active)",
+      "closePeriodId": "cmo8d7rtu001bv87zi5i3nyb5",
+      "periodMonth": "2026-03-01T00:00:00.000Z",
+      "endedInBorrow": true,
+      "rolledOutHours": 0,
+      "borrowedFromNext": 5,
+      "expiredTopUpHours": 0,
+      "nextPeriodMonth": "2026-04-01T00:00:00.000Z",
+      "nextBlockHours": 35
+    },
+    {
+      "retainerId": "cmo8d7rtv001hv87zd1bdlxl4",
+      "clientName": "Seed Client - Scenario 5 (Expired Rollover Bucket)",
+      "closePeriodId": "cmo8d7rtw001nv87zdzijzw8g",
+      "periodMonth": "2026-03-01T00:00:00.000Z",
+      "endedInBorrow": false,
+      "rolledOutHours": 10,
+      "borrowedFromNext": 0,
+      "expiredTopUpHours": 0,
+      "nextPeriodMonth": "2026-04-01T00:00:00.000Z",
+      "nextBlockHours": 40
+    },
+    {
+      "retainerId": "cmo8d7ru4002dv87zzjt8ifew",
+      "clientName": "Seed Client - Scenario 7 (Approved Top Up)",
+      "closePeriodId": "cmo8d7ru5002jv87zkeeamdiz",
+      "periodMonth": "2026-03-01T00:00:00.000Z",
+      "endedInBorrow": true,
+      "rolledOutHours": 0,
+      "borrowedFromNext": 10,
+      "expiredTopUpHours": 5,
+      "nextPeriodMonth": "2026-04-01T00:00:00.000Z",
+      "nextBlockHours": 30
+    },
+    {
+      "retainerId": "cmo8d7rua0033v87zftuuntq3",
+      "clientName": "Seed Client - Scenario 9 (Consulting)",
+      "closePeriodId": "cmo8d7rub0039v87zqsdg40sz",
+      "periodMonth": "2026-03-01T00:00:00.000Z",
+      "endedInBorrow": false,
+      "rolledOutHours": 0,
+      "borrowedFromNext": 0,
+      "expiredTopUpHours": 0,
+      "nextPeriodMonth": "2026-04-01T00:00:00.000Z",
+      "nextBlockHours": 20
+    },
+    {
+      "retainerId": "cmo8d7rud003fv87zp8vbd3x6",
+      "clientName": "Seed Client - Scenario 10 (USD Locked FX)",
+      "closePeriodId": "cmo8d7ruf003lv87zdoa2dpgl",
+      "periodMonth": "2026-03-01T00:00:00.000Z",
+      "endedInBorrow": false,
+      "rolledOutHours": 10,
+      "borrowedFromNext": 0,
+      "expiredTopUpHours": 0,
+      "nextPeriodMonth": "2026-04-01T00:00:00.000Z",
+      "nextBlockHours": 40
+    }
+  ],
+  "overageRecommendations": []
+}
