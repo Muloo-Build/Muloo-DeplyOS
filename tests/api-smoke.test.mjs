@@ -127,7 +127,7 @@ test("returns an unauthenticated internal session by default", async () => {
     const { response, body } = await requestJson(baseUrl, "/api/auth/session");
 
     assert.equal(response.status, 200);
-    assert.deepEqual(body, { authenticated: false });
+    assert.deepEqual(body, { authenticated: false, user: null });
   } finally {
     await stopServer(server);
   }
@@ -165,7 +165,9 @@ test("supports internal login, session lookup, and logout", async () => {
     });
 
     assert.equal(sessionResult.response.status, 200);
-    assert.deepEqual(sessionResult.body, { authenticated: true });
+    assert.equal(sessionResult.body.authenticated, true);
+    assert.equal(typeof sessionResult.body.user?.id, "string");
+    assert.equal(sessionResult.body.user?.name, "smoke-user");
 
     const logoutResult = await requestJson(baseUrl, "/api/auth/logout", {
       method: "POST",

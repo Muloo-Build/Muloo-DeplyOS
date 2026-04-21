@@ -8,8 +8,12 @@
     "typecheck": "node node_modules/typescript/lib/tsc.js -b tsconfig.json",
     "test:smoke": "node node_modules/typescript/lib/tsc.js -b apps/api && node --test --test-timeout=10000 tests/*.test.mjs",
     "clean": "node node_modules/typescript/lib/tsc.js -b tsconfig.json --clean",
+    "db:up": "docker compose up -d postgres && node scripts/wait-for-tcp.mjs 127.0.0.1 5432",
+    "db:down": "docker compose down",
+    "db:reset": "node scripts/db-reset.mjs",
     "db:generate": "cd apps/api && npx prisma generate",
     "db:migrate": "cd apps/api && node ../../scripts/run-with-root-env.mjs npx prisma migrate deploy",
+    "db:seed:retainers": "node scripts/run-seed-retainers.mjs",
     "lint": "node node_modules/eslint/bin/eslint.js . --ext .ts,.js,.mjs",
     "format": "node node_modules/prettier/bin/prettier.cjs --write .",
     "format:check": "node node_modules/prettier/bin/prettier.cjs --check .",
@@ -37,7 +41,8 @@
     "@typescript-eslint/parser": "^8.29.0",
     "eslint": "^9.24.0",
     "globals": "^16.0.0",
-    "prettier": "^3.5.3"
+    "prettier": "^3.5.3",
+    "tsx": "^4.20.6"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
