@@ -50,6 +50,22 @@ import {
   RetainerOverageError
 } from "./retainerLedger";
 import {
+  assertClientRetainerAccess,
+  createAgencyRecord,
+  createInvoiceRecord,
+  getClientVisibleTopUpDetail,
+  listBillToEntities,
+  listInvoices,
+  loadAgencyDetail,
+  loadClientRetainerDetail,
+  loadClientRetainerHistory,
+  loadInvoiceDashboardSummary,
+  loadInvoiceDetail,
+  markOverdueInvoices,
+  updateAgencyRecord,
+  updateInvoiceRecord
+} from "./billing";
+import {
   clientAuthCookieName,
   createAgentDefinition,
   createClientContact,
@@ -842,6 +858,10 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/products/*", internalAuth);
   app.use("/api/retainers", internalAuth);
   app.use("/api/retainers/*", internalAuth);
+  app.use("/api/agencies", internalAuth);
+  app.use("/api/agencies/*", internalAuth);
+  app.use("/api/invoices", internalAuth);
+  app.use("/api/invoices/*", internalAuth);
   app.use("/api/assistant", internalAuth);
   app.use("/api/assistant/*", internalAuth);
   app.use("/api/agents", internalAuth);
@@ -4256,6 +4276,10 @@ export function createApiApp(config: BaseConfig) {
     async (c) => {
       try {
         const clientUserId = c.get("clientUserId");
+        await assertClientRetainerAccess(
+          c.req.param("retainerId"),
+          clientUserId
+        );
         const result = await approveRetainerTopUp({
           retainerId: c.req.param("retainerId"),
           topUpId: c.req.param("topUpId"),
@@ -4273,6 +4297,200 @@ export function createApiApp(config: BaseConfig) {
       }
     }
   );
+
+  app.get("/api/agencies", async (c) => {
+    try {
+      return c.json({
+        agencies: (await listBillToEntities()).filter(
+          (entity) => entity.type === "PARTNER_AGENCY"
+        )
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error: error instanceof Error ? error.message : "Failed to load agencies"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/agencies", async (c) => {
+    try {
+      return c.json(
+        { agency: await createAgencyRecord(await readJsonBodyOrEmpty(c)) },
+        201
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error: error instanceof Error ? error.message : "Failed to create agency"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/agencies/:agencyId", async (c) => {
+    const agency = await loadAgencyDetail(c.req.param("agencyId"));
+    if (!agency) {
+      return c.json({ error: "Agency not found" }, 404);
+    }
+
+    return c.json({ agency });
+  });
+
+  app.patch("/api/agencies/:agencyId", async (c) => {
+    try {
+      return c.json({
+        agency: await updateAgencyRecord(
+          c.req.param("agencyId"),
+          await readJsonBodyOrEmpty(c)
+        )
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update agency";
+      return c.json(
+        { error: message },
+        message === "Agency not found." ? 404 : 400
+      );
+    }
+  });
+
+  app.get("/api/invoices", async (c) => {
+    try {
+      return c.json({
+        invoices: await listInvoices({
+          status: c.req.query("status") || undefined,
+          retainerId: c.req.query("retainerId") || undefined,
+          billToEntityId: c.req.query("billToEntityId") || undefined,
+          dateFrom: c.req.query("dateFrom") || undefined,
+          dateTo: c.req.query("dateTo") || undefined
+        })
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error: error instanceof Error ? error.message : "Failed to load invoices"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/invoices", async (c) => {
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      return c.json(
+        {
+          invoice: await createInvoiceRecord(
+            await readJsonBodyOrEmpty(c),
+            actor.actor
+          )
+        },
+        201
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error: error instanceof Error ? error.message : "Failed to record invoice"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/invoices/summary", async (c) =>
+    c.json({
+      summary: await loadInvoiceDashboardSummary()
+    })
+  );
+
+  app.get("/api/invoices/:invoiceId", async (c) => {
+    const invoice = await loadInvoiceDetail(c.req.param("invoiceId"));
+    if (!invoice) {
+      return c.json({ error: "Invoice not found" }, 404);
+    }
+
+    return c.json({ invoice });
+  });
+
+  app.patch("/api/invoices/:invoiceId", async (c) => {
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      return c.json({
+        invoice: await updateInvoiceRecord(
+          c.req.param("invoiceId"),
+          await readJsonBodyOrEmpty(c),
+          actor.actor
+        )
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update invoice";
+      return c.json(
+        { error: message },
+        message === "Invoice not found." ? 404 : 400
+      );
+    }
+  });
+
+  app.all("/api/jobs/invoices/mark-overdue", async (c) => {
+    try {
+      const nowQuery = c.req.query("now");
+      return c.json(
+        await markOverdueInvoices(nowQuery ? new Date(nowQuery) : new Date())
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to mark overdue invoices"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/client/retainers/:retainerId", async (c) => {
+    const retainer = await loadClientRetainerDetail(
+      c.req.param("retainerId"),
+      c.get("clientUserId")
+    );
+    if (!retainer) {
+      return c.json({ error: "Retainer not found" }, 404);
+    }
+
+    return c.json({ retainer });
+  });
+
+  app.get("/api/client/retainers/:retainerId/history", async (c) => {
+    const history = await loadClientRetainerHistory(
+      c.req.param("retainerId"),
+      c.get("clientUserId")
+    );
+    if (!history) {
+      return c.json({ error: "Retainer not found" }, 404);
+    }
+
+    return c.json(history);
+  });
+
+  app.get("/api/client/retainers/:retainerId/top-ups/:topUpId", async (c) => {
+    const detail = await getClientVisibleTopUpDetail(
+      c.req.param("retainerId"),
+      c.req.param("topUpId"),
+      c.get("clientUserId")
+    );
+    if (!detail) {
+      return c.json({ error: "Top-up not found" }, 404);
+    }
+
+    return c.json(detail);
+  });
 
   app.all("/api/jobs/reconcile-retainers", async (c) => {
     try {

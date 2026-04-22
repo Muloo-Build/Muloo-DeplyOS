@@ -15,6 +15,8 @@ interface ClientProject {
     id: string;
     name: string;
     status: string;
+    retainerId?: string | null;
+    pendingTopUpCount?: number;
     scopeType?: string | null;
     engagementType: string;
     selectedHubs: string[];
@@ -123,6 +125,11 @@ export default function ClientProjectsDashboard({
                           ? ` · ${project.selectedHubs.join(", ")}`
                           : ""}
                       </p>
+                      {project.pendingTopUpCount ? (
+                        <p className="mt-2 text-sm text-[#f0c060]">
+                          {project.pendingTopUpCount} top-up waiting for approval
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:flex-shrink-0 sm:justify-end">
                       <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusColor(project.status)}`}>

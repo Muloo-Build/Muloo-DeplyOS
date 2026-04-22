@@ -181,9 +181,18 @@ async function createScenario(input: {
     }
   });
 
+  const billToEntity = await prisma.billToEntity.create({
+    data: {
+      name: client.name,
+      type: "CLIENT",
+      clientId: client.id
+    }
+  });
+
   const retainer = await prisma.retainer.create({
     data: {
       clientId: client.id,
+      billToEntityId: billToEntity.id,
       serviceLine: input.serviceLine,
       blockSize: input.blockSize,
       rate: decimal(input.rate),

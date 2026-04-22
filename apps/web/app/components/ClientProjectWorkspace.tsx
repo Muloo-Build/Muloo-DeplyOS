@@ -74,6 +74,27 @@ interface ClientProjectDetail {
     }>;
     lastUpdatedAt: string;
   };
+  retainer?: {
+    id: string;
+    name: string;
+    serviceLine: string;
+    blockSize: number;
+    rate: number;
+    currency: string;
+    currentPeriod: {
+      consumedHours: number;
+      remainingHours: number;
+      totalAvailable: number;
+      daysUntilRefresh: number;
+      rolledInHours: number;
+      borrowedFromNext: number;
+    } | null;
+    rolloverBuckets: Array<{
+      id: string;
+      expiresAt: string;
+      hoursRemaining: number;
+    }>;
+  } | null;
   submissions: Array<{
     id: string;
     sessionNumber: number;
@@ -473,6 +494,63 @@ export default function ClientProjectWorkspace({
                     View delivery board →
                   </button>
                 </div>
+                {detail.retainer ? (
+                  <Link
+                    href={`/client/retainers/${detail.retainer.id}`}
+                    className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5 transition hover:border-[rgba(255,255,255,0.16)] hover:bg-[rgba(255,255,255,0.05)]"
+                  >
+                    <p className="text-sm font-medium text-white">Retainer balance</p>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      {detail.retainer.name}
+                    </p>
+                    {detail.retainer.currentPeriod ? (
+                      <>
+                        <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-white/10">
+                          <div
+                            className="h-full rounded-full bg-[#51d0b0]"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                (detail.retainer.currentPeriod.consumedHours /
+                                  Math.max(
+                                    detail.retainer.currentPeriod.totalAvailable,
+                                    1
+                                  )) *
+                                  100
+                              )}%`
+                            }}
+                          />
+                        </div>
+                        <p className="mt-3 text-sm font-medium text-white">
+                          {detail.retainer.currentPeriod.consumedHours} hours used ·{" "}
+                          {detail.retainer.currentPeriod.remainingHours} hours remaining
+                        </p>
+                        <p className="mt-1 text-sm text-text-secondary">
+                          {detail.retainer.currentPeriod.daysUntilRefresh} days until refresh
+                        </p>
+                        {detail.retainer.currentPeriod.rolledInHours > 0 &&
+                        detail.retainer.rolloverBuckets.length > 0 ? (
+                          <p className="mt-1 text-sm text-text-secondary">
+                            Includes {detail.retainer.currentPeriod.rolledInHours}h rolled forward, expiring{" "}
+                            {formatTs(detail.retainer.rolloverBuckets[0].expiresAt)}
+                          </p>
+                        ) : null}
+                        {detail.retainer.currentPeriod.borrowedFromNext > 0 ? (
+                          <p className="mt-1 text-sm text-[#f0c060]">
+                            {detail.retainer.currentPeriod.borrowedFromNext}h borrowed from next month
+                          </p>
+                        ) : null}
+                      </>
+                    ) : (
+                      <p className="mt-3 text-sm text-text-secondary">
+                        No active retainer period is available yet.
+                      </p>
+                    )}
+                    <span className="mt-4 inline-flex text-sm font-medium text-[#51d0b0]">
+                      View full usage history →
+                    </span>
+                  </Link>
+                ) : null}
                 {portalExperience === "partner" ? (
                   <Link
                     href={getPortalMarketingHubPath(

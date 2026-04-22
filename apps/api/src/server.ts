@@ -20,6 +20,11 @@ import { z, ZodError } from "zod";
 import { prisma } from "./prisma";
 import { executionQueue } from "./queue/index";
 import {
+  ensureClientBillToEntity,
+  resolveBillToEntityForRetainer,
+  loadProjectClientRetainerSummary
+} from "./billing";
+import {
   assertValidBlockSize,
   calculateCurrentRetainerBalance,
   deriveRetainerRate,
@@ -2353,12 +2358,23 @@ export function isUniqueConstraintError(error: unknown): boolean {
 
 const retainerCreateSchema = z.object({
   clientId: z.string().trim().min(1),
+  billToEntityId: z.string().trim().min(1).optional(),
   serviceLine: z.enum(retainerServiceLines),
   blockSize: z.number().int().min(10),
   currency: z.enum(retainerCurrencies),
   startDate: z.coerce.date(),
   status: z.enum(retainerStatuses).default("DRAFT"),
-  fxRateFromZar: z.number().finite().positive().optional()
+  fxRateFromZar: z.number().finite().positive().optional(),
+  newBillToAgency: z
+    .object({
+      name: z.string().trim().min(1),
+      vatNumber: z.string().trim().optional().nullable(),
+      address: z.string().trim().optional().nullable(),
+      primaryContactEmail: z.string().trim().email().optional().nullable(),
+      primaryContactName: z.string().trim().optional().nullable()
+    })
+    .optional()
+    .nullable()
 });
 
 const retainerListFilterSchema = z.object({
@@ -2514,6 +2530,7 @@ function serializeRetainer<
   T extends {
     id: string;
     clientId: string;
+    billToEntityId: string;
     serviceLine: string;
     blockSize: number;
     rate: unknown;
@@ -2524,6 +2541,7 @@ function serializeRetainer<
     createdAt: Date;
     updatedAt: Date;
     client?: { id: string; name: string; slug: string } | null;
+    billToEntity?: { id: string; name: string; type: string } | null;
     periods?: Array<Parameters<typeof serializeRetainerPeriod>[0]>;
   }
 >(retainer: T) {
@@ -2534,11 +2552,19 @@ function serializeRetainer<
   return {
     id: retainer.id,
     clientId: retainer.clientId,
+    billToEntityId: retainer.billToEntityId,
     client: retainer.client
       ? {
           id: retainer.client.id,
           name: retainer.client.name,
           slug: retainer.client.slug
+        }
+      : null,
+    billToEntity: retainer.billToEntity
+      ? {
+          id: retainer.billToEntity.id,
+          name: retainer.billToEntity.name,
+          type: retainer.billToEntity.type
         }
       : null,
     serviceLine: retainer.serviceLine,
@@ -2566,6 +2592,7 @@ export async function loadRetainers(filters: unknown = {}) {
     },
     include: {
       client: { select: { id: true, name: true, slug: true } },
+      billToEntity: { select: { id: true, name: true, type: true } },
       periods: {
         orderBy: { periodMonth: "desc" },
         take: 1,
@@ -2583,6 +2610,7 @@ export async function loadRetainerDetail(retainerId: string) {
     where: { id: retainerId },
     include: {
       client: { select: { id: true, name: true, slug: true } },
+      billToEntity: { select: { id: true, name: true, type: true } },
       periods: {
         orderBy: { periodMonth: "desc" },
         include: {
@@ -2612,55 +2640,89 @@ export async function createRetainerRecord(payload: unknown) {
   assertValidBlockSize(input.blockSize);
   validateRetainerStartDate(input.startDate);
 
-  const client = await prisma.client.findUnique({
-    where: { id: input.clientId },
-    select: { id: true }
-  });
+  return prisma.$transaction(async (transaction) => {
+    const client = await transaction.client.findUnique({
+      where: { id: input.clientId },
+      select: { id: true }
+    });
 
-  if (!client) {
-    throw new Error("Client not found.");
-  }
+    if (!client) {
+      throw new Error("Client not found.");
+    }
 
-  const rate = deriveRetainerRate({
-    serviceLine: input.serviceLine as RetainerServiceLine,
-    blockSize: input.blockSize,
-    currency: input.currency as RetainerCurrency,
-    ...(input.fxRateFromZar !== undefined
-      ? { fxRateFromZar: input.fxRateFromZar }
-      : {})
-  });
-
-  const retainer = await prisma.retainer.create({
-    data: {
+    const billToEntity = await resolveBillToEntityForRetainer(transaction, {
       clientId: input.clientId,
-      serviceLine: input.serviceLine,
-      blockSize: input.blockSize,
-      rate,
-      currency: input.currency,
-      startDate: input.startDate,
-      status: input.status,
-      ...(input.status === "ACTIVE"
+      ...(input.billToEntityId !== undefined
+        ? { billToEntityId: input.billToEntityId }
+        : {}),
+      newBillToAgency: input.newBillToAgency
         ? {
-            periods: {
-              create: {
-                periodMonth: input.startDate,
-                blockHours: input.blockSize
+            name: input.newBillToAgency.name,
+            ...(input.newBillToAgency.vatNumber !== undefined
+              ? { vatNumber: input.newBillToAgency.vatNumber }
+              : {}),
+            ...(input.newBillToAgency.address !== undefined
+              ? { address: input.newBillToAgency.address }
+              : {}),
+            ...(input.newBillToAgency.primaryContactEmail !== undefined
+              ? {
+                  primaryContactEmail:
+                    input.newBillToAgency.primaryContactEmail
+                }
+              : {}),
+            ...(input.newBillToAgency.primaryContactName !== undefined
+              ? {
+                  primaryContactName:
+                    input.newBillToAgency.primaryContactName
+                }
+              : {})
+          }
+        : null
+    });
+
+    const rate = deriveRetainerRate({
+      serviceLine: input.serviceLine as RetainerServiceLine,
+      blockSize: input.blockSize,
+      currency: input.currency as RetainerCurrency,
+      ...(input.fxRateFromZar !== undefined
+        ? { fxRateFromZar: input.fxRateFromZar }
+        : {})
+    });
+
+    const retainer = await transaction.retainer.create({
+      data: {
+        clientId: input.clientId,
+        billToEntityId: billToEntity.id,
+        serviceLine: input.serviceLine,
+        blockSize: input.blockSize,
+        rate,
+        currency: input.currency,
+        startDate: input.startDate,
+        status: input.status,
+        ...(input.status === "ACTIVE"
+          ? {
+              periods: {
+                create: {
+                  periodMonth: input.startDate,
+                  blockHours: input.blockSize
+                }
               }
             }
-          }
-        : {})
-    },
-    include: {
-      client: { select: { id: true, name: true, slug: true } },
-      periods: {
-        orderBy: { periodMonth: "desc" },
-        take: 1,
-        include: { topUps: true }
+          : {})
+      },
+      include: {
+        client: { select: { id: true, name: true, slug: true } },
+        billToEntity: { select: { id: true, name: true, type: true } },
+        periods: {
+          orderBy: { periodMonth: "desc" },
+          take: 1,
+          include: { topUps: true }
+        }
       }
-    }
-  });
+    });
 
-  return serializeRetainer(retainer);
+    return serializeRetainer(retainer);
+  });
 }
 
 export async function createRetainerTopUpQuote(
@@ -3663,6 +3725,7 @@ function serializeClientProject<
     serviceFamily: string;
     scopeType?: string | null;
     deliveryTemplateId?: string | null;
+    retainerId?: string | null;
     commercialBrief?: string | null;
     clientQuestionnaireConfig?: unknown | null;
     engagementType: Prisma.$Enums.EngagementType;
@@ -3688,6 +3751,7 @@ function serializeClientProject<
     serviceFamily: project.serviceFamily,
     scopeType: project.scopeType ?? "discovery",
     deliveryTemplateId: project.deliveryTemplateId ?? null,
+    retainerId: project.retainerId ?? null,
     commercialBrief: project.commercialBrief ?? null,
     clientQuestionnaireConfig: normalizeClientQuestionnaireConfig(
       project.clientQuestionnaireConfig
@@ -20821,7 +20885,21 @@ export async function loadClientProjectsForUser(userId: string) {
     include: {
       project: {
         include: {
-          client: true
+          client: true,
+          retainer: {
+            include: {
+              periods: {
+                where: { status: "OPEN" },
+                orderBy: { periodMonth: "desc" },
+                take: 1,
+                include: {
+                  topUps: {
+                    where: { status: "QUOTED" }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -20834,7 +20912,11 @@ export async function loadClientProjectsForUser(userId: string) {
 
   return accessRecords.map((record) => ({
     role: record.role,
-    project: serializeClientProject(record.project)
+    project: {
+      ...serializeClientProject(record.project),
+      pendingTopUpCount:
+        record.project.retainer?.periods[0]?.topUps.length ?? 0
+    }
   }));
 }
 
@@ -20863,7 +20945,7 @@ export async function loadClientProjectDetail(
     return null;
   }
 
-  const [submissions, portalTasks] = await Promise.all([
+  const [submissions, portalTasks, retainer] = await Promise.all([
     prisma.clientInputSubmission.findMany({
       where: {
         projectId,
@@ -20881,7 +20963,8 @@ export async function loadClientProjectDetail(
         description: true
       },
       orderBy: [{ createdAt: "asc" }]
-    })
+    }),
+    loadProjectClientRetainerSummary(projectId, userId)
   ]);
   const normalizedInputConfig = normalizeClientQuestionnaireConfig(
     access.project.clientQuestionnaireConfig
@@ -20928,6 +21011,7 @@ export async function loadClientProjectDetail(
       submissions,
       tasks: portalTasks
     }),
+    retainer,
     submissions: submissions.map((submission) =>
       serializeClientInputSubmission(submission)
     )

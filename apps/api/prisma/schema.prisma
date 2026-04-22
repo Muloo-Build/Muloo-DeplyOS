@@ -36,6 +36,11 @@ enum RetainerStatus {
   ENDED
 }
 
+enum BillToEntityType {
+  CLIENT
+  PARTNER_AGENCY
+}
+
 enum RetainerPeriodStatus {
   OPEN
   CLOSED
@@ -58,6 +63,20 @@ enum RetainerTopUpStatus {
   QUOTED
   APPROVED
   INVOICED
+}
+
+enum InvoiceType {
+  RETAINER_BLOCK
+  TOP_UP
+  OTHER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  VOID
 }
 
 enum RolloverBucketStatus {
@@ -96,6 +115,7 @@ model Client {
   projects           Project[]
   workflowRuns       WorkflowRun[]
   retainers          Retainer[]
+  billToEntities     BillToEntity[]
   visibleToPartners  PartnerClientVisibility[] @relation("VisibilityTarget")
   visibleClients     PartnerClientVisibility[] @relation("VisibilityPartner")
 
@@ -706,6 +726,7 @@ model Task {
 model Retainer {
   id              String              @id @default(cuid())
   clientId        String
+  billToEntityId  String
   serviceLine     RetainerServiceLine
   blockSize       Int
   rate            Decimal             @db.Decimal(12, 2)
@@ -716,11 +737,14 @@ model Retainer {
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   client          Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  billToEntity    BillToEntity        @relation("RetainerBillToEntity", fields: [billToEntityId], references: [id], onDelete: Restrict)
   periods         RetainerPeriod[]
   projects        Project[]
   rolloverBuckets RolloverBucket[]
+  invoices        Invoice[]
 
   @@index([clientId, status])
+  @@index([billToEntityId])
   @@index([serviceLine, status])
   @@index([startDate])
 }
@@ -742,6 +766,7 @@ model RetainerPeriod {
   retainer         Retainer              @relation(fields: [retainerId], references: [id], onDelete: Cascade)
   ledgerEntries    RetainerLedgerEntry[]
   topUps           RetainerTopUp[]
+  invoices         Invoice[]
 
   @@unique([retainerId, periodMonth])
   @@index([periodMonth, status])
@@ -798,6 +823,54 @@ model RolloverBucket {
 
   @@index([retainerId, status, expiresAt])
   @@index([expiresAt, status])
+}
+
+model BillToEntity {
+  id                  String           @id @default(cuid())
+  name                String
+  type                BillToEntityType
+  clientId            String?
+  vatNumber           String?
+  address             String?
+  primaryContactEmail String?
+  primaryContactName  String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  client              Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  retainers           Retainer[]       @relation("RetainerBillToEntity")
+  invoices            Invoice[]
+
+  @@index([clientId])
+  @@index([type, name])
+}
+
+model Invoice {
+  id               String           @id @default(cuid())
+  reference        String           @unique
+  billToEntityId   String
+  retainerId       String
+  retainerPeriodId String?
+  invoiceType      InvoiceType
+  amount           Decimal          @db.Decimal(12, 2)
+  currency         RetainerCurrency
+  issueDate        DateTime
+  dueDate          DateTime
+  xeroUrl          String?
+  status           InvoiceStatus    @default(DRAFT)
+  notes            String?
+  createdByUserId  String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  sentAt           DateTime?
+  paidAt           DateTime?
+  billToEntity     BillToEntity     @relation(fields: [billToEntityId], references: [id], onDelete: Restrict)
+  retainer         Retainer         @relation(fields: [retainerId], references: [id], onDelete: Cascade)
+  retainerPeriod   RetainerPeriod?  @relation(fields: [retainerPeriodId], references: [id], onDelete: SetNull)
+
+  @@index([billToEntityId, status])
+  @@index([retainerId, issueDate])
+  @@index([retainerPeriodId])
+  @@index([status, dueDate])
 }
 
 model ExecutionJob {

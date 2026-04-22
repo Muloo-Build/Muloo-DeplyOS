@@ -15,6 +15,7 @@ import {
   PlaySquare,
   ScrollText,
   Settings,
+  Wallet,
   X
 } from "lucide-react";
 
@@ -88,6 +89,13 @@ const navGroups: NavGroup[] = [
         icon: <Building2 size={18} />,
         isActive: (pathname) =>
           pathname === "/clients" || pathname.startsWith("/clients/")
+      },
+      {
+        href: "/retainers",
+        label: "Retainers",
+        icon: <Wallet size={18} />,
+        isActive: (pathname) =>
+          pathname === "/retainers" || pathname.startsWith("/retainers/")
       },
       {
         href: "/partners",

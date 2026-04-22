@@ -367,8 +367,9 @@ export async function approveTaskToBill(input: {
   const now = parsed.now ?? new Date();
   const periodMonth = getRetainerMonthStart(now);
 
-  const result = await prisma.$transaction(async (tx) => {
-    const task = await tx.task.findUnique({
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const task = await tx.task.findUnique({
       where: { id: input.taskId },
       include: {
         project: {
@@ -552,12 +553,17 @@ export async function approveTaskToBill(input: {
       }
     });
 
-    return {
-      taskId: task.id,
-      ledgerEntry: serializeLedgerEntry(ledgerEntry),
-      retainerPeriod: serializePeriodBalance(updatedPeriod)
-    };
-  });
+      return {
+        taskId: task.id,
+        ledgerEntry: serializeLedgerEntry(ledgerEntry),
+        retainerPeriod: serializePeriodBalance(updatedPeriod)
+      };
+    },
+    {
+      maxWait: 10_000,
+      timeout: 30_000
+    }
+  );
 
   if ("overage" in result) {
     throw new RetainerOverageError(result.overage);
@@ -572,8 +578,9 @@ export async function approveRetainerTopUp(input: {
   clientUserId?: string | null;
   actor: string;
 }) {
-  return prisma.$transaction(async (tx) => {
-    const topUp = await tx.retainerTopUp.findUnique({
+  return prisma.$transaction(
+    async (tx) => {
+      const topUp = await tx.retainerTopUp.findUnique({
       where: { id: input.topUpId },
       include: {
         retainerPeriod: {
@@ -623,16 +630,21 @@ export async function approveRetainerTopUp(input: {
       include: { topUps: true }
     });
 
-    return {
-      topUp: {
-        id: updatedTopUp.id,
-        status: updatedTopUp.status,
-        approvedAt: updatedTopUp.approvedAt?.toISOString() ?? null
-      },
-      ledgerEntry: serializeLedgerEntry(ledgerEntry),
-      retainerPeriod: serializePeriodBalance(period)
-    };
-  });
+      return {
+        topUp: {
+          id: updatedTopUp.id,
+          status: updatedTopUp.status,
+          approvedAt: updatedTopUp.approvedAt?.toISOString() ?? null
+        },
+        ledgerEntry: serializeLedgerEntry(ledgerEntry),
+        retainerPeriod: serializePeriodBalance(period)
+      };
+    },
+    {
+      maxWait: 10_000,
+      timeout: 30_000
+    }
+  );
 }
 
 export async function reconcileRetainers(input: {
@@ -704,8 +716,9 @@ export async function reconcileRetainers(input: {
         continue;
       }
 
-      await prisma.$transaction(async (tx) => {
-        const lockedPeriod = await tx.retainerPeriod.findUnique({
+      await prisma.$transaction(
+        async (tx) => {
+          const lockedPeriod = await tx.retainerPeriod.findUnique({
           where: { id: period.id }
         });
         if (!lockedPeriod || lockedPeriod.status === "CLOSED") {
@@ -820,22 +833,27 @@ export async function reconcileRetainers(input: {
           }
         });
 
-        await tx.retainerLedgerEntry.create({
-          data: {
-            retainerPeriodId: period.id,
-            entryType: "MONTH_RECONCILIATION",
-            hoursDelta: 0,
-            createdBy: input.actor,
-            metadata: {
-              reason: "period closed",
-              rolledOutHours,
-              borrowedFromNext,
-              nextBlockHours,
-              rolledInHours
+          await tx.retainerLedgerEntry.create({
+            data: {
+              retainerPeriodId: period.id,
+              entryType: "MONTH_RECONCILIATION",
+              hoursDelta: 0,
+              createdBy: input.actor,
+              metadata: {
+                reason: "period closed",
+                rolledOutHours,
+                borrowedFromNext,
+                nextBlockHours,
+                rolledInHours
+              }
             }
-          }
-        });
-      });
+          });
+        },
+        {
+          maxWait: 10_000,
+          timeout: 30_000
+        }
+      );
     }
   }
 

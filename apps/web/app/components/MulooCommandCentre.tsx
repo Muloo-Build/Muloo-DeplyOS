@@ -136,6 +136,16 @@ interface IndustrySignalsResponse {
   items?: IndustrySignalItem[];
 }
 
+interface InvoiceSummaryResponse {
+  summary?: {
+    draftCount?: number;
+    sentCount?: number;
+    overdueCount?: number;
+    paidThisMonth?: number;
+    paidThisMonthCurrency?: string;
+  };
+}
+
 interface WorkspaceEmailDraftResponse {
   subject?: string;
   body?: string;
@@ -368,6 +378,13 @@ export default function MulooCommandCentre() {
   const [blockedExternalCount, setBlockedExternalCount] = useState<
     number | null
   >(null);
+  const [invoiceSummary, setInvoiceSummary] = useState<{
+    draftCount: number;
+    sentCount: number;
+    overdueCount: number;
+    paidThisMonth: number;
+    paidThisMonthCurrency: string;
+  } | null>(null);
   const [activeProjects, setActiveProjects] = useState<ProjectListItem[]>([]);
   const [recentRuns, setRecentRuns] = useState<ExecutionRun[]>([]);
   const [clientEmailQueues, setClientEmailQueues] = useState<
@@ -443,6 +460,7 @@ export default function MulooCommandCentre() {
           deliveryProjectsCountResponse,
           awaitingApprovalCountResponse,
           blockedExternalCountResponse,
+          invoiceSummaryResponse,
           activeProjectsResponse,
           recentRunsResponse,
           clientEmailQueuesResponse,
@@ -458,6 +476,7 @@ export default function MulooCommandCentre() {
           fetch("/api/projects?status=in_delivery&count=true"),
           fetch("/api/projects?status=awaiting_approval&count=true"),
           fetch("/api/projects?status=blocked_external&count=true"),
+          fetch("/api/invoices/summary"),
           fetch("/api/projects?status=in_delivery&limit=4"),
           fetch("/api/execution-jobs?limit=4"),
           fetch("/api/workspace/emails/client-queues"),
@@ -489,6 +508,9 @@ export default function MulooCommandCentre() {
         const blockedExternalCountBody = (await blockedExternalCountResponse
           .json()
           .catch(() => null)) as CountResponse | null;
+        const invoiceSummaryBody = (await invoiceSummaryResponse
+          .json()
+          .catch(() => null)) as InvoiceSummaryResponse | null;
         const activeProjectsBody = (await activeProjectsResponse
           .json()
           .catch(() => null)) as { projects?: ProjectListItem[] } | null;
@@ -540,6 +562,16 @@ export default function MulooCommandCentre() {
           typeof blockedExternalCountBody?.count === "number"
         ) {
           setBlockedExternalCount(blockedExternalCountBody.count);
+        }
+        if (invoiceSummaryResponse.ok && invoiceSummaryBody?.summary) {
+          setInvoiceSummary({
+            draftCount: invoiceSummaryBody.summary.draftCount ?? 0,
+            sentCount: invoiceSummaryBody.summary.sentCount ?? 0,
+            overdueCount: invoiceSummaryBody.summary.overdueCount ?? 0,
+            paidThisMonth: invoiceSummaryBody.summary.paidThisMonth ?? 0,
+            paidThisMonthCurrency:
+              invoiceSummaryBody.summary.paidThisMonthCurrency ?? "ZAR"
+          });
         }
         setActiveProjects(activeProjectsBody?.projects ?? []);
         setRecentRuns(recentRunsBody?.runs ?? []);
@@ -990,7 +1022,7 @@ export default function MulooCommandCentre() {
             </div>
           </header>
 
-          <section className="grid gap-4 xl:grid-cols-4">
+          <section className="grid gap-4 xl:grid-cols-5">
             <StatCard
               href="/projects?status=live"
               label="Live projects"
@@ -1019,6 +1051,25 @@ export default function MulooCommandCentre() {
               value={blockedExternalCount}
               tone="danger"
             />
+            <Link
+              href="/retainers"
+              className="rounded-2xl border border-brand-teal/25 bg-brand-teal/10 p-5 text-white transition hover:border-brand-teal/60"
+            >
+              <p className="text-sm text-text-secondary">Invoices</p>
+              <p className="mt-3 text-4xl font-semibold">
+                {invoiceSummary?.overdueCount ?? "..."}
+              </p>
+              <p className="mt-2 text-xs text-text-secondary">
+                Draft {invoiceSummary?.draftCount ?? 0} · Sent {invoiceSummary?.sentCount ?? 0} · Paid this month{" "}
+                {invoiceSummary
+                  ? new Intl.NumberFormat("en-ZA", {
+                      style: "currency",
+                      currency: invoiceSummary.paidThisMonthCurrency,
+                      maximumFractionDigits: 0
+                    }).format(invoiceSummary.paidThisMonth)
+                  : "..."}
+              </p>
+            </Link>
           </section>
 
           <section className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr_0.8fr]">
