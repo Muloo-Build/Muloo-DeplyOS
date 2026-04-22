@@ -694,6 +694,8 @@ model Task {
   title                  String
   description            String?
   category               String?
+  workstreamId           String?
+  taskOrigin             String                @default("manual")
   executionType          String                @default("manual")
   executionLaneRationale String?
   hubspotTierRequired    String?

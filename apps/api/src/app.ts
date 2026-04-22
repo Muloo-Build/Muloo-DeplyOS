@@ -256,6 +256,7 @@ import {
   saveWorkspaceAiRouting,
   saveWorkspaceApiKey,
   saveProjectContext,
+  seedProjectStandardPack,
   verifyPassword
 } from "./server";
 
@@ -2441,6 +2442,8 @@ export function createApiApp(config: BaseConfig) {
           title?: unknown;
           description?: unknown;
           category?: unknown;
+          workstreamId?: unknown;
+          taskOrigin?: unknown;
           executionType?: unknown;
           executionLaneRationale?: unknown;
           hubspotTierRequired?: unknown;
@@ -2481,6 +2484,24 @@ export function createApiApp(config: BaseConfig) {
 
   app.get("/api/projects/:projectId/tasks/board", async (c) => {
     return c.json(await loadProjectTaskBoard(c.req.param("projectId")));
+  });
+
+  app.post("/api/projects/:projectId/seed-standard-pack", async (c) => {
+    try {
+      return c.json(
+        await seedProjectStandardPack(c.req.param("projectId")),
+        201
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to seed the project standard pack";
+      return c.json(
+        { error: message },
+        message === "Project not found" ? 404 : 400
+      );
+    }
   });
 
   app.patch("/api/projects/:projectId/retainer", async (c) => {
@@ -2827,6 +2848,8 @@ export function createApiApp(config: BaseConfig) {
           title?: unknown;
           description?: unknown;
           category?: unknown;
+          workstreamId?: unknown;
+          taskOrigin?: unknown;
           executionType?: unknown;
           executionLaneRationale?: unknown;
           hubspotTierRequired?: unknown;

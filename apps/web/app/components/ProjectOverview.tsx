@@ -29,6 +29,15 @@ interface Project {
   commercialBrief?: string | null;
   clientChampionEmail?: string | null;
   selectedHubs: string[];
+  deliveryWorkstreams?: Array<{
+    id: string;
+    name: string;
+    category: string;
+    status: string;
+    owner: string;
+    summary: string;
+    portalSummary?: string | null;
+  }> | null;
   scopeType?: string | null;
   engagementType: string;
   updatedAt: string;
@@ -133,6 +142,10 @@ interface TaskCard {
   id: string;
   title: string;
   status: string;
+  workstreamId?: string | null;
+  taskOrigin?: string | null;
+  plannedHours?: number | null;
+  actualHours?: number | null;
 }
 
 interface TaskBoardResponse {
@@ -247,6 +260,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [summaryFeedback, setSummaryFeedback] = useState<string | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [standardPackBusy, setStandardPackBusy] = useState(false);
+  const [standardPackFeedback, setStandardPackFeedback] = useState<string | null>(
+    null
+  );
+  const [standardPackError, setStandardPackError] = useState<string | null>(
+    null
+  );
   const [blueprintBusy, setBlueprintBusy] = useState(false);
   const [blueprintError, setBlueprintError] = useState<string | null>(null);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
@@ -492,6 +512,48 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       );
     } finally {
       setSummaryBusy(false);
+    }
+  }
+
+  async function seedStandardPack() {
+    setStandardPackBusy(true);
+    setStandardPackFeedback(null);
+    setStandardPackError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/seed-standard-pack`,
+        {
+          method: "POST"
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to seed standard pack");
+      }
+
+      if (body?.project) {
+        setProject(body.project);
+      }
+
+      if (typeof body?.summary?.nextSuggestedAction === "string") {
+        setStandardPackFeedback(
+          `Standard pack applied. ${body.summary.tasksCreated} task${body.summary.tasksCreated === 1 ? "" : "s"} created, ${body.summary.tasksSkipped} already in place. ${body.summary.nextSuggestedAction}`
+        );
+      } else {
+        setStandardPackFeedback("Standard pack applied.");
+      }
+
+      await loadProjectData();
+    } catch (seedError) {
+      setStandardPackError(
+        seedError instanceof Error
+          ? seedError.message
+          : "Failed to seed standard pack"
+      );
+    } finally {
+      setStandardPackBusy(false);
     }
   }
 
@@ -942,6 +1004,36 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       done: columns.done?.length ?? 0
     };
   }, [taskBoard]);
+  const flattenedTaskCards = useMemo(
+    () => Object.values(taskBoard?.columns ?? {}).flat(),
+    [taskBoard]
+  );
+  const workstreamSummary = useMemo(() => {
+    const workstreams = project?.deliveryWorkstreams ?? [];
+
+    return workstreams.map((workstream) => {
+      const workstreamTasks = flattenedTaskCards.filter(
+        (task) => task.workstreamId === workstream.id
+      );
+
+      return {
+        id: workstream.id,
+        name: workstream.name,
+        status: workstream.status,
+        taskCount: workstreamTasks.length,
+        plannedHours: workstreamTasks.reduce(
+          (sum, task) =>
+            sum + (typeof task.plannedHours === "number" ? task.plannedHours : 0),
+          0
+        ),
+        actualHours: workstreamTasks.reduce(
+          (sum, task) =>
+            sum + (typeof task.actualHours === "number" ? task.actualHours : 0),
+          0
+        )
+      };
+    });
+  }, [flattenedTaskCards, project?.deliveryWorkstreams]);
 
   const agendaHistory = useMemo(
     () => (agendaResult ? [agendaResult].slice(0, 3) : []),
@@ -1046,6 +1138,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
+                    onClick={() => void seedStandardPack()}
+                    disabled={standardPackBusy}
+                    className="rounded-xl border border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.12)] px-4 py-2 text-sm font-medium text-[#51d0b0] disabled:opacity-60"
+                  >
+                    {standardPackBusy ? "Applying..." : "Launch standard pack"}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => void generateSummary()}
                     disabled={summaryBusy}
                     className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
@@ -1061,9 +1161,48 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     Reset summary
                   </button>
                 </div>
+                {standardPackError ? (
+                  <p className="text-sm text-status-error">{standardPackError}</p>
+                ) : null}
+                {standardPackFeedback ? (
+                  <p className="text-sm text-status-success">
+                    {standardPackFeedback}
+                  </p>
+                ) : null}
                 {summaryError ? <p className="text-sm text-status-error">{summaryError}</p> : null}
                 {summaryFeedback ? <p className="text-sm text-status-success">{summaryFeedback}</p> : null}
               </div>
+            }
+            workstreamSummary={
+              workstreamSummary.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {workstreamSummary.map((workstream) => (
+                    <div
+                      key={workstream.id}
+                      className="brand-surface-soft rounded-2xl border p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-white">
+                          {workstream.name}
+                        </p>
+                        <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                          {formatLabel(workstream.status)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        {workstream.taskCount} tasks
+                      </p>
+                      <p className="mt-1 text-xs text-text-muted">
+                        Planned {workstream.plannedHours}h · Actual {workstream.actualHours}h
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-text-secondary">
+                  No workstreams configured yet.
+                </p>
+              )
             }
             inputsSummary={
               <div className="space-y-3">

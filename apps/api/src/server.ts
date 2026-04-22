@@ -103,6 +103,15 @@ const validTaskExecutionReadinessValues = [
   "ready_with_review",
   "ready"
 ] as const;
+const validTaskOriginValues = [
+  "manual",
+  "quick_win",
+  "audit",
+  "questionnaire",
+  "template",
+  "seeded_pack",
+  "change_request"
+] as const;
 const validTaskValidationStatusValues = [
   "pending",
   "confirmed",
@@ -1372,6 +1381,16 @@ const defaultClientQuestionnaireConfig: ClientQuestionnaireConfig = {
         key: "timeline_and_constraints",
         label: "Are there key timing or business constraints?",
         hint: "Important deadlines, events, campaigns, resourcing, or dependencies."
+      },
+      {
+        key: "portal_optimisation_goals",
+        label: "What should this portal do better for the business?",
+        hint: "Think about adoption, visibility, process quality, reporting, conversion, or operational clarity."
+      },
+      {
+        key: "website_outcomes",
+        label: "What should the website contribute to this project?",
+        hint: "Lead generation, conversion, regional pages, better forms, cleaner journeys, or launch goals."
       }
     ]
   },
@@ -1404,6 +1423,16 @@ const defaultClientQuestionnaireConfig: ClientQuestionnaireConfig = {
         key: "what_has_been_tried_before",
         label: "What has already been tried?",
         hint: "Previous systems, projects, fixes, or workarounds."
+      },
+      {
+        key: "data_hygiene_issues",
+        label: "What data quality or hygiene issues already worry you?",
+        hint: "Duplicates, missing fields, unreliable ownership, poor lifecycle tracking, or spreadsheet workarounds."
+      },
+      {
+        key: "reporting_gaps",
+        label: "What visibility or reporting is missing today?",
+        hint: "Dashboards, team visibility, campaign reporting, pipeline clarity, or operational reporting gaps."
       }
     ]
   },
@@ -1436,6 +1465,21 @@ const defaultClientQuestionnaireConfig: ClientQuestionnaireConfig = {
         key: "reporting_requirements",
         label: "What reporting or visibility is needed?",
         hint: "Dashboards, KPIs, board reporting, pipeline visibility, attribution, or service performance."
+      },
+      {
+        key: "website_requirements",
+        label: "What website or CMS requirements matter most?",
+        hint: "Pages, forms, CTAs, regional structure, smart content, SEO, tracking, or content ownership."
+      },
+      {
+        key: "standard_property_requirements",
+        label: "What fields or properties do you know you need to track?",
+        hint: "Segments, region, source, ownership, service line, lifecycle, compliance, or reporting fields."
+      },
+      {
+        key: "regional_or_business_unit_variations",
+        label: "Are there regional or business-unit differences we should design for?",
+        hint: "Differences in process, reporting, ownership, terminology, or website structure."
       }
     ]
   },
@@ -1468,6 +1512,16 @@ const defaultClientQuestionnaireConfig: ClientQuestionnaireConfig = {
         key: "agreed_next_steps",
         label: "What should happen next after discovery?",
         hint: "Actions, owners, and what you expect to receive back from Muloo."
+      },
+      {
+        key: "client_self_managed_areas",
+        label: "What should your team be able to self-manage in the portal?",
+        hint: "Reports, content, lists, forms, data cleanup, user management, or simple updates after handover."
+      },
+      {
+        key: "website_launch_dependencies",
+        label: "Are there website or launch dependencies we should plan around?",
+        hint: "Content approvals, design signoff, redirects, assets, tracking, legal review, or go-live sequencing."
       }
     ]
   }
@@ -2569,6 +2623,45 @@ export async function convertWorkRequestToProject(requestId: string) {
   };
 }
 
+async function resolveProjectWorkstreamId(
+  projectId: string,
+  workstreamId: unknown
+) {
+  if (workstreamId === undefined || workstreamId === null || workstreamId === "") {
+    return null;
+  }
+
+  if (typeof workstreamId !== "string") {
+    throw new Error("workstreamId must be a string");
+  }
+
+  const normalizedWorkstreamId = workstreamId.trim();
+
+  if (!normalizedWorkstreamId) {
+    return null;
+  }
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { deliveryWorkstreams: true }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const workstreams = normalizeProjectWorkstreams(project.deliveryWorkstreams);
+  const exists = workstreams.some(
+    (workstream) => workstream.id === normalizedWorkstreamId
+  );
+
+  if (!exists) {
+    throw new Error("Invalid workstreamId");
+  }
+
+  return normalizedWorkstreamId;
+}
+
 async function resolveProjectOwner(ownerName?: string, ownerEmail?: string) {
   const workspaceUsers = await loadWorkspaceUsers();
   const normalizedName = ownerName?.trim().toLowerCase() ?? "";
@@ -2590,6 +2683,284 @@ async function resolveProjectOwner(ownerName?: string, ownerEmail?: string) {
     owner: ownerName?.trim() || workspaceUsers[0]?.name || "Muloo Operator",
     ownerEmail:
       ownerEmail?.trim() || workspaceUsers[0]?.email || "operator@muloo.com"
+  };
+}
+
+function mergeStandardPackWorkstreams(
+  existingWorkstreams: ProjectWorkstreamRecord[]
+) {
+  const standardWorkstreams: ProjectWorkstreamRecord[] = [
+    {
+      id: "workstream_discovery",
+      name: "Discovery",
+      category: "discovery",
+      status: "active",
+      owner: "shared",
+      summary:
+        "Capture goals, current state, constraints, and decision-making inputs before scoping delivery.",
+      portalSummary:
+        "Discovery is where Muloo gathers context, confirms goals, and shapes the right rollout path."
+    },
+    {
+      id: "workstream_implementation",
+      name: "Implementation",
+      category: "hubspot_implementation",
+      status: "planned",
+      owner: "muloo",
+      summary:
+        "Translate approved audit and discovery outcomes into HubSpot delivery, data structure, and reporting work.",
+      portalSummary:
+        "Implementation covers the CRM setup, data model, automation, reporting, and portal optimisation work."
+    },
+    {
+      id: "workstream_website",
+      name: "Website",
+      category: "website",
+      status: "planned",
+      owner: "shared",
+      summary:
+        "Track website requirements, CMS changes, forms, and launch dependencies alongside HubSpot delivery.",
+      portalSummary:
+        "Website work covers forms, pages, CMS requirements, and launch dependencies linked to the project."
+    }
+  ];
+
+  const merged = [...existingWorkstreams];
+  let createdCount = 0;
+
+  for (const standardWorkstream of standardWorkstreams) {
+    const existingIndex = merged.findIndex(
+      (candidate) =>
+        candidate.id === standardWorkstream.id ||
+        candidate.name.trim().toLowerCase() ===
+          standardWorkstream.name.trim().toLowerCase() ||
+        candidate.category === standardWorkstream.category
+    );
+
+    if (existingIndex >= 0) {
+      const existing = merged[existingIndex];
+      if (!existing) {
+        continue;
+      }
+      merged[existingIndex] = {
+        ...existing,
+        id: existing.id,
+        name: existing.name,
+        status: existing.status,
+        category: existing.category,
+        owner: existing.owner,
+        summary: existing.summary || standardWorkstream.summary,
+        portalSummary: existing.portalSummary || standardWorkstream.portalSummary
+      };
+      continue;
+    }
+
+    merged.push(standardWorkstream);
+    createdCount += 1;
+  }
+
+  return {
+    workstreams: merged,
+    createdCount
+  };
+}
+
+function buildStandardPackSeedTasks(workstreams: ProjectWorkstreamRecord[]) {
+  const discoveryWorkstreamId =
+    workstreams.find((workstream) => workstream.category === "discovery")?.id ??
+    null;
+  const implementationWorkstreamId =
+    workstreams.find(
+      (workstream) => workstream.category === "hubspot_implementation"
+    )?.id ?? null;
+  const websiteWorkstreamId =
+    workstreams.find((workstream) => workstream.category === "website")?.id ??
+    null;
+
+  return [
+    {
+      title: "Review discovery inputs and confirm delivery goals",
+      description:
+        "Use the current questionnaire, prep notes, and commercial brief to confirm project goals, stakeholders, timing, and scope assumptions.",
+      category: "Discovery",
+      workstreamId: discoveryWorkstreamId,
+      taskOrigin: "seeded_pack",
+      executionType: "discovery_review",
+      priority: "high",
+      plannedHours: 2,
+      assigneeType: "Human",
+      executionReadiness: "ready"
+    },
+    {
+      title: "Capture portal optimisation goals and success metrics",
+      description:
+        "Summarise the client-facing optimisation goals, reporting outcomes, and operational improvements this portal should support.",
+      category: "Discovery",
+      workstreamId: discoveryWorkstreamId,
+      taskOrigin: "seeded_pack",
+      executionType: "client_alignment",
+      priority: "high",
+      plannedHours: 2,
+      assigneeType: "Human",
+      executionReadiness: "ready"
+    },
+    {
+      title: "Prepare standard custom property plan",
+      description:
+        "Define the baseline property groups, lifecycle fields, segmentation properties, and operational fields required for a clean rollout.",
+      category: "Data model",
+      workstreamId: implementationWorkstreamId,
+      taskOrigin: "seeded_pack",
+      executionType: "property_planning",
+      priority: "high",
+      plannedHours: 3,
+      assigneeType: "Agent",
+      executionReadiness: "ready_with_review",
+      qaRequired: true
+    },
+    {
+      title: "Run data hygiene baseline and issue triage",
+      description:
+        "Review duplicates, missing lifecycle data, invalid owners, broken associations, and import risks so the project starts from a visible hygiene baseline.",
+      category: "Data hygiene",
+      workstreamId: implementationWorkstreamId,
+      taskOrigin: "seeded_pack",
+      executionType: "data_hygiene_review",
+      priority: "high",
+      plannedHours: 4,
+      assigneeType: "Agent",
+      executionReadiness: "ready_with_review",
+      qaRequired: true
+    },
+    {
+      title: "Prepare reporting and dashboard recommendation pack",
+      description:
+        "Document the standard management dashboards, KPI views, and reporting gaps to address during implementation.",
+      category: "Reporting",
+      workstreamId: implementationWorkstreamId,
+      taskOrigin: "seeded_pack",
+      executionType: "reporting_pack",
+      priority: "medium",
+      plannedHours: 3,
+      assigneeType: "Agent",
+      executionReadiness: "ready_with_review",
+      qaRequired: true
+    },
+    {
+      title: "Map lifecycle stages, lead status, and handoff rules",
+      description:
+        "Confirm the lifecycle design, lead status expectations, ownership rules, and handoffs across sales, marketing, service, and regional teams.",
+      category: "Process design",
+      workstreamId: implementationWorkstreamId,
+      taskOrigin: "seeded_pack",
+      executionType: "crm_design",
+      priority: "high",
+      plannedHours: 3,
+      assigneeType: "Human",
+      executionReadiness: "ready"
+    },
+    {
+      title: "Capture website requirements and launch dependencies",
+      description:
+        "Pull website outcomes, form requirements, CMS dependencies, and launch constraints into a structured implementation-ready brief.",
+      category: "Website",
+      workstreamId: websiteWorkstreamId,
+      taskOrigin: "seeded_pack",
+      executionType: "website_requirements",
+      priority: "medium",
+      plannedHours: 3,
+      assigneeType: "Human",
+      executionReadiness: "ready"
+    },
+    {
+      title: "Review forms, conversion points, and routing logic",
+      description:
+        "Identify the key forms, conversion journeys, notifications, routing rules, and follow-up logic needed across the website and HubSpot.",
+      category: "Website",
+      workstreamId: websiteWorkstreamId,
+      taskOrigin: "seeded_pack",
+      executionType: "conversion_review",
+      priority: "medium",
+      plannedHours: 2,
+      assigneeType: "Agent",
+      executionReadiness: "ready_with_review",
+      qaRequired: true
+    }
+  ] as const;
+}
+
+export async function seedProjectStandardPack(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      client: true,
+      portal: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const existingWorkstreams = normalizeProjectWorkstreams(
+    project.deliveryWorkstreams
+  );
+  const mergedWorkstreams = mergeStandardPackWorkstreams(existingWorkstreams);
+  const seedTasks = buildStandardPackSeedTasks(mergedWorkstreams.workstreams);
+
+  const existingSeedTasks = await prisma.task.findMany({
+    where: {
+      projectId,
+      taskOrigin: "seeded_pack"
+    },
+    select: {
+      title: true
+    }
+  });
+  const existingSeedTaskTitles = new Set(
+    existingSeedTasks.map((task) => task.title.trim().toLowerCase())
+  );
+  const tasksToCreate = seedTasks.filter(
+    (task) => !existingSeedTaskTitles.has(task.title.trim().toLowerCase())
+  );
+
+  const updatedProject = await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      clientQuestionnaireConfig: normalizeClientQuestionnaireConfig(
+        defaultClientQuestionnaireConfig
+      ),
+      deliveryWorkstreams:
+        mergedWorkstreams.workstreams.length > 0
+          ? mergedWorkstreams.workstreams
+          : Prisma.Prisma.JsonNull
+    },
+    include: {
+      client: true,
+      portal: true
+    }
+  });
+
+  const createdTasks = [];
+  for (const task of tasksToCreate) {
+    createdTasks.push(await createProjectTask(projectId, task));
+  }
+
+  const resultProject = serializeProject(updatedProject);
+
+  return {
+    project: resultProject,
+    summary: {
+      workstreamsCreated: mergedWorkstreams.createdCount,
+      tasksCreated: createdTasks.length,
+      tasksSkipped: seedTasks.length - createdTasks.length,
+      questionnaireApplied: true,
+      portalConnected: Boolean(resultProject.portal),
+      nextSuggestedAction: resultProject.portal
+        ? "Run the portal audit to turn the seeded foundation into prioritised findings and quick wins."
+        : "Connect the HubSpot portal next so the audit workspace can generate findings on top of the seeded foundation."
+    },
+    tasks: createdTasks
   };
 }
 
@@ -5031,6 +5402,8 @@ export function serializeTask<
     validationEvidence?: string | null;
     findingId?: string | null;
     recommendationId?: string | null;
+    workstreamId?: string | null;
+    taskOrigin?: string | null;
     priority: string;
     status: string;
     plannedHours: number | null;
@@ -5094,6 +5467,8 @@ export function serializeTask<
     validationEvidence: task.validationEvidence ?? null,
     findingId: task.findingId ?? null,
     recommendationId: task.recommendationId ?? null,
+    workstreamId: task.workstreamId ?? null,
+    taskOrigin: task.taskOrigin ?? "manual",
     priority: task.priority,
     status: task.status,
     plannedHours: task.plannedHours,
@@ -9088,6 +9463,8 @@ export async function createProjectTask(
     title?: unknown;
     description?: unknown;
     category?: unknown;
+    workstreamId?: unknown;
+    taskOrigin?: unknown;
     executionType?: unknown;
     executionLaneRationale?: unknown;
     hubspotTierRequired?: unknown;
@@ -9153,6 +9530,13 @@ export async function createProjectTask(
   const normalizedCategory = normalizeOptionalTaskString(value.category) ?? "";
   const normalizedExecutionType =
     normalizeOptionalTaskString(value.executionType) ?? "manual";
+  const normalizedTaskOrigin =
+    typeof value.taskOrigin === "string" &&
+    validTaskOriginValues.includes(
+      value.taskOrigin.trim().toLowerCase() as (typeof validTaskOriginValues)[number]
+    )
+      ? value.taskOrigin.trim().toLowerCase()
+      : "manual";
   const normalizedApiPayload = normalizeOptionalJsonObject(
     value.apiPayload,
     "apiPayload"
@@ -9172,6 +9556,10 @@ export async function createProjectTask(
     },
     assignedAgentId
   );
+  const resolvedWorkstreamId = await resolveProjectWorkstreamId(
+    projectId,
+    value.workstreamId
+  );
 
   const task = await prisma.task.create({
     data: {
@@ -9179,6 +9567,8 @@ export async function createProjectTask(
       title: normalizedTitle,
       description: normalizedDescription || null,
       category: normalizedCategory || null,
+      workstreamId: resolvedWorkstreamId,
+      taskOrigin: normalizedTaskOrigin,
       executionType: normalizedExecutionType,
       executionLaneRationale: normalizeOptionalTaskString(
         value.executionLaneRationale
@@ -9248,6 +9638,8 @@ export async function updateProjectTaskRecord(
     title?: unknown;
     description?: unknown;
     category?: unknown;
+    workstreamId?: unknown;
+    taskOrigin?: unknown;
     executionType?: unknown;
     executionLaneRationale?: unknown;
     hubspotTierRequired?: unknown;
@@ -9342,6 +9734,30 @@ export async function updateProjectTaskRecord(
 
   if (value.category !== undefined) {
     data.category = normalizeOptionalTaskString(value.category);
+  }
+
+  if (value.workstreamId !== undefined) {
+    data.workstreamId = await resolveProjectWorkstreamId(
+      projectId,
+      value.workstreamId
+    );
+  }
+
+  if (value.taskOrigin !== undefined) {
+    const nextTaskOrigin =
+      typeof value.taskOrigin === "string"
+        ? value.taskOrigin.trim().toLowerCase()
+        : "";
+
+    if (
+      !validTaskOriginValues.includes(
+        nextTaskOrigin as (typeof validTaskOriginValues)[number]
+      )
+    ) {
+      throw new Error("Invalid task origin");
+    }
+
+    data.taskOrigin = nextTaskOrigin;
   }
 
   if (value.executionType !== undefined) {

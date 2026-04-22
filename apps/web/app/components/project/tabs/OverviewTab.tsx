@@ -13,6 +13,7 @@ function OverviewCard(props: { title: string; children: ReactNode }) {
 
 export default function OverviewTab(props: {
   statusCard: ReactNode;
+  workstreamSummary: ReactNode;
   inputsSummary: ReactNode;
   blueprintStatus: ReactNode;
   agentSummary: ReactNode;
@@ -28,11 +29,14 @@ export default function OverviewTab(props: {
       </div>
       <OverviewCard title="Project status">{props.statusCard}</OverviewCard>
       <div className="grid gap-6 xl:grid-cols-2">
+        <OverviewCard title="Workstreams">{props.workstreamSummary}</OverviewCard>
         <OverviewCard title="Human inputs">{props.inputsSummary}</OverviewCard>
+      </div>
+      <div className="grid gap-6 xl:grid-cols-2">
         <OverviewCard title="Blueprint status">{props.blueprintStatus}</OverviewCard>
+        <OverviewCard title="Quick wins">{props.quickWins}</OverviewCard>
       </div>
       <OverviewCard title="Agent summary">{props.agentSummary}</OverviewCard>
-      <OverviewCard title="Quick wins">{props.quickWins}</OverviewCard>
     </div>
   );
 }

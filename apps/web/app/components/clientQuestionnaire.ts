@@ -47,6 +47,16 @@ export const clientSessionDefinitions: ClientQuestionnaireDefinitionMap = {
         key: "timeline_and_constraints",
         label: "Are there key timing or business constraints?",
         hint: "Important deadlines, events, campaigns, resourcing, or dependencies."
+      },
+      {
+        key: "portal_optimisation_goals",
+        label: "What should this portal do better for the business?",
+        hint: "Think about adoption, visibility, process quality, reporting, conversion, or operational clarity."
+      },
+      {
+        key: "website_outcomes",
+        label: "What should the website contribute to this project?",
+        hint: "Lead generation, conversion, regional pages, better forms, cleaner journeys, or launch goals."
       }
     ]
   },
@@ -79,6 +89,16 @@ export const clientSessionDefinitions: ClientQuestionnaireDefinitionMap = {
         key: "what_has_been_tried_before",
         label: "What has already been tried?",
         hint: "Previous systems, projects, fixes, or workarounds."
+      },
+      {
+        key: "data_hygiene_issues",
+        label: "What data quality or hygiene issues already worry you?",
+        hint: "Duplicates, missing fields, unreliable ownership, poor lifecycle tracking, or spreadsheet workarounds."
+      },
+      {
+        key: "reporting_gaps",
+        label: "What visibility or reporting is missing today?",
+        hint: "Dashboards, team visibility, campaign reporting, pipeline clarity, or operational reporting gaps."
       }
     ]
   },
@@ -111,6 +131,21 @@ export const clientSessionDefinitions: ClientQuestionnaireDefinitionMap = {
         key: "reporting_requirements",
         label: "What reporting or visibility is needed?",
         hint: "Dashboards, KPIs, board reporting, pipeline visibility, attribution, or service performance."
+      },
+      {
+        key: "website_requirements",
+        label: "What website or CMS requirements matter most?",
+        hint: "Pages, forms, CTAs, regional structure, smart content, SEO, tracking, or content ownership."
+      },
+      {
+        key: "standard_property_requirements",
+        label: "What fields or properties do you know you need to track?",
+        hint: "Segments, region, source, ownership, service line, lifecycle, compliance, or reporting fields."
+      },
+      {
+        key: "regional_or_business_unit_variations",
+        label: "Are there regional or business-unit differences we should design for?",
+        hint: "Differences in process, reporting, ownership, terminology, or website structure."
       }
     ]
   },
@@ -143,6 +178,16 @@ export const clientSessionDefinitions: ClientQuestionnaireDefinitionMap = {
         key: "agreed_next_steps",
         label: "What should happen next after discovery?",
         hint: "Actions, owners, and what you expect to receive back from Muloo."
+      },
+      {
+        key: "client_self_managed_areas",
+        label: "What should your team be able to self-manage in the portal?",
+        hint: "Reports, content, lists, forms, data cleanup, user management, or simple updates after handover."
+      },
+      {
+        key: "website_launch_dependencies",
+        label: "Are there website or launch dependencies we should plan around?",
+        hint: "Content approvals, design signoff, redirects, assets, tracking, legal review, or go-live sequencing."
       }
     ]
   }

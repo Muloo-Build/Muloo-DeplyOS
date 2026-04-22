@@ -114,6 +114,16 @@ const sessionDefinitions: Record<
         key: "timeline_and_constraints",
         label: "Timeline & Constraints",
         hint: "Target go-live, budget constraints, dependencies"
+      },
+      {
+        key: "portal_optimisation_goals",
+        label: "Portal Optimisation Goals",
+        hint: "What should the portal do better once this work is complete?"
+      },
+      {
+        key: "website_outcomes",
+        label: "Website Outcomes",
+        hint: "What should the website contribute to lead generation, conversion, or launch?"
       }
     ]
   },
@@ -145,6 +155,16 @@ const sessionDefinitions: Record<
         key: "what_has_been_tried_before",
         label: "What Has Been Tried Before",
         hint: "Previous attempts, what worked, what did not"
+      },
+      {
+        key: "data_hygiene_issues",
+        label: "Data Hygiene Issues",
+        hint: "Duplicates, missing fields, lifecycle confusion, unreliable ownership, or spreadsheet workarounds"
+      },
+      {
+        key: "reporting_gaps",
+        label: "Reporting Gaps",
+        hint: "What visibility is missing today?"
       }
     ]
   },
@@ -176,6 +196,21 @@ const sessionDefinitions: Record<
         key: "reporting_requirements",
         label: "Reporting Requirements",
         hint: "What dashboards and reports are needed at go-live?"
+      },
+      {
+        key: "website_requirements",
+        label: "Website Requirements",
+        hint: "Pages, forms, CTAs, smart content, SEO, tracking, or regional structure"
+      },
+      {
+        key: "standard_property_requirements",
+        label: "Standard Property Requirements",
+        hint: "Fields or properties needed for reporting, routing, ownership, or governance"
+      },
+      {
+        key: "regional_or_business_unit_variations",
+        label: "Regional / Business Unit Variations",
+        hint: "Differences in process, reporting, ownership, or site structure across regions or teams"
       }
     ]
   },
@@ -207,6 +242,16 @@ const sessionDefinitions: Record<
         key: "agreed_next_steps",
         label: "Agreed Next Steps",
         hint: "Immediate actions after this session"
+      },
+      {
+        key: "client_self_managed_areas",
+        label: "Client Self-Managed Areas",
+        hint: "What should the client be able to own or maintain after handover?"
+      },
+      {
+        key: "website_launch_dependencies",
+        label: "Website Launch Dependencies",
+        hint: "Content, approvals, redirects, assets, tracking, legal review, or go-live sequencing"
       },
       {
         key: "engagement_track",

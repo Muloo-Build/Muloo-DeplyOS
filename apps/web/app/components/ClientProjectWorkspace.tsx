@@ -981,6 +981,49 @@ export default function ClientProjectWorkspace({
               <p className="text-sm text-text-secondary">
                 Track the delivery plan and current progress for this project. Each item represents a piece of work that's been planned or completed.
               </p>
+              {detail.project.deliveryWorkstreams?.length ? (
+                <div className="grid gap-4 lg:grid-cols-3">
+                  {detail.project.deliveryWorkstreams.map((workstream) => (
+                    <div
+                      key={workstream.id}
+                      className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium text-white">
+                          {workstream.name}
+                        </p>
+                        <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                          {formatTokenLabel(workstream.status)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        {workstream.portalSummary?.trim() ||
+                          workstream.summary ||
+                          "No summary yet."}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {detail.portalSummary.nextSteps.length > 0 ? (
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-4">
+                  <p className="text-sm font-medium text-white">Next up</p>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-3">
+                    {detail.portalSummary.nextSteps.map((step) => (
+                      <div
+                        key={`${step.title}-${step.owner}`}
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3"
+                      >
+                        <p className="text-sm font-medium text-white">{step.title}</p>
+                        <p className="mt-1 text-sm text-text-secondary">{step.detail}</p>
+                        <p className="mt-2 text-xs uppercase tracking-[0.16em] text-text-muted">
+                          Owner: {step.owner}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div className="grid gap-4 lg:grid-cols-2">
                 <Link
                   href={getPortalDeliveryPath(

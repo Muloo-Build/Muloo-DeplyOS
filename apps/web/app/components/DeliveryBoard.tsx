@@ -9,6 +9,8 @@ interface ProjectTask {
   title: string;
   description: string | null;
   category: string | null;
+  workstreamId: string | null;
+  taskOrigin: string;
   executionType: string;
   executionLaneRationale: string | null;
   hubspotTierRequired: string | null;
@@ -203,6 +205,16 @@ interface DeliveryTemplateOption {
   }>;
 }
 
+interface ProjectWorkstream {
+  id: string;
+  name: string;
+  category: string;
+  status: string;
+  owner: string;
+  summary: string;
+  portalSummary?: string | null;
+}
+
 function deriveRecommendedTemplateIds(
   project: {
     scopeType?: string | null;
@@ -236,6 +248,42 @@ function deriveRecommendedTemplateIds(
   );
 }
 
+function formatTaskOrigin(value: string) {
+  return value
+    .split(/[_-]/g)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(" ");
+}
+
+function inferWorkstreamIdFromFinding(
+  finding: FindingRecord,
+  workstreams: ProjectWorkstream[]
+) {
+  const area = finding.area.toLowerCase();
+
+  if (
+    ["data_quality", "crm", "pipelines", "properties", "workflows", "reporting", "integrations"].includes(
+      area
+    )
+  ) {
+    return (
+      workstreams.find((workstream) =>
+        ["hubspot_implementation", "other"].includes(workstream.category)
+      )?.id ?? null
+    );
+  }
+
+  if (["views", "dashboards", "team", "sequences"].includes(area)) {
+    return (
+      workstreams.find((workstream) =>
+        ["discovery", "hubspot_implementation"].includes(workstream.category)
+      )?.id ?? null
+    );
+  }
+
+  return workstreams[0]?.id ?? null;
+}
+
 export default function DeliveryBoard({
   projectId,
   mode = "internal"
@@ -253,6 +301,10 @@ export default function DeliveryBoard({
   >(null);
   const [projectScopeType, setProjectScopeType] = useState<string | null>(null);
   const [projectSelectedHubs, setProjectSelectedHubs] = useState<string[]>([]);
+  const [projectWorkstreams, setProjectWorkstreams] = useState<ProjectWorkstream[]>(
+    []
+  );
+  const [selectedWorkstreamFilter, setSelectedWorkstreamFilter] = useState("all");
   const [scopeLocked, setScopeLocked] = useState(false);
   const [quoteApproved, setQuoteApproved] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -275,6 +327,8 @@ export default function DeliveryBoard({
     title: "",
     description: "",
     category: "",
+    workstreamId: "",
+    taskOrigin: "manual",
     executionType: "manual",
     priority: "medium",
     status: "todo",
@@ -307,6 +361,7 @@ export default function DeliveryBoard({
             scopeLockedAt?: string | null;
             scopeType?: string | null;
             selectedHubs?: string[];
+            deliveryWorkstreams?: ProjectWorkstream[];
           }
         | null = null;
       const [tasksResponse, agentsResponse, projectResponse] =
@@ -367,6 +422,7 @@ export default function DeliveryBoard({
           setProjectServiceFamily(currentServiceFamily);
           setProjectScopeType(internalProject?.scopeType ?? null);
           setProjectSelectedHubs(internalProject?.selectedHubs ?? []);
+          setProjectWorkstreams(internalProject?.deliveryWorkstreams ?? []);
         }
 
         if (agentsResponse.ok) {
@@ -480,6 +536,8 @@ export default function DeliveryBoard({
       title: "",
       description: "",
       category: "",
+      workstreamId: "",
+      taskOrigin: "manual",
       executionType: "manual",
       priority: "medium",
       status: "todo",
@@ -617,6 +675,8 @@ export default function DeliveryBoard({
       title: task.title,
       description: task.description ?? "",
       category: task.category ?? "",
+      workstreamId: task.workstreamId ?? "",
+      taskOrigin: task.taskOrigin ?? "manual",
       executionType: task.executionType,
       priority: task.priority,
       status: task.status,
@@ -863,6 +923,11 @@ export default function DeliveryBoard({
             description: `Auto-created from quick win finding: ${finding.title}`,
             category: formatLabel(finding.area),
             findingId: finding.id,
+            workstreamId: inferWorkstreamIdFromFinding(
+              finding,
+              projectWorkstreams
+            ),
+            taskOrigin: "quick_win",
             executionType: "manual",
             status: "backlog"
           })
@@ -888,6 +953,13 @@ export default function DeliveryBoard({
   }
 
   const totalCount = useMemo(() => tasks.length, [tasks]);
+  const visibleTasks = useMemo(
+    () =>
+      selectedWorkstreamFilter === "all"
+        ? tasks
+        : tasks.filter((task) => task.workstreamId === selectedWorkstreamFilter),
+    [selectedWorkstreamFilter, tasks]
+  );
   const quickWins = useMemo(
     () => findings.filter((finding) => finding.quickWin),
     [findings]
@@ -910,7 +982,7 @@ export default function DeliveryBoard({
     [selectedTemplateIds, templates]
   );
   const boardMetrics = useMemo(() => {
-    const humanTasks = tasks.filter(
+    const humanTasks = visibleTasks.filter(
       (task) =>
         task.assigneeType?.toLowerCase() !== "agent" &&
         task.assigneeType?.toLowerCase() !== "client" &&
@@ -926,23 +998,23 @@ export default function DeliveryBoard({
         sum + (typeof task.actualHours === "number" ? task.actualHours : 0),
       0
     );
-    const readyAgentTasks = tasks.filter(
+    const readyAgentTasks = visibleTasks.filter(
       (task) =>
         task.assigneeType?.toLowerCase() === "agent" &&
         ["ready_with_review", "ready"].includes(task.executionReadiness)
     ).length;
-    const apiEligibleTasks = tasks.filter(
+    const apiEligibleTasks = visibleTasks.filter(
       (task) => task.executionPath.apiEligible
     ).length;
-    const reviewFirstTasks = tasks.filter(
+    const reviewFirstTasks = visibleTasks.filter(
       (task) =>
         task.executionPath.lane === "workflow_bridge" ||
         task.executionPath.lane === "manual_review"
     ).length;
-    const completedTasks = tasks.filter(
+    const completedTasks = visibleTasks.filter(
       (task) => task.status === "done"
     ).length;
-    const changeTasks = tasks.filter(
+    const changeTasks = visibleTasks.filter(
       (task) => task.scopeOrigin?.toLowerCase() === "change_request"
     ).length;
 
@@ -956,7 +1028,34 @@ export default function DeliveryBoard({
       completedTasks,
       changeTasks
     };
-  }, [tasks]);
+  }, [visibleTasks]);
+  const workstreamMetrics = useMemo(
+    () =>
+      projectWorkstreams.map((workstream) => {
+        const workstreamTasks = tasks.filter(
+          (task) => task.workstreamId === workstream.id
+        );
+
+        return {
+          id: workstream.id,
+          name: workstream.name,
+          taskCount: workstreamTasks.length,
+          plannedHours: workstreamTasks.reduce(
+            (sum, task) =>
+              sum + (typeof task.plannedHours === "number" ? task.plannedHours : 0),
+            0
+          ),
+          actualHours: workstreamTasks.reduce(
+            (sum, task) =>
+              sum + (typeof task.actualHours === "number" ? task.actualHours : 0),
+            0
+          ),
+          completedTasks: workstreamTasks.filter((task) => task.status === "done")
+            .length
+        };
+      }),
+    [projectWorkstreams, tasks]
+  );
 
   return (
     <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
@@ -1012,6 +1111,29 @@ export default function DeliveryBoard({
           ) : null}
         </div>
       </div>
+
+      {mode === "internal" && projectWorkstreams.length > 0 ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <label className="text-sm text-text-secondary">
+            <span className="mr-2">Filter workstream</span>
+            <select
+              value={selectedWorkstreamFilter}
+              onChange={(event) => setSelectedWorkstreamFilter(event.target.value)}
+              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+            >
+              <option value="all">All workstreams</option>
+              {projectWorkstreams.map((workstream) => (
+                <option key={workstream.id} value={workstream.id}>
+                  {workstream.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="text-sm text-text-secondary">
+            Showing {visibleTasks.length} of {tasks.length} tasks
+          </p>
+        </div>
+      ) : null}
 
       {error ? <p className="mt-4 text-sm text-[#ff8f9c]">{error}</p> : null}
 
@@ -1280,6 +1402,32 @@ export default function DeliveryBoard({
             ) : null}
           </div>
 
+          {mode === "internal" && workstreamMetrics.length > 0 ? (
+            <div className="mt-4 grid gap-3 xl:grid-cols-3">
+              {workstreamMetrics.map((workstream) => (
+                <div
+                  key={workstream.id}
+                  className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-white">
+                      {workstream.name}
+                    </p>
+                    <span className="text-xs text-text-muted">
+                      {workstream.taskCount} tasks
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    Planned {workstream.plannedHours}h · Actual {workstream.actualHours}h
+                  </p>
+                  <p className="mt-1 text-xs text-text-muted">
+                    {workstream.completedTasks} complete
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           {mode === "internal" && projectServiceFamily ? (
             <p className="mt-3 text-sm text-text-secondary">
               Agent suggestions are filtered to the project service family:{" "}
@@ -1324,6 +1472,23 @@ export default function DeliveryBoard({
                     }
                     className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
                   />
+                </label>
+                <label className="block">
+                  <span className="text-sm text-white">Workstream</span>
+                  <select
+                    value={taskDraft.workstreamId}
+                    onChange={(event) =>
+                      updateTaskDraft("workstreamId", event.target.value)
+                    }
+                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                  >
+                    <option value="">No workstream</option>
+                    {projectWorkstreams.map((workstream) => (
+                      <option key={workstream.id} value={workstream.id}>
+                        {workstream.name}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="block md:col-span-2">
                   <span className="text-sm text-white">Description</span>
@@ -1442,6 +1607,24 @@ export default function DeliveryBoard({
                   </select>
                 </label>
                 <label className="block">
+                  <span className="text-sm text-white">Task origin</span>
+                  <select
+                    value={taskDraft.taskOrigin}
+                    onChange={(event) =>
+                      updateTaskDraft("taskOrigin", event.target.value)
+                    }
+                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                  >
+                    <option value="manual">Manual</option>
+                    <option value="audit">Audit</option>
+                    <option value="quick_win">Quick win</option>
+                    <option value="questionnaire">Questionnaire</option>
+                    <option value="template">Template</option>
+                    <option value="seeded_pack">Seeded pack</option>
+                    <option value="change_request">Change request</option>
+                  </select>
+                </label>
+                <label className="block">
                   <span className="text-sm text-white">Planned hours</span>
                   <input
                     type="number"
@@ -1533,7 +1716,7 @@ export default function DeliveryBoard({
             <div className="mt-6 overflow-x-auto">
               <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:min-w-[2100px] xl:grid-cols-7">
                 {boardColumns.map((column) => {
-                  const columnTasks = tasks.filter(
+                  const columnTasks = visibleTasks.filter(
                     (task) => task.status === column.key
                   );
 
@@ -1604,6 +1787,14 @@ export default function DeliveryBoard({
                                         {task.category}
                                       </span>
                                     ) : null}
+                                    {task.workstreamId ? (
+                                      <span className="rounded px-2 py-1 text-xs font-medium bg-[rgba(81,208,176,0.12)] text-[#51d0b0]">
+                                        {projectWorkstreams.find(
+                                          (workstream) =>
+                                            workstream.id === task.workstreamId
+                                        )?.name ?? "Workstream"}
+                                      </span>
+                                    ) : null}
                                   </div>
                                 );
                               })()}
@@ -1639,6 +1830,7 @@ export default function DeliveryBoard({
                                     Execution: {formatLabel(task.executionType)}
                                   </span>
                                 ) : null}
+                                <span>Origin: {formatTaskOrigin(task.taskOrigin)}</span>
                                 <span>
                                   Priority: {formatLabel(task.priority)}
                                 </span>
@@ -1804,6 +1996,27 @@ export default function DeliveryBoard({
                                           disabled={scopeLocked}
                                           className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                         />
+                                        <select
+                                          value={taskDraft.workstreamId}
+                                          onChange={(event) =>
+                                            updateTaskDraft(
+                                              "workstreamId",
+                                              event.target.value
+                                            )
+                                          }
+                                          disabled={scopeLocked}
+                                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                          <option value="">No workstream</option>
+                                          {projectWorkstreams.map((workstream) => (
+                                            <option
+                                              key={workstream.id}
+                                              value={workstream.id}
+                                            >
+                                              {workstream.name}
+                                            </option>
+                                          ))}
+                                        </select>
                                         <input
                                           value={taskDraft.executionType}
                                           onChange={(event) =>
@@ -1910,6 +2123,25 @@ export default function DeliveryBoard({
                                             Ready with review
                                           </option>
                                           <option value="ready">Ready</option>
+                                        </select>
+                                        <select
+                                          value={taskDraft.taskOrigin}
+                                          onChange={(event) =>
+                                            updateTaskDraft(
+                                              "taskOrigin",
+                                              event.target.value
+                                            )
+                                          }
+                                          disabled={scopeLocked}
+                                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                          <option value="manual">Manual</option>
+                                          <option value="audit">Audit</option>
+                                          <option value="quick_win">Quick win</option>
+                                          <option value="questionnaire">Questionnaire</option>
+                                          <option value="template">Template</option>
+                                          <option value="seeded_pack">Seeded pack</option>
+                                          <option value="change_request">Change request</option>
                                         </select>
                                         <input
                                           type="number"

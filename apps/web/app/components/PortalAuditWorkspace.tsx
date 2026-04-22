@@ -8,6 +8,15 @@ interface ProjectSummary {
   id: string;
   name: string;
   engagementType: string;
+  deliveryWorkstreams?: Array<{
+    id: string;
+    name: string;
+    category: string;
+    status: string;
+    owner: string;
+    summary: string;
+    portalSummary?: string | null;
+  }> | null;
   portal: {
     id: string;
     displayName: string;
@@ -170,6 +179,35 @@ function formatEvidenceValue(value: unknown) {
   }
 
   return JSON.stringify(value, null, 2);
+}
+
+function inferWorkstreamIdForFinding(
+  area: string,
+  workstreams: NonNullable<ProjectSummary["deliveryWorkstreams"]>
+) {
+  const normalizedArea = area.toLowerCase();
+
+  if (
+    ["crm", "pipelines", "properties", "workflows", "reporting", "integrations", "data_quality"].includes(
+      normalizedArea
+    )
+  ) {
+    return (
+      workstreams.find((workstream) =>
+        ["hubspot_implementation", "other"].includes(workstream.category)
+      )?.id ?? null
+    );
+  }
+
+  if (["views", "dashboards", "team", "sequences"].includes(normalizedArea)) {
+    return (
+      workstreams.find((workstream) =>
+        ["discovery", "hubspot_implementation"].includes(workstream.category)
+      )?.id ?? null
+    );
+  }
+
+  return workstreams[0]?.id ?? null;
 }
 
 function FindingModal({
@@ -361,6 +399,10 @@ export default function PortalAuditWorkspace({
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [aiAuditBusy, setAiAuditBusy] = useState(false);
   const [aiAuditFeedback, setAiAuditFeedback] = useState<string | null>(null);
+  const [standardPackBusy, setStandardPackBusy] = useState(false);
+  const [standardPackFeedback, setStandardPackFeedback] = useState<string | null>(
+    null
+  );
   const [error, setError] = useState<string | null>(null);
   const [auditProviderKey, setAuditProviderKey] = useState("anthropic");
   const [availableProviders, setAvailableProviders] = useState<
@@ -371,6 +413,9 @@ export default function PortalAuditWorkspace({
   >(null);
   const [expandedAreas, setExpandedAreas] = useState<Record<string, boolean>>(
     () => Object.fromEntries(auditAreas.map((area) => [area.key, true]))
+  );
+  const [creatingTaskFindingId, setCreatingTaskFindingId] = useState<string | null>(
+    null
   );
 
   async function loadAuditData() {
@@ -539,6 +584,39 @@ export default function PortalAuditWorkspace({
     }
   }
 
+  async function seedStandardPack() {
+    setStandardPackBusy(true);
+    setError(null);
+    setStandardPackFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/seed-standard-pack`,
+        {
+          method: "POST"
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to seed standard pack");
+      }
+
+      setStandardPackFeedback(
+        `Standard pack applied. ${body?.summary?.tasksCreated ?? 0} task${body?.summary?.tasksCreated === 1 ? "" : "s"} created, ${body?.summary?.tasksSkipped ?? 0} already existed.`
+      );
+      await loadAuditData();
+    } catch (seedError) {
+      setError(
+        seedError instanceof Error
+          ? seedError.message
+          : "Failed to seed standard pack"
+      );
+    } finally {
+      setStandardPackBusy(false);
+    }
+  }
+
   async function runAiAudit() {
     setAiAuditBusy(true);
     setAiAuditFeedback(null);
@@ -575,6 +653,47 @@ export default function PortalAuditWorkspace({
           : "Failed to generate portal audit"
       );
       setAiAuditBusy(false);
+    }
+  }
+
+  async function createTaskFromFinding(finding: FindingRecord) {
+    setCreatingTaskFindingId(finding.id);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/tasks`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: finding.title,
+            description: finding.description,
+            category: formatLabel(finding.area),
+            findingId: finding.id,
+            workstreamId: inferWorkstreamIdForFinding(
+              finding.area,
+              project?.deliveryWorkstreams ?? []
+            ),
+            taskOrigin: finding.quickWin ? "quick_win" : "audit",
+            executionType: "manual",
+            status: finding.quickWin ? "backlog" : "todo"
+          })
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to create task from finding");
+      }
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : "Failed to create task from finding"
+      );
+    } finally {
+      setCreatingTaskFindingId(null);
     }
   }
 
@@ -740,6 +859,14 @@ export default function PortalAuditWorkspace({
               </button>
               <button
                 type="button"
+                onClick={() => void seedStandardPack()}
+                disabled={standardPackBusy}
+                className="rounded-xl border border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.12)] px-4 py-3 text-sm font-medium text-[#51d0b0] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {standardPackBusy ? "Applying standard pack..." : "Launch standard pack"}
+              </button>
+              <button
+                type="button"
                 onClick={() => void refreshSnapshot()}
                 disabled={snapshotBusy || !project?.portal?.id}
                 className="rounded-xl border border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.12)] px-4 py-3 text-sm font-medium text-[#51d0b0] disabled:cursor-not-allowed disabled:opacity-60"
@@ -766,6 +893,11 @@ export default function PortalAuditWorkspace({
               {aiAuditFeedback ? (
                 <p className="mt-4 text-sm text-status-success">
                   {aiAuditFeedback}
+                </p>
+              ) : null}
+              {standardPackFeedback ? (
+                <p className="mt-4 text-sm text-status-success">
+                  {standardPackFeedback}
                 </p>
               ) : null}
               <div className="mt-4 flex flex-wrap gap-3">
@@ -1005,6 +1137,18 @@ export default function PortalAuditWorkspace({
                                   {formatEvidenceValue(finding.evidence)}
                                 </pre>
                               </details>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => void createTaskFromFinding(finding)}
+                                  disabled={creatingTaskFindingId === finding.id}
+                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {creatingTaskFindingId === finding.id
+                                    ? "Creating task..."
+                                    : "Create task"}
+                                </button>
+                              </div>
                             </div>
                           ))
                         ) : (
