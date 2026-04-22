@@ -14431,6 +14431,7 @@ export async function updateProjectRecord(
     name?: unknown;
     clientName?: unknown;
     type?: unknown;
+    serviceFamily?: unknown;
     implementationApproach?: unknown;
     customerPlatformTier?: unknown;
     platformTierSelections?: unknown;
@@ -14465,6 +14466,7 @@ export async function updateProjectRecord(
     name?: string;
     clientName?: string;
     type?: EngagementType;
+    serviceFamily?: string;
     implementationApproach?: string;
     customerPlatformTier?: string;
     platformTierSelections?: Record<string, string>;
@@ -14515,6 +14517,18 @@ export async function updateProjectRecord(
       throw new Error("Invalid engagement type");
     }
     normalizedPayload.type = value.type;
+  }
+
+  if (value.serviceFamily !== undefined) {
+    if (
+      typeof value.serviceFamily !== "string" ||
+      !serviceFamilyOptions.includes(
+        value.serviceFamily.trim() as (typeof serviceFamilyOptions)[number]
+      )
+    ) {
+      throw new Error("serviceFamily must be a valid service family");
+    }
+    normalizedPayload.serviceFamily = value.serviceFamily.trim();
   }
 
   if (value.includesPortalAudit !== undefined) {
@@ -14675,10 +14689,9 @@ export async function updateProjectRecord(
   if (value.hubs !== undefined) {
     if (
       !Array.isArray(value.hubs) ||
-      value.hubs.length === 0 ||
       value.hubs.some((hub) => typeof hub !== "string")
     ) {
-      throw new Error("hubs must be a non-empty array of hub keys");
+      throw new Error("hubs must be an array of hub keys");
     }
 
     const normalizedHubs = Array.from(
@@ -14696,6 +14709,7 @@ export async function updateProjectRecord(
     normalizedPayload.name === undefined &&
     normalizedPayload.clientName === undefined &&
     normalizedPayload.type === undefined &&
+    normalizedPayload.serviceFamily === undefined &&
     normalizedPayload.customerPlatformTier === undefined &&
     normalizedPayload.implementationApproach === undefined &&
     normalizedPayload.platformTierSelections === undefined &&
@@ -14737,6 +14751,16 @@ export async function updateProjectRecord(
 
   const nextClientName =
     normalizedPayload.clientName ?? existingProject.client.name;
+  const nextScopeType =
+    normalizedPayload.scopeType ?? existingProject.scopeType ?? "discovery";
+  const nextHubs = normalizedPayload.hubs ?? existingProject.selectedHubs;
+
+  if (nextScopeType !== "standalone_quote" && nextHubs.length === 0) {
+    throw new Error(
+      "At least one hub is required unless scopeType is standalone_quote"
+    );
+  }
+
   const nextOwnerDetails =
     normalizedPayload.owner !== undefined ||
     normalizedPayload.ownerEmail !== undefined
@@ -14860,6 +14884,9 @@ export async function updateProjectRecord(
               customerPlatformTier:
                 normalizedPayload.customerPlatformTier || null
             }
+          : {}),
+        ...(normalizedPayload.serviceFamily !== undefined
+          ? { serviceFamily: normalizedPayload.serviceFamily }
           : {}),
         ...(normalizedPayload.name !== undefined
           ? { name: normalizedPayload.name }

@@ -326,6 +326,12 @@ export default function ProjectsDashboard({
               <Link href={`/projects/${project.id}`} className="text-white">
                 View
               </Link>
+              <Link
+                href={`/projects/${project.id}/edit`}
+                className="text-[#8bd5ff] transition-opacity hover:opacity-80"
+              >
+                Edit
+              </Link>
               {archived ? (
                 <button
                   type="button"

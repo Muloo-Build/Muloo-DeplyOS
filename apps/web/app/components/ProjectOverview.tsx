@@ -1971,6 +1971,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           actions={
             <>
               <Link
+                href={`/projects/${project.id}/edit`}
+                className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
+              >
+                Edit project
+              </Link>
+              <Link
                 href={`/projects/${project.id}/discovery`}
                 className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
               >
