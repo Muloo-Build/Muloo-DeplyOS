@@ -40,6 +40,20 @@ interface ClientUserAssignmentDraft {
   assignedInputSections: number[];
 }
 
+interface ProjectSubmissionRecord {
+  id: string;
+  sessionNumber: number;
+  status: string;
+  answers: Record<string, string>;
+  updatedAt: string;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
+
 function cloneQuestionnaireDefinitions(
   value?: ClientQuestionnaireDefinitionMap | null
 ): ClientQuestionnaireDefinitionMap {
@@ -76,6 +90,14 @@ function getEnabledSessionNumbers(value: ClientQuestionnaireDefinitionMap) {
   });
 }
 
+function formatAnswerValue(value: string | undefined) {
+  if (!value || value.trim().length === 0) {
+    return "No answer yet";
+  }
+
+  return value;
+}
+
 export default function ProjectInputsWorkspace({
   projectId
 }: {
@@ -87,6 +109,7 @@ export default function ProjectInputsWorkspace({
       createDefaultClientQuestionnaireDefinitionMap()
     );
   const [clientUsers, setClientUsers] = useState<ClientUser[]>([]);
+  const [submissions, setSubmissions] = useState<ProjectSubmissionRecord[]>([]);
   const [assignmentDrafts, setAssignmentDrafts] = useState<
     Record<string, ClientUserAssignmentDraft>
   >({});
@@ -103,10 +126,12 @@ export default function ProjectInputsWorkspace({
     setError(null);
 
     try {
-      const [projectResponse, clientUsersResponse] = await Promise.all([
+      const [projectResponse, clientUsersResponse, submissionsResponse] =
+        await Promise.all([
         fetch(`/api/projects/${encodeURIComponent(projectId)}`),
-        fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`)
-      ]);
+        fetch(`/api/projects/${encodeURIComponent(projectId)}/client-users`),
+        fetch(`/api/projects/${encodeURIComponent(projectId)}/client-input-submissions`)
+        ]);
 
       if (!projectResponse.ok) {
         throw new Error("Failed to load project");
@@ -116,8 +141,15 @@ export default function ProjectInputsWorkspace({
         throw new Error("Failed to load project contacts");
       }
 
-      const projectBody = await projectResponse.json();
-      const clientUsersBody = await clientUsersResponse.json();
+      if (!submissionsResponse.ok) {
+        throw new Error("Failed to load saved client inputs");
+      }
+
+      const [projectBody, clientUsersBody, submissionsBody] = await Promise.all([
+        projectResponse.json(),
+        clientUsersResponse.json(),
+        submissionsResponse.json()
+      ]);
       const nextProject = projectBody.project as ProjectDetail;
       const nextQuestionnaireDraft = cloneQuestionnaireDefinitions(
         nextProject.clientQuestionnaireConfig
@@ -129,6 +161,7 @@ export default function ProjectInputsWorkspace({
       setProject(nextProject);
       setQuestionnaireDraft(nextQuestionnaireDraft);
       setClientUsers(nextClientUsers);
+      setSubmissions((submissionsBody.submissions ?? []) as ProjectSubmissionRecord[]);
       setAssignmentDrafts(
         Object.fromEntries(
           nextClientUsers.map((clientUser) => [
@@ -477,6 +510,102 @@ export default function ProjectInputsWorkspace({
                   {feedback}
                 </div>
               ) : null}
+
+              <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-white">
+                      Saved Client Answers
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm text-text-secondary">
+                      This is the information your client team has already given
+                      us in the portal. It stays here so nobody has to retype
+                      good answers just because the project evolved.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  {submissions.length > 0 ? (
+                    submissions.map((submission) => {
+                      const session =
+                        questionnaireDraft[submission.sessionNumber];
+                      const answeredEntries = Object.entries(
+                        submission.answers ?? {}
+                      ).filter(([, value]) => value.trim().length > 0);
+
+                      return (
+                        <div
+                          key={submission.id}
+                          className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                                Input Section {submission.sessionNumber}
+                              </p>
+                              <p className="mt-2 text-lg font-semibold text-white">
+                                {session?.title ??
+                                  `Session ${submission.sessionNumber}`}
+                              </p>
+                              <p className="mt-1 text-sm text-text-secondary">
+                                {[
+                                  submission.user.firstName,
+                                  submission.user.lastName
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ") || submission.user.email}{" "}
+                                · {new Date(submission.updatedAt).toLocaleString("en-ZA")}
+                              </p>
+                            </div>
+                            <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.16em] text-text-muted">
+                              {submission.status}
+                            </div>
+                          </div>
+
+                          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                            {(session?.questions ?? []).map((question) => (
+                              <div
+                                key={`${submission.id}-${question.key}`}
+                                className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4"
+                              >
+                                <p className="text-sm font-medium text-white">
+                                  {question.label}
+                                </p>
+                                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-secondary">
+                                  {formatAnswerValue(
+                                    submission.answers?.[question.key]
+                                  )}
+                                </p>
+                              </div>
+                            ))}
+
+                            {!session && answeredEntries.length > 0
+                              ? answeredEntries.map(([key, value]) => (
+                                  <div
+                                    key={`${submission.id}-${key}`}
+                                    className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4"
+                                  >
+                                    <p className="text-sm font-medium text-white">
+                                      {key.replace(/_/g, " ")}
+                                    </p>
+                                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-secondary">
+                                      {formatAnswerValue(value)}
+                                    </p>
+                                  </div>
+                                ))
+                              : null}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-5 py-5 text-sm text-text-secondary">
+                      No client answers have been saved yet.
+                    </div>
+                  )}
+                </div>
+              </section>
 
               <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">

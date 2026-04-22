@@ -51,6 +51,25 @@ interface ClientProjectDetail {
     commercialBrief?: string | null;
     clientQuestionnaireConfig?: ClientQuestionnaireDefinitionMap | null;
     engagementType: string;
+    implementationApproach?: string | null;
+    customerPlatformTier?: string | null;
+    platformConfiguration?: Array<{
+      productKey: string;
+      label: string;
+      tier: string;
+      quantity?: number | null;
+      unitLabel?: string | null;
+      notes?: string | null;
+    }> | null;
+    deliveryWorkstreams?: Array<{
+      id: string;
+      name: string;
+      category: string;
+      status: string;
+      owner: string;
+      summary: string;
+      portalSummary?: string | null;
+    }> | null;
     selectedHubs: string[];
     updatedAt: string;
     portalQuoteEnabled?: boolean;
@@ -173,6 +192,14 @@ function projectStatusColor(status: string) {
   if (status === "complete") return "text-[#7be2ef]";
   if (status === "on_hold") return "text-[#f0c060]";
   return "text-text-secondary";
+}
+
+function formatTokenLabel(value: string | null | undefined) {
+  if (!value) return "Not set";
+  return value
+    .split(/[_-]/g)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(" ");
 }
 
 export default function ClientProjectWorkspace({
@@ -467,6 +494,53 @@ export default function ClientProjectWorkspace({
                 </div>
               </div>
 
+              {detail.project.platformConfiguration &&
+              detail.project.platformConfiguration.length > 0 ? (
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                        Platform package
+                      </p>
+                      <h3 className="mt-2 text-lg font-semibold text-white">
+                        Hub-by-hub setup
+                      </h3>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        This project is being delivered against the package
+                        currently in scope, not a single blanket HubSpot tier.
+                      </p>
+                    </div>
+                    <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.16em] text-text-muted">
+                      Delivery path: {formatTokenLabel(detail.project.implementationApproach)}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {detail.project.platformConfiguration.map((item) => (
+                      <div
+                        key={item.productKey}
+                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      >
+                        <p className="text-sm font-semibold text-white">
+                          {item.label}
+                        </p>
+                        <p className="mt-2 text-sm text-text-secondary">
+                          {formatTokenLabel(item.tier)}
+                          {item.quantity && item.quantity > 0
+                            ? ` · ${item.quantity}${item.unitLabel ? ` ${item.unitLabel}` : ""}`
+                            : ""}
+                        </p>
+                        {item.notes ? (
+                          <p className="mt-2 text-sm leading-6 text-text-secondary">
+                            {item.notes}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
                   <p className="text-sm font-medium text-white">Need to get in touch?</p>
@@ -659,6 +733,45 @@ export default function ClientProjectWorkspace({
                   </div>
                 </section>
               </div>
+
+              {detail.project.deliveryWorkstreams &&
+              detail.project.deliveryWorkstreams.length > 0 ? (
+                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                        Workstreams
+                      </p>
+                      <h3 className="mt-2 text-lg font-semibold text-white">
+                        How this project is broken down
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                    {detail.project.deliveryWorkstreams.map((workstream) => (
+                      <div
+                        key={workstream.id}
+                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-white">
+                            {workstream.name}
+                          </p>
+                          <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                            {formatTokenLabel(workstream.status)}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs uppercase tracking-[0.14em] text-text-muted">
+                          {formatTokenLabel(workstream.category)} · {formatTokenLabel(workstream.owner)}
+                        </p>
+                        <p className="mt-3 text-sm leading-6 text-text-secondary">
+                          {workstream.portalSummary || workstream.summary}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
 
               <PortalProjectAssistant
                 projectId={detail.project.id}

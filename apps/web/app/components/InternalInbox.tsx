@@ -19,8 +19,16 @@ interface InboxMessage {
   project: InboxProject;
 }
 
+interface SubmissionAlert {
+  project: InboxProject;
+  updatedAt: string | null;
+  sessionNumber: number | null;
+  submittedByName: string | null;
+}
+
 export default function InternalInbox() {
   const [messages, setMessages] = useState<InboxMessage[]>([]);
+  const [submissionAlerts, setSubmissionAlerts] = useState<SubmissionAlert[]>([]);
   const [projects, setProjects] = useState<InboxProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [draft, setDraft] = useState("");
@@ -45,6 +53,7 @@ export default function InternalInbox() {
         ]);
 
         setMessages(inboxBody.messages ?? []);
+        setSubmissionAlerts(inboxBody.submissionAlerts ?? []);
         setProjects(
           (projectsBody.projects ?? []).map((project: InboxProject) => ({
             id: project.id,
@@ -159,6 +168,43 @@ export default function InternalInbox() {
         ) : null}
 
         <div className="mt-6 space-y-4">
+          {submissionAlerts.length > 0 ? (
+            <div className="rounded-2xl border border-[rgba(123,226,239,0.18)] bg-[rgba(123,226,239,0.07)] p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                New client inputs
+              </p>
+              <div className="mt-3 space-y-3">
+                {submissionAlerts.map((alert) => (
+                  <a
+                    key={`${alert.project.id}-${alert.sessionNumber ?? "session"}`}
+                    href={`/projects/${alert.project.id}/inputs`}
+                    className="block rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4 transition hover:border-[rgba(255,255,255,0.16)]"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">
+                          {alert.project.name}
+                        </p>
+                        <p className="mt-1 text-sm text-text-secondary">
+                          {alert.submittedByName ?? "Client contact"} updated{" "}
+                          {alert.sessionNumber
+                            ? `section ${alert.sessionNumber}`
+                            : "their inputs"}
+                          .
+                        </p>
+                      </div>
+                      <span className="text-xs text-text-muted">
+                        {alert.updatedAt
+                          ? new Date(alert.updatedAt).toLocaleString("en-ZA")
+                          : ""}
+                      </span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="grid gap-4 md:grid-cols-[1fr_auto]">
             <select
               value={selectedProjectId}

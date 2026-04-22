@@ -335,6 +335,7 @@ model Project {
   implementationApproach    String                  @default("pragmatic_poc")
   customerPlatformTier      String?
   platformTierSelections    Json?
+  platformConfiguration     Json?
   problemStatement          String?
   solutionRecommendation    String?
   scopeExecutiveSummary     String?
@@ -344,6 +345,8 @@ model Project {
   clientQuestionnaireConfig Json?
   scopeType                 String?
   commercialBrief           String?
+  deliveryWorkstreams       Json?
+  internalCommercials       Json?
   portalQuoteEnabled        Boolean                 @default(true)
   deliveryTemplateId        String?
   retainerId                String?
@@ -353,6 +356,10 @@ model Project {
   standardsData             Json?
   selectedHubs              String[]
   currentPhase              String?
+  latestClientSubmissionAt  DateTime?
+  latestClientSubmissionSeenAt DateTime?
+  latestClientSubmissionSession Int?
+  latestClientSubmissionByName  String?
   clientId                  String
   portalId                  String
   createdAt                 DateTime                @default(now())

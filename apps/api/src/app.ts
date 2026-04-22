@@ -190,6 +190,7 @@ import {
   loadProjectTaskBoard,
   loadProjectsDirectory,
   loadProjectTasks,
+  loadProjectClientInputSubmissions,
   loadTaskApproval,
   loadWorkspaceApiKeys,
   loadWorkflowRuns,
@@ -197,6 +198,8 @@ import {
   loadProjectChangeRequests,
   refreshClientEnrichment,
   loadProjectMessages,
+  markAllProjectClientSubmissionsSeen,
+  markProjectClientSubmissionSeen,
   markProjectMessagesSeenByInternal,
   markProjectMessagesSeenByClient,
   requestTaskApproval,
@@ -1390,6 +1393,7 @@ export function createApiApp(config: BaseConfig) {
 
   app.get("/api/inbox", async (c) => {
     await markAllProjectMessagesSeenByInternal();
+    await markAllProjectClientSubmissionsSeen();
     return c.json(await loadInternalInbox());
   });
 
@@ -1673,6 +1677,7 @@ export function createApiApp(config: BaseConfig) {
   app.all("/api/projects/:projectId", async (c) => {
     if (c.req.method === "GET") {
       try {
+        await markProjectClientSubmissionSeen(c.req.param("projectId"));
         return c.json({
           project: await loadProjectRecord(c.req.param("projectId"))
         });
@@ -3233,6 +3238,24 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.get("/api/projects/:projectId/client-input-submissions", async (c) => {
+    const project = await prisma.project.findUnique({
+      where: { id: c.req.param("projectId") },
+      select: { id: true }
+    });
+
+    if (!project) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    await markProjectClientSubmissionSeen(c.req.param("projectId"));
+    return c.json({
+      submissions: await loadProjectClientInputSubmissions(
+        c.req.param("projectId")
+      )
+    });
   });
 
   app.delete("/api/projects/:projectId/messages/:messageId", async (c) => {

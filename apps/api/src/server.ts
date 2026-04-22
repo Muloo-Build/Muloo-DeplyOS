@@ -1668,6 +1668,274 @@ function normalizePlatformTierSelections(value: unknown) {
   );
 }
 
+type ProjectPlatformConfigurationItem = {
+  productKey: string;
+  label: string;
+  tier: (typeof validHubTierValues)[number];
+  quantity: number | null;
+  unitLabel: string | null;
+  notes: string | null;
+};
+
+type ProjectWorkstreamRecord = {
+  id: string;
+  name: string;
+  category: "discovery" | "website" | "hubspot_implementation" | "other";
+  status: "planned" | "active" | "paused" | "complete";
+  owner: "muloo" | "partner" | "shared";
+  summary: string;
+  portalSummary: string | null;
+};
+
+type ProjectCommercialLine = {
+  id: string;
+  workstreamId: string | null;
+  label: string;
+  pricingModel:
+    | "fixed_fee"
+    | "monthly_rollout"
+    | "license"
+    | "pass_through"
+    | "markup"
+    | "other";
+  currency: string;
+  mulooBaseAmount: number | null;
+  partnerSellAmount: number | null;
+  billingOwner: "muloo" | "partner" | "shared";
+  notes: string | null;
+};
+
+type ProjectInternalCommercials = {
+  billingRoute: "direct" | "partner_markup" | "mixed";
+  partnerName: string | null;
+  notes: string | null;
+  lines: ProjectCommercialLine[];
+};
+
+const validProjectWorkstreamCategories = [
+  "discovery",
+  "website",
+  "hubspot_implementation",
+  "other"
+] as const;
+const validProjectWorkstreamStatuses = [
+  "planned",
+  "active",
+  "paused",
+  "complete"
+] as const;
+const validProjectWorkstreamOwners = ["muloo", "partner", "shared"] as const;
+const validProjectCommercialPricingModels = [
+  "fixed_fee",
+  "monthly_rollout",
+  "license",
+  "pass_through",
+  "markup",
+  "other"
+] as const;
+const validCommercialBillingRoutes = [
+  "direct",
+  "partner_markup",
+  "mixed"
+] as const;
+
+function normalizeOptionalText(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeOptionalNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numeric =
+    typeof value === "number" ? value : Number(String(value).trim());
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function normalizeProjectPlatformConfiguration(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [] as ProjectPlatformConfigurationItem[];
+  }
+
+  return value
+    .map((item, index) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const productKey =
+        typeof record.productKey === "string" ? record.productKey.trim() : "";
+      const tier =
+        typeof record.tier === "string" ? record.tier.trim().toLowerCase() : "";
+
+      if (
+        !validPlatformTierSelectionKeys.includes(
+          productKey as (typeof validPlatformTierSelectionKeys)[number]
+        ) ||
+        !isValidHubTier(tier)
+      ) {
+        return null;
+      }
+
+      return {
+        productKey,
+        label:
+          normalizeOptionalText(record.label) ??
+          platformProductLabels[productKey] ??
+          productKey,
+        tier,
+        quantity: normalizeOptionalNumber(record.quantity),
+        unitLabel: normalizeOptionalText(record.unitLabel),
+        notes: normalizeOptionalText(record.notes)
+      } satisfies ProjectPlatformConfigurationItem;
+    })
+    .filter(
+      (item): item is ProjectPlatformConfigurationItem => item !== null
+    );
+}
+
+function derivePlatformTierSelectionsFromConfiguration(
+  configuration: ProjectPlatformConfigurationItem[]
+) {
+  return Object.fromEntries(
+    configuration.map((item) => [item.productKey, item.tier])
+  ) as Record<string, string>;
+}
+
+function normalizeProjectWorkstreams(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [] as ProjectWorkstreamRecord[];
+  }
+
+  return value
+    .map((item, index) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const name = normalizeOptionalText(record.name);
+
+      if (!name) {
+        return null;
+      }
+
+      const category =
+        typeof record.category === "string" &&
+        validProjectWorkstreamCategories.includes(
+          record.category.trim() as (typeof validProjectWorkstreamCategories)[number]
+        )
+          ? (record.category.trim() as ProjectWorkstreamRecord["category"])
+          : "other";
+      const status =
+        typeof record.status === "string" &&
+        validProjectWorkstreamStatuses.includes(
+          record.status.trim() as (typeof validProjectWorkstreamStatuses)[number]
+        )
+          ? (record.status.trim() as ProjectWorkstreamRecord["status"])
+          : "planned";
+      const owner =
+        typeof record.owner === "string" &&
+        validProjectWorkstreamOwners.includes(
+          record.owner.trim() as (typeof validProjectWorkstreamOwners)[number]
+        )
+          ? (record.owner.trim() as ProjectWorkstreamRecord["owner"])
+          : "muloo";
+
+      return {
+        id:
+          normalizeOptionalText(record.id) ??
+          `workstream_${index + 1}_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
+        name,
+        category,
+        status,
+        owner,
+        summary: normalizeOptionalText(record.summary) ?? "",
+        portalSummary: normalizeOptionalText(record.portalSummary)
+      } satisfies ProjectWorkstreamRecord;
+    })
+    .filter((item): item is ProjectWorkstreamRecord => item !== null);
+}
+
+function normalizeProjectInternalCommercials(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      billingRoute: "direct",
+      partnerName: null,
+      notes: null,
+      lines: []
+    } satisfies ProjectInternalCommercials;
+  }
+
+  const record = value as Record<string, unknown>;
+  const billingRoute =
+    typeof record.billingRoute === "string" &&
+    validCommercialBillingRoutes.includes(
+      record.billingRoute.trim() as (typeof validCommercialBillingRoutes)[number]
+    )
+      ? (record.billingRoute.trim() as ProjectInternalCommercials["billingRoute"])
+      : "direct";
+  const lines = Array.isArray(record.lines)
+    ? record.lines
+        .map((item, index) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) {
+            return null;
+          }
+
+          const line = item as Record<string, unknown>;
+          const label = normalizeOptionalText(line.label);
+          if (!label) {
+            return null;
+          }
+
+          const pricingModel =
+            typeof line.pricingModel === "string" &&
+            validProjectCommercialPricingModels.includes(
+              line.pricingModel.trim() as (typeof validProjectCommercialPricingModels)[number]
+            )
+              ? (line.pricingModel.trim() as ProjectCommercialLine["pricingModel"])
+              : "other";
+          const billingOwner =
+            typeof line.billingOwner === "string" &&
+            validProjectWorkstreamOwners.includes(
+              line.billingOwner.trim() as (typeof validProjectWorkstreamOwners)[number]
+            )
+              ? (line.billingOwner.trim() as ProjectCommercialLine["billingOwner"])
+              : "muloo";
+
+          return {
+            id:
+              normalizeOptionalText(line.id) ??
+              `commercial_line_${index + 1}_${label.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
+            workstreamId: normalizeOptionalText(line.workstreamId),
+            label,
+            pricingModel,
+            currency:
+              normalizeOptionalText(line.currency)?.toUpperCase() ?? "AUD",
+            mulooBaseAmount: normalizeOptionalNumber(line.mulooBaseAmount),
+            partnerSellAmount: normalizeOptionalNumber(line.partnerSellAmount),
+            billingOwner,
+            notes: normalizeOptionalText(line.notes)
+          } satisfies ProjectCommercialLine;
+        })
+        .filter((line): line is ProjectCommercialLine => line !== null)
+    : [];
+
+  return {
+    billingRoute,
+    partnerName: normalizeOptionalText(record.partnerName),
+    notes: normalizeOptionalText(record.notes),
+    lines
+  } satisfies ProjectInternalCommercials;
+}
+
 const platformTierRank: Record<string, number> = {
   free: 0,
   included: 1,
@@ -3620,6 +3888,7 @@ function serializeProject<
     implementationApproach?: string | null;
     customerPlatformTier?: string | null;
     platformTierSelections?: unknown | null;
+    platformConfiguration?: unknown | null;
     problemStatement?: string | null;
     solutionRecommendation?: string | null;
     scopeExecutiveSummary?: string | null;
@@ -3627,6 +3896,8 @@ function serializeProject<
     scopeType?: string | null;
     deliveryTemplateId?: string | null;
     commercialBrief?: string | null;
+    deliveryWorkstreams?: unknown | null;
+    internalCommercials?: unknown | null;
     lastAgenda?: unknown | null;
     clientChampionFirstName?: string | null;
     clientChampionLastName?: string | null;
@@ -3637,6 +3908,10 @@ function serializeProject<
     portalQuoteEnabled?: boolean | null;
     createdAt: Date;
     updatedAt: Date;
+    latestClientSubmissionAt?: Date | null;
+    latestClientSubmissionSeenAt?: Date | null;
+    latestClientSubmissionSession?: number | null;
+    latestClientSubmissionByName?: string | null;
     client: {
       id: string;
       name: string;
@@ -3699,15 +3974,32 @@ function serializeProject<
     clientQuestionnaireConfig: normalizeClientQuestionnaireConfig(
       normalizedProject.clientQuestionnaireConfig
     ),
+    platformConfiguration: normalizeProjectPlatformConfiguration(
+      normalizedProject.platformConfiguration
+    ),
     platformTierSelections: normalizePlatformTierSelections(
       normalizedProject.platformTierSelections
+    ),
+    deliveryWorkstreams: normalizeProjectWorkstreams(
+      normalizedProject.deliveryWorkstreams
+    ),
+    internalCommercials: normalizeProjectInternalCommercials(
+      normalizedProject.internalCommercials
     ),
     packagingAssessment,
     clientName: normalizedProject.client.name,
     hubsInScope: normalizedProject.selectedHubs,
     lastAgenda: normalizeStoredProjectAgenda(normalizedProject.lastAgenda),
     defaultWorkspacePath,
-    portalQuoteEnabled: normalizedProject.portalQuoteEnabled !== false
+    portalQuoteEnabled: normalizedProject.portalQuoteEnabled !== false,
+    latestClientSubmissionAt:
+      normalizedProject.latestClientSubmissionAt?.toISOString() ?? null,
+    latestClientSubmissionSeenAt:
+      normalizedProject.latestClientSubmissionSeenAt?.toISOString() ?? null,
+    latestClientSubmissionSession:
+      normalizedProject.latestClientSubmissionSession ?? null,
+    latestClientSubmissionByName:
+      normalizedProject.latestClientSubmissionByName ?? null
   };
 }
 
@@ -3723,11 +4015,15 @@ function serializeClientProject<
     quoteApprovedByEmail?: string | null;
     scopeLockedAt?: Date | null;
     serviceFamily: string;
+    implementationApproach?: string | null;
+    customerPlatformTier?: string | null;
+    platformConfiguration?: unknown | null;
     scopeType?: string | null;
     deliveryTemplateId?: string | null;
     retainerId?: string | null;
     commercialBrief?: string | null;
     clientQuestionnaireConfig?: unknown | null;
+    deliveryWorkstreams?: unknown | null;
     engagementType: Prisma.$Enums.EngagementType;
     selectedHubs: string[];
     updatedAt: Date;
@@ -3749,6 +4045,11 @@ function serializeClientProject<
     quoteApprovedByEmail: project.quoteApprovedByEmail ?? null,
     scopeLockedAt: project.scopeLockedAt?.toISOString() ?? null,
     serviceFamily: project.serviceFamily,
+    implementationApproach: project.implementationApproach ?? null,
+    customerPlatformTier: project.customerPlatformTier ?? null,
+    platformConfiguration: normalizeProjectPlatformConfiguration(
+      project.platformConfiguration
+    ),
     scopeType: project.scopeType ?? "discovery",
     deliveryTemplateId: project.deliveryTemplateId ?? null,
     retainerId: project.retainerId ?? null,
@@ -3756,6 +4057,7 @@ function serializeClientProject<
     clientQuestionnaireConfig: normalizeClientQuestionnaireConfig(
       project.clientQuestionnaireConfig
     ),
+    deliveryWorkstreams: normalizeProjectWorkstreams(project.deliveryWorkstreams),
     engagementType: project.engagementType,
     selectedHubs: project.selectedHubs,
     updatedAt: project.updatedAt.toISOString(),
@@ -9574,7 +9876,12 @@ function formatProjectTypeForAiContext(input: {
 }
 
 function formatProjectPackagingForAiContext(
-  project: ReturnType<typeof serializeProject>
+  project: {
+    customerPlatformTier?: string | null;
+    packagingAssessment?: {
+      summary?: string | null;
+    } | null;
+  }
 ) {
   const packagingSummary = project.packagingAssessment?.summary?.trim() ?? "";
   const tier = project.customerPlatformTier?.trim()
@@ -14193,12 +14500,15 @@ export async function createProjectRecord(value: {
   implementationApproach?: unknown;
   customerPlatformTier?: unknown;
   platformTierSelections?: unknown;
+  platformConfiguration?: unknown;
   problemStatement?: unknown;
   solutionRecommendation?: unknown;
   scopeExecutiveSummary?: unknown;
   scopeType?: unknown;
   deliveryTemplateId?: unknown;
   commercialBrief?: unknown;
+  deliveryWorkstreams?: unknown;
+  internalCommercials?: unknown;
   engagementType?: unknown;
   includesPortalAudit?: unknown;
   industry?: unknown;
@@ -14282,6 +14592,19 @@ export async function createProjectRecord(value: {
       : null;
   const platformTierSelections = normalizePlatformTierSelections(
     value.platformTierSelections
+  );
+  const platformConfiguration = normalizeProjectPlatformConfiguration(
+    value.platformConfiguration
+  );
+  const normalizedPlatformTierSelections =
+    Object.keys(platformTierSelections).length > 0
+      ? platformTierSelections
+      : derivePlatformTierSelectionsFromConfiguration(platformConfiguration);
+  const deliveryWorkstreams = normalizeProjectWorkstreams(
+    value.deliveryWorkstreams
+  );
+  const internalCommercials = normalizeProjectInternalCommercials(
+    value.internalCommercials
   );
   const slug = createSlug(clientName);
   const requestedPortalId =
@@ -14377,7 +14700,11 @@ export async function createProjectRecord(value: {
         serviceFamily,
         implementationApproach,
         customerPlatformTier,
-        platformTierSelections,
+        platformTierSelections: normalizedPlatformTierSelections,
+        platformConfiguration:
+          platformConfiguration.length > 0
+            ? platformConfiguration
+            : Prisma.Prisma.JsonNull,
         problemStatement:
           typeof value.problemStatement === "string"
             ? value.problemStatement.trim() || null
@@ -14411,6 +14738,17 @@ export async function createProjectRecord(value: {
           typeof value.commercialBrief === "string"
             ? value.commercialBrief.trim() || null
             : null,
+        deliveryWorkstreams:
+          deliveryWorkstreams.length > 0
+            ? deliveryWorkstreams
+            : Prisma.Prisma.JsonNull,
+        internalCommercials:
+          internalCommercials.lines.length > 0 ||
+          internalCommercials.partnerName ||
+          internalCommercials.notes ||
+          internalCommercials.billingRoute !== "direct"
+            ? internalCommercials
+            : Prisma.Prisma.JsonNull,
         selectedHubs,
         clientId: client.id,
         portalId: portal.id
@@ -14435,6 +14773,7 @@ export async function updateProjectRecord(
     implementationApproach?: unknown;
     customerPlatformTier?: unknown;
     platformTierSelections?: unknown;
+    platformConfiguration?: unknown;
     problemStatement?: unknown;
     solutionRecommendation?: unknown;
     scopeExecutiveSummary?: unknown;
@@ -14442,6 +14781,8 @@ export async function updateProjectRecord(
     scopeType?: unknown;
     deliveryTemplateId?: unknown;
     commercialBrief?: unknown;
+    deliveryWorkstreams?: unknown;
+    internalCommercials?: unknown;
     portalId?: unknown;
     owner?: unknown;
     ownerEmail?: unknown;
@@ -14470,6 +14811,7 @@ export async function updateProjectRecord(
     implementationApproach?: string;
     customerPlatformTier?: string;
     platformTierSelections?: Record<string, string>;
+    platformConfiguration?: ProjectPlatformConfigurationItem[];
     problemStatement?: string;
     solutionRecommendation?: string;
     scopeExecutiveSummary?: string;
@@ -14477,6 +14819,8 @@ export async function updateProjectRecord(
     scopeType?: string;
     deliveryTemplateId?: string;
     commercialBrief?: string;
+    deliveryWorkstreams?: ProjectWorkstreamRecord[];
+    internalCommercials?: ProjectInternalCommercials;
     portalId?: string;
     owner?: string;
     ownerEmail?: string;
@@ -14576,6 +14920,11 @@ export async function updateProjectRecord(
     );
   }
 
+  if (value.platformConfiguration !== undefined) {
+    normalizedPayload.platformConfiguration =
+      normalizeProjectPlatformConfiguration(value.platformConfiguration);
+  }
+
   const stringFields = [
     [
       "problemStatement",
@@ -14660,6 +15009,18 @@ export async function updateProjectRecord(
     normalizedPayload.scopeType = value.scopeType.trim();
   }
 
+  if (value.deliveryWorkstreams !== undefined) {
+    normalizedPayload.deliveryWorkstreams = normalizeProjectWorkstreams(
+      value.deliveryWorkstreams
+    );
+  }
+
+  if (value.internalCommercials !== undefined) {
+    normalizedPayload.internalCommercials = normalizeProjectInternalCommercials(
+      value.internalCommercials
+    );
+  }
+
   if (value.deliveryTemplateId !== undefined) {
     if (
       typeof value.deliveryTemplateId !== "string" &&
@@ -14713,6 +15074,7 @@ export async function updateProjectRecord(
     normalizedPayload.customerPlatformTier === undefined &&
     normalizedPayload.implementationApproach === undefined &&
     normalizedPayload.platformTierSelections === undefined &&
+    normalizedPayload.platformConfiguration === undefined &&
     normalizedPayload.problemStatement === undefined &&
     normalizedPayload.solutionRecommendation === undefined &&
     normalizedPayload.scopeExecutiveSummary === undefined &&
@@ -14720,6 +15082,8 @@ export async function updateProjectRecord(
     normalizedPayload.scopeType === undefined &&
     normalizedPayload.deliveryTemplateId === undefined &&
     normalizedPayload.commercialBrief === undefined &&
+    normalizedPayload.deliveryWorkstreams === undefined &&
+    normalizedPayload.internalCommercials === undefined &&
     normalizedPayload.portalId === undefined &&
     normalizedPayload.owner === undefined &&
     normalizedPayload.ownerEmail === undefined &&
@@ -14904,6 +15268,38 @@ export async function updateProjectRecord(
                   : Prisma.Prisma.JsonNull
             }
           : {}),
+        ...(() => {
+          const platformConfiguration =
+            normalizedPayload.platformConfiguration !== undefined
+              ? normalizedPayload.platformConfiguration
+              : undefined;
+          const derivedSelections =
+            platformConfiguration !== undefined &&
+            normalizedPayload.platformTierSelections === undefined
+              ? derivePlatformTierSelectionsFromConfiguration(
+                  platformConfiguration
+                )
+              : undefined;
+
+          return {
+            ...(platformConfiguration !== undefined
+              ? {
+                  platformConfiguration:
+                    platformConfiguration.length > 0
+                      ? platformConfiguration
+                      : Prisma.Prisma.JsonNull
+                }
+              : {}),
+            ...(derivedSelections !== undefined
+              ? {
+                  platformTierSelections:
+                    Object.keys(derivedSelections).length > 0
+                      ? derivedSelections
+                      : Prisma.Prisma.JsonNull
+                }
+              : {})
+          };
+        })(),
         ...(normalizedPayload.problemStatement !== undefined
           ? { problemStatement: normalizedPayload.problemStatement || null }
           : {}),
@@ -14933,6 +15329,25 @@ export async function updateProjectRecord(
           : {}),
         ...(normalizedPayload.commercialBrief !== undefined
           ? { commercialBrief: normalizedPayload.commercialBrief || null }
+          : {}),
+        ...(normalizedPayload.deliveryWorkstreams !== undefined
+          ? {
+              deliveryWorkstreams:
+                normalizedPayload.deliveryWorkstreams.length > 0
+                  ? normalizedPayload.deliveryWorkstreams
+                  : Prisma.Prisma.JsonNull
+            }
+          : {}),
+        ...(normalizedPayload.internalCommercials !== undefined
+          ? {
+              internalCommercials:
+                normalizedPayload.internalCommercials.lines.length > 0 ||
+                normalizedPayload.internalCommercials.partnerName ||
+                normalizedPayload.internalCommercials.notes ||
+                normalizedPayload.internalCommercials.billingRoute !== "direct"
+                  ? normalizedPayload.internalCommercials
+                  : Prisma.Prisma.JsonNull
+            }
           : {}),
         ...(normalizedPayload.hubs
           ? { selectedHubs: normalizedPayload.hubs }
@@ -21222,7 +21637,14 @@ export async function saveClientInputSubmission(
       }
     },
     select: {
-      questionnaireAccess: true
+      questionnaireAccess: true,
+      user: {
+        select: {
+          firstName: true,
+          lastName: true,
+          email: true
+        }
+      }
     }
   });
 
@@ -21275,6 +21697,20 @@ export async function saveClientInputSubmission(
       sessionNumber,
       answers: normalizedAnswers,
       status
+    }
+  });
+
+  const submittedByName =
+    `${access.user.firstName} ${access.user.lastName}`.trim() ||
+    access.user.email;
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      latestClientSubmissionAt: new Date(),
+      latestClientSubmissionSeenAt: null,
+      latestClientSubmissionSession: sessionNumber,
+      latestClientSubmissionByName: submittedByName
     }
   });
 
@@ -21370,8 +21806,50 @@ export async function markProjectMessagesSeenByClient(
   });
 }
 
+export async function markProjectClientSubmissionSeen(projectId: string) {
+  await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      latestClientSubmissionSeenAt: new Date()
+    }
+  });
+}
+
+export async function markAllProjectClientSubmissionsSeen() {
+  await prisma.project.updateMany({
+    where: {
+      latestClientSubmissionAt: { not: null }
+    },
+    data: {
+      latestClientSubmissionSeenAt: new Date()
+    }
+  });
+}
+
+export async function loadProjectClientInputSubmissions(projectId: string) {
+  const submissions = await prisma.clientInputSubmission.findMany({
+    where: { projectId },
+    orderBy: [{ updatedAt: "desc" }, { sessionNumber: "asc" }],
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true
+        }
+      }
+    }
+  });
+
+  return submissions.map((submission) => ({
+    ...serializeClientInputSubmission(submission),
+    user: serializeClientPortalUser(submission.user)
+  }));
+}
+
 export async function loadInternalInbox() {
-  const [workRequests, messages] = await Promise.all([
+  const [workRequests, messages, submissionAlertProjects] = await Promise.all([
     loadWorkRequests(),
     prisma.projectMessage.findMany({
       include: {
@@ -21384,11 +21862,46 @@ export async function loadInternalInbox() {
       },
       orderBy: [{ createdAt: "desc" }],
       take: 100
+    }),
+    prisma.project.findMany({
+      where: {
+        latestClientSubmissionAt: { not: null }
+      },
+      select: {
+        id: true,
+        name: true,
+        latestClientSubmissionAt: true,
+        latestClientSubmissionSeenAt: true,
+        latestClientSubmissionSession: true,
+        latestClientSubmissionByName: true
+      },
+      orderBy: [{ latestClientSubmissionAt: "desc" }],
+      take: 40
     })
   ]);
 
+  const submissionAlerts = submissionAlertProjects.filter((project) => {
+    if (!project.latestClientSubmissionAt) {
+      return false;
+    }
+
+    return (
+      !project.latestClientSubmissionSeenAt ||
+      project.latestClientSubmissionSeenAt < project.latestClientSubmissionAt
+    );
+  });
+
   return {
     workRequests,
+    submissionAlerts: submissionAlerts.map((project) => ({
+      project: {
+        id: project.id,
+        name: project.name
+      },
+      updatedAt: project.latestClientSubmissionAt?.toISOString() ?? null,
+      sessionNumber: project.latestClientSubmissionSession ?? null,
+      submittedByName: project.latestClientSubmissionByName ?? null
+    })),
     messages: messages.map((message) => ({
       ...serializeProjectMessage(message),
       project: message.project
@@ -21448,7 +21961,8 @@ export async function loadClientInbox(userId: string) {
 }
 
 export async function loadInboxSummary() {
-  const [newWorkRequests, unseenClientMessages] = await Promise.all([
+  const [newWorkRequests, unseenClientMessages, submissionAlertProjects] =
+    await Promise.all([
     prisma.workRequest.count({
       where: { status: "new" }
     }),
@@ -21457,13 +21971,34 @@ export async function loadInboxSummary() {
         senderType: "client",
         internalSeenAt: null
       }
+    }),
+    prisma.project.findMany({
+      where: {
+        latestClientSubmissionAt: { not: null }
+      },
+      select: {
+        latestClientSubmissionAt: true,
+        latestClientSubmissionSeenAt: true
+      }
     })
   ]);
+
+  const unseenClientSubmissions = submissionAlertProjects.filter((project) => {
+    if (!project.latestClientSubmissionAt) {
+      return false;
+    }
+
+    return (
+      !project.latestClientSubmissionSeenAt ||
+      project.latestClientSubmissionSeenAt < project.latestClientSubmissionAt
+    );
+  }).length;
 
   return {
     newWorkRequests,
     newMessages: unseenClientMessages,
-    total: newWorkRequests + unseenClientMessages
+    newClientInputs: unseenClientSubmissions,
+    total: newWorkRequests + unseenClientMessages + unseenClientSubmissions
   };
 }
 
