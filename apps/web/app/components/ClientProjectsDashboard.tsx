@@ -105,6 +105,8 @@ export default function ClientProjectsDashboard({
         </div>
       ) : (
         <div className="space-y-8">
+          {activeProjects.length > 0 ? (
+            <div>
               <h2 className="mb-4 text-xs uppercase tracking-[0.2em] text-text-muted">
                 Active projects
               </h2>

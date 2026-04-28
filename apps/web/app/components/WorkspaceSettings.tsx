@@ -70,7 +70,7 @@ interface CalendarConnectionResponse {
     hasClientSecret?: boolean;
     redirectUri?: string | null;
   } | null;
-
+}
 
 interface WorkspaceHubSpotSettings {
   id: string;
@@ -83,8 +83,6 @@ interface WorkspaceHubSpotSettings {
 
 interface HubSpotSettingsResponse {
   settings?: WorkspaceHubSpotSettings;
-}
-
 }
 
 interface WorkspaceApiKeysResponse {
