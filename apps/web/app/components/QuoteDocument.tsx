@@ -130,6 +130,7 @@ interface ProductCatalogItem {
   unitLabel: string;
   isActive: boolean;
   sortOrder: number;
+  kind?: string | null;
 }
 
 interface QuoteSnapshot {
