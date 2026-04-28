@@ -11939,7 +11939,8 @@ export async function generateBlueprintForProject(projectId: string) {
     where: { id: projectId },
     select: {
       id: true,
-      scopeType: true
+      scopeType: true,
+      engagementType: true
     }
   });
 
@@ -11947,7 +11948,12 @@ export async function generateBlueprintForProject(projectId: string) {
     throw new Error("Project not found");
   }
 
-  if (project.scopeType === "standalone_quote") {
+  // Any project that uses the scoped-summary workflow (standalone quote,
+  // optimisation, audit, guided deployment) generates the blueprint from
+  // scope context rather than requiring full discovery sessions to be
+  // complete. See projectUsesScopedSummaryWorkflow above for the source of
+  // truth on which engagement / scope combinations skip discovery.
+  if (projectUsesScopedSummaryWorkflow(project)) {
     const blueprint = await generateBlueprintFromScope(projectId);
     await generateProjectPlan(projectId).catch((error) => {
       console.error(

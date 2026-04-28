@@ -283,7 +283,16 @@ export default function BlueprintWorkspace({
     0
   );
   const totalFeeZar = totalHumanHours * rateTiers[rateTier].hourlyRateZar;
-  const isStandaloneQuote = project?.scopeType === "standalone_quote";
+  // Treat any project that doesn't run a full discovery as a "scoped" job.
+  // standalone_quote, OPTIMISATION, AUDIT and GUIDED_DEPLOYMENT all generate
+  // their blueprint from scope context, not Sessions 1 & 3. Mirrors the API
+  // helper projectUsesScopedSummaryWorkflow in apps/api/src/server.ts.
+  const isScopedWorkflow =
+    project?.scopeType === "standalone_quote" ||
+    project?.engagementType === "OPTIMISATION" ||
+    project?.engagementType === "AUDIT" ||
+    project?.engagementType === "GUIDED_DEPLOYMENT";
+  const isStandaloneQuote = isScopedWorkflow;
   const supportingTools = getDisplaySupportingTools(
     project,
     summary?.supportingTools

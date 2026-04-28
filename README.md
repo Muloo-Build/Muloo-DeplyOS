@@ -19,6 +19,7 @@ Those assets should be treated as reusable prototype components, not as the lock
 
 Start here before changing product code:
 
+- [Project Overview Timeline](docs/project-overview-timeline.md)
 - [Product Scope](docs/product-scope.md)
 - [Architecture](docs/architecture.md)
 - [Roadmap](docs/roadmap.md)
