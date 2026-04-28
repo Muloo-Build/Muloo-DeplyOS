@@ -5160,7 +5160,34 @@ const projectQuoteProductLineSchema = z.object({
   quantity: z.number().finite().positive(),
   unitPrice: z.number().finite().positive(),
   lineTotalZar: z.number().finite().nonnegative(),
-  kind: z.enum(["product", "retainer"]).optional()
+  kind: z.enum(["product", "retainer", "manual"]).optional()
+});
+
+const projectQuoteContentOverridesSchema = z.object({
+  primaryChallenge: z.string().nullable().optional(),
+  successOutcomes: z.string().nullable().optional(),
+  engagementTrack: z.string().nullable().optional(),
+  platformFit: z.string().nullable().optional(),
+  changeManagement: z.string().nullable().optional(),
+  dataReadiness: z.string().nullable().optional(),
+  currentStack: z.string().nullable().optional(),
+  hubspotToday: z.string().nullable().optional(),
+  dataLandscape: z.string().nullable().optional(),
+  currentProcesses: z.string().nullable().optional(),
+  hubsAndFeatures: z.string().nullable().optional(),
+  pipelineAndProcess: z.string().nullable().optional(),
+  automation: z.string().nullable().optional(),
+  reporting: z.string().nullable().optional(),
+  howWeWillWork: z.string().nullable().optional(),
+  howScopeIsControlled: z.string().nullable().optional(),
+  howClientParticipates: z.string().nullable().optional(),
+  packagingFitLabel: z.string().nullable().optional(),
+  packagingFitSummary: z.string().nullable().optional(),
+  whyPackagingRecommendation: z.string().nullable().optional(),
+  workaroundPath: z.string().nullable().optional(),
+  recommendedNextStep: z.string().nullable().optional(),
+  approvalSummary: z.string().nullable().optional(),
+  termsAndWorkingScope: z.string().nullable().optional()
 });
 
 const projectQuoteTotalsSchema = z.object({
@@ -5190,7 +5217,8 @@ const projectQuoteContextSchema = z.object({
       description: z.string().optional()
     })).nullable().optional(),
     approvalTerms: z.string().nullable().optional()
-  }).optional()
+  }).optional(),
+  contentOverrides: projectQuoteContentOverridesSchema.nullable().optional()
 });
 
 const projectQuotePayloadSchema = z.object({
@@ -11326,6 +11354,7 @@ export async function shareProjectQuote(projectId: string, payload: unknown) {
                   nextQuestions: [],
                   clientResponsibilities: [],
                   isStandaloneQuote: false,
+                  contentOverrides: null,
                   blueprintGeneratedAt: null
                 }
               : projectQuoteContextSchema.parse(latestExistingQuote.context)

@@ -68,6 +68,7 @@ Primary workflow shapes:
 - Optimisation and similar summary-first projects can move from context -> AI summary -> quote without a mandatory blueprint gate.
 - Prepare notes/project context now feed scoped summary generation.
 - Retainer and invoice behavior are part of the product direction, not side utilities.
+- Internal quote editing now supports explicit quote-content overrides and manual line items, rather than only projecting discovery/summary text read-only.
 - Sprint docs and Codex handoff docs are useful history, but should not be treated as the main source of truth.
 
 ## 7. Open questions
@@ -93,6 +94,7 @@ Primary workflow shapes:
 - Treat Prepare notes, project context, and real operator workflow as important inputs.
 - Do not assume discovery sessions are mandatory for every engagement.
 - When editing workflow logic, check both internal UI and client portal behavior.
+- When editing quote behavior, preserve the distinction between source discovery data and operator-owned commercial overrides.
 - Be careful with documentation sprawl; add new docs only when they improve orientation or execution.
 - Ignore `.claude/` unless the user explicitly asks about it.
 

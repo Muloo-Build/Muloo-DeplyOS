@@ -133,6 +133,45 @@ interface ProductCatalogItem {
   kind?: string | null;
 }
 
+interface QuoteContentOverrides {
+  primaryChallenge?: string | null;
+  successOutcomes?: string | null;
+  engagementTrack?: string | null;
+  platformFit?: string | null;
+  changeManagement?: string | null;
+  dataReadiness?: string | null;
+  currentStack?: string | null;
+  hubspotToday?: string | null;
+  dataLandscape?: string | null;
+  currentProcesses?: string | null;
+  hubsAndFeatures?: string | null;
+  pipelineAndProcess?: string | null;
+  automation?: string | null;
+  reporting?: string | null;
+  howWeWillWork?: string | null;
+  howScopeIsControlled?: string | null;
+  howClientParticipates?: string | null;
+  packagingFitLabel?: string | null;
+  packagingFitSummary?: string | null;
+  whyPackagingRecommendation?: string | null;
+  workaroundPath?: string | null;
+  recommendedNextStep?: string | null;
+  approvalSummary?: string | null;
+  termsAndWorkingScope?: string | null;
+}
+
+interface ManualProductLineDraft {
+  id: string;
+  name: string;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  unitLabel: string;
+  category: string;
+  billingModel: string;
+  included: boolean;
+}
+
 interface QuoteSnapshot {
   id: string;
   projectId: string;
@@ -186,6 +225,7 @@ interface QuoteSnapshot {
       deliverables?: Array<{ title: string; description?: string | null }> | null;
       approvalTerms?: string | null;
     } | null;
+    contentOverrides?: QuoteContentOverrides | null;
     blueprintGeneratedAt: string | null;
   } | null;
 }
@@ -257,6 +297,49 @@ function parseNumber(value: string, fallbackValue: number) {
   return Number.isFinite(parsedValue) && parsedValue > 0
     ? parsedValue
     : fallbackValue;
+}
+
+function emptyQuoteContentOverrides(): QuoteContentOverrides {
+  return {
+    primaryChallenge: "",
+    successOutcomes: "",
+    engagementTrack: "",
+    platformFit: "",
+    changeManagement: "",
+    dataReadiness: "",
+    currentStack: "",
+    hubspotToday: "",
+    dataLandscape: "",
+    currentProcesses: "",
+    hubsAndFeatures: "",
+    pipelineAndProcess: "",
+    automation: "",
+    reporting: "",
+    howWeWillWork: "",
+    howScopeIsControlled: "",
+    howClientParticipates: "",
+    packagingFitLabel: "",
+    packagingFitSummary: "",
+    whyPackagingRecommendation: "",
+    workaroundPath: "",
+    recommendedNextStep: "",
+    approvalSummary: "",
+    termsAndWorkingScope: ""
+  };
+}
+
+function createManualProductLineDraft(): ManualProductLineDraft {
+  return {
+    id: `manual-${Math.random().toString(36).slice(2, 10)}`,
+    name: "",
+    description: "",
+    quantity: "1",
+    unitPrice: "0",
+    unitLabel: "item",
+    category: "add_on",
+    billingModel: "fixed",
+    included: true
+  };
 }
 
 function composeLinkedRetainerLine(retainer: NonNullable<Project["retainer"]>) {
@@ -354,6 +437,82 @@ function SectionTitle({ children }: { children: string }) {
   return <h2 className="mt-3 text-2xl font-semibold text-white">{children}</h2>;
 }
 
+function buildDefaultQuoteContentOverrides({
+  project,
+  summary,
+  sessions,
+  isStandaloneQuote
+}: {
+  project: Project | null;
+  summary: DiscoverySummary | null;
+  sessions: SessionDetail[];
+  isStandaloneQuote: boolean;
+}): QuoteContentOverrides {
+  const session1 =
+    sessions.find((session) => session.session === 1)?.fields ?? {};
+  const session2 =
+    sessions.find((session) => session.session === 2)?.fields ?? {};
+  const session3 =
+    sessions.find((session) => session.session === 3)?.fields ?? {};
+
+  return {
+    primaryChallenge:
+      session1.primary_pain_challenge || "To be confirmed",
+    successOutcomes: session1.goals_and_success_metrics || "",
+    engagementTrack: isStandaloneQuote
+      ? "Standalone scoped quote"
+      : formatDiscoveryOutcome(
+          "engagementTrack",
+          summary?.engagementTrack ?? undefined
+        ),
+    platformFit: isStandaloneQuote
+      ? project?.customerPlatformTier || "To be confirmed"
+      : formatDiscoveryOutcome("platformFit", summary?.platformFit ?? undefined),
+    changeManagement: isStandaloneQuote
+      ? "To be confirmed"
+      : formatDiscoveryOutcome(
+          "changeManagementRating",
+          summary?.changeManagementRating ?? undefined
+        ),
+    dataReadiness: isStandaloneQuote
+      ? "To be confirmed"
+      : formatDiscoveryOutcome(
+          "dataReadinessRating",
+          summary?.dataReadinessRating ?? undefined
+        ),
+    currentStack: session2.current_tech_stack || "",
+    hubspotToday: session2.current_hubspot_state || "",
+    dataLandscape: session2.data_landscape || "",
+    currentProcesses: session2.current_processes || "",
+    hubsAndFeatures: session3.hubs_and_features_required || "",
+    pipelineAndProcess: session3.pipeline_and_process_design || "",
+    automation: session3.automation_requirements || "",
+    reporting: session3.reporting_requirements || "",
+    howWeWillWork:
+      "We will deliver the implementation in phased onboarding blocks, each with a clear output, review point, and commercial boundary.",
+    howScopeIsControlled:
+      "The approved phases below become the working implementation scope. Any material changes after approval should move through change control.",
+    howClientParticipates:
+      "The client team provides access, confirms process decisions, reviews milestones, and signs off the agreed outputs.",
+    packagingFitLabel:
+      project?.implementationApproach === "best_practice"
+        ? "Best-practice / scalable approach"
+        : "Pragmatic / POC approach",
+    packagingFitSummary: project?.packagingAssessment?.summary || "",
+    whyPackagingRecommendation:
+      project?.packagingAssessment?.reasoning?.join("\n") || "",
+    workaroundPath: project?.packagingAssessment?.workaroundPath || "",
+    recommendedNextStep:
+      project?.packagingAssessment?.recommendedNextStep || "",
+    approvalSummary: isStandaloneQuote
+      ? "This quote is intended to approve the scoped line items below. Once approved, the accepted products and commercial split should become the delivery baseline."
+      : "This quote is intended to act as the commercial approval pack for the recommended implementation scope. Once approved, the accepted phases and commercial split should become the contractual baseline for planning and delivery.",
+    termsAndWorkingScope: isStandaloneQuote
+      ? "This quote covers the scoped job and any accepted add-ons. Future work outside the approved line items should be treated as a separate scope or revised quote."
+      : "This document is the commercial quote generated from the discovery process. Once approved, it becomes the working commercial scope baseline for planning and delivery. Future work outside the approved phases should be treated as a separate scope or formal change request."
+  };
+}
+
 export default function QuoteDocument({
   projectId,
   mode = "internal"
@@ -379,6 +538,18 @@ export default function QuoteDocument({
   const [quoteContextSummaryDraft, setQuoteContextSummaryDraft] = useState("");
   const [inScopeDraft, setInScopeDraft] = useState("");
   const [outOfScopeDraft, setOutOfScopeDraft] = useState("");
+  const [supportingToolsDraft, setSupportingToolsDraft] = useState("");
+  const [keyRisksDraft, setKeyRisksDraft] = useState("");
+  const [nextQuestionsDraft, setNextQuestionsDraft] = useState("");
+  const [clientResponsibilitiesDraft, setClientResponsibilitiesDraft] =
+    useState("");
+  const [paymentScheduleDraft, setPaymentScheduleDraft] = useState("");
+  const [quoteContentDraft, setQuoteContentDraft] = useState<QuoteContentOverrides>(
+    emptyQuoteContentOverrides()
+  );
+  const [manualProductLines, setManualProductLines] = useState<
+    ManualProductLineDraft[]
+  >([]);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [pushBusy, setPushBusy] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
@@ -496,6 +667,38 @@ export default function QuoteDocument({
           ((summaryBody?.summary?.outOfScopeItems as string[] | undefined) ??
             splitIntoList(nextSession4.out_of_scope)).join("\n")
         );
+        setSupportingToolsDraft(
+          (summaryBody?.summary?.supportingTools ?? []).join("\n")
+        );
+        setKeyRisksDraft(
+          (
+            summaryBody?.summary?.keyRisks ??
+            splitIntoList(nextSession4.risks_and_blockers)
+          ).join("\n")
+        );
+        setNextQuestionsDraft(
+          (summaryBody?.summary?.recommendedNextQuestions ?? []).join("\n")
+        );
+        setClientResponsibilitiesDraft(
+          splitIntoList(nextSession4.client_responsibilities).join("\n")
+        );
+        setPaymentScheduleDraft(
+          [
+            "Upon scope approval",
+            "At start of Phase 2",
+            "At start of Phase 4",
+            "Before final handover"
+          ].join("\n")
+        );
+        setQuoteContentDraft(
+          buildDefaultQuoteContentOverrides({
+            project: nextProject,
+            summary: summaryBody?.summary ?? null,
+            sessions: nextSessions,
+            isStandaloneQuote:
+              (nextProject?.scopeType ?? "discovery") === "standalone_quote"
+          })
+        );
       } catch (loadError) {
         setError(
           loadError instanceof Error
@@ -591,6 +794,32 @@ export default function QuoteDocument({
     }
     setInScopeDraft(savedQuote.context?.inScopeItems?.join("\n") ?? "");
     setOutOfScopeDraft(savedQuote.context?.outOfScopeItems?.join("\n") ?? "");
+    setSupportingToolsDraft(savedQuote.context?.supportingTools?.join("\n") ?? "");
+    setKeyRisksDraft(savedQuote.context?.keyRisks?.join("\n") ?? "");
+    setNextQuestionsDraft(savedQuote.context?.nextQuestions?.join("\n") ?? "");
+    setClientResponsibilitiesDraft(
+      savedQuote.context?.clientResponsibilities?.join("\n") ?? ""
+    );
+    setPaymentScheduleDraft(savedQuote.paymentSchedule.join("\n"));
+    setQuoteContentDraft({
+      ...emptyQuoteContentOverrides(),
+      ...(savedQuote.context?.contentOverrides ?? {})
+    });
+    setManualProductLines(
+      savedQuote.productLines
+        .filter((productLine) => productLine.kind === "manual")
+        .map((productLine) => ({
+          id: productLine.id,
+          name: productLine.name,
+          description: productLine.description ?? "",
+          quantity: String(productLine.quantity),
+          unitPrice: String(productLine.unitPrice),
+          unitLabel: productLine.unitLabel,
+          category: productLine.category,
+          billingModel: productLine.billingModel,
+          included: true
+        }))
+    );
 
     setCurrency(savedQuote.currency);
 
@@ -721,6 +950,12 @@ export default function QuoteDocument({
     session4.client_responsibilities
   );
   const isStandaloneQuote = project?.scopeType === "standalone_quote";
+  const defaultQuoteContent = buildDefaultQuoteContentOverrides({
+    project,
+    summary,
+    sessions,
+    isStandaloneQuote
+  });
   const quoteApprovalStatus = project?.quoteApprovalStatus ?? "draft";
   const isApprovedQuote = quoteApprovalStatus === "approved";
   const inScopeItems =
@@ -742,23 +977,76 @@ export default function QuoteDocument({
   const nextQuestions = isStandaloneQuote
     ? getDisplayNextQuestions(project, summary?.recommendedNextQuestions)
     : (summary?.recommendedNextQuestions ?? []);
+  const internalPaymentSchedule = splitIntoLines(paymentScheduleDraft);
+  const effectivePaymentSchedule =
+    internalPaymentSchedule.length > 0
+      ? internalPaymentSchedule
+      : [
+          "Upon scope approval",
+          "At start of Phase 2",
+          "At start of Phase 4",
+          "Before final handover"
+        ];
   const quoteContext = savedQuote?.context;
+  const displayQuoteContent = {
+    ...defaultQuoteContent,
+    ...(isPortalMode ? quoteContext?.contentOverrides : quoteContentDraft)
+  };
+  const selectedManualProductLines = manualProductLines
+    .filter((line) => line.included && line.name.trim())
+    .map((line) => {
+      const quantity = parseNumber(line.quantity, 1);
+      const unitPrice = parseNumber(line.unitPrice, 0);
+      return {
+        id: line.id,
+        slug: line.id,
+        name: line.name.trim(),
+        category: line.category || "add_on",
+        billingModel: line.billingModel || "fixed",
+        description: line.description.trim() || null,
+        unitLabel: line.unitLabel.trim() || "item",
+        quantity,
+        unitPrice,
+        lineTotalZar: quantity * unitPrice,
+        kind: "manual" as const
+      };
+    });
   const displayPhaseCommercials =
     isPortalMode && savedQuote ? savedQuote.phaseLines : phaseCommercials;
   const displaySelectedProductLines =
-    isPortalMode && savedQuote ? savedQuote.productLines : selectedProductLines;
+    isPortalMode && savedQuote
+      ? savedQuote.productLines
+      : [...selectedProductLines, ...selectedManualProductLines];
   const displayTotals =
     isPortalMode && savedQuote
       ? savedQuote.totals
       : {
           totalHumanHours,
           totalFeeZar,
-          additionalProductsTotalZar,
-          grandTotalZar,
-          paymentAmountZar
+          additionalProductsTotalZar:
+            additionalProductsTotalZar +
+            selectedManualProductLines.reduce(
+              (total, line) => total + line.lineTotalZar,
+              0
+            ),
+          grandTotalZar:
+            totalFeeZar +
+            additionalProductsTotalZar +
+            selectedManualProductLines.reduce(
+              (total, line) => total + line.lineTotalZar,
+              0
+            ),
+          paymentAmountZar:
+            (totalFeeZar +
+              additionalProductsTotalZar +
+              selectedManualProductLines.reduce(
+                (total, line) => total + line.lineTotalZar,
+                0
+              )) /
+            Math.max(effectivePaymentSchedule.length, 1)
         };
   const displayPaymentSchedule =
-    isPortalMode && savedQuote ? savedQuote.paymentSchedule : paymentSchedule;
+    isPortalMode && savedQuote ? savedQuote.paymentSchedule : effectivePaymentSchedule;
   const displayInScopeItems =
     isPortalMode && quoteContext
       ? quoteContext.inScopeItems
@@ -770,15 +1058,21 @@ export default function QuoteDocument({
   const displaySupportingTools =
     isPortalMode && quoteContext
       ? quoteContext.supportingTools
-      : supportingTools;
+      : splitIntoList(supportingToolsDraft || supportingTools.join("\n"));
   const displayKeyRisks =
-    isPortalMode && quoteContext ? quoteContext.keyRisks : keyRisks;
+    isPortalMode && quoteContext
+      ? quoteContext.keyRisks
+      : splitIntoList(keyRisksDraft || keyRisks.join("\n"));
   const displayNextQuestions =
-    isPortalMode && quoteContext ? quoteContext.nextQuestions : nextQuestions;
+    isPortalMode && quoteContext
+      ? quoteContext.nextQuestions
+      : splitIntoList(nextQuestionsDraft || nextQuestions.join("\n"));
   const displayClientResponsibilities =
     isPortalMode && quoteContext
       ? quoteContext.clientResponsibilities
-      : clientResponsibilities;
+      : splitIntoList(
+          clientResponsibilitiesDraft || clientResponsibilities.join("\n")
+        );
   const displayQuoteContextSummary =
     isPortalMode && quoteContext
       ? quoteContext.quoteContextSummary
@@ -884,7 +1178,7 @@ export default function QuoteDocument({
                 effortHours: task.effortHours
               }))
             })),
-            productLines: selectedProductLines.map((product) => ({
+            productLines: [...selectedProductLines, ...selectedManualProductLines].map((product) => ({
               id: product.id,
               slug: product.slug,
               name: product.name,
@@ -894,26 +1188,35 @@ export default function QuoteDocument({
               unitLabel: product.unitLabel,
               quantity: product.quantity,
               unitPrice: product.unitPrice,
-              lineTotalZar: product.lineTotalZar
+              lineTotalZar: product.lineTotalZar,
+              kind: product.kind ?? "product"
             })),
             totals: {
-              totalHumanHours,
-              totalFeeZar,
-              additionalProductsTotalZar,
-              grandTotalZar,
-              paymentAmountZar
+              totalHumanHours: displayTotals.totalHumanHours,
+              totalFeeZar: displayTotals.totalFeeZar,
+              additionalProductsTotalZar: displayTotals.additionalProductsTotalZar,
+              grandTotalZar: displayTotals.grandTotalZar,
+              paymentAmountZar: displayTotals.paymentAmountZar
             },
-            paymentSchedule,
+            paymentSchedule: effectivePaymentSchedule,
             context: {
               quoteTitle: quoteTitle.trim() || `${project?.name ?? "Project"} Quote`,
               quoteContextSummary: quoteContextSummaryDraft.trim() || null,
               inScopeItems: splitIntoList(inScopeDraft),
               outOfScopeItems: splitIntoList(outOfScopeDraft),
-              supportingTools,
-              keyRisks,
-              nextQuestions,
-              clientResponsibilities,
+              supportingTools: splitIntoList(
+                supportingToolsDraft || supportingTools.join("\n")
+              ),
+              keyRisks: splitIntoList(keyRisksDraft || keyRisks.join("\n")),
+              nextQuestions: splitIntoList(
+                nextQuestionsDraft || nextQuestions.join("\n")
+              ),
+              clientResponsibilities: splitIntoList(
+                clientResponsibilitiesDraft ||
+                  clientResponsibilities.join("\n")
+              ),
               isStandaloneQuote,
+              contentOverrides: quoteContentDraft,
               blueprintGeneratedAt: blueprint?.generatedAt ?? null
             }
           })
@@ -1250,8 +1553,8 @@ export default function QuoteDocument({
                 <SectionEyebrow>Editable Fields</SectionEyebrow>
                 <SectionTitle>Core commercial copy</SectionTitle>
                 <p className="mt-4 max-w-3xl text-sm leading-7 text-text-secondary">
-                  Edit the quote title, summary, and scope notes here before you
-                  push the quote to the client portal.
+                  Edit the full quote content here before you push the quote to
+                  the client portal.
                 </p>
                 <div className="mt-6 grid gap-4">
                   <label className="block">
@@ -1288,6 +1591,144 @@ export default function QuoteDocument({
                       />
                     </label>
                   </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Primary challenge
+                      </span>
+                      <textarea
+                        value={quoteContentDraft.primaryChallenge ?? ""}
+                        onChange={(event) =>
+                          setQuoteContentDraft((currentDraft) => ({
+                            ...currentDraft,
+                            primaryChallenge: event.target.value
+                          }))
+                        }
+                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Success outcomes
+                      </span>
+                      <textarea
+                        value={quoteContentDraft.successOutcomes ?? ""}
+                        onChange={(event) =>
+                          setQuoteContentDraft((currentDraft) => ({
+                            ...currentDraft,
+                            successOutcomes: event.target.value
+                          }))
+                        }
+                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {[
+                      ["engagementTrack", "Engagement track"],
+                      ["platformFit", "Platform fit"],
+                      ["changeManagement", "Change management"],
+                      ["dataReadiness", "Data readiness"],
+                      ["currentStack", "Current stack"],
+                      ["hubspotToday", "HubSpot today"],
+                      ["dataLandscape", "Data landscape"],
+                      ["currentProcesses", "Current processes"],
+                      ["hubsAndFeatures", "Hubs and features"],
+                      ["pipelineAndProcess", "Pipeline and process"],
+                      ["automation", "Automation"],
+                      ["reporting", "Reporting"],
+                      ["howWeWillWork", "How we will work"],
+                      ["howScopeIsControlled", "How scope is controlled"],
+                      ["howClientParticipates", "How the client participates"],
+                      ["packagingFitLabel", "Packaging fit"],
+                      ["packagingFitSummary", "Packaging summary"],
+                      ["whyPackagingRecommendation", "Why this recommendation was made"],
+                      ["workaroundPath", "Lower-tier workaround path"],
+                      ["recommendedNextStep", "Recommended next step"],
+                      ["approvalSummary", "Approval copy"],
+                      ["termsAndWorkingScope", "Terms and working scope"]
+                    ].map(([field, label]) => (
+                      <label key={field} className="block">
+                        <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                          {label}
+                        </span>
+                        <textarea
+                          value={
+                            (quoteContentDraft[
+                              field as keyof QuoteContentOverrides
+                            ] as string | null | undefined) ?? ""
+                          }
+                          onChange={(event) =>
+                            setQuoteContentDraft((currentDraft) => ({
+                              ...currentDraft,
+                              [field]: event.target.value
+                            }))
+                          }
+                          className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Supporting tools
+                      </span>
+                      <textarea
+                        value={supportingToolsDraft}
+                        onChange={(event) =>
+                          setSupportingToolsDraft(event.target.value)
+                        }
+                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Key risks
+                      </span>
+                      <textarea
+                        value={keyRisksDraft}
+                        onChange={(event) => setKeyRisksDraft(event.target.value)}
+                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Client responsibilities
+                      </span>
+                      <textarea
+                        value={clientResponsibilitiesDraft}
+                        onChange={(event) =>
+                          setClientResponsibilitiesDraft(event.target.value)
+                        }
+                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Open questions
+                      </span>
+                      <textarea
+                        value={nextQuestionsDraft}
+                        onChange={(event) =>
+                          setNextQuestionsDraft(event.target.value)
+                        }
+                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                  </div>
+                  <label className="block">
+                    <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                      Payment schedule
+                    </span>
+                    <textarea
+                      value={paymentScheduleDraft}
+                      onChange={(event) =>
+                        setPaymentScheduleDraft(event.target.value)
+                      }
+                      className="min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                    />
+                  </label>
                 </div>
               </section>
             ) : null}
@@ -1370,8 +1811,7 @@ export default function QuoteDocument({
                             Primary challenge
                           </p>
                           <p className="mt-3 text-sm leading-7 text-text-secondary">
-                            {session1.primary_pain_challenge ||
-                              "To be confirmed"}
+                            {displayQuoteContent.primaryChallenge}
                           </p>
                         </div>
                         <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
@@ -1380,7 +1820,7 @@ export default function QuoteDocument({
                           </p>
                           <div className="mt-3 space-y-2 text-sm text-text-secondary">
                             {splitIntoLines(
-                              session1.goals_and_success_metrics
+                              displayQuoteContent.successOutcomes ?? ""
                             ).map((line) => (
                               <p key={line}>{line}</p>
                             ))}
@@ -1398,16 +1838,16 @@ export default function QuoteDocument({
                         {[
                           [
                             "Engagement track",
-                            summary?.engagementTrack ?? "Not set"
+                            displayQuoteContent.engagementTrack ?? "Not set"
                           ],
-                          ["Platform fit", summary?.platformFit ?? "Not set"],
+                          ["Platform fit", displayQuoteContent.platformFit ?? "Not set"],
                           [
                             "Change management",
-                            summary?.changeManagementRating ?? "Not set"
+                            displayQuoteContent.changeManagement ?? "Not set"
                           ],
                           [
                             "Data readiness",
-                            summary?.dataReadinessRating ?? "Not set"
+                            displayQuoteContent.dataReadiness ?? "Not set"
                           ]
                         ].map(([label, value]) => (
                           <div
@@ -1418,16 +1858,7 @@ export default function QuoteDocument({
                               {label}
                             </p>
                             <p className="mt-2 text-sm font-medium text-white">
-                              {formatDiscoveryOutcome(
-                                label === "Engagement track"
-                                  ? "engagementTrack"
-                                  : label === "Platform fit"
-                                    ? "platformFit"
-                                    : label === "Change management"
-                                      ? "changeManagementRating"
-                                      : "dataReadinessRating",
-                                value
-                              )}
+                              {value}
                             </p>
                           </div>
                         ))}
@@ -1441,10 +1872,10 @@ export default function QuoteDocument({
                       </SectionTitle>
                       <div className="mt-5 grid gap-4 md:grid-cols-2">
                         {[
-                          ["Current stack", session2.current_tech_stack],
-                          ["HubSpot today", session2.current_hubspot_state],
-                          ["Data landscape", session2.data_landscape],
-                          ["Current processes", session2.current_processes]
+                          ["Current stack", displayQuoteContent.currentStack],
+                          ["HubSpot today", displayQuoteContent.hubspotToday],
+                          ["Data landscape", displayQuoteContent.dataLandscape],
+                          ["Current processes", displayQuoteContent.currentProcesses]
                         ].map(([label, value]) => (
                           <div
                             key={label}
@@ -1472,14 +1903,14 @@ export default function QuoteDocument({
                         {[
                           [
                             "Hubs & features",
-                            session3.hubs_and_features_required
+                            displayQuoteContent.hubsAndFeatures
                           ],
                           [
                             "Pipeline & process",
-                            session3.pipeline_and_process_design
+                            displayQuoteContent.pipelineAndProcess
                           ],
-                          ["Automation", session3.automation_requirements],
-                          ["Reporting", session3.reporting_requirements]
+                          ["Automation", displayQuoteContent.automation],
+                          ["Reporting", displayQuoteContent.reporting]
                         ].map(([label, value]) => (
                           <div
                             key={label}
@@ -1507,15 +1938,15 @@ export default function QuoteDocument({
                         {[
                           [
                             "How we will work",
-                            "We will deliver the implementation in phased onboarding blocks, each with a clear output, review point, and commercial boundary."
+                            displayQuoteContent.howWeWillWork
                           ],
                           [
                             "How scope is controlled",
-                            "The approved phases below become the working implementation scope. Any material changes after approval should move through change control."
+                            displayQuoteContent.howScopeIsControlled
                           ],
                           [
                             "How the client participates",
-                            "The client team provides access, confirms process decisions, reviews milestones, and signs off the agreed outputs."
+                            displayQuoteContent.howClientParticipates
                           ]
                         ].map(([label, value]) => (
                           <div
@@ -1752,7 +2183,11 @@ export default function QuoteDocument({
                   </div>
                 ) : null}
 
-                {project.packagingAssessment ? (
+                {project.packagingAssessment ||
+                displayQuoteContent.packagingFitSummary ||
+                displayQuoteContent.whyPackagingRecommendation ||
+                displayQuoteContent.workaroundPath ||
+                displayQuoteContent.recommendedNextStep ? (
                   <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                     <SectionEyebrow>Platform Packaging</SectionEyebrow>
                     <SectionTitle>
@@ -1764,40 +2199,44 @@ export default function QuoteDocument({
                           Packaging fit
                         </p>
                         <p className="mt-2 text-sm text-white">
-                          {project.implementationApproach === "best_practice"
-                            ? "Best-practice / scalable approach"
-                            : "Pragmatic / POC approach"}
+                          {displayQuoteContent.packagingFitLabel}
                         </p>
                         <p
                           className={`mt-2 text-sm font-medium ${
-                            project.packagingAssessment.fit === "good"
+                            project?.packagingAssessment?.fit === "good"
                               ? "text-[#51d0b0]"
-                              : project.packagingAssessment.fit === "attention"
+                              : project?.packagingAssessment?.fit === "attention"
                                 ? "text-[#f8c16c]"
                                 : "text-[#ff8a8a]"
                           }`}
                         >
-                          {project.packagingAssessment.fit.replace(/_/g, " ")}
+                          {(project?.packagingAssessment?.fit ?? "good").replace(
+                            /_/g,
+                            " "
+                          )}
                         </p>
                         <p className="mt-2 text-sm text-text-secondary">
-                          {project.packagingAssessment.summary}
+                          {displayQuoteContent.packagingFitSummary}
                         </p>
                       </div>
-                      {project.packagingAssessment.reasoning.length > 0 ? (
+                      {splitIntoLines(
+                        displayQuoteContent.whyPackagingRecommendation ?? ""
+                      ).length > 0 ? (
                         <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                             Why this recommendation was made
                           </p>
                           <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-                            {project.packagingAssessment.reasoning.map(
-                              (item) => (
-                                <li key={item}>{item}</li>
-                              )
-                            )}
+                            {splitIntoLines(
+                              displayQuoteContent.whyPackagingRecommendation ??
+                                ""
+                            ).map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
                           </ul>
                         </div>
                       ) : null}
-                      {project.packagingAssessment.warnings.length > 0 ? (
+                      {project?.packagingAssessment?.warnings?.length ? (
                         <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
                             Packaging watch-outs
@@ -1811,13 +2250,13 @@ export default function QuoteDocument({
                           </ul>
                         </div>
                       ) : null}
-                      {project.packagingAssessment.workaroundPath ? (
+                      {displayQuoteContent.workaroundPath ? (
                         <div className="rounded-2xl border border-[rgba(73,205,225,0.16)] bg-[rgba(73,205,225,0.08)] p-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-[#49cde1]">
                             Lower-tier workaround path
                           </p>
                           <p className="mt-2 text-sm text-white">
-                            {project.packagingAssessment.workaroundPath}
+                            {displayQuoteContent.workaroundPath}
                           </p>
                         </div>
                       ) : null}
@@ -1826,7 +2265,7 @@ export default function QuoteDocument({
                           Recommended next step
                         </p>
                         <p className="mt-2 text-sm text-text-secondary">
-                          {project.packagingAssessment.recommendedNextStep}
+                          {displayQuoteContent.recommendedNextStep}
                         </p>
                       </div>
                     </div>
@@ -2017,8 +2456,8 @@ export default function QuoteDocument({
               </section>
             ) : null}
 
-            {!isPortalMode ? (
-              <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                {!isPortalMode ? (
+                  <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                 <SectionEyebrow>Additional Products</SectionEyebrow>
                 <SectionTitle>Retainers and add-on services</SectionTitle>
                 <p className="mt-4 max-w-3xl text-sm leading-7 text-text-secondary">
@@ -2029,6 +2468,145 @@ export default function QuoteDocument({
                 </p>
 
                 <div className="mt-6 space-y-4">
+                  <div className="flex items-center justify-between rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        Manual line items
+                      </p>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        Add custom quote items directly here when the standard
+                        product list does not match the deal.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setManualProductLines((currentLines) => [
+                          ...currentLines,
+                          createManualProductLineDraft()
+                        ])
+                      }
+                      className="rounded-full border border-[rgba(255,255,255,0.1)] px-4 py-2 text-sm text-white"
+                    >
+                      Add line item
+                    </button>
+                  </div>
+                  {manualProductLines.map((line) => (
+                    <div
+                      key={line.id}
+                      className="grid gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 lg:grid-cols-[1fr_110px_140px_140px_180px]"
+                    >
+                      <div className="space-y-3">
+                        <input
+                          value={line.name}
+                          onChange={(event) =>
+                            setManualProductLines((currentLines) =>
+                              currentLines.map((currentLine) =>
+                                currentLine.id === line.id
+                                  ? { ...currentLine, name: event.target.value }
+                                  : currentLine
+                              )
+                            )
+                          }
+                          placeholder="Line item name"
+                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                        />
+                        <textarea
+                          value={line.description}
+                          onChange={(event) =>
+                            setManualProductLines((currentLines) =>
+                              currentLines.map((currentLine) =>
+                                currentLine.id === line.id
+                                  ? {
+                                      ...currentLine,
+                                      description: event.target.value
+                                    }
+                                  : currentLine
+                              )
+                            )
+                          }
+                          placeholder="Description"
+                          className="min-h-[90px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                        />
+                      </div>
+                      <input
+                        value={line.quantity}
+                        onChange={(event) =>
+                          setManualProductLines((currentLines) =>
+                            currentLines.map((currentLine) =>
+                              currentLine.id === line.id
+                                ? { ...currentLine, quantity: event.target.value }
+                                : currentLine
+                            )
+                          )
+                        }
+                        placeholder="Qty"
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                      />
+                      <input
+                        value={line.unitLabel}
+                        onChange={(event) =>
+                          setManualProductLines((currentLines) =>
+                            currentLines.map((currentLine) =>
+                              currentLine.id === line.id
+                                ? { ...currentLine, unitLabel: event.target.value }
+                                : currentLine
+                            )
+                          )
+                        }
+                        placeholder="Unit label"
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                      />
+                      <input
+                        value={line.unitPrice}
+                        onChange={(event) =>
+                          setManualProductLines((currentLines) =>
+                            currentLines.map((currentLine) =>
+                              currentLine.id === line.id
+                                ? { ...currentLine, unitPrice: event.target.value }
+                                : currentLine
+                            )
+                          )
+                        }
+                        placeholder="Unit price"
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                      />
+                      <div className="flex flex-col justify-between rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+                        <label className="flex items-center gap-3 text-sm text-white">
+                          <input
+                            type="checkbox"
+                            checked={line.included}
+                            onChange={(event) =>
+                              setManualProductLines((currentLines) =>
+                                currentLines.map((currentLine) =>
+                                  currentLine.id === line.id
+                                    ? {
+                                        ...currentLine,
+                                        included: event.target.checked
+                                      }
+                                    : currentLine
+                                )
+                              )
+                            }
+                          />
+                          Include in quote
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setManualProductLines((currentLines) =>
+                              currentLines.filter(
+                                (currentLine) => currentLine.id !== line.id
+                              )
+                            )
+                          }
+                          className="mt-4 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-text-muted"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                   {linkedRetainerLine ? (
                     <div className="rounded-2xl border border-[rgba(73,205,225,0.18)] bg-[rgba(73,205,225,0.08)] p-5">
                       <div className="flex flex-wrap items-center gap-3">
@@ -2229,7 +2807,7 @@ export default function QuoteDocument({
                     ? "This quote has been approved in the client portal. The approved commercial scope is now the delivery baseline and scope-driving changes should move through change management."
                     : quoteApprovalStatus === "shared"
                       ? "This quote has been shared to the client portal and is waiting for client approval."
-                      : "This quote is intended to act as the commercial approval pack for the recommended implementation scope. Once approved, the accepted phases and commercial split should become the contractual baseline for planning and delivery."}
+                      : displayQuoteContent.approvalSummary}
                 </p>
                 <div className="mt-6 space-y-4 text-sm text-text-secondary">
                   <p>
@@ -2286,26 +2864,11 @@ export default function QuoteDocument({
                 <SectionEyebrow>Terms & Working Scope</SectionEyebrow>
                 <SectionTitle>How this quote should be used</SectionTitle>
                 <div className="mt-4 space-y-4 text-sm leading-7 text-text-secondary">
-                  <p>
-                    This document is the commercial quote generated from the
-                    discovery process. The separate discovery document remains
-                    the narrative recommendation and project planning reference.
-                  </p>
-                  <p>
-                    Once approved, this quote becomes the working commercial
-                    scope baseline for planning and delivery. Future work
-                    outside the approved phases should be treated as a separate
-                    scope or formal change request.
-                  </p>
-                  <p>
-                    Delivery sequencing, detailed task allocation, and execution
-                    routing are finalized during planning after client approval.
-                  </p>
-                  <p>
-                    {isPortalMode
-                      ? "The discovery document and quote remain separate so the client can review the recommended scope alongside the commercial offer."
-                      : "Commercials can be refined before approval, including currency, hours, and per-phase rates. The discovery document and quote intentionally remain separate so the client can approve all or only part of the recommended scope."}
-                  </p>
+                  {splitIntoLines(
+                    displayQuoteContent.termsAndWorkingScope ?? ""
+                  ).map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
                 </div>
               </div>
             </section>
