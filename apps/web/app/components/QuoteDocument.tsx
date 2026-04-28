@@ -462,7 +462,8 @@ function composeLinkedRetainerLine(retainer: NonNullable<Project["retainer"]>) {
     quantity: termMonths,
     unitPrice: retainer.blockSize * retainer.rate,
     lineTotalZar: retainer.blockSize * retainer.rate * termMonths,
-    kind: "retainer" as const
+    kind: "retainer" as const,
+    metadata: null as QuoteProductLineMetadata | null
   };
 }
 
