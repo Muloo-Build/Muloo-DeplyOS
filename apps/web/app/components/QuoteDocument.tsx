@@ -131,6 +131,7 @@ interface ProductCatalogItem {
   isActive: boolean;
   sortOrder: number;
   kind?: string | null;
+  metadata?: QuoteProductLineMetadata | null;
 }
 
 interface QuoteProductLineMetadata {
