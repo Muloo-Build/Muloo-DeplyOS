@@ -5160,7 +5160,14 @@ const projectQuoteProductLineSchema = z.object({
   quantity: z.number().finite().positive(),
   unitPrice: z.number().finite().positive(),
   lineTotalZar: z.number().finite().nonnegative(),
-  kind: z.enum(["product", "retainer", "manual"]).optional()
+  kind: z.enum(["product", "retainer", "manual"]).optional(),
+  metadata: z.object({
+    monthlyHours: z.number().finite().nonnegative().nullable().optional(),
+    hourlyRate: z.number().finite().nonnegative().nullable().optional(),
+    optionGroup: z.string().nullable().optional(),
+    paymentTerms: z.string().nullable().optional(),
+    carryOverTerms: z.string().nullable().optional()
+  }).nullable().optional()
 });
 
 const projectQuoteContentOverridesSchema = z.object({
@@ -5227,7 +5234,7 @@ const projectQuotePayloadSchema = z.object({
   phaseLines: z.array(projectQuotePhaseLineSchema),
   productLines: z.array(projectQuoteProductLineSchema),
   totals: projectQuoteTotalsSchema,
-  paymentSchedule: z.array(z.string().min(1)).min(1),
+  paymentSchedule: z.array(z.string().min(1)),
   context: projectQuoteContextSchema
 });
 
@@ -5343,6 +5350,79 @@ async function loadLatestProjectQuote(projectId: string, statuses?: string[]) {
   });
 
   return quote ? serializeProjectQuote(quote) : null;
+}
+
+function resolveSelectedQuoteProductLines(
+  productLines: z.infer<typeof projectQuoteProductLineSchema>[],
+  selectedProductLineIds?: string[]
+) {
+  const directLines: z.infer<typeof projectQuoteProductLineSchema>[] = [];
+  const groupedLines = new Map<
+    string,
+    z.infer<typeof projectQuoteProductLineSchema>[]
+  >();
+
+  for (const line of productLines) {
+    const optionGroup = line.metadata?.optionGroup?.trim();
+    if (!optionGroup) {
+      directLines.push(line);
+      continue;
+    }
+
+    const existingLines = groupedLines.get(optionGroup) ?? [];
+    existingLines.push(line);
+    groupedLines.set(optionGroup, existingLines);
+  }
+
+  const resolvedLines = [...directLines];
+
+  for (const [group, lines] of groupedLines.entries()) {
+    const selectedLine = selectedProductLineIds?.length
+      ? lines.find((line) => selectedProductLineIds.includes(line.id))
+      : undefined;
+    const resolvedLine = selectedLine ?? lines[0];
+    if (resolvedLine) {
+      resolvedLines.push(resolvedLine);
+    }
+  }
+
+  return resolvedLines;
+}
+
+function computeQuoteTotalsFromSelections(input: {
+  phaseLines: z.infer<typeof projectQuotePhaseLineSchema>[];
+  productLines: z.infer<typeof projectQuoteProductLineSchema>[];
+  paymentSchedule: string[];
+}) {
+  const totalFeeZar = input.phaseLines
+    .filter((phase) => phase.included)
+    .reduce((total, phase) => total + phase.feeZar, 0);
+  const manualHours = input.productLines.reduce((total, line) => {
+    if (!line.metadata?.monthlyHours) {
+      return total;
+    }
+
+    return total + line.metadata.monthlyHours * line.quantity;
+  }, 0);
+  const additionalProductsTotalZar = input.productLines.reduce(
+    (total, line) => total + line.lineTotalZar,
+    0
+  );
+  const grandTotalZar = totalFeeZar + additionalProductsTotalZar;
+
+  return {
+    totalHumanHours:
+      input.phaseLines
+        .filter((phase) => phase.included)
+        .reduce((total, phase) => total + phase.humanHours, 0) + manualHours,
+    totalFeeZar,
+    additionalProductsTotalZar,
+    grandTotalZar,
+    paymentAmountZar:
+      input.paymentSchedule.length > 0
+        ? grandTotalZar / input.paymentSchedule.length
+        : 0
+  };
 }
 
 export async function loadProjectQuoteDocument(projectId: string) {
@@ -11611,7 +11691,10 @@ export async function saveProjectQuote(projectId: string, payload: unknown) {
 
 export async function approveProjectQuote(
   projectId: string,
-  clientUserId: string
+  clientUserId: string,
+  payload?: {
+    selectedProductLineIds?: string[];
+  }
 ) {
   const access = await prisma.clientProjectAccess.findUnique({
     where: {
@@ -11668,10 +11751,31 @@ export async function approveProjectQuote(
         );
       }
 
+      const phaseLines = z
+        .array(projectQuotePhaseLineSchema)
+        .parse(latestQuote.phaseLines);
+      const productLines = z
+        .array(projectQuoteProductLineSchema)
+        .parse(latestQuote.productLines);
+      const paymentSchedule = z
+        .array(z.string())
+        .parse(latestQuote.paymentSchedule);
+      const approvedProductLines = resolveSelectedQuoteProductLines(
+        productLines,
+        payload?.selectedProductLineIds
+      );
+      const approvedTotals = computeQuoteTotalsFromSelections({
+        phaseLines,
+        productLines: approvedProductLines,
+        paymentSchedule
+      });
+
       const approvedQuote = await transaction.projectQuote.update({
         where: { id: latestQuote.id },
         data: {
           status: "approved",
+          productLines: approvedProductLines as Prisma.Prisma.InputJsonValue,
+          totals: approvedTotals as Prisma.Prisma.InputJsonValue,
           approvedAt,
           approvedByName: approverName || access.user.email,
           approvedByEmail: access.user.email

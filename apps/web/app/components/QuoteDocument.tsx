@@ -133,6 +133,14 @@ interface ProductCatalogItem {
   kind?: string | null;
 }
 
+interface QuoteProductLineMetadata {
+  monthlyHours?: number | null;
+  hourlyRate?: number | null;
+  optionGroup?: string | null;
+  paymentTerms?: string | null;
+  carryOverTerms?: string | null;
+}
+
 interface QuoteContentOverrides {
   primaryChallenge?: string | null;
   successOutcomes?: string | null;
@@ -170,6 +178,9 @@ interface ManualProductLineDraft {
   category: string;
   billingModel: string;
   included: boolean;
+  monthlyHours: string;
+  hourlyRate: string;
+  optionGroup: string;
 }
 
 interface QuoteSnapshot {
@@ -200,6 +211,7 @@ interface QuoteSnapshot {
     unitPrice: number;
     lineTotalZar: number;
     kind?: string | null;
+    metadata?: QuoteProductLineMetadata | null;
   }>;
   totals: {
     totalHumanHours: number;
@@ -338,25 +350,94 @@ function createManualProductLineDraft(): ManualProductLineDraft {
     unitLabel: "item",
     category: "add_on",
     billingModel: "fixed",
-    included: true
+    included: true,
+    monthlyHours: "",
+    hourlyRate: "",
+    optionGroup: ""
   };
 }
 
 function createRetainerOptionLineDraft(
-  name = "Retainer option"
+  name = "Retainer option",
+  defaultHourlyRate = "1750"
 ): ManualProductLineDraft {
   return {
     id: `manual-${Math.random().toString(36).slice(2, 10)}`,
     name,
     description:
-      "Use quantity for months, unit price for the monthly fee, and describe hours, rate, carry-over, and payment terms here.",
+      "Monthly hour allocation, carry-over, and payment terms.",
     quantity: "3",
     unitPrice: "35000",
     unitLabel: "month",
     category: "retainer",
     billingModel: "monthly",
-    included: true
+    included: true,
+    monthlyHours: "20",
+    hourlyRate: defaultHourlyRate,
+    optionGroup: "retainer-options"
   };
+}
+
+function getManualLineMetadata(line: ManualProductLineDraft): QuoteProductLineMetadata | null {
+  const monthlyHours = Number(line.monthlyHours);
+  const hourlyRate = Number(line.hourlyRate);
+  const metadata: QuoteProductLineMetadata = {};
+
+  if (Number.isFinite(monthlyHours) && monthlyHours > 0) {
+    metadata.monthlyHours = monthlyHours;
+  }
+
+  if (Number.isFinite(hourlyRate) && hourlyRate > 0) {
+    metadata.hourlyRate = hourlyRate;
+  }
+
+  if (line.optionGroup.trim()) {
+    metadata.optionGroup = line.optionGroup.trim();
+  }
+
+  return Object.keys(metadata).length > 0 ? metadata : null;
+}
+
+function resolveOptionProductLines<T extends { id: string; metadata?: QuoteProductLineMetadata | null }>(
+  productLines: T[],
+  selectedOptionIds?: Record<string, string>
+) {
+  const directLines: T[] = [];
+  const groupedLines = new Map<string, T[]>();
+
+  for (const line of productLines) {
+    const optionGroup = line.metadata?.optionGroup?.trim();
+    if (!optionGroup) {
+      directLines.push(line);
+      continue;
+    }
+
+    const existingLines = groupedLines.get(optionGroup) ?? [];
+    existingLines.push(line);
+    groupedLines.set(optionGroup, existingLines);
+  }
+
+  const resolvedLines = [...directLines];
+
+  for (const [group, lines] of groupedLines.entries()) {
+    const selectedId = selectedOptionIds?.[group];
+    resolvedLines.push(
+      lines.find((line) => line.id === selectedId) ?? lines[0]
+    );
+  }
+
+  return resolvedLines;
+}
+
+function getProductLineHours(productLine: {
+  quantity: number;
+  metadata?: QuoteProductLineMetadata | null;
+}) {
+  if (!productLine.metadata?.monthlyHours) {
+    return 0;
+  }
+
+  return productLine.metadata.monthlyHours * productLine.quantity;
 }
 
 function composeLinkedRetainerLine(retainer: NonNullable<Project["retainer"]>) {
@@ -567,6 +648,9 @@ export default function QuoteDocument({
   const [manualProductLines, setManualProductLines] = useState<
     ManualProductLineDraft[]
   >([]);
+  const [selectedPortalOptionIds, setSelectedPortalOptionIds] = useState<
+    Record<string, string>
+  >({});
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
@@ -799,8 +883,8 @@ export default function QuoteDocument({
       ...emptyQuoteContentOverrides(),
       ...(savedQuote.context?.contentOverrides ?? {})
     });
-    setManualProductLines(
-      savedQuote.productLines
+        setManualProductLines(
+          savedQuote.productLines
         .filter((productLine) => productLine.kind === "manual")
         .map((productLine) => ({
           id: productLine.id,
@@ -811,7 +895,14 @@ export default function QuoteDocument({
           unitLabel: productLine.unitLabel,
           category: productLine.category,
           billingModel: productLine.billingModel,
-          included: true
+          included: true,
+          monthlyHours: productLine.metadata?.monthlyHours
+            ? String(productLine.metadata.monthlyHours)
+            : "",
+          hourlyRate: productLine.metadata?.hourlyRate
+            ? String(productLine.metadata.hourlyRate)
+            : "",
+          optionGroup: productLine.metadata?.optionGroup ?? ""
         }))
     );
 
@@ -848,6 +939,31 @@ export default function QuoteDocument({
       return nextProducts;
     });
   }, [savedQuote]);
+
+  useEffect(() => {
+    const sourceLines = isPortalMode
+      ? (savedQuote?.productLines ?? [])
+      : manualProductLines
+          .filter((line) => line.included && line.name.trim())
+          .map((line) => ({
+            id: line.id,
+            metadata: getManualLineMetadata(line)
+          }));
+
+    const nextSelections: Record<string, string> = {};
+
+    for (const line of sourceLines) {
+      const optionGroup = line.metadata?.optionGroup?.trim();
+      if (optionGroup && !nextSelections[optionGroup]) {
+        nextSelections[optionGroup] = line.id;
+      }
+    }
+
+    setSelectedPortalOptionIds((currentSelections) => ({
+      ...nextSelections,
+      ...currentSelections
+    }));
+  }, [isPortalMode, manualProductLines, savedQuote]);
 
   const session1 =
     sessions.find((session) => session.session === 1)?.fields ?? {};
@@ -971,16 +1087,7 @@ export default function QuoteDocument({
   const nextQuestions = isStandaloneQuote
     ? getDisplayNextQuestions(project, summary?.recommendedNextQuestions)
     : (summary?.recommendedNextQuestions ?? []);
-  const internalPaymentSchedule = splitIntoLines(paymentScheduleDraft);
-  const effectivePaymentSchedule =
-    internalPaymentSchedule.length > 0
-      ? internalPaymentSchedule
-      : [
-          "Upon scope approval",
-          "At start of Phase 2",
-          "At start of Phase 4",
-          "Before final handover"
-        ];
+  const effectivePaymentSchedule = splitIntoLines(paymentScheduleDraft);
   const quoteContext = savedQuote?.context;
   const displayQuoteContent = {
     ...defaultQuoteContent,
@@ -1002,43 +1109,46 @@ export default function QuoteDocument({
         quantity,
         unitPrice,
         lineTotalZar: quantity * unitPrice,
-        kind: "manual" as const
+        kind: "manual" as const,
+        metadata: getManualLineMetadata(line)
       };
     });
-  const displayPhaseCommercials =
-    isPortalMode && savedQuote ? savedQuote.phaseLines : phaseCommercials;
-  const displaySelectedProductLines =
+  const allDisplayProductLines =
     isPortalMode && savedQuote
       ? savedQuote.productLines
       : [...selectedProductLines, ...selectedManualProductLines];
+  const activeDisplayProductLines = resolveOptionProductLines(
+    allDisplayProductLines,
+    selectedPortalOptionIds
+  );
+  const activeProductLineIds = new Set(
+    activeDisplayProductLines.map((productLine) => productLine.id)
+  );
+  const manualHoursTotal = activeDisplayProductLines.reduce(
+    (total, productLine) => total + getProductLineHours(productLine),
+    0
+  );
+  const displayPhaseCommercials =
+    isPortalMode && savedQuote ? savedQuote.phaseLines : phaseCommercials;
+  const phaseFeeTotal = displayPhaseCommercials
+    .filter((phase) => phase.included)
+    .reduce((total, phase) => total + phase.feeZar, 0);
+  const activeProductsTotalZar = activeDisplayProductLines.reduce(
+    (total, productLine) => total + productLine.lineTotalZar,
+    0
+  );
   const displayTotals =
-    isPortalMode && savedQuote
-      ? savedQuote.totals
-      : {
-          totalHumanHours,
-          totalFeeZar,
-          additionalProductsTotalZar:
-            additionalProductsTotalZar +
-            selectedManualProductLines.reduce(
-              (total, line) => total + line.lineTotalZar,
-              0
-            ),
-          grandTotalZar:
-            totalFeeZar +
-            additionalProductsTotalZar +
-            selectedManualProductLines.reduce(
-              (total, line) => total + line.lineTotalZar,
-              0
-            ),
-          paymentAmountZar:
-            (totalFeeZar +
-              additionalProductsTotalZar +
-              selectedManualProductLines.reduce(
-                (total, line) => total + line.lineTotalZar,
-                0
-              )) /
-            Math.max(effectivePaymentSchedule.length, 1)
-        };
+    {
+      totalHumanHours: totalHumanHours + manualHoursTotal,
+      totalFeeZar: phaseFeeTotal,
+      additionalProductsTotalZar: activeProductsTotalZar,
+      grandTotalZar: phaseFeeTotal + activeProductsTotalZar,
+      paymentAmountZar:
+        effectivePaymentSchedule.length > 0
+          ? (phaseFeeTotal + activeProductsTotalZar) /
+            effectivePaymentSchedule.length
+          : 0
+    };
   const displayPaymentSchedule =
     isPortalMode && savedQuote ? savedQuote.paymentSchedule : effectivePaymentSchedule;
   const displayInScopeItems =
@@ -1092,6 +1202,22 @@ export default function QuoteDocument({
   const documentationProduct = products.find(
     (product) => product.slug === "documentation-sop-pack"
   );
+  const activeHourlyRates = [
+    ...displayPhaseCommercials
+      .filter((phase) => phase.included)
+      .map((phase) => phase.rate),
+    ...activeDisplayProductLines
+      .map((productLine) => productLine.metadata?.hourlyRate ?? null)
+      .filter((rate): rate is number => Boolean(rate))
+  ];
+  const displayRateSummary =
+    activeHourlyRates.length > 0
+      ? activeHourlyRates.every((rate) => rate === activeHourlyRates[0])
+        ? `${currencySymbols[currency]} ${activeHourlyRates[0]}/hr`
+        : `${currencySymbols[currency]} ${Math.min(...activeHourlyRates)}-${Math.max(
+            ...activeHourlyRates
+          )}/hr`
+      : `${currencySymbols[currency]} ${parseNumber(defaultRate, 1500)}/hr`;
   const recommendDocumentationPack =
     Boolean(documentationProduct?.isActive) &&
     (displayTotals.totalHumanHours >= 40 ||
@@ -1212,7 +1338,8 @@ export default function QuoteDocument({
           quantity: product.quantity,
           unitPrice: product.unitPrice,
           lineTotalZar: product.lineTotalZar,
-          kind: product.kind ?? "product"
+          kind: product.kind ?? "product",
+          metadata: product.metadata ?? null
         })
       ),
       totals: {
@@ -1300,7 +1427,13 @@ export default function QuoteDocument({
         `/api/client/projects/${encodeURIComponent(projectId)}/quote/approve`,
         {
           method: "POST",
-          credentials: "include"
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            selectedProductLineIds: Object.values(selectedPortalOptionIds)
+          })
         }
       );
       const body = await response.json().catch(() => null);
@@ -1569,6 +1702,15 @@ export default function QuoteDocument({
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-white">
                         {formatCurrency(displayTotals.grandTotalZar, currency)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                      <p className="text-sm text-text-secondary">
+                        Commercial Rate
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-white">
+                        {displayRateSummary}
                       </p>
                     </div>
                   </div>
@@ -2541,7 +2683,8 @@ export default function QuoteDocument({
                             createRetainerOptionLineDraft(
                               `Retainer option ${currentLines.filter((line) =>
                                 line.name.toLowerCase().includes("retainer option")
-                              ).length + 1}`
+                              ).length + 1}`,
+                              defaultRate
                             )
                           ])
                         }
@@ -2566,7 +2709,7 @@ export default function QuoteDocument({
                   {manualProductLines.map((line) => (
                     <div
                       key={line.id}
-                      className="grid gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 lg:grid-cols-[1fr_110px_140px_140px_140px_180px]"
+                      className="grid gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 lg:grid-cols-[1fr_110px_120px_140px_120px_140px_180px]"
                     >
                       <div className="space-y-3">
                         <input
@@ -2600,6 +2743,12 @@ export default function QuoteDocument({
                           placeholder="Description"
                           className="min-h-[90px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
                         />
+                        {line.monthlyHours && line.hourlyRate ? (
+                          <p className="text-xs text-text-muted">
+                            {line.monthlyHours} hrs/month at{" "}
+                            {currencySymbols[currency]} {line.hourlyRate}/hr
+                          </p>
+                        ) : null}
                       </div>
                       <input
                         value={line.quantity}
@@ -2613,6 +2762,23 @@ export default function QuoteDocument({
                           )
                         }
                         placeholder="Qty"
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                      />
+                      <input
+                        value={line.monthlyHours}
+                        onChange={(event) =>
+                          setManualProductLines((currentLines) =>
+                            currentLines.map((currentLine) =>
+                              currentLine.id === line.id
+                                ? {
+                                    ...currentLine,
+                                    monthlyHours: event.target.value
+                                  }
+                                : currentLine
+                            )
+                          )
+                        }
+                        placeholder="Hours / month"
                         className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
                       />
                       <select
@@ -2644,6 +2810,23 @@ export default function QuoteDocument({
                           )
                         }
                         placeholder="Unit label"
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                      />
+                      <input
+                        value={line.hourlyRate}
+                        onChange={(event) =>
+                          setManualProductLines((currentLines) =>
+                            currentLines.map((currentLine) =>
+                              currentLine.id === line.id
+                                ? {
+                                    ...currentLine,
+                                    hourlyRate: event.target.value
+                                  }
+                                : currentLine
+                            )
+                          )
+                        }
+                        placeholder="Hourly rate"
                         className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
                       />
                       <input
@@ -2850,6 +3033,89 @@ export default function QuoteDocument({
               </section>
             ) : null}
 
+            {isPortalMode && allDisplayProductLines.length > 0 ? (
+              <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <SectionEyebrow>Commercial Options</SectionEyebrow>
+                <SectionTitle>Retainer options and add-on services</SectionTitle>
+                <p className="mt-4 text-sm leading-7 text-text-secondary">
+                  If more than one retainer option is shown below, select the
+                  preferred option before approving the quote. The approved
+                  total, hours, and rate will follow the selected option.
+                </p>
+                <div className="mt-6 space-y-4">
+                  {allDisplayProductLines.map((product) => {
+                    const optionGroup = product.metadata?.optionGroup?.trim();
+                    const isSelectedOption = optionGroup
+                      ? selectedPortalOptionIds[optionGroup] === product.id
+                      : true;
+
+                    return (
+                      <label
+                        key={product.id}
+                        className={`block rounded-2xl border p-5 ${
+                          isSelectedOption
+                            ? "border-[rgba(73,205,225,0.22)] bg-[rgba(73,205,225,0.08)]"
+                            : "border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <p className="text-lg font-semibold text-white">
+                                {product.name}
+                              </p>
+                              {optionGroup ? (
+                                <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                                  Option
+                                </span>
+                              ) : null}
+                            </div>
+                            {product.description ? (
+                              <p className="mt-3 text-sm leading-7 text-text-secondary">
+                                {product.description}
+                              </p>
+                            ) : null}
+                            <div className="mt-4 flex flex-wrap gap-3 text-sm text-text-secondary">
+                              {product.metadata?.monthlyHours ? (
+                                <span>
+                                  {product.metadata.monthlyHours} hrs/month
+                                </span>
+                              ) : null}
+                              {product.metadata?.hourlyRate ? (
+                                <span>
+                                  {currencySymbols[currency]}{" "}
+                                  {product.metadata.hourlyRate}/hr
+                                </span>
+                              ) : null}
+                              <span>
+                                {product.quantity} {product.unitLabel}
+                                {product.quantity > 1 ? "s" : ""}
+                              </span>
+                              <span>{formatCurrency(product.lineTotalZar, currency)}</span>
+                            </div>
+                          </div>
+                          {optionGroup ? (
+                            <input
+                              type="radio"
+                              name={`option-group-${optionGroup}`}
+                              checked={isSelectedOption}
+                              onChange={() =>
+                                setSelectedPortalOptionIds((currentSelections) => ({
+                                  ...currentSelections,
+                                  [optionGroup]: product.id
+                                }))
+                              }
+                              className="mt-1"
+                            />
+                          ) : null}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+
             <section className="grid gap-6 xl:grid-cols-[0.72fr_0.28fr]">
               <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                 <SectionEyebrow>Commercial Summary</SectionEyebrow>
@@ -2880,18 +3146,30 @@ export default function QuoteDocument({
                       </div>
                     ) : null
                   )}
-                  {displaySelectedProductLines.map((product) => (
+                  {allDisplayProductLines.map((product) => (
                     <div
                       key={product.id}
                       className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-5 py-4 text-sm text-white last:border-b-0"
                     >
-                      <span>{product.name}</span>
                       <span>
-                        {product.quantity} {product.unitLabel}
-                        {product.quantity > 1 ? "s" : ""}
+                        {product.name}
+                        {product.metadata?.optionGroup ? (
+                          <span className="ml-2 text-xs text-text-muted">
+                            {activeProductLineIds.has(product.id)
+                              ? "(active option)"
+                              : "(alternative option)"}
+                          </span>
+                        ) : null}
                       </span>
                       <span>
-                        {currencySymbols[currency]} {product.unitPrice}
+                        {product.metadata?.monthlyHours
+                          ? `${product.metadata.monthlyHours * product.quantity} hrs`
+                          : `${product.quantity} ${product.unitLabel}${product.quantity > 1 ? "s" : ""}`}
+                      </span>
+                      <span>
+                        {product.metadata?.hourlyRate
+                          ? `${currencySymbols[currency]} ${product.metadata.hourlyRate}/hr`
+                          : `${currencySymbols[currency]} ${product.unitPrice}`}
                       </span>
                       <span className="text-right">
                         {formatCurrency(product.lineTotalZar, currency)}
@@ -2943,32 +3221,42 @@ export default function QuoteDocument({
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[0.58fr_0.42fr]">
-              <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <SectionEyebrow>Payment Schedule</SectionEyebrow>
-                <SectionTitle>Suggested payment milestones</SectionTitle>
-                <div className="mt-5 overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.07)]">
-                  <div className="grid grid-cols-[120px_1fr_160px] gap-4 border-b border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
-                    <span>Payment</span>
-                    <span>Due</span>
-                    <span className="text-right">Amount</span>
-                  </div>
-                  {displayPaymentSchedule.map((due, index) => (
-                    <div
-                      key={due}
-                      className="grid grid-cols-[120px_1fr_160px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-5 py-4 text-sm text-white last:border-b-0"
-                    >
-                      <span>Payment {index + 1}</span>
-                      <span>{due}</span>
-                      <span className="text-right">
-                        {formatCurrency(
-                          displayTotals.paymentAmountZar,
-                          currency
-                        )}
-                      </span>
+              {displayPaymentSchedule.length > 0 ? (
+                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <SectionEyebrow>Payment Schedule</SectionEyebrow>
+                  <SectionTitle>Suggested payment milestones</SectionTitle>
+                  <div className="mt-5 overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.07)]">
+                    <div className="grid grid-cols-[120px_1fr_160px] gap-4 border-b border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <span>Payment</span>
+                      <span>Due</span>
+                      <span className="text-right">Amount</span>
                     </div>
-                  ))}
+                    {displayPaymentSchedule.map((due, index) => (
+                      <div
+                        key={due}
+                        className="grid grid-cols-[120px_1fr_160px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-5 py-4 text-sm text-white last:border-b-0"
+                      >
+                        <span>Payment {index + 1}</span>
+                        <span>{due}</span>
+                        <span className="text-right">
+                          {formatCurrency(
+                            displayTotals.paymentAmountZar,
+                            currency
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <SectionEyebrow>Payment Schedule</SectionEyebrow>
+                  <SectionTitle>Optional payment milestones</SectionTitle>
+                  <p className="mt-4 text-sm leading-7 text-text-secondary">
+                    No payment schedule has been included in this quote.
+                  </p>
+                </div>
+              )}
 
               <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
                 <SectionEyebrow>Terms & Working Scope</SectionEyebrow>

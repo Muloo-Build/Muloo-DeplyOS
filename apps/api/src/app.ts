@@ -5629,9 +5629,19 @@ export function createApiApp(config: BaseConfig) {
     }
 
     try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        selectedProductLineIds?: unknown;
+      };
       const result = await approveProjectQuote(
         c.req.param("projectId"),
-        c.get("clientUserId")
+        c.get("clientUserId"),
+        Array.isArray(body.selectedProductLineIds)
+          ? {
+              selectedProductLineIds: body.selectedProductLineIds.filter(
+                (value): value is string => typeof value === "string"
+              )
+            }
+          : undefined
       );
 
       return c.json({

@@ -69,6 +69,7 @@ Primary workflow shapes:
 - Prepare notes/project context now feed scoped summary generation.
 - Retainer and invoice behavior are part of the product direction, not side utilities.
 - Internal quote editing now supports explicit quote-content overrides and manual line items, rather than only projecting discovery/summary text read-only.
+- Quote drafts can now carry retainer-style manual options with hours/rate metadata, and client approval can follow the selected commercial option rather than blindly approving every alternative.
 - Sprint docs and Codex handoff docs are useful history, but should not be treated as the main source of truth.
 
 ## 7. Open questions
