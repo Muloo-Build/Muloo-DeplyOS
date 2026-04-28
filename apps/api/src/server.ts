@@ -5345,6 +5345,38 @@ async function loadLatestProjectQuote(projectId: string, statuses?: string[]) {
   return quote ? serializeProjectQuote(quote) : null;
 }
 
+export async function loadProjectQuoteDocument(projectId: string) {
+  const [project, sessionsPayload, summary, blueprint, products, quote] =
+    await Promise.all([
+      prisma.project.findUnique({
+        where: { id: projectId },
+        include: {
+          client: true,
+          portal: true,
+          retainer: true
+        }
+      }),
+      loadDiscoverySessionsPayload(projectId),
+      loadDiscoverySummary(projectId),
+      loadBlueprint(projectId),
+      loadProductCatalog(),
+      loadLatestProjectQuote(projectId)
+    ]);
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  return {
+    project: serializeProject(project),
+    sessions: sessionsPayload.sessionDetails,
+    summary,
+    blueprint,
+    products,
+    quote
+  };
+}
+
 export function serializeClientPortalUser<
   T extends {
     id: string;
@@ -11484,6 +11516,96 @@ export async function shareProjectQuote(projectId: string, payload: unknown) {
   return {
     project: serializeProject(updatedProject),
     quote: serializeProjectQuote(createdQuote)
+  };
+}
+
+export async function saveProjectQuote(projectId: string, payload: unknown) {
+  await ensureProjectScopeUnlocked(projectId);
+  const normalizedPayload = projectQuotePayloadSchema.parse(payload);
+
+  const [project, latestExistingQuote] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        client: true,
+        portal: true,
+        retainer: true
+      }
+    }),
+    prisma.projectQuote.findFirst({
+      where: { projectId },
+      orderBy: [{ version: "desc" }]
+    })
+  ]);
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (project.retainer && project.retainer.status !== "ENDED") {
+    const filteredProductLines = (normalizedPayload.productLines || []).filter(
+      (line: any) => line.kind !== "retainer"
+    );
+    const retainerLine = composeRetainerLine(project.retainer);
+    normalizedPayload.productLines = [...filteredProductLines, retainerLine];
+    normalizedPayload.context = mergeRetainerScopeContext(
+      normalizedPayload.context,
+      project.retainer
+    );
+  }
+
+  const savedQuote = await prisma.$transaction(async (transaction) => {
+    const latestDraft = await transaction.projectQuote.findFirst({
+      where: {
+        projectId,
+        status: "draft"
+      },
+      orderBy: [{ version: "desc" }]
+    });
+
+    if (latestDraft) {
+      return transaction.projectQuote.update({
+        where: { id: latestDraft.id },
+        data: {
+          currency: normalizedPayload.currency,
+          defaultRate: normalizedPayload.defaultRate,
+          phaseLines:
+            normalizedPayload.phaseLines as Prisma.Prisma.InputJsonValue,
+          productLines:
+            normalizedPayload.productLines as Prisma.Prisma.InputJsonValue,
+          totals: normalizedPayload.totals as Prisma.Prisma.InputJsonValue,
+          paymentSchedule:
+            normalizedPayload.paymentSchedule as Prisma.Prisma.InputJsonValue,
+          context:
+            normalizedPayload.context as Prisma.Prisma.InputJsonValue
+        }
+      });
+    }
+
+    return transaction.projectQuote.create({
+      data: {
+        projectId,
+        version: (latestExistingQuote?.version ?? 0) + 1,
+        status: "draft",
+        currency: normalizedPayload.currency,
+        defaultRate: normalizedPayload.defaultRate,
+        phaseLines:
+          normalizedPayload.phaseLines as Prisma.Prisma.InputJsonValue,
+        productLines:
+          normalizedPayload.productLines as Prisma.Prisma.InputJsonValue,
+        totals: normalizedPayload.totals as Prisma.Prisma.InputJsonValue,
+        paymentSchedule:
+          normalizedPayload.paymentSchedule as Prisma.Prisma.InputJsonValue,
+        context:
+          normalizedPayload.context as Prisma.Prisma.InputJsonValue,
+        sharedAt: latestExistingQuote?.sharedAt ?? new Date()
+      }
+    });
+  });
+
+  return {
+    project: serializeProject(project),
+    quote: serializeProjectQuote(savedQuote)
   };
 }
 

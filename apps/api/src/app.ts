@@ -200,6 +200,7 @@ import {
   loadProjectChangeRequests,
   refreshClientEnrichment,
   loadProjectMessages,
+  loadProjectQuoteDocument,
   markAllProjectClientSubmissionsSeen,
   markProjectClientSubmissionSeen,
   markProjectMessagesSeenByInternal,
@@ -211,6 +212,7 @@ import {
   resolvePortalBasePathForClientUser,
   saveClientInputSubmission,
   saveDiscoverySession,
+  saveProjectQuote,
   serializePortalTask,
   serializeTask,
   deleteProjectRecord,
@@ -3339,6 +3341,63 @@ export function createApiApp(config: BaseConfig) {
         {
           error:
             error instanceof Error ? error.message : "Failed to share quote"
+        },
+        400
+      );
+    }
+  });
+
+  app.all("/api/projects/:projectId/quote", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+
+    try {
+      const document = await loadProjectQuoteDocument(c.req.param("projectId"));
+      return c.json(document);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load quote document"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
+  app.post("/api/projects/:projectId/quote/save", async (c) => {
+    try {
+      const result = await saveProjectQuote(
+        c.req.param("projectId"),
+        await readJsonBodyOrEmpty(c)
+      );
+      return c.json({
+        project: result.project,
+        quote: result.quote,
+        saved: true
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "Project not found") {
+        return c.json({ error: error.message }, 404);
+      }
+
+      if (
+        error instanceof Error &&
+        error.message ===
+          "Approved scope is locked. Use change management to revise this project."
+      ) {
+        return c.json({ error: error.message }, 409);
+      }
+
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to save quote"
         },
         400
       );

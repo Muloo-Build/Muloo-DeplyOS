@@ -9,3 +9,24 @@ artifacts/*.log
 !artifacts/.gitkeep
 .DS_Store
 ._*
+# Claude / AI worktrees and local agent state
+.claude/worktrees/
+.claude/
+
+# Fartrun local reports / save metadata
+.fartrun/
+
+# Build/cache noise
+apps/web/tsconfig.tsbuildinfo
+*.tsbuildinfo
+node_modules/
+.next/
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+
+# macOS
+.DS_Store

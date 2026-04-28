@@ -342,6 +342,23 @@ function createManualProductLineDraft(): ManualProductLineDraft {
   };
 }
 
+function createRetainerOptionLineDraft(
+  name = "Retainer option"
+): ManualProductLineDraft {
+  return {
+    id: `manual-${Math.random().toString(36).slice(2, 10)}`,
+    name,
+    description:
+      "Use quantity for months, unit price for the monthly fee, and describe hours, rate, carry-over, and payment terms here.",
+    quantity: "3",
+    unitPrice: "35000",
+    unitLabel: "month",
+    category: "retainer",
+    billingModel: "monthly",
+    included: true
+  };
+}
+
 function composeLinkedRetainerLine(retainer: NonNullable<Project["retainer"]>) {
   const startDate = new Date(retainer.startDate);
   const endDate = retainer.endDate
@@ -551,6 +568,7 @@ export default function QuoteDocument({
     ManualProductLineDraft[]
   >([]);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [saveBusy, setSaveBusy] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -587,16 +605,16 @@ export default function QuoteDocument({
           return;
         }
 
-        const projectResponse = await fetch(
-          `/api/projects/${encodeURIComponent(projectId)}`
+        const quoteDocumentResponse = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}/quote`
         );
 
-        if (!projectResponse.ok) {
+        if (!quoteDocumentResponse.ok) {
           throw new Error("Failed to load quote document");
         }
 
-        const projectBody = await projectResponse.json();
-        const nextProject = projectBody.project;
+        const quoteDocumentBody = await quoteDocumentResponse.json();
+        const nextProject = quoteDocumentBody.project;
         if (!nextProject) {
           throw new Error("Failed to load project context for this quote.");
         }
@@ -605,25 +623,9 @@ export default function QuoteDocument({
           nextProject?.engagementType !== "OPTIMISATION" &&
           (nextProject?.scopeType ?? "discovery") === "discovery";
 
-        const [
-          sessionsResponse,
-          summaryResponse,
-          blueprintResponse,
-          productsResponse
-        ] = await Promise.all([
-          fetch(`/api/discovery/${encodeURIComponent(projectId)}/sessions`),
-          fetch(
-            `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
-          ),
-          fetch(`/api/projects/${encodeURIComponent(projectId)}/blueprint`),
-          fetch("/api/products")
-        ]);
-
         if (
-          !sessionsResponse.ok ||
-          !productsResponse.ok ||
-          !summaryResponse?.ok ||
-          (requiresBlueprint && !blueprintResponse?.ok)
+          !quoteDocumentBody?.summary ||
+          (requiresBlueprint && !quoteDocumentBody?.blueprint)
         ) {
           throw new Error(
             requiresBlueprint
@@ -632,52 +634,44 @@ export default function QuoteDocument({
           );
         }
 
-        const sessionsBody = await sessionsResponse.json();
-        const summaryBody = summaryResponse
-          ? await summaryResponse.json()
-          : null;
-        const blueprintBody = blueprintResponse?.ok
-          ? await blueprintResponse.json()
-          : null;
-        const productsBody = await productsResponse.json();
-
         setProject(nextProject);
-        setSessions(sessionsBody.sessionDetails ?? []);
-        setSummary(summaryBody?.summary ?? null);
-        setBlueprint(blueprintBody?.blueprint ?? null);
-        setProducts(productsBody.products ?? []);
+        setSessions(quoteDocumentBody?.sessions ?? []);
+        setSummary(quoteDocumentBody?.summary ?? null);
+        setBlueprint(quoteDocumentBody?.blueprint ?? null);
+        setProducts(quoteDocumentBody?.products ?? []);
+        setSavedQuote(quoteDocumentBody?.quote ?? null);
         setQuoteTitle(`${nextProject.name} Quote`);
         setQuoteContextSummaryDraft(
-          summaryBody?.summary?.executiveSummary ??
+          quoteDocumentBody?.summary?.executiveSummary ??
             nextProject?.scopeExecutiveSummary ??
             nextProject?.solutionRecommendation ??
             nextProject?.problemStatement ??
             nextProject?.commercialBrief ??
             ""
         );
-        const nextSessions = sessionsBody.sessionDetails ?? [];
+        const nextSessions = quoteDocumentBody?.sessions ?? [];
         const nextSession4 =
           nextSessions.find((session: SessionDetail) => session.session === 4)
             ?.fields ?? {};
         setInScopeDraft(
-          ((summaryBody?.summary?.inScopeItems as string[] | undefined) ??
+          ((quoteDocumentBody?.summary?.inScopeItems as string[] | undefined) ??
             splitIntoList(nextSession4.confirmed_scope)).join("\n")
         );
         setOutOfScopeDraft(
-          ((summaryBody?.summary?.outOfScopeItems as string[] | undefined) ??
+          ((quoteDocumentBody?.summary?.outOfScopeItems as string[] | undefined) ??
             splitIntoList(nextSession4.out_of_scope)).join("\n")
         );
         setSupportingToolsDraft(
-          (summaryBody?.summary?.supportingTools ?? []).join("\n")
+          (quoteDocumentBody?.summary?.supportingTools ?? []).join("\n")
         );
         setKeyRisksDraft(
           (
-            summaryBody?.summary?.keyRisks ??
+            quoteDocumentBody?.summary?.keyRisks ??
             splitIntoList(nextSession4.risks_and_blockers)
           ).join("\n")
         );
         setNextQuestionsDraft(
-          (summaryBody?.summary?.recommendedNextQuestions ?? []).join("\n")
+          (quoteDocumentBody?.summary?.recommendedNextQuestions ?? []).join("\n")
         );
         setClientResponsibilitiesDraft(
           splitIntoList(nextSession4.client_responsibilities).join("\n")
@@ -693,7 +687,7 @@ export default function QuoteDocument({
         setQuoteContentDraft(
           buildDefaultQuoteContentOverrides({
             project: nextProject,
-            summary: summaryBody?.summary ?? null,
+            summary: quoteDocumentBody?.summary ?? null,
             sessions: nextSessions,
             isStandaloneQuote:
               (nextProject?.scopeType ?? "discovery") === "standalone_quote"
@@ -1150,7 +1144,6 @@ export default function QuoteDocument({
     if (isPortalMode) {
       return;
     }
-
     setPushBusy(true);
 
     try {
@@ -1161,65 +1154,7 @@ export default function QuoteDocument({
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({
-            currency,
-            defaultRate: parseNumber(defaultRate, 1500),
-            phaseLines: phaseCommercials.map((phase) => ({
-              phase: phase.phase,
-              phaseName: phase.phaseName,
-              included: phase.included,
-              humanHours: phase.humanHours,
-              rate: phase.rate,
-              feeZar: phase.feeZar,
-              tasks: phase.tasks.map((task) => ({
-                id: task.id,
-                name: task.name,
-                type: task.type,
-                effortHours: task.effortHours
-              }))
-            })),
-            productLines: [...selectedProductLines, ...selectedManualProductLines].map((product) => ({
-              id: product.id,
-              slug: product.slug,
-              name: product.name,
-              category: product.category,
-              billingModel: product.billingModel,
-              description: product.description ?? null,
-              unitLabel: product.unitLabel,
-              quantity: product.quantity,
-              unitPrice: product.unitPrice,
-              lineTotalZar: product.lineTotalZar,
-              kind: product.kind ?? "product"
-            })),
-            totals: {
-              totalHumanHours: displayTotals.totalHumanHours,
-              totalFeeZar: displayTotals.totalFeeZar,
-              additionalProductsTotalZar: displayTotals.additionalProductsTotalZar,
-              grandTotalZar: displayTotals.grandTotalZar,
-              paymentAmountZar: displayTotals.paymentAmountZar
-            },
-            paymentSchedule: effectivePaymentSchedule,
-            context: {
-              quoteTitle: quoteTitle.trim() || `${project?.name ?? "Project"} Quote`,
-              quoteContextSummary: quoteContextSummaryDraft.trim() || null,
-              inScopeItems: splitIntoList(inScopeDraft),
-              outOfScopeItems: splitIntoList(outOfScopeDraft),
-              supportingTools: splitIntoList(
-                supportingToolsDraft || supportingTools.join("\n")
-              ),
-              keyRisks: splitIntoList(keyRisksDraft || keyRisks.join("\n")),
-              nextQuestions: splitIntoList(
-                nextQuestionsDraft || nextQuestions.join("\n")
-              ),
-              clientResponsibilities: splitIntoList(
-                clientResponsibilitiesDraft ||
-                  clientResponsibilities.join("\n")
-              ),
-              isStandaloneQuote,
-              contentOverrides: quoteContentDraft,
-              blueprintGeneratedAt: blueprint?.generatedAt ?? null
-            }
-          })
+          body: JSON.stringify(buildQuotePayload())
         }
       );
 
@@ -1244,6 +1179,112 @@ export default function QuoteDocument({
       window.setTimeout(() => setShareMessage(null), 2500);
     } finally {
       setPushBusy(false);
+    }
+  }
+
+  function buildQuotePayload() {
+    return {
+      currency,
+      defaultRate: parseNumber(defaultRate, 1500),
+      phaseLines: phaseCommercials.map((phase) => ({
+        phase: phase.phase,
+        phaseName: phase.phaseName,
+        included: phase.included,
+        humanHours: phase.humanHours,
+        rate: phase.rate,
+        feeZar: phase.feeZar,
+        tasks: phase.tasks.map((task) => ({
+          id: task.id,
+          name: task.name,
+          type: task.type,
+          effortHours: task.effortHours
+        }))
+      })),
+      productLines: [...selectedProductLines, ...selectedManualProductLines].map(
+        (product) => ({
+          id: product.id,
+          slug: product.slug,
+          name: product.name,
+          category: product.category,
+          billingModel: product.billingModel,
+          description: product.description ?? null,
+          unitLabel: product.unitLabel,
+          quantity: product.quantity,
+          unitPrice: product.unitPrice,
+          lineTotalZar: product.lineTotalZar,
+          kind: product.kind ?? "product"
+        })
+      ),
+      totals: {
+        totalHumanHours: displayTotals.totalHumanHours,
+        totalFeeZar: displayTotals.totalFeeZar,
+        additionalProductsTotalZar: displayTotals.additionalProductsTotalZar,
+        grandTotalZar: displayTotals.grandTotalZar,
+        paymentAmountZar: displayTotals.paymentAmountZar
+      },
+      paymentSchedule: effectivePaymentSchedule,
+      context: {
+        quoteTitle: quoteTitle.trim() || `${project?.name ?? "Project"} Quote`,
+        quoteContextSummary: quoteContextSummaryDraft.trim() || null,
+        inScopeItems: splitIntoList(inScopeDraft),
+        outOfScopeItems: splitIntoList(outOfScopeDraft),
+        supportingTools: splitIntoList(
+          supportingToolsDraft || supportingTools.join("\n")
+        ),
+        keyRisks: splitIntoList(keyRisksDraft || keyRisks.join("\n")),
+        nextQuestions: splitIntoList(
+          nextQuestionsDraft || nextQuestions.join("\n")
+        ),
+        clientResponsibilities: splitIntoList(
+          clientResponsibilitiesDraft || clientResponsibilities.join("\n")
+        ),
+        isStandaloneQuote,
+        contentOverrides: quoteContentDraft,
+        blueprintGeneratedAt: blueprint?.generatedAt ?? null
+      }
+    };
+  }
+
+  async function saveDraftQuote() {
+    if (isPortalMode) {
+      return;
+    }
+
+    setSaveBusy(true);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/quote/save`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(buildQuotePayload())
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to save quote draft");
+      }
+
+      if (body?.project) {
+        setProject(body.project);
+      }
+
+      if (body?.quote) {
+        setSavedQuote(body.quote);
+      }
+
+      setShareMessage("Quote draft saved");
+      window.setTimeout(() => setShareMessage(null), 2500);
+    } catch {
+      setShareMessage("Unable to save quote draft");
+      window.setTimeout(() => setShareMessage(null), 2500);
+    } finally {
+      setSaveBusy(false);
     }
   }
 
@@ -1332,6 +1373,16 @@ export default function QuoteDocument({
                 </p>
               </div>
               <div className="document-toolbar flex flex-wrap items-center gap-3">
+                {!isPortalMode ? (
+                  <button
+                    type="button"
+                    onClick={saveDraftQuote}
+                    disabled={saveBusy || isApprovedQuote}
+                    className="rounded-xl border border-[rgba(73,205,225,0.18)] bg-[rgba(73,205,225,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                  >
+                    {saveBusy ? "Saving..." : "Save Draft"}
+                  </button>
+                ) : null}
                 {!isPortalMode ? (
                   <button
                     type="button"
@@ -2475,26 +2526,47 @@ export default function QuoteDocument({
                       </p>
                       <p className="mt-1 text-sm text-text-secondary">
                         Add custom quote items directly here when the standard
-                        product list does not match the deal.
+                        product list does not match the deal. For retainers, use
+                        quantity as months, unit price as the monthly fee, and
+                        capture hours, rate, carry-over, and payment terms in
+                        the description.
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setManualProductLines((currentLines) => [
-                          ...currentLines,
-                          createManualProductLineDraft()
-                        ])
-                      }
-                      className="rounded-full border border-[rgba(255,255,255,0.1)] px-4 py-2 text-sm text-white"
-                    >
-                      Add line item
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setManualProductLines((currentLines) => [
+                            ...currentLines,
+                            createRetainerOptionLineDraft(
+                              `Retainer option ${currentLines.filter((line) =>
+                                line.name.toLowerCase().includes("retainer option")
+                              ).length + 1}`
+                            )
+                          ])
+                        }
+                        className="rounded-full border border-[rgba(73,205,225,0.18)] px-4 py-2 text-sm text-white"
+                      >
+                        Add retainer option
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setManualProductLines((currentLines) => [
+                            ...currentLines,
+                            createManualProductLineDraft()
+                          ])
+                        }
+                        className="rounded-full border border-[rgba(255,255,255,0.1)] px-4 py-2 text-sm text-white"
+                      >
+                        Add line item
+                      </button>
+                    </div>
                   </div>
                   {manualProductLines.map((line) => (
                     <div
                       key={line.id}
-                      className="grid gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 lg:grid-cols-[1fr_110px_140px_140px_180px]"
+                      className="grid gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 lg:grid-cols-[1fr_110px_140px_140px_140px_180px]"
                     >
                       <div className="space-y-3">
                         <input
@@ -2543,6 +2615,23 @@ export default function QuoteDocument({
                         placeholder="Qty"
                         className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
                       />
+                      <select
+                        value={line.category}
+                        onChange={(event) =>
+                          setManualProductLines((currentLines) =>
+                            currentLines.map((currentLine) =>
+                              currentLine.id === line.id
+                                ? { ...currentLine, category: event.target.value }
+                                : currentLine
+                            )
+                          )
+                        }
+                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                      >
+                        <option value="retainer">Retainer</option>
+                        <option value="add_on">Add-on</option>
+                        <option value="one_time">One-time</option>
+                      </select>
                       <input
                         value={line.unitLabel}
                         onChange={(event) =>
@@ -2572,6 +2661,27 @@ export default function QuoteDocument({
                         className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
                       />
                       <div className="flex flex-col justify-between rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+                        <select
+                          value={line.billingModel}
+                          onChange={(event) =>
+                            setManualProductLines((currentLines) =>
+                              currentLines.map((currentLine) =>
+                                currentLine.id === line.id
+                                  ? {
+                                      ...currentLine,
+                                      billingModel: event.target.value
+                                    }
+                                  : currentLine
+                              )
+                            )
+                          }
+                          className="mb-4 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                        >
+                          <option value="monthly">Monthly recurring</option>
+                          <option value="retainer">Retainer</option>
+                          <option value="fixed">Fixed fee</option>
+                          <option value="hourly">Hourly</option>
+                        </select>
                         <label className="flex items-center gap-3 text-sm text-white">
                           <input
                             type="checkbox"
