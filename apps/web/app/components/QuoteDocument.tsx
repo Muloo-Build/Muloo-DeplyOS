@@ -232,6 +232,7 @@ interface QuoteSnapshot {
     nextQuestions: string[];
     clientResponsibilities: string[];
     isStandaloneQuote: boolean;
+    showPaymentSchedule?: boolean;
     retainerScope?: {
       summary?: string | null;
       requirements?: string | null;
@@ -644,6 +645,7 @@ export default function QuoteDocument({
   const [clientResponsibilitiesDraft, setClientResponsibilitiesDraft] =
     useState("");
   const [paymentScheduleDraft, setPaymentScheduleDraft] = useState("");
+  const [showPaymentSchedule, setShowPaymentSchedule] = useState(false);
   const [quoteContentDraft, setQuoteContentDraft] = useState<QuoteContentOverrides>(
     emptyQuoteContentOverrides()
   );
@@ -762,14 +764,8 @@ export default function QuoteDocument({
         setClientResponsibilitiesDraft(
           splitIntoList(nextSession4.client_responsibilities).join("\n")
         );
-        setPaymentScheduleDraft(
-          [
-            "Upon scope approval",
-            "At start of Phase 2",
-            "At start of Phase 4",
-            "Before final handover"
-          ].join("\n")
-        );
+        setPaymentScheduleDraft("");
+        setShowPaymentSchedule(false);
         setQuoteContentDraft(
           buildDefaultQuoteContentOverrides({
             project: nextProject,
@@ -881,6 +877,9 @@ export default function QuoteDocument({
       savedQuote.context?.clientResponsibilities?.join("\n") ?? ""
     );
     setPaymentScheduleDraft(savedQuote.paymentSchedule.join("\n"));
+    setShowPaymentSchedule(
+      savedQuote.context?.showPaymentSchedule ?? savedQuote.paymentSchedule.length > 0
+    );
     setQuoteContentDraft({
       ...emptyQuoteContentOverrides(),
       ...(savedQuote.context?.contentOverrides ?? {})
@@ -1089,7 +1088,9 @@ export default function QuoteDocument({
   const nextQuestions = isStandaloneQuote
     ? getDisplayNextQuestions(project, summary?.recommendedNextQuestions)
     : (summary?.recommendedNextQuestions ?? []);
-  const effectivePaymentSchedule = splitIntoLines(paymentScheduleDraft);
+  const effectivePaymentSchedule = showPaymentSchedule
+    ? splitIntoLines(paymentScheduleDraft)
+    : [];
   const quoteContext = savedQuote?.context;
   const displayQuoteContent = {
     ...defaultQuoteContent,
@@ -1152,7 +1153,11 @@ export default function QuoteDocument({
           : 0
     };
   const displayPaymentSchedule =
-    isPortalMode && savedQuote ? savedQuote.paymentSchedule : effectivePaymentSchedule;
+    isPortalMode && savedQuote
+      ? quoteContext?.showPaymentSchedule === false
+        ? []
+        : savedQuote.paymentSchedule
+      : effectivePaymentSchedule;
   const displayInScopeItems =
     isPortalMode && quoteContext
       ? quoteContext.inScopeItems
@@ -1368,6 +1373,7 @@ export default function QuoteDocument({
           clientResponsibilitiesDraft || clientResponsibilities.join("\n")
         ),
         isStandaloneQuote,
+        showPaymentSchedule,
         contentOverrides: quoteContentDraft,
         blueprintGeneratedAt: blueprint?.generatedAt ?? null
       }
@@ -1916,12 +1922,23 @@ export default function QuoteDocument({
                     <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
                       Payment schedule
                     </span>
+                    <label className="mb-3 flex items-center gap-3 text-sm text-white">
+                      <input
+                        type="checkbox"
+                        checked={showPaymentSchedule}
+                        onChange={(event) =>
+                          setShowPaymentSchedule(event.target.checked)
+                        }
+                      />
+                      Include payment schedule in quote
+                    </label>
                     <textarea
                       value={paymentScheduleDraft}
                       onChange={(event) =>
                         setPaymentScheduleDraft(event.target.value)
                       }
-                      className="min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      disabled={!showPaymentSchedule}
+                      className="min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </label>
                 </div>

@@ -5215,6 +5215,7 @@ const projectQuoteContextSchema = z.object({
   nextQuestions: z.array(z.string()),
   clientResponsibilities: z.array(z.string()),
   isStandaloneQuote: z.boolean(),
+  showPaymentSchedule: z.boolean().optional(),
   blueprintGeneratedAt: z.string().nullable(),
   retainerScope: z.object({
     summary: z.string().nullable().optional(),
@@ -11466,6 +11467,7 @@ export async function shareProjectQuote(projectId: string, payload: unknown) {
                   nextQuestions: [],
                   clientResponsibilities: [],
                   isStandaloneQuote: false,
+                  showPaymentSchedule: false,
                   contentOverrides: null,
                   blueprintGeneratedAt: null
                 }
