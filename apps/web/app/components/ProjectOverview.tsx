@@ -473,7 +473,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       );
       const body = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to generate discovery summary");
+        throw new Error(body?.error ?? "Failed to generate AI summary");
       }
       setDiscoverySummary(body?.summary ?? null);
       setSummaryFeedback(body?.recovered ? "Recovered saved summary." : "Summary refreshed.");
@@ -481,7 +481,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       setSummaryError(
         summaryLoadError instanceof Error
           ? summaryLoadError.message
-          : "Failed to generate discovery summary"
+          : "Failed to generate AI summary"
       );
     } finally {
       setSummaryBusy(false);
@@ -500,7 +500,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       );
       const body = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to reset discovery summary");
+        throw new Error(body?.error ?? "Failed to reset AI summary");
       }
       setDiscoverySummary(null);
       setSummaryFeedback("Summary reset.");
@@ -508,7 +508,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       setSummaryError(
         summaryResetError instanceof Error
           ? summaryResetError.message
-          : "Failed to reset discovery summary"
+          : "Failed to reset AI summary"
       );
     } finally {
       setSummaryBusy(false);
@@ -1150,7 +1150,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     disabled={summaryBusy}
                     className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                   >
-                    {summaryBusy ? "Refreshing..." : "Refresh summary"}
+                    {summaryBusy ? "Refreshing..." : "Refresh AI summary"}
                   </button>
                   <button
                     type="button"

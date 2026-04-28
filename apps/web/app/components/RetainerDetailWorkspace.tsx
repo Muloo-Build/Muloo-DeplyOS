@@ -31,6 +31,10 @@ interface RetainerDetail {
   currency: string;
   startDate: string;
   status: string;
+  scopeSummary?: string | null;
+  deliverables?: Array<{ title: string; description?: string }> | null;
+  approvalTerms?: string | null;
+  requirements?: string | null;
   periods: Array<{
     id: string;
     periodMonth: string;
@@ -346,6 +350,62 @@ export default function RetainerDetailWorkspace({
                     ) : null}
                   </div>
                 ))}
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-white/10 bg-background-card p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                    Scope & Terms
+                  </p>
+                  <h2 className="mt-2 text-xl font-semibold text-white">
+                    Deliverables and approval conditions
+                  </h2>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-4">
+                {retainer?.scopeSummary ? (
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Scope Summary</p>
+                    <p className="mt-2 text-sm text-white whitespace-pre-wrap">{retainer.scopeSummary}</p>
+                  </div>
+                ) : null}
+
+                {retainer?.deliverables && Array.isArray(retainer.deliverables) && retainer.deliverables.length > 0 ? (
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Deliverables</p>
+                    <ul className="mt-2 space-y-2">
+                      {retainer.deliverables.map((deliverable: any, idx: number) => (
+                        <li key={idx} className="text-sm text-white">
+                          <span className="font-semibold">{deliverable.title}</span>
+                          {deliverable.description ? (
+                            <p className="mt-1 text-text-secondary">{deliverable.description}</p>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {retainer?.requirements ? (
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Requirements</p>
+                    <p className="mt-2 text-sm text-white whitespace-pre-wrap">{retainer.requirements}</p>
+                  </div>
+                ) : null}
+
+                {retainer?.approvalTerms ? (
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Approval Terms</p>
+                    <p className="mt-2 text-sm text-white whitespace-pre-wrap">{retainer.approvalTerms}</p>
+                  </div>
+                ) : null}
+
+                {!retainer?.scopeSummary && !retainer?.deliverables && !retainer?.requirements && !retainer?.approvalTerms ? (
+                  <p className="text-sm text-text-secondary">No scope or terms defined for this retainer.</p>
+                ) : null}
               </div>
             </section>
 

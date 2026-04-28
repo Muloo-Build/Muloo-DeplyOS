@@ -70,9 +70,25 @@ interface CalendarConnectionResponse {
     hasClientSecret?: boolean;
     redirectUri?: string | null;
   } | null;
+
+
+interface WorkspaceHubSpotSettings {
+  id: string;
+  partnerInviteUrl: string | null;
+  partnerAccountId: string | null;
+  notes: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+
+interface HubSpotSettingsResponse {
+  settings?: WorkspaceHubSpotSettings;
+}
+
 }
 
 interface WorkspaceApiKeysResponse {
+
   keys?: WorkspaceApiKeyRecord[];
 }
 
@@ -173,6 +189,14 @@ export default function WorkspaceSettings() {
   const [xeroConnectError, setXeroConnectError] = useState(false);
   const [calendarConnectError, setCalendarConnectError] = useState(false);
 
+  const [hubspotSettings, setHubspotSettings] = useState<WorkspaceHubSpotSettings | null>(null);
+  const [hubspotPartnerInviteUrl, setHubspotPartnerInviteUrl] = useState("");
+  const [hubspotPartnerAccountId, setHubspotPartnerAccountId] = useState("");
+  const [hubspotNotes, setHubspotNotes] = useState("");
+  const [savingHubspotSettings, setSavingHubspotSettings] = useState(false);
+  const [hubspotSettingsSaved, setHubspotSettingsSaved] = useState(false);
+  const [hubspotSettingsError, setHubspotSettingsError] = useState<string | null>(null);
+
   useEffect(() => {
     void loadAll();
   }, []);
@@ -189,7 +213,8 @@ export default function WorkspaceSettings() {
         nextCalendarStatus,
         nextXeroStatus,
         routeBody,
-        providersBody
+        providersBody,
+        hubspotBody
       ] = await Promise.all([
         fetchJson<GmailConnectionResponse>(
           "/api/email-oauth/google",
@@ -225,6 +250,11 @@ export default function WorkspaceSettings() {
           "/api/provider-connections",
           undefined,
           "Failed to load AI providers"
+        ),
+        fetchJson<HubSpotSettingsResponse>(
+          "/api/workspace/hubspot-settings",
+          undefined,
+          "Failed to load HubSpot settings"
         )
       ]);
 
@@ -256,6 +286,11 @@ export default function WorkspaceSettings() {
         providerKey: routeBody?.providerKey ?? "",
         model: routeBody?.model ?? ""
       });
+      const nextSettings = hubspotBody?.settings ?? null;
+      setHubspotSettings(nextSettings);
+      setHubspotPartnerInviteUrl(nextSettings?.partnerInviteUrl ?? "");
+      setHubspotPartnerAccountId(nextSettings?.partnerAccountId ?? "");
+      setHubspotNotes(nextSettings?.notes ?? "");
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -652,6 +687,45 @@ export default function WorkspaceSettings() {
 
   const apiKeyMap = new Map(apiKeys.map((entry) => [entry.keyName, entry]));
 
+
+  async function saveHubspotSettings() {
+    setSavingHubspotSettings(true);
+    setHubspotSettingsSaved(false);
+    setHubspotSettingsError(null);
+    setError(null);
+    setFeedback(null);
+
+    try {
+      const body = await fetchJson<HubSpotSettingsResponse>(
+        "/api/workspace/hubspot-settings",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            partnerInviteUrl: hubspotPartnerInviteUrl,
+            partnerAccountId: hubspotPartnerAccountId,
+            notes: hubspotNotes
+          })
+        },
+        "Failed to save HubSpot settings"
+      );
+
+      const nextSettings = body.settings ?? null;
+      setHubspotSettings(nextSettings);
+      setHubspotSettingsSaved(true);
+      window.setTimeout(() => {
+        setHubspotSettingsSaved(false);
+      }, 3000);
+    } catch (saveError) {
+      setHubspotSettingsError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save HubSpot settings"
+      );
+    } finally {
+      setSavingHubspotSettings(false);
+    }
+  }
   if (loading) {
     return (
       <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
@@ -1077,6 +1151,77 @@ export default function WorkspaceSettings() {
           ) : null}
           {saveRouteError ? (
             <span className="text-sm text-[#ff9aa7]">Save failed</span>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-white">
+              HubSpot Partner Invite
+            </h2>
+            <p className="mt-2 text-sm text-text-secondary">
+              Configure the partner invite URL and account information for HubSpot integration.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 space-y-4">
+          <label className="block">
+            <span className="text-sm font-medium text-white">
+              Partner invite link
+            </span>
+            <input
+              type="text"
+              value={hubspotPartnerInviteUrl}
+              onChange={(event) => setHubspotPartnerInviteUrl(event.target.value)}
+              placeholder="https://app.hubspot.com/l/settings/users/partnerInviteLink/..."
+              className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-medium text-white">
+              Partner account ID (optional)
+            </span>
+            <input
+              type="text"
+              value={hubspotPartnerAccountId}
+              onChange={(event) => setHubspotPartnerAccountId(event.target.value)}
+              placeholder="e.g. 12345"
+              className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-medium text-white">
+              Notes (optional)
+            </span>
+            <textarea
+              value={hubspotNotes}
+              onChange={(event) => setHubspotNotes(event.target.value)}
+              placeholder="Any additional notes about this HubSpot configuration"
+              className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              rows={4}
+            />
+          </label>
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void saveHubspotSettings()}
+            disabled={savingHubspotSettings}
+            className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {savingHubspotSettings ? "Saving..." : "Save"}
+          </button>
+          {hubspotSettingsSaved ? (
+            <span className="text-sm text-[#54e1b1]">Saved</span>
+          ) : null}
+          {hubspotSettingsError ? (
+            <span className="text-sm text-[#ff9aa7]">{hubspotSettingsError}</span>
           ) : null}
         </div>
       </section>

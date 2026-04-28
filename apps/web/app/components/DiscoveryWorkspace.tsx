@@ -865,7 +865,7 @@ export default function DiscoveryWorkspace({
       const body = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to generate discovery summary");
+        throw new Error(body?.error ?? "Failed to generate AI summary");
       }
 
       setDiscoverySummary(body?.summary ?? null);
@@ -873,7 +873,7 @@ export default function DiscoveryWorkspace({
       setSummaryError(
         summaryGenerationError instanceof Error
           ? summaryGenerationError.message
-          : "Failed to generate discovery summary"
+          : "Failed to generate AI summary"
       );
     } finally {
       setSummaryLoading(false);
@@ -962,8 +962,8 @@ export default function DiscoveryWorkspace({
                   className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:text-text-muted"
                 >
                   {summaryLoading
-                    ? "Generating Agent Summary..."
-                    : "Generate Agent Summary"}
+                    ? "Generating AI Summary..."
+                    : "Generate AI Summary"}
                 </button>
                 <button
                   type="button"

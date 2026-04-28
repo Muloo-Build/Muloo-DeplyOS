@@ -294,6 +294,15 @@ model WorkspaceDailySummary {
   createdAt   DateTime @default(now())
 }
 
+model WorkspaceHubSpotSettings {
+  id               String   @id @default("default")
+  partnerInviteUrl String?
+  partnerAccountId String?
+  notes            String?
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
+}
+
 model HubSpotPortal {
   id             String           @id @default(cuid())
   portalId       String           @unique
@@ -318,73 +327,73 @@ model HubSpotPortal {
 }
 
 model Project {
-  id                        String                  @id @default(cuid())
-  name                      String
-  status                    String                  @default("draft")
-  quoteApprovalStatus       String                  @default("draft")
-  quoteSharedAt             DateTime?
-  quoteApprovedAt           DateTime?
-  quoteApprovedByName       String?
-  quoteApprovedByEmail      String?
-  scopeLockedAt             DateTime?
-  engagementType            EngagementType          @default(IMPLEMENTATION)
-  includesPortalAudit       Boolean                 @default(false)
-  owner                     String
-  ownerEmail                String
-  serviceFamily             String                  @default("hubspot_architecture")
-  implementationApproach    String                  @default("pragmatic_poc")
-  customerPlatformTier      String?
-  platformTierSelections    Json?
-  platformConfiguration     Json?
-  problemStatement          String?
-  solutionRecommendation    String?
-  scopeExecutiveSummary     String?
-  clientChampionFirstName   String?
-  clientChampionLastName    String?
-  clientChampionEmail       String?
-  clientQuestionnaireConfig Json?
-  scopeType                 String?
-  commercialBrief           String?
-  deliveryWorkstreams       Json?
-  internalCommercials       Json?
-  portalQuoteEnabled        Boolean                 @default(true)
-  deliveryTemplateId        String?
-  retainerId                String?
-  lastAgenda                Json?
-  blueprintData             Json?
-  discoveryData             Json?
-  standardsData             Json?
-  selectedHubs              String[]
-  currentPhase              String?
-  latestClientSubmissionAt  DateTime?
-  latestClientSubmissionSeenAt DateTime?
+  id                            String                  @id @default(cuid())
+  name                          String
+  status                        String                  @default("draft")
+  quoteApprovalStatus           String                  @default("draft")
+  quoteSharedAt                 DateTime?
+  quoteApprovedAt               DateTime?
+  quoteApprovedByName           String?
+  quoteApprovedByEmail          String?
+  scopeLockedAt                 DateTime?
+  engagementType                EngagementType          @default(IMPLEMENTATION)
+  includesPortalAudit           Boolean                 @default(false)
+  owner                         String
+  ownerEmail                    String
+  serviceFamily                 String                  @default("hubspot_architecture")
+  implementationApproach        String                  @default("pragmatic_poc")
+  customerPlatformTier          String?
+  platformTierSelections        Json?
+  platformConfiguration         Json?
+  problemStatement              String?
+  solutionRecommendation        String?
+  scopeExecutiveSummary         String?
+  clientChampionFirstName       String?
+  clientChampionLastName        String?
+  clientChampionEmail           String?
+  clientQuestionnaireConfig     Json?
+  scopeType                     String?
+  commercialBrief               String?
+  deliveryWorkstreams           Json?
+  internalCommercials           Json?
+  portalQuoteEnabled            Boolean                 @default(true)
+  deliveryTemplateId            String?
+  retainerId                    String?
+  lastAgenda                    Json?
+  blueprintData                 Json?
+  discoveryData                 Json?
+  standardsData                 Json?
+  selectedHubs                  String[]
+  currentPhase                  String?
+  latestClientSubmissionAt      DateTime?
+  latestClientSubmissionSeenAt  DateTime?
   latestClientSubmissionSession Int?
   latestClientSubmissionByName  String?
-  clientId                  String
-  portalId                  String
-  createdAt                 DateTime                @default(now())
-  updatedAt                 DateTime                @updatedAt
-  client                    Client                  @relation(fields: [clientId], references: [id])
-  portal                    HubSpotPortal           @relation(fields: [portalId], references: [id])
-  deliveryTemplate          DeliveryTemplate?       @relation(fields: [deliveryTemplateId], references: [id])
-  retainer                  Retainer?               @relation(fields: [retainerId], references: [id], onDelete: SetNull)
-  discovery                 DiscoverySubmission[]
-  discoveryEvidence         DiscoveryEvidence[]
-  discoverySummary          DiscoverySummary?
-  blueprint                 Blueprint?
-  tasks                     Task[]
-  messages                  ProjectMessage[]
-  executionJobs             ExecutionJob[]
-  clientAccess              ClientProjectAccess[]
-  clientSubmissions         ClientInputSubmission[]
-  quotes                    ProjectQuote[]
-  workRequests              WorkRequest[]
-  contextEntries            ProjectContext[]
-  findings                  Finding[]
-  recommendations           Recommendation[]
-  workflowRuns              WorkflowRun[]
-  taskApprovals             TaskApproval[]
-  auditLogs                 AuditLog[]
+  clientId                      String
+  portalId                      String
+  createdAt                     DateTime                @default(now())
+  updatedAt                     DateTime                @updatedAt
+  client                        Client                  @relation(fields: [clientId], references: [id])
+  portal                        HubSpotPortal           @relation(fields: [portalId], references: [id])
+  deliveryTemplate              DeliveryTemplate?       @relation(fields: [deliveryTemplateId], references: [id])
+  retainer                      Retainer?               @relation(fields: [retainerId], references: [id], onDelete: SetNull)
+  discovery                     DiscoverySubmission[]
+  discoveryEvidence             DiscoveryEvidence[]
+  discoverySummary              DiscoverySummary?
+  blueprint                     Blueprint?
+  tasks                         Task[]
+  messages                      ProjectMessage[]
+  executionJobs                 ExecutionJob[]
+  clientAccess                  ClientProjectAccess[]
+  clientSubmissions             ClientInputSubmission[]
+  quotes                        ProjectQuote[]
+  workRequests                  WorkRequest[]
+  contextEntries                ProjectContext[]
+  findings                      Finding[]
+  recommendations               Recommendation[]
+  workflowRuns                  WorkflowRun[]
+  taskApprovals                 TaskApproval[]
+  auditLogs                     AuditLog[]
 
   @@index([retainerId])
 }
@@ -743,6 +752,10 @@ model Retainer {
   startDate       DateTime
   endDate         DateTime?
   status          RetainerStatus      @default(DRAFT)
+  scopeSummary    String?
+  deliverables    Json?
+  approvalTerms   String?
+  requirements    String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   client          Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)

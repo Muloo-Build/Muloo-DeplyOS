@@ -105,7 +105,11 @@ export default function RetainersWorkspace() {
     agencyVatNumber: "",
     agencyAddress: "",
     agencyPrimaryContactEmail: "",
-    agencyPrimaryContactName: ""
+    agencyPrimaryContactName: "",
+    scopeSummary: "",
+    deliverables: [] as Array<{ title: string; description: string }>,
+    approvalTerms: "",
+    requirements: ""
   });
 
   async function loadWorkspace() {
@@ -170,7 +174,11 @@ export default function RetainersWorkspace() {
       blockSize: Number(form.blockSize),
       currency: form.currency,
       startDate: form.startDate,
-      status: form.status
+      status: form.status,
+      scopeSummary: form.scopeSummary || null,
+      deliverables: form.deliverables.filter((d) => d.title.trim()).length > 0 ? form.deliverables : null,
+      approvalTerms: form.approvalTerms || null,
+      requirements: form.requirements || null
     };
 
     if (form.billToMode === "agency" && form.agencyId) {
@@ -503,6 +511,106 @@ export default function RetainersWorkspace() {
                 </select>
               </label>
             </div>
+
+            <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="mb-4 text-sm font-medium text-white">Scope & Terms</p>
+              
+              <label className="text-sm text-text-secondary">
+                Scope summary
+                <textarea
+                  value={form.scopeSummary}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      scopeSummary: event.target.value
+                    }))
+                  }
+                  placeholder="High-level overview of what will be delivered..."
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white placeholder-text-muted"
+                  rows={3}
+                />
+              </label>
+
+              <div className="mt-4">
+                <p className="mb-2 text-sm text-text-secondary">Deliverables</p>
+                <div className="space-y-3">
+                  {form.deliverables.map((deliverable, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={deliverable.title}
+                        onChange={(event) => {
+                          const newDeliverables = [...form.deliverables];
+                          newDeliverables[idx].title = event.target.value;
+                          setForm((current) => ({
+                            ...current,
+                            deliverables: newDeliverables
+                          }));
+                        }}
+                        placeholder="Deliverable title (required)"
+                        className="flex-1 rounded-xl border border-white/10 bg-background-primary px-3 py-2 text-white placeholder-text-muted text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForm((current) => ({
+                            ...current,
+                            deliverables: current.deliverables.filter((_, i) => i !== idx)
+                          }));
+                        }}
+                        className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-100 hover:border-rose-400/50 hover:bg-rose-500/20"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm((current) => ({
+                      ...current,
+                      deliverables: [...current.deliverables, { title: "", description: "" }]
+                    }));
+                  }}
+                  className="mt-3 inline-flex text-sm font-medium text-[#51d0b0] hover:underline"
+                >
+                  + Add deliverable
+                </button>
+              </div>
+
+              <label className="mt-4 text-sm text-text-secondary">
+                Requirements
+                <textarea
+                  value={form.requirements}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      requirements: event.target.value
+                    }))
+                  }
+                  placeholder="Specific requirements or constraints..."
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white placeholder-text-muted"
+                  rows={3}
+                />
+              </label>
+
+              <label className="mt-4 text-sm text-text-secondary">
+                Approval terms
+                <textarea
+                  value={form.approvalTerms}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      approvalTerms: event.target.value
+                    }))
+                  }
+                  placeholder="Terms for approval and sign-off..."
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white placeholder-text-muted"
+                  rows={3}
+                />
+              </label>
+            </section>
 
             {form.billToMode === "new-agency" ? (
               <div className="mt-4 grid gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">

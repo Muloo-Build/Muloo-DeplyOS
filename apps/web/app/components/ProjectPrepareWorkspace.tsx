@@ -287,6 +287,12 @@ export default function ProjectPrepareWorkspace({
   const [clientMemory, setClientMemory] = useState<ClientMemory | null>(null);
   const [workflowRuns, setWorkflowRuns] = useState<WorkflowRun[]>([]);
   const [prepareBrief, setPrepareBrief] = useState<PrepareBrief | null>(null);
+  const [summaryBusy, setSummaryBusy] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [summaryFeedback, setSummaryFeedback] = useState<string | null>(null);
+  const [taskPlanBusy, setTaskPlanBusy] = useState(false);
+  const [taskPlanError, setTaskPlanError] = useState<string | null>(null);
+  const [taskPlanFeedback, setTaskPlanFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingContext, setSavingContext] = useState(false);
@@ -573,6 +579,81 @@ export default function ProjectPrepareWorkspace({
     }
   }
 
+  async function generateSummary() {
+    setSummaryBusy(true);
+    setSummaryError(null);
+    setSummaryFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`,
+        {
+          method: "POST"
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to generate AI summary");
+      }
+
+      const executiveSummary = body?.summary?.executiveSummary;
+      if (typeof executiveSummary === "string" && executiveSummary.trim()) {
+        setProject((currentProject) =>
+          currentProject
+            ? {
+                ...currentProject,
+                scopeExecutiveSummary: executiveSummary
+              }
+            : currentProject
+        );
+      }
+
+      setSummaryFeedback("AI summary refreshed from the saved notes and context.");
+    } catch (generationError) {
+      setSummaryError(
+        generationError instanceof Error
+          ? generationError.message
+          : "Failed to generate AI summary"
+      );
+    } finally {
+      setSummaryBusy(false);
+    }
+  }
+
+  async function generateTaskPlan() {
+    setTaskPlanBusy(true);
+    setTaskPlanError(null);
+    setTaskPlanFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/tasks/generate-plan`,
+        {
+          method: "POST"
+        }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to generate task draft");
+      }
+
+      const taskCount = Array.isArray(body?.tasks) ? body.tasks.length : 0;
+      setTaskPlanFeedback(
+        `Task draft generated from the current scoped notes. ${taskCount} task${taskCount === 1 ? "" : "s"} created.`
+      );
+    } catch (generationError) {
+      setTaskPlanError(
+        generationError instanceof Error
+          ? generationError.message
+          : "Failed to generate task draft"
+      );
+    } finally {
+      setTaskPlanBusy(false);
+    }
+  }
+
   return (
     <AppShell>
       <div className="p-8">
@@ -675,6 +756,12 @@ export default function ProjectPrepareWorkspace({
                 </p>
                 <div className="mt-4 space-y-3">
                   {[
+                    {
+                      href: `/projects/${project.id}/quote`,
+                      title: "Open scope and approval",
+                      description:
+                        "Move straight into the commercial quote once the summary reflects the meeting notes."
+                    },
                     {
                       href: `/projects/${project.id}/audit`,
                       title: "Run portal audit",
@@ -1080,6 +1167,85 @@ export default function ProjectPrepareWorkspace({
                 </div>
               </section>
             </div>
+
+            <section className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                    Scope From Notes
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">
+                    Turn meeting notes into a working project
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-text-secondary">
+                    When discovery is not needed, save what you already know here,
+                    generate the AI summary from those notes, draft the first task
+                    plan, and move into quote and client approval.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void generateSummary()}
+                    disabled={summaryBusy}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
+                  >
+                    {summaryBusy ? "Generating summary..." : "Generate AI summary"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void generateTaskPlan()}
+                    disabled={taskPlanBusy}
+                    className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
+                  >
+                    {taskPlanBusy ? "Generating tasks..." : "Generate task draft"}
+                  </button>
+                  <Link
+                    href={`/projects/${project.id}/quote`}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                  >
+                    Open quote
+                  </Link>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                    Current summary
+                  </p>
+                  <p className="mt-3 text-sm leading-7 text-text-secondary">
+                    {project.scopeExecutiveSummary?.trim() ||
+                      project.solutionRecommendation?.trim() ||
+                      "No AI summary has been saved yet. Paste the Gemini meeting summary into the notes below, then generate the summary from context."}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                    Next flow
+                  </p>
+                  <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                    <p>1. Save meeting notes and known blockers.</p>
+                    <p>2. Generate the AI summary from that context.</p>
+                    <p>3. Generate a draft task plan if you want a delivery view.</p>
+                    <p>4. Open the quote, invite the client, and let them review it in the portal.</p>
+                  </div>
+                </div>
+              </div>
+
+              {summaryError ? (
+                <p className="mt-4 text-sm text-[#ff8f9c]">{summaryError}</p>
+              ) : null}
+              {summaryFeedback ? (
+                <p className="mt-4 text-sm text-[#54e1b1]">{summaryFeedback}</p>
+              ) : null}
+              {taskPlanError ? (
+                <p className="mt-2 text-sm text-[#ff8f9c]">{taskPlanError}</p>
+              ) : null}
+              {taskPlanFeedback ? (
+                <p className="mt-2 text-sm text-[#54e1b1]">{taskPlanFeedback}</p>
+              ) : null}
+            </section>
 
             <section className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
               <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[rgba(255,255,255,0.07)] pb-4">

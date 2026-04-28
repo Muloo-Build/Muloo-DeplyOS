@@ -149,6 +149,7 @@ interface QuoteSnapshot {
     quantity: number;
     unitPrice: number;
     lineTotalZar: number;
+    kind?: string | null;
   }>;
   totals: {
     totalHumanHours: number;
@@ -167,6 +168,12 @@ interface QuoteSnapshot {
     nextQuestions: string[];
     clientResponsibilities: string[];
     isStandaloneQuote: boolean;
+    retainerScope?: {
+      summary?: string | null;
+      requirements?: string | null;
+      deliverables?: Array<{ title: string; description?: string | null }> | null;
+      approvalTerms?: string | null;
+    } | null;
     blueprintGeneratedAt: string | null;
   } | null;
 }
@@ -291,7 +298,8 @@ function formatBillingModel(value: string) {
     {
       fixed: "Fixed fee",
       monthly: "Monthly recurring",
-      hourly: "Hourly"
+      hourly: "Hourly",
+      retainer: "Retainer"
     }[value] ?? value
   );
 }
@@ -379,7 +387,10 @@ export default function QuoteDocument({
         if (!nextProject) {
           throw new Error("Failed to load project context for this quote.");
         }
-        const isStandaloneQuote = nextProject?.scopeType === "standalone_quote";
+        const requiresBlueprint =
+          nextProject?.engagementType !== "AUDIT" &&
+          nextProject?.engagementType !== "OPTIMISATION" &&
+          (nextProject?.scopeType ?? "discovery") === "discovery";
 
         const [
           sessionsResponse,
@@ -399,12 +410,12 @@ export default function QuoteDocument({
           !sessionsResponse.ok ||
           !productsResponse.ok ||
           !summaryResponse?.ok ||
-          (!isStandaloneQuote && !blueprintResponse?.ok)
+          (requiresBlueprint && !blueprintResponse?.ok)
         ) {
           throw new Error(
-            isStandaloneQuote
-              ? "Generate the scoped summary before opening the commercial document."
-              : "Generate the discovery summary and blueprint before opening the quote."
+            requiresBlueprint
+              ? "Generate the discovery summary and blueprint before opening the quote."
+              : "Generate the scoped summary before opening the quote."
           );
         }
 
@@ -1441,6 +1452,71 @@ export default function QuoteDocument({
                     </div>
                   </div>
                 </div>
+
+                {quoteContext?.retainerScope &&
+                (quoteContext.retainerScope.summary ||
+                  quoteContext.retainerScope.requirements ||
+                  (quoteContext.retainerScope.deliverables?.length ?? 0) > 0 ||
+                  quoteContext.retainerScope.approvalTerms) ? (
+                  <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <SectionEyebrow>Retainer</SectionEyebrow>
+                    <SectionTitle>Scope &amp; Terms</SectionTitle>
+                    <div className="mt-5 space-y-4">
+                      {quoteContext.retainerScope.summary ? (
+                        <p className="text-sm leading-7 text-text-secondary">
+                          {quoteContext.retainerScope.summary}
+                        </p>
+                      ) : null}
+                      {quoteContext.retainerScope.requirements ? (
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Requirements
+                          </p>
+                          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-text-secondary">
+                            {quoteContext.retainerScope.requirements}
+                          </p>
+                        </div>
+                      ) : null}
+                      {quoteContext.retainerScope.deliverables &&
+                      quoteContext.retainerScope.deliverables.length > 0 ? (
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Deliverables
+                          </p>
+                          <ul className="mt-3 space-y-3 text-sm text-text-secondary">
+                            {quoteContext.retainerScope.deliverables.map(
+                              (deliverable, index) => (
+                                <li
+                                  key={`${deliverable.title}-${index}`}
+                                  className="leading-6"
+                                >
+                                  <p className="font-semibold text-white">
+                                    {deliverable.title}
+                                  </p>
+                                  {deliverable.description ? (
+                                    <p className="mt-1 text-text-muted">
+                                      {deliverable.description}
+                                    </p>
+                                  ) : null}
+                                </li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {quoteContext.retainerScope.approvalTerms ? (
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            Approval Terms
+                          </p>
+                          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-text-secondary">
+                            {quoteContext.retainerScope.approvalTerms}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
 
                 {isStandaloneQuote ? (
                   <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">

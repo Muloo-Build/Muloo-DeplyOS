@@ -6,10 +6,16 @@ import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
 
+type RetainerServiceLine = "TECHNICAL_DELIVERY" | "CONSULTING";
+type RetainerStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED";
+type RetainerCurrency = "ZAR" | "USD" | "GBP" | "EUR" | "AUD" | "CAD";
+
 interface ProjectDetail {
   id: string;
   name: string;
   clientName: string;
+  clientId: string;
+  retainerId?: string | null;
   engagementType: string;
   scopeType?: string | null;
   serviceFamily: string;
@@ -54,6 +60,17 @@ interface ProjectDetail {
   scopeLockedAt?: string | null;
 }
 
+interface RetainerOption {
+  id: string;
+  serviceLine: RetainerServiceLine;
+  blockSize: number;
+  rate: number;
+  currency: RetainerCurrency;
+  startDate: string;
+  endDate?: string | null;
+  status: RetainerStatus;
+}
+
 interface PlatformPackageDraft {
   productKey: string;
   label: string;
@@ -95,6 +112,7 @@ interface InternalCommercialsDraft {
 interface FormState {
   name: string;
   clientName: string;
+  retainerId: string | null;
   engagementType: string;
   scopeType: string;
   serviceFamily: string;
@@ -162,7 +180,7 @@ const scopeTypes = [
   {
     id: "standalone_quote",
     label: "Standalone quote job",
-    description: "Capture a specific job brief without a full discovery cycle."
+    description: "Capture a specific job brief without a full discovery process."
   },
   {
     id: "optimisation",
@@ -371,6 +389,7 @@ function buildInitialForm(project: ProjectDetail): FormState {
   return {
     name: project.name,
     clientName: project.clientName,
+    retainerId: project.retainerId ?? null,
     engagementType: project.engagementType,
     scopeType: project.scopeType ?? "discovery",
     serviceFamily: project.serviceFamily,
@@ -425,6 +444,8 @@ export default function ProjectEditWorkspace({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [retainers, setRetainers] = useState<RetainerOption[]>([]);
+  const [loadingRetainers, setLoadingRetainers] = useState(false);
 
   useEffect(() => {
     async function loadProject() {
@@ -452,6 +473,30 @@ export default function ProjectEditWorkspace({
 
     void loadProject();
   }, [projectId]);
+
+  useEffect(() => {
+    async function loadRetainers() {
+      if (!project?.clientId) {
+        return;
+      }
+
+      setLoadingRetainers(true);
+      try {
+        const response = await fetch(`/api/clients/${encodeURIComponent(project.clientId)}/retainers`);
+        const body = await response.json().catch(() => null);
+
+        if (response.ok && Array.isArray(body?.retainers)) {
+          setRetainers(body.retainers);
+        }
+      } catch {
+        // Silently fail, retainers are optional
+      } finally {
+        setLoadingRetainers(false);
+      }
+    }
+
+    void loadRetainers();
+  }, [project?.clientId]);
 
   useEffect(() => {
     setForm((current) => {
@@ -685,6 +730,7 @@ export default function ProjectEditWorkspace({
         body: JSON.stringify({
           name: form.name,
           clientName: form.clientName,
+          retainerId: form.retainerId,
           type: form.engagementType,
           scopeType: form.scopeType,
           serviceFamily: form.serviceFamily,
@@ -966,6 +1012,132 @@ export default function ProjectEditWorkspace({
                     />
                     Include portal audit
                   </label>
+                </div>
+              </section>
+
+              <section className="brand-surface rounded-3xl border p-6">
+                <h2 className="text-xl font-semibold text-white">
+                  Linked retainer
+                </h2>
+                <p className="mt-2 text-sm text-text-secondary">
+                  Link this project to an existing retainer for the client, or leave unlinked.
+                </p>
+                <div className="mt-6 space-y-6">
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-text-secondary">
+                      Select retainer
+                    </span>
+                    <select
+                      value={form.retainerId ?? ""}
+                      onChange={(event) =>
+                        updateField(
+                          "retainerId",
+                          event.target.value ? event.target.value : null
+                        )
+                      }
+                      disabled={loadingRetainers}
+                      className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid disabled:opacity-60"
+                    >
+                      <option value="">No retainer linked</option>
+                      {retainers.map((retainer) => {
+                        const label = `${
+                          retainer.serviceLine === "TECHNICAL_DELIVERY"
+                            ? "Technical Delivery"
+                            : "Consulting"
+                        } · ${retainer.blockSize}h/month · R${retainer.rate}/hr · ${retainer.status}`;
+                        return (
+                          <option key={retainer.id} value={retainer.id}>
+                            {label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+
+                  {form.retainerId && (
+                    (() => {
+                      const selectedRetainer = retainers.find(
+                        (r) => r.id === form.retainerId
+                      );
+                      if (!selectedRetainer) return null;
+
+                      return (
+                        <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-elevated p-4">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div>
+                              <p className="text-xs text-text-muted">Service line</p>
+                              <p className="mt-1 text-sm text-white">
+                                {selectedRetainer.serviceLine === "TECHNICAL_DELIVERY"
+                                  ? "Technical Delivery"
+                                  : "Consulting"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-text-muted">Block size</p>
+                              <p className="mt-1 text-sm text-white">
+                                {selectedRetainer.blockSize}h/month
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-text-muted">Rate</p>
+                              <p className="mt-1 text-sm text-white">
+                                {selectedRetainer.currency} {selectedRetainer.rate}/hr
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-text-muted">Currency</p>
+                              <p className="mt-1 text-sm text-white">
+                                {selectedRetainer.currency}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-text-muted">Start date</p>
+                              <p className="mt-1 text-sm text-white">
+                                {new Date(selectedRetainer.startDate).toLocaleDateString(
+                                  "en-ZA",
+                                  {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric"
+                                  }
+                                )}
+                              </p>
+                            </div>
+                            {selectedRetainer.endDate ? (
+                              <div>
+                                <p className="text-xs text-text-muted">End date</p>
+                                <p className="mt-1 text-sm text-white">
+                                  {new Date(selectedRetainer.endDate).toLocaleDateString(
+                                    "en-ZA",
+                                    {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric"
+                                    }
+                                  )}
+                                </p>
+                              </div>
+                            ) : null}
+                            <div>
+                              <p className="text-xs text-text-muted">Status</p>
+                              <p className="mt-1 text-sm text-white">
+                                {selectedRetainer.status}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()
+                  )}
+
+                  <Link
+                    href={`/retainers?clientId=${encodeURIComponent(
+                      project?.clientId ?? ""
+                    )}`}
+                    className="inline-flex items-center gap-2 text-sm text-accent-solid hover:text-accent-solid/80"
+                  >
+                    Create new retainer →
+                  </Link>
                 </div>
               </section>
 

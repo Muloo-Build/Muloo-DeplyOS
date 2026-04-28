@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
+import ClientInvoicesPanel from "./ClientInvoicesPanel";
 import SlideOver from "./SlideOver";
 
 interface ClientContact {
@@ -2390,6 +2391,7 @@ export default function ClientsWorkspace({
                     </div>
                   )}
                 </div>
+                <ClientInvoicesPanel clientId={client.id} clientName={client.name} />
               </div>
             </div>
           </div>

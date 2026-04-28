@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import ClientShell from "./ClientShell";
+import ClientHubSpotInviteCard from "./ClientHubSpotInviteCard";
 import {
   type PortalExperience,
   getPortalProjectPath
@@ -88,6 +89,7 @@ export default function ClientProjectsDashboard({
 
   return (
     <ClientShell portalExperience={portalExperience}>
+      <ClientHubSpotInviteCard />
       {loading ? (
         <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8 text-text-secondary">
           Loading your projects...
@@ -103,8 +105,6 @@ export default function ClientProjectsDashboard({
         </div>
       ) : (
         <div className="space-y-8">
-          {activeProjects.length > 0 ? (
-            <div>
               <h2 className="mb-4 text-xs uppercase tracking-[0.2em] text-text-muted">
                 Active projects
               </h2>

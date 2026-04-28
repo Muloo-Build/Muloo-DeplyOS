@@ -137,6 +137,7 @@ import {
   loadWorkspaceEmailOAuthConnection,
   loadWorkspaceCalendarConnection,
   loadWorkspaceEmailSettings,
+  loadWorkspaceHubSpotSettings,
   loadWorkspacePrivateTasks,
   loadWorkspaceTodos,
   loadWorkspaceUsers,
@@ -166,6 +167,7 @@ import {
   updateWorkspaceCalendarConnection,
   updateWorkspacePrivateTask,
   updateWorkspaceEmailSettings,
+  updateWorkspaceHubSpotSettings,
   updateProductCatalogItem,
   updateWorkspaceProviderConnection,
   deleteClientDirectoryRecord,
@@ -219,8 +221,10 @@ import {
   generateDiscoverySummary,
   generateBlueprintForProject,
   generateProjectTaskPlan,
+  getQuotePrerequisiteError,
   loadProjectTaskTemplates,
   queueAgentRun,
+  quoteRequiresBlueprint,
   audit,
   hashPassword,
   runTrackedHubSpotAgentRequest,
@@ -890,6 +894,7 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/email-settings", internalAuth);
   app.use("/api/email-oauth/google", internalAuth);
   app.use("/api/email-oauth/google/*", internalAuth);
+  app.use("/api/workspace/hubspot-settings", internalAuth);
   app.use("/api/workspace", internalAuth);
   app.use("/api/workspace/*", internalAuth);
   app.use("/api/client", clientAuth);
@@ -3704,6 +3709,30 @@ export function createApiApp(config: BaseConfig) {
     })
   );
 
+  app.get("/api/workspace/hubspot-settings", async (c) =>
+    c.json({
+      settings: await loadWorkspaceHubSpotSettings()
+    })
+  );
+
+  app.put("/api/workspace/hubspot-settings", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const settings = await updateWorkspaceHubSpotSettings(body);
+      return c.json({ settings });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update HubSpot settings"
+        },
+        400
+      );
+    }
+  });
+
   app.get("/api/email-oauth/google", async (c) =>
     c.json({
       connection: await loadWorkspaceEmailOAuthConnection()
@@ -4500,6 +4529,94 @@ export function createApiApp(config: BaseConfig) {
       );
     }
   });
+
+  app.get("/api/clients/:clientId/retainers", async (c) => {
+    try {
+      const retainers = await prisma.retainer.findMany({
+        where: { clientId: c.req.param("clientId") },
+        include: {
+          billToEntity: {
+            select: { id: true, name: true, type: true }
+          }
+        },
+        orderBy: { createdAt: "desc" }
+      });
+
+      return c.json({ retainers });
+    } catch (error) {
+      return c.json(
+        {
+          error: error instanceof Error ? error.message : "Failed to load retainers"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/client-auth/hubspot-invite", async (c) => {
+    const clientUserId = getAuthenticatedClientUserId(c.env.incoming);
+
+    if (!clientUserId) {
+      return c.json({ error: "Client unauthorized" }, 401);
+    }
+
+    try {
+      // Get the client portal user's first accessible project to find the client
+      const projectAccess = await prisma.clientProjectAccess.findFirst({
+        where: { userId: clientUserId },
+        include: {
+          project: {
+            select: {
+              clientId: true,
+              client: {
+                select: {
+                  hubSpotPortalId: true,
+                  hubSpotPortal: {
+                    select: {
+                      connected: true,
+                      portalId: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!projectAccess) {
+        return c.json({
+          partnerInviteUrl: null,
+          connected: false,
+          portalId: null
+        });
+      }
+
+      const { client } = projectAccess.project;
+      const portal = client.hubSpotPortal;
+
+      // Load workspace HubSpot settings for the invite URL
+      const workspaceSettings = await loadWorkspaceHubSpotSettings();
+
+      return c.json({
+        partnerInviteUrl: workspaceSettings.partnerInviteUrl || null,
+        connected: portal?.connected ?? false,
+        portalId: portal?.portalId ?? null
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load HubSpot invite settings"
+        },
+        400
+      );
+    }
+  });
+
+
 
   app.get("/api/client/retainers/:retainerId", async (c) => {
     const retainer = await loadClientRetainerDetail(
@@ -5598,24 +5715,27 @@ export function createApiApp(config: BaseConfig) {
       );
     }
 
-    const isStandaloneQuote = document.project.scopeType === "standalone_quote";
+    const requiresBlueprint = quoteRequiresBlueprint(document.project);
 
     if (!document.summary) {
       return c.json(
         {
-          error: isStandaloneQuote
-            ? "Generate the scoped summary before opening the commercial document."
-            : "Generate the discovery summary before opening the quote."
+          error: getQuotePrerequisiteError(
+            document.project,
+            "opening"
+          )
         },
         400
       );
     }
 
-    if (!isStandaloneQuote && !document.blueprint) {
+    if (requiresBlueprint && !document.blueprint) {
       return c.json(
         {
-          error:
-            "Generate the discovery summary and blueprint before opening the quote."
+          error: getQuotePrerequisiteError(
+            document.project,
+            "opening"
+          )
         },
         400
       );

@@ -54,7 +54,7 @@ export function resolveProjectWorkspaceMode(input: {
     key: "implementation" as const,
     label: "Implementation",
     summary:
-      "Use the full discovery-to-delivery flow when you are shaping a fresh implementation or major rollout."
+      "Use the full inputs-to-delivery flow when you are shaping a fresh implementation or major rollout."
   };
 }
 
@@ -98,7 +98,7 @@ export function buildProjectWorkspaceClusters(input: {
           ? [
               {
                 href: `/projects/${input.projectId}/discovery`,
-                label: "Discovery Inputs"
+                label: "Project Inputs"
               },
               {
                 href: `/projects/${input.projectId}/proposal`,
@@ -116,11 +116,11 @@ export function buildProjectWorkspaceClusters(input: {
           ? [
               {
                 href: `/projects/${input.projectId}/discovery`,
-                label: "Discovery Inputs"
+                label: "Project Inputs"
               },
               {
                 href: `/projects/${input.projectId}/proposal`,
-                label: "Discovery Doc"
+                label: "Working Doc"
               }
             ]
           : []),

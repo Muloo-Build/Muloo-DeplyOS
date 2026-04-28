@@ -203,6 +203,44 @@ const defaultHubSpotOAuthOptionalScopes = [
   "marketing.campaigns.write",
   "automation"
 ] as const;
+
+export function projectUsesScopedSummaryWorkflow(project: {
+  scopeType?: string | null;
+  engagementType?: string | null;
+}) {
+  if ((project.scopeType ?? "discovery") !== "discovery") {
+    return true;
+  }
+
+  if (
+    project.engagementType === "AUDIT" ||
+    project.engagementType === "OPTIMISATION" ||
+    project.engagementType === "GUIDED_DEPLOYMENT"
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export function quoteRequiresBlueprint(project: {
+  scopeType?: string | null;
+  engagementType?: string | null;
+}) {
+  return !projectUsesScopedSummaryWorkflow(project);
+}
+
+export function getQuotePrerequisiteError(
+  project: { scopeType?: string | null; engagementType?: string | null },
+  action: "opening" | "sharing"
+) {
+  if (quoteRequiresBlueprint(project)) {
+    return `Generate the discovery summary and blueprint before ${action} the quote.`;
+  }
+
+  return `Generate the scoped summary before ${action} the quote.`;
+}
+
 const hubSpotScopeProfiles = {
   core_crm: {
     label: "Core CRM",
@@ -3004,6 +3042,18 @@ const retainerCreateSchema = z.object({
   startDate: z.coerce.date(),
   status: z.enum(retainerStatuses).default("DRAFT"),
   fxRateFromZar: z.number().finite().positive().optional(),
+  scopeSummary: z.string().trim().optional().nullable(),
+  deliverables: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1),
+        description: z.string().trim().optional().nullable()
+      })
+    )
+    .optional()
+    .nullable(),
+  approvalTerms: z.string().trim().optional().nullable(),
+  requirements: z.string().trim().optional().nullable(),
   newBillToAgency: z
     .object({
       name: z.string().trim().min(1),
@@ -3182,6 +3232,10 @@ function serializeRetainer<
     client?: { id: string; name: string; slug: string } | null;
     billToEntity?: { id: string; name: string; type: string } | null;
     periods?: Array<Parameters<typeof serializeRetainerPeriod>[0]>;
+    scopeSummary?: string | null;
+    deliverables?: unknown | null;
+    approvalTerms?: string | null;
+    requirements?: string | null;
   }
 >(retainer: T) {
   const currentPeriod = retainer.periods?.[0]
@@ -3213,6 +3267,10 @@ function serializeRetainer<
     startDate: retainer.startDate.toISOString(),
     endDate: retainer.endDate?.toISOString() ?? null,
     status: retainer.status,
+    scopeSummary: retainer.scopeSummary ?? null,
+    deliverables: retainer.deliverables ?? null,
+    approvalTerms: retainer.approvalTerms ?? null,
+    requirements: retainer.requirements ?? null,
     currentPeriod,
     createdAt: retainer.createdAt.toISOString(),
     updatedAt: retainer.updatedAt.toISOString()
@@ -3338,6 +3396,18 @@ export async function createRetainerRecord(payload: unknown) {
         currency: input.currency,
         startDate: input.startDate,
         status: input.status,
+        ...(input.scopeSummary !== undefined && input.scopeSummary !== null
+          ? { scopeSummary: input.scopeSummary }
+          : {}),
+        ...(input.deliverables !== undefined && input.deliverables !== null
+          ? { deliverables: input.deliverables }
+          : {}),
+        ...(input.approvalTerms !== undefined && input.approvalTerms !== null
+          ? { approvalTerms: input.approvalTerms }
+          : {}),
+        ...(input.requirements !== undefined && input.requirements !== null
+          ? { requirements: input.requirements }
+          : {}),
         ...(input.status === "ACTIVE"
           ? {
               periods: {
@@ -5064,7 +5134,8 @@ const projectQuoteProductLineSchema = z.object({
   unitLabel: z.string().min(1),
   quantity: z.number().finite().positive(),
   unitPrice: z.number().finite().positive(),
-  lineTotalZar: z.number().finite().nonnegative()
+  lineTotalZar: z.number().finite().nonnegative(),
+  kind: z.enum(["product", "retainer"]).optional()
 });
 
 const projectQuoteTotalsSchema = z.object({
@@ -5084,7 +5155,16 @@ const projectQuoteContextSchema = z.object({
   nextQuestions: z.array(z.string()),
   clientResponsibilities: z.array(z.string()),
   isStandaloneQuote: z.boolean(),
-  blueprintGeneratedAt: z.string().nullable()
+  blueprintGeneratedAt: z.string().nullable(),
+  retainerScope: z.object({
+    summary: z.string().nullable().optional(),
+    requirements: z.string().nullable().optional(),
+    deliverables: z.array(z.object({
+      title: z.string(),
+      description: z.string().optional()
+    })).nullable().optional(),
+    approvalTerms: z.string().nullable().optional()
+  }).optional()
 });
 
 const projectQuotePayloadSchema = z.object({
@@ -5096,6 +5176,61 @@ const projectQuotePayloadSchema = z.object({
   paymentSchedule: z.array(z.string().min(1)).min(1),
   context: projectQuoteContextSchema
 });
+
+function composeRetainerLine(retainer: {
+  id: string;
+  serviceLine: string;
+  blockSize: number;
+  rate: number | { toString(): string };
+  currency: string;
+  startDate: Date;
+  endDate: Date | null;
+}) {
+  const startDate = new Date(retainer.startDate);
+  const endDate = retainer.endDate ? new Date(retainer.endDate) : new Date(startDate.getTime() + 90.99 * 24 * 60 * 60 * 1000);
+  const termMonths = Math.ceil((endDate.getTime() - startDate.getTime()) / (30.44 * 24 * 60 * 60 * 1000));
+  const rateNumber = typeof retainer.rate === "number" ? retainer.rate : Number(retainer.rate.toString());
+  const amount = retainer.blockSize * rateNumber * termMonths;
+  const serviceLineLabel = retainer.serviceLine === 'CONSULTING' ? 'Consulting' : 'Technical Delivery';
+
+  return {
+    id: `retainer-${retainer.id}`,
+    slug: `retainer-${retainer.id}`,
+    name: `${serviceLineLabel} retainer — ${retainer.blockSize}h/month × ${termMonths} months`,
+    category: 'Ongoing Commitment',
+    billingModel: 'retainer',
+    description: `${serviceLineLabel} retainer: ${retainer.blockSize} hours per month for ${termMonths} months at ${retainer.currency} ${rateNumber}/hour`,
+    unitLabel: 'months',
+    quantity: termMonths,
+    unitPrice: retainer.blockSize * rateNumber,
+    lineTotalZar: amount,
+    kind: 'retainer' as const
+  };
+}
+
+function mergeRetainerScopeContext(
+  existingContext: any,
+  retainer: {
+    scopeSummary?: string | null;
+    requirements?: string | null;
+    deliverables?: unknown;
+    approvalTerms?: string | null;
+  }
+) {
+  const retainerScope = {
+    summary: retainer.scopeSummary || undefined,
+    requirements: retainer.requirements || undefined,
+    deliverables: retainer.deliverables || undefined,
+    approvalTerms: retainer.approvalTerms || undefined
+  };
+
+  return {
+    ...existingContext,
+    retainerScope: Object.fromEntries(
+      Object.entries(retainerScope).filter(([_, v]) => v !== undefined)
+    ) || undefined
+  };
+}
 
 function serializeProjectQuote<
   T extends {
@@ -8398,6 +8533,7 @@ async function generateStandaloneProjectPlan(projectId: string) {
       name: true,
       serviceFamily: true,
       scopeType: true,
+      engagementType: true,
       commercialBrief: true,
       customerPlatformTier: true,
       platformTierSelections: true,
@@ -8416,9 +8552,9 @@ async function generateStandaloneProjectPlan(projectId: string) {
     throw new Error("Project not found");
   }
 
-  if (project.scopeType !== "standalone_quote") {
+  if (!projectUsesScopedSummaryWorkflow(project)) {
     throw new Error(
-      "Generated project plans are currently only available for standalone scoped jobs"
+      "Generated project plans are only available for summary-first scoped jobs"
     );
   }
 
@@ -8664,6 +8800,7 @@ async function generateProjectPlan(projectId: string) {
     select: {
       id: true,
       scopeType: true,
+      engagementType: true,
       blueprint: {
         select: {
           id: true
@@ -8680,7 +8817,7 @@ async function generateProjectPlan(projectId: string) {
     return generateBlueprintProjectPlan(projectId);
   }
 
-  if (project.scopeType === "standalone_quote") {
+  if (projectUsesScopedSummaryWorkflow(project)) {
     return generateStandaloneProjectPlan(projectId);
   }
 
@@ -10921,7 +11058,7 @@ export async function generateDiscoverySummary(projectId: string) {
     throw new Error("Project not found");
   }
 
-  if (discoveryPayload.project.scopeType === "standalone_quote") {
+  if (projectUsesScopedSummaryWorkflow(discoveryPayload.project)) {
     return generateStandaloneScopeSummary(discoveryPayload);
   }
 
@@ -11159,7 +11296,8 @@ export async function shareProjectQuote(projectId: string, payload: unknown) {
       where: { id: projectId },
       include: {
         client: true,
-        portal: true
+        portal: true,
+        retainer: true
       }
     }),
     loadDiscoverySummary(projectId),
@@ -11170,19 +11308,33 @@ export async function shareProjectQuote(projectId: string, payload: unknown) {
     throw new Error("Project not found");
   }
 
-  const isStandaloneQuote = project.scopeType === "standalone_quote";
+  const requiresBlueprint = quoteRequiresBlueprint(project);
 
   if (!summary) {
-    throw new Error(
-      isStandaloneQuote
-        ? "Generate the scoped summary before sharing the quote."
-        : "Generate the discovery summary before sharing the quote."
-    );
+    throw new Error(getQuotePrerequisiteError(project, "sharing"));
   }
 
-  if (!isStandaloneQuote && !blueprint) {
-    throw new Error(
-      "Generate the discovery summary and blueprint before sharing the quote."
+  if (requiresBlueprint && !blueprint) {
+    throw new Error(getQuotePrerequisiteError(project, "sharing"));
+  }
+
+  // Inject retainer line if project has a linked retainer
+  if (project.retainer && project.retainer.status !== "ENDED") {
+    // Remove any existing retainer lines from productLines (idempotency)
+    const filteredProductLines = (normalizedPayload.productLines || []).filter(
+      (line: any) => line.kind !== "retainer"
+    );
+
+    // Compose new retainer line
+    const retainerLine = composeRetainerLine(project.retainer);
+
+    // Add retainer line to product lines
+    normalizedPayload.productLines = [...filteredProductLines, retainerLine];
+
+    // Merge scope context from retainer
+    normalizedPayload.context = mergeRetainerScopeContext(
+      normalizedPayload.context,
+      project.retainer
     );
   }
 
@@ -23039,6 +23191,89 @@ async function getGoogleWorkspaceEmailOAuthConnectionRecord() {
   return prisma.workspaceEmailOAuthConnection.findUnique({
     where: { providerKey: "google_workspace" }
   });
+}
+
+
+async function ensureWorkspaceHubSpotSettingsSeeded() {
+  const existingCount = await prisma.workspaceHubSpotSettings.count();
+
+  if (existingCount > 0) {
+    return;
+  }
+
+  await prisma.workspaceHubSpotSettings.create({
+    data: {
+      id: "default"
+    }
+  });
+}
+
+function serializeWorkspaceHubSpotSettings<
+  T extends {
+    id: string;
+    partnerInviteUrl: string | null;
+    partnerAccountId: string | null;
+    notes: string | null;
+    updatedAt: Date;
+    createdAt: Date;
+  }
+>(settings: T) {
+  return {
+    id: settings.id,
+    partnerInviteUrl: settings.partnerInviteUrl,
+    partnerAccountId: settings.partnerAccountId,
+    notes: settings.notes,
+    updatedAt: settings.updatedAt.toISOString(),
+    createdAt: settings.createdAt.toISOString()
+  };
+}
+
+export async function loadWorkspaceHubSpotSettings() {
+  await ensureWorkspaceHubSpotSettingsSeeded();
+
+  const settings = await prisma.workspaceHubSpotSettings.findUniqueOrThrow({
+    where: { id: "default" }
+  });
+
+  return serializeWorkspaceHubSpotSettings(settings);
+}
+
+export async function updateWorkspaceHubSpotSettings(value: {
+  partnerInviteUrl?: unknown;
+  partnerAccountId?: unknown;
+  notes?: unknown;
+}) {
+  await ensureWorkspaceHubSpotSettingsSeeded();
+
+  const updateData: Prisma.Prisma.WorkspaceHubSpotSettingsUpdateInput = {};
+
+  if (value.partnerInviteUrl !== undefined) {
+    if (typeof value.partnerInviteUrl !== "string") {
+      throw new Error("partnerInviteUrl must be a string");
+    }
+    updateData.partnerInviteUrl = value.partnerInviteUrl.trim() || null;
+  }
+
+  if (value.partnerAccountId !== undefined) {
+    if (typeof value.partnerAccountId !== "string") {
+      throw new Error("partnerAccountId must be a string");
+    }
+    updateData.partnerAccountId = value.partnerAccountId.trim() || null;
+  }
+
+  if (value.notes !== undefined) {
+    if (typeof value.notes !== "string") {
+      throw new Error("notes must be a string");
+    }
+    updateData.notes = value.notes.trim() || null;
+  }
+
+  const updatedSettings = await prisma.workspaceHubSpotSettings.update({
+    where: { id: "default" },
+    data: updateData
+  });
+
+  return serializeWorkspaceHubSpotSettings(updatedSettings);
 }
 
 function buildRawEmailMessage(value: {
