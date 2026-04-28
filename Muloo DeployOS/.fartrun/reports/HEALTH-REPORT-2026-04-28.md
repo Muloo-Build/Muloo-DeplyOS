@@ -1,0 +1,130 @@
+# Health Report: Muloo DeployOS
+
+Scanned: 2026-04-28 14:26
+Total findings: 16 (actionable: 9)
+
+🟠 high: 1 | 🟡 medium: 3 | 🔵 low: 5 | ℹ️ info: 7
+
+**Files:** 1
+
+## Recommended action order
+
+1. **HIGH:** fix tests (1 items)
+2. entry_points (1 items)
+3. gitignore (1 items)
+4. readme (1 items)
+
+---
+
+## 🟠 HIGH (1)
+
+> No tests means every change is a gamble. Start with smoke tests for critical paths — even one test is infinitely better than zero.
+
+- [ ] **No tests found**
+  - Zero test files in this project.
+
+
+## 🟡 MEDIUM (3)
+
+- [ ] **Entry Points**
+  - No entry points found.
+  - **Fix (Python docs):**
+    ### entry_points() - Query All Entry Points
+    Source: https://github.com/python/cpython/blob/main/Doc/library/importlib.metadata.rst
+    Returns an EntryPoints collection containing all installed entry points. The function can accept keyword arguments to filter results by group and name. This is the primary interface for discovering entry points in the current Python environment.
+    ```APIDOC
+    ## entry_points()
+    ### Description
+    Query all entry points or filter by group and name. Returns an EntryPoints collection object.
+    ### Method
+    Function call
+    ### Endpoint
+    entry_points(**kwargs)
+    ### Parameters
+
+- [ ] **No .gitignore file**
+  - No .gitignore — you might be committing junk files.
+  - **Fix (Git docs):**
+    ### Configuring .gitignore patterns
+    Source: https://github.com/git/git/blob/master/Documentation/user-manual.adoc
+    Example content for a .gitignore file to exclude build artifacts or temporary files.
+    ```text
+    # Lines starting with '#' are considered comments.
+    # Ignore any file named foo.txt.
+    foo.txt
+    # Ignore (generated) html files,
+    *.html
+    # except foo.html which is maintained by hand.
+    !foo.html
+    ```
+
+- [ ] **No README file**
+  - No README.
+  - **Fix (Python docs):**
+    ### Build Configuration Options
+    Source: https://github.com/python/cpython/blob/main/Doc/whatsnew/2.3.rst
+    Documentation of Python build configuration options including shared library compilation, cycle garbage collection, and docstring inclusion settings.
+    ```APIDOC
+    ## Build Configuration Options
+    ### Description
+    Configuration options available when building Python from source using the configure script.
+    ### Garbage Collection
+    - **--with-cycle-gc** - REMOVED (now mandatory)
+      - Cycle detection for garbage collection is now mandatory and cannot be disabled
+      - Previously optional, now built-in to all Python builds
+    ### Shared Library Compilation
+
+
+## 🔵 LOW (5)
+
+- [ ] **Unfinished work: 4 uncommitted files, 1 stashed changes**
+  - You have 4 uncommitted files, 1 stashed changes.
+
+> Giant commits are hard to review, hard to revert, and hard for AI to understand. Keep commits focused on one change.
+
+- [ ] **Big commit: 0b1e2c3 (676 lines)**
+  - Commit 'Add repo memory and project overview docs' changed 676 lines.
+
+- [ ] **Big commit: e5f2659 (2278 lines)**
+  - Commit 'Support summary-first quoting and client portal setup' changed 2278 lines.
+
+- [ ] **Big commit: ac901ab (1910 lines)**
+  - Commit 'Add project workstreams and standard pack seeding' changed 1910 lines.
+
+- [ ] **Working directly on main**
+  - You're on 'main' and committing directly.
+
+
+---
+
+<details>
+<summary>ℹ️ Info (7 items)</summary>
+
+- **Project Map**: In your project: 1 files. Most common: .md (1). This is just context — now you know what's inside.
+- **Session: 6 commits, ~30 files touched**: Last 8 hours: 6 commits, ~30 files modified.
+- **Before building — search first**: Before writing a new feature: google it. Check GitHub repos, PyPI, npm. Someone probably already built what you need. Don't reinvent the wheel — steal the wheel.
+- **Git status: 1 staged (ready to commit), 3 untracked (new files git doesn't know about)**: Working tree: 1 staged (ready to commit), 3 untracked (new files git doesn't know about). Staged files are ready for commit. Untracked files won't be saved until you 'git add' them.
+- **2 unmerged branches**: Branches not merged: chore/remove-replit-assets, codex/verify-and-smoke. Merge or delete them to keep things clean.
+- **Git commands you need right now**: git add <file> — start tracking a new file | git commit -m 'description' — save staged changes | git stash — temporarily hide changes, work on something else | git checkout -b my-feature — create a branch before changing main
+### LLM Context Summary
+
+Copy this to give AI context about your project:
+# Project: Muloo DeployOS
+
+**Size:** 1 files, 1 dirs
+
+
+</details>
+
+---
+
+## How to use this report with AI
+
+Paste this file to Claude/Cursor and say:
+```
+Fix the issues in this health report, starting from HIGH severity.
+Skip items marked as possible false positives.
+```
+
+---
+*Scanned: [Muloo DeployOS](https://github.com/Muloo-Build/Muloo-DeplyOS) · Generated by [fartrun](https://github.com/ChuprinaDaria/Vibecode-Cleaner-Fartrun) · MCP: `npx fartrun@latest install`*
