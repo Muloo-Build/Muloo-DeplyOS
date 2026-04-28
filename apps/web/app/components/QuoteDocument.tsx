@@ -38,6 +38,16 @@ interface Project {
   solutionRecommendation?: string | null;
   scopeExecutiveSummary?: string | null;
   customerPlatformTier?: string | null;
+  retainer?: {
+    id: string;
+    serviceLine: string;
+    blockSize: number;
+    rate: number;
+    currency: string;
+    startDate: string;
+    endDate: string | null;
+    status: string;
+  } | null;
   platformTierSelections?: Record<string, string> | null;
   packagingAssessment?: {
     fit: "good" | "attention" | "upgrade_needed";
@@ -160,6 +170,7 @@ interface QuoteSnapshot {
   };
   paymentSchedule: string[];
   context: {
+    quoteTitle?: string | null;
     quoteContextSummary: string | null;
     inScopeItems: string[];
     outOfScopeItems: string[];
@@ -245,6 +256,32 @@ function parseNumber(value: string, fallbackValue: number) {
   return Number.isFinite(parsedValue) && parsedValue > 0
     ? parsedValue
     : fallbackValue;
+}
+
+function composeLinkedRetainerLine(retainer: NonNullable<Project["retainer"]>) {
+  const startDate = new Date(retainer.startDate);
+  const endDate = retainer.endDate
+    ? new Date(retainer.endDate)
+    : new Date(startDate.getTime() + 90.99 * 24 * 60 * 60 * 1000);
+  const termMonths = Math.ceil(
+    (endDate.getTime() - startDate.getTime()) / (30.44 * 24 * 60 * 60 * 1000)
+  );
+  const serviceLineLabel =
+    retainer.serviceLine === "CONSULTING" ? "Consulting" : "Technical Delivery";
+
+  return {
+    id: `retainer-${retainer.id}`,
+    slug: `retainer-${retainer.id}`,
+    name: `${serviceLineLabel} retainer — ${retainer.blockSize}h/month × ${termMonths} months`,
+    category: "Ongoing Commitment",
+    billingModel: "retainer",
+    description: `${serviceLineLabel} retainer: ${retainer.blockSize} hours per month for ${termMonths} months at ${retainer.currency} ${retainer.rate}/hour`,
+    unitLabel: "months",
+    quantity: termMonths,
+    unitPrice: retainer.blockSize * retainer.rate,
+    lineTotalZar: retainer.blockSize * retainer.rate * termMonths,
+    kind: "retainer" as const
+  };
 }
 
 function formatDiscoveryOutcome(
@@ -337,6 +374,10 @@ export default function QuoteDocument({
   const [selectedProducts, setSelectedProducts] = useState<
     Record<string, { included: boolean; quantity: string; unitPrice: string }>
   >({});
+  const [quoteTitle, setQuoteTitle] = useState("");
+  const [quoteContextSummaryDraft, setQuoteContextSummaryDraft] = useState("");
+  const [inScopeDraft, setInScopeDraft] = useState("");
+  const [outOfScopeDraft, setOutOfScopeDraft] = useState("");
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [pushBusy, setPushBusy] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
@@ -433,6 +474,27 @@ export default function QuoteDocument({
         setSummary(summaryBody?.summary ?? null);
         setBlueprint(blueprintBody?.blueprint ?? null);
         setProducts(productsBody.products ?? []);
+        setQuoteTitle(`${nextProject.name} Quote`);
+        setQuoteContextSummaryDraft(
+          summaryBody?.summary?.executiveSummary ??
+            nextProject?.scopeExecutiveSummary ??
+            nextProject?.solutionRecommendation ??
+            nextProject?.problemStatement ??
+            nextProject?.commercialBrief ??
+            ""
+        );
+        const nextSessions = sessionsBody.sessionDetails ?? [];
+        const nextSession4 =
+          nextSessions.find((session: SessionDetail) => session.session === 4)
+            ?.fields ?? {};
+        setInScopeDraft(
+          ((summaryBody?.summary?.inScopeItems as string[] | undefined) ??
+            splitIntoList(nextSession4.confirmed_scope)).join("\n")
+        );
+        setOutOfScopeDraft(
+          ((summaryBody?.summary?.outOfScopeItems as string[] | undefined) ??
+            splitIntoList(nextSession4.out_of_scope)).join("\n")
+        );
       } catch (loadError) {
         setError(
           loadError instanceof Error
@@ -520,6 +582,15 @@ export default function QuoteDocument({
       return;
     }
 
+    if (savedQuote.context?.quoteTitle?.trim()) {
+      setQuoteTitle(savedQuote.context.quoteTitle);
+    }
+    if (savedQuote.context?.quoteContextSummary) {
+      setQuoteContextSummaryDraft(savedQuote.context.quoteContextSummary);
+    }
+    setInScopeDraft(savedQuote.context?.inScopeItems?.join("\n") ?? "");
+    setOutOfScopeDraft(savedQuote.context?.outOfScopeItems?.join("\n") ?? "");
+
     setCurrency(savedQuote.currency);
 
     if (savedQuote.defaultRate) {
@@ -601,7 +672,7 @@ export default function QuoteDocument({
     (total, phase) => total + phase.feeZar,
     0
   );
-  const selectedProductLines = products
+  const selectedCatalogProductLines = products
     .filter((product) => selectedProducts[product.id]?.included)
     .map((product) => {
       const selection = selectedProducts[product.id];
@@ -621,6 +692,18 @@ export default function QuoteDocument({
         lineTotalZar: quantity * unitPrice
       };
     });
+  const linkedRetainerLine =
+    project?.retainer && project.retainer.status !== "ENDED"
+      ? composeLinkedRetainerLine(project.retainer)
+      : null;
+  const selectedProductLines = linkedRetainerLine
+    ? [
+        ...selectedCatalogProductLines.filter(
+          (product) => product.kind !== "retainer"
+        ),
+        linkedRetainerLine
+      ]
+    : selectedCatalogProductLines;
   const additionalProductsTotalZar = selectedProductLines.reduce(
     (total, product) => total + product.lineTotalZar,
     0
@@ -676,11 +759,13 @@ export default function QuoteDocument({
   const displayPaymentSchedule =
     isPortalMode && savedQuote ? savedQuote.paymentSchedule : paymentSchedule;
   const displayInScopeItems =
-    isPortalMode && quoteContext ? quoteContext.inScopeItems : inScopeItems;
+    isPortalMode && quoteContext
+      ? quoteContext.inScopeItems
+      : splitIntoList(inScopeDraft);
   const displayOutOfScopeItems =
     isPortalMode && quoteContext
       ? quoteContext.outOfScopeItems
-      : outOfScopeItems;
+      : splitIntoList(outOfScopeDraft);
   const displaySupportingTools =
     isPortalMode && quoteContext
       ? quoteContext.supportingTools
@@ -696,16 +781,21 @@ export default function QuoteDocument({
   const displayQuoteContextSummary =
     isPortalMode && quoteContext
       ? quoteContext.quoteContextSummary
-      : isStandaloneQuote
-        ? (summary?.executiveSummary ??
-          project?.scopeExecutiveSummary ??
-          project?.solutionRecommendation ??
-          project?.problemStatement ??
-          project?.commercialBrief ??
-          "This standalone quote is based on the scoped job brief captured for the client.")
-        : (summary?.executiveSummary ??
-          session1.business_overview ??
-          "No executive summary generated yet.");
+      : quoteContextSummaryDraft.trim() ||
+        (isStandaloneQuote
+          ? (summary?.executiveSummary ??
+            project?.scopeExecutiveSummary ??
+            project?.solutionRecommendation ??
+            project?.problemStatement ??
+            project?.commercialBrief ??
+            "This standalone quote is based on the scoped job brief captured for the client.")
+          : (summary?.executiveSummary ??
+            session1.business_overview ??
+            "No executive summary generated yet."));
+  const displayQuoteTitle =
+    isPortalMode && quoteContext?.quoteTitle?.trim()
+      ? quoteContext.quoteTitle
+      : quoteTitle.trim() || `${project?.name ?? project?.client.name ?? "Project"} Quote`;
   const displayBlueprintGeneratedAt =
     isPortalMode && quoteContext?.blueprintGeneratedAt
       ? quoteContext.blueprintGeneratedAt
@@ -814,15 +904,10 @@ export default function QuoteDocument({
             },
             paymentSchedule,
             context: {
-              quoteContextSummary:
-                summary?.executiveSummary ??
-                project?.scopeExecutiveSummary ??
-                project?.solutionRecommendation ??
-                project?.problemStatement ??
-                project?.commercialBrief ??
-                null,
-              inScopeItems,
-              outOfScopeItems,
+              quoteTitle: quoteTitle.trim() || `${project?.name ?? "Project"} Quote`,
+              quoteContextSummary: quoteContextSummaryDraft.trim() || null,
+              inScopeItems: splitIntoList(inScopeDraft),
+              outOfScopeItems: splitIntoList(outOfScopeDraft),
               supportingTools,
               keyRisks,
               nextQuestions,
@@ -1000,12 +1085,25 @@ export default function QuoteDocument({
                       Quote & Approval
                     </p>
                   </div>
-                  <h2 className="mt-10 max-w-3xl text-5xl font-bold font-heading leading-tight text-white">
-                    {project.client.name.toUpperCase()} -{" "}
-                    {isStandaloneQuote
-                      ? "Standalone Quote"
-                      : "Implementation Quote"}
-                  </h2>
+                  {isPortalMode ? (
+                    <h2 className="mt-10 max-w-3xl text-5xl font-bold font-heading leading-tight text-white">
+                      {displayQuoteTitle}
+                    </h2>
+                  ) : (
+                    <div className="mt-10 max-w-3xl">
+                      <label className="block">
+                        <span className="mb-3 block text-xs uppercase tracking-[0.25em] text-text-muted">
+                          Quote title
+                        </span>
+                        <input
+                          value={quoteTitle}
+                          onChange={(event) => setQuoteTitle(event.target.value)}
+                          className="w-full bg-transparent text-5xl font-bold font-heading leading-tight text-white outline-none"
+                          placeholder={`${project.name} Quote`}
+                        />
+                      </label>
+                    </div>
+                  )}
                   <p className="mt-6 text-lg text-text-secondary">
                     {isStandaloneQuote
                       ? "Commercial quote generated from a standalone scoped brief and optional service products."
@@ -1145,6 +1243,53 @@ export default function QuoteDocument({
                 ))}
               </div>
             </section>
+
+            {!isPortalMode ? (
+              <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <SectionEyebrow>Editable Fields</SectionEyebrow>
+                <SectionTitle>Core commercial copy</SectionTitle>
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-text-secondary">
+                  Edit the quote title, summary, and scope notes here before you
+                  push the quote to the client portal.
+                </p>
+                <div className="mt-6 grid gap-4">
+                  <label className="block">
+                    <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                      Quote context summary
+                    </span>
+                    <textarea
+                      value={quoteContextSummaryDraft}
+                      onChange={(event) =>
+                        setQuoteContextSummaryDraft(event.target.value)
+                      }
+                      className="min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                    />
+                  </label>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                        In scope
+                      </span>
+                      <textarea
+                        value={inScopeDraft}
+                        onChange={(event) => setInScopeDraft(event.target.value)}
+                        className="min-h-[180px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                        Out of scope
+                      </span>
+                      <textarea
+                        value={outOfScopeDraft}
+                        onChange={(event) => setOutOfScopeDraft(event.target.value)}
+                        className="min-h-[180px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </section>
+            ) : null}
 
             {!isPortalMode && phaseCommercials.length > 0 ? (
               <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
@@ -1883,6 +2028,27 @@ export default function QuoteDocument({
                 </p>
 
                 <div className="mt-6 space-y-4">
+                  {linkedRetainerLine ? (
+                    <div className="rounded-2xl border border-[rgba(73,205,225,0.18)] bg-[rgba(73,205,225,0.08)] p-5">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <p className="text-lg font-semibold text-white">
+                          {linkedRetainerLine.name}
+                        </p>
+                        <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                          Linked retainer
+                        </span>
+                        <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                          Auto included
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm leading-7 text-text-secondary">
+                        {linkedRetainerLine.description}
+                      </p>
+                      <p className="mt-4 text-sm text-white">
+                        {formatCurrency(linkedRetainerLine.lineTotalZar, currency)}
+                      </p>
+                    </div>
+                  ) : null}
                   {products
                     .filter((product) => product.isActive)
                     .map((product) => {

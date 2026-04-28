@@ -3605,7 +3605,8 @@ async function reconcileProjectClientPortal(projectId: string) {
       where: { id: projectId },
       include: {
         client: true,
-        portal: true
+        portal: true,
+        retainer: true
       }
     });
 
@@ -3631,7 +3632,8 @@ async function reconcileProjectClientPortal(projectId: string) {
         where: { id: projectId },
         include: {
           client: true,
-          portal: true
+          portal: true,
+          retainer: true
         }
       });
     }
@@ -3643,7 +3645,8 @@ async function reconcileProjectClientPortal(projectId: string) {
         where: { id: projectId },
         include: {
           client: true,
-          portal: true
+          portal: true,
+          retainer: true
         }
       });
     }
@@ -4378,6 +4381,16 @@ function serializeProject<
       hubDomain: string | null;
       installedAt: Date | null;
     } | null;
+    retainer?: {
+      id: string;
+      serviceLine: string;
+      blockSize: number;
+      rate: unknown;
+      currency: string;
+      startDate: Date;
+      endDate: Date | null;
+      status: string;
+    } | null;
   }
 >(project: T) {
   const normalizedProject = normalizeProject(project);
@@ -4433,6 +4446,18 @@ function serializeProject<
     lastAgenda: normalizeStoredProjectAgenda(normalizedProject.lastAgenda),
     defaultWorkspacePath,
     portalQuoteEnabled: normalizedProject.portalQuoteEnabled !== false,
+    retainer: normalizedProject.retainer
+      ? {
+          id: normalizedProject.retainer.id,
+          serviceLine: normalizedProject.retainer.serviceLine,
+          blockSize: normalizedProject.retainer.blockSize,
+          rate: decimalToNumber(normalizedProject.retainer.rate),
+          currency: normalizedProject.retainer.currency,
+          startDate: normalizedProject.retainer.startDate.toISOString(),
+          endDate: normalizedProject.retainer.endDate?.toISOString() ?? null,
+          status: normalizedProject.retainer.status
+        }
+      : null,
     latestClientSubmissionAt:
       normalizedProject.latestClientSubmissionAt?.toISOString() ?? null,
     latestClientSubmissionSeenAt:
@@ -5147,6 +5172,7 @@ const projectQuoteTotalsSchema = z.object({
 });
 
 const projectQuoteContextSchema = z.object({
+  quoteTitle: z.string().nullable().optional(),
   quoteContextSummary: z.string().nullable(),
   inScopeItems: z.array(z.string()),
   outOfScopeItems: z.array(z.string()),
@@ -11291,6 +11317,7 @@ export async function shareProjectQuote(projectId: string, payload: unknown) {
           context:
             latestExistingQuote.context === null
               ? {
+                  quoteTitle: null,
                   quoteContextSummary: null,
                   inScopeItems: [],
                   outOfScopeItems: [],
