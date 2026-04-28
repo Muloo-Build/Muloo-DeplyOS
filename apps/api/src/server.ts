@@ -7174,6 +7174,10 @@ function getDiscoveryEvidenceText(
     ...discoveryPayload.discovery.sessions.flatMap((session) =>
       Object.values(session.fields)
     ),
+    ...discoveryPayload.discovery.consultantContext.flatMap((entry) => [
+      entry.label,
+      entry.content
+    ]),
     ...discoveryPayload.discovery.evidenceItems.flatMap((item) => [
       item.sourceLabel,
       item.sourceUrl ?? "",
@@ -10142,7 +10146,13 @@ async function loadProjectDiscoveryForBlueprint(projectId: string) {
     return null;
   }
 
-  const evidenceItems = await loadDiscoveryEvidence(projectId);
+  const [evidenceItems, contextEntries] = await Promise.all([
+    loadDiscoveryEvidence(projectId),
+    prisma.projectContext.findMany({
+      where: { projectId },
+      orderBy: { updatedAt: "desc" }
+    })
+  ]);
 
   const sessions = buildDiscoverySessionsWithStatus(project.discovery).map(
     (session) => ({
@@ -10195,6 +10205,15 @@ async function loadProjectDiscoveryForBlueprint(projectId: string) {
         : null,
       sessions,
       evidenceItems,
+      consultantContext: contextEntries
+        .filter((entry) => entry.content.trim().length > 0)
+        .map((entry) => ({
+          contextType: entry.contextType,
+          label: formatProjectContextType(entry.contextType),
+          content: entry.content,
+          source: entry.source,
+          updatedAt: entry.updatedAt.toISOString()
+        })),
       commercialBrief: project.commercialBrief,
       problemStatement: project.problemStatement,
       solutionRecommendation: project.solutionRecommendation,
@@ -10880,6 +10899,7 @@ Rules:
           client: discoveryPayload.discovery.client,
           packagingAssessment,
           evidenceText,
+          consultantContext: discoveryPayload.discovery.consultantContext,
           supportingContext: discoveryPayload.discovery.evidenceItems
         },
         null,
