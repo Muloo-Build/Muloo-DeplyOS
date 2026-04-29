@@ -11836,7 +11836,8 @@ const ALLOWED_QUOTE_STATUSES = [
   "approved",
   "won",
   "lost",
-  "archived"
+  "archived",
+  "superseded"
 ] as const;
 
 const CLOSED_QUOTE_STATUSES = new Set(["won", "lost", "archived"]);
@@ -25038,4 +25039,173 @@ export async function createQuickQuote(payload: unknown) {
     quote: serializeProjectQuote(result.quote),
     projectId: result.projectId
   };
+}
+
+const TERMINAL_QUOTE_STATUSES = new Set([
+  "won",
+  "lost",
+  "archived",
+  "superseded"
+]);
+
+function buildQuickQuoteBodyData(
+  parsed: z.infer<typeof quickQuoteCreateSchema>
+) {
+  const productLines = parsed.lineItems.map((item, index) => {
+    const lineTotal =
+      item.quantity * item.rate * (1 - (item.discount ?? 0) / 100);
+    return {
+      id: `quick-${index}`,
+      slug: `quick-line-${index}`,
+      name: item.description.slice(0, 80),
+      category: "manual",
+      billingModel:
+        parsed.dealType === "retainer" ? "monthly_retainer" : "one_time",
+      description: item.description,
+      unitLabel: item.unitLabel,
+      quantity: item.quantity,
+      unitPrice: item.rate,
+      lineTotalZar: lineTotal,
+      kind: "manual",
+      metadata: {
+        discount: item.discount ?? 0
+      }
+    };
+  });
+
+  const subtotal = productLines.reduce(
+    (sum, line) => sum + line.lineTotalZar,
+    0
+  );
+
+  const totals = {
+    totalHumanHours: 0,
+    totalFeeZar: 0,
+    additionalProductsTotalZar: subtotal,
+    grandTotalZar: subtotal,
+    paymentAmountZar: subtotal
+  };
+
+  const context = {
+    quoteTitle: parsed.title,
+    quoteContextSummary: parsed.contentBlocks?.executiveSummary ?? null,
+    inScopeItems: [],
+    outOfScopeItems: [],
+    supportingTools: [],
+    keyRisks: [],
+    nextQuestions: [],
+    clientResponsibilities: [],
+    isStandaloneQuote: true,
+    showPaymentSchedule: (parsed.paymentSchedule?.length ?? 0) > 0,
+    blueprintGeneratedAt: null,
+    contentOverrides: {
+      termsAndWorkingScope: parsed.contentBlocks?.terms ?? null,
+      approvalSummary: parsed.contentBlocks?.includeMulooIntro
+        ? "Muloo is a technical systems and HubSpot focused business. We design, build and run the systems that support revenue, operations and product."
+        : null
+    }
+  };
+
+  return { productLines, totals, context };
+}
+
+export async function updateQuoteOrCreateRevision(
+  sourceQuoteId: string,
+  payload: unknown
+) {
+  const parsed = quickQuoteCreateSchema.parse(payload);
+
+  const source = await prisma.projectQuote.findUnique({
+    where: { id: sourceQuoteId }
+  });
+  if (!source) {
+    throw new Error("Quote not found");
+  }
+
+  const { productLines, totals, context } = buildQuickQuoteBodyData(parsed);
+
+  // If source is still a draft and the project hasn't moved on, edit in place.
+  if (source.status === "draft") {
+    const updated = await prisma.projectQuote.update({
+      where: { id: source.id },
+      data: {
+        template: parsed.template,
+        currency: parsed.currency,
+        defaultRate: parsed.defaultRate ?? null,
+        productLines: productLines as Prisma.Prisma.InputJsonValue,
+        totals: totals as Prisma.Prisma.InputJsonValue,
+        paymentSchedule: (parsed.paymentSchedule ??
+          []) as Prisma.Prisma.InputJsonValue,
+        context: context as Prisma.Prisma.InputJsonValue
+      }
+    });
+
+    return {
+      quote: serializeProjectQuote(updated),
+      projectId: updated.projectId,
+      mode: "in_place" as const
+    };
+  }
+
+  // Otherwise create a new version, mark source as superseded.
+  const result = await prisma.$transaction(async (tx) => {
+    const latest = await tx.projectQuote.findFirst({
+      where: { projectId: source.projectId },
+      orderBy: { version: "desc" }
+    });
+    const nextVersion = (latest?.version ?? 0) + 1;
+
+    if (!TERMINAL_QUOTE_STATUSES.has(source.status)) {
+      await tx.projectQuote.update({
+        where: { id: source.id },
+        data: { status: "superseded" }
+      });
+    }
+
+    const created = await tx.projectQuote.create({
+      data: {
+        projectId: source.projectId,
+        version: nextVersion,
+        status: "draft",
+        template: parsed.template,
+        currency: parsed.currency,
+        defaultRate: parsed.defaultRate ?? null,
+        phaseLines: [] as Prisma.Prisma.InputJsonValue,
+        productLines: productLines as Prisma.Prisma.InputJsonValue,
+        totals: totals as Prisma.Prisma.InputJsonValue,
+        paymentSchedule: (parsed.paymentSchedule ??
+          []) as Prisma.Prisma.InputJsonValue,
+        context: context as Prisma.Prisma.InputJsonValue
+      }
+    });
+
+    return created;
+  });
+
+  return {
+    quote: serializeProjectQuote(result),
+    projectId: result.projectId,
+    mode: "new_version" as const
+  };
+}
+
+export async function recallQuote(quoteId: string) {
+  const quote = await prisma.projectQuote.findUnique({
+    where: { id: quoteId }
+  });
+  if (!quote) {
+    throw new Error("Quote not found");
+  }
+  if (quote.status !== "shared") {
+    throw new Error(
+      `Only sent quotes can be recalled. Current status: ${quote.status}.`
+    );
+  }
+
+  const updated = await prisma.projectQuote.update({
+    where: { id: quoteId },
+    data: { status: "draft" }
+  });
+
+  return { quote: serializeProjectQuote(updated) };
 }

@@ -216,8 +216,10 @@ import {
   createQuickQuote,
   listAllQuotes,
   loadQuoteById,
+  recallQuote,
   saveProjectQuote,
   updateProjectQuoteMeta,
+  updateQuoteOrCreateRevision,
   serializePortalTask,
   serializeTask,
   deleteProjectRecord,
@@ -4297,6 +4299,41 @@ export function createApiApp(config: BaseConfig) {
       const message =
         error instanceof Error ? error.message : "Failed to create quote";
       const statusCode = message === "Client not found" ? 404 : 400;
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
+  app.post("/api/quotes/:quoteId/edit", async (c) => {
+    try {
+      const result = await updateQuoteOrCreateRevision(
+        c.req.param("quoteId"),
+        await readJsonBodyOrEmpty(c)
+      );
+      return c.json(result);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return c.json({ error: error.flatten() }, 400);
+      }
+      const message =
+        error instanceof Error ? error.message : "Failed to edit quote";
+      const statusCode = message === "Quote not found" ? 404 : 400;
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
+  app.post("/api/quotes/:quoteId/recall", async (c) => {
+    try {
+      const result = await recallQuote(c.req.param("quoteId"));
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to recall quote";
+      const statusCode =
+        message === "Quote not found"
+          ? 404
+          : message.startsWith("Only sent quotes")
+            ? 409
+            : 400;
       return c.json({ error: message }, statusCode);
     }
   });

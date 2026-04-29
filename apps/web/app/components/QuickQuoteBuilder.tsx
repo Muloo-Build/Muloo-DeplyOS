@@ -14,6 +14,32 @@ interface ClientOption {
   name: string;
 }
 
+interface SourceQuoteSnapshot {
+  status: string;
+  version: number;
+  template: string;
+  currency: string;
+  defaultRate: number | null;
+  productLines: Array<{
+    name: string;
+    description?: string | null;
+    quantity: number;
+    unitLabel: string;
+    unitPrice: number;
+    metadata?: { discount?: number } | null;
+    billingModel?: string;
+  }>;
+  paymentSchedule: string[];
+  context: {
+    quoteTitle?: string | null;
+    quoteContextSummary: string | null;
+    contentOverrides?: {
+      termsAndWorkingScope?: string | null;
+      approvalSummary?: string | null;
+    } | null;
+  } | null;
+}
+
 interface LineItemDraft {
   description: string;
   quantity: string;
@@ -80,12 +106,23 @@ function formatCurrency(amount: number, currency: Currency) {
   }).format(amount);
 }
 
-export default function QuickQuoteBuilder() {
+interface QuickQuoteBuilderProps {
+  sourceId?: string;
+}
+
+export default function QuickQuoteBuilder({
+  sourceId
+}: QuickQuoteBuilderProps = {}) {
   const router = useRouter();
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
+  const [loadingSource, setLoadingSource] = useState(Boolean(sourceId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sourceMeta, setSourceMeta] = useState<{
+    status: string;
+    version: number;
+  } | null>(null);
 
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState("");
@@ -119,6 +156,76 @@ export default function QuickQuoteBuilder() {
     }
     void loadClients();
   }, []);
+
+  useEffect(() => {
+    if (!sourceId) return;
+
+    async function loadSource() {
+      setLoadingSource(true);
+      try {
+        const response = await fetch(
+          `/api/quotes/${encodeURIComponent(sourceId!)}`,
+          {
+            credentials: "include"
+          }
+        );
+        if (!response.ok) throw new Error("Failed to load source quote");
+        const body = (await response.json()) as {
+          quote: SourceQuoteSnapshot;
+          project: { client: { id: string } | null };
+        };
+
+        const q = body.quote;
+        setSourceMeta({ status: q.status, version: q.version });
+
+        setTitle(q.context?.quoteTitle ?? "");
+        setClientId(body.project.client?.id ?? "");
+        setTemplate(q.template === "full" ? "full" : "one_pager");
+        setCurrency((q.currency as Currency) ?? "ZAR");
+        setDefaultRate(q.defaultRate != null ? String(q.defaultRate) : "");
+
+        // Derive deal type from first line item's billingModel
+        const firstBilling = q.productLines[0]?.billingModel;
+        setDealType(
+          firstBilling === "monthly_retainer"
+            ? "retainer"
+            : firstBilling === "one_time"
+              ? "fixed"
+              : "fixed"
+        );
+
+        // Map line items
+        if (q.productLines.length > 0) {
+          setLineItems(
+            q.productLines.map((line) => ({
+              description: line.description ?? line.name ?? "",
+              quantity: String(line.quantity ?? ""),
+              unitLabel: line.unitLabel ?? "hours",
+              rate: String(line.unitPrice ?? ""),
+              discount: String(line.metadata?.discount ?? "")
+            }))
+          );
+        }
+
+        // Content blocks
+        setIncludeMulooIntro(
+          Boolean(q.context?.contentOverrides?.approvalSummary)
+        );
+        setExecutiveSummary(q.context?.quoteContextSummary ?? "");
+        setTerms(q.context?.contentOverrides?.termsAndWorkingScope ?? "");
+      } catch (loadError) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load source quote"
+        );
+      } finally {
+        setLoadingSource(false);
+      }
+    }
+
+    void loadSource();
+  }, [sourceId]);
 
   const subtotal = useMemo(
     () =>
@@ -197,7 +304,11 @@ export default function QuickQuoteBuilder() {
 
     setSaving(true);
     try {
-      const response = await fetch("/api/quotes/quick", {
+      const url = sourceId
+        ? `/api/quotes/${encodeURIComponent(sourceId)}/edit`
+        : "/api/quotes/quick";
+
+      const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -218,17 +329,17 @@ export default function QuickQuoteBuilder() {
       });
 
       const body = (await response.json().catch(() => null)) as
-        | { quote?: { id: string }; error?: string }
+        | { quote?: { id: string }; mode?: string; error?: string }
         | null;
 
       if (!response.ok || !body?.quote) {
-        throw new Error(body?.error ?? "Failed to create quote");
+        throw new Error(body?.error ?? "Failed to save quote");
       }
 
       router.push(`/quotes/${body.quote.id}`);
     } catch (saveError) {
       setError(
-        saveError instanceof Error ? saveError.message : "Failed to create quote"
+        saveError instanceof Error ? saveError.message : "Failed to save quote"
       );
     } finally {
       setSaving(false);
@@ -243,16 +354,33 @@ export default function QuickQuoteBuilder() {
       >
         <header className="flex flex-col gap-3">
           <p className="text-xs uppercase tracking-[0.32em] text-[#49cde1]">
-            New quote
+            {sourceId
+              ? sourceMeta?.status === "draft"
+                ? "Edit quote"
+                : "Revise quote"
+              : "New quote"}
           </p>
           <h1 className="text-3xl font-semibold tracking-tight text-white">
-            Build a quote
+            {sourceId
+              ? sourceMeta?.status === "draft"
+                ? "Edit draft"
+                : `Create v${(sourceMeta?.version ?? 1) + 1}`
+              : "Build a quote"}
           </h1>
           <p className="text-sm text-text-secondary">
-            Quick standalone quote. Skips Discovery and Blueprint. For
-            project-led commercial proposals, use the existing Project flow.
+            {sourceId
+              ? sourceMeta?.status === "draft"
+                ? "Updating this draft in place. No new version created."
+                : `The current v${sourceMeta?.version ?? 1} (${sourceMeta?.status ?? "shared"}) will be marked superseded and a fresh draft created.`
+              : "Quick standalone quote. Skips Discovery and Blueprint. For project-led commercial proposals, use the existing Project flow."}
           </p>
         </header>
+
+        {loadingSource ? (
+          <div className="rounded-2xl border border-white/10 bg-background-card px-4 py-3 text-sm text-text-secondary">
+            Loading source quote...
+          </div>
+        ) : null}
 
         {error ? (
           <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
@@ -617,10 +745,16 @@ export default function QuickQuoteBuilder() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            disabled={saving || loadingClients}
+            disabled={saving || loadingClients || loadingSource}
             className="inline-flex items-center rounded-xl bg-[#51d0b0] px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-[#6be0c1] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {saving ? "Creating..." : "Create draft quote"}
+            {saving
+              ? "Saving..."
+              : sourceId
+                ? sourceMeta?.status === "draft"
+                  ? "Save changes"
+                  : `Create v${(sourceMeta?.version ?? 1) + 1} draft`
+                : "Create draft quote"}
           </button>
           <button
             type="button"

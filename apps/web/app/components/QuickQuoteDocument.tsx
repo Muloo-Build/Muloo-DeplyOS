@@ -173,6 +173,44 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
     await applyMeta({ status: targetStatus, closedReason: reason || undefined });
   }
 
+  async function handleRecall() {
+    if (!quote) return;
+    const confirmed = window.confirm(
+      "Recall this quote? It will move back to draft and no longer be considered sent. The version number stays the same."
+    );
+    if (!confirmed) return;
+
+    setBusy(true);
+    setFeedback(null);
+    try {
+      const response = await fetch(
+        `/api/quotes/${encodeURIComponent(quote.id)}/recall`,
+        {
+          method: "POST",
+          credentials: "include"
+        }
+      );
+      const body = (await response.json().catch(() => null)) as {
+        quote?: QuoteData;
+        error?: string;
+      } | null;
+      if (!response.ok || !body?.quote) {
+        throw new Error(body?.error ?? "Failed to recall quote");
+      }
+      setFeedback("Quote recalled. Status reverted to draft.");
+      window.setTimeout(() => setFeedback(null), 2500);
+      await loadQuote();
+    } catch (recallError) {
+      setError(
+        recallError instanceof Error
+          ? recallError.message
+          : "Failed to recall quote"
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <AppShell>
@@ -224,6 +262,25 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
             >
               {quote.status}
             </span>
+            {quote.status !== "archived" &&
+            quote.status !== "superseded" ? (
+              <Link
+                href={`/quotes/new?source=${encodeURIComponent(quote.id)}`}
+                className="rounded-xl border border-[#49cde1]/30 bg-[#49cde1]/10 px-3 py-2 text-sm font-medium text-[#9be4f0] transition hover:bg-[#49cde1]/20"
+              >
+                {quote.status === "draft" ? "Edit" : "Edit & revise"}
+              </Link>
+            ) : null}
+            {quote.status === "shared" ? (
+              <button
+                type="button"
+                onClick={handleRecall}
+                disabled={busy}
+                className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-100 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Recall
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => markAs("won")}

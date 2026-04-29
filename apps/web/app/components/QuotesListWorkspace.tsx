@@ -32,7 +32,8 @@ const statusFilters: Array<{ value: string; label: string }> = [
   { value: "approved", label: "Approved" },
   { value: "won", label: "Won" },
   { value: "lost", label: "Lost" },
-  { value: "archived", label: "Archived" }
+  { value: "archived", label: "Archived" },
+  { value: "superseded", label: "Superseded" }
 ];
 
 const statusStyles: Record<string, string> = {
@@ -41,7 +42,8 @@ const statusStyles: Record<string, string> = {
   approved: "bg-amber-500/15 text-amber-200 border border-amber-400/30",
   won: "bg-emerald-500/15 text-emerald-200 border border-emerald-400/30",
   lost: "bg-rose-500/15 text-rose-200 border border-rose-400/30",
-  archived: "bg-slate-500/15 text-slate-300 border border-slate-400/30"
+  archived: "bg-slate-500/15 text-slate-300 border border-slate-400/30",
+  superseded: "bg-violet-500/15 text-violet-200 border border-violet-400/30"
 };
 
 function formatDate(value: string) {
