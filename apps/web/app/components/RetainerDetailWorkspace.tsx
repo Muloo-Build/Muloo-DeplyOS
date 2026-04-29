@@ -249,6 +249,40 @@ export default function RetainerDetailWorkspace({
     }
   }
 
+  async function handleDeleteRetainer() {
+    if (!retainer) return;
+    const confirmed = window.confirm(
+      `Delete this retainer for ${retainer.client?.name ?? "client"}?\n\nThis cascades and removes all associated periods, ledger entries, rollover buckets, and any DRAFT invoices. SENT or PAID invoices block deletion.\n\nThis action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setError(null);
+    setFeedback(null);
+
+    try {
+      const response = await fetch(
+        `/api/retainers/${encodeURIComponent(retainerId)}`,
+        {
+          method: "DELETE",
+          credentials: "include"
+        }
+      );
+      const body = (await response.json().catch(() => null)) as
+        | { deleted?: boolean; error?: string }
+        | null;
+      if (!response.ok || !body?.deleted) {
+        throw new Error(body?.error ?? "Failed to delete retainer");
+      }
+      router.push("/retainers");
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Failed to delete retainer"
+      );
+    }
+  }
+
   async function handleCreateInvoice(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!retainer) return;
@@ -314,6 +348,15 @@ export default function RetainerDetailWorkspace({
                 : "Loading commercial detail..."}
             </p>
           </div>
+          {retainer ? (
+            <button
+              type="button"
+              onClick={() => void handleDeleteRetainer()}
+              className="inline-flex items-center justify-center rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-2.5 text-sm font-medium text-rose-100 transition hover:bg-rose-500/20"
+            >
+              Delete retainer
+            </button>
+          ) : null}
         </header>
 
         {error ? (

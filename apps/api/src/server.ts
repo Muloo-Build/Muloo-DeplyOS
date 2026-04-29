@@ -3434,6 +3434,50 @@ export async function createRetainerRecord(payload: unknown) {
   });
 }
 
+export async function deleteRetainerRecord(retainerId: string) {
+  const retainer = await prisma.retainer.findUnique({
+    where: { id: retainerId },
+    include: {
+      invoices: { select: { id: true, status: true } },
+      periods: { select: { id: true } }
+    }
+  });
+
+  if (!retainer) {
+    throw new Error("Retainer not found");
+  }
+
+  // Block delete if any invoice has been sent or paid — those are real
+  // financial records and must be voided through the proper flow.
+  const hasSentInvoices = retainer.invoices.some(
+    (invoice) =>
+      invoice.status === "SENT" ||
+      invoice.status === "PAID" ||
+      invoice.status === "OVERDUE"
+  );
+
+  if (hasSentInvoices) {
+    throw new Error(
+      "This retainer has sent or paid invoices. Void those first or set the retainer to ENDED instead of deleting."
+    );
+  }
+
+  // Soft signal: warn callers via a metadata flag if there are draft invoices
+  // that will cascade. Cascade rules in the schema clean periods, ledger
+  // entries, rollover buckets, and draft invoices automatically.
+  await prisma.retainer.delete({
+    where: { id: retainerId }
+  });
+
+  return {
+    deleted: true,
+    cascaded: {
+      periods: retainer.periods.length,
+      draftInvoices: retainer.invoices.length
+    }
+  };
+}
+
 export async function createRetainerTopUpQuote(
   retainerId: string,
   payload: unknown

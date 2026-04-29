@@ -82,6 +82,7 @@ import {
   createProductCatalogItem,
   createPortalSnapshotForPortal,
   createRetainerRecord,
+  deleteRetainerRecord,
   createRetainerTopUpQuote,
   createWorkRequest,
   createWorkspaceUser,
@@ -4477,6 +4478,23 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ retainer });
+  });
+
+  app.delete("/api/retainers/:retainerId", async (c) => {
+    try {
+      const result = await deleteRetainerRecord(c.req.param("retainerId"));
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete retainer";
+      const statusCode =
+        message === "Retainer not found"
+          ? 404
+          : message.startsWith("This retainer has sent or paid invoices")
+            ? 409
+            : 400;
+      return c.json({ error: message }, statusCode);
+    }
   });
 
   app.post("/api/retainers/:retainerId/top-ups", async (c) => {
