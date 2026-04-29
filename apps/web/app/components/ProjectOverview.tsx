@@ -2112,27 +2112,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             <>
               <Link
                 href={`/projects/${project.id}/edit`}
-                className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
+                className="rounded-xl border border-white/10 bg-background-card px-4 py-2 text-sm font-medium text-text-secondary transition hover:bg-white/5 hover:text-white"
               >
                 Edit project
               </Link>
               <Link
-                href={`/projects/${project.id}/discovery`}
-                className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
-              >
-                Discovery
-              </Link>
-              <Link
-                href={`/projects/${project.id}/delivery`}
-                className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
-              >
-                Delivery Board
-              </Link>
-              <Link
                 href={`/projects/${project.id}/quote`}
-                className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
+                className="inline-flex items-center rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
               >
-                Quote
+                Open quote
               </Link>
             </>
           }
@@ -2149,6 +2137,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               }
               hubTier={portalSnapshot?.hubTier ?? null}
               connectionReady={Boolean(project.portal?.connected)}
+              portalRecordId={project.portal?.id ?? null}
               contactsCount={portalSnapshot?.contactPropertyCount ?? null}
               dealsCount={portalSnapshot?.dealPropertyCount ?? null}
               propertiesCount={portalSnapshot?.contactPropertyCount ?? null}

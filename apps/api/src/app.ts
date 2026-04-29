@@ -221,6 +221,7 @@ import {
   loadClientQuickQuote,
   loadFinancialsSummary,
   loadQuoteById,
+  markPortalAsConnectedManually,
   recallQuote,
   saveProjectQuote,
   syncQuoteToHubSpotDeal,
@@ -5349,6 +5350,30 @@ export function createApiApp(config: BaseConfig) {
       }
 
       throw error;
+    }
+  });
+
+  app.post("/api/portals/:portalId/mark-connected", async (c) => {
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      const body = (await readJsonBodyOrEmpty(c)) as { note?: unknown };
+      const note =
+        typeof body.note === "string" && body.note.trim().length > 0
+          ? body.note.trim()
+          : null;
+      const result = await markPortalAsConnectedManually({
+        portalId: c.req.param("portalId"),
+        actor: actor.actor,
+        note
+      });
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to mark portal as connected";
+      const statusCode = message === "Portal not found" ? 404 : 400;
+      return c.json({ error: message }, statusCode);
     }
   });
 

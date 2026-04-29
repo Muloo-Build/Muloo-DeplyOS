@@ -25265,6 +25265,54 @@ export async function updateQuoteOrCreateRevision(
   };
 }
 
+// Operator action: flip a portal's `connected` flag manually. Used when the
+// client accepted a partner invite (which doesn't go through OAuth) so the
+// platform can stop nagging about the disconnected state. Captures actor +
+// timestamp for audit trail.
+export async function markPortalAsConnectedManually(input: {
+  portalId: string;
+  actor: string;
+  note?: string | null;
+}) {
+  const portal = await prisma.hubSpotPortal.findUnique({
+    where: { id: input.portalId }
+  });
+  if (!portal) {
+    throw new Error("Portal not found");
+  }
+
+  const updated = await prisma.hubSpotPortal.update({
+    where: { id: input.portalId },
+    data: {
+      connected: true,
+      installedAt: portal.installedAt ?? new Date()
+    }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      actor: input.actor,
+      action: "portal.marked_connected_manually",
+      entityType: "HubSpotPortal",
+      entityId: input.portalId,
+      metadata: {
+        note: input.note ?? null,
+        previouslyConnected: portal.connected
+      }
+    }
+  });
+
+  return {
+    portal: {
+      id: updated.id,
+      portalId: updated.portalId,
+      displayName: updated.displayName,
+      connected: updated.connected,
+      installedAt: updated.installedAt?.toISOString() ?? null
+    }
+  };
+}
+
 async function assertClientAccessToQuoteProject(
   clientUserId: string,
   projectClientId: string

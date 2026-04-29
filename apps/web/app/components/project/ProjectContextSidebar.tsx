@@ -15,10 +15,18 @@ function SidebarSection(props: { label: string; children: ReactNode }) {
   );
 }
 
-function PartnerInviteAction({ connected }: { connected: boolean }) {
+function PartnerInviteAction({
+  connected,
+  portalRecordId
+}: {
+  connected: boolean;
+  portalRecordId: string | null;
+}) {
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [marking, setMarking] = useState(false);
+  const [markFeedback, setMarkFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     if (connected) return;
@@ -44,48 +52,103 @@ function PartnerInviteAction({ connected }: { connected: boolean }) {
     };
   }, [connected]);
 
+  async function markAsConnected() {
+    if (!portalRecordId) return;
+    const note = window.prompt(
+      "Optional note (e.g. 'Magnisol accepted partner invite 29 April')"
+    );
+    if (note === null) return;
+    setMarking(true);
+    setMarkFeedback(null);
+    try {
+      const response = await fetch(
+        `/api/portals/${encodeURIComponent(portalRecordId)}/mark-connected`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ note: note || undefined })
+        }
+      );
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(body?.error ?? "Failed to mark as connected");
+      }
+      setMarkFeedback("Marked as connected. Refresh to see updated state.");
+    } catch (error) {
+      setMarkFeedback(
+        error instanceof Error ? error.message : "Failed to mark as connected"
+      );
+    } finally {
+      setMarking(false);
+    }
+  }
+
   if (connected) return null;
   if (!loaded) return null;
 
-  if (!inviteUrl) {
-    return (
-      <Link
-        href="/settings#hubspot"
-        className="mt-3 inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-100 transition hover:bg-amber-500/20"
-      >
-        Configure partner invite link →
-      </Link>
-    );
-  }
-
   return (
-    <div className="mt-3 flex flex-wrap gap-2">
-      <button
-        type="button"
-        onClick={() => {
-          if (typeof window === "undefined") return;
-          navigator.clipboard.writeText(inviteUrl).then(
-            () => {
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 2500);
-            },
-            () => {
-              setCopied(false);
-            }
-          );
-        }}
-        className="inline-flex items-center gap-2 rounded-lg border border-[#49cde1]/30 bg-[#49cde1]/10 px-3 py-2 text-xs font-medium text-[#9be4f0] transition hover:bg-[#49cde1]/20"
-      >
-        {copied ? "Copied ✓" : "Copy partner invite link"}
-      </button>
-      <a
-        href={inviteUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-background-card px-3 py-2 text-xs font-medium text-white transition hover:bg-white/5"
-      >
-        Open in HubSpot →
-      </a>
+    <div className="mt-3 space-y-2">
+      {!inviteUrl ? (
+        <Link
+          href="/settings#hubspot"
+          className="inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-100 transition hover:bg-amber-500/20"
+        >
+          Configure partner invite link →
+        </Link>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window === "undefined") return;
+              navigator.clipboard.writeText(inviteUrl).then(
+                () => {
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 2500);
+                },
+                () => {
+                  setCopied(false);
+                }
+              );
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-[#49cde1]/30 bg-[#49cde1]/10 px-3 py-2 text-xs font-medium text-[#9be4f0] transition hover:bg-[#49cde1]/20"
+          >
+            {copied ? "Copied ✓" : "Copy partner invite link"}
+          </button>
+          <a
+            href={inviteUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-background-card px-3 py-2 text-xs font-medium text-white transition hover:bg-white/5"
+          >
+            Open in HubSpot →
+          </a>
+        </div>
+      )}
+
+      {portalRecordId ? (
+        <div>
+          <button
+            type="button"
+            onClick={() => void markAsConnected()}
+            disabled={marking}
+            className="inline-flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-3 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {marking ? "Marking..." : "Mark as connected"}
+          </button>
+          <p className="mt-1 text-[11px] text-text-muted">
+            Use after the client accepts your partner invite.
+          </p>
+          {markFeedback ? (
+            <p className="mt-1 text-[11px] text-emerald-200/80">
+              {markFeedback}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -96,6 +159,7 @@ export default function ProjectContextSidebar(props: {
   portalUrl?: string | null;
   hubTier?: string | null;
   connectionReady: boolean;
+  portalRecordId?: string | null;
   contactsCount?: number | null;
   dealsCount?: number | null;
   propertiesCount?: number | null;
@@ -141,7 +205,10 @@ export default function ProjectContextSidebar(props: {
           {props.connectionReady ? "Connected" : "Disconnected"}
           {props.hubTier ? ` · ${props.hubTier}` : ""}
         </p>
-        <PartnerInviteAction connected={props.connectionReady} />
+        <PartnerInviteAction
+          connected={props.connectionReady}
+          portalRecordId={props.portalRecordId ?? null}
+        />
       </SidebarSection>
 
       <SidebarSection label="SNAPSHOT">
