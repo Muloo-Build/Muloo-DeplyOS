@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import AppShell from "./AppShell";
+import ClientShell from "./ClientShell";
 
 interface QuoteData {
   id: string;
@@ -91,7 +92,18 @@ function formatMoney(amount: number, currency: string) {
   }).format(amount);
 }
 
-export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
+type QuoteMode = "internal" | "client";
+
+interface QuickQuoteDocumentProps {
+  quoteId: string;
+  mode?: QuoteMode;
+}
+
+export default function QuickQuoteDocument({
+  quoteId,
+  mode = "internal"
+}: QuickQuoteDocumentProps) {
+  const isClient = mode === "client";
   const [quote, setQuote] = useState<QuoteData | null>(null);
   const [project, setProject] = useState<ProjectInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,9 +115,10 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/quotes/${encodeURIComponent(quoteId)}`, {
-        credentials: "include"
-      });
+      const url = isClient
+        ? `/api/client/quotes/${encodeURIComponent(quoteId)}`
+        : `/api/quotes/${encodeURIComponent(quoteId)}`;
+      const response = await fetch(url, { credentials: "include" });
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as {
           error?: string;
@@ -124,6 +137,43 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleClientApprove() {
+    if (!quote) return;
+    const confirmed = window.confirm(
+      "Approve this quote? Your name and email will be captured on the record."
+    );
+    if (!confirmed) return;
+
+    setBusy(true);
+    setFeedback(null);
+    try {
+      const response = await fetch(
+        `/api/client/quotes/${encodeURIComponent(quote.id)}/approve`,
+        {
+          method: "POST",
+          credentials: "include"
+        }
+      );
+      const body = (await response.json().catch(() => null)) as {
+        quote?: QuoteData;
+        error?: string;
+      } | null;
+      if (!response.ok || !body?.quote) {
+        throw new Error(body?.error ?? "Failed to approve quote");
+      }
+      setFeedback("Quote approved. We'll be in touch shortly.");
+      await loadQuote();
+    } catch (approveError) {
+      setError(
+        approveError instanceof Error
+          ? approveError.message
+          : "Failed to approve quote"
+      );
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -225,28 +275,35 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
     }
   }
 
+  const Shell = isClient ? ClientShell : AppShell;
+
   if (loading) {
     return (
-      <AppShell>
+      <Shell>
         <div className="mx-auto max-w-4xl px-6 py-12 text-sm text-text-secondary">
           Loading quote...
         </div>
-      </AppShell>
+      </Shell>
     );
   }
 
   if (error || !quote || !project) {
     return (
-      <AppShell>
+      <Shell>
         <div className="mx-auto max-w-4xl px-6 py-12">
-          <Link href="/quotes" className="text-sm text-[#49cde1] hover:underline">
-            ← Back to quotes
-          </Link>
+          {!isClient ? (
+            <Link
+              href="/quotes"
+              className="text-sm text-[#49cde1] hover:underline"
+            >
+              ← Back to quotes
+            </Link>
+          ) : null}
           <p className="mt-6 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             {error ?? "Quote not found"}
           </p>
         </div>
-      </AppShell>
+      </Shell>
     );
   }
 
@@ -262,16 +319,22 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
   const isApproved = quote.status === "approved" || Boolean(quote.approvedAt);
 
   return (
-    <AppShell>
+    <Shell>
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
         {/* Toolbar (hidden in print) */}
         <div className="document-toolbar flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between print:hidden">
-          <Link
-            href="/quotes"
-            className="text-sm font-medium text-[#49cde1] hover:underline"
-          >
-            ← Back to quotes
-          </Link>
+          {!isClient ? (
+            <Link
+              href="/quotes"
+              className="text-sm font-medium text-[#49cde1] hover:underline"
+            >
+              ← Back to quotes
+            </Link>
+          ) : (
+            <p className="text-sm text-text-secondary">
+              Quote from {project.owner ?? "Muloo"}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] ${
@@ -280,7 +343,9 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
             >
               {quote.status}
             </span>
-            {quote.status !== "archived" &&
+
+            {!isClient &&
+            quote.status !== "archived" &&
             quote.status !== "superseded" ? (
               <Link
                 href={`/quotes/new?source=${encodeURIComponent(quote.id)}`}
@@ -289,7 +354,8 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
                 {quote.status === "draft" ? "Edit" : "Edit & revise"}
               </Link>
             ) : null}
-            {quote.status === "shared" ? (
+
+            {!isClient && quote.status === "shared" ? (
               <button
                 type="button"
                 onClick={handleRecall}
@@ -299,30 +365,75 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
                 Recall
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={() => markAs("won")}
-              disabled={busy || quote.status === "won"}
-              className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Mark Won
-            </button>
-            <button
-              type="button"
-              onClick={() => markAs("lost")}
-              disabled={busy || quote.status === "lost"}
-              className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Mark Lost
-            </button>
-            <button
-              type="button"
-              onClick={() => markAs("archived")}
-              disabled={busy || quote.status === "archived"}
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-text-secondary transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Archive
-            </button>
+
+            {!isClient ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window === "undefined") return;
+                  const link = `${window.location.origin}/client/quotes/${quote.id}`;
+                  navigator.clipboard.writeText(link).then(
+                    () => {
+                      setFeedback("Client link copied");
+                      window.setTimeout(() => setFeedback(null), 2500);
+                    },
+                    () => {
+                      setError("Unable to copy link");
+                      window.setTimeout(() => setError(null), 2500);
+                    }
+                  );
+                }}
+                className="rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm font-medium text-white transition hover:bg-white/5"
+              >
+                Copy client link
+              </button>
+            ) : null}
+
+            {!isClient ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => markAs("won")}
+                  disabled={busy || quote.status === "won"}
+                  className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Mark Won
+                </button>
+                <button
+                  type="button"
+                  onClick={() => markAs("lost")}
+                  disabled={busy || quote.status === "lost"}
+                  className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Mark Lost
+                </button>
+                <button
+                  type="button"
+                  onClick={() => markAs("archived")}
+                  disabled={busy || quote.status === "archived"}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-text-secondary transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Archive
+                </button>
+              </>
+            ) : null}
+
+            {isClient &&
+            quote.status !== "approved" &&
+            quote.status !== "won" &&
+            quote.status !== "lost" &&
+            quote.status !== "archived" &&
+            quote.status !== "superseded" ? (
+              <button
+                type="button"
+                onClick={handleClientApprove}
+                disabled={busy}
+                className="rounded-xl bg-[#51d0b0] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-[#6be0c1] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busy ? "Approving..." : "Approve quote"}
+              </button>
+            ) : null}
+
             <button
               type="button"
               onClick={() => window.print()}
@@ -572,6 +683,33 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
                   </p>
                 ) : null}
               </div>
+            ) : isClient ? (
+              <>
+                <p className="mt-3 text-sm leading-7 text-text-secondary">
+                  By approving, you confirm the scope, pricing and terms above.
+                  Your name, email and timestamp will be captured on the
+                  record.
+                </p>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={handleClientApprove}
+                    disabled={busy}
+                    className="inline-flex items-center justify-center rounded-xl bg-[#51d0b0] px-6 py-3 text-base font-semibold text-slate-950 transition hover:bg-[#6be0c1] disabled:cursor-not-allowed disabled:opacity-60 print:hidden"
+                  >
+                    {busy ? "Approving..." : "Approve this quote"}
+                  </button>
+                  <p className="text-xs text-text-muted">
+                    Questions before approving?{" "}
+                    <a
+                      href={`mailto:${project.ownerEmail ?? "hello@muloo.co"}`}
+                      className="text-[#49cde1] hover:underline"
+                    >
+                      Reach out to {project.owner ?? "us"}
+                    </a>
+                  </p>
+                </div>
+              </>
             ) : (
               <>
                 <p className="mt-3 text-sm leading-7 text-text-secondary">
@@ -690,6 +828,6 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
           }
         }
       `}</style>
-    </AppShell>
+    </Shell>
   );
 }

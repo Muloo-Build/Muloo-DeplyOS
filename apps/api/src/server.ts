@@ -25233,6 +25233,143 @@ export async function updateQuoteOrCreateRevision(
   };
 }
 
+async function assertClientAccessToQuoteProject(
+  clientUserId: string,
+  projectClientId: string
+) {
+  // Access model: a client portal user can view a quote if they have a
+  // ClientProjectAccess record for any project belonging to the same Client.
+  // This means once you're onboarded for a client, you can see all their
+  // quotes without Jay manually adding access on every new Quick Quote.
+  const existingAccess = await prisma.clientProjectAccess.findFirst({
+    where: {
+      userId: clientUserId,
+      project: { clientId: projectClientId }
+    }
+  });
+  return Boolean(existingAccess);
+}
+
+export async function loadClientQuickQuote(
+  quoteId: string,
+  clientUserId: string
+) {
+  const clientUser = await prisma.clientPortalUser.findUnique({
+    where: { id: clientUserId }
+  });
+  if (!clientUser) {
+    return null;
+  }
+
+  const quote = await prisma.projectQuote.findUnique({
+    where: { id: quoteId },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          scopeType: true,
+          status: true,
+          owner: true,
+          ownerEmail: true,
+          clientId: true,
+          client: { select: { id: true, name: true, slug: true } }
+        }
+      }
+    }
+  });
+
+  if (!quote) {
+    return null;
+  }
+
+  const hasAccess = await assertClientAccessToQuoteProject(
+    clientUserId,
+    quote.project.clientId
+  );
+  if (!hasAccess) {
+    return null;
+  }
+
+  // Don't expose drafts to clients — those aren't ready to be seen yet.
+  if (quote.status === "draft") {
+    return null;
+  }
+
+  return {
+    quote: serializeProjectQuote(quote),
+    project: {
+      id: quote.project.id,
+      name: quote.project.name,
+      scopeType: quote.project.scopeType,
+      status: quote.project.status,
+      owner: quote.project.owner,
+      ownerEmail: quote.project.ownerEmail,
+      client: quote.project.client
+    }
+  };
+}
+
+export async function approveClientQuickQuote(
+  quoteId: string,
+  clientUserId: string
+) {
+  const clientUser = await prisma.clientPortalUser.findUnique({
+    where: { id: clientUserId }
+  });
+  if (!clientUser) {
+    throw new Error("Client user not found");
+  }
+
+  const quote = await prisma.projectQuote.findUnique({
+    where: { id: quoteId },
+    include: { project: { select: { clientId: true } } }
+  });
+  if (!quote) {
+    throw new Error("Quote not found");
+  }
+
+  const hasAccess = await assertClientAccessToQuoteProject(
+    clientUserId,
+    quote.project.clientId
+  );
+  if (!hasAccess) {
+    throw new Error("Quote not found");
+  }
+
+  if (quote.status === "draft") {
+    throw new Error("Quote is not yet shared with you.");
+  }
+  if (quote.status === "approved") {
+    throw new Error("Quote has already been approved.");
+  }
+  if (
+    quote.status === "won" ||
+    quote.status === "lost" ||
+    quote.status === "archived" ||
+    quote.status === "superseded"
+  ) {
+    throw new Error("This quote is closed and cannot be approved.");
+  }
+
+  const approverName =
+    `${clientUser.firstName ?? ""} ${clientUser.lastName ?? ""}`.trim();
+  const approverEmail = clientUser.email;
+  const approvedAt = new Date();
+
+  const updated = await prisma.projectQuote.update({
+    where: { id: quoteId },
+    data: {
+      status: "approved",
+      approvedAt,
+      approvedByName: approverName || approverEmail,
+      approvedByEmail: approverEmail
+    }
+  });
+
+  return { quote: serializeProjectQuote(updated) };
+}
+
 export async function recallQuote(quoteId: string) {
   const quote = await prisma.projectQuote.findUnique({
     where: { id: quoteId }

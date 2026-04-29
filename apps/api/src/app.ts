@@ -214,8 +214,10 @@ import {
   resolvePortalBasePathForClientUser,
   saveClientInputSubmission,
   saveDiscoverySession,
+  approveClientQuickQuote,
   createQuickQuote,
   listAllQuotes,
+  loadClientQuickQuote,
   loadQuoteById,
   recallQuote,
   saveProjectQuote,
@@ -5971,6 +5973,39 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json(document);
+  });
+
+  app.get("/api/client/quotes/:quoteId", async (c) => {
+    const result = await loadClientQuickQuote(
+      c.req.param("quoteId"),
+      c.get("clientUserId")
+    );
+    if (!result) {
+      return c.json({ error: "Quote not found" }, 404);
+    }
+    return c.json(result);
+  });
+
+  app.post("/api/client/quotes/:quoteId/approve", async (c) => {
+    try {
+      const result = await approveClientQuickQuote(
+        c.req.param("quoteId"),
+        c.get("clientUserId")
+      );
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to approve quote";
+      const statusCode =
+        message === "Quote not found" || message === "Client user not found"
+          ? 404
+          : message.startsWith("Quote has already been approved") ||
+              message.startsWith("This quote is closed") ||
+              message.startsWith("Quote is not yet shared")
+            ? 409
+            : 400;
+      return c.json({ error: message }, statusCode);
+    }
   });
 
   app.all("/api/client/projects/:projectId/messages", async (c) => {
