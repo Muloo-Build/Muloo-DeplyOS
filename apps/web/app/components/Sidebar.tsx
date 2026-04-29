@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import {
   Bot,
   Building2,
+  FileText,
   FolderKanban,
   Inbox,
   LayoutDashboard,
@@ -75,6 +76,25 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
+    label: "SALES",
+    items: [
+      {
+        href: "/quotes",
+        label: "Quotes",
+        icon: <FileText size={18} />,
+        isActive: (pathname) =>
+          pathname === "/quotes" || pathname.startsWith("/quotes/")
+      },
+      {
+        href: "/retainers",
+        label: "Retainers",
+        icon: <Wallet size={18} />,
+        isActive: (pathname) =>
+          pathname === "/retainers" || pathname.startsWith("/retainers/")
+      }
+    ]
+  },
+  {
     label: "DELIVERY",
     items: [
       {
@@ -89,13 +109,6 @@ const navGroups: NavGroup[] = [
         icon: <Building2 size={18} />,
         isActive: (pathname) =>
           pathname === "/clients" || pathname.startsWith("/clients/")
-      },
-      {
-        href: "/retainers",
-        label: "Retainers",
-        icon: <Wallet size={18} />,
-        isActive: (pathname) =>
-          pathname === "/retainers" || pathname.startsWith("/retainers/")
       },
       {
         href: "/partners",

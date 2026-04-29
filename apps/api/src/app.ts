@@ -213,6 +213,9 @@ import {
   resolvePortalBasePathForClientUser,
   saveClientInputSubmission,
   saveDiscoverySession,
+  createQuickQuote,
+  listAllQuotes,
+  loadQuoteById,
   saveProjectQuote,
   updateProjectQuoteMeta,
   serializePortalTask,
@@ -4246,6 +4249,57 @@ export function createApiApp(config: BaseConfig) {
   app.get("/api/workspace/quotes/pipeline", async (c) =>
     c.json(await getQuotesPipeline())
   );
+
+  app.get("/api/quotes", async (c) => {
+    try {
+      const status = c.req.query("status");
+      const filters = status
+        ? { status: status.split(",").map((s) => s.trim()).filter(Boolean) }
+        : undefined;
+      return c.json({ quotes: await listAllQuotes(filters) });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to load quotes"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/quotes/:quoteId", async (c) => {
+    try {
+      const result = await loadQuoteById(c.req.param("quoteId"));
+      if (!result) {
+        return c.json({ error: "Quote not found" }, 404);
+      }
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to load quote"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/quotes/quick", async (c) => {
+    try {
+      const result = await createQuickQuote(await readJsonBodyOrEmpty(c));
+      return c.json(result, 201);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return c.json({ error: error.flatten() }, 400);
+      }
+      const message =
+        error instanceof Error ? error.message : "Failed to create quote";
+      const statusCode = message === "Client not found" ? 404 : 400;
+      return c.json({ error: message }, statusCode);
+    }
+  });
 
   app.post("/api/workspace/summary/generate", async (c) => {
     try {

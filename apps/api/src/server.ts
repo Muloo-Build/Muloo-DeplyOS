@@ -24816,3 +24816,226 @@ Example format:
     return { fields: {} };
   }
 }
+
+// ============================================================================
+// Quick Quote — lightweight standalone quote creation flow
+// Lives outside the full Discovery → Blueprint → Quote project pipeline.
+// ============================================================================
+
+const quickQuoteLineItemSchema = z.object({
+  description: z.string().trim().min(1).max(500),
+  quantity: z.number().finite().positive().max(10_000),
+  unitLabel: z.string().trim().max(40).default("hours"),
+  rate: z.number().finite().nonnegative().max(10_000_000),
+  discount: z.number().finite().min(0).max(100).optional()
+});
+
+const quickQuoteContentBlocksSchema = z.object({
+  includeMulooIntro: z.boolean().default(false),
+  executiveSummary: z.string().trim().max(5000).optional(),
+  terms: z.string().trim().max(5000).optional()
+});
+
+const quickQuoteCreateSchema = z.object({
+  clientId: z.string().min(1),
+  title: z.string().trim().min(1).max(200),
+  dealType: z.enum(["fixed", "retainer", "hybrid"]),
+  template: z.enum(["full", "one_pager"]).default("one_pager"),
+  currency: z.enum(["ZAR", "GBP", "EUR", "USD", "AUD"]),
+  defaultRate: z.number().finite().nonnegative().nullable().optional(),
+  lineItems: z.array(quickQuoteLineItemSchema).min(1).max(50),
+  contentBlocks: quickQuoteContentBlocksSchema.optional(),
+  paymentSchedule: z.array(z.string().trim().max(500)).max(20).optional()
+});
+
+export async function listAllQuotes(filters?: { status?: string[] }) {
+  const where: Prisma.Prisma.ProjectQuoteWhereInput = filters?.status?.length
+    ? { status: { in: filters.status } }
+    : {};
+
+  const quotes = await prisma.projectQuote.findMany({
+    where,
+    include: {
+      project: {
+        select: {
+          name: true,
+          scopeType: true,
+          status: true,
+          client: { select: { id: true, name: true, slug: true } }
+        }
+      }
+    },
+    orderBy: [{ updatedAt: "desc" }]
+  });
+
+  return quotes.map((quote) => ({
+    id: quote.id,
+    projectId: quote.projectId,
+    projectName: quote.project.name,
+    scopeType: quote.project.scopeType,
+    projectStatus: quote.project.status,
+    clientId: quote.project.client?.id ?? null,
+    clientName: quote.project.client?.name ?? "",
+    clientSlug: quote.project.client?.slug ?? null,
+    version: quote.version,
+    status: quote.status,
+    template: (quote as { template?: string }).template ?? "full",
+    totals: quote.totals as Prisma.Prisma.JsonObject,
+    currency: quote.currency,
+    sharedAt: quote.sharedAt.toISOString(),
+    approvedAt: quote.approvedAt?.toISOString() ?? null,
+    closedAt:
+      (quote as { closedAt?: Date | null }).closedAt?.toISOString() ?? null,
+    updatedAt: quote.updatedAt.toISOString()
+  }));
+}
+
+export async function loadQuoteById(quoteId: string) {
+  const quote = await prisma.projectQuote.findUnique({
+    where: { id: quoteId },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          scopeType: true,
+          status: true,
+          owner: true,
+          ownerEmail: true,
+          client: { select: { id: true, name: true, slug: true } }
+        }
+      }
+    }
+  });
+
+  if (!quote) {
+    return null;
+  }
+
+  return {
+    quote: serializeProjectQuote(quote),
+    project: {
+      id: quote.project.id,
+      name: quote.project.name,
+      scopeType: quote.project.scopeType,
+      status: quote.project.status,
+      owner: quote.project.owner,
+      ownerEmail: quote.project.ownerEmail,
+      client: quote.project.client
+    }
+  };
+}
+
+export async function createQuickQuote(payload: unknown) {
+  const parsed = quickQuoteCreateSchema.parse(payload);
+
+  const client = await prisma.client.findUnique({
+    where: { id: parsed.clientId }
+  });
+  if (!client) {
+    throw new Error("Client not found");
+  }
+
+  const owner = await resolveProjectOwner();
+
+  // Compute totals
+  const productLines = parsed.lineItems.map((item, index) => {
+    const lineTotal =
+      item.quantity * item.rate * (1 - (item.discount ?? 0) / 100);
+    return {
+      id: `quick-${index}`,
+      slug: `quick-line-${index}`,
+      name: item.description.slice(0, 80),
+      category: "manual",
+      billingModel:
+        parsed.dealType === "retainer" ? "monthly_retainer" : "one_time",
+      description: item.description,
+      unitLabel: item.unitLabel,
+      quantity: item.quantity,
+      unitPrice: item.rate,
+      lineTotalZar: lineTotal,
+      kind: "manual",
+      metadata: {
+        discount: item.discount ?? 0
+      }
+    };
+  });
+
+  const subtotal = productLines.reduce(
+    (sum, line) => sum + line.lineTotalZar,
+    0
+  );
+
+  const totals = {
+    totalHumanHours: 0,
+    totalFeeZar: 0,
+    additionalProductsTotalZar: subtotal,
+    grandTotalZar: subtotal,
+    paymentAmountZar: subtotal
+  };
+
+  const result = await prisma.$transaction(async (tx) => {
+    const portal = await tx.hubSpotPortal.create({
+      data: {
+        portalId: createPendingPortalId(),
+        displayName: client.name
+      }
+    });
+
+    const project = await tx.project.create({
+      data: {
+        name: parsed.title,
+        status: "draft",
+        engagementType: "IMPLEMENTATION",
+        owner: owner.owner,
+        ownerEmail: owner.ownerEmail,
+        scopeType: "standalone_quote",
+        clientId: client.id,
+        portalId: portal.id,
+        commercialBrief: parsed.contentBlocks?.executiveSummary ?? null
+      }
+    });
+
+    const quote = await tx.projectQuote.create({
+      data: {
+        projectId: project.id,
+        version: 1,
+        status: "draft",
+        template: parsed.template,
+        currency: parsed.currency,
+        defaultRate: parsed.defaultRate ?? null,
+        phaseLines: [] as Prisma.Prisma.InputJsonValue,
+        productLines: productLines as Prisma.Prisma.InputJsonValue,
+        totals: totals as Prisma.Prisma.InputJsonValue,
+        paymentSchedule: (parsed.paymentSchedule ??
+          []) as Prisma.Prisma.InputJsonValue,
+        context: {
+          quoteTitle: parsed.title,
+          quoteContextSummary: parsed.contentBlocks?.executiveSummary ?? null,
+          inScopeItems: [],
+          outOfScopeItems: [],
+          supportingTools: [],
+          keyRisks: [],
+          nextQuestions: [],
+          clientResponsibilities: [],
+          isStandaloneQuote: true,
+          showPaymentSchedule: (parsed.paymentSchedule?.length ?? 0) > 0,
+          blueprintGeneratedAt: null,
+          contentOverrides: {
+            termsAndWorkingScope: parsed.contentBlocks?.terms ?? null,
+            approvalSummary: parsed.contentBlocks?.includeMulooIntro
+              ? "Muloo is a technical systems and HubSpot focused business. We design, build and run the systems that support revenue, operations and product."
+              : null
+          }
+        } as Prisma.Prisma.InputJsonValue
+      }
+    });
+
+    return { quote, projectId: project.id };
+  });
+
+  return {
+    quote: serializeProjectQuote(result.quote),
+    projectId: result.projectId
+  };
+}
