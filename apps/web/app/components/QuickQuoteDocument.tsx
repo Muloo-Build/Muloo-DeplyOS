@@ -92,7 +92,7 @@ function formatMoney(amount: number, currency: string) {
   }).format(amount);
 }
 
-type QuoteMode = "internal" | "client";
+type QuoteMode = "internal" | "client" | "preview";
 
 interface QuickQuoteDocumentProps {
   quoteId: string;
@@ -104,6 +104,9 @@ export default function QuickQuoteDocument({
   mode = "internal"
 }: QuickQuoteDocumentProps) {
   const isClient = mode === "client";
+  const isPreview = mode === "preview";
+  // Both "client" and "preview" should render with the client-facing layout.
+  const showClientLayout = isClient || isPreview;
   const [quote, setQuote] = useState<QuoteData | null>(null);
   const [project, setProject] = useState<ProjectInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -115,6 +118,8 @@ export default function QuickQuoteDocument({
     setLoading(true);
     setError(null);
     try {
+      // Preview mode uses the internal endpoint (no client auth required)
+      // even though it renders with the client-facing layout.
       const url = isClient
         ? `/api/client/quotes/${encodeURIComponent(quoteId)}`
         : `/api/quotes/${encodeURIComponent(quoteId)}`;
@@ -275,7 +280,7 @@ export default function QuickQuoteDocument({
     }
   }
 
-  const Shell = isClient ? ClientShell : AppShell;
+  const Shell = showClientLayout ? ClientShell : AppShell;
 
   if (loading) {
     return (
@@ -291,12 +296,19 @@ export default function QuickQuoteDocument({
     return (
       <Shell>
         <div className="mx-auto max-w-4xl px-6 py-12">
-          {!isClient ? (
+          {!showClientLayout ? (
             <Link
               href="/quotes"
               className="text-sm text-[#49cde1] hover:underline"
             >
               ← Back to quotes
+            </Link>
+          ) : isPreview ? (
+            <Link
+              href={`/quotes/${encodeURIComponent(quoteId)}`}
+              className="text-sm text-[#49cde1] hover:underline"
+            >
+              ← Back to internal view
             </Link>
           ) : null}
           <p className="mt-6 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
@@ -321,9 +333,30 @@ export default function QuickQuoteDocument({
   return (
     <Shell>
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
+        {/* Preview banner */}
+        {isPreview ? (
+          <div className="document-toolbar flex flex-col gap-2 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 sm:flex-row sm:items-center sm:justify-between print:hidden">
+            <p>
+              <span className="font-semibold uppercase tracking-[0.2em] text-amber-200">
+                Preview
+              </span>{" "}
+              <span className="ml-2">
+                This is exactly what your client sees. Approve action is
+                disabled here.
+              </span>
+            </p>
+            <Link
+              href={`/quotes/${encodeURIComponent(quoteId)}`}
+              className="text-xs font-medium text-amber-200 underline hover:text-amber-50"
+            >
+              ← Back to internal view
+            </Link>
+          </div>
+        ) : null}
+
         {/* Toolbar (hidden in print) */}
         <div className="document-toolbar flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between print:hidden">
-          {!isClient ? (
+          {!showClientLayout ? (
             <Link
               href="/quotes"
               className="text-sm font-medium text-[#49cde1] hover:underline"
@@ -344,7 +377,7 @@ export default function QuickQuoteDocument({
               {quote.status}
             </span>
 
-            {!isClient &&
+            {!showClientLayout &&
             quote.status !== "archived" &&
             quote.status !== "superseded" ? (
               <Link
@@ -355,7 +388,7 @@ export default function QuickQuoteDocument({
               </Link>
             ) : null}
 
-            {!isClient && quote.status === "shared" ? (
+            {!showClientLayout && quote.status === "shared" ? (
               <button
                 type="button"
                 onClick={handleRecall}
@@ -366,30 +399,38 @@ export default function QuickQuoteDocument({
               </button>
             ) : null}
 
-            {!isClient ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof window === "undefined") return;
-                  const link = `${window.location.origin}/client/quotes/${quote.id}`;
-                  navigator.clipboard.writeText(link).then(
-                    () => {
-                      setFeedback("Client link copied");
-                      window.setTimeout(() => setFeedback(null), 2500);
-                    },
-                    () => {
-                      setError("Unable to copy link");
-                      window.setTimeout(() => setError(null), 2500);
-                    }
-                  );
-                }}
-                className="rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm font-medium text-white transition hover:bg-white/5"
-              >
-                Copy client link
-              </button>
+            {!showClientLayout ? (
+              <>
+                <Link
+                  href={`/quotes/${encodeURIComponent(quote.id)}/preview`}
+                  className="rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm font-medium text-white transition hover:bg-white/5"
+                >
+                  Preview as client
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window === "undefined") return;
+                    const link = `${window.location.origin}/client/quotes/${quote.id}`;
+                    navigator.clipboard.writeText(link).then(
+                      () => {
+                        setFeedback("Client link copied");
+                        window.setTimeout(() => setFeedback(null), 2500);
+                      },
+                      () => {
+                        setError("Unable to copy link");
+                        window.setTimeout(() => setError(null), 2500);
+                      }
+                    );
+                  }}
+                  className="rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm font-medium text-white transition hover:bg-white/5"
+                >
+                  Copy client link
+                </button>
+              </>
             ) : null}
 
-            {!isClient ? (
+            {!showClientLayout ? (
               <>
                 <button
                   type="button"
@@ -418,7 +459,7 @@ export default function QuickQuoteDocument({
               </>
             ) : null}
 
-            {isClient &&
+            {showClientLayout &&
             quote.status !== "approved" &&
             quote.status !== "won" &&
             quote.status !== "lost" &&
@@ -426,11 +467,16 @@ export default function QuickQuoteDocument({
             quote.status !== "superseded" ? (
               <button
                 type="button"
-                onClick={handleClientApprove}
-                disabled={busy}
+                onClick={isClient ? handleClientApprove : undefined}
+                disabled={busy || isPreview}
+                title={isPreview ? "Disabled in preview" : undefined}
                 className="rounded-xl bg-[#51d0b0] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-[#6be0c1] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {busy ? "Approving..." : "Approve quote"}
+                {busy
+                  ? "Approving..."
+                  : isPreview
+                    ? "Approve quote (disabled in preview)"
+                    : "Approve quote"}
               </button>
             ) : null}
 
@@ -683,7 +729,7 @@ export default function QuickQuoteDocument({
                   </p>
                 ) : null}
               </div>
-            ) : isClient ? (
+            ) : showClientLayout ? (
               <>
                 <p className="mt-3 text-sm leading-7 text-text-secondary">
                   By approving, you confirm the scope, pricing and terms above.
@@ -693,11 +739,16 @@ export default function QuickQuoteDocument({
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
                   <button
                     type="button"
-                    onClick={handleClientApprove}
-                    disabled={busy}
+                    onClick={isClient ? handleClientApprove : undefined}
+                    disabled={busy || isPreview}
+                    title={isPreview ? "Disabled in preview" : undefined}
                     className="inline-flex items-center justify-center rounded-xl bg-[#51d0b0] px-6 py-3 text-base font-semibold text-slate-950 transition hover:bg-[#6be0c1] disabled:cursor-not-allowed disabled:opacity-60 print:hidden"
                   >
-                    {busy ? "Approving..." : "Approve this quote"}
+                    {busy
+                      ? "Approving..."
+                      : isPreview
+                        ? "Approve this quote (disabled in preview)"
+                        : "Approve this quote"}
                   </button>
                   <p className="text-xs text-text-muted">
                     Questions before approving?{" "}
