@@ -18,6 +18,7 @@ import Prisma from "@prisma/client";
 import { DEFAULT_WORKSPACE_ID, getApiKey, moduleCatalog } from "@muloo/shared";
 import { z, ZodError } from "zod";
 import { prisma } from "./prisma";
+import { resolveHubSpotWriteToken } from "./queue/processors/resolveHubSpotWriteToken";
 import { executionQueue } from "./queue/index";
 import {
   ensureClientBillToEntity,
@@ -11943,6 +11944,19 @@ export async function updateProjectQuoteMeta(
     where: { id: latestQuote.id },
     data
   });
+
+  // Best-effort fire-and-forget HubSpot sync when the status changes and a
+  // deal is linked. Failures don't block the meta update — operator can
+  // retry sync manually from the UI.
+  if (
+    parsed.status !== undefined &&
+    parsed.status !== latestQuote.status &&
+    (updatedQuote as { hubspotDealId?: string | null }).hubspotDealId
+  ) {
+    syncQuoteToHubSpotDeal(updatedQuote.id).catch((error: unknown) => {
+      console.error("HubSpot deal sync failed", error);
+    });
+  }
 
   return {
     quote: serializeProjectQuote(updatedQuote)
@@ -24876,7 +24890,8 @@ const quickQuoteLineItemSchema = z.object({
   quantity: z.number().finite().positive().max(10_000),
   unitLabel: z.string().trim().max(40).default("hours"),
   rate: z.number().finite().nonnegative().max(10_000_000),
-  discount: z.number().finite().min(0).max(100).optional()
+  discount: z.number().finite().min(0).optional(),
+  discountType: z.enum(["percent", "fixed"]).optional()
 });
 
 const quickQuoteContentBlocksSchema = z.object({
@@ -24989,8 +25004,13 @@ export async function createQuickQuote(payload: unknown) {
 
   // Compute totals
   const productLines = parsed.lineItems.map((item, index) => {
-    const lineTotal =
-      item.quantity * item.rate * (1 - (item.discount ?? 0) / 100);
+    const discountValue = item.discount ?? 0;
+    const discountType = item.discountType ?? "percent";
+    const effectiveRate =
+      discountType === "fixed"
+        ? Math.max(0, item.rate - discountValue)
+        : item.rate * (1 - Math.min(100, Math.max(0, discountValue)) / 100);
+    const lineTotal = item.quantity * effectiveRate;
     return {
       id: `quick-${index}`,
       slug: `quick-line-${index}`,
@@ -25005,7 +25025,8 @@ export async function createQuickQuote(payload: unknown) {
       lineTotalZar: lineTotal,
       kind: "manual",
       metadata: {
-        discount: item.discount ?? 0
+        discount: discountValue,
+        discountType
       }
     };
   });
@@ -25101,8 +25122,13 @@ function buildQuickQuoteBodyData(
   parsed: z.infer<typeof quickQuoteCreateSchema>
 ) {
   const productLines = parsed.lineItems.map((item, index) => {
-    const lineTotal =
-      item.quantity * item.rate * (1 - (item.discount ?? 0) / 100);
+    const discountValue = item.discount ?? 0;
+    const discountType = item.discountType ?? "percent";
+    const effectiveRate =
+      discountType === "fixed"
+        ? Math.max(0, item.rate - discountValue)
+        : item.rate * (1 - Math.min(100, Math.max(0, discountValue)) / 100);
+    const lineTotal = item.quantity * effectiveRate;
     return {
       id: `quick-${index}`,
       slug: `quick-line-${index}`,
@@ -25117,7 +25143,8 @@ function buildQuickQuoteBodyData(
       lineTotalZar: lineTotal,
       kind: "manual",
       metadata: {
-        discount: item.discount ?? 0
+        discount: discountValue,
+        discountType
       }
     };
   });
@@ -25590,6 +25617,174 @@ export async function approveClientQuickQuote(
   });
 
   return { quote: serializeProjectQuote(updated) };
+}
+
+// ============================================================================
+// HubSpot deal sync (write-only) — push quote lifecycle into HubSpot deals.
+// Operator links a quote to an existing HubSpot deal by ID. We then keep the
+// deal's amount, name and (on close) stage in sync, plus drop a note for
+// audit trail on each meaningful status change.
+// ============================================================================
+
+const STATUS_TO_DEAL_STAGE: Record<string, string> = {
+  won: "closedwon",
+  lost: "closedlost"
+};
+
+function buildDealNoteForQuote(input: {
+  status: string;
+  quoteRef: string;
+  totalsZar: number;
+  closedReason: string | null;
+  approvedByName: string | null;
+  approvedByEmail: string | null;
+}) {
+  const lines: string[] = [];
+  lines.push(`<p><strong>Muloo quote ${input.quoteRef} → ${input.status.toUpperCase()}</strong></p>`);
+  if (Number.isFinite(input.totalsZar) && input.totalsZar > 0) {
+    lines.push(
+      `<p>Total: ZAR ${input.totalsZar.toLocaleString("en-GB", { maximumFractionDigits: 0 })}</p>`
+    );
+  }
+  if (input.approvedByName || input.approvedByEmail) {
+    const approver = [input.approvedByName, input.approvedByEmail]
+      .filter(Boolean)
+      .join(" · ");
+    lines.push(`<p>Approved by: ${approver}</p>`);
+  }
+  if (input.closedReason) {
+    lines.push(`<p>Note: ${input.closedReason}</p>`);
+  }
+  lines.push(`<p>Pushed automatically by Muloo DeployOS at ${new Date().toISOString()}.</p>`);
+  return lines.join("\n");
+}
+
+export async function linkQuoteToHubSpotDeal(input: {
+  quoteId: string;
+  dealId: string | null;
+}) {
+  const trimmedDealId = input.dealId?.trim() || null;
+
+  const quote = await prisma.projectQuote.findUnique({
+    where: { id: input.quoteId }
+  });
+  if (!quote) {
+    throw new Error("Quote not found");
+  }
+
+  const updated = await prisma.projectQuote.update({
+    where: { id: input.quoteId },
+    data: { hubspotDealId: trimmedDealId }
+  });
+
+  return { quote: serializeProjectQuote(updated) };
+}
+
+export async function syncQuoteToHubSpotDeal(quoteId: string) {
+  const quote = await prisma.projectQuote.findUnique({
+    where: { id: quoteId },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          portalId: true,
+          portal: {
+            select: {
+              id: true,
+              portalId: true,
+              displayName: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (!quote) {
+    throw new Error("Quote not found");
+  }
+
+  const dealId = (quote as { hubspotDealId?: string | null }).hubspotDealId;
+  if (!dealId) {
+    throw new Error(
+      "This quote isn't linked to a HubSpot deal. Add the deal ID first."
+    );
+  }
+
+  const realPortalId = quote.project.portal?.portalId ?? null;
+  if (!realPortalId || realPortalId.startsWith("pending-portal-")) {
+    throw new Error(
+      "Project doesn't have a real HubSpot portal connected. Connect HubSpot first."
+    );
+  }
+
+  const token = await resolveHubSpotWriteToken(quote.project.portal!.id);
+  if (!token) {
+    throw new Error(
+      "No HubSpot write token available. Configure a private-app token in Portal Ops first."
+    );
+  }
+
+  const { HubSpotWriteClient } = await import("@muloo/hubspot-client");
+  const client = new HubSpotWriteClient({
+    portalId: realPortalId,
+    privateAppToken: token
+  });
+
+  const totals = (quote.totals ?? {}) as Record<string, unknown>;
+  const totalsZar =
+    typeof totals.grandTotalZar === "number" ? totals.grandTotalZar : 0;
+  const quoteRef = `Q-${quote.id.slice(-6).toUpperCase()}-V${quote.version}`;
+
+  const properties: Record<string, string | number | null> = {
+    dealname: quote.project.name || quoteRef,
+    amount: totalsZar
+  };
+
+  const targetStage = STATUS_TO_DEAL_STAGE[quote.status];
+  if (targetStage) {
+    properties.dealstage = targetStage;
+  }
+
+  if (quote.status === "won" && quote.approvedAt) {
+    properties.closedate = quote.approvedAt.toISOString();
+  }
+
+  await client.updateDeal(dealId, properties);
+
+  await client.addDealNote(
+    dealId,
+    buildDealNoteForQuote({
+      status: quote.status,
+      quoteRef,
+      totalsZar,
+      closedReason:
+        (quote as { closedReason?: string | null }).closedReason ?? null,
+      approvedByName: quote.approvedByName,
+      approvedByEmail: quote.approvedByEmail
+    })
+  );
+
+  await prisma.auditLog.create({
+    data: {
+      actor: "system",
+      action: "quote.synced_to_hubspot_deal",
+      entityType: "ProjectQuote",
+      entityId: quote.id,
+      metadata: {
+        dealId,
+        portalId: realPortalId,
+        status: quote.status,
+        amount: totalsZar
+      }
+    }
+  });
+
+  return {
+    quote: serializeProjectQuote(quote),
+    pushed: properties
+  };
 }
 
 export async function recallQuote(quoteId: string) {

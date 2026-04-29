@@ -40,12 +40,15 @@ interface SourceQuoteSnapshot {
   } | null;
 }
 
+type DiscountType = "percent" | "fixed";
+
 interface LineItemDraft {
   description: string;
   quantity: string;
   unitLabel: string;
   rate: string;
   discount: string;
+  discountType: DiscountType;
 }
 
 const currencyOptions: Currency[] = ["ZAR", "GBP", "EUR", "USD", "AUD"];
@@ -93,8 +96,23 @@ function blankLineItem(unitLabel: string): LineItemDraft {
     quantity: "",
     unitLabel,
     rate: "",
-    discount: ""
+    discount: "",
+    discountType: "percent"
   };
+}
+
+function calcLineTotal(item: LineItemDraft) {
+  const hours = Number(item.quantity);
+  const rate = Number(item.rate);
+  const discountValue = Number(item.discount) || 0;
+  if (!Number.isFinite(hours) || !Number.isFinite(rate)) return 0;
+  if (item.discountType === "fixed") {
+    const effectiveRate = Math.max(0, rate - discountValue);
+    return hours * effectiveRate;
+  }
+  // percent
+  const effectiveRate = rate * (1 - Math.min(100, Math.max(0, discountValue)) / 100);
+  return hours * effectiveRate;
 }
 
 function formatCurrency(amount: number, currency: Currency) {
@@ -197,13 +215,21 @@ export default function QuickQuoteBuilder({
         // Map line items
         if (q.productLines.length > 0) {
           setLineItems(
-            q.productLines.map((line) => ({
-              description: line.description ?? line.name ?? "",
-              quantity: String(line.quantity ?? ""),
-              unitLabel: line.unitLabel ?? "hours",
-              rate: String(line.unitPrice ?? ""),
-              discount: String(line.metadata?.discount ?? "")
-            }))
+            q.productLines.map((line) => {
+              const meta = (line.metadata ?? {}) as {
+                discount?: number;
+                discountType?: DiscountType;
+              };
+              return {
+                description: line.description ?? line.name ?? "",
+                quantity: String(line.quantity ?? ""),
+                unitLabel: line.unitLabel ?? "hours",
+                rate: String(line.unitPrice ?? ""),
+                discount: meta.discount ? String(meta.discount) : "",
+                discountType:
+                  meta.discountType === "fixed" ? "fixed" : "percent"
+              };
+            })
           );
         }
 
@@ -228,14 +254,7 @@ export default function QuickQuoteBuilder({
   }, [sourceId]);
 
   const subtotal = useMemo(
-    () =>
-      lineItems.reduce((sum, item) => {
-        const qty = Number(item.quantity);
-        const rate = Number(item.rate);
-        const discount = Number(item.discount) || 0;
-        if (!Number.isFinite(qty) || !Number.isFinite(rate)) return sum;
-        return sum + qty * rate * (1 - discount / 100);
-      }, 0),
+    () => lineItems.reduce((sum, item) => sum + calcLineTotal(item), 0),
     [lineItems]
   );
 
@@ -293,7 +312,8 @@ export default function QuickQuoteBuilder({
         quantity: Number(item.quantity) || 0,
         unitLabel: item.unitLabel || "hours",
         rate: Number(item.rate) || 0,
-        discount: Number(item.discount) || 0
+        discount: Number(item.discount) || 0,
+        discountType: item.discountType
       }))
       .filter((item) => item.quantity > 0 && item.rate >= 0);
 
@@ -577,99 +597,124 @@ export default function QuickQuoteBuilder({
             </div>
           </div>
 
-          <div className="mt-5 space-y-3">
-            {lineItems.map((item, index) => (
-              <div
-                key={index}
-                className="rounded-xl border border-white/10 bg-background-primary/40 p-4"
-              >
-                <div className="grid gap-3 md:grid-cols-[1fr_repeat(4,minmax(0,0.5fr))_auto]">
-                  <label className="text-xs text-text-muted md:col-span-1">
-                    Description
-                    <input
-                      type="text"
-                      value={item.description}
-                      onChange={(event) =>
-                        updateLineItem(index, "description", event.target.value)
-                      }
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
-                      placeholder="e.g. CRM workflow audit"
-                    />
-                  </label>
-                  <label className="text-xs text-text-muted">
-                    Qty
-                    <input
-                      type="number"
-                      step="0.25"
-                      min="0"
-                      value={item.quantity}
-                      onChange={(event) =>
-                        updateLineItem(index, "quantity", event.target.value)
-                      }
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
-                    />
-                  </label>
-                  <label className="text-xs text-text-muted">
-                    Unit
-                    <input
-                      type="text"
-                      value={item.unitLabel}
-                      onChange={(event) =>
-                        updateLineItem(index, "unitLabel", event.target.value)
-                      }
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
-                    />
-                  </label>
-                  <label className="text-xs text-text-muted">
-                    Rate
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={item.rate}
-                      onChange={(event) =>
-                        updateLineItem(index, "rate", event.target.value)
-                      }
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
-                    />
-                  </label>
-                  <label className="text-xs text-text-muted">
-                    Disc %
-                    <input
-                      type="number"
-                      step="1"
-                      min="0"
-                      max="100"
-                      value={item.discount}
-                      onChange={(event) =>
-                        updateLineItem(index, "discount", event.target.value)
-                      }
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => removeLineItem(index)}
-                    disabled={lineItems.length === 1}
-                    className="self-end rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-text-secondary transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Remove line item"
-                  >
-                    Remove
-                  </button>
+          <div className="mt-5 space-y-4">
+            {lineItems.map((item, index) => {
+              const lineTotal = calcLineTotal(item);
+              const grossLineTotal =
+                (Number(item.quantity) || 0) * (Number(item.rate) || 0);
+              const hasDiscount =
+                Number(item.discount) > 0 && grossLineTotal > 0;
+              return (
+                <div
+                  key={index}
+                  className="rounded-xl border border-white/10 bg-background-primary/40 p-4"
+                >
+                  <div className="grid gap-3 md:grid-cols-[1.4fr_0.6fr_0.7fr_0.9fr_auto]">
+                    <label className="text-xs text-text-muted">
+                      Term / description
+                      <input
+                        type="text"
+                        value={item.description}
+                        onChange={(event) =>
+                          updateLineItem(
+                            index,
+                            "description",
+                            event.target.value
+                          )
+                        }
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                        placeholder="e.g. CRM workflow audit"
+                      />
+                    </label>
+                    <label className="text-xs text-text-muted">
+                      Hours
+                      <input
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        value={item.quantity}
+                        onChange={(event) =>
+                          updateLineItem(index, "quantity", event.target.value)
+                        }
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                      />
+                    </label>
+                    <label className="text-xs text-text-muted">
+                      Rate / hr
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={item.rate}
+                        onChange={(event) =>
+                          updateLineItem(index, "rate", event.target.value)
+                        }
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                      />
+                    </label>
+                    <div className="text-xs text-text-muted">
+                      Discount on rate
+                      <div className="mt-1 flex gap-2">
+                        <input
+                          type="number"
+                          step={item.discountType === "percent" ? "1" : "0.01"}
+                          min="0"
+                          max={
+                            item.discountType === "percent" ? "100" : undefined
+                          }
+                          value={item.discount}
+                          onChange={(event) =>
+                            updateLineItem(index, "discount", event.target.value)
+                          }
+                          className="w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                          placeholder="0"
+                        />
+                        <select
+                          value={item.discountType}
+                          onChange={(event) =>
+                            updateLineItem(
+                              index,
+                              "discountType",
+                              event.target.value as DiscountType
+                            )
+                          }
+                          className="rounded-lg border border-white/10 bg-background-primary px-2 py-2 text-sm text-white"
+                          aria-label="Discount type"
+                        >
+                          <option value="percent">%</option>
+                          <option value="fixed">{currency}</option>
+                        </select>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeLineItem(index)}
+                      disabled={lineItems.length === 1}
+                      className="self-end rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-text-secondary transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Remove line item"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <p className="text-text-muted">
+                      {hasDiscount ? (
+                        <>
+                          Was{" "}
+                          <span className="line-through">
+                            {formatCurrency(grossLineTotal, currency)}
+                          </span>{" "}
+                          ·{" "}
+                        </>
+                      ) : null}
+                      <span className="text-text-secondary">
+                        Line total: {formatCurrency(lineTotal, currency)}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-3 text-xs text-text-muted">
-                  Line total{": "}
-                  <span className="text-text-secondary">
-                    {formatCurrency(
-                      (Number(item.quantity) || 0) *
-                        (Number(item.rate) || 0) *
-                        (1 - (Number(item.discount) || 0) / 100),
-                      currency
-                    )}
-                  </span>
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <button
@@ -686,6 +731,9 @@ export default function QuickQuoteBuilder({
               {formatCurrency(subtotal, currency)}
             </p>
           </div>
+          <p className="mt-2 text-right text-xs text-text-muted">
+            All amounts shown exclude VAT.
+          </p>
         </section>
 
         {/* Content blocks */}

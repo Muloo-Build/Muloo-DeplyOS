@@ -14,6 +14,7 @@ interface QuoteData {
   template: string;
   currency: string;
   defaultRate: number | null;
+  hubspotDealId?: string | null;
   productLines: Array<{
     id: string;
     name: string;
@@ -22,7 +23,10 @@ interface QuoteData {
     unitLabel: string;
     unitPrice: number;
     lineTotalZar: number;
-    metadata?: { discount?: number } | null;
+    metadata?: {
+      discount?: number;
+      discountType?: "percent" | "fixed";
+    } | null;
   }>;
   totals: {
     grandTotalZar: number;
@@ -240,6 +244,73 @@ export default function QuickQuoteDocument({
           : "Optional archive note";
     const reason = window.prompt(promptLabel) ?? "";
     await applyMeta({ status: targetStatus, closedReason: reason || undefined });
+  }
+
+  async function handleHubspotLink(dealId: string | null) {
+    if (!quote) return;
+    setBusy(true);
+    setFeedback(null);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/quotes/${encodeURIComponent(quote.id)}/hubspot-link`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ dealId })
+        }
+      );
+      const body = (await response.json().catch(() => null)) as
+        | { quote?: QuoteData; error?: string }
+        | null;
+      if (!response.ok || !body?.quote) {
+        throw new Error(body?.error ?? "Failed to update HubSpot deal link");
+      }
+      setFeedback(dealId ? "Linked to HubSpot deal" : "HubSpot deal unlinked");
+      window.setTimeout(() => setFeedback(null), 2500);
+      await loadQuote();
+    } catch (linkError) {
+      setError(
+        linkError instanceof Error
+          ? linkError.message
+          : "Failed to update HubSpot deal link"
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleHubspotSync() {
+    if (!quote) return;
+    setBusy(true);
+    setFeedback(null);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/quotes/${encodeURIComponent(quote.id)}/hubspot-sync`,
+        {
+          method: "POST",
+          credentials: "include"
+        }
+      );
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to sync HubSpot deal");
+      }
+      setFeedback("Pushed to HubSpot deal");
+      window.setTimeout(() => setFeedback(null), 2500);
+    } catch (syncError) {
+      setError(
+        syncError instanceof Error
+          ? syncError.message
+          : "Failed to sync HubSpot deal"
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleRecall() {
@@ -496,30 +567,110 @@ export default function QuickQuoteDocument({
           </p>
         ) : null}
 
+        {!showClientLayout ? (
+          <div className="document-toolbar flex flex-col gap-3 rounded-2xl border border-white/10 bg-background-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/15 text-xs font-bold text-orange-300">
+                HS
+              </span>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.32em] text-text-muted">
+                  HubSpot deal sync
+                </p>
+                <p className="mt-0.5 text-sm text-white">
+                  {quote.hubspotDealId ? (
+                    <>Linked to deal <span className="font-mono">{quote.hubspotDealId}</span></>
+                  ) : (
+                    "Not linked. Push status changes into a HubSpot deal."
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="text"
+                placeholder="HubSpot deal ID"
+                defaultValue={quote.hubspotDealId ?? ""}
+                onBlur={(event) => {
+                  const next = event.target.value.trim();
+                  if (next === (quote.hubspotDealId ?? "")) return;
+                  void handleHubspotLink(next || null);
+                }}
+                className="w-44 rounded-xl border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+              />
+              <button
+                type="button"
+                onClick={handleHubspotSync}
+                disabled={busy || !quote.hubspotDealId}
+                className="rounded-xl border border-orange-400/30 bg-orange-500/10 px-3 py-2 text-sm font-medium text-orange-100 transition hover:bg-orange-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Sync now
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {/* Document */}
         <article
           className={`document-content flex flex-col ${isOnePager ? "gap-4" : "gap-6"}`}
         >
           {/* Hero header */}
-          <header className="document-card overflow-hidden rounded-2xl border border-white/10 bg-background-card">
-            <div className="border-b border-white/5 bg-[linear-gradient(135deg,rgba(124,92,191,0.08)_0%,rgba(224,82,156,0.05)_55%,rgba(240,130,74,0.06)_100%)] px-8 py-6 print:bg-white">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <img src="/muloo-logo.svg" alt="Muloo" className="h-9 w-auto" />
-                  <span className="text-[11px] uppercase tracking-[0.32em] text-text-muted">
-                    {isOnePager ? "Quote" : "Proposal"}
+          <header
+            className={`document-card overflow-hidden rounded-2xl border border-white/10 bg-background-card ${isOnePager ? "" : ""}`}
+          >
+            {!isOnePager ? (
+              // Full theme: dramatic gradient strip with brand colour wash
+              <div className="border-b border-white/10 bg-[linear-gradient(135deg,rgba(124,92,191,0.16)_0%,rgba(224,82,156,0.12)_55%,rgba(240,130,74,0.14)_100%)] px-8 py-7 print:bg-white">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="/muloo-logo.svg"
+                      alt="Muloo"
+                      className="h-10 w-auto"
+                    />
+                    <span className="text-[11px] uppercase tracking-[0.36em] text-white/80">
+                      Commercial proposal
+                    </span>
+                  </div>
+                  <span className="rounded-full border border-white/20 bg-background-primary/70 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-text-muted print:border-slate-300 print:text-slate-500">
+                    {quoteRef}
                   </span>
                 </div>
-                <span className="rounded-full border border-white/10 bg-background-primary/70 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-text-muted print:border-slate-300 print:text-slate-500">
-                  {quoteRef}
-                </span>
               </div>
-            </div>
+            ) : (
+              // One-pager: flat, tight, minimal chrome
+              <div className="border-b border-white/5 px-8 py-5 print:bg-white">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2.5">
+                    <img
+                      src="/muloo-logo.svg"
+                      alt="Muloo"
+                      className="h-7 w-auto"
+                    />
+                    <span className="text-[10px] uppercase tracking-[0.28em] text-text-muted">
+                      Quote
+                    </span>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-text-muted">
+                    {quoteRef}
+                  </span>
+                </div>
+              </div>
+            )}
 
-            <div className="px-8 py-7">
-              <h1 className="text-[2rem] font-semibold leading-tight tracking-tight text-white print:text-[1.65rem] print:text-slate-900">
+            <div className={isOnePager ? "px-8 py-5" : "px-8 py-8"}>
+              <h1
+                className={`font-semibold leading-tight tracking-tight text-white print:text-slate-900 ${isOnePager ? "text-[1.5rem] print:text-[1.35rem]" : "text-[2.25rem] print:text-[1.75rem]"}`}
+              >
                 {quote.context?.quoteTitle ?? project.name}
               </h1>
+              {!isOnePager ? (
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-text-secondary">
+                  Prepared by Muloo for {project.client?.name ?? "your team"}.
+                  This proposal sets out the scope, pricing and terms for the
+                  engagement.
+                </p>
+              ) : null}
 
               <div className="mt-6 grid gap-5 md:grid-cols-[2fr_1fr]">
                 <dl className="grid grid-cols-2 gap-y-3 text-sm">
@@ -618,50 +769,64 @@ export default function QuickQuoteDocument({
               <table className="w-full text-sm">
                 <thead className="bg-white/[0.03] text-left text-[10px] uppercase tracking-[0.22em] text-text-muted print:bg-slate-50">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Description</th>
-                    <th className="px-4 py-3 text-right font-semibold">Qty</th>
-                    <th className="px-4 py-3 font-semibold">Unit</th>
-                    <th className="px-4 py-3 text-right font-semibold">Rate</th>
+                    <th className="px-4 py-3 font-semibold">Term</th>
+                    <th className="px-4 py-3 text-right font-semibold">Hours</th>
+                    <th className="px-4 py-3 text-right font-semibold">Rate / hr</th>
                     <th className="px-4 py-3 text-right font-semibold">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {quote.productLines.map((line) => (
-                    <tr
-                      key={line.id}
-                      className="text-text-secondary transition hover:bg-white/[0.02] print:hover:bg-transparent"
-                    >
-                      <td className="px-4 py-4 align-top text-white">
-                        <p className="font-medium leading-snug">
-                          {line.description || line.name}
-                        </p>
-                        {line.metadata?.discount &&
-                        line.metadata.discount > 0 ? (
-                          <p className="mt-1 text-[11px] text-emerald-300 print:text-emerald-700">
-                            {line.metadata.discount}% discount applied
+                  {quote.productLines.map((line) => {
+                    const discount = line.metadata?.discount ?? 0;
+                    const discountType =
+                      line.metadata?.discountType ?? "percent";
+                    const effectiveRate =
+                      discount > 0
+                        ? discountType === "fixed"
+                          ? Math.max(0, line.unitPrice - discount)
+                          : line.unitPrice *
+                            (1 - Math.min(100, discount) / 100)
+                        : line.unitPrice;
+                    return (
+                      <tr
+                        key={line.id}
+                        className="text-text-secondary transition hover:bg-white/[0.02] print:hover:bg-transparent"
+                      >
+                        <td className="px-4 py-4 align-top text-white">
+                          <p className="font-medium leading-snug">
+                            {line.description || line.name}
                           </p>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-4 text-right align-top tabular-nums">
-                        {line.quantity}
-                      </td>
-                      <td className="px-4 py-4 align-top">{line.unitLabel}</td>
-                      <td className="px-4 py-4 text-right align-top tabular-nums">
-                        {formatMoney(line.unitPrice, quote.currency)}
-                      </td>
-                      <td className="px-4 py-4 text-right align-top tabular-nums text-white">
-                        {formatMoney(line.lineTotalZar, quote.currency)}
-                      </td>
-                    </tr>
-                  ))}
+                          {discount > 0 ? (
+                            <p className="mt-1 text-[11px] text-emerald-300 print:text-emerald-700">
+                              Discount{" "}
+                              {discountType === "fixed"
+                                ? formatMoney(discount, quote.currency)
+                                : `${discount}%`}{" "}
+                              applied to rate (was{" "}
+                              {formatMoney(line.unitPrice, quote.currency)}/hr)
+                            </p>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-4 text-right align-top tabular-nums">
+                          {line.quantity}
+                        </td>
+                        <td className="px-4 py-4 text-right align-top tabular-nums">
+                          {formatMoney(effectiveRate, quote.currency)}
+                        </td>
+                        <td className="px-4 py-4 text-right align-top tabular-nums text-white">
+                          {formatMoney(line.lineTotalZar, quote.currency)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-white/10 bg-[linear-gradient(135deg,rgba(81,208,176,0.06)_0%,rgba(73,205,225,0.04)_100%)] print:bg-slate-50">
                     <td
-                      colSpan={4}
+                      colSpan={3}
                       className="px-4 py-4 text-right text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted print:text-slate-500"
                     >
-                      Total
+                      Total (excl. VAT)
                     </td>
                     <td className="px-4 py-4 text-right text-lg font-semibold tabular-nums text-white print:text-slate-900">
                       {formatMoney(subtotal, quote.currency)}
@@ -670,6 +835,10 @@ export default function QuickQuoteDocument({
                 </tfoot>
               </table>
             </div>
+
+            <p className="mt-3 text-right text-xs text-text-muted">
+              All amounts shown exclude VAT.
+            </p>
           </section>
 
           {/* Payment schedule */}

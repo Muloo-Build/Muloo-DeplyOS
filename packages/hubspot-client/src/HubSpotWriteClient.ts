@@ -375,4 +375,96 @@ export class HubSpotWriteClient {
 
     return payload?.results ?? [];
   }
+
+  // ==========================================================================
+  // Deals — write-only sync surface used by the Quotes module.
+  // ==========================================================================
+
+  async getDeal(dealId: string): Promise<{
+    id: string;
+    properties: Record<string, string | null>;
+  } | null> {
+    return this.request<{
+      id: string;
+      properties: Record<string, string | null>;
+    }>(
+      `/crm/v3/objects/deals/${encodeURIComponent(dealId)}?properties=dealname,dealstage,amount,pipeline,closedate,hs_object_id`,
+      { method: "GET" },
+      { tolerate404: true }
+    );
+  }
+
+  async updateDeal(
+    dealId: string,
+    properties: Record<string, string | number | null>
+  ): Promise<{ id: string; properties: Record<string, string> } | null> {
+    return this.request<{ id: string; properties: Record<string, string> }>(
+      `/crm/v3/objects/deals/${encodeURIComponent(dealId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ properties: serialiseProperties(properties) })
+      }
+    );
+  }
+
+  async createDeal(input: {
+    properties: Record<string, string | number | null>;
+    associations?: Array<{
+      to: { id: string };
+      types: Array<{ associationCategory: string; associationTypeId: number }>;
+    }>;
+  }): Promise<{ id: string; properties: Record<string, string> }> {
+    return (await this.request<{
+      id: string;
+      properties: Record<string, string>;
+    }>("/crm/v3/objects/deals", {
+      method: "POST",
+      body: JSON.stringify({
+        properties: serialiseProperties(input.properties),
+        ...(input.associations ? { associations: input.associations } : {})
+      })
+    })) as { id: string; properties: Record<string, string> };
+  }
+
+  async addDealNote(dealId: string, noteBody: string): Promise<void> {
+    // Create a Note engagement and associate to the deal.
+    // associationTypeId 214 = note → deal.
+    await this.request(
+      "/crm/v3/objects/notes",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          properties: {
+            hs_note_body: noteBody,
+            hs_timestamp: new Date().toISOString()
+          },
+          associations: [
+            {
+              to: { id: dealId },
+              types: [
+                {
+                  associationCategory: "HUBSPOT_DEFINED",
+                  associationTypeId: 214
+                }
+              ]
+            }
+          ]
+        })
+      }
+    );
+  }
+}
+
+function serialiseProperties(
+  properties: Record<string, string | number | null>
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(properties)) {
+    if (value === null || value === undefined) {
+      out[key] = "";
+      continue;
+    }
+    out[key] = typeof value === "string" ? value : String(value);
+  }
+  return out;
 }

@@ -216,12 +216,14 @@ import {
   saveDiscoverySession,
   approveClientQuickQuote,
   createQuickQuote,
+  linkQuoteToHubSpotDeal,
   listAllQuotes,
   loadClientQuickQuote,
   loadFinancialsSummary,
   loadQuoteById,
   recallQuote,
   saveProjectQuote,
+  syncQuoteToHubSpotDeal,
   updateProjectQuoteMeta,
   updateQuoteOrCreateRevision,
   serializePortalTask,
@@ -4378,6 +4380,40 @@ export function createApiApp(config: BaseConfig) {
       }
       const message =
         error instanceof Error ? error.message : "Failed to edit quote";
+      const statusCode = message === "Quote not found" ? 404 : 400;
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
+  app.post("/api/quotes/:quoteId/hubspot-link", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as { dealId?: unknown };
+      const dealIdRaw =
+        typeof body.dealId === "string" ? body.dealId.trim() : null;
+      const result = await linkQuoteToHubSpotDeal({
+        quoteId: c.req.param("quoteId"),
+        dealId: dealIdRaw && dealIdRaw.length > 0 ? dealIdRaw : null
+      });
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to link HubSpot deal";
+      const statusCode = message === "Quote not found" ? 404 : 400;
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
+  app.post("/api/quotes/:quoteId/hubspot-sync", async (c) => {
+    try {
+      const result = await syncQuoteToHubSpotDeal(c.req.param("quoteId"));
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to sync HubSpot deal";
       const statusCode = message === "Quote not found" ? 404 : 400;
       return c.json({ error: message }, statusCode);
     }
