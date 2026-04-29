@@ -977,10 +977,53 @@ export default function ClientProjectWorkspace({
           ) : null}
 
           {activeTab === "delivery" ? (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <p className="text-sm text-text-secondary">
-                Track the delivery plan and current progress for this project. Each item represents a piece of work that's been planned or completed.
+                Track the delivery plan and current progress for this project.
+                Each item represents a piece of work that's been planned or
+                completed.
               </p>
+
+              <div className="grid gap-4 lg:grid-cols-3">
+                <div className="rounded-2xl border border-[rgba(73,205,225,0.25)] bg-[rgba(73,205,225,0.06)] px-5 py-4">
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-[#9be4f0]/80">
+                    Currently working on
+                  </p>
+                  <p className="mt-3 text-base font-semibold text-white">
+                    {detail.portalSummary.currentPhaseLabel || "Setup"}
+                  </p>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {detail.portalSummary.currentPhaseDetail ||
+                      "We'll share more detail as the project progresses."}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-[rgba(81,208,176,0.25)] bg-[rgba(81,208,176,0.06)] px-5 py-4">
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-[#9be4d2]/80">
+                    Progress
+                  </p>
+                  <p className="mt-3 text-base font-semibold text-white">
+                    {detail.portalSummary.progressLabel || "On track"}
+                  </p>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {detail.portalSummary.progressDetail ||
+                      "Updates land here as work moves through the board."}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-4">
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
+                    Waiting on
+                  </p>
+                  <p className="mt-3 text-base font-semibold text-white">
+                    {detail.portalSummary.waitingOnLabel || "Nothing right now"}
+                  </p>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    Last updated {formatTs(detail.portalSummary.lastUpdatedAt)}
+                  </p>
+                </div>
+              </div>
+
               {detail.project.deliveryWorkstreams?.length ? (
                 <div className="grid gap-4 lg:grid-cols-3">
                   {detail.project.deliveryWorkstreams.map((workstream) => (

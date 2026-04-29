@@ -1032,23 +1032,28 @@ export default function NewProjectPage() {
     <AppShell>
       <div className="p-8">
         <div className="mb-8 max-w-4xl">
-          <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
+          <p className="text-xs uppercase tracking-[0.32em] text-[#49cde1]">
             Project setup
           </p>
-          <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-            New Project
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
+            Create a new project
           </h1>
-          <p className="mt-2 text-text-secondary">
-            Create the delivery container first, then capture discovery and
-            shape the implementation plan.
+          <p className="mt-2 text-sm text-text-secondary">
+            Three steps. Set up the engagement, capture the brief, review and
+            create. Required fields are marked with{" "}
+            <span className="text-[#ff8f9f]">*</span>.
           </p>
         </div>
 
-        <div className="mb-8 flex max-w-3xl items-center gap-4">
-          {[1, 2, 3].map((step) => (
-            <div key={step} className="flex items-center gap-4">
+        <div className="mb-8 flex max-w-3xl flex-wrap items-center gap-3">
+          {[
+            { step: 1, label: "Project + Client" },
+            { step: 2, label: "Brief" },
+            { step: 3, label: "Review" }
+          ].map(({ step, label }, index, arr) => (
+            <div key={step} className="flex items-center gap-3">
               <div
-                className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ${
+                className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition ${
                   step <= currentStep
                     ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] text-white"
                     : "border border-[rgba(255,255,255,0.08)] bg-background-card text-text-muted"
@@ -1056,9 +1061,14 @@ export default function NewProjectPage() {
               >
                 {step}
               </div>
-              {step < 3 ? (
+              <span
+                className={`text-sm font-medium ${step <= currentStep ? "text-white" : "text-text-muted"}`}
+              >
+                {label}
+              </span>
+              {index < arr.length - 1 ? (
                 <div
-                  className={`h-px w-16 ${
+                  className={`mx-1 h-px w-10 ${
                     step < currentStep
                       ? "bg-accent-solid"
                       : "bg-[rgba(255,255,255,0.08)]"
@@ -1078,6 +1088,38 @@ export default function NewProjectPage() {
               <h2 className="text-xl font-semibold text-white">
                 Project + Client
               </h2>
+
+              {[
+                fieldErrors.projectName,
+                fieldErrors.clientName,
+                fieldErrors.clientChampionFirstName,
+                fieldErrors.clientChampionLastName,
+                fieldErrors.clientChampionEmail
+              ].some(Boolean) ? (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-rose-100"
+                >
+                  <p className="font-semibold">A few things to fix:</p>
+                  <ul className="mt-1 list-inside list-disc space-y-0.5">
+                    {fieldErrors.projectName ? (
+                      <li>{fieldErrors.projectName}</li>
+                    ) : null}
+                    {fieldErrors.clientName ? (
+                      <li>{fieldErrors.clientName}</li>
+                    ) : null}
+                    {fieldErrors.clientChampionFirstName ? (
+                      <li>{fieldErrors.clientChampionFirstName}</li>
+                    ) : null}
+                    {fieldErrors.clientChampionLastName ? (
+                      <li>{fieldErrors.clientChampionLastName}</li>
+                    ) : null}
+                    {fieldErrors.clientChampionEmail ? (
+                      <li>{fieldErrors.clientChampionEmail}</li>
+                    ) : null}
+                  </ul>
+                </div>
+              ) : null}
 
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="md:col-span-2">
@@ -1151,10 +1193,24 @@ export default function NewProjectPage() {
                   <input
                     ref={clientNameRef}
                     required
+                    list="existing-clients-list"
                     value={formData.clientName}
                     onChange={(event) =>
                       updateField("clientName", event.target.value)
                     }
+                    onBlur={(event) => {
+                      // Auto-suggest a project name if none has been typed yet.
+                      const clientValue = event.target.value.trim();
+                      if (
+                        clientValue &&
+                        !formData.projectName.trim()
+                      ) {
+                        updateField(
+                          "projectName",
+                          `${clientValue} ${formData.scopeType === "standalone_quote" ? "Quote" : "Project"}`
+                        );
+                      }
+                    }}
                     aria-invalid={Boolean(fieldErrors.clientName)}
                     aria-describedby={
                       fieldErrors.clientName ? "client-name-error" : undefined
@@ -1173,6 +1229,17 @@ export default function NewProjectPage() {
                       {fieldErrors.clientName}
                     </p>
                   ) : null}
+                  {clients.length > 0 ? (
+                    <p className="mt-2 text-xs text-text-muted">
+                      Start typing to match an existing client and avoid
+                      duplicates.
+                    </p>
+                  ) : null}
+                  <datalist id="existing-clients-list">
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.name} />
+                    ))}
+                  </datalist>
                 </label>
 
                 <label className="block md:col-span-2">
@@ -2007,16 +2074,7 @@ export default function NewProjectPage() {
             <button
               type="button"
               onClick={handleNextStep}
-              aria-disabled={
-                (currentStep === 1 && !canContinueFromStep1) ||
-                (currentStep === 2 && !canContinueFromStep2)
-              }
-              className={`rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white ${
-                (currentStep === 1 && !canContinueFromStep1) ||
-                (currentStep === 2 && !canContinueFromStep2)
-                  ? "opacity-60"
-                  : ""
-              }`}
+              className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
             >
               Next
             </button>

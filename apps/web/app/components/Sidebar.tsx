@@ -11,9 +11,11 @@ import {
   FolderKanban,
   Inbox,
   LayoutDashboard,
+  LineChart,
   LogOut,
   Menu,
   PlaySquare,
+  Receipt,
   ScrollText,
   Settings,
   Wallet,
@@ -91,6 +93,20 @@ const navGroups: NavGroup[] = [
         icon: <Wallet size={18} />,
         isActive: (pathname) =>
           pathname === "/retainers" || pathname.startsWith("/retainers/")
+      },
+      {
+        href: "/invoices",
+        label: "Invoices",
+        icon: <Receipt size={18} />,
+        isActive: (pathname) =>
+          pathname === "/invoices" || pathname.startsWith("/invoices/")
+      },
+      {
+        href: "/financials",
+        label: "Financials",
+        icon: <LineChart size={18} />,
+        isActive: (pathname) =>
+          pathname === "/financials" || pathname.startsWith("/financials/")
       }
     ]
   },

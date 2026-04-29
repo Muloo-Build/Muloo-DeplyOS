@@ -218,6 +218,7 @@ import {
   createQuickQuote,
   listAllQuotes,
   loadClientQuickQuote,
+  loadFinancialsSummary,
   loadQuoteById,
   recallQuote,
   saveProjectQuote,
@@ -1654,10 +1655,52 @@ export function createApiApp(config: BaseConfig) {
         return c.json({ project }, 201);
       } catch (error) {
         console.error("Failed to create project", error);
+
+        // Surface validation errors thrown by createProjectRecord directly.
+        // These are operator-friendly messages like "name and clientName are required".
+        if (error instanceof Error) {
+          const message = error.message;
+          const validationHints = [
+            "are required",
+            "Invalid engagement type",
+            "must be a boolean",
+            "must be"
+          ];
+          if (validationHints.some((hint) => message.includes(hint))) {
+            return c.json({ error: message }, 400);
+          }
+
+          // Prisma constraint failures — friendly translation rather than raw error.
+          if (
+            "code" in error &&
+            typeof (error as { code?: unknown }).code === "string"
+          ) {
+            const prismaCode = (error as { code: string }).code;
+            if (prismaCode === "P2002") {
+              return c.json(
+                {
+                  error:
+                    "A project or client with this identifier already exists."
+                },
+                409
+              );
+            }
+            if (prismaCode === "P2011" || prismaCode === "P2003") {
+              return c.json(
+                {
+                  error:
+                    "We couldn't save this project because a required field is missing. Please try again, or contact support if it persists."
+                },
+                400
+              );
+            }
+          }
+        }
+
         return c.json(
           {
             error:
-              "Something went wrong creating this project. Our team has been notified. Please try again or contact support."
+              "Something went wrong creating this project. Please try again, and contact support if it keeps failing."
           },
           500
         );
@@ -4255,6 +4298,22 @@ export function createApiApp(config: BaseConfig) {
     c.json(await getQuotesPipeline())
   );
 
+  app.get("/api/financials/summary", async (c) => {
+    try {
+      return c.json(await loadFinancialsSummary());
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load financials"
+        },
+        400
+      );
+    }
+  });
+
   app.get("/api/quotes", async (c) => {
     try {
       const status = c.req.query("status");
@@ -5237,7 +5296,8 @@ export function createApiApp(config: BaseConfig) {
         data: {
           portalId: body.portalId,
           displayName: body.displayName,
-          region: body.region ?? null
+          region: body.region ?? null,
+          scopes: []
         }
       });
 

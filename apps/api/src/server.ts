@@ -2605,7 +2605,8 @@ export async function convertWorkRequestToProject(requestId: string) {
   const portal = await prisma.hubSpotPortal.create({
     data: {
       portalId: createPendingPortalId(),
-      displayName: clientName
+      displayName: clientName,
+      scopes: []
     }
   });
 
@@ -3595,13 +3596,15 @@ async function resolveClientHubSpotPortal(
           update: {},
           create: {
             portalId: input.requestedPortalId,
-            displayName: input.clientName
+            displayName: input.clientName,
+            scopes: []
           }
         })
       : transaction.hubSpotPortal.create({
           data: {
             portalId: createPendingPortalId(),
-            displayName: input.clientName
+            displayName: input.clientName,
+            scopes: []
           }
         });
   }
@@ -3629,7 +3632,8 @@ async function resolveClientHubSpotPortal(
   return transaction.hubSpotPortal.create({
     data: {
       portalId: createPendingPortalId(),
-      displayName: input.clientName
+      displayName: input.clientName,
+      scopes: []
     }
   });
 }
@@ -25023,7 +25027,8 @@ export async function createQuickQuote(payload: unknown) {
     const portal = await tx.hubSpotPortal.create({
       data: {
         portalId: createPendingPortalId(),
-        displayName: client.name
+        displayName: client.name,
+        scopes: []
       }
     });
 
@@ -25248,6 +25253,223 @@ async function assertClientAccessToQuoteProject(
     }
   });
   return Boolean(existingAccess);
+}
+
+export async function loadFinancialsSummary() {
+  // Pull all quotes once so we can bucket them by status without N queries.
+  const quotes = await prisma.projectQuote.findMany({
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          client: { select: { id: true, name: true, slug: true } }
+        }
+      }
+    },
+    orderBy: [{ updatedAt: "desc" }]
+  });
+
+  const activeRetainers = await prisma.retainer.findMany({
+    where: { status: "ACTIVE" },
+    include: {
+      client: { select: { id: true, name: true, slug: true } }
+    }
+  });
+
+  const now = new Date();
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  function totalsFor(quote: (typeof quotes)[number]) {
+    const totals = (quote.totals ?? {}) as Record<string, unknown>;
+    const amount =
+      typeof totals.grandTotalZar === "number" ? totals.grandTotalZar : 0;
+    return amount;
+  }
+
+  let pipelineValue = 0;
+  let pipelineCount = 0;
+  let approvedValue = 0;
+  let approvedCount = 0;
+  let wonValue = 0;
+  let wonCount = 0;
+  let wonThisMonthValue = 0;
+  let wonThisMonthCount = 0;
+  let lostValue = 0;
+  let lostCount = 0;
+  const statusCounts: Record<string, number> = {};
+  const monthBuckets = new Map<
+    string,
+    { month: string; wonValue: number; wonCount: number }
+  >();
+
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    monthBuckets.set(key, {
+      month: d.toLocaleDateString("en-GB", { month: "short", year: "numeric" }),
+      wonValue: 0,
+      wonCount: 0
+    });
+  }
+
+  for (const quote of quotes) {
+    statusCounts[quote.status] = (statusCounts[quote.status] ?? 0) + 1;
+    const amount = totalsFor(quote);
+
+    if (quote.status === "shared") {
+      pipelineValue += amount;
+      pipelineCount += 1;
+    } else if (quote.status === "approved") {
+      approvedValue += amount;
+      approvedCount += 1;
+    } else if (quote.status === "won") {
+      wonValue += amount;
+      wonCount += 1;
+
+      const closedDate = quote.closedAt ?? quote.approvedAt ?? quote.updatedAt;
+      if (closedDate >= monthStart) {
+        wonThisMonthValue += amount;
+        wonThisMonthCount += 1;
+      }
+      if (closedDate >= sixMonthsAgo) {
+        const key = `${closedDate.getFullYear()}-${String(closedDate.getMonth() + 1).padStart(2, "0")}`;
+        const bucket = monthBuckets.get(key);
+        if (bucket) {
+          bucket.wonValue += amount;
+          bucket.wonCount += 1;
+        }
+      }
+    } else if (quote.status === "lost") {
+      lostValue += amount;
+      lostCount += 1;
+    }
+  }
+
+  const decimalToNumber = (value: unknown): number => {
+    if (typeof value === "number") return value;
+    if (typeof value === "string") return Number(value);
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      "toNumber" in value &&
+      typeof (value as { toNumber: () => number }).toNumber === "function"
+    ) {
+      return (value as { toNumber: () => number }).toNumber();
+    }
+    return 0;
+  };
+
+  let mrrZar = 0;
+  const retainersByClient = new Map<
+    string,
+    {
+      clientId: string;
+      clientName: string;
+      monthlyZar: number;
+      retainers: number;
+    }
+  >();
+
+  for (const retainer of activeRetainers) {
+    const rate = decimalToNumber(retainer.rate);
+    const monthly = retainer.blockSize * rate;
+    mrrZar += monthly;
+
+    const key = retainer.clientId;
+    const existing = retainersByClient.get(key);
+    if (existing) {
+      existing.monthlyZar += monthly;
+      existing.retainers += 1;
+    } else {
+      retainersByClient.set(key, {
+        clientId: retainer.clientId,
+        clientName: retainer.client?.name ?? "—",
+        monthlyZar: monthly,
+        retainers: 1
+      });
+    }
+  }
+
+  // Top clients by total committed revenue (won quotes + 12 months of MRR).
+  const clientRevenue = new Map<
+    string,
+    { clientId: string; clientName: string; wonZar: number; recurringZar: number }
+  >();
+
+  for (const quote of quotes) {
+    if (quote.status !== "won" && quote.status !== "approved") continue;
+    const id = quote.project.client?.id;
+    if (!id) continue;
+    const existing = clientRevenue.get(id) ?? {
+      clientId: id,
+      clientName: quote.project.client?.name ?? "—",
+      wonZar: 0,
+      recurringZar: 0
+    };
+    existing.wonZar += totalsFor(quote);
+    clientRevenue.set(id, existing);
+  }
+
+  for (const [clientId, data] of retainersByClient.entries()) {
+    const existing = clientRevenue.get(clientId) ?? {
+      clientId,
+      clientName: data.clientName,
+      wonZar: 0,
+      recurringZar: 0
+    };
+    existing.recurringZar = data.monthlyZar * 12;
+    clientRevenue.set(clientId, existing);
+  }
+
+  const topClients = Array.from(clientRevenue.values())
+    .map((entry) => ({
+      ...entry,
+      totalZar: entry.wonZar + entry.recurringZar
+    }))
+    .sort((a, b) => b.totalZar - a.totalZar)
+    .slice(0, 8);
+
+  return {
+    headline: {
+      pipelineValue,
+      pipelineCount,
+      approvedValue,
+      approvedCount,
+      wonThisMonthValue,
+      wonThisMonthCount,
+      mrrZar,
+      activeRetainers: activeRetainers.length,
+      annualisedRecurringZar: mrrZar * 12
+    },
+    quoteFunnel: {
+      draft: statusCounts.draft ?? 0,
+      sent: statusCounts.shared ?? 0,
+      approved: statusCounts.approved ?? 0,
+      won: statusCounts.won ?? 0,
+      lost: statusCounts.lost ?? 0,
+      archived: statusCounts.archived ?? 0,
+      superseded: statusCounts.superseded ?? 0,
+      wonValue,
+      wonCount,
+      lostValue,
+      lostCount,
+      winRate:
+        wonCount + lostCount > 0
+          ? Math.round((wonCount / (wonCount + lostCount)) * 1000) / 10
+          : null
+    },
+    monthly: Array.from(monthBuckets.values()),
+    recurring: {
+      mrrZar,
+      activeRetainers: activeRetainers.length,
+      retainersByClient: Array.from(retainersByClient.values()).sort(
+        (a, b) => b.monthlyZar - a.monthlyZar
+      )
+    },
+    topClients
+  };
 }
 
 export async function loadClientQuickQuote(

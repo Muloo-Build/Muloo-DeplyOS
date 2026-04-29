@@ -1423,9 +1423,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             sessionsTracker={
               <div className="space-y-3">
                 {sessions.map((session) => (
-                  <div
+                  <Link
                     key={session.session}
-                    className="flex items-center justify-between brand-surface-soft rounded-2xl border p-4"
+                    href={`/projects/${project.id}/discovery?session=${session.session}`}
+                    className="flex items-center justify-between brand-surface-soft rounded-2xl border p-4 transition hover:border-white/20 hover:bg-white/[0.04]"
                   >
                     <div>
                       <p className="font-medium text-white">
@@ -1444,7 +1445,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     >
                       {isSessionComplete(session) ? "Complete" : formatLabel(session.status)}
                     </span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             }
