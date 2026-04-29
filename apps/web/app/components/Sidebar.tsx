@@ -14,6 +14,7 @@ import {
   LineChart,
   LogOut,
   Menu,
+  Package,
   PlaySquare,
   Receipt,
   ScrollText,
@@ -86,6 +87,13 @@ const navGroups: NavGroup[] = [
         icon: <FileText size={18} />,
         isActive: (pathname) =>
           pathname === "/quotes" || pathname.startsWith("/quotes/")
+      },
+      {
+        href: "/products",
+        label: "Products",
+        icon: <Package size={18} />,
+        isActive: (pathname) =>
+          pathname === "/products" || pathname.startsWith("/products/")
       },
       {
         href: "/retainers",

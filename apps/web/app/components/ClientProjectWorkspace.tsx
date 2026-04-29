@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import ClientHubSpotInviteCard from "./ClientHubSpotInviteCard";
 import ClientShell from "./ClientShell";
 import PortalProjectAssistant from "./PortalProjectAssistant";
 import {
@@ -471,6 +472,7 @@ export default function ClientProjectWorkspace({
 
           {activeTab === "overview" ? (
             <div className="space-y-5">
+              <ClientHubSpotInviteCard />
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
                   <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Status</p>

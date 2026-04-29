@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 function SidebarSection(props: { label: string; children: ReactNode }) {
   return (
@@ -10,6 +12,81 @@ function SidebarSection(props: { label: string; children: ReactNode }) {
       </p>
       <div className="text-sm text-text-secondary">{props.children}</div>
     </section>
+  );
+}
+
+function PartnerInviteAction({ connected }: { connected: boolean }) {
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (connected) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch("/api/workspace/hubspot-settings", {
+          credentials: "include"
+        });
+        if (!response.ok) return;
+        const body = await response.json();
+        if (!cancelled) {
+          setInviteUrl(body?.settings?.partnerInviteUrl ?? null);
+        }
+      } catch {
+        // Silent — graceful degrade.
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connected]);
+
+  if (connected) return null;
+  if (!loaded) return null;
+
+  if (!inviteUrl) {
+    return (
+      <Link
+        href="/settings#hubspot"
+        className="mt-3 inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-100 transition hover:bg-amber-500/20"
+      >
+        Configure partner invite link →
+      </Link>
+    );
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={() => {
+          if (typeof window === "undefined") return;
+          navigator.clipboard.writeText(inviteUrl).then(
+            () => {
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 2500);
+            },
+            () => {
+              setCopied(false);
+            }
+          );
+        }}
+        className="inline-flex items-center gap-2 rounded-lg border border-[#49cde1]/30 bg-[#49cde1]/10 px-3 py-2 text-xs font-medium text-[#9be4f0] transition hover:bg-[#49cde1]/20"
+      >
+        {copied ? "Copied ✓" : "Copy partner invite link"}
+      </button>
+      <a
+        href={inviteUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-background-card px-3 py-2 text-xs font-medium text-white transition hover:bg-white/5"
+      >
+        Open in HubSpot →
+      </a>
+    </div>
   );
 }
 
@@ -64,6 +141,7 @@ export default function ProjectContextSidebar(props: {
           {props.connectionReady ? "Connected" : "Disconnected"}
           {props.hubTier ? ` · ${props.hubTier}` : ""}
         </p>
+        <PartnerInviteAction connected={props.connectionReady} />
       </SidebarSection>
 
       <SidebarSection label="SNAPSHOT">
