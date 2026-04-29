@@ -647,6 +647,170 @@ export async function approveRetainerTopUp(input: {
   );
 }
 
+const logManualHoursSchema = z.object({
+  hours: z.number().finite().positive().max(1000),
+  description: z.string().trim().max(2000).optional(),
+  occurredAt: z.coerce.date().optional()
+});
+
+export async function logManualRetainerHours(input: {
+  retainerId: string;
+  actor: string;
+  userId?: string | null;
+  payload: unknown;
+}) {
+  const parsed = logManualHoursSchema.parse(input.payload);
+  const occurredAt = parsed.occurredAt ?? new Date();
+  const periodMonth = getRetainerMonthStart(occurredAt);
+  const hours = roundHours(parsed.hours);
+
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const retainer = await tx.retainer.findUnique({
+        where: { id: input.retainerId }
+      });
+
+      if (!retainer) {
+        throw new Error("Retainer not found");
+      }
+
+      if (retainer.status !== "ACTIVE") {
+        throw new Error("Retainer is not active");
+      }
+
+      const period = await ensureOpenPeriod(tx, retainer, periodMonth);
+      await expirePassedRolloverBuckets(
+        tx,
+        retainer.id,
+        occurredAt,
+        period.id,
+        input.actor
+      );
+
+      const approvedTopUpHours = period.topUps
+        .filter(
+          (topUp) => topUp.status === "APPROVED" || topUp.status === "INVOICED"
+        )
+        .reduce((total, topUp) => total + topUp.hours, 0);
+      const consumedHours = decimalToNumber(period.consumedHours);
+      const proposedConsumedHours = roundHours(consumedHours + hours);
+      const borrowCap = getBorrowForwardCap(period.blockHours);
+      const includedHours = period.blockHours + period.rolledInHours;
+      const overageTriggerHours = getOverageTriggerHours({
+        blockHours: period.blockHours,
+        rolledInHours: period.rolledInHours
+      });
+      const allowedWithTopUps = overageTriggerHours + approvedTopUpHours;
+      const shortfall = roundHours(proposedConsumedHours - includedHours);
+
+      if (proposedConsumedHours > allowedWithTopUps) {
+        const rate = deriveLockedCurrencyTopUpRate({
+          serviceLine: retainer.serviceLine as RetainerServiceLine,
+          blockSize: retainer.blockSize,
+          currency: retainer.currency as RetainerCurrency,
+          lockedRetainerRate: decimalToNumber(retainer.rate)
+        });
+        const topUp =
+          (await tx.retainerTopUp.findFirst({
+            where: {
+              retainerPeriodId: period.id,
+              status: "QUOTED"
+            },
+            orderBy: { quotedAt: "desc" }
+          })) ??
+          (await tx.retainerTopUp.create({
+            data: {
+              retainerPeriodId: period.id,
+              hours: topUpDefaultHours,
+              rate,
+              status: "QUOTED"
+            }
+          }));
+
+        return {
+          overage: {
+            error: "overage_requires_topup" as const,
+            shortfall: Math.max(0, shortfall),
+            borrowCapRemaining: Math.max(
+              0,
+              roundHours(borrowCap - Math.max(0, consumedHours - includedHours))
+            ),
+            suggestedTopUpHours: topUpDefaultHours,
+            topUpId: topUp.id
+          }
+        };
+      }
+
+      const consumption = await consumeHours({
+        tx,
+        retainerPeriodId: period.id,
+        retainerId: retainer.id,
+        hoursToConsume: hours
+      });
+      const borrowedFromNext = Math.max(0, Math.min(borrowCap, shortfall));
+
+      const ledgerEntry = await tx.retainerLedgerEntry.create({
+        data: {
+          retainerPeriodId: period.id,
+          taskId: null,
+          entryType: "MANUAL_ADJUSTMENT",
+          hoursDelta: -hours,
+          billedHours: hours,
+          producedBy: "HUMAN",
+          createdBy: input.userId ?? input.actor,
+          metadata: {
+            source: "manual_log",
+            description: parsed.description ?? null,
+            occurredAt: occurredAt.toISOString(),
+            bucketBreakdown: consumption.bucketBreakdown,
+            serviceLine: retainer.serviceLine
+          }
+        }
+      });
+
+      const updatedPeriod = await tx.retainerPeriod.update({
+        where: { id: period.id },
+        data: {
+          consumedHours: { increment: hours },
+          borrowedFromNext,
+          borrowActive: borrowedFromNext > 0
+        },
+        include: { topUps: true }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actor: input.actor,
+          action: "retainer.manual_hours_logged",
+          entityType: "Retainer",
+          entityId: retainer.id,
+          metadata: {
+            retainerPeriodId: period.id,
+            hours,
+            description: parsed.description ?? null,
+            occurredAt: occurredAt.toISOString()
+          }
+        }
+      });
+
+      return {
+        ledgerEntry: serializeLedgerEntry(ledgerEntry),
+        retainerPeriod: serializePeriodBalance(updatedPeriod)
+      };
+    },
+    {
+      maxWait: 10_000,
+      timeout: 30_000
+    }
+  );
+
+  if ("overage" in result) {
+    throw new RetainerOverageError(result.overage);
+  }
+
+  return result;
+}
+
 export async function reconcileRetainers(input: {
   dryRun?: boolean;
   now?: Date;

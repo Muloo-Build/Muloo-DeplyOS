@@ -46,6 +46,7 @@ import { startWorker } from "./queue/worker";
 import {
   approveRetainerTopUp,
   approveTaskToBill,
+  logManualRetainerHours,
   reconcileRetainers,
   RetainerOverageError
 } from "./retainerLedger";
@@ -213,6 +214,7 @@ import {
   saveClientInputSubmission,
   saveDiscoverySession,
   saveProjectQuote,
+  updateProjectQuoteMeta,
   serializePortalTask,
   serializeTask,
   deleteProjectRecord,
@@ -3404,6 +3406,26 @@ export function createApiApp(config: BaseConfig) {
     }
   });
 
+  app.post("/api/projects/:projectId/quote/meta", async (c) => {
+    try {
+      const result = await updateProjectQuoteMeta(
+        c.req.param("projectId"),
+        await readJsonBodyOrEmpty(c)
+      );
+      return c.json(result);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return c.json({ error: error.flatten() }, 400);
+      }
+
+      const message =
+        error instanceof Error ? error.message : "Failed to update quote";
+      const statusCode = message === "Quote not found for this project" ? 404 : 400;
+
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
   app.all("/api/projects/:projectId/changes", async (c) => {
     if (c.req.method === "GET") {
       try {
@@ -4400,6 +4422,35 @@ export function createApiApp(config: BaseConfig) {
       const message =
         error instanceof Error ? error.message : "Failed to approve top-up";
       const statusCode = message === "Top-up quote not found" ? 404 : 400;
+
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
+  app.post("/api/retainers/:retainerId/log-hours", async (c) => {
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      const result = await logManualRetainerHours({
+        retainerId: c.req.param("retainerId"),
+        actor: actor.actor,
+        userId: actor.userId ?? null,
+        payload: await readJsonBodyOrEmpty(c)
+      });
+
+      return c.json(result);
+    } catch (error) {
+      if (error instanceof RetainerOverageError) {
+        return c.json(error.payload, 402);
+      }
+
+      const message =
+        error instanceof Error ? error.message : "Failed to log hours";
+      const statusCode =
+        message === "Retainer not found"
+          ? 404
+          : message === "Retainer is not active"
+            ? 409
+            : 400;
 
       return c.json({ error: message }, statusCode);
     }

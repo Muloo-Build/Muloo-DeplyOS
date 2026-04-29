@@ -5300,6 +5300,7 @@ function serializeProjectQuote<
     projectId: string;
     version: number;
     status: string;
+    template?: string;
     currency: string;
     defaultRate: number | null;
     phaseLines: Prisma.Prisma.JsonValue;
@@ -5311,6 +5312,10 @@ function serializeProjectQuote<
     approvedAt: Date | null;
     approvedByName: string | null;
     approvedByEmail: string | null;
+    closedAt?: Date | null;
+    closedReason?: string | null;
+    hubspotDealId?: string | null;
+    pdfUrl?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }
@@ -5320,6 +5325,7 @@ function serializeProjectQuote<
     projectId: quote.projectId,
     version: quote.version,
     status: quote.status,
+    template: quote.template ?? "full",
     currency: quote.currency,
     defaultRate: quote.defaultRate ?? null,
     phaseLines: z.array(projectQuotePhaseLineSchema).parse(quote.phaseLines),
@@ -5336,6 +5342,10 @@ function serializeProjectQuote<
     approvedAt: quote.approvedAt?.toISOString() ?? null,
     approvedByName: quote.approvedByName ?? null,
     approvedByEmail: quote.approvedByEmail ?? null,
+    closedAt: quote.closedAt?.toISOString() ?? null,
+    closedReason: quote.closedReason ?? null,
+    hubspotDealId: quote.hubspotDealId ?? null,
+    pdfUrl: quote.pdfUrl ?? null,
     createdAt: quote.createdAt.toISOString(),
     updatedAt: quote.updatedAt.toISOString()
   };
@@ -11817,6 +11827,76 @@ export async function approveProjectQuote(
   return {
     project: serializeProject(updatedProject),
     quote: serializeProjectQuote(approvedQuote)
+  };
+}
+
+const ALLOWED_QUOTE_STATUSES = [
+  "draft",
+  "shared",
+  "approved",
+  "won",
+  "lost",
+  "archived"
+] as const;
+
+const CLOSED_QUOTE_STATUSES = new Set(["won", "lost", "archived"]);
+
+const updateQuoteMetaSchema = z
+  .object({
+    status: z.enum(ALLOWED_QUOTE_STATUSES).optional(),
+    template: z.enum(["full", "one_pager"]).optional(),
+    closedReason: z.string().trim().max(2000).optional()
+  })
+  .refine(
+    (value) =>
+      value.status !== undefined ||
+      value.template !== undefined ||
+      value.closedReason !== undefined,
+    { message: "At least one field is required" }
+  );
+
+export async function updateProjectQuoteMeta(
+  projectId: string,
+  payload: unknown
+) {
+  const parsed = updateQuoteMetaSchema.parse(payload);
+
+  const latestQuote = await prisma.projectQuote.findFirst({
+    where: { projectId },
+    orderBy: [{ version: "desc" }]
+  });
+
+  if (!latestQuote) {
+    throw new Error("Quote not found for this project");
+  }
+
+  const data: Prisma.Prisma.ProjectQuoteUpdateInput = {};
+
+  if (parsed.status !== undefined) {
+    data.status = parsed.status;
+    if (CLOSED_QUOTE_STATUSES.has(parsed.status)) {
+      data.closedAt = latestQuote.closedAt ?? new Date();
+    } else {
+      data.closedAt = null;
+      data.closedReason = null;
+    }
+  }
+
+  if (parsed.template !== undefined) {
+    data.template = parsed.template;
+  }
+
+  if (parsed.closedReason !== undefined) {
+    data.closedReason = parsed.closedReason || null;
+  }
+
+  const updatedQuote = await prisma.projectQuote.update({
+    where: { id: latestQuote.id },
+    data
+  });
+
+  return {
+    quote: serializeProjectQuote(updatedQuote)
   };
 }
 

@@ -111,6 +111,12 @@ export default function RetainerDetailWorkspace({
     notes: "",
     status: "DRAFT" as "DRAFT" | "SENT"
   });
+  const [hoursForm, setHoursForm] = useState({
+    hours: "",
+    occurredAt: toDateInputValue(new Date()),
+    description: ""
+  });
+  const [loggingHours, setLoggingHours] = useState(false);
 
   async function loadDetail() {
     setLoading(true);
@@ -185,6 +191,63 @@ export default function RetainerDetailWorkspace({
       );
     }
   }, [invoiceForm.invoiceType, retainer, selectedPeriod]);
+
+  async function handleLogHours(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!retainer) return;
+    setLoggingHours(true);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/retainers/${encodeURIComponent(retainerId)}/log-hours`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            hours: Number(hoursForm.hours),
+            occurredAt: hoursForm.occurredAt
+              ? new Date(hoursForm.occurredAt).toISOString()
+              : undefined,
+            description: hoursForm.description || undefined
+          })
+        }
+      );
+
+      if (response.status === 402) {
+        const overage = (await response.json().catch(() => null)) as
+          | { shortfall?: number; suggestedTopUpHours?: number }
+          | null;
+        throw new Error(
+          `Logging these hours would trigger an overage of ${overage?.shortfall ?? "?"}h. A top-up quote of ${overage?.suggestedTopUpHours ?? "?"}h has been generated — approve it before logging more hours.`
+        );
+      }
+
+      const body = (await response.json().catch(() => null)) as
+        | { ledgerEntry?: unknown; error?: string }
+        | null;
+
+      if (!response.ok || !body?.ledgerEntry) {
+        throw new Error(body?.error ?? "Failed to log hours");
+      }
+
+      setFeedback(`Logged ${hoursForm.hours}h against retainer.`);
+      setHoursForm({
+        hours: "",
+        occurredAt: toDateInputValue(new Date()),
+        description: ""
+      });
+      await loadDetail();
+    } catch (logError) {
+      setError(
+        logError instanceof Error ? logError.message : "Failed to log hours"
+      );
+    } finally {
+      setLoggingHours(false);
+    }
+  }
 
   async function handleCreateInvoice(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -454,16 +517,106 @@ export default function RetainerDetailWorkspace({
             </section>
           </div>
 
-          <form
-            onSubmit={handleCreateInvoice}
-            className="rounded-2xl border border-white/10 bg-background-card p-5"
-          >
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-              Record invoice
-            </p>
-            <h2 className="mt-2 text-xl font-semibold text-white">
-              Capture the Xero draft here
-            </h2>
+          <div className="space-y-6">
+            <form
+              onSubmit={handleLogHours}
+              className="rounded-2xl border border-white/10 bg-background-card p-5"
+            >
+              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                Log hours
+              </p>
+              <h2 className="mt-2 text-xl font-semibold text-white">
+                Deduct hours from this retainer
+              </h2>
+              <p className="mt-1 text-sm text-text-secondary">
+                For ad-hoc work, calls or advisory time not tied to a delivery task. Hours land in the period that contains the work date.
+              </p>
+
+              <div className="mt-5 grid gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="text-sm text-text-secondary">
+                    Hours
+                    <input
+                      type="number"
+                      step="0.25"
+                      min="0.25"
+                      max="1000"
+                      value={hoursForm.hours}
+                      onChange={(event) =>
+                        setHoursForm((current) => ({
+                          ...current,
+                          hours: event.target.value
+                        }))
+                      }
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                      required
+                      placeholder="e.g. 1.5"
+                    />
+                  </label>
+                  <label className="text-sm text-text-secondary">
+                    Date worked
+                    <input
+                      type="date"
+                      value={hoursForm.occurredAt}
+                      onChange={(event) =>
+                        setHoursForm((current) => ({
+                          ...current,
+                          occurredAt: event.target.value
+                        }))
+                      }
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                      required
+                    />
+                  </label>
+                </div>
+
+                <label className="text-sm text-text-secondary">
+                  Description (optional)
+                  <textarea
+                    value={hoursForm.description}
+                    onChange={(event) =>
+                      setHoursForm((current) => ({
+                        ...current,
+                        description: event.target.value
+                      }))
+                    }
+                    rows={3}
+                    placeholder="What did you work on?"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  />
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                disabled={
+                  loggingHours ||
+                  !retainer ||
+                  retainer.status !== "ACTIVE" ||
+                  !hoursForm.hours
+                }
+                className="mt-5 inline-flex items-center rounded-xl bg-[#51d0b0] px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-[#6be0c1] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loggingHours ? "Logging..." : "Log hours"}
+              </button>
+
+              {retainer && retainer.status !== "ACTIVE" ? (
+                <p className="mt-3 text-xs text-amber-300">
+                  Retainer is {retainer.status}. Activate it before logging hours.
+                </p>
+              ) : null}
+            </form>
+
+            <form
+              onSubmit={handleCreateInvoice}
+              className="rounded-2xl border border-white/10 bg-background-card p-5"
+            >
+              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                Record invoice
+              </p>
+              <h2 className="mt-2 text-xl font-semibold text-white">
+                Capture the Xero draft here
+              </h2>
 
             <div className="mt-5 grid gap-4">
               <label className="text-sm text-text-secondary">
@@ -623,6 +776,7 @@ export default function RetainerDetailWorkspace({
               {savingInvoice ? "Recording..." : "Record invoice"}
             </button>
           </form>
+          </div>
         </div>
       </div>
     </AppShell>

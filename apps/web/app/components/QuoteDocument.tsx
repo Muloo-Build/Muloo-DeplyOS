@@ -242,6 +242,11 @@ interface QuoteSnapshot {
     contentOverrides?: QuoteContentOverrides | null;
     blueprintGeneratedAt: string | null;
   } | null;
+  template?: string;
+  closedAt?: string | null;
+  closedReason?: string | null;
+  hubspotDealId?: string | null;
+  pdfUrl?: string | null;
 }
 
 const exchangeRatesToZar: Record<CurrencyCode, number> = {
@@ -528,14 +533,18 @@ function formatBillingModel(value: string) {
 
 function SectionEyebrow({ children }: { children: string }) {
   return (
-    <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#49cde1]">
+    <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
       {children}
     </p>
   );
 }
 
 function SectionTitle({ children }: { children: string }) {
-  return <h2 className="mt-3 text-2xl font-semibold text-white">{children}</h2>;
+  return (
+    <h2 className="mt-3 text-[1.75rem] font-semibold leading-tight tracking-tight text-white print:text-[1.5rem] print:text-slate-900">
+      {children}
+    </h2>
+  );
 }
 
 function buildDefaultQuoteContentOverrides({
@@ -660,6 +669,7 @@ export default function QuoteDocument({
   const [pushBusy, setPushBusy] = useState(false);
   const [previewBusy, setPreviewBusy] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
+  const [metaBusy, setMetaBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const isPortalMode = mode !== "internal";
@@ -1459,6 +1469,71 @@ export default function QuoteDocument({
     }
   }
 
+  async function applyQuoteMeta(update: {
+    status?: string;
+    template?: string;
+    closedReason?: string;
+  }) {
+    setMetaBusy(true);
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/quote/meta`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(update)
+        }
+      );
+
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to update quote");
+      }
+
+      if (body?.quote) {
+        setSavedQuote(body.quote);
+      }
+
+      const labels: Record<string, string> = {
+        won: "Quote marked as won",
+        lost: "Quote marked as lost",
+        archived: "Quote archived",
+        shared: "Quote reopened",
+        full: "Switched to full template",
+        one_pager: "Switched to one-pager"
+      };
+      const label =
+        update.status && labels[update.status]
+          ? labels[update.status]
+          : update.template && labels[update.template]
+            ? labels[update.template]
+            : "Quote updated";
+      setShareMessage(label);
+      window.setTimeout(() => setShareMessage(null), 2500);
+    } catch (error) {
+      setShareMessage(
+        error instanceof Error ? error.message : "Unable to update quote"
+      );
+      window.setTimeout(() => setShareMessage(null), 4000);
+    } finally {
+      setMetaBusy(false);
+    }
+  }
+
+  async function markQuoteAs(targetStatus: "won" | "lost" | "archived") {
+    const promptLabel =
+      targetStatus === "won"
+        ? "Optional note on the win (signed name, deal value, etc.)"
+        : targetStatus === "lost"
+          ? "Optional reason for losing the deal"
+          : "Optional archive note";
+    const reason = window.prompt(promptLabel) ?? "";
+    await applyQuoteMeta({
+      status: targetStatus,
+      closedReason: reason || undefined
+    });
+  }
+
   async function approveQuote() {
     if (!isPortalMode) {
       return;
@@ -1601,6 +1676,61 @@ export default function QuoteDocument({
                 >
                   {isPortalMode ? "Copy Quote Link" : "Copy Portal Quote Link"}
                 </button>
+                {!isPortalMode && savedQuote ? (
+                  <>
+                    <span
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] ${
+                        savedQuote.status === "won"
+                          ? "bg-emerald-500/15 text-emerald-200 border border-emerald-400/30"
+                          : savedQuote.status === "lost"
+                            ? "bg-rose-500/15 text-rose-200 border border-rose-400/30"
+                            : savedQuote.status === "archived"
+                              ? "bg-slate-500/15 text-slate-300 border border-slate-400/30"
+                              : savedQuote.status === "approved"
+                                ? "bg-[#49cde1]/15 text-[#9be4f0] border border-[#49cde1]/30"
+                                : "bg-white/5 text-text-secondary border border-white/10"
+                      }`}
+                    >
+                      {savedQuote.status}
+                    </span>
+                    <select
+                      value={savedQuote.template ?? "full"}
+                      onChange={(event) =>
+                        applyQuoteMeta({ template: event.target.value })
+                      }
+                      disabled={metaBusy}
+                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      aria-label="Quote template"
+                    >
+                      <option value="full">Full template</option>
+                      <option value="one_pager">One-pager</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => markQuoteAs("won")}
+                      disabled={metaBusy || savedQuote.status === "won"}
+                      className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Mark Won
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => markQuoteAs("lost")}
+                      disabled={metaBusy || savedQuote.status === "lost"}
+                      className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm font-medium text-rose-100 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Mark Lost
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => markQuoteAs("archived")}
+                      disabled={metaBusy || savedQuote.status === "archived"}
+                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-text-secondary transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Archive
+                    </button>
+                  </>
+                ) : null}
                 <button
                   type="button"
                   onClick={saveAsPdf}
@@ -3340,6 +3470,11 @@ export default function QuoteDocument({
       </div>
       <style jsx global>{`
         @media print {
+          @page {
+            size: A4;
+            margin: 18mm 16mm;
+          }
+
           .document-shell {
             padding: 0 !important;
           }
@@ -3362,17 +3497,25 @@ export default function QuoteDocument({
           body,
           html {
             background: #ffffff !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            font-feature-settings: "liga", "kern";
           }
 
           .document-content {
-            color: #111827 !important;
+            color: #0f172a !important;
+            font-size: 10.5pt;
+            line-height: 1.55;
           }
 
           .document-card {
             break-inside: avoid;
-            border-color: #d1d5db !important;
+            page-break-inside: avoid;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 6px !important;
             background: #ffffff !important;
             box-shadow: none !important;
+            margin-bottom: 12pt;
           }
 
           .document-card *,
@@ -3381,8 +3524,40 @@ export default function QuoteDocument({
           .document-content h3,
           .document-content p,
           .document-content li,
-          .document-content span {
-            color: #111827 !important;
+          .document-content span,
+          .document-content td,
+          .document-content th {
+            color: #0f172a !important;
+          }
+
+          .document-content h1 {
+            font-size: 22pt;
+            margin-bottom: 8pt;
+          }
+
+          .document-content h2 {
+            font-size: 14pt;
+            margin-top: 10pt;
+            margin-bottom: 4pt;
+            page-break-after: avoid;
+          }
+
+          .document-content h3 {
+            font-size: 11pt;
+            page-break-after: avoid;
+          }
+
+          .document-content table {
+            page-break-inside: auto;
+          }
+
+          .document-content tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+          }
+
+          .document-page-break {
+            page-break-before: always;
           }
         }
       `}</style>
