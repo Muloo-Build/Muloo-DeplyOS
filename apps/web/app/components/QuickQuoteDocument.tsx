@@ -48,6 +48,9 @@ interface ProjectInfo {
   id: string;
   name: string;
   scopeType: string | null;
+  status: string;
+  owner: string;
+  ownerEmail: string;
   client: { id: string; name: string; slug: string } | null;
 }
 
@@ -66,6 +69,17 @@ function formatDate(value: string) {
     month: "long",
     year: "numeric"
   });
+}
+
+function deriveQuoteRef(quoteId: string, version: number) {
+  const tail = quoteId.slice(-6).toUpperCase();
+  return `Q-${tail}-V${version}`;
+}
+
+function deriveValidityDate(sharedAt: string) {
+  const issued = new Date(sharedAt);
+  issued.setDate(issued.getDate() + 30);
+  return issued.toISOString();
 }
 
 function formatMoney(amount: number, currency: string) {
@@ -236,12 +250,16 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
     );
   }
 
-  const showMulooIntro = Boolean(
-    quote.context?.contentOverrides?.approvalSummary
-  );
+  const isOnePager = quote.template === "one_pager";
+  const showMulooIntro =
+    !isOnePager &&
+    Boolean(quote.context?.contentOverrides?.approvalSummary);
   const execSummary = quote.context?.quoteContextSummary;
   const terms = quote.context?.contentOverrides?.termsAndWorkingScope;
   const subtotal = quote.totals.grandTotalZar;
+  const quoteRef = deriveQuoteRef(quote.id, quote.version);
+  const validUntil = deriveValidityDate(quote.sharedAt);
+  const isApproved = quote.status === "approved" || Boolean(quote.approvedAt);
 
   return (
     <AppShell>
@@ -322,50 +340,86 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
         ) : null}
 
         {/* Document */}
-        <article className="document-content flex flex-col gap-6">
-          {/* Header card */}
-          <header className="document-card rounded-2xl border border-white/10 bg-background-card p-8">
-            <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-              <div className="flex-1">
+        <article
+          className={`document-content flex flex-col ${isOnePager ? "gap-4" : "gap-6"}`}
+        >
+          {/* Hero header */}
+          <header className="document-card overflow-hidden rounded-2xl border border-white/10 bg-background-card">
+            <div className="border-b border-white/5 bg-[linear-gradient(135deg,rgba(124,92,191,0.08)_0%,rgba(224,82,156,0.05)_55%,rgba(240,130,74,0.06)_100%)] px-8 py-6 print:bg-white">
+              <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <img
-                    src="/muloo-logo.svg"
-                    alt="Muloo"
-                    className="h-8 w-auto"
-                  />
+                  <img src="/muloo-logo.svg" alt="Muloo" className="h-9 w-auto" />
                   <span className="text-[11px] uppercase tracking-[0.32em] text-text-muted">
-                    Quote
+                    {isOnePager ? "Quote" : "Proposal"}
                   </span>
                 </div>
-                <h1 className="mt-6 text-[1.875rem] font-semibold leading-tight tracking-tight text-white print:text-[1.5rem] print:text-slate-900">
-                  {quote.context?.quoteTitle ?? project.name}
-                </h1>
-                <p className="mt-2 text-sm text-text-secondary">
-                  Prepared for {project.client?.name ?? "client"} ·{" "}
-                  {formatDate(quote.sharedAt)}
-                </p>
+                <span className="rounded-full border border-white/10 bg-background-primary/70 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-text-muted print:border-slate-300 print:text-slate-500">
+                  {quoteRef}
+                </span>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-background-primary/60 px-5 py-4 text-sm">
-                <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
-                  Total
-                </p>
-                <p className="mt-2 text-2xl font-semibold text-white">
-                  {formatMoney(subtotal, quote.currency)}
-                </p>
-                <p className="mt-1 text-xs text-text-muted">
-                  {quote.currency} · v{quote.version}
-                </p>
+            </div>
+
+            <div className="px-8 py-7">
+              <h1 className="text-[2rem] font-semibold leading-tight tracking-tight text-white print:text-[1.65rem] print:text-slate-900">
+                {quote.context?.quoteTitle ?? project.name}
+              </h1>
+
+              <div className="mt-6 grid gap-5 md:grid-cols-[2fr_1fr]">
+                <dl className="grid grid-cols-2 gap-y-3 text-sm">
+                  <dt className="text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                    Prepared for
+                  </dt>
+                  <dt className="text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                    Prepared by
+                  </dt>
+                  <dd className="text-white">
+                    {project.client?.name ?? "—"}
+                  </dd>
+                  <dd className="text-white">
+                    {project.owner ?? "Muloo"}
+                    {project.ownerEmail ? (
+                      <span className="block text-xs text-text-muted">
+                        {project.ownerEmail}
+                      </span>
+                    ) : null}
+                  </dd>
+
+                  <dt className="mt-2 text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                    Issued
+                  </dt>
+                  <dt className="mt-2 text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                    Valid until
+                  </dt>
+                  <dd className="text-text-secondary">
+                    {formatDate(quote.sharedAt)}
+                  </dd>
+                  <dd className="text-text-secondary">
+                    {formatDate(validUntil)}
+                  </dd>
+                </dl>
+
+                <div className="self-start rounded-2xl border border-[#51d0b0]/30 bg-[linear-gradient(135deg,rgba(81,208,176,0.12)_0%,rgba(73,205,225,0.08)_100%)] px-5 py-4 print:border-slate-300 print:bg-white">
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted print:text-slate-500">
+                    Total
+                  </p>
+                  <p className="mt-2 text-[1.75rem] font-semibold leading-tight text-white print:text-slate-900">
+                    {formatMoney(subtotal, quote.currency)}
+                  </p>
+                  <p className="mt-1 text-xs text-text-muted print:text-slate-500">
+                    {quote.currency} · v{quote.version}
+                  </p>
+                </div>
               </div>
             </div>
           </header>
 
-          {/* Muloo intro */}
+          {/* Muloo intro — full theme only */}
           {showMulooIntro ? (
-            <section className="document-card rounded-2xl border border-white/10 bg-background-card p-6">
+            <section className="document-card rounded-2xl border border-white/10 bg-background-card p-7">
               <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
                 Who is Muloo
               </p>
-              <p className="mt-3 text-sm leading-7 text-text-secondary">
+              <p className="mt-4 text-[15px] leading-8 text-text-secondary">
                 {quote.context?.contentOverrides?.approvalSummary}
               </p>
             </section>
@@ -373,69 +427,86 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
 
           {/* Executive summary */}
           {execSummary ? (
-            <section className="document-card rounded-2xl border border-white/10 bg-background-card p-6">
+            <section
+              className={`document-card rounded-2xl border border-white/10 bg-background-card ${isOnePager ? "p-6" : "p-7"}`}
+            >
               <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
                 Executive summary
               </p>
-              <p className="mt-3 whitespace-pre-line text-sm leading-7 text-text-secondary">
+              {!isOnePager ? (
+                <h2 className="mt-3 text-[1.5rem] font-semibold leading-tight tracking-tight text-white print:text-slate-900">
+                  Why we're doing this
+                </h2>
+              ) : null}
+              <p
+                className={`whitespace-pre-line leading-7 text-text-secondary ${isOnePager ? "mt-3 text-sm" : "mt-4 text-[15px] leading-8"}`}
+              >
                 {execSummary}
               </p>
             </section>
           ) : null}
 
           {/* Line items */}
-          <section className="document-card rounded-2xl border border-white/10 bg-background-card p-6">
+          <section
+            className={`document-card rounded-2xl border border-white/10 bg-background-card ${isOnePager ? "p-6" : "p-7"}`}
+          >
             <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
               Scope and pricing
             </p>
             <h2 className="mt-3 text-[1.5rem] font-semibold leading-tight tracking-tight text-white print:text-slate-900">
-              Line items
+              Investment
             </h2>
 
             <div className="mt-5 overflow-hidden rounded-xl border border-white/10">
               <table className="w-full text-sm">
-                <thead className="bg-white/[0.03] text-left text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                <thead className="bg-white/[0.03] text-left text-[10px] uppercase tracking-[0.22em] text-text-muted print:bg-slate-50">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Description</th>
-                    <th className="px-4 py-3 text-right font-medium">Qty</th>
-                    <th className="px-4 py-3 font-medium">Unit</th>
-                    <th className="px-4 py-3 text-right font-medium">Rate</th>
-                    <th className="px-4 py-3 text-right font-medium">Total</th>
+                    <th className="px-4 py-3 font-semibold">Description</th>
+                    <th className="px-4 py-3 text-right font-semibold">Qty</th>
+                    <th className="px-4 py-3 font-semibold">Unit</th>
+                    <th className="px-4 py-3 text-right font-semibold">Rate</th>
+                    <th className="px-4 py-3 text-right font-semibold">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {quote.productLines.map((line) => (
-                    <tr key={line.id} className="text-text-secondary">
-                      <td className="px-4 py-3 align-top text-white">
-                        <p className="font-medium">
+                    <tr
+                      key={line.id}
+                      className="text-text-secondary transition hover:bg-white/[0.02] print:hover:bg-transparent"
+                    >
+                      <td className="px-4 py-4 align-top text-white">
+                        <p className="font-medium leading-snug">
                           {line.description || line.name}
                         </p>
                         {line.metadata?.discount &&
                         line.metadata.discount > 0 ? (
-                          <p className="mt-1 text-[11px] text-text-muted">
+                          <p className="mt-1 text-[11px] text-emerald-300 print:text-emerald-700">
                             {line.metadata.discount}% discount applied
                           </p>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3 text-right align-top">
+                      <td className="px-4 py-4 text-right align-top tabular-nums">
                         {line.quantity}
                       </td>
-                      <td className="px-4 py-3 align-top">{line.unitLabel}</td>
-                      <td className="px-4 py-3 text-right align-top">
+                      <td className="px-4 py-4 align-top">{line.unitLabel}</td>
+                      <td className="px-4 py-4 text-right align-top tabular-nums">
                         {formatMoney(line.unitPrice, quote.currency)}
                       </td>
-                      <td className="px-4 py-3 text-right align-top text-white">
+                      <td className="px-4 py-4 text-right align-top tabular-nums text-white">
                         {formatMoney(line.lineTotalZar, quote.currency)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-white/[0.03]">
-                    <td colSpan={4} className="px-4 py-3 text-right text-sm text-text-secondary">
+                  <tr className="border-t-2 border-white/10 bg-[linear-gradient(135deg,rgba(81,208,176,0.06)_0%,rgba(73,205,225,0.04)_100%)] print:bg-slate-50">
+                    <td
+                      colSpan={4}
+                      className="px-4 py-4 text-right text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted print:text-slate-500"
+                    >
                       Total
                     </td>
-                    <td className="px-4 py-3 text-right text-base font-semibold text-white">
+                    <td className="px-4 py-4 text-right text-lg font-semibold tabular-nums text-white print:text-slate-900">
                       {formatMoney(subtotal, quote.currency)}
                     </td>
                   </tr>
@@ -446,11 +517,13 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
 
           {/* Payment schedule */}
           {quote.paymentSchedule.length > 0 ? (
-            <section className="document-card rounded-2xl border border-white/10 bg-background-card p-6">
+            <section
+              className={`document-card rounded-2xl border border-white/10 bg-background-card ${isOnePager ? "p-6" : "p-7"}`}
+            >
               <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
                 Payment schedule
               </p>
-              <ul className="mt-3 space-y-2 text-sm leading-7 text-text-secondary">
+              <ul className="mt-4 space-y-2 text-sm leading-7 text-text-secondary">
                 {quote.paymentSchedule.map((line, idx) => (
                   <li key={idx} className="flex gap-3">
                     <span className="text-text-muted">{idx + 1}.</span>
@@ -463,48 +536,91 @@ export default function QuickQuoteDocument({ quoteId }: { quoteId: string }) {
 
           {/* Terms */}
           {terms ? (
-            <section className="document-card rounded-2xl border border-white/10 bg-background-card p-6">
+            <section
+              className={`document-card rounded-2xl border border-white/10 bg-background-card ${isOnePager ? "p-6" : "p-7"}`}
+            >
               <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
                 Terms
               </p>
-              <p className="mt-3 whitespace-pre-line text-sm leading-7 text-text-secondary">
+              <p
+                className={`whitespace-pre-line leading-7 text-text-secondary ${isOnePager ? "mt-3 text-sm" : "mt-4 text-[15px] leading-8"}`}
+              >
                 {terms}
               </p>
             </section>
           ) : null}
 
           {/* Sign-off */}
-          <section className="document-card rounded-2xl border border-white/10 bg-background-card p-6">
+          <section
+            className={`document-card rounded-2xl border border-white/10 bg-background-card ${isOnePager ? "p-6" : "p-7"}`}
+          >
             <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
               Approval
             </p>
             <h2 className="mt-3 text-[1.5rem] font-semibold leading-tight tracking-tight text-white print:text-slate-900">
-              Ready to proceed?
+              {isApproved ? "Approved" : "Approve this quote"}
             </h2>
-            {quote.status === "approved" || quote.approvedAt ? (
-              <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-                <p className="font-semibold">Approved</p>
-                <p className="mt-1">
-                  {quote.approvedAt
-                    ? `On ${formatDate(quote.approvedAt)}`
-                    : null}
+
+            {isApproved ? (
+              <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-5 print:border-emerald-300 print:bg-emerald-50">
+                <p className="text-sm font-semibold text-emerald-100 print:text-emerald-900">
+                  Quote approved
                 </p>
+                {quote.approvedAt ? (
+                  <p className="mt-1 text-sm text-emerald-200/90 print:text-emerald-800">
+                    Signed on {formatDate(quote.approvedAt)}
+                  </p>
+                ) : null}
               </div>
             ) : (
-              <div className="mt-4 rounded-xl border border-white/10 bg-background-primary/40 p-4">
-                <p className="text-sm text-text-secondary">
-                  Reply to this quote to approve. Approval is captured by name,
-                  email and timestamp on the client portal.
+              <>
+                <p className="mt-3 text-sm leading-7 text-text-secondary">
+                  Reply to this quote, or sign below. Approval is captured by
+                  name, email and timestamp.
                 </p>
-              </div>
+                <div className="mt-6 grid gap-6 md:grid-cols-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
+                      Signed
+                    </p>
+                    <div className="mt-3 h-12 border-b border-white/15 print:border-slate-300" />
+                    <p className="mt-2 text-xs text-text-muted">Name</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
+                      Date
+                    </p>
+                    <div className="mt-3 h-12 border-b border-white/15 print:border-slate-300" />
+                    <p className="mt-2 text-xs text-text-muted">DD MMM YYYY</p>
+                  </div>
+                </div>
+              </>
             )}
+
             {quote.closedAt ? (
-              <p className="mt-3 text-xs text-text-muted">
+              <p className="mt-4 text-xs text-text-muted">
                 Closed on {formatDate(quote.closedAt)}
                 {quote.closedReason ? ` · ${quote.closedReason}` : ""}
               </p>
             ) : null}
           </section>
+
+          {/* Footer */}
+          <footer className="document-card mt-2 flex flex-col gap-2 rounded-2xl border border-white/5 bg-transparent px-4 py-3 text-[11px] text-text-muted md:flex-row md:items-center md:justify-between print:border-transparent">
+            <span>
+              {quoteRef} · Issued {formatDate(quote.sharedAt)} · Valid until{" "}
+              {formatDate(validUntil)}
+            </span>
+            <span>
+              Questions about this quote?{" "}
+              <a
+                href={`mailto:${project.ownerEmail ?? "hello@muloo.co"}`}
+                className="text-text-secondary hover:underline"
+              >
+                {project.ownerEmail ?? "hello@muloo.co"}
+              </a>
+            </span>
+          </footer>
         </article>
       </div>
 
