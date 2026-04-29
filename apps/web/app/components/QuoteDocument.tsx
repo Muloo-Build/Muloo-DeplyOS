@@ -658,6 +658,7 @@ export default function QuoteDocument({
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [previewBusy, setPreviewBusy] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1315,6 +1316,41 @@ export default function QuoteDocument({
     }
   }
 
+  async function openClientQuotePreview() {
+    if (isPortalMode) {
+      return;
+    }
+
+    setPreviewBusy(true);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/client-portal-preview-token`,
+        { method: "POST" }
+      );
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to generate preview link");
+      }
+
+      if (body?.previewUrl && typeof window !== "undefined") {
+        window.open(body.previewUrl, "_blank", "noopener");
+      }
+    } catch (previewError) {
+      setShareMessage(
+        previewError instanceof Error
+          ? previewError.message
+          : "Unable to open quote preview"
+      );
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => setShareMessage(null), 4000);
+      }
+    } finally {
+      setPreviewBusy(false);
+    }
+  }
+
   function buildQuotePayload() {
     return {
       currency,
@@ -1522,6 +1558,16 @@ export default function QuoteDocument({
                     className="rounded-xl border border-[rgba(73,205,225,0.18)] bg-[rgba(73,205,225,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
                   >
                     {saveBusy ? "Saving..." : "Save Draft"}
+                  </button>
+                ) : null}
+                {!isPortalMode ? (
+                  <button
+                    type="button"
+                    onClick={openClientQuotePreview}
+                    disabled={previewBusy}
+                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                  >
+                    {previewBusy ? "Opening..." : "Preview Client Quote"}
                   </button>
                 ) : null}
                 {!isPortalMode ? (
