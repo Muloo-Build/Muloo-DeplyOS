@@ -84,14 +84,21 @@ interface RecommendationRecord {
 }
 
 interface PortalSnapshot {
+  id?: string;
   capturedAt: string;
   hubTier: string | null;
   activeHubs: string[];
   contactPropertyCount: number | null;
   companyPropertyCount: number | null;
   dealPropertyCount: number | null;
+  ticketPropertyCount?: number | null;
   customObjectCount: number | null;
   dealPipelineCount: number | null;
+  dealStageCount?: number | null;
+  ticketPipelineCount?: number | null;
+  activeUserCount?: number | null;
+  teamCount?: number | null;
+  activeListCount?: number | null;
 }
 
 interface PrepareBrief {
@@ -139,6 +146,11 @@ interface ProjectContextEntry {
 type ProjectContextMap = Record<string, ProjectContextEntry | null>;
 
 interface ClientMemory {
+  client?: {
+    id: string;
+    name: string;
+    hubSpotPortalId: string | null;
+  };
   previousProjects: ClientMemoryProject[];
   recentFindings: Array<{
     id: string;

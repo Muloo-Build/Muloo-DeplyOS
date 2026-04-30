@@ -19,10 +19,16 @@ function navClass(isActive: boolean) {
 
 export default function ProjectWorkflowNav({
   projectId,
-  showDiscovery = true,
+  showDiscovery,
   engagementType
 }: {
   projectId: string;
+  /**
+   * Override Discovery visibility. When omitted, Discovery defaults on for
+   * implementation-led engagements only. Optimisation, scoped change and
+   * workshop modes hide it by default — Discovery is still accessible from
+   * the Diagnose / Discover cluster when explicitly enabled.
+   */
   showDiscovery?: boolean;
   engagementType?: string | null;
 }) {
@@ -79,10 +85,17 @@ export default function ProjectWorkflowNav({
     engagementType: resolvedProject.engagementType,
     hasPortal: hasPortalAudit
   });
+  // Discovery defaults to on for implementation-led engagements only.
+  // Optimisation, scoped_change and onsite_workshop modes hide it unless
+  // the caller explicitly opts back in via the prop. Reflects the rule in
+  // PROJECT_MEMORY.md §6: discovery is supported but no longer the only
+  // valid front door.
+  const resolvedShowDiscovery =
+    showDiscovery ?? workspaceMode.key === "implementation";
   const clusters = buildProjectWorkspaceClusters({
     projectId,
     mode: workspaceMode.key,
-    showDiscovery,
+    showDiscovery: resolvedShowDiscovery,
     hasPortalAudit
   });
 
