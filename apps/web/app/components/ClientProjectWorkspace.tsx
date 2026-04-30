@@ -17,6 +17,7 @@ import {
   getPortalMarketingHubPath,
   getPortalQuotePath
 } from "./portalExperience";
+import { resolveLatestQuoteIdForProject } from "../lib/quotes/resolveLatestQuoteId";
 
 type WorkspaceTab = "overview" | "tasks" | "messages" | "delivery";
 
@@ -214,6 +215,7 @@ export default function ClientProjectWorkspace({
   const [questionnaireDefinitions, setQuestionnaireDefinitions] =
     useState<ClientQuestionnaireDefinitionMap>(createDefaultClientQuestionnaireDefinitionMap());
   const [detail, setDetail] = useState<ClientProjectDetail | null>(null);
+  const [latestQuoteId, setLatestQuoteId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<number, Record<string, string>>>({ 1: {}, 2: {}, 3: {}, 4: {} });
   const [sessionSaveState, setSessionSaveState] = useState<Record<number, SessionSaveState>>({});
   const [pageError, setPageError] = useState<string | null>(null);
@@ -266,6 +268,26 @@ export default function ClientProjectWorkspace({
       setTimeout(() => messagesBottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     }
   }, [activeTab, messages]);
+
+  useEffect(() => {
+    const status = detail?.project.quoteApprovalStatus ?? "draft";
+    if (!detail || status === "draft") {
+      setLatestQuoteId(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const id = await resolveLatestQuoteIdForProject(detail.project.id, {
+        source: "client"
+      });
+      if (!cancelled) {
+        setLatestQuoteId(id);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [detail]);
 
   const sessionNumbers = useMemo(
     () =>
@@ -804,10 +826,14 @@ export default function ClientProjectWorkspace({
                     </div>
                     {quoteApprovalStatus !== "draft" ? (
                       <Link
-                        href={getPortalQuotePath(
-                          portalExperience,
-                          detail.project.id
-                        )}
+                        href={
+                          latestQuoteId
+                            ? `/client/quotes/${encodeURIComponent(latestQuoteId)}`
+                            : getPortalQuotePath(
+                                portalExperience,
+                                detail.project.id
+                              )
+                        }
                         className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-2.5 text-sm font-medium text-white"
                       >
                         {quoteApprovalStatus === "approved" ? "View quote" : "Review & approve"}

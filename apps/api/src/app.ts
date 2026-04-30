@@ -221,6 +221,8 @@ import {
   loadClientQuickQuote,
   loadFinancialsSummary,
   loadQuoteById,
+  listProjectQuotes,
+  listClientProjectQuotes,
   markPortalAsConnectedManually,
   pushQuoteToPortal,
   bulkArchiveQuotes,
@@ -3555,6 +3557,17 @@ export function createApiApp(config: BaseConfig) {
     }
   });
 
+  app.get("/api/projects/:projectId/quotes", async (c) => {
+    try {
+      const result = await listProjectQuotes(c.req.param("projectId"));
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load quotes";
+      return c.json({ error: message }, 400);
+    }
+  });
+
   app.all("/api/projects/:projectId/quote", async (c) => {
     if (c.req.method !== "GET") {
       return c.json({ error: "Method Not Allowed" }, 405);
@@ -6314,6 +6327,17 @@ export function createApiApp(config: BaseConfig) {
     return c.json({
       tasks: tasks.map((task) => serializePortalTask(task))
     });
+  });
+
+  app.get("/api/client/projects/:projectId/quotes", async (c) => {
+    const result = await listClientProjectQuotes(
+      c.req.param("projectId"),
+      c.get("clientUserId")
+    );
+    if (!result) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+    return c.json(result);
   });
 
   app.all("/api/client/projects/:projectId/quote", async (c) => {

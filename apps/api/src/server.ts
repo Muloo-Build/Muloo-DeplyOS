@@ -24968,6 +24968,38 @@ export async function listAllQuotes(filters?: { status?: string[] }) {
   }));
 }
 
+export async function listProjectQuotes(projectId: string) {
+  const quotes = await prisma.projectQuote.findMany({
+    where: { projectId },
+    orderBy: [{ version: "desc" }]
+  });
+  return {
+    quotes: quotes.map((quote) => serializeProjectQuote(quote))
+  };
+}
+
+export async function listClientProjectQuotes(
+  projectId: string,
+  userId: string
+) {
+  const access = await prisma.clientProjectAccess.findUnique({
+    where: { userId_projectId: { userId, projectId } }
+  });
+  if (!access) {
+    return null;
+  }
+  const quotes = await prisma.projectQuote.findMany({
+    where: {
+      projectId,
+      status: { in: ["shared", "approved", "won"] }
+    },
+    orderBy: [{ version: "desc" }]
+  });
+  return {
+    quotes: quotes.map((quote) => serializeProjectQuote(quote))
+  };
+}
+
 export async function loadQuoteById(quoteId: string) {
   const quote = await prisma.projectQuote.findUnique({
     where: { id: quoteId },
