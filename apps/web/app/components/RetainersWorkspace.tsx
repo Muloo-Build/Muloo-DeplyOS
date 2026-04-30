@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
+import EmptyState from "./EmptyState";
 
 type RetainerStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED";
 type RetainerServiceLine = "TECHNICAL_DELIVERY" | "CONSULTING";
@@ -340,9 +341,11 @@ export default function RetainersWorkspace() {
               })}
 
               {!loading && visibleRetainers.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-white/12 p-5 text-sm text-text-secondary">
-                  No retainers match this filter yet.
-                </div>
+                <EmptyState
+                  className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/12 p-5 text-center"
+                  title="No retainers match this filter"
+                  description="Try a different status or service-line filter, or create a new retainer below."
+                />
               ) : null}
             </div>
           </div>

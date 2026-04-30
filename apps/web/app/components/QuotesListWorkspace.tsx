@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
+import EmptyState from "./EmptyState";
+import { SkeletonRows } from "./LoadingSkeleton";
 
 interface QuoteListItem {
   id: string;
@@ -184,25 +186,26 @@ export default function QuotesListWorkspace() {
 
         <section className="rounded-2xl border border-white/10 bg-background-card">
           {loading ? (
-            <div className="px-5 py-8 text-sm text-text-secondary">
-              Loading quotes...
-            </div>
+            <SkeletonRows count={6} className="p-5" />
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
-              <p className="text-sm text-text-secondary">
-                {quotes.length === 0
-                  ? "No quotes yet. Create your first."
-                  : "No quotes match this filter."}
-              </p>
-              {quotes.length === 0 ? (
-                <Link
-                  href="/quotes/new"
-                  className="inline-flex items-center rounded-xl bg-[#51d0b0] px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-[#6be0c1]"
-                >
-                  Create new quote
-                </Link>
-              ) : null}
-            </div>
+            <EmptyState
+              className="flex flex-col items-center justify-center px-8 py-14 text-center"
+              title={
+                quotes.length === 0
+                  ? "No quotes yet"
+                  : "No quotes match this filter"
+              }
+              description={
+                quotes.length === 0
+                  ? "Quotes show up here once you create your first. Pick a client, set deal type, line items follow."
+                  : "Try a different status filter or clear your search."
+              }
+              primaryCta={
+                quotes.length === 0
+                  ? { label: "Create your first quote", href: "/quotes/new" }
+                  : undefined
+              }
+            />
           ) : (
             <ul className="divide-y divide-white/5">
               {filtered.map((quote) => (

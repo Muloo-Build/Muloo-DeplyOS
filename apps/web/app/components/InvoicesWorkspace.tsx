@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
+import EmptyState from "./EmptyState";
+import { SkeletonRows } from "./LoadingSkeleton";
 
 interface InvoiceListItem {
   id: string;
@@ -230,15 +232,24 @@ export default function InvoicesWorkspace() {
 
         <section className="rounded-2xl border border-white/10 bg-background-card">
           {loading ? (
-            <div className="px-5 py-8 text-sm text-text-secondary">
-              Loading invoices...
-            </div>
+            <SkeletonRows count={6} className="p-5" />
           ) : filtered.length === 0 ? (
-            <div className="px-5 py-12 text-center text-sm text-text-secondary">
-              {invoices.length === 0
-                ? "No invoices yet. They appear here once you record a retainer block or top-up."
-                : "No invoices match this filter."}
-            </div>
+            <EmptyState
+              className="flex flex-col items-center justify-center px-8 py-14 text-center"
+              title={
+                invoices.length === 0 ? "No invoices yet" : "No invoices match this filter"
+              }
+              description={
+                invoices.length === 0
+                  ? "Invoices appear here once you record a retainer block or approve a top-up. Once Xero is connected, drafts flow there too."
+                  : "Adjust the status filter or clear the search to see more."
+              }
+              primaryCta={
+                invoices.length === 0
+                  ? { label: "Open retainers", href: "/retainers" }
+                  : undefined
+              }
+            />
           ) : (
             <ul className="divide-y divide-white/5">
               {filtered.map((invoice) => (

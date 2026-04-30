@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "../components/AppShell";
+import EmptyState from "../components/EmptyState";
 
 type RunStatusFilter = "all" | "queued" | "running" | "complete" | "failed";
 
@@ -383,9 +384,19 @@ export default function RunsPage() {
 
             <div className="mt-6 space-y-6">
               {!loading && filteredRuns.length === 0 ? (
-                <div className="brand-surface-soft rounded-2xl border p-6 text-sm text-text-secondary">
-                  No runs match the current filters yet.
-                </div>
+                <EmptyState
+                  className="brand-surface-soft flex flex-col items-center justify-center rounded-2xl border p-6 text-center"
+                  title={
+                    runs.length === 0
+                      ? "No runs yet"
+                      : "No runs match the current filters"
+                  }
+                  description={
+                    runs.length === 0
+                      ? "Workflow and agent runs land here once you queue your first review run from the Delivery Board."
+                      : "Try clearing the search or switching status tabs."
+                  }
+                />
               ) : null}
 
               {Object.entries(groupedRuns).map(([groupLabel, groupRuns]) =>

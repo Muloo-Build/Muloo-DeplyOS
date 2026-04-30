@@ -15,6 +15,7 @@ import {
   getPortalSupportPath,
   resolvePortalExperienceFromPathname
 } from "./portalExperience";
+import { ToastProvider } from "./Toast";
 
 export default function ClientShell({
   children,
@@ -80,6 +81,7 @@ export default function ClientShell({
   ];
 
   return (
+    <ToastProvider>
     <div className="min-h-screen overflow-x-clip bg-background-primary text-white">
       <header className="border-b border-[rgba(255,255,255,0.06)] bg-[#060c1e]">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
@@ -208,5 +210,6 @@ export default function ClientShell({
         </div>
       </nav>
     </div>
+    </ToastProvider>
   );
 }
