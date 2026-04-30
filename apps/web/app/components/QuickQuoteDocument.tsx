@@ -74,6 +74,7 @@ interface ProjectInfo {
     slug: string;
     contacts?: ClientContactRow[];
   } | null;
+  clientPortalUserCount?: number;
 }
 
 const statusStyles: Record<string, string> = {
@@ -154,6 +155,7 @@ export default function QuickQuoteDocument({
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [pushModalOpen, setPushModalOpen] = useState(false);
 
   async function loadQuote() {
     setLoading(true);
@@ -400,6 +402,56 @@ export default function QuickQuoteDocument({
     }
   }
 
+  async function handlePushToPortal(payload: {
+    alsoEmail: boolean;
+    message: string;
+  }) {
+    if (!quote) return;
+    setBusy(true);
+    setFeedback(null);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/quotes/${encodeURIComponent(quote.id)}/push-to-portal`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            alsoEmail: payload.alsoEmail,
+            message: payload.message.trim() || undefined
+          })
+        }
+      );
+      const body = (await response.json().catch(() => null)) as {
+        quote?: QuoteData;
+        portal?: { portalLink: string; portalUserCount: number };
+        delivery?: { to: string[] } | null;
+        error?: string;
+      } | null;
+      if (!response.ok || !body?.quote) {
+        throw new Error(body?.error ?? "Failed to push quote to portal");
+      }
+      setPushModalOpen(false);
+      const baseLabel = "Pushed to client portal";
+      const emailedTail =
+        payload.alsoEmail && body.delivery?.to?.length
+          ? ` · emailed ${body.delivery.to.join(", ")}`
+          : "";
+      setFeedback(`${baseLabel}${emailedTail}`);
+      window.setTimeout(() => setFeedback(null), 3500);
+      await loadQuote();
+    } catch (pushError) {
+      setError(
+        pushError instanceof Error
+          ? pushError.message
+          : "Failed to push quote to portal"
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleRecall() {
     if (!quote) return;
     const confirmed = window.confirm(
@@ -547,14 +599,24 @@ export default function QuickQuoteDocument({
             ) : null}
 
             {!showClientLayout && quote.status === "draft" ? (
-              <button
-                type="button"
-                onClick={() => setSendModalOpen(true)}
-                disabled={busy}
-                className="rounded-xl bg-[#49cde1] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-[#71dbeb] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Send via email
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setPushModalOpen(true)}
+                  disabled={busy}
+                  className="rounded-xl bg-[#49cde1] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-[#71dbeb] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Push to portal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSendModalOpen(true)}
+                  disabled={busy}
+                  className="rounded-xl border border-[#49cde1]/30 bg-[#49cde1]/10 px-3 py-2 text-xs font-medium text-[#9be4f0] transition hover:bg-[#49cde1]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Send via email
+                </button>
+              </>
             ) : null}
 
             {!showClientLayout && quote.status === "shared" ? (
@@ -1103,6 +1165,22 @@ export default function QuickQuoteDocument({
         />
       ) : null}
 
+      {pushModalOpen ? (
+        <PushToPortalModal
+          quoteRef={quoteRef}
+          clientName={project.client?.name ?? null}
+          portalUserCount={project.clientPortalUserCount ?? 0}
+          approverContactCount={
+            (project.client?.contacts ?? []).filter(
+              (contact) => contact.canApproveQuotes && contact.email.trim()
+            ).length
+          }
+          busy={busy}
+          onClose={() => setPushModalOpen(false)}
+          onPush={handlePushToPortal}
+        />
+      ) : null}
+
       <style jsx global>{`
         @media print {
           @page {
@@ -1415,6 +1493,125 @@ function SendQuoteEmailModal({
               className="rounded-xl bg-[#49cde1] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-[#71dbeb] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy ? "Sending..." : "Send quote"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+interface PushToPortalModalProps {
+  quoteRef: string;
+  clientName: string | null;
+  portalUserCount: number;
+  approverContactCount: number;
+  busy: boolean;
+  onClose: () => void;
+  onPush: (payload: { alsoEmail: boolean; message: string }) => Promise<void>;
+}
+
+function PushToPortalModal({
+  quoteRef,
+  clientName,
+  portalUserCount,
+  approverContactCount,
+  busy,
+  onClose,
+  onPush
+}: PushToPortalModalProps) {
+  const [message, setMessage] = useState("");
+  const [alsoEmail, setAlsoEmail] = useState(portalUserCount === 0);
+  const emailDisabled = approverContactCount === 0;
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    void onPush({
+      alsoEmail: alsoEmail && !emailDisabled,
+      message
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(3,6,18,0.84)] px-4">
+      <div className="flex w-full max-w-xl flex-col rounded-[28px] border border-white/10 bg-[#111933] shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+          <div>
+            <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+              Push to portal
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-white">
+              {quoteRef}
+              {clientName ? (
+                <span className="text-text-muted"> · {clientName}</span>
+              ) : null}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-xl border border-white/10 px-3 py-2 text-sm text-text-secondary disabled:opacity-50"
+          >
+            Close
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-6 py-5">
+          <p className="text-sm text-text-secondary">
+            {portalUserCount > 0
+              ? `Notifies ${portalUserCount} portal user${portalUserCount === 1 ? "" : "s"} on this project. Quote flips to Sent.`
+              : "No portal users on this project yet. We'll fall back to email."}
+          </p>
+
+          <label className="block">
+            <span className="text-xs uppercase tracking-[0.22em] text-text-muted">
+              Message to client (optional)
+            </span>
+            <textarea
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              rows={4}
+              placeholder="Adds a short note above the portal link."
+              className="mt-2 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm text-white outline-none"
+            />
+          </label>
+
+          <label className="flex items-start gap-3 rounded-xl border border-white/10 bg-background-card px-3 py-3">
+            <input
+              type="checkbox"
+              checked={alsoEmail && !emailDisabled}
+              disabled={emailDisabled}
+              onChange={(event) => setAlsoEmail(event.target.checked)}
+              className="mt-0.5"
+            />
+            <div className="flex-1 text-sm">
+              <div className="font-medium text-white">
+                Also send email
+              </div>
+              <div className="mt-1 text-xs text-text-muted">
+                {emailDisabled
+                  ? "No approver contacts on file — add an approver to enable email."
+                  : `Sends to ${approverContactCount} approver contact${approverContactCount === 1 ? "" : "s"}.`}
+              </div>
+            </div>
+          </label>
+
+          <div className="flex items-center justify-end gap-2 border-t border-white/10 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="rounded-xl border border-white/10 px-4 py-2 text-sm text-text-secondary disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy}
+              className="rounded-xl bg-[#49cde1] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-[#71dbeb] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy ? "Pushing..." : "Push to portal"}
             </button>
           </div>
         </form>
