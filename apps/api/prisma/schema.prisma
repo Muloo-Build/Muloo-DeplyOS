@@ -7,6 +7,996 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Client {
+  id                 String                    @id @default(cuid())
+  name               String
+  slug               String                    @unique
+  industry           String?
+  region             String?
+  website            String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  additionalWebsites String[]
+  linkedinUrl        String?
+  facebookUrl        String?
+  instagramUrl       String?
+  xUrl               String?
+  youtubeUrl         String?
+  logoUrl            String?
+  clientRoles        String[]                  @default(["client"])
+  parentClientId     String?
+  enrichedLogoUrl    String?
+  companyOverview    String?
+  lastEnrichedAt     DateTime?
+  hubSpotPortalId    String?
+  gmailLabel         String?
+  billToEntities     BillToEntity[]
+  hubSpotPortal      HubSpotPortal?            @relation("ClientHubSpotPortal", fields: [hubSpotPortalId], references: [id])
+  parentClient       Client?                   @relation("ClientHierarchy", fields: [parentClientId], references: [id])
+  childClients       Client[]                  @relation("ClientHierarchy")
+  contacts           ClientContact[]
+  visibleToPartners  PartnerClientVisibility[] @relation("VisibilityTarget")
+  visibleClients     PartnerClientVisibility[] @relation("VisibilityPartner")
+  projects           Project[]
+  retainers          Retainer[]
+  workflowRuns       WorkflowRun[]
+
+  @@index([hubSpotPortalId])
+}
+
+model PartnerClientVisibility {
+  id              String   @id @default(cuid())
+  partnerClientId String
+  clientId        String
+  visibilityScope String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  client          Client   @relation("VisibilityTarget", fields: [clientId], references: [id], onDelete: Cascade)
+  partnerClient   Client   @relation("VisibilityPartner", fields: [partnerClientId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerClientId, clientId])
+  @@index([partnerClientId])
+  @@index([clientId])
+}
+
+model ClientContact {
+  id               String   @id @default(cuid())
+  clientId         String
+  firstName        String
+  lastName         String?
+  email            String
+  title            String?
+  canApproveQuotes Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, email])
+  @@index([clientId, createdAt])
+}
+
+model WorkspaceUser {
+  id                          String    @id @default(cuid())
+  name                        String
+  email                       String    @unique
+  role                        String
+  isActive                    Boolean   @default(true)
+  sortOrder                   Int       @default(0)
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+  password                    String?
+  passwordResetToken          String?   @unique
+  passwordResetTokenExpiresAt DateTime?
+}
+
+model WorkspaceProviderConnection {
+  id             String   @id @default(cuid())
+  providerKey    String   @unique
+  label          String
+  connectionType String
+  apiKey         String?
+  defaultModel   String?
+  endpointUrl    String?
+  notes          String?
+  isEnabled      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model WorkspaceAiRouting {
+  id            String   @id @default(cuid())
+  workflowKey   String   @unique
+  label         String
+  providerKey   String
+  modelOverride String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model WorkspaceApiKey {
+  id          String   @id @default(cuid())
+  workspaceId String   @default("default")
+  keyName     String
+  keyValue    String
+  label       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([workspaceId, keyName])
+  @@index([workspaceId, updatedAt])
+}
+
+model WorkspaceEmailSettings {
+  id            String   @id @default(cuid())
+  providerLabel String   @default("SMTP")
+  host          String?
+  port          Int?
+  secure        Boolean  @default(false)
+  username      String?
+  password      String?
+  fromName      String?
+  fromEmail     String?
+  replyToEmail  String?
+  enabled       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model WorkspaceEmailOAuthConnection {
+  id               String    @id @default(cuid())
+  providerKey      String    @unique
+  label            String
+  clientId         String?
+  clientSecret     String?
+  redirectUri      String?
+  scopes           String[]
+  accessToken      String?
+  refreshToken     String?
+  tokenType        String?
+  connectedEmail   String?
+  connectedName    String?
+  tokenExpiresAt   DateTime?
+  enabled          Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  gmailFilterLabel String?
+}
+
+model WorkspaceTodo {
+  id          String    @id @default(cuid())
+  title       String
+  notes       String?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model WorkspaceCalendarConnection {
+  id             String    @id @default(cuid())
+  providerKey    String    @unique
+  label          String
+  clientId       String?
+  clientSecret   String?
+  redirectUri    String?
+  scopes         String[]
+  accessToken    String?
+  refreshToken   String?
+  tokenType      String?
+  connectedEmail String?
+  connectedName  String?
+  tokenExpiresAt DateTime?
+  enabled        Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model WorkspaceXeroConnection {
+  id             String    @id @default(cuid())
+  tenantId       String?
+  tenantName     String?
+  clientId       String?
+  clientSecret   String?
+  redirectUri    String?
+  scopes         String[]
+  accessToken    String?
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  connectedEmail String?
+  enabled        Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model WorkspaceDailySummary {
+  id          String   @id @default(cuid())
+  summaryDate DateTime @default(now())
+  content     String
+  generatedBy String
+  createdAt   DateTime @default(now())
+}
+
+model WorkspaceHubSpotSettings {
+  id               String   @id @default("default")
+  partnerInviteUrl String?
+  partnerAccountId String?
+  notes            String?
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
+}
+
+model HubSpotPortal {
+  id             String           @id @default(cuid())
+  portalId       String           @unique
+  displayName    String
+  region         String?
+  connected      Boolean          @default(false)
+  accessToken    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  refreshToken   String?
+  tokenType      String?
+  scopes         String[]         @default([])
+  tokenExpiresAt DateTime?
+  connectedEmail String?
+  connectedName  String?
+  hubDomain      String?
+  installedAt    DateTime?
+  clients        Client[]         @relation("ClientHubSpotPortal")
+  snapshots      PortalSnapshot[]
+  projects       Project[]
+  workflowRuns   WorkflowRun[]
+}
+
+model Project {
+  id                            String                  @id @default(cuid())
+  name                          String
+  status                        String                  @default("draft")
+  owner                         String
+  ownerEmail                    String
+  scopeType                     String?
+  selectedHubs                  String[]
+  currentPhase                  String?
+  clientId                      String
+  portalId                      String
+  createdAt                     DateTime                @default(now())
+  updatedAt                     DateTime                @updatedAt
+  engagementType                EngagementType          @default(IMPLEMENTATION)
+  clientChampionFirstName       String?
+  clientChampionLastName        String?
+  clientChampionEmail           String?
+  commercialBrief               String?
+  deliveryTemplateId            String?
+  serviceFamily                 String                  @default("hubspot_architecture")
+  customerPlatformTier          String?
+  platformTierSelections        Json?
+  problemStatement              String?
+  solutionRecommendation        String?
+  scopeExecutiveSummary         String?
+  implementationApproach        String                  @default("pragmatic_poc")
+  quoteApprovalStatus           String                  @default("draft")
+  quoteSharedAt                 DateTime?
+  quoteApprovedAt               DateTime?
+  quoteApprovedByName           String?
+  quoteApprovedByEmail          String?
+  scopeLockedAt                 DateTime?
+  clientQuestionnaireConfig     Json?
+  includesPortalAudit           Boolean                 @default(false)
+  blueprintData                 Json?
+  discoveryData                 Json?
+  standardsData                 Json?
+  lastAgenda                    Json?
+  portalQuoteEnabled            Boolean                 @default(true)
+  retainerId                    String?
+  platformConfiguration         Json?
+  deliveryWorkstreams           Json?
+  internalCommercials           Json?
+  latestClientSubmissionAt      DateTime?
+  latestClientSubmissionSeenAt  DateTime?
+  latestClientSubmissionSession Int?
+  latestClientSubmissionByName  String?
+  auditLogs                     AuditLog[]
+  blueprint                     Blueprint?
+  clientSubmissions             ClientInputSubmission[]
+  clientAccess                  ClientProjectAccess[]
+  discoveryEvidence             DiscoveryEvidence[]
+  discovery                     DiscoverySubmission[]
+  discoverySummary              DiscoverySummary?
+  executionJobs                 ExecutionJob[]
+  findings                      Finding[]
+  client                        Client                  @relation(fields: [clientId], references: [id])
+  deliveryTemplate              DeliveryTemplate?       @relation(fields: [deliveryTemplateId], references: [id])
+  portal                        HubSpotPortal           @relation(fields: [portalId], references: [id])
+  retainer                      Retainer?               @relation(fields: [retainerId], references: [id])
+  contextEntries                ProjectContext[]
+  messages                      ProjectMessage[]
+  quotes                        ProjectQuote[]
+  recommendations               Recommendation[]
+  tasks                         Task[]
+  taskApprovals                 TaskApproval[]
+  workRequests                  WorkRequest[]
+  workflowRuns                  WorkflowRun[]
+
+  @@index([retainerId])
+}
+
+model ProjectContext {
+  id          String   @id @default(cuid())
+  projectId   String
+  contextType String
+  content     String
+  source      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, contextType])
+  @@index([projectId, updatedAt])
+}
+
+model ProjectQuote {
+  id              String    @id @default(cuid())
+  projectId       String
+  version         Int
+  status          String    @default("shared")
+  currency        String
+  defaultRate     Float?
+  phaseLines      Json
+  productLines    Json
+  totals          Json
+  paymentSchedule Json
+  context         Json?
+  sharedAt        DateTime  @default(now())
+  approvedAt      DateTime?
+  approvedByName  String?
+  approvedByEmail String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  template        String    @default("full")
+  closedAt        DateTime?
+  closedReason    String?
+  hubspotDealId   String?
+  pdfUrl          String?
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, version])
+  @@index([projectId, createdAt])
+  @@index([status])
+}
+
+model ProjectMessage {
+  id             String    @id @default(cuid())
+  projectId      String
+  senderType     String
+  senderName     String
+  body           String
+  internalSeenAt DateTime?
+  clientSeenAt   DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+}
+
+model ProductCatalogItem {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  category        String
+  billingModel    String
+  description     String?
+  unitPrice       Float
+  defaultQuantity Int      @default(1)
+  unitLabel       String   @default("item")
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  serviceFamily   String   @default("hubspot_architecture")
+}
+
+model AgentDefinition {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  name           String
+  purpose        String
+  provider       String
+  model          String
+  triggerType    String   @default("manual")
+  approvalMode   String   @default("review_required")
+  allowedActions String[]
+  systemPrompt   String?
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  serviceFamily  String   @default("hubspot_architecture")
+  tasks          Task[]
+}
+
+model DeliveryTemplate {
+  id                  String                 @id @default(cuid())
+  slug                String                 @unique
+  name                String
+  description         String?
+  category            String
+  scopeType           String
+  recommendedHubs     String[]
+  defaultPlannedHours Float?
+  isActive            Boolean                @default(true)
+  sortOrder           Int                    @default(0)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  serviceFamily       String
+  tasks               DeliveryTemplateTask[]
+  projects            Project[]
+}
+
+model DeliveryTemplateTask {
+  id               String           @id @default(cuid())
+  templateId       String
+  title            String
+  description      String?
+  category         String?
+  executionType    String           @default("manual")
+  priority         String           @default("medium")
+  status           String           @default("todo")
+  qaRequired       Boolean          @default(false)
+  approvalRequired Boolean          @default(false)
+  assigneeType     String?
+  plannedHours     Float?
+  sortOrder        Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  template         DeliveryTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, sortOrder])
+}
+
+model ClientPortalUser {
+  id                          String                  @id @default(cuid())
+  firstName                   String
+  lastName                    String
+  email                       String                  @unique
+  password                    String
+  createdAt                   DateTime                @default(now())
+  updatedAt                   DateTime                @updatedAt
+  inviteAcceptedAt            DateTime?
+  inviteToken                 String?                 @unique
+  inviteTokenExpiresAt        DateTime?
+  passwordResetToken          String?                 @unique
+  passwordResetTokenExpiresAt DateTime?
+  submissions                 ClientInputSubmission[]
+  access                      ClientProjectAccess[]
+  approvedTopUps              RetainerTopUp[]
+}
+
+model ClientProjectAccess {
+  id                    String           @id @default(cuid())
+  userId                String
+  projectId             String
+  role                  String           @default("contributor")
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  questionnaireAccess   Boolean          @default(true)
+  assignedInputSections Int[]            @default([])
+  project               Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user                  ClientPortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([projectId, createdAt])
+}
+
+model WorkRequest {
+  id                     String    @id @default(cuid())
+  projectId              String?
+  title                  String
+  requestType            String
+  companyName            String?
+  contactName            String
+  contactEmail           String
+  summary                String
+  details                String?
+  urgency                String?
+  budgetRange            String?
+  portalOrWebsite        String?
+  links                  String[]
+  status                 String    @default("new")
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  serviceFamily          String    @default("hubspot_architecture")
+  internalNotes          String?
+  commercialImpactHours  Float?
+  commercialImpactFeeZar Float?
+  deliveryTasks          Json?
+  reviewedAt             DateTime?
+  approvedAt             DateTime?
+  approvedByName         String?
+  rejectedAt             DateTime?
+  deliveryAppendedAt     DateTime?
+  tasks                  Task[]
+  project                Project?  @relation(fields: [projectId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([projectId, createdAt])
+}
+
+model ClientInputSubmission {
+  id            String           @id @default(cuid())
+  projectId     String
+  userId        String
+  sessionNumber Int
+  status        String           @default("draft")
+  answers       Json?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user          ClientPortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId, sessionNumber])
+  @@index([projectId, sessionNumber, createdAt])
+}
+
+model DiscoverySubmission {
+  id                    String   @id @default(cuid())
+  projectId             String
+  version               Int      @default(1)
+  status                String   @default("draft")
+  businessContext       Json?
+  platformContext       Json?
+  crmArchitecture       Json?
+  salesRequirements     Json?
+  marketingRequirements Json?
+  serviceRequirements   Json?
+  integrationsData      Json?
+  governanceOps         Json?
+  risksAssumptions      Json?
+  completedSections     String[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  sections              Json?
+  project               Project  @relation(fields: [projectId], references: [id])
+
+  @@unique([projectId, version])
+}
+
+model DiscoveryEvidence {
+  id            String   @id @default(cuid())
+  projectId     String
+  sessionNumber Int
+  evidenceType  String
+  sourceLabel   String
+  sourceUrl     String?
+  content       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, sessionNumber, createdAt])
+}
+
+model Blueprint {
+  id          String          @id @default(cuid())
+  projectId   String          @unique
+  generatedAt DateTime        @default(now())
+  project     Project         @relation(fields: [projectId], references: [id])
+  tasks       BlueprintTask[]
+}
+
+model DiscoverySummary {
+  id                       String   @id @default(cuid())
+  projectId                String   @unique
+  executiveSummary         String
+  engagementTrack          String
+  platformFit              String
+  changeManagementRating   String
+  dataReadinessRating      String
+  scopeVolatilityRating    String
+  missingInformation       String[]
+  keyRisks                 String[]
+  recommendedNextQuestions String[]
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  mainPainPoints           String[] @default([])
+  recommendedApproach      String   @default("")
+  whyThisApproach          String   @default("")
+  phaseOneFocus            String   @default("")
+  futureUpgradePath        String   @default("")
+  inScopeItems             String[] @default([])
+  outOfScopeItems          String[] @default([])
+  supportingTools          String[] @default([])
+  project                  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model BlueprintTask {
+  id          String    @id @default(cuid())
+  blueprintId String
+  phase       Int
+  phaseName   String
+  name        String
+  type        String
+  effortHours Float
+  order       Int
+  blueprint   Blueprint @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
+
+  @@index([blueprintId, phase, order])
+}
+
+model Task {
+  id                     String                @id @default(cuid())
+  projectId              String
+  title                  String
+  description            String?
+  category               String?
+  executionType          String                @default("manual")
+  priority               String                @default("medium")
+  status                 String                @default("draft")
+  qaRequired             Boolean               @default(false)
+  approvalRequired       Boolean               @default(false)
+  dependencyIds          String[]
+  assigneeType           String?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  plannedHours           Float?
+  actualHours            Float?
+  assignedAgentId        String?
+  executionReadiness     String                @default("not_ready")
+  changeRequestId        String?
+  scopeOrigin            String                @default("baseline")
+  executionLaneRationale String?
+  hubspotTierRequired    String?
+  coworkBrief            String?
+  manualInstructions     String?
+  apiPayload             Json?
+  validationStatus       String                @default("pending")
+  validationEvidence     String?
+  findingId              String?
+  recommendationId       String?
+  agentModuleKey         String?
+  executionPayload       Json?
+  billApprovedAt         DateTime?
+  billApprovedBy         String?
+  billableHours          Float?
+  billingOverrideReason  String?
+  workstreamId           String?
+  taskOrigin             String                @default("manual")
+  executionJobs          ExecutionJob[]
+  retainerLedgerEntries  RetainerLedgerEntry[]
+  assignedAgent          AgentDefinition?      @relation(fields: [assignedAgentId], references: [id])
+  changeRequest          WorkRequest?          @relation(fields: [changeRequestId], references: [id])
+  project                Project               @relation(fields: [projectId], references: [id])
+  approvals              TaskApproval[]
+}
+
+model Retainer {
+  id              String              @id @default(cuid())
+  clientId        String
+  serviceLine     RetainerServiceLine
+  blockSize       Int
+  rate            Decimal             @db.Decimal(12, 2)
+  currency        RetainerCurrency
+  startDate       DateTime
+  endDate         DateTime?
+  status          RetainerStatus      @default(DRAFT)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  billToEntityId  String
+  scopeSummary    String?
+  deliverables    Json?
+  approvalTerms   String?
+  requirements    String?
+  invoices        Invoice[]
+  projects        Project[]
+  billToEntity    BillToEntity        @relation("RetainerBillToEntity", fields: [billToEntityId], references: [id])
+  client          Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  periods         RetainerPeriod[]
+  rolloverBuckets RolloverBucket[]
+
+  @@index([clientId, status])
+  @@index([billToEntityId])
+  @@index([serviceLine, status])
+  @@index([startDate])
+}
+
+model RetainerPeriod {
+  id               String                @id @default(cuid())
+  retainerId       String
+  periodMonth      DateTime
+  blockHours       Int
+  rolledInHours    Int                   @default(0)
+  borrowedFromNext Int                   @default(0)
+  consumedHours    Decimal               @default(0) @db.Decimal(10, 2)
+  overageHours     Int                   @default(0)
+  rolledOutHours   Int                   @default(0)
+  status           RetainerPeriodStatus  @default(OPEN)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  borrowActive     Boolean               @default(false)
+  invoices         Invoice[]
+  ledgerEntries    RetainerLedgerEntry[]
+  retainer         Retainer              @relation(fields: [retainerId], references: [id], onDelete: Cascade)
+  topUps           RetainerTopUp[]
+
+  @@unique([retainerId, periodMonth])
+  @@index([periodMonth, status])
+}
+
+model RetainerLedgerEntry {
+  id               String                  @id @default(cuid())
+  retainerPeriodId String
+  taskId           String?
+  entryType        RetainerLedgerEntryType
+  hoursDelta       Decimal                 @db.Decimal(10, 2)
+  plannedHours     Decimal?                @db.Decimal(10, 2)
+  billedHours      Decimal?                @db.Decimal(10, 2)
+  producedBy       RetainerProducedBy?
+  overrideReason   String?
+  createdBy        String
+  createdAt        DateTime                @default(now())
+  metadata         Json?
+  retainerPeriod   RetainerPeriod          @relation(fields: [retainerPeriodId], references: [id], onDelete: Cascade)
+  task             Task?                   @relation(fields: [taskId], references: [id])
+
+  @@index([retainerPeriodId, createdAt])
+  @@index([taskId])
+  @@index([entryType, createdAt])
+}
+
+model RetainerTopUp {
+  id                     String              @id @default(cuid())
+  retainerPeriodId       String
+  hours                  Int
+  rate                   Decimal             @db.Decimal(12, 2)
+  status                 RetainerTopUpStatus @default(QUOTED)
+  quotedAt               DateTime            @default(now())
+  approvedAt             DateTime?
+  invoicedAt             DateTime?
+  approvedByClientUserId String?
+  approvedByClientUser   ClientPortalUser?   @relation(fields: [approvedByClientUserId], references: [id])
+  retainerPeriod         RetainerPeriod      @relation(fields: [retainerPeriodId], references: [id], onDelete: Cascade)
+
+  @@index([retainerPeriodId, status])
+  @@index([approvedByClientUserId])
+}
+
+model RolloverBucket {
+  id             String               @id @default(cuid())
+  retainerId     String
+  hoursOriginal  Decimal              @db.Decimal(10, 2)
+  hoursRemaining Decimal              @db.Decimal(10, 2)
+  earnMonth      DateTime
+  expiresAt      DateTime
+  status         RolloverBucketStatus @default(ACTIVE)
+  createdAt      DateTime             @default(now())
+  retainer       Retainer             @relation(fields: [retainerId], references: [id], onDelete: Cascade)
+
+  @@index([retainerId, status, expiresAt])
+  @@index([expiresAt, status])
+}
+
+model BillToEntity {
+  id                  String           @id @default(cuid())
+  name                String
+  type                BillToEntityType
+  clientId            String?
+  vatNumber           String?
+  address             String?
+  primaryContactEmail String?
+  primaryContactName  String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  client              Client?          @relation(fields: [clientId], references: [id])
+  invoices            Invoice[]
+  retainers           Retainer[]       @relation("RetainerBillToEntity")
+
+  @@index([clientId])
+  @@index([type, name])
+}
+
+model Invoice {
+  id               String           @id @default(cuid())
+  reference        String           @unique
+  billToEntityId   String
+  retainerId       String
+  retainerPeriodId String?
+  invoiceType      InvoiceType
+  amount           Decimal          @db.Decimal(12, 2)
+  currency         RetainerCurrency
+  issueDate        DateTime
+  dueDate          DateTime
+  xeroUrl          String?
+  status           InvoiceStatus    @default(DRAFT)
+  notes            String?
+  createdByUserId  String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  sentAt           DateTime?
+  paidAt           DateTime?
+  billToEntity     BillToEntity     @relation(fields: [billToEntityId], references: [id])
+  retainer         Retainer         @relation(fields: [retainerId], references: [id], onDelete: Cascade)
+  retainerPeriod   RetainerPeriod?  @relation(fields: [retainerPeriodId], references: [id])
+
+  @@index([billToEntityId, status])
+  @@index([retainerId, issueDate])
+  @@index([retainerPeriodId])
+  @@index([status, dueDate])
+}
+
+model ExecutionJob {
+  id                String    @id @default(cuid())
+  projectId         String
+  taskId            String?
+  moduleKey         String
+  executionMethod   String    @default("manual")
+  mode              String    @default("dry-run")
+  status            String    @default("queued")
+  payload           Json?
+  resultStatus      String?
+  outputLog         String?
+  errorLog          String?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  jobType           String?
+  outputSummary     String?
+  coworkSessionId   String?
+  coworkClaimedAt   DateTime?
+  executionTier     Int?
+  coworkInstruction Json?
+  project           Project   @relation(fields: [projectId], references: [id])
+  task              Task?     @relation(fields: [taskId], references: [id])
+}
+
+model TaskApproval {
+  id          String    @id @default(cuid())
+  taskId      String
+  projectId   String
+  requestedAt DateTime  @default(now())
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+  approvedBy  String?
+  rejectedBy  String?
+  notes       String?
+  status      String    @default("pending")
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, requestedAt])
+  @@index([projectId, requestedAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  actor      String
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  metadata   Json?
+  projectId  String?
+  project    Project? @relation(fields: [projectId], references: [id])
+
+  @@index([entityType, entityId, createdAt])
+  @@index([projectId, createdAt])
+}
+
+model WorkflowRun {
+  id           String         @id @default(cuid())
+  workflowKey  String
+  title        String
+  projectId    String?
+  clientId     String?
+  portalId     String?
+  providerKey  String?
+  model        String?
+  routeSource  String?
+  requestText  String?
+  summary      String?
+  status       String         @default("queued")
+  resultStatus String?
+  outputLog    String?
+  errorLog     String?
+  payload      Json?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @default(now()) @updatedAt
+  client       Client?        @relation(fields: [clientId], references: [id])
+  portal       HubSpotPortal? @relation(fields: [portalId], references: [id])
+  project      Project?       @relation(fields: [projectId], references: [id])
+
+  @@index([workflowKey, createdAt])
+  @@index([projectId, createdAt])
+  @@index([clientId, createdAt])
+  @@index([portalId, createdAt])
+}
+
+model PortalSnapshot {
+  id                   String        @id @default(cuid())
+  portalId             String
+  capturedAt           DateTime      @default(now())
+  hubTier              String?
+  activeHubs           String[]      @default([])
+  contactPropertyCount Int?
+  companyPropertyCount Int?
+  dealPropertyCount    Int?
+  ticketPropertyCount  Int?
+  customObjectCount    Int?
+  dealPipelineCount    Int?
+  dealStageCount       Int?
+  ticketPipelineCount  Int?
+  activeUserCount      Int?
+  teamCount            Int?
+  activeListCount      Int?
+  rawApiResponses      Json?
+  createdAt            DateTime      @default(now())
+  portal               HubSpotPortal @relation(fields: [portalId], references: [id], onDelete: Cascade)
+
+  @@index([portalId, capturedAt])
+}
+
+model Finding {
+  id                  String           @id @default(cuid())
+  projectId           String
+  area                String
+  severity            String
+  title               String
+  description         String
+  quickWin            Boolean          @default(false)
+  phaseRecommendation String           @default("next")
+  status              String           @default("open")
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  source              String?
+  category            String?
+  evidence            Json?
+  project             Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  recommendations     Recommendation[]
+
+  @@index([projectId, area, severity])
+}
+
+model Recommendation {
+  id                   String   @id @default(cuid())
+  projectId            String
+  title                String
+  area                 String
+  type                 String
+  phase                String   @default("next")
+  rationale            String
+  effort               String
+  impact               String
+  clientApprovalStatus String   @default("pending")
+  linkedFindingIds     String[] @default([])
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  findingId            String?
+  finding              Finding? @relation(fields: [findingId], references: [id])
+  project              Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, area, type])
+  @@index([findingId])
+}
+
+model PortalSession {
+  id              String    @id @default(cuid())
+  portalId        String
+  csrfToken       String
+  baseUrl         String
+  privateAppToken String?
+  capturedAt      DateTime  @default(now())
+  expiresAt       DateTime?
+  capturedBy      String
+  valid           Boolean   @default(true)
+
+  @@index([portalId, valid])
+}
+
 enum EngagementType {
   AUDIT
   IMPLEMENTATION
@@ -85,994 +1075,6 @@ enum RolloverBucketStatus {
   EXPIRED
 }
 
-model Client {
-  id                 String                    @id @default(cuid())
-  name               String
-  slug               String                    @unique
-  clientRoles        String[]                  @default(["client"])
-  parentClientId     String?
-  hubSpotPortalId    String?
-  industry           String?
-  region             String?
-  website            String?
-  logoUrl            String?
-  enrichedLogoUrl    String?
-  companyOverview    String?
-  additionalWebsites String[]
-  linkedinUrl        String?
-  facebookUrl        String?
-  instagramUrl       String?
-  xUrl               String?
-  youtubeUrl         String?
-  gmailLabel         String?
-  lastEnrichedAt     DateTime?
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
-  parentClient       Client?                   @relation("ClientHierarchy", fields: [parentClientId], references: [id], onDelete: SetNull)
-  childClients       Client[]                  @relation("ClientHierarchy")
-  hubSpotPortal      HubSpotPortal?            @relation("ClientHubSpotPortal", fields: [hubSpotPortalId], references: [id], onDelete: SetNull)
-  contacts           ClientContact[]
-  projects           Project[]
-  workflowRuns       WorkflowRun[]
-  retainers          Retainer[]
-  billToEntities     BillToEntity[]
-  visibleToPartners  PartnerClientVisibility[] @relation("VisibilityTarget")
-  visibleClients     PartnerClientVisibility[] @relation("VisibilityPartner")
-
-  @@index([hubSpotPortalId])
-}
-
-model PartnerClientVisibility {
-  id              String   @id @default(cuid())
-  partnerClientId String
-  clientId        String
-  visibilityScope String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  partnerClient   Client   @relation("VisibilityPartner", fields: [partnerClientId], references: [id], onDelete: Cascade)
-  client          Client   @relation("VisibilityTarget", fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@unique([partnerClientId, clientId])
-  @@index([partnerClientId])
-  @@index([clientId])
-}
-
-model ClientContact {
-  id               String   @id @default(cuid())
-  clientId         String
-  firstName        String
-  lastName         String?
-  email            String
-  title            String?
-  canApproveQuotes Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@unique([clientId, email])
-  @@index([clientId, createdAt])
-}
-
-model WorkspaceUser {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String?
-  role      String
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model WorkspaceProviderConnection {
-  id             String   @id @default(cuid())
-  providerKey    String   @unique
-  label          String
-  connectionType String
-  apiKey         String?
-  defaultModel   String?
-  endpointUrl    String?
-  notes          String?
-  isEnabled      Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
-model WorkspaceAiRouting {
-  id            String   @id @default(cuid())
-  workflowKey   String   @unique
-  label         String
-  providerKey   String
-  modelOverride String?
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model WorkspaceApiKey {
-  id          String   @id @default(cuid())
-  workspaceId String   @default("default")
-  keyName     String
-  keyValue    String
-  label       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([workspaceId, keyName])
-  @@index([workspaceId, updatedAt])
-}
-
-model WorkspaceEmailSettings {
-  id            String   @id @default(cuid())
-  providerLabel String   @default("SMTP")
-  host          String?
-  port          Int?
-  secure        Boolean  @default(false)
-  username      String?
-  password      String?
-  fromName      String?
-  fromEmail     String?
-  replyToEmail  String?
-  enabled       Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model WorkspaceEmailOAuthConnection {
-  id               String    @id @default(cuid())
-  providerKey      String    @unique
-  label            String
-  clientId         String?
-  clientSecret     String?
-  redirectUri      String?
-  scopes           String[]
-  accessToken      String?
-  refreshToken     String?
-  tokenType        String?
-  connectedEmail   String?
-  connectedName    String?
-  tokenExpiresAt   DateTime?
-  gmailFilterLabel String?
-  enabled          Boolean   @default(false)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-}
-
-model WorkspaceTodo {
-  id          String    @id @default(cuid())
-  title       String
-  notes       String?
-  completed   Boolean   @default(false)
-  completedAt DateTime?
-  sortOrder   Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
-
-model WorkspaceCalendarConnection {
-  id             String    @id @default(cuid())
-  providerKey    String    @unique // "google_calendar"
-  label          String
-  clientId       String?
-  clientSecret   String?
-  redirectUri    String?
-  scopes         String[]
-  accessToken    String?
-  refreshToken   String?
-  tokenType      String?
-  connectedEmail String?
-  connectedName  String?
-  tokenExpiresAt DateTime?
-  enabled        Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-}
-
-model WorkspaceXeroConnection {
-  id             String    @id @default(cuid())
-  tenantId       String?
-  tenantName     String?
-  clientId       String?
-  clientSecret   String?
-  redirectUri    String?
-  scopes         String[]
-  accessToken    String?
-  refreshToken   String?
-  tokenExpiresAt DateTime?
-  connectedEmail String?
-  enabled        Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-}
-
-model WorkspaceDailySummary {
-  id          String   @id @default(cuid())
-  summaryDate DateTime @default(now())
-  content     String // AI-generated markdown summary
-  generatedBy String // providerKey used
-  createdAt   DateTime @default(now())
-}
-
-model WorkspaceHubSpotSettings {
-  id               String   @id @default("default")
-  partnerInviteUrl String?
-  partnerAccountId String?
-  notes            String?
-  updatedAt        DateTime @updatedAt
-  createdAt        DateTime @default(now())
-}
-
-model HubSpotPortal {
-  id             String           @id @default(cuid())
-  portalId       String           @unique
-  displayName    String
-  region         String?
-  connected      Boolean          @default(false)
-  accessToken    String?
-  refreshToken   String?
-  tokenType      String?
-  scopes         String[]         @default([])
-  tokenExpiresAt DateTime?
-  connectedEmail String?
-  connectedName  String?
-  hubDomain      String?
-  installedAt    DateTime?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  clients        Client[]         @relation("ClientHubSpotPortal")
-  projects       Project[]
-  snapshots      PortalSnapshot[]
-  workflowRuns   WorkflowRun[]
-}
-
-model Project {
-  id                            String                  @id @default(cuid())
-  name                          String
-  status                        String                  @default("draft")
-  quoteApprovalStatus           String                  @default("draft")
-  quoteSharedAt                 DateTime?
-  quoteApprovedAt               DateTime?
-  quoteApprovedByName           String?
-  quoteApprovedByEmail          String?
-  scopeLockedAt                 DateTime?
-  engagementType                EngagementType          @default(IMPLEMENTATION)
-  includesPortalAudit           Boolean                 @default(false)
-  owner                         String
-  ownerEmail                    String
-  serviceFamily                 String                  @default("hubspot_architecture")
-  implementationApproach        String                  @default("pragmatic_poc")
-  customerPlatformTier          String?
-  platformTierSelections        Json?
-  platformConfiguration         Json?
-  problemStatement              String?
-  solutionRecommendation        String?
-  scopeExecutiveSummary         String?
-  clientChampionFirstName       String?
-  clientChampionLastName        String?
-  clientChampionEmail           String?
-  clientQuestionnaireConfig     Json?
-  scopeType                     String?
-  commercialBrief               String?
-  deliveryWorkstreams           Json?
-  internalCommercials           Json?
-  portalQuoteEnabled            Boolean                 @default(true)
-  deliveryTemplateId            String?
-  retainerId                    String?
-  lastAgenda                    Json?
-  blueprintData                 Json?
-  discoveryData                 Json?
-  standardsData                 Json?
-  selectedHubs                  String[]
-  currentPhase                  String?
-  latestClientSubmissionAt      DateTime?
-  latestClientSubmissionSeenAt  DateTime?
-  latestClientSubmissionSession Int?
-  latestClientSubmissionByName  String?
-  clientId                      String
-  portalId                      String
-  createdAt                     DateTime                @default(now())
-  updatedAt                     DateTime                @updatedAt
-  client                        Client                  @relation(fields: [clientId], references: [id])
-  portal                        HubSpotPortal           @relation(fields: [portalId], references: [id])
-  deliveryTemplate              DeliveryTemplate?       @relation(fields: [deliveryTemplateId], references: [id])
-  retainer                      Retainer?               @relation(fields: [retainerId], references: [id], onDelete: SetNull)
-  discovery                     DiscoverySubmission[]
-  discoveryEvidence             DiscoveryEvidence[]
-  discoverySummary              DiscoverySummary?
-  blueprint                     Blueprint?
-  tasks                         Task[]
-  messages                      ProjectMessage[]
-  executionJobs                 ExecutionJob[]
-  clientAccess                  ClientProjectAccess[]
-  clientSubmissions             ClientInputSubmission[]
-  quotes                        ProjectQuote[]
-  workRequests                  WorkRequest[]
-  contextEntries                ProjectContext[]
-  findings                      Finding[]
-  recommendations               Recommendation[]
-  workflowRuns                  WorkflowRun[]
-  taskApprovals                 TaskApproval[]
-  auditLogs                     AuditLog[]
-
-  @@index([retainerId])
-}
-
-model ProjectContext {
-  id          String   @id @default(cuid())
-  projectId   String
-  contextType String
-  content     String   @db.Text
-  source      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@unique([projectId, contextType])
-  @@index([projectId, updatedAt])
-}
-
-model ProjectQuote {
-  id              String    @id @default(cuid())
-  projectId       String
-  version         Int
-  status          String    @default("shared")
-  template        String    @default("full")
-  currency        String
-  defaultRate     Float?
-  phaseLines      Json
-  productLines    Json
-  totals          Json
-  paymentSchedule Json
-  context         Json?
-  sharedAt        DateTime  @default(now())
-  approvedAt      DateTime?
-  approvedByName  String?
-  approvedByEmail String?
-  closedAt        DateTime?
-  closedReason    String?
-  hubspotDealId   String?
-  pdfUrl          String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@unique([projectId, version])
-  @@index([projectId, createdAt])
-  @@index([status])
-}
-
-model ProjectMessage {
-  id             String    @id @default(cuid())
-  projectId      String
-  senderType     String
-  senderName     String
-  body           String
-  internalSeenAt DateTime?
-  clientSeenAt   DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@index([projectId, createdAt])
-}
-
-model ProductCatalogItem {
-  id              String   @id @default(cuid())
-  slug            String   @unique
-  name            String
-  serviceFamily   String   @default("hubspot_architecture")
-  category        String
-  billingModel    String
-  description     String?
-  unitPrice       Float
-  defaultQuantity Int      @default(1)
-  unitLabel       String   @default("item")
-  isActive        Boolean  @default(true)
-  sortOrder       Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
-
-model AgentDefinition {
-  id             String   @id @default(cuid())
-  slug           String   @unique
-  name           String
-  purpose        String
-  serviceFamily  String   @default("hubspot_architecture")
-  provider       String
-  model          String
-  triggerType    String   @default("manual")
-  approvalMode   String   @default("review_required")
-  allowedActions String[]
-  systemPrompt   String?
-  isActive       Boolean  @default(true)
-  sortOrder      Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  tasks          Task[]
-}
-
-model DeliveryTemplate {
-  id                  String                 @id @default(cuid())
-  slug                String                 @unique
-  name                String
-  description         String?
-  serviceFamily       String
-  category            String
-  scopeType           String
-  recommendedHubs     String[]
-  defaultPlannedHours Float?
-  isActive            Boolean                @default(true)
-  sortOrder           Int                    @default(0)
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
-  tasks               DeliveryTemplateTask[]
-  projects            Project[]
-}
-
-model DeliveryTemplateTask {
-  id               String           @id @default(cuid())
-  templateId       String
-  title            String
-  description      String?
-  category         String?
-  executionType    String           @default("manual")
-  priority         String           @default("medium")
-  status           String           @default("todo")
-  qaRequired       Boolean          @default(false)
-  approvalRequired Boolean          @default(false)
-  assigneeType     String?
-  plannedHours     Float?
-  sortOrder        Int              @default(0)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  template         DeliveryTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@index([templateId, sortOrder])
-}
-
-model ClientPortalUser {
-  id                          String                  @id @default(cuid())
-  firstName                   String
-  lastName                    String
-  email                       String                  @unique
-  password                    String
-  inviteToken                 String?                 @unique
-  inviteTokenExpiresAt        DateTime?
-  inviteAcceptedAt            DateTime?
-  passwordResetToken          String?                 @unique
-  passwordResetTokenExpiresAt DateTime?
-  createdAt                   DateTime                @default(now())
-  updatedAt                   DateTime                @updatedAt
-  access                      ClientProjectAccess[]
-  submissions                 ClientInputSubmission[]
-  approvedTopUps              RetainerTopUp[]
-}
-
-model ClientProjectAccess {
-  id                    String           @id @default(cuid())
-  userId                String
-  projectId             String
-  role                  String           @default("contributor")
-  questionnaireAccess   Boolean          @default(true)
-  assignedInputSections Int[]            @default([])
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
-  user                  ClientPortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project               Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, projectId])
-  @@index([projectId, createdAt])
-}
-
-model WorkRequest {
-  id                     String    @id @default(cuid())
-  projectId              String?
-  title                  String
-  serviceFamily          String    @default("hubspot_architecture")
-  requestType            String
-  companyName            String?
-  contactName            String
-  contactEmail           String
-  summary                String
-  details                String?
-  urgency                String?
-  budgetRange            String?
-  portalOrWebsite        String?
-  internalNotes          String?
-  commercialImpactHours  Float?
-  commercialImpactFeeZar Float?
-  deliveryTasks          Json?
-  reviewedAt             DateTime?
-  approvedAt             DateTime?
-  approvedByName         String?
-  rejectedAt             DateTime?
-  deliveryAppendedAt     DateTime?
-  links                  String[]
-  status                 String    @default("new")
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
-  project                Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  tasks                  Task[]
-
-  @@index([status, createdAt])
-  @@index([projectId, createdAt])
-}
-
-model ClientInputSubmission {
-  id            String           @id @default(cuid())
-  projectId     String
-  userId        String
-  sessionNumber Int
-  status        String           @default("draft")
-  answers       Json?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user          ClientPortalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([projectId, userId, sessionNumber])
-  @@index([projectId, sessionNumber, createdAt])
-}
-
-model DiscoverySubmission {
-  id                    String   @id @default(cuid())
-  projectId             String
-  version               Int      @default(1)
-  status                String   @default("draft")
-  sections              Json?
-  businessContext       Json?
-  platformContext       Json?
-  crmArchitecture       Json?
-  salesRequirements     Json?
-  marketingRequirements Json?
-  serviceRequirements   Json?
-  integrationsData      Json?
-  governanceOps         Json?
-  risksAssumptions      Json?
-  completedSections     String[]
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  project               Project  @relation(fields: [projectId], references: [id])
-
-  @@unique([projectId, version])
-}
-
-model DiscoveryEvidence {
-  id            String   @id @default(cuid())
-  projectId     String
-  sessionNumber Int
-  evidenceType  String
-  sourceLabel   String
-  sourceUrl     String?
-  content       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@index([projectId, sessionNumber, createdAt])
-}
-
-model Blueprint {
-  id          String          @id @default(cuid())
-  projectId   String          @unique
-  project     Project         @relation(fields: [projectId], references: [id])
-  generatedAt DateTime        @default(now())
-  tasks       BlueprintTask[]
-}
-
-model DiscoverySummary {
-  id                       String   @id @default(cuid())
-  projectId                String   @unique
-  executiveSummary         String
-  mainPainPoints           String[] @default([])
-  recommendedApproach      String   @default("")
-  whyThisApproach          String   @default("")
-  phaseOneFocus            String   @default("")
-  futureUpgradePath        String   @default("")
-  inScopeItems             String[] @default([])
-  outOfScopeItems          String[] @default([])
-  supportingTools          String[] @default([])
-  engagementTrack          String
-  platformFit              String
-  changeManagementRating   String
-  dataReadinessRating      String
-  scopeVolatilityRating    String
-  missingInformation       String[]
-  keyRisks                 String[]
-  recommendedNextQuestions String[]
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
-  project                  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-}
-
-model BlueprintTask {
-  id          String    @id @default(cuid())
-  blueprintId String
-  blueprint   Blueprint @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
-  phase       Int
-  phaseName   String
-  name        String
-  type        String
-  effortHours Float
-  order       Int
-
-  @@index([blueprintId, phase, order])
-}
-
-model Task {
-  id                     String                @id @default(cuid())
-  projectId              String
-  changeRequestId        String?
-  scopeOrigin            String                @default("baseline")
-  title                  String
-  description            String?
-  category               String?
-  workstreamId           String?
-  taskOrigin             String                @default("manual")
-  executionType          String                @default("manual")
-  executionLaneRationale String?
-  hubspotTierRequired    String?
-  coworkBrief            String?
-  manualInstructions     String?
-  apiPayload             Json?
-  agentModuleKey         String?
-  executionPayload       Json?
-  validationStatus       String                @default("pending")
-  validationEvidence     String?
-  findingId              String?
-  recommendationId       String?
-  priority               String                @default("medium")
-  status                 String                @default("draft")
-  plannedHours           Float?
-  actualHours            Float?
-  billApprovedAt         DateTime?
-  billApprovedBy         String?
-  billableHours          Float?
-  billingOverrideReason  String?
-  qaRequired             Boolean               @default(false)
-  approvalRequired       Boolean               @default(false)
-  dependencyIds          String[]
-  assigneeType           String?
-  executionReadiness     String                @default("not_ready")
-  assignedAgentId        String?
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
-  project                Project               @relation(fields: [projectId], references: [id])
-  changeRequest          WorkRequest?          @relation(fields: [changeRequestId], references: [id], onDelete: SetNull)
-  assignedAgent          AgentDefinition?      @relation(fields: [assignedAgentId], references: [id])
-  executionJobs          ExecutionJob[]
-  approvals              TaskApproval[]
-  retainerLedgerEntries  RetainerLedgerEntry[]
-}
-
-model Retainer {
-  id              String              @id @default(cuid())
-  clientId        String
-  billToEntityId  String
-  serviceLine     RetainerServiceLine
-  blockSize       Int
-  rate            Decimal             @db.Decimal(12, 2)
-  currency        RetainerCurrency
-  startDate       DateTime
-  endDate         DateTime?
-  status          RetainerStatus      @default(DRAFT)
-  scopeSummary    String?
-  deliverables    Json?
-  approvalTerms   String?
-  requirements    String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  client          Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  billToEntity    BillToEntity        @relation("RetainerBillToEntity", fields: [billToEntityId], references: [id], onDelete: Restrict)
-  periods         RetainerPeriod[]
-  projects        Project[]
-  rolloverBuckets RolloverBucket[]
-  invoices        Invoice[]
-
-  @@index([clientId, status])
-  @@index([billToEntityId])
-  @@index([serviceLine, status])
-  @@index([startDate])
-}
-
-model RetainerPeriod {
-  id               String                @id @default(cuid())
-  retainerId       String
-  periodMonth      DateTime
-  blockHours       Int
-  rolledInHours    Int                   @default(0)
-  borrowedFromNext Int                   @default(0)
-  borrowActive     Boolean               @default(false)
-  consumedHours    Decimal               @default(0) @db.Decimal(10, 2)
-  overageHours     Int                   @default(0)
-  rolledOutHours   Int                   @default(0)
-  status           RetainerPeriodStatus  @default(OPEN)
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  retainer         Retainer              @relation(fields: [retainerId], references: [id], onDelete: Cascade)
-  ledgerEntries    RetainerLedgerEntry[]
-  topUps           RetainerTopUp[]
-  invoices         Invoice[]
-
-  @@unique([retainerId, periodMonth])
-  @@index([periodMonth, status])
-}
-
-model RetainerLedgerEntry {
-  id               String                  @id @default(cuid())
-  retainerPeriodId String
-  taskId           String?
-  entryType        RetainerLedgerEntryType
-  hoursDelta       Decimal                 @db.Decimal(10, 2)
-  plannedHours     Decimal?                @db.Decimal(10, 2)
-  billedHours      Decimal?                @db.Decimal(10, 2)
-  producedBy       RetainerProducedBy?
-  overrideReason   String?
-  metadata         Json?
-  createdBy        String
-  createdAt        DateTime                @default(now())
-  retainerPeriod   RetainerPeriod          @relation(fields: [retainerPeriodId], references: [id], onDelete: Cascade)
-  task             Task?                   @relation(fields: [taskId], references: [id], onDelete: SetNull)
-
-  @@index([retainerPeriodId, createdAt])
-  @@index([taskId])
-  @@index([entryType, createdAt])
-}
-
-model RetainerTopUp {
-  id                     String              @id @default(cuid())
-  retainerPeriodId       String
-  hours                  Int
-  rate                   Decimal             @db.Decimal(12, 2)
-  status                 RetainerTopUpStatus @default(QUOTED)
-  quotedAt               DateTime            @default(now())
-  approvedAt             DateTime?
-  invoicedAt             DateTime?
-  approvedByClientUserId String?
-  retainerPeriod         RetainerPeriod      @relation(fields: [retainerPeriodId], references: [id], onDelete: Cascade)
-  approvedByClientUser   ClientPortalUser?   @relation(fields: [approvedByClientUserId], references: [id], onDelete: SetNull)
-
-  @@index([retainerPeriodId, status])
-  @@index([approvedByClientUserId])
-}
-
-model RolloverBucket {
-  id             String               @id @default(cuid())
-  retainerId     String
-  hoursOriginal  Decimal              @db.Decimal(10, 2)
-  hoursRemaining Decimal              @db.Decimal(10, 2)
-  earnMonth      DateTime
-  expiresAt      DateTime
-  status         RolloverBucketStatus @default(ACTIVE)
-  createdAt      DateTime             @default(now())
-  retainer       Retainer             @relation(fields: [retainerId], references: [id], onDelete: Cascade)
-
-  @@index([retainerId, status, expiresAt])
-  @@index([expiresAt, status])
-}
-
-model BillToEntity {
-  id                  String           @id @default(cuid())
-  name                String
-  type                BillToEntityType
-  clientId            String?
-  vatNumber           String?
-  address             String?
-  primaryContactEmail String?
-  primaryContactName  String?
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  client              Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  retainers           Retainer[]       @relation("RetainerBillToEntity")
-  invoices            Invoice[]
-
-  @@index([clientId])
-  @@index([type, name])
-}
-
-model Invoice {
-  id               String           @id @default(cuid())
-  reference        String           @unique
-  billToEntityId   String
-  retainerId       String
-  retainerPeriodId String?
-  invoiceType      InvoiceType
-  amount           Decimal          @db.Decimal(12, 2)
-  currency         RetainerCurrency
-  issueDate        DateTime
-  dueDate          DateTime
-  xeroUrl          String?
-  status           InvoiceStatus    @default(DRAFT)
-  notes            String?
-  createdByUserId  String
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  sentAt           DateTime?
-  paidAt           DateTime?
-  billToEntity     BillToEntity     @relation(fields: [billToEntityId], references: [id], onDelete: Restrict)
-  retainer         Retainer         @relation(fields: [retainerId], references: [id], onDelete: Cascade)
-  retainerPeriod   RetainerPeriod?  @relation(fields: [retainerPeriodId], references: [id], onDelete: SetNull)
-
-  @@index([billToEntityId, status])
-  @@index([retainerId, issueDate])
-  @@index([retainerPeriodId])
-  @@index([status, dueDate])
-}
-
-model ExecutionJob {
-  id                String    @id @default(cuid())
-  projectId         String
-  taskId            String?
-  jobType           String?
-  moduleKey         String
-  executionMethod   String    @default("manual")
-  mode              String    @default("dry-run")
-  status            String    @default("queued")
-  payload           Json?
-  outputSummary     String?
-  resultStatus      String?
-  outputLog         String?
-  errorLog          String?
-  executionTier     Int? // 1 | 2 | 3 | 4
-  coworkInstruction Json? // CoworkInstruction payload if tier = 3
-  coworkSessionId   String?
-  coworkClaimedAt   DateTime?
-  startedAt         DateTime?
-  completedAt       DateTime?
-  createdAt         DateTime  @default(now())
-  project           Project   @relation(fields: [projectId], references: [id])
-  task              Task?     @relation(fields: [taskId], references: [id])
-}
-
-model TaskApproval {
-  id          String    @id @default(cuid())
-  taskId      String
-  projectId   String
-  requestedAt DateTime  @default(now())
-  approvedAt  DateTime?
-  rejectedAt  DateTime?
-  approvedBy  String?
-  rejectedBy  String?
-  notes       String?
-  status      String    @default("pending")
-  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@index([taskId, requestedAt])
-  @@index([projectId, requestedAt])
-}
-
-model AuditLog {
-  id         String   @id @default(cuid())
-  createdAt  DateTime @default(now())
-  actor      String
-  action     String
-  entityType String
-  entityId   String
-  before     Json?
-  after      Json?
-  metadata   Json?
-  projectId  String?
-  project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-
-  @@index([entityType, entityId, createdAt])
-  @@index([projectId, createdAt])
-}
-
-model WorkflowRun {
-  id           String         @id @default(cuid())
-  workflowKey  String
-  title        String
-  projectId    String?
-  clientId     String?
-  portalId     String?
-  providerKey  String?
-  model        String?
-  routeSource  String?
-  requestText  String?
-  summary      String?
-  status       String         @default("queued")
-  resultStatus String?
-  outputLog    String?
-  errorLog     String?
-  payload      Json?
-  startedAt    DateTime?
-  completedAt  DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  project      Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  client       Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  portal       HubSpotPortal? @relation(fields: [portalId], references: [id], onDelete: SetNull)
-
-  @@index([workflowKey, createdAt])
-  @@index([projectId, createdAt])
-  @@index([clientId, createdAt])
-  @@index([portalId, createdAt])
-}
-
-model PortalSnapshot {
-  id                   String        @id @default(cuid())
-  portalId             String
-  portal               HubSpotPortal @relation(fields: [portalId], references: [id], onDelete: Cascade)
-  capturedAt           DateTime      @default(now())
-  hubTier              String?
-  activeHubs           String[]      @default([])
-  contactPropertyCount Int?
-  companyPropertyCount Int?
-  dealPropertyCount    Int?
-  ticketPropertyCount  Int?
-  customObjectCount    Int?
-  dealPipelineCount    Int?
-  dealStageCount       Int?
-  ticketPipelineCount  Int?
-  activeUserCount      Int?
-  teamCount            Int?
-  activeListCount      Int?
-  rawApiResponses      Json?
-  createdAt            DateTime      @default(now())
-
-  @@index([portalId, capturedAt])
-}
-
-model Finding {
-  id                  String           @id @default(cuid())
-  projectId           String
-  project             Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  area                String
-  severity            String
-  source              String?
-  category            String?
-  title               String
-  description         String
-  quickWin            Boolean          @default(false)
-  phaseRecommendation String           @default("next")
-  evidence            Json?
-  status              String           @default("open")
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  recommendations     Recommendation[]
-
-  @@index([projectId, area, severity])
-}
-
-model Recommendation {
-  id                   String   @id @default(cuid())
-  projectId            String
-  project              Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  findingId            String?
-  finding              Finding? @relation(fields: [findingId], references: [id], onDelete: SetNull)
-  title                String
-  area                 String
-  type                 String
-  phase                String   @default("next")
-  rationale            String
-  effort               String
-  impact               String
-  clientApprovalStatus String   @default("pending")
-  linkedFindingIds     String[] @default([])
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  @@index([projectId, area, type])
-  @@index([findingId])
-}
-
-model PortalSession {
-  id              String    @id @default(cuid())
-  portalId        String
-  csrfToken       String
-  baseUrl         String
-  privateAppToken String?
-  capturedAt      DateTime  @default(now())
-  expiresAt       DateTime?
-  capturedBy      String
-  valid           Boolean   @default(true)
-
-  @@index([portalId, valid])
-}
-
 model ClientErrorLog {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -1082,7 +1084,7 @@ model ClientErrorLog {
   url       String?
   userAgent String?
   userId    String?
-  surface   String?  // "internal" | "client" | "public"
+  surface   String?
 
   @@index([createdAt])
   @@index([surface, createdAt])
