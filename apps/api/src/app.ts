@@ -497,6 +497,143 @@ const portalAssistantChatSchema = z.object({
   pageLabel: z.string().trim().optional()
 });
 
+const projectStatusUpdateSchema = z.object({
+  status: z.string().min(1)
+});
+
+const projectAgendaGenerateSchema = z.object({
+  sessionType: z.string().trim().min(1),
+  date: z.string().nullable().optional(),
+  duration: z.string().nullable().optional(),
+  notes: z.string().nullable().optional()
+});
+
+const emptyBodySchema = z.object({}).passthrough();
+
+const discoveryFetchDocSchema = z.object({
+  url: z.string().min(1),
+  session: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
+});
+
+const runUpdateSchema = z
+  .object({
+    status: z.string().min(1).optional(),
+    resultStatus: z.string().nullable().optional(),
+    outputLog: z.string().nullable().optional(),
+    errorLog: z.string().nullable().optional()
+  })
+  .passthrough();
+
+const workspaceTodoCreateSchema = z.object({
+  title: z.string().trim().min(1),
+  notes: z.string().nullable().optional()
+});
+
+const workspaceTodoUpdateSchema = z
+  .object({
+    title: z.string().optional(),
+    notes: z.union([z.string(), z.null()]).optional(),
+    completed: z.boolean().optional(),
+    sortOrder: z.union([z.number(), z.string()]).optional()
+  })
+  .passthrough();
+
+const workspacePrivateTaskCreateSchema = z.object({
+  title: z.string().trim().min(1),
+  notes: z.string().optional()
+});
+
+const workspacePrivateTaskUpdateSchema = z.object({
+  completed: z.boolean().optional()
+});
+
+const workspaceEmailFilterSchema = z
+  .object({
+    gmailFilterLabel: z.string().optional()
+  })
+  .passthrough();
+
+const workspaceCalendarConnectionUpdateSchema = z
+  .object({
+    clientId: z.string().optional(),
+    clientSecret: z.string().optional(),
+    redirectUri: z.string().optional(),
+    enabled: z.boolean().optional(),
+    scopes: z.union([z.array(z.string()), z.string()]).optional()
+  })
+  .passthrough();
+
+const workspaceApiKeyCreateSchema = z.object({
+  keyName: z.string().trim().min(1),
+  keyValue: z.string().trim().min(1),
+  label: z.string().optional()
+});
+
+const quoteHubSpotLinkSchema = z
+  .object({
+    dealId: z.string().nullable().optional()
+  })
+  .passthrough();
+
+const portalMarkConnectedSchema = z
+  .object({
+    note: z.string().optional()
+  })
+  .passthrough();
+
+const hubSpotOAuthStartSchema = z
+  .object({
+    projectId: z.string().optional(),
+    clientId: z.string().optional(),
+    portalRecordId: z.string().optional(),
+    installProfile: z.string().optional()
+  })
+  .passthrough();
+
+const hubSpotOAuthCallbackSchema = z
+  .object({
+    code: z.string().optional(),
+    state: z.string().optional()
+  })
+  .passthrough();
+
+const providerConnectionUpdateSchema = z
+  .object({
+    label: z.string().optional(),
+    connectionType: z.string().optional(),
+    apiKey: z.string().optional(),
+    defaultModel: z.string().optional(),
+    endpointUrl: z.string().optional(),
+    notes: z.string().optional(),
+    isEnabled: z.boolean().optional()
+  })
+  .passthrough();
+
+const emailOAuthConnectionUpdateSchema = z
+  .object({
+    clientId: z.string().optional(),
+    clientSecret: z.string().optional(),
+    redirectUri: z.string().optional(),
+    enabled: z.boolean().optional(),
+    gmailFilterLabel: z.string().optional(),
+    scopes: z.union([z.array(z.string()), z.string()]).optional()
+  })
+  .passthrough();
+
+const emailOAuthCallbackSchema = z
+  .object({
+    code: z.string().optional(),
+    state: z.string().optional()
+  })
+  .passthrough();
+
+const portalSessionCreateSchema = z.object({
+  portalId: z.string().min(1),
+  csrfToken: z.string().min(1),
+  baseUrl: z.string().min(1),
+  capturedBy: z.string().optional()
+});
+
 type AssistantAction = {
   type:
     | "run_portal_audit"
@@ -1831,8 +1968,9 @@ export function createApiApp(config: BaseConfig) {
   );
 
   app.patch("/api/projects/:projectId/status", async (c) => {
+    const body = projectStatusUpdateSchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as { status?: unknown };
       const project = await updateProjectRecordStatus(
         c.req.param("projectId"),
         body.status
@@ -2346,15 +2484,7 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/discovery/fetch-doc", async (c) => {
-    const body = (await readJsonBodyOrEmpty(c)) as {
-      url?: string;
-      session?: number;
-    };
-
-    if (!body.url || !body.session || ![1, 2, 3, 4].includes(body.session)) {
-      return c.json({ error: "Invalid document payload" }, 400);
-    }
-
+    const body = discoveryFetchDocSchema.parse(await readJsonBodyOrEmpty(c));
     const docIdMatch = body.url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
 
     if (!docIdMatch) {
@@ -2379,8 +2509,9 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.patch("/api/runs/:runId", async (c) => {
+    const body = runUpdateSchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       const run = await updateAgentRun(c.req.param("runId"), body);
       return c.json({ run });
     } catch (error) {
@@ -3054,6 +3185,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.delete("/api/projects/:projectId/context/:contextType", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       return c.json(
         await deleteProjectContext(
@@ -3345,6 +3478,7 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.delete("/api/projects/:projectId/messages/:messageId", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
     const { projectId, messageId } = c.req.param();
     const msg = await prisma.projectMessage.findFirst({
       where: { id: messageId, projectId }
@@ -3683,27 +3817,17 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/projects/:projectId/agenda/generate", async (c) => {
+    const body = projectAgendaGenerateSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as {
-        sessionType?: unknown;
-        date?: unknown;
-        duration?: unknown;
-        notes?: unknown;
-      };
-
-      if (
-        typeof body.sessionType !== "string" ||
-        body.sessionType.trim().length === 0
-      ) {
-        throw new Error("sessionType is required");
-      }
-
       const lastAgenda = await generateProjectAgenda({
         projectId: c.req.param("projectId"),
         sessionType: body.sessionType.trim(),
-        date: typeof body.date === "string" ? body.date : null,
-        duration: typeof body.duration === "string" ? body.duration : null,
-        notes: typeof body.notes === "string" ? body.notes : null
+        date: body.date ?? null,
+        duration: body.duration ?? null,
+        notes: body.notes ?? null
       });
 
       return c.json({
@@ -3724,6 +3848,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/projects/:projectId/prepare-brief/generate", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       const { run, result } = await runTrackedProjectPrepareBrief(
         c.req.param("projectId")
@@ -3896,8 +4022,9 @@ export function createApiApp(config: BaseConfig) {
   );
 
   app.post("/api/workspace/todos", async (c) => {
+    const body = workspaceTodoCreateSchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       return c.json(await createWorkspaceTodo(body), 201);
     } catch (error) {
       return c.json(
@@ -3911,8 +4038,9 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.patch("/api/workspace/todos/:todoId", async (c) => {
+    const body = workspaceTodoUpdateSchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       return c.json(await updateWorkspaceTodo(c.req.param("todoId"), body));
     } catch (error) {
       return c.json(
@@ -3926,6 +4054,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.delete("/api/workspace/todos/:todoId", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       return c.json(await deleteWorkspaceTodo(c.req.param("todoId")));
     } catch (error) {
@@ -3939,9 +4069,10 @@ export function createApiApp(config: BaseConfig) {
     }
   });
 
-  app.delete("/api/workspace/todos", async (c) =>
-    c.json(await clearCompletedWorkspaceTodos())
-  );
+  app.delete("/api/workspace/todos", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+    return c.json(await clearCompletedWorkspaceTodos());
+  });
 
   app.get("/api/workspace/emails/action-required", async (c) =>
     c.json(await getGmailActionRequired())
@@ -4032,8 +4163,11 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/workspace/private-tasks", async (c) => {
+    const body = workspacePrivateTaskCreateSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       return c.json(await createWorkspacePrivateTask(body), 201);
     } catch (error) {
       return c.json(
@@ -4049,8 +4183,11 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.patch("/api/workspace/private-tasks/:taskId", async (c) => {
+    const body = workspacePrivateTaskUpdateSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       return c.json(
         await updateWorkspacePrivateTask(c.req.param("taskId"), body)
       );
@@ -4068,6 +4205,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.delete("/api/workspace/private-tasks/:taskId", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       return c.json(await deleteWorkspacePrivateTask(c.req.param("taskId")));
     } catch (error) {
@@ -4084,8 +4223,11 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.patch("/api/workspace/email-filter", async (c) => {
+    const body = workspaceEmailFilterSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       const connection = await updateWorkspaceEmailOAuthConnection({
         gmailFilterLabel: body.gmailFilterLabel
       });
@@ -4136,8 +4278,11 @@ export function createApiApp(config: BaseConfig) {
   );
 
   app.patch("/api/workspace/calendar/connection", async (c) => {
+    const body = workspaceCalendarConnectionUpdateSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       return c.json({
         connection: await updateWorkspaceCalendarConnection(body)
       });
@@ -4161,8 +4306,11 @@ export function createApiApp(config: BaseConfig) {
   );
 
   app.post("/api/workspace/api-keys", async (c) => {
+    const body = workspaceApiKeyCreateSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       return c.json(
         {
           key: await saveWorkspaceApiKey(body)
@@ -4387,8 +4535,9 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/quotes/:quoteId/hubspot-link", async (c) => {
+    const body = quoteHubSpotLinkSchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as { dealId?: unknown };
       const dealIdRaw =
         typeof body.dealId === "string" ? body.dealId.trim() : null;
       const result = await linkQuoteToHubSpotDeal({
@@ -4407,6 +4556,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/quotes/:quoteId/hubspot-sync", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       const result = await syncQuoteToHubSpotDeal(c.req.param("quoteId"));
       return c.json(result);
@@ -4421,6 +4572,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/quotes/:quoteId/recall", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       const result = await recallQuote(c.req.param("quoteId"));
       return c.json(result);
@@ -4438,6 +4591,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/workspace/summary/generate", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       return c.json(await generateWorkspaceDailySummary());
     } catch (error) {
@@ -4579,6 +4734,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.delete("/api/retainers/:retainerId", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       const result = await deleteRetainerRecord(c.req.param("retainerId"));
       return c.json(result);
@@ -4616,6 +4773,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/retainers/:retainerId/top-ups/:topUpId/approve", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       const actor = await resolveInternalActor(c.env.incoming);
       const result = await approveRetainerTopUp({
@@ -5238,8 +5397,9 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/hubspot/oauth/start", async (c) => {
+    const body = hubSpotOAuthStartSchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       const result = await createHubSpotOAuthStart(body);
       return c.json(result);
     } catch (error) {
@@ -5256,8 +5416,11 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/hubspot/oauth/callback", async (c) => {
+    const body = hubSpotOAuthCallbackSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       const result = await completeHubSpotOAuthCallback(body);
       return c.json(result);
     } catch (error) {
@@ -5299,6 +5462,8 @@ export function createApiApp(config: BaseConfig) {
   );
 
   app.post("/api/portals/:portalId/snapshot", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       const snapshot = await createPortalSnapshotForPortal(
         c.req.param("portalId")
@@ -5354,9 +5519,12 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/portals/:portalId/mark-connected", async (c) => {
+    const body = portalMarkConnectedSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+
     try {
       const actor = await resolveInternalActor(c.env.incoming);
-      const body = (await readJsonBodyOrEmpty(c)) as { note?: unknown };
       const note =
         typeof body.note === "string" && body.note.trim().length > 0
           ? body.note.trim()
@@ -5496,6 +5664,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.delete("/api/clients/:clientId", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       await deleteClientDirectoryRecord(c.req.param("clientId"));
       return c.json({ success: true });
@@ -5513,6 +5683,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/clients/:clientId/enrich", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       const client = await refreshClientEnrichment(c.req.param("clientId"));
       return c.json({ client });
@@ -5675,8 +5847,11 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.patch("/api/provider-connections/:providerKey", async (c) => {
+    const body = providerConnectionUpdateSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       const provider = await updateWorkspaceProviderConnection(
         c.req.param("providerKey"),
         body
@@ -5735,8 +5910,11 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.patch("/api/email-oauth/google", async (c) => {
+    const body = emailOAuthConnectionUpdateSchema.parse(
+      await readJsonBodyOrEmpty(c)
+    );
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       const connection = await updateWorkspaceEmailOAuthConnection(body);
       return c.json({ connection });
     } catch (error) {
@@ -5753,6 +5931,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.delete("/api/email-oauth/google", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       const connection = await disconnectWorkspaceGoogleEmailOAuthConnection();
       return c.json({ connection });
@@ -5770,6 +5950,8 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/email-oauth/google/start", async (c) => {
+    emptyBodySchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
       const result = await createWorkspaceGoogleEmailOAuthStart();
       return c.json(result);
@@ -5787,8 +5969,9 @@ export function createApiApp(config: BaseConfig) {
   });
 
   app.post("/api/email-oauth/google/callback", async (c) => {
+    const body = emailOAuthCallbackSchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
-      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
       const connection = await completeWorkspaceGoogleEmailOAuthCallback(body);
       return c.json({ connection });
     } catch (error) {
@@ -6348,17 +6531,10 @@ export function createApiApp(config: BaseConfig) {
 
   // Tier 2: Browser Session Executor endpoints
   app.post("/api/portal-session", async (c) => {
+    const { portalId, csrfToken, baseUrl, capturedBy } =
+      portalSessionCreateSchema.parse(await readJsonBodyOrEmpty(c));
+
     try {
-      const { portalId, csrfToken, baseUrl, capturedBy } = await c.req.json();
-
-      // Validate inputs
-      if (!portalId || !csrfToken || !baseUrl) {
-        return c.json(
-          { error: "Missing required fields: portalId, csrfToken, baseUrl" },
-          400
-        );
-      }
-
       const existingSession = await (prisma as any).portalSession.findFirst({
         where: { portalId },
         orderBy: { capturedAt: "desc" }
