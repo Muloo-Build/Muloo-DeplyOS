@@ -1072,3 +1072,18 @@ model PortalSession {
 
   @@index([portalId, valid])
 }
+
+model ClientErrorLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  message   String
+  stack     String?
+  digest    String?
+  url       String?
+  userAgent String?
+  userId    String?
+  surface   String?  // "internal" | "client" | "public"
+
+  @@index([createdAt])
+  @@index([surface, createdAt])
+}

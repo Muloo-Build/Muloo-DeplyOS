@@ -19370,6 +19370,14 @@ export async function getActiveProjects(options?: { take?: number }) {
   }));
 }
 
+/**
+ * Canonical "live project" predicate. A project counts as live unless it has
+ * been archived. Command Centre tiles, the projects list filter, and the
+ * status badge logic must all use this definition. Mirror copy lives at
+ * `apps/web/app/components/projectStatus.ts` — keep both in sync. If you need
+ * a different categorisation (e.g. "active" vs "in_delivery"), add it as a
+ * separate named predicate rather than overloading this one.
+ */
 export function isLiveProjectStatus(status: string) {
   return status !== "archived";
 }
