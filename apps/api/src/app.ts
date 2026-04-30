@@ -224,6 +224,7 @@ import {
   markPortalAsConnectedManually,
   recallQuote,
   saveProjectQuote,
+  sendQuoteByEmail,
   syncQuoteToHubSpotDeal,
   updateProjectQuoteMeta,
   updateQuoteOrCreateRevision,
@@ -632,6 +633,12 @@ const portalSessionCreateSchema = z.object({
   csrfToken: z.string().min(1),
   baseUrl: z.string().min(1),
   capturedBy: z.string().optional()
+});
+
+const quoteSendEmailSchema = z.object({
+  to: z.array(z.string().trim().email()).min(1),
+  cc: z.array(z.string().trim().email()).optional(),
+  message: z.string().trim().max(5000).optional()
 });
 
 type AssistantAction = {
@@ -4584,6 +4591,31 @@ export function createApiApp(config: BaseConfig) {
         message === "Quote not found"
           ? 404
           : message.startsWith("Only sent quotes")
+            ? 409
+            : 400;
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
+  app.post("/api/quotes/:quoteId/send", async (c) => {
+    const body = quoteSendEmailSchema.parse(await readJsonBodyOrEmpty(c));
+
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      const result = await sendQuoteByEmail(c.req.param("quoteId"), {
+        to: body.to,
+        ...(body.cc ? { cc: body.cc } : {}),
+        ...(body.message ? { message: body.message } : {}),
+        actor: actor.actor
+      });
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to send quote email";
+      const statusCode =
+        message === "Quote not found"
+          ? 404
+          : message.startsWith("Only draft or sent")
             ? 409
             : 400;
       return c.json({ error: message }, statusCode);

@@ -5365,6 +5365,9 @@ function serializeProjectQuote<
     closedReason?: string | null;
     hubspotDealId?: string | null;
     pdfUrl?: string | null;
+    sendCount?: number;
+    lastSentAt?: Date | null;
+    lastSentTo?: string[];
     createdAt: Date;
     updatedAt: Date;
   }
@@ -5395,6 +5398,9 @@ function serializeProjectQuote<
     closedReason: quote.closedReason ?? null,
     hubspotDealId: quote.hubspotDealId ?? null,
     pdfUrl: quote.pdfUrl ?? null,
+    sendCount: quote.sendCount ?? 0,
+    lastSentAt: quote.lastSentAt?.toISOString() ?? null,
+    lastSentTo: quote.lastSentTo ?? [],
     createdAt: quote.createdAt.toISOString(),
     updatedAt: quote.updatedAt.toISOString()
   };
@@ -24974,7 +24980,19 @@ export async function loadQuoteById(quoteId: string) {
           status: true,
           owner: true,
           ownerEmail: true,
-          client: { select: { id: true, name: true, slug: true } }
+          client: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              contacts: {
+                orderBy: [
+                  { canApproveQuotes: "desc" },
+                  { firstName: "asc" }
+                ]
+              }
+            }
+          }
         }
       }
     }
@@ -24983,6 +25001,22 @@ export async function loadQuoteById(quoteId: string) {
   if (!quote) {
     return null;
   }
+
+  const client = quote.project.client
+    ? {
+        id: quote.project.client.id,
+        name: quote.project.client.name,
+        slug: quote.project.client.slug,
+        contacts: quote.project.client.contacts.map((contact) => ({
+          id: contact.id,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          email: contact.email,
+          title: contact.title,
+          canApproveQuotes: contact.canApproveQuotes
+        }))
+      }
+    : null;
 
   return {
     quote: serializeProjectQuote(quote),
@@ -24993,7 +25027,7 @@ export async function loadQuoteById(quoteId: string) {
       status: quote.project.status,
       owner: quote.project.owner,
       ownerEmail: quote.project.ownerEmail,
-      client: quote.project.client
+      client
     }
   };
 }
@@ -25862,4 +25896,172 @@ export async function recallQuote(quoteId: string) {
   });
 
   return { quote: serializeProjectQuote(updated) };
+}
+
+function resolvePublicAppUrl() {
+  const raw =
+    process.env.PUBLIC_URL?.trim() ||
+    process.env.APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    "http://localhost:3000";
+  return raw.replace(/\/+$/, "");
+}
+
+function formatCurrencyAmount(amount: number, currency: string) {
+  if (!Number.isFinite(amount)) return `${currency} 0.00`;
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`;
+  }
+}
+
+export async function sendQuoteByEmail(
+  quoteId: string,
+  value: { to: string[]; cc?: string[]; message?: string; actor?: string }
+) {
+  const quote = await prisma.projectQuote.findUnique({
+    where: { id: quoteId },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          owner: true,
+          ownerEmail: true,
+          client: { select: { id: true, name: true } }
+        }
+      }
+    }
+  });
+
+  if (!quote) {
+    throw new Error("Quote not found");
+  }
+
+  if (!["draft", "shared"].includes(quote.status)) {
+    throw new Error(
+      `Only draft or sent quotes can be emailed. Current status: ${quote.status}.`
+    );
+  }
+
+  const to = value.to.map((entry) => entry.trim()).filter(Boolean);
+  const cc = (value.cc ?? []).map((entry) => entry.trim()).filter(Boolean);
+
+  if (to.length === 0) {
+    throw new Error("At least one recipient (to) is required");
+  }
+
+  const clientName = quote.project.client?.name ?? quote.project.name;
+  const quoteRef = `Q-${quote.id.slice(-6).toUpperCase()}-V${quote.version}`;
+  const subject = `Quote #${quoteRef} from Muloo for ${clientName}`;
+
+  const totals = (quote.totals ?? {}) as Record<string, unknown>;
+  const totalAmount =
+    typeof totals.grandTotalZar === "number" ? totals.grandTotalZar : 0;
+  const validUntil = new Date(quote.sharedAt);
+  validUntil.setDate(validUntil.getDate() + 30);
+
+  const portalLink = `${resolvePublicAppUrl()}/client/quotes/${quote.id}`;
+  const customMessage = value.message?.trim();
+
+  const bodyLines: string[] = [];
+  if (customMessage) {
+    bodyLines.push(customMessage, "");
+  }
+  bodyLines.push(
+    `Please find the latest commercial proposal from Muloo prepared for ${clientName}.`,
+    "",
+    `Quote total: ${formatCurrencyAmount(totalAmount, quote.currency)}`,
+    `Valid until: ${validUntil.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric"
+    })}`,
+    "",
+    `Open the live quote in your client portal:`,
+    portalLink,
+    "",
+    `If anything looks off, reply to this email and we'll sort it.`,
+    "",
+    `— The Muloo team`
+  );
+
+  const sendResult = await sendWorkspaceEmail({
+    to,
+    cc,
+    subject,
+    body: bodyLines.join("\n")
+  });
+
+  const sentAt = new Date();
+  const updated = await prisma.projectQuote.update({
+    where: { id: quoteId },
+    data: {
+      status: "shared",
+      sendCount: { increment: 1 },
+      lastSentAt: sentAt,
+      lastSentTo: to,
+      sharedAt: quote.status === "draft" ? sentAt : quote.sharedAt
+    }
+  });
+
+  if (quote.status === "draft") {
+    await prisma.project.update({
+      where: { id: quote.project.id },
+      data: {
+        quoteApprovalStatus: "shared",
+        quoteSharedAt: sentAt
+      }
+    });
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      actor: value.actor ?? "system",
+      action: "quote.emailed",
+      entityType: "ProjectQuote",
+      entityId: quote.id,
+      projectId: quote.project.id,
+      metadata: {
+        to,
+        cc,
+        subject,
+        quoteRef,
+        portalLink,
+        previousStatus: quote.status,
+        messageId:
+          sendResult && typeof sendResult === "object" && "messageId" in sendResult
+            ? (sendResult as { messageId?: string | null }).messageId ?? null
+            : null,
+        transport:
+          sendResult && typeof sendResult === "object" && "transport" in sendResult
+            ? (sendResult as { transport?: string }).transport ?? null
+            : null
+      }
+    }
+  });
+
+  return {
+    quote: serializeProjectQuote(updated),
+    delivery: {
+      to,
+      cc,
+      subject,
+      portalLink,
+      sentAt: sentAt.toISOString(),
+      transport:
+        sendResult && typeof sendResult === "object" && "transport" in sendResult
+          ? (sendResult as { transport?: string }).transport ?? null
+          : null,
+      messageId:
+        sendResult && typeof sendResult === "object" && "messageId" in sendResult
+          ? (sendResult as { messageId?: string | null }).messageId ?? null
+          : null
+    }
+  };
 }
