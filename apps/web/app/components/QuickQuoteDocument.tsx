@@ -536,6 +536,21 @@ export default function QuickQuoteDocument({
   const execSummary = quote.context?.quoteContextSummary;
   const terms = quote.context?.contentOverrides?.termsAndWorkingScope;
   const subtotal = quote.totals.grandTotalZar;
+  const productLineRows = quote.productLines.map((line) => {
+    const discount = line.metadata?.discount ?? 0;
+    const discountType: "percent" | "fixed" =
+      line.metadata?.discountType ?? "percent";
+    const gross = line.quantity * line.unitPrice;
+    const net = line.lineTotalZar;
+    const discountAmount = Math.max(0, gross - net);
+    return { line, discount, discountType, gross, net, discountAmount };
+  });
+  const subtotalGross = productLineRows.reduce((sum, row) => sum + row.gross, 0);
+  const totalLineDiscount = productLineRows.reduce(
+    (sum, row) => sum + row.discountAmount,
+    0
+  );
+  const showDiscountSummary = totalLineDiscount > 0;
   const quoteRef = deriveQuoteRef(quote.id, quote.version);
   const validUntil = deriveValidityDate(quote.sharedAt);
   const isApproved = quote.status === "approved" || Boolean(quote.approvedAt);
@@ -948,17 +963,10 @@ export default function QuickQuoteDocument({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {quote.productLines.map((line) => {
-                    const discount = line.metadata?.discount ?? 0;
-                    const discountType =
-                      line.metadata?.discountType ?? "percent";
-                    const effectiveRate =
-                      discount > 0
-                        ? discountType === "fixed"
-                          ? Math.max(0, line.unitPrice - discount)
-                          : line.unitPrice *
-                            (1 - Math.min(100, discount) / 100)
-                        : line.unitPrice;
+                  {productLineRows.map((row) => {
+                    const { line, discount, discountType, gross, net, discountAmount } =
+                      row;
+                    const hasDiscount = discountAmount > 0;
                     return (
                       <tr
                         key={line.id}
@@ -968,31 +976,66 @@ export default function QuickQuoteDocument({
                           <p className="font-medium leading-snug">
                             {line.description || line.name}
                           </p>
-                          {discount > 0 ? (
-                            <p className="mt-1 text-[11px] text-emerald-300 print:text-emerald-700">
-                              Discount{" "}
-                              {discountType === "fixed"
-                                ? formatMoney(discount, quote.currency)
-                                : `${discount}%`}{" "}
-                              applied to rate (was{" "}
-                              {formatMoney(line.unitPrice, quote.currency)}/hr)
-                            </p>
-                          ) : null}
                         </td>
                         <td className="px-4 py-4 text-right align-top tabular-nums">
                           {line.quantity}
                         </td>
                         <td className="px-4 py-4 text-right align-top tabular-nums">
-                          {formatMoney(effectiveRate, quote.currency)}
+                          {formatMoney(line.unitPrice, quote.currency)}
                         </td>
-                        <td className="px-4 py-4 text-right align-top tabular-nums text-white">
-                          {formatMoney(line.lineTotalZar, quote.currency)}
+                        <td className="px-4 py-4 text-right align-top tabular-nums">
+                          {hasDiscount ? (
+                            <div className="space-y-1">
+                              <p className="text-text-muted line-through">
+                                {formatMoney(gross, quote.currency)}
+                              </p>
+                              <p className="text-emerald-300 print:text-emerald-700">
+                                -{formatMoney(discountAmount, quote.currency)}
+                                {discountType === "percent"
+                                  ? ` (${discount}%)`
+                                  : ""}
+                              </p>
+                              <p className="font-semibold text-white print:text-slate-900">
+                                {formatMoney(net, quote.currency)}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-white">
+                              {formatMoney(net, quote.currency)}
+                            </p>
+                          )}
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
                 <tfoot>
+                  {showDiscountSummary ? (
+                    <>
+                      <tr className="border-t border-white/10">
+                        <td
+                          colSpan={3}
+                          className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted print:text-slate-500"
+                        >
+                          Subtotal
+                        </td>
+                        <td className="px-4 py-2 text-right text-sm tabular-nums text-text-secondary print:text-slate-700">
+                          {formatMoney(subtotalGross, quote.currency)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted print:text-slate-500"
+                        >
+                          Discount
+                        </td>
+                        <td className="px-4 py-2 text-right text-sm tabular-nums text-emerald-300 print:text-emerald-700">
+                          -{formatMoney(totalLineDiscount, quote.currency)}
+                        </td>
+                      </tr>
+                    </>
+                  ) : null}
                   <tr className="border-t-2 border-white/10 bg-[linear-gradient(135deg,rgba(81,208,176,0.06)_0%,rgba(73,205,225,0.04)_100%)] print:bg-slate-50">
                     <td
                       colSpan={3}
