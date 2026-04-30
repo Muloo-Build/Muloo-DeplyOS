@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import AppShell from "./AppShell";
 import ClientShell from "./ClientShell";
@@ -47,6 +47,18 @@ interface QuoteData {
   approvedAt: string | null;
   closedAt: string | null;
   closedReason: string | null;
+  sendCount?: number;
+  lastSentAt?: string | null;
+  lastSentTo?: string[];
+}
+
+interface ClientContactRow {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  email: string;
+  title: string | null;
+  canApproveQuotes: boolean;
 }
 
 interface ProjectInfo {
@@ -56,7 +68,12 @@ interface ProjectInfo {
   status: string;
   owner: string;
   ownerEmail: string;
-  client: { id: string; name: string; slug: string } | null;
+  client: {
+    id: string;
+    name: string;
+    slug: string;
+    contacts?: ClientContactRow[];
+  } | null;
 }
 
 const statusStyles: Record<string, string> = {
@@ -85,6 +102,25 @@ function deriveValidityDate(sharedAt: string) {
   const issued = new Date(sharedAt);
   issued.setDate(issued.getDate() + 30);
   return issued.toISOString();
+}
+
+function formatRelativeTime(value: string) {
+  const then = new Date(value).getTime();
+  if (Number.isNaN(then)) return "";
+  const diffMs = Date.now() - then;
+  const diffSec = Math.round(diffMs / 1000);
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+  const diffDay = Math.round(diffHr / 24);
+  if (diffDay < 30) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+  return new Date(value).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
 }
 
 function formatMoney(amount: number, currency: string) {
@@ -117,6 +153,7 @@ export default function QuickQuoteDocument({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [sendModalOpen, setSendModalOpen] = useState(false);
 
   async function loadQuote() {
     setLoading(true);
@@ -313,6 +350,56 @@ export default function QuickQuoteDocument({
     }
   }
 
+  async function handleSendEmail(payload: {
+    to: string[];
+    cc: string[];
+    message: string;
+  }) {
+    if (!quote) return;
+    setBusy(true);
+    setFeedback(null);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/quotes/${encodeURIComponent(quote.id)}/send`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            to: payload.to,
+            cc: payload.cc.length > 0 ? payload.cc : undefined,
+            message: payload.message.trim() || undefined
+          })
+        }
+      );
+      const body = (await response.json().catch(() => null)) as {
+        quote?: QuoteData;
+        delivery?: { to: string[]; sentAt: string };
+        error?: string;
+      } | null;
+      if (!response.ok || !body?.quote) {
+        throw new Error(body?.error ?? "Failed to send quote email");
+      }
+      setSendModalOpen(false);
+      setFeedback(
+        body.delivery
+          ? `Sent to ${body.delivery.to.join(", ")}`
+          : "Quote sent"
+      );
+      window.setTimeout(() => setFeedback(null), 3500);
+      await loadQuote();
+    } catch (sendError) {
+      setError(
+        sendError instanceof Error
+          ? sendError.message
+          : "Failed to send quote email"
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleRecall() {
     if (!quote) return;
     const confirmed = window.confirm(
@@ -459,6 +546,17 @@ export default function QuickQuoteDocument({
               </Link>
             ) : null}
 
+            {!showClientLayout && quote.status === "draft" ? (
+              <button
+                type="button"
+                onClick={() => setSendModalOpen(true)}
+                disabled={busy}
+                className="rounded-xl bg-[#49cde1] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-[#71dbeb] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Send via email
+              </button>
+            ) : null}
+
             {!showClientLayout && quote.status === "shared" ? (
               <button
                 type="button"
@@ -560,6 +658,18 @@ export default function QuickQuoteDocument({
             </button>
           </div>
         </div>
+
+        {!showClientLayout &&
+        quote.lastSentAt &&
+        (quote.lastSentTo?.length ?? 0) > 0 ? (
+          <p className="text-xs text-text-muted print:hidden">
+            Sent to {(quote.lastSentTo ?? []).join(", ")} ·{" "}
+            {formatRelativeTime(quote.lastSentAt)}
+            {(quote.sendCount ?? 0) > 1
+              ? ` · ${quote.sendCount} sends total`
+              : ""}
+          </p>
+        ) : null}
 
         {feedback ? (
           <p className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-100 print:hidden">
@@ -982,6 +1092,17 @@ export default function QuickQuoteDocument({
         </article>
       </div>
 
+      {sendModalOpen ? (
+        <SendQuoteEmailModal
+          quoteRef={quoteRef}
+          clientName={project.client?.name ?? null}
+          contacts={project.client?.contacts ?? []}
+          busy={busy}
+          onClose={() => setSendModalOpen(false)}
+          onSend={handleSendEmail}
+        />
+      ) : null}
+
       <style jsx global>{`
         @media print {
           @page {
@@ -1049,5 +1170,255 @@ export default function QuickQuoteDocument({
         }
       `}</style>
     </Shell>
+  );
+}
+
+interface SendQuoteEmailModalProps {
+  quoteRef: string;
+  clientName: string | null;
+  contacts: ClientContactRow[];
+  busy: boolean;
+  onClose: () => void;
+  onSend: (payload: {
+    to: string[];
+    cc: string[];
+    message: string;
+  }) => Promise<void>;
+}
+
+function SendQuoteEmailModal({
+  quoteRef,
+  clientName,
+  contacts,
+  busy,
+  onClose,
+  onSend
+}: SendQuoteEmailModalProps) {
+  const defaultRecipients = contacts
+    .filter((contact) => contact.canApproveQuotes && contact.email.trim())
+    .map((contact) => contact.email.trim().toLowerCase());
+
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(defaultRecipients)
+  );
+  const [extraTo, setExtraTo] = useState("");
+  const [cc, setCc] = useState("");
+  const [message, setMessage] = useState("");
+  const [filter, setFilter] = useState("");
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const filteredContacts = contacts.filter((contact) => {
+    if (!filter.trim()) return true;
+    const term = filter.trim().toLowerCase();
+    const haystack = [
+      contact.firstName,
+      contact.lastName ?? "",
+      contact.email,
+      contact.title ?? ""
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(term);
+  });
+
+  function toggleContact(email: string) {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return;
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(normalized)) {
+        next.delete(normalized);
+      } else {
+        next.add(normalized);
+      }
+      return next;
+    });
+  }
+
+  function parseAddresses(raw: string): string[] {
+    return raw
+      .split(/[\s,;]+/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const fromContacts = Array.from(selected);
+    const fromExtra = parseAddresses(extraTo).map((entry) =>
+      entry.toLowerCase()
+    );
+    const to = Array.from(new Set([...fromContacts, ...fromExtra]));
+    const ccList = parseAddresses(cc).map((entry) => entry.toLowerCase());
+
+    if (to.length === 0) {
+      setLocalError("Pick at least one recipient");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalid = [...to, ...ccList].find((entry) => !emailRegex.test(entry));
+    if (invalid) {
+      setLocalError(`"${invalid}" is not a valid email address`);
+      return;
+    }
+
+    setLocalError(null);
+    void onSend({ to, cc: ccList, message });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(3,6,18,0.84)] px-4">
+      <div className="flex w-full max-w-2xl flex-col rounded-[28px] border border-white/10 bg-[#111933] shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+          <div>
+            <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+              Send via email
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-white">
+              {quoteRef}
+              {clientName ? (
+                <span className="text-text-muted"> · {clientName}</span>
+              ) : null}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-xl border border-white/10 px-3 py-2 text-sm text-text-secondary disabled:opacity-50"
+          >
+            Close
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-6 py-5">
+          <div>
+            <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+              Client contacts
+            </p>
+            {contacts.length === 0 ? (
+              <p className="mt-2 rounded-xl border border-white/10 bg-background-card px-3 py-3 text-sm text-text-secondary">
+                No contacts on file for this client. Use the override field
+                below to send to a specific email.
+              </p>
+            ) : (
+              <>
+                <input
+                  type="search"
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value)}
+                  placeholder="Filter contacts"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm text-white outline-none"
+                />
+                <ul className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-background-card">
+                  {filteredContacts.length === 0 ? (
+                    <li className="px-3 py-3 text-sm text-text-secondary">
+                      No contacts match that filter.
+                    </li>
+                  ) : (
+                    filteredContacts.map((contact) => {
+                      const normalized = contact.email.trim().toLowerCase();
+                      const checked = selected.has(normalized);
+                      return (
+                        <li key={contact.id}>
+                          <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-white/5">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleContact(contact.email)}
+                            />
+                            <div className="flex-1 text-sm text-white">
+                              <div className="flex items-center gap-2">
+                                <span>
+                                  {contact.firstName}
+                                  {contact.lastName ? ` ${contact.lastName}` : ""}
+                                </span>
+                                {contact.canApproveQuotes ? (
+                                  <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-emerald-200">
+                                    Approver
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="text-xs text-text-muted">
+                                {contact.email}
+                                {contact.title ? ` · ${contact.title}` : ""}
+                              </div>
+                            </div>
+                          </label>
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              </>
+            )}
+          </div>
+
+          <label className="block">
+            <span className="text-xs uppercase tracking-[0.22em] text-text-muted">
+              Additional recipients (To)
+            </span>
+            <input
+              type="text"
+              value={extraTo}
+              onChange={(event) => setExtraTo(event.target.value)}
+              placeholder="comma-separated emails"
+              className="mt-2 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm text-white outline-none"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-xs uppercase tracking-[0.22em] text-text-muted">
+              Cc
+            </span>
+            <input
+              type="text"
+              value={cc}
+              onChange={(event) => setCc(event.target.value)}
+              placeholder="comma-separated emails"
+              className="mt-2 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm text-white outline-none"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-xs uppercase tracking-[0.22em] text-text-muted">
+              Custom message (optional)
+            </span>
+            <textarea
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              rows={4}
+              placeholder="Defaults will be appended automatically — quote total, validity, and a portal link."
+              className="mt-2 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm text-white outline-none"
+            />
+          </label>
+
+          {localError ? (
+            <p className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
+              {localError}
+            </p>
+          ) : null}
+
+          <div className="flex items-center justify-end gap-2 border-t border-white/10 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="rounded-xl border border-white/10 px-4 py-2 text-sm text-text-secondary disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy}
+              className="rounded-xl bg-[#49cde1] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-[#71dbeb] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy ? "Sending..." : "Send quote"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
