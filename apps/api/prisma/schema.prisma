@@ -472,6 +472,8 @@ model ClientPortalUser {
   inviteTokenExpiresAt        DateTime?
   passwordResetToken          String?                 @unique
   passwordResetTokenExpiresAt DateTime?
+  firstLoginAt                DateTime?
+  welcomeDismissedAt          DateTime?
   submissions                 ClientInputSubmission[]
   access                      ClientProjectAccess[]
   approvedTopUps              RetainerTopUp[]

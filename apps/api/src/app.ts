@@ -145,6 +145,7 @@ import {
   loadWorkspaceUsers,
   markAllProjectMessagesSeenByInternal,
   createHubSpotOAuthStart,
+  startClientPortalHubSpotConnect,
   buildHubSpotAgentCapabilitiesPayload,
   inviteClientContactToProjects,
   resolveInternalActor,
@@ -1273,12 +1274,38 @@ export function createApiApp(config: BaseConfig) {
       })
     );
 
+    let resolvedUser = user;
+    if (!user.firstLoginAt) {
+      try {
+        resolvedUser = await prisma.clientPortalUser.update({
+          where: { id: user.id },
+          data: { firstLoginAt: new Date() }
+        });
+      } catch (error) {
+        console.error("Failed to stamp firstLoginAt", error);
+      }
+    }
+
     await audit(user.email, "auth.login", "ClientPortalUser", user.id);
 
     return c.json({
       authenticated: true,
-      user: serializeClientPortalUser(user)
+      user: serializeClientPortalUser(resolvedUser)
     });
+  });
+
+  app.post("/api/client-auth/welcome/dismiss", async (c) => {
+    const clientUserId = getAuthenticatedClientUserId(c.env.incoming);
+    if (!clientUserId) {
+      return c.json({ error: "Not authenticated" }, 401);
+    }
+
+    const updated = await prisma.clientPortalUser.update({
+      where: { id: clientUserId },
+      data: { welcomeDismissedAt: new Date() }
+    });
+
+    return c.json({ user: serializeClientPortalUser(updated) });
   });
 
   app.post("/api/client-auth/set-password", async (c) => {
@@ -6328,6 +6355,24 @@ export function createApiApp(config: BaseConfig) {
       tasks: tasks.map((task) => serializePortalTask(task))
     });
   });
+
+  app.post(
+    "/api/client/projects/:projectId/hubspot/connect/start",
+    async (c) => {
+      try {
+        const result = await startClientPortalHubSpotConnect(
+          c.req.param("projectId"),
+          c.get("clientUserId")
+        );
+        return c.json(result);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to start HubSpot OAuth";
+        const statusCode = message === "Project not found" ? 404 : 400;
+        return c.json({ error: message }, statusCode);
+      }
+    }
+  );
 
   app.get("/api/client/projects/:projectId/quotes", async (c) => {
     const result = await listClientProjectQuotes(

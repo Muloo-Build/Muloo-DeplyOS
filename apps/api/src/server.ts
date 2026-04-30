@@ -4547,6 +4547,12 @@ function serializeClientProject<
       name: string;
       website: string | null;
     };
+    portal?: {
+      id: string;
+      connected: boolean;
+      hubDomain: string | null;
+      displayName: string;
+    } | null;
   }
 >(project: T) {
   return {
@@ -4580,7 +4586,15 @@ function serializeClientProject<
     client: {
       name: project.client.name,
       website: project.client.website
-    }
+    },
+    portal: project.portal
+      ? {
+          id: project.portal.id,
+          connected: project.portal.connected,
+          hubDomain: project.portal.hubDomain,
+          displayName: project.portal.displayName
+        }
+      : null
   };
 }
 
@@ -5530,6 +5544,9 @@ export function serializeClientPortalUser<
     lastName: string;
     email: string;
     inviteAcceptedAt?: Date | null;
+    firstLoginAt?: Date | null;
+    welcomeDismissedAt?: Date | null;
+    createdAt?: Date;
   }
 >(user: T) {
   return {
@@ -5537,7 +5554,10 @@ export function serializeClientPortalUser<
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
-    authStatus: user.inviteAcceptedAt ? "active" : "invite_pending"
+    authStatus: user.inviteAcceptedAt ? "active" : "invite_pending",
+    firstLoginAt: user.firstLoginAt?.toISOString() ?? null,
+    welcomeDismissedAt: user.welcomeDismissedAt?.toISOString() ?? null,
+    createdAt: user.createdAt?.toISOString() ?? null
   };
 }
 
@@ -15028,6 +15048,9 @@ export async function createHubSpotOAuthStart(value: {
   clientId?: unknown;
   portalRecordId?: unknown;
   installProfile?: unknown;
+  clientPortalUserId?: unknown;
+  originatedFromClientPortal?: unknown;
+  returnTo?: unknown;
 }) {
   const projectId =
     typeof value.projectId === "string" && value.projectId.trim()
@@ -15046,6 +15069,16 @@ export async function createHubSpotOAuthStart(value: {
     value.installProfile in hubSpotScopeProfiles
       ? (value.installProfile as HubSpotScopeProfileKey)
       : "core_crm";
+  const clientPortalUserId =
+    typeof value.clientPortalUserId === "string" &&
+    value.clientPortalUserId.trim()
+      ? value.clientPortalUserId.trim()
+      : null;
+  const originatedFromClientPortal = value.originatedFromClientPortal === true;
+  const explicitReturnTo =
+    typeof value.returnTo === "string" && value.returnTo.trim()
+      ? value.returnTo.trim()
+      : null;
   const oauthConfig = await loadHubSpotOAuthProviderConfig();
 
   if (!oauthConfig.provider.isEnabled) {
@@ -15104,11 +15137,15 @@ export async function createHubSpotOAuthStart(value: {
     portalRecordId,
     installProfile,
     redirectUri: oauthConfig.redirectUri,
-    returnTo: projectId
-      ? `/projects/${projectId}`
-      : clientId
-        ? "/clients"
-        : "/settings/providers",
+    returnTo:
+      explicitReturnTo ??
+      (projectId
+        ? `/projects/${projectId}`
+        : clientId
+          ? "/clients"
+          : "/settings/providers"),
+    clientPortalUserId,
+    originatedFromClientPortal,
     expiresAt: Date.now() + 1000 * 60 * 10
   });
 
@@ -15131,6 +15168,28 @@ export async function createHubSpotOAuthStart(value: {
       optional: optionalScopes
     }
   };
+}
+
+export async function startClientPortalHubSpotConnect(
+  projectId: string,
+  clientPortalUserId: string
+) {
+  const access = await prisma.clientProjectAccess.findUnique({
+    where: { userId_projectId: { userId: clientPortalUserId, projectId } },
+    include: { project: { select: { id: true, clientId: true } } }
+  });
+
+  if (!access) {
+    throw new Error("Project not found");
+  }
+
+  return createHubSpotOAuthStart({
+    projectId: access.project.id,
+    clientId: access.project.clientId,
+    clientPortalUserId,
+    originatedFromClientPortal: true,
+    returnTo: `/client/projects/${access.project.id}`
+  });
 }
 
 export async function completeHubSpotOAuthCallback(value: {
@@ -15165,6 +15224,13 @@ export async function completeHubSpotOAuthCallback(value: {
     typeof verifiedState.returnTo === "string" && verifiedState.returnTo.trim()
       ? verifiedState.returnTo.trim()
       : "/settings/providers";
+  const clientPortalUserId =
+    typeof verifiedState.clientPortalUserId === "string" &&
+    verifiedState.clientPortalUserId.trim()
+      ? verifiedState.clientPortalUserId.trim()
+      : null;
+  const originatedFromClientPortal =
+    verifiedState.originatedFromClientPortal === true;
 
   if (!redirectUri) {
     throw new Error("OAuth redirect URI is missing from state");
@@ -15322,9 +15388,43 @@ export async function completeHubSpotOAuthCallback(value: {
     });
   }
 
+  if (originatedFromClientPortal) {
+    let clientPortalUserEmail: string | null = null;
+    if (clientPortalUserId) {
+      const portalUser = await prisma.clientPortalUser
+        .findUnique({
+          where: { id: clientPortalUserId },
+          select: { email: true }
+        })
+        .catch(() => null);
+      clientPortalUserEmail = portalUser?.email ?? null;
+    }
+
+    await prisma.auditLog
+      .create({
+        data: {
+          actor: clientPortalUserEmail ?? "client_portal",
+          action: "hubspot.client_connected",
+          entityType: "HubSpotPortal",
+          entityId: portal.id,
+          ...(projectId ? { projectId } : {}),
+          metadata: {
+            projectId: projectId || null,
+            clientId: clientId || null,
+            clientPortalUserId,
+            hubDomain: portal.hubDomain ?? null
+          }
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to write client-portal HubSpot audit log", error);
+      });
+  }
+
   return {
     portal: serializeHubSpotPortal(portal),
-    returnTo
+    returnTo,
+    originatedFromClientPortal
   };
 }
 
@@ -22363,6 +22463,7 @@ export async function loadClientProjectsForUser(userId: string) {
       project: {
         include: {
           client: true,
+          portal: true,
           retainer: {
             include: {
               periods: {
@@ -22389,6 +22490,8 @@ export async function loadClientProjectsForUser(userId: string) {
 
   return accessRecords.map((record) => ({
     role: record.role,
+    assignedInputSections: record.assignedInputSections,
+    questionnaireAccess: record.questionnaireAccess,
     project: {
       ...serializeClientProject(record.project),
       pendingTopUpCount:
@@ -22411,7 +22514,8 @@ export async function loadClientProjectDetail(
     include: {
       project: {
         include: {
-          client: true
+          client: true,
+          portal: true
         }
       },
       user: true

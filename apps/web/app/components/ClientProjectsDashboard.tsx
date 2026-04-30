@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import ClientShell from "./ClientShell";
 import ClientHubSpotInviteCard from "./ClientHubSpotInviteCard";
+import WelcomeCard from "./WelcomeCard";
 import {
   type PortalExperience,
   getPortalProjectPath
@@ -22,10 +23,17 @@ interface ClientProject {
     engagementType: string;
     selectedHubs: string[];
     updatedAt: string;
+    quoteApprovalStatus?: string | null;
     client: {
       name: string;
       website?: string | null;
     };
+    portal?: {
+      id: string;
+      connected: boolean;
+      hubDomain: string | null;
+      displayName: string;
+    } | null;
   };
 }
 
@@ -87,8 +95,47 @@ export default function ClientProjectsDashboard({
     !["active", "in_progress", "draft"].includes(project.status)
   );
 
+  const liveProjects = projects.filter(({ project }) => project.status !== "cancelled");
+  const hubspotConnect = liveProjects.find(
+    ({ project }) => project.portal && !project.portal.connected
+  );
+  const pendingApproval = liveProjects.find(
+    ({ project }) => project.quoteApprovalStatus === "shared"
+  );
+  const pendingInputs = liveProjects.find(
+    ({ project }) =>
+      project.scopeType !== "standalone_quote" &&
+      project.status !== "complete"
+  );
+
   return (
     <ClientShell portalExperience={portalExperience}>
+      <WelcomeCard
+        hubspotConnect={
+          hubspotConnect
+            ? {
+                projectId: hubspotConnect.project.id,
+                projectName: hubspotConnect.project.name
+              }
+            : null
+        }
+        pendingInputs={
+          pendingInputs
+            ? {
+                projectId: pendingInputs.project.id,
+                projectName: pendingInputs.project.name
+              }
+            : null
+        }
+        pendingApproval={
+          pendingApproval
+            ? {
+                projectId: pendingApproval.project.id,
+                projectName: pendingApproval.project.name
+              }
+            : null
+        }
+      />
       <ClientHubSpotInviteCard />
       {loading ? (
         <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8 text-text-secondary">

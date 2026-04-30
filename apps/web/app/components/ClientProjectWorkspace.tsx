@@ -49,6 +49,12 @@ interface ClientProjectDetail {
     quoteApprovedByName?: string | null;
     quoteApprovedByEmail?: string | null;
     scopeLockedAt?: string | null;
+    portal?: {
+      id: string;
+      connected: boolean;
+      hubDomain: string | null;
+      displayName: string;
+    } | null;
     scopeType?: string | null;
     commercialBrief?: string | null;
     clientQuestionnaireConfig?: ClientQuestionnaireDefinitionMap | null;
@@ -216,6 +222,8 @@ export default function ClientProjectWorkspace({
     useState<ClientQuestionnaireDefinitionMap>(createDefaultClientQuestionnaireDefinitionMap());
   const [detail, setDetail] = useState<ClientProjectDetail | null>(null);
   const [latestQuoteId, setLatestQuoteId] = useState<string | null>(null);
+  const [connectingHubSpot, setConnectingHubSpot] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<number, Record<string, string>>>({ 1: {}, 2: {}, 3: {}, 4: {} });
   const [sessionSaveState, setSessionSaveState] = useState<Record<number, SessionSaveState>>({});
   const [pageError, setPageError] = useState<string | null>(null);
@@ -334,6 +342,33 @@ export default function ClientProjectWorkspace({
       }, 1200);
       return next;
     });
+  }
+
+  async function handleStartHubSpotConnect() {
+    if (!detail) return;
+    setConnectingHubSpot(true);
+    setConnectError(null);
+    try {
+      const response = await fetch(
+        `/api/client/projects/${encodeURIComponent(detail.project.id)}/hubspot/connect/start`,
+        {
+          method: "POST",
+          credentials: "include"
+        }
+      );
+      const body = (await response.json().catch(() => null)) as
+        | { authUrl?: string; error?: string }
+        | null;
+      if (!response.ok || !body?.authUrl) {
+        throw new Error(body?.error ?? "Failed to start HubSpot connection");
+      }
+      window.location.href = body.authUrl;
+    } catch (error) {
+      setConnectError(
+        error instanceof Error ? error.message : "Failed to start HubSpot connection"
+      );
+      setConnectingHubSpot(false);
+    }
   }
 
   async function saveSession(sessionNumber: number, options?: { mode?: "manual" | "autosave"; answersOverride?: Record<string, string> }) {
@@ -495,6 +530,46 @@ export default function ClientProjectWorkspace({
           {activeTab === "overview" ? (
             <div className="space-y-5">
               <ClientHubSpotInviteCard />
+              {detail.project.portal && !detail.project.portal.connected ? (
+                <div className="rounded-2xl border border-[#49cde1]/30 bg-[rgba(73,205,225,0.08)] p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex-1">
+                      <p className="text-xs uppercase tracking-[0.18em] text-[#9be4f0]">
+                        HubSpot connection
+                      </p>
+                      <h3 className="mt-2 text-lg font-semibold text-white">
+                        Connect your HubSpot
+                      </h3>
+                      <p className="mt-2 text-sm text-text-secondary">
+                        Authorise Muloo to read and write into your HubSpot
+                        portal so we can configure properties, workflows, and
+                        objects against your real environment.
+                      </p>
+                      {connectError ? (
+                        <p className="mt-3 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
+                          {connectError}
+                        </p>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleStartHubSpotConnect}
+                      disabled={connectingHubSpot}
+                      className="rounded-xl bg-[#49cde1] px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-[#71dbeb] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {connectingHubSpot ? "Redirecting..." : "Connect HubSpot"}
+                    </button>
+                  </div>
+                </div>
+              ) : detail.project.portal?.connected ? (
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/5 px-5 py-3 text-sm text-emerald-100">
+                  HubSpot connected ·{" "}
+                  <span className="text-emerald-50">
+                    {detail.project.portal.hubDomain ??
+                      detail.project.portal.displayName}
+                  </span>
+                </div>
+              ) : null}
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
                   <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Status</p>
