@@ -12877,6 +12877,10 @@ function serializePortalSnapshot<
     companyPropertyCount: number | null;
     dealPropertyCount: number | null;
     ticketPropertyCount: number | null;
+    contactRecordCount: number | null;
+    companyRecordCount: number | null;
+    dealRecordCount: number | null;
+    ticketRecordCount: number | null;
     customObjectCount: number | null;
     dealPipelineCount: number | null;
     dealStageCount: number | null;
@@ -12898,6 +12902,10 @@ function serializePortalSnapshot<
     companyPropertyCount: snapshot.companyPropertyCount,
     dealPropertyCount: snapshot.dealPropertyCount,
     ticketPropertyCount: snapshot.ticketPropertyCount,
+    contactRecordCount: snapshot.contactRecordCount,
+    companyRecordCount: snapshot.companyRecordCount,
+    dealRecordCount: snapshot.dealRecordCount,
+    ticketRecordCount: snapshot.ticketRecordCount,
     customObjectCount: snapshot.customObjectCount,
     dealPipelineCount: snapshot.dealPipelineCount,
     dealStageCount: snapshot.dealStageCount,
@@ -13889,6 +13897,39 @@ export async function loadLatestPortalSnapshot(portalId: string) {
   return snapshot ? serializePortalSnapshot(snapshot) : null;
 }
 
+async function fetchHubSpotObjectRecordCount(
+  baseUrl: string,
+  accessToken: string,
+  objectType: "contacts" | "companies" | "deals" | "tickets"
+): Promise<number | null> {
+  try {
+    const response = await fetch(
+      `${baseUrl}/crm/v3/objects/${objectType}/search`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ limit: 1 })
+      }
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const body = (await response.json().catch(() => null)) as
+      | { total?: number }
+      | null;
+    return typeof body?.total === "number" ? body.total : null;
+  } catch (error) {
+    console.error(
+      `Failed to fetch HubSpot record count for ${objectType}`,
+      error instanceof Error ? error.message : error
+    );
+    return null;
+  }
+}
+
 export async function createPortalSnapshotForPortal(portalId: string) {
   const portal = await prisma.hubSpotPortal.findUnique({
     where: { id: portalId },
@@ -13907,14 +13948,30 @@ export async function createPortalSnapshotForPortal(portalId: string) {
     throw new Error("HubSpot portal is not connected");
   }
 
+  const baseUrl = normalizeHubSpotBaseUrl();
+  const accessToken = portal.accessToken;
+
   const client = new HubSpotClient({
-    accessToken: portal.accessToken,
-    baseUrl: normalizeHubSpotBaseUrl(),
+    accessToken,
+    baseUrl,
     logger: createHubSpotLogger(),
     scopes: portal.scopes
   });
 
-  const snapshotPayload = await client.capturePortalSnapshot();
+  const [
+    snapshotPayload,
+    contactRecordCount,
+    companyRecordCount,
+    dealRecordCount,
+    ticketRecordCount
+  ] = await Promise.all([
+    client.capturePortalSnapshot(),
+    fetchHubSpotObjectRecordCount(baseUrl, accessToken, "contacts"),
+    fetchHubSpotObjectRecordCount(baseUrl, accessToken, "companies"),
+    fetchHubSpotObjectRecordCount(baseUrl, accessToken, "deals"),
+    fetchHubSpotObjectRecordCount(baseUrl, accessToken, "tickets")
+  ]);
+
   const { activeUserCount, teamCount, activeListCount, rawApiResponses } =
     snapshotPayload;
   const snapshot = await prisma.portalSnapshot.create({
@@ -13926,6 +13983,10 @@ export async function createPortalSnapshotForPortal(portalId: string) {
       companyPropertyCount: snapshotPayload.companyPropertyCount ?? null,
       dealPropertyCount: snapshotPayload.dealPropertyCount ?? null,
       ticketPropertyCount: snapshotPayload.ticketPropertyCount ?? null,
+      contactRecordCount,
+      companyRecordCount,
+      dealRecordCount,
+      ticketRecordCount,
       customObjectCount: snapshotPayload.customObjectCount ?? null,
       dealPipelineCount: snapshotPayload.dealPipelineCount ?? null,
       dealStageCount: snapshotPayload.dealStageCount ?? null,

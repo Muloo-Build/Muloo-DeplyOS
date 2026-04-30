@@ -931,6 +931,10 @@ model PortalSnapshot {
   companyPropertyCount Int?
   dealPropertyCount    Int?
   ticketPropertyCount  Int?
+  contactRecordCount   Int?
+  companyRecordCount   Int?
+  dealRecordCount      Int?
+  ticketRecordCount    Int?
   customObjectCount    Int?
   dealPipelineCount    Int?
   dealStageCount       Int?

@@ -161,8 +161,13 @@ export default function ProjectContextSidebar(props: {
   connectionReady: boolean;
   portalRecordId?: string | null;
   contactsCount?: number | null;
+  companiesCount?: number | null;
   dealsCount?: number | null;
-  propertiesCount?: number | null;
+  ticketsCount?: number | null;
+  contactPropertyCount?: number | null;
+  companyPropertyCount?: number | null;
+  dealPropertyCount?: number | null;
+  ticketPropertyCount?: number | null;
   customObjectsCount?: number | null;
   ownerName: string;
   ownerEmail: string;
@@ -211,11 +216,21 @@ export default function ProjectContextSidebar(props: {
         />
       </SidebarSection>
 
-      <SidebarSection label="SNAPSHOT">
+      <SidebarSection label="RECORDS">
         <div className="grid gap-2 text-text-secondary">
           <p>Contacts: {props.contactsCount ?? "—"}</p>
+          <p>Companies: {props.companiesCount ?? "—"}</p>
           <p>Deals: {props.dealsCount ?? "—"}</p>
-          <p>Properties: {props.propertiesCount ?? "—"}</p>
+          <p>Tickets: {props.ticketsCount ?? "—"}</p>
+        </div>
+      </SidebarSection>
+
+      <SidebarSection label="SCHEMA BREADTH">
+        <div className="grid gap-2 text-text-secondary">
+          <p>Contact properties: {props.contactPropertyCount ?? "—"}</p>
+          <p>Company properties: {props.companyPropertyCount ?? "—"}</p>
+          <p>Deal properties: {props.dealPropertyCount ?? "—"}</p>
+          <p>Ticket properties: {props.ticketPropertyCount ?? "—"}</p>
           <p>Custom objects: {props.customObjectsCount ?? "—"}</p>
         </div>
       </SidebarSection>

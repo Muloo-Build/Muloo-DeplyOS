@@ -125,7 +125,13 @@ interface PortalSnapshot {
   hubTier?: string | null;
   activeHubs: string[];
   contactPropertyCount?: number | null;
+  companyPropertyCount?: number | null;
   dealPropertyCount?: number | null;
+  ticketPropertyCount?: number | null;
+  contactRecordCount?: number | null;
+  companyRecordCount?: number | null;
+  dealRecordCount?: number | null;
+  ticketRecordCount?: number | null;
   customObjectCount?: number | null;
 }
 
@@ -2138,9 +2144,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               hubTier={portalSnapshot?.hubTier ?? null}
               connectionReady={Boolean(project.portal?.connected)}
               portalRecordId={project.portal?.id ?? null}
-              contactsCount={portalSnapshot?.contactPropertyCount ?? null}
-              dealsCount={portalSnapshot?.dealPropertyCount ?? null}
-              propertiesCount={portalSnapshot?.contactPropertyCount ?? null}
+              contactsCount={portalSnapshot?.contactRecordCount ?? null}
+              companiesCount={portalSnapshot?.companyRecordCount ?? null}
+              dealsCount={portalSnapshot?.dealRecordCount ?? null}
+              ticketsCount={portalSnapshot?.ticketRecordCount ?? null}
+              contactPropertyCount={portalSnapshot?.contactPropertyCount ?? null}
+              companyPropertyCount={portalSnapshot?.companyPropertyCount ?? null}
+              dealPropertyCount={portalSnapshot?.dealPropertyCount ?? null}
+              ticketPropertyCount={portalSnapshot?.ticketPropertyCount ?? null}
               customObjectsCount={portalSnapshot?.customObjectCount ?? null}
               ownerName={project.owner}
               ownerEmail={project.ownerEmail}
