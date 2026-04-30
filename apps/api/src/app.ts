@@ -222,6 +222,8 @@ import {
   loadFinancialsSummary,
   loadQuoteById,
   markPortalAsConnectedManually,
+  pushQuoteToPortal,
+  bulkArchiveQuotes,
   recallQuote,
   saveProjectQuote,
   sendQuoteByEmail,
@@ -639,6 +641,15 @@ const quoteSendEmailSchema = z.object({
   to: z.array(z.string().trim().email()).min(1),
   cc: z.array(z.string().trim().email()).optional(),
   message: z.string().trim().max(5000).optional()
+});
+
+const quotePushToPortalSchema = z.object({
+  alsoEmail: z.boolean().optional(),
+  message: z.string().trim().max(5000).optional()
+});
+
+const quoteBulkArchiveSchema = z.object({
+  quoteIds: z.array(z.string().trim().min(1)).min(1).max(50)
 });
 
 type AssistantAction = {
@@ -4616,6 +4627,52 @@ export function createApiApp(config: BaseConfig) {
         message === "Quote not found"
           ? 404
           : message.startsWith("Only draft or sent")
+            ? 409
+            : 400;
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
+  app.post("/api/quotes/:quoteId/push-to-portal", async (c) => {
+    const body = quotePushToPortalSchema.parse(await readJsonBodyOrEmpty(c));
+
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      const result = await pushQuoteToPortal(c.req.param("quoteId"), {
+        ...(body.alsoEmail !== undefined ? { alsoEmail: body.alsoEmail } : {}),
+        ...(body.message ? { message: body.message } : {}),
+        actor: actor.actor
+      });
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to push quote to portal";
+      const statusCode =
+        message === "Quote not found"
+          ? 404
+          : message.startsWith("Only draft quotes")
+            ? 409
+            : 400;
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
+  app.post("/api/quotes/bulk-archive", async (c) => {
+    const body = quoteBulkArchiveSchema.parse(await readJsonBodyOrEmpty(c));
+
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      const result = await bulkArchiveQuotes(body.quoteIds, {
+        actor: actor.actor
+      });
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to archive quotes";
+      const statusCode =
+        message === "One or more quotes were not found"
+          ? 404
+          : message.startsWith("Only superseded or lost")
             ? 409
             : 400;
       return c.json({ error: message }, statusCode);

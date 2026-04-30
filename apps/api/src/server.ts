@@ -25018,6 +25018,10 @@ export async function loadQuoteById(quoteId: string) {
       }
     : null;
 
+  const clientPortalUserCount = await prisma.clientProjectAccess.count({
+    where: { projectId: quote.project.id }
+  });
+
   return {
     quote: serializeProjectQuote(quote),
     project: {
@@ -25027,7 +25031,8 @@ export async function loadQuoteById(quoteId: string) {
       status: quote.project.status,
       owner: quote.project.owner,
       ownerEmail: quote.project.ownerEmail,
-      client
+      client,
+      clientPortalUserCount
     }
   };
 }
@@ -26063,5 +26068,206 @@ export async function sendQuoteByEmail(
           ? (sendResult as { messageId?: string | null }).messageId ?? null
           : null
     }
+  };
+}
+
+export async function pushQuoteToPortal(
+  quoteId: string,
+  value: { alsoEmail?: boolean; message?: string; actor?: string }
+) {
+  const quote = await prisma.projectQuote.findUnique({
+    where: { id: quoteId },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          owner: true,
+          ownerEmail: true,
+          client: {
+            select: {
+              id: true,
+              name: true,
+              contacts: {
+                where: { canApproveQuotes: true },
+                select: { email: true }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (!quote) {
+    throw new Error("Quote not found");
+  }
+
+  if (quote.status !== "draft") {
+    throw new Error(
+      `Only draft quotes can be pushed to the portal. Current status: ${quote.status}.`
+    );
+  }
+
+  const portalUserCount = await prisma.clientProjectAccess.count({
+    where: { projectId: quote.project.id }
+  });
+
+  const actor = value.actor ?? "system";
+  const customMessage = value.message?.trim();
+  const portalLink = `${resolvePublicAppUrl()}/client/quotes/${quote.id}`;
+  const quoteRef = `Q-${quote.id.slice(-6).toUpperCase()}-V${quote.version}`;
+  const senderName = quote.project.owner ?? "Muloo";
+
+  let serializedQuote: ReturnType<typeof serializeProjectQuote>;
+  let emailDelivery: Awaited<ReturnType<typeof sendQuoteByEmail>>["delivery"] | null = null;
+
+  if (value.alsoEmail) {
+    const recipients = (quote.project.client?.contacts ?? [])
+      .map((contact) => contact.email.trim())
+      .filter(Boolean);
+    if (recipients.length === 0) {
+      throw new Error(
+        "No approver contacts on file to email. Uncheck Also send email or add an approver to the client record."
+      );
+    }
+    const sendResult = await sendQuoteByEmail(quoteId, {
+      to: recipients,
+      ...(customMessage ? { message: customMessage } : {}),
+      actor
+    });
+    serializedQuote = sendResult.quote;
+    emailDelivery = sendResult.delivery;
+  } else {
+    const sentAt = new Date();
+    const updated = await prisma.projectQuote.update({
+      where: { id: quoteId },
+      data: {
+        status: "shared",
+        sendCount: { increment: 1 },
+        lastSentAt: sentAt,
+        sharedAt: sentAt
+      }
+    });
+    await prisma.project.update({
+      where: { id: quote.project.id },
+      data: {
+        quoteApprovalStatus: "shared",
+        quoteSharedAt: sentAt
+      }
+    });
+    serializedQuote = serializeProjectQuote(updated);
+  }
+
+  const messageBodyLines = [`New quote ready for review · ${quoteRef}`];
+  if (customMessage) {
+    messageBodyLines.push("", customMessage);
+  }
+  messageBodyLines.push("", `Review and approve in your portal: ${portalLink}`);
+
+  await prisma.projectMessage.create({
+    data: {
+      projectId: quote.project.id,
+      senderType: "internal",
+      senderName,
+      body: messageBodyLines.join("\n"),
+      internalSeenAt: new Date(),
+      clientSeenAt: null
+    }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      actor,
+      action: "quote.pushed_to_portal",
+      entityType: "ProjectQuote",
+      entityId: quote.id,
+      projectId: quote.project.id,
+      metadata: {
+        quoteRef,
+        portalLink,
+        previousStatus: quote.status,
+        alsoEmail: Boolean(value.alsoEmail),
+        portalUserCount,
+        ...(emailDelivery ? { emailRecipients: emailDelivery.to } : {})
+      }
+    }
+  });
+
+  return {
+    quote: serializedQuote,
+    portal: {
+      portalLink,
+      pushedAt: new Date().toISOString(),
+      portalUserCount
+    },
+    delivery: emailDelivery
+  };
+}
+
+export async function bulkArchiveQuotes(
+  quoteIds: string[],
+  options?: { actor?: string }
+) {
+  const ids = Array.from(
+    new Set(quoteIds.map((id) => id.trim()).filter(Boolean))
+  );
+  if (ids.length === 0) {
+    throw new Error("At least one quoteId is required");
+  }
+
+  const quotes = await prisma.projectQuote.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, projectId: true, status: true }
+  });
+
+  if (quotes.length !== ids.length) {
+    throw new Error("One or more quotes were not found");
+  }
+
+  const ineligible = quotes.filter(
+    (quote) => quote.status !== "superseded" && quote.status !== "lost"
+  );
+  if (ineligible.length > 0) {
+    throw new Error(
+      `Only superseded or lost quotes can be bulk-archived. Ineligible: ${ineligible
+        .map((quote) => `${quote.id} (${quote.status})`)
+        .join(", ")}`
+    );
+  }
+
+  const archivedAt = new Date();
+  const actor = options?.actor ?? "system";
+
+  await prisma.$transaction(
+    quotes.flatMap((quote) => [
+      prisma.projectQuote.update({
+        where: { id: quote.id },
+        data: {
+          status: "archived",
+          closedAt: archivedAt,
+          closedReason: `Bulk-archived from ${quote.status}`
+        }
+      }),
+      prisma.auditLog.create({
+        data: {
+          actor,
+          action: "quote.bulk_archived",
+          entityType: "ProjectQuote",
+          entityId: quote.id,
+          projectId: quote.projectId,
+          metadata: {
+            previousStatus: quote.status
+          }
+        }
+      })
+    ])
+  );
+
+  return {
+    archived: quotes.map((quote) => ({
+      id: quote.id,
+      previousStatus: quote.status
+    }))
   };
 }
