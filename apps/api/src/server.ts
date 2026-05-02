@@ -32589,8 +32589,11 @@ export async function loadReportPack(projectId: string) {
   // Installations are per-portal (a single HubSpot portal may be shared by
   // multiple projects). Resolve the portal first, then load installs by
   // portalId so two projects on the same portal see the same install state.
+  // NOTE: Project.portalId is the *internal* HubSpotPortal.id FK — not the
+  // external HubSpot portal hub ID. Look up by id, then surface the
+  // external HubSpotPortal.portalId separately for UI display.
   const portalRow = project.portalId
-    ? await prisma.hubSpotPortal.findUnique({ where: { portalId: project.portalId } })
+    ? await prisma.hubSpotPortal.findUnique({ where: { id: project.portalId } })
     : null;
   const [templates, installations] = await Promise.all([
     prisma.reportTemplate.findMany({
@@ -32637,7 +32640,11 @@ export async function loadReportPack(projectId: string) {
     project: {
       id: project.id,
       name: project.name,
-      portalId: project.portalId
+      // Internal FK row id (used by install endpoints internally) plus the
+      // external HubSpot portal id for human-meaningful display.
+      portalId: project.portalId,
+      hubspotPortalId: portalRow?.portalId ?? null,
+      portalName: portalRow?.displayName ?? null
     },
     items
   };
@@ -32732,11 +32739,13 @@ export async function installReportTemplates(input: {
     throw new Error(`Unknown template slugs: ${missing.join(", ")}`);
   }
 
+  // Project.portalId is HubSpotPortal.id (internal FK), not the external
+  // HubSpot portal id. Look up by primary key.
   const portal = await prisma.hubSpotPortal.findUnique({
-    where: { portalId: project.portalId }
+    where: { id: project.portalId }
   });
   if (!portal) {
-    throw new Error(`HubSpot portal not found: ${project.portalId}`);
+    throw new Error(`HubSpot portal not found for project: ${project.id}`);
   }
 
   const enqueued: Array<{

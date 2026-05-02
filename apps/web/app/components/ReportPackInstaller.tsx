@@ -31,7 +31,13 @@ interface ReportPackItem {
 }
 
 interface ReportPackResponse {
-  project: { id: string; name: string; portalId: string };
+  project: {
+    id: string;
+    name: string;
+    portalId: string;
+    hubspotPortalId?: string | null;
+    portalName?: string | null;
+  };
   items: ReportPackItem[];
 }
 
@@ -211,7 +217,10 @@ export default function ReportPackInstaller({
           </p>
           <p className="mt-1 text-sm text-text-secondary">
             Push standard reports into HubSpot portal{" "}
-            <span className="font-mono text-white">{data.project.portalId}</span>
+            <span className="font-mono text-white">
+              {data.project.hubspotPortalId ?? data.project.portalId}
+              {data.project.portalName ? ` · ${data.project.portalName}` : ""}
+            </span>
             .
           </p>
         </div>

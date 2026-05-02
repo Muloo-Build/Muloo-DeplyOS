@@ -64,12 +64,18 @@ export async function runReportInstall(data: JobPayload): Promise<JobResult> {
 
   const installation = await prisma.reportInstallation.findUnique({
     where: { id: installationId },
-    include: { template: true },
+    include: { template: true, portal: true },
   });
 
   if (!installation) {
     throw new Error(`ReportInstallation not found: ${installationId}`);
   }
+
+  // installation.portalId is the internal HubSpotPortal.id FK; the external
+  // HubSpot portal hub id (used by HubSpot APIs and the cowork URL) lives
+  // on the related row's portalId column. Always derive the external id
+  // from the loaded portal row.
+  const externalPortalId = installation.portal.portalId;
 
   // Idempotency guard — if this row was already installed by an earlier job
   // attempt (BullMQ default attempts: 3) and the executionJobId matches the
@@ -122,13 +128,16 @@ export async function runReportInstall(data: JobPayload): Promise<JobResult> {
   const portalSession = data.sessionId
     ? await prisma.portalSession.findUnique({ where: { id: data.sessionId } })
     : await prisma.portalSession.findFirst({
-        where: { portalId: data.portalId, valid: true },
+        // PortalSession.portalId stores the *external* HubSpot portal hub id
+        // (see /api/portal-session/:portalId routes), not the internal
+        // HubSpotPortal.id FK that ReportInstallation uses.
+        where: { portalId: externalPortalId, valid: true },
         orderBy: { capturedAt: "desc" },
       });
 
   if (!portalSession?.csrfToken?.trim()) {
     const cowork = buildCoworkInstruction(
-      data.portalId,
+      externalPortalId,
       template.name,
       installation.templateSlug,
     );
@@ -162,11 +171,11 @@ export async function runReportInstall(data: JobPayload): Promise<JobResult> {
   }
 
   const executor = new BrowserSessionExecutor({
-    portalId: data.portalId,
+    portalId: externalPortalId,
     csrfToken: portalSession.csrfToken,
     baseUrl: portalSession.baseUrl,
   });
-  const config: TemplateConfig = { portalId: data.portalId };
+  const config: TemplateConfig = { portalId: externalPortalId };
 
   try {
     const reportDef = template.build(config);
