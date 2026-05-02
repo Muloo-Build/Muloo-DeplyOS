@@ -474,7 +474,8 @@ export default function ProjectWorkbooksPanel(props: {
                         {wb.sourceLabel}
                       </p>
                       <span
-                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${badge.className}`}
+                        title={badge.tooltip}
+                        className={`inline-flex cursor-help items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${badge.className}`}
                       >
                         {badge.label}
                       </span>
