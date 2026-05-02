@@ -4949,10 +4949,18 @@ type SerializableProjectContributor = {
   projectId: string;
   contactId: string;
   role: string;
+  stakeholderType: string | null;
+  organisation: string | null;
   portalUserId: string | null;
+  portalAccessEnabled: boolean;
+  canSubmitWorkbookResponses: boolean;
   relatedWorkbookIds: string[];
   relatedQuestionIds: string[];
   notes: string | null;
+  createdByType: string;
+  createdByUserId: string | null;
+  createdByContributorId: string | null;
+  approvalStatus: string;
   createdAt: Date;
   updatedAt: Date;
   contact?: {
@@ -4972,10 +4980,18 @@ function serializeProjectContributor(record: SerializableProjectContributor) {
     projectId: record.projectId,
     contactId: record.contactId,
     role: record.role,
+    stakeholderType: record.stakeholderType ?? null,
+    organisation: record.organisation ?? null,
     portalUserId: record.portalUserId,
+    portalAccessEnabled: record.portalAccessEnabled,
+    canSubmitWorkbookResponses: record.canSubmitWorkbookResponses,
     relatedWorkbookIds: record.relatedWorkbookIds ?? [],
     relatedQuestionIds: record.relatedQuestionIds ?? [],
     notes: record.notes,
+    createdByType: record.createdByType,
+    createdByUserId: record.createdByUserId ?? null,
+    createdByContributorId: record.createdByContributorId ?? null,
+    approvalStatus: record.approvalStatus,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     contact: record.contact
@@ -5007,10 +5023,18 @@ export async function createProjectContributor(
   value: {
     contactId?: unknown;
     role?: unknown;
+    stakeholderType?: unknown;
+    organisation?: unknown;
     portalUserId?: unknown;
+    portalAccessEnabled?: unknown;
+    canSubmitWorkbookResponses?: unknown;
     relatedWorkbookIds?: unknown;
     relatedQuestionIds?: unknown;
     notes?: unknown;
+    createdByType?: unknown;
+    createdByUserId?: unknown;
+    createdByContributorId?: unknown;
+    approvalStatus?: unknown;
   }
 ) {
   const contactId = normalizeOptionalText(value.contactId);
@@ -5035,6 +5059,8 @@ export async function createProjectContributor(
   }
 
   const role = normalizeOptionalText(value.role) ?? "contributor";
+  const stakeholderType = normalizeOptionalText(value.stakeholderType);
+  const organisation = normalizeOptionalText(value.organisation);
   const relatedWorkbookIds = Array.isArray(value.relatedWorkbookIds)
     ? value.relatedWorkbookIds.filter(
         (entry): entry is string =>
@@ -5048,25 +5074,63 @@ export async function createProjectContributor(
       )
     : [];
   const portalUserId = normalizeOptionalText(value.portalUserId);
+  const portalAccessEnabled =
+    typeof value.portalAccessEnabled === "boolean"
+      ? value.portalAccessEnabled
+      : false;
+  const canSubmitWorkbookResponses =
+    typeof value.canSubmitWorkbookResponses === "boolean"
+      ? value.canSubmitWorkbookResponses
+      : true;
   const notes = normalizeOptionalText(value.notes);
+  const createdByType =
+    typeof value.createdByType === "string" &&
+    ["internal", "client_champion", "system"].includes(value.createdByType)
+      ? value.createdByType
+      : "internal";
+  const createdByUserId = normalizeOptionalText(value.createdByUserId);
+  const createdByContributorId = normalizeOptionalText(
+    value.createdByContributorId
+  );
+  const approvalStatus =
+    typeof value.approvalStatus === "string" &&
+    ["approved", "pending_review", "rejected"].includes(value.approvalStatus)
+      ? value.approvalStatus
+      : "approved";
 
   const created = await prisma.projectContributor.upsert({
     where: { projectId_contactId: { projectId, contactId } },
     update: {
       role,
+      stakeholderType,
+      organisation,
       portalUserId,
+      portalAccessEnabled,
+      canSubmitWorkbookResponses,
       relatedWorkbookIds,
       relatedQuestionIds,
-      notes
+      notes,
+      createdByType,
+      createdByUserId,
+      createdByContributorId,
+      approvalStatus
     },
     create: {
       projectId,
       contactId,
       role,
+      stakeholderType,
+      organisation,
       portalUserId,
+      portalAccessEnabled,
+      canSubmitWorkbookResponses,
       relatedWorkbookIds,
       relatedQuestionIds,
-      notes
+      notes,
+      createdByType,
+      createdByUserId,
+      createdByContributorId,
+      approvalStatus
     },
     include: { contact: true }
   });
@@ -5079,10 +5143,15 @@ export async function updateProjectContributor(
   contributorId: string,
   value: {
     role?: unknown;
+    stakeholderType?: unknown;
+    organisation?: unknown;
     portalUserId?: unknown;
+    portalAccessEnabled?: unknown;
+    canSubmitWorkbookResponses?: unknown;
     relatedWorkbookIds?: unknown;
     relatedQuestionIds?: unknown;
     notes?: unknown;
+    approvalStatus?: unknown;
   }
 ) {
   const existing = await prisma.projectContributor.findFirst({
@@ -5096,8 +5165,26 @@ export async function updateProjectContributor(
   if (value.role !== undefined) {
     data.role = normalizeOptionalText(value.role) ?? "contributor";
   }
+  if (value.stakeholderType !== undefined) {
+    data.stakeholderType = normalizeOptionalText(value.stakeholderType);
+  }
+  if (value.organisation !== undefined) {
+    data.organisation = normalizeOptionalText(value.organisation);
+  }
   if (value.portalUserId !== undefined) {
     data.portalUserId = normalizeOptionalText(value.portalUserId);
+  }
+  if (value.portalAccessEnabled !== undefined) {
+    data.portalAccessEnabled =
+      typeof value.portalAccessEnabled === "boolean"
+        ? value.portalAccessEnabled
+        : existing.portalAccessEnabled;
+  }
+  if (value.canSubmitWorkbookResponses !== undefined) {
+    data.canSubmitWorkbookResponses =
+      typeof value.canSubmitWorkbookResponses === "boolean"
+        ? value.canSubmitWorkbookResponses
+        : existing.canSubmitWorkbookResponses;
   }
   if (value.relatedWorkbookIds !== undefined) {
     data.relatedWorkbookIds = Array.isArray(value.relatedWorkbookIds)
@@ -5117,6 +5204,13 @@ export async function updateProjectContributor(
   }
   if (value.notes !== undefined) {
     data.notes = normalizeOptionalText(value.notes);
+  }
+  if (value.approvalStatus !== undefined) {
+    data.approvalStatus =
+      typeof value.approvalStatus === "string" &&
+      ["approved", "pending_review", "rejected"].includes(value.approvalStatus)
+        ? value.approvalStatus
+        : existing.approvalStatus;
   }
 
   const updated = await prisma.projectContributor.update({

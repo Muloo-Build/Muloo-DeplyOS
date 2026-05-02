@@ -612,18 +612,26 @@ model DiscoveryEvidence {
 }
 
 model ProjectContributor {
-  id                  String        @id @default(cuid())
-  projectId           String
-  contactId           String
-  role                String        @default("contributor")
-  portalUserId        String?
-  relatedWorkbookIds  String[]      @default([])
-  relatedQuestionIds  String[]      @default([])
-  notes               String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  project             Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  contact             ClientContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  id                       String        @id @default(cuid())
+  projectId                String
+  contactId                String
+  role                     String        @default("contributor")
+  stakeholderType          String?
+  organisation             String?
+  portalUserId             String?
+  portalAccessEnabled      Boolean       @default(false)
+  canSubmitWorkbookResponses Boolean     @default(true)
+  relatedWorkbookIds       String[]      @default([])
+  relatedQuestionIds       String[]      @default([])
+  notes                    String?
+  createdByType            String        @default("internal")
+  createdByUserId          String?
+  createdByContributorId   String?
+  approvalStatus           String        @default("approved")
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  project                  Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contact                  ClientContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, contactId])
   @@index([projectId, createdAt])
