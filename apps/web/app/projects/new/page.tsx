@@ -29,6 +29,9 @@ interface FormData {
   instagramUrl: string;
   xUrl: string;
   youtubeUrl: string;
+  // T4.4 — auto-prefilled by the website-blur enrichment. Persisted on the
+  // Client.enrichedLogoUrl field so we don't lose the result of the lookup.
+  enrichedLogoUrl: string;
   clientChampionFirstName: string;
   clientChampionLastName: string;
   clientChampionEmail: string;
@@ -279,12 +282,23 @@ function formatContainerLabel(value: string) {
   );
 }
 
+// T4.1 — must mirror the server-side `createSlug` (apps/api/src/server.ts)
+// EXACTLY so the wizard's existing-client prompt fires for the same name
+// variants the server would later reject as duplicates. The server slug
+// only collapses whitespace to "-" and strips non-alphanumerics; it does
+// NOT collapse other punctuation to "-" or trim leading/trailing dashes.
+// Diverging here meant punctuation-heavy names ("Acme, Inc." etc.) could
+// slip past the wizard prompt and only fail at submit.
 function createClientLookupKey(value: string) {
+  // Server trims `clientName` before calling `createSlug`, so we mirror
+  // the trim here too — otherwise inputs like "Magnisol " would slug to
+  // "magnisol-" on the client and "magnisol" on the server, missing the
+  // prompt and only failing at submit.
   return value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
 }
 
 function normalizeDetectedTier(value: string | null | undefined) {
@@ -413,6 +427,26 @@ export default function NewProjectPage() {
   const [selectedSolutionTitle, setSelectedSolutionTitle] = useState<
     string | null
   >(null);
+  // T4.1 — when the typed client name matches an existing client we surface
+  // a prompt asking the operator to confirm "use existing client + add a new
+  // project". Once confirmed we hide the Industry / Website / Social fields
+  // because they live on the existing Client row already.
+  const [existingClientMatch, setExistingClientMatch] =
+    useState<ClientLookupRecord | null>(null);
+  const [useExistingClient, setUseExistingClient] = useState(false);
+  // T4.4 — primary-website blur runs the enrichment endpoint to auto-fill
+  // industry / logo / socials. We keep loading + error state so the operator
+  // sees what's happening.
+  const [websiteEnrichmentLoading, setWebsiteEnrichmentLoading] =
+    useState(false);
+  const [websiteEnrichmentError, setWebsiteEnrichmentError] = useState<
+    string | null
+  >(null);
+  const [websiteEnrichmentResult, setWebsiteEnrichmentResult] = useState<{
+    industry: string | null;
+    logoUrl: string | null;
+  } | null>(null);
+  const lastEnrichedWebsiteRef = useRef<string>("");
   const [formData, setFormData] = useState<FormData>({
     projectName: "",
     clientName: "",
@@ -436,6 +470,7 @@ export default function NewProjectPage() {
     instagramUrl: "",
     xUrl: "",
     youtubeUrl: "",
+    enrichedLogoUrl: "",
     clientChampionFirstName: "",
     clientChampionLastName: "",
     clientChampionEmail: "",
@@ -586,6 +621,10 @@ export default function NewProjectPage() {
       setDetectedPortalName(null);
       setDetectedPortalTier("");
       setDetectedPortalHubs([]);
+      setExistingClientMatch(null);
+      // The operator cleared the field — reset the "use existing" toggle so
+      // they aren't silently locked into a stale match.
+      setUseExistingClient(false);
       return;
     }
 
@@ -594,6 +633,20 @@ export default function NewProjectPage() {
       clients.find(
         (client) => createClientLookupKey(client.name) === lookupKey
       );
+
+    // T4.1 — record the matched existing client (if any) so we can render
+    // the "X already exists, use it?" prompt regardless of whether they have
+    // a HubSpot portal attached. We also reset the "use existing" toggle
+    // whenever the matched client identity changes (including matched ->
+    // different match). Otherwise an operator who confirmed "use Client A"
+    // and then typed Client B would silently carry the prior confirmation
+    // over and the project could attach to the wrong client.
+    const previousMatchId = existingClientMatch?.id ?? null;
+    const nextMatchId = matchedClient?.id ?? null;
+    setExistingClientMatch(matchedClient ?? null);
+    if (previousMatchId !== nextMatchId) {
+      setUseExistingClient(false);
+    }
 
     if (!matchedClient?.hubSpotPortal?.id) {
       setDetectedPortalName(null);
@@ -648,6 +701,69 @@ export default function NewProjectPage() {
       cancelled = true;
     };
   }, [clients, formData.clientName]);
+
+  // T4.4 — primary-website blur runs the existing enrichment pipeline and
+  // prefills industry / logo / socials inline. Skipped when the operator
+  // confirmed "use existing client" because that data already lives on the
+  // existing Client row.
+  async function handleWebsiteBlur(rawValue: string) {
+    const website = rawValue.trim();
+    if (!website || useExistingClient) {
+      return;
+    }
+    if (lastEnrichedWebsiteRef.current === website) {
+      return;
+    }
+    setWebsiteEnrichmentLoading(true);
+    setWebsiteEnrichmentError(null);
+    try {
+      const response = await fetch("/api/website-enrichment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ website })
+      });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(
+          errorBody?.error ?? "We couldn't reach that website."
+        );
+      }
+      // T4.4 — only mark this URL as "already enriched" once we have a
+      // successful response. Setting it before the fetch trapped the
+      // operator on transient failures (network blip, rate limit) until
+      // they edited the field, defeating the blur-retry loop.
+      lastEnrichedWebsiteRef.current = website;
+      const body = await response.json();
+      const enrichment = body.enrichment ?? {};
+      setFormData((current) => ({
+        ...current,
+        industry: current.industry || enrichment.industry || "",
+        linkedinUrl: current.linkedinUrl || enrichment.linkedinUrl || "",
+        facebookUrl: current.facebookUrl || enrichment.facebookUrl || "",
+        instagramUrl: current.instagramUrl || enrichment.instagramUrl || "",
+        xUrl: current.xUrl || enrichment.xUrl || "",
+        youtubeUrl: current.youtubeUrl || enrichment.youtubeUrl || "",
+        // Persist the detected logo URL so the create payload can write it
+        // through to Client.enrichedLogoUrl. Don't overwrite any value the
+        // operator already typed (currently no manual input, but future-proof).
+        enrichedLogoUrl:
+          current.enrichedLogoUrl || enrichment.enrichedLogoUrl || ""
+      }));
+      setWebsiteEnrichmentResult({
+        industry: enrichment.industry ?? null,
+        logoUrl: enrichment.enrichedLogoUrl ?? null
+      });
+    } catch (caught) {
+      setWebsiteEnrichmentError(
+        caught instanceof Error
+          ? caught.message
+          : "We couldn't enrich that website."
+      );
+      setWebsiteEnrichmentResult(null);
+    } finally {
+      setWebsiteEnrichmentLoading(false);
+    }
+  }
 
   useEffect(() => {
     const matchingTemplates = deliveryTemplates.filter(
@@ -988,41 +1104,108 @@ export default function NewProjectPage() {
       instagramUrl: formData.instagramUrl.trim(),
       xUrl: formData.xUrl.trim(),
       youtubeUrl: formData.youtubeUrl.trim(),
+      // T4.4 — write the auto-detected logo through so it sticks on the
+      // Client record instead of vanishing when the wizard closes.
+      enrichedLogoUrl: formData.enrichedLogoUrl.trim(),
       clientChampionFirstName: formData.clientChampionFirstName.trim(),
       clientChampionLastName: formData.clientChampionLastName.trim(),
       clientChampionEmail: formData.clientChampionEmail.trim(),
+      // T4.1 — let the API leave the existing Client row's profile fields
+      // alone instead of clobbering them with the (likely empty) wizard
+      // values.
+      useExistingClient,
       moduleSelection
     };
 
     try {
-      const response = await fetch(
-        formData.useTemplate && formData.templateId
-          ? "/api/projects/from-template"
-          : "/api/projects",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
-            formData.useTemplate && formData.templateId
-              ? { ...payload, templateId: formData.templateId }
-              : payload
-          )
-        }
-      );
+      // T4 — every wizard submit (including template-backed projects) now
+      // goes through /api/projects -> createProjectRecord, so the new
+      // existing-client / portal-provision / onboarding-checklist /
+      // website-enrichment behaviour applies uniformly. The legacy
+      // /api/projects/from-template path bypassed all of that and is no
+      // longer reachable from the wizard; templates are applied from the
+      // project workspace (Standard Pack) after creation.
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          formData.useTemplate && formData.templateId
+            ? { ...payload, templateId: formData.templateId }
+            : payload
+        )
+      });
 
       if (!response.ok) {
-        await response.json().catch(() => null);
-        throw new Error(friendlyProjectCreateError);
+        const errBody = await response.json().catch(() => null);
+        // T4.1 — surface the duplicate-client and other validation errors
+        // from the API so the operator sees the real reason rather than
+        // a generic "Something went wrong".
+        const apiMessage =
+          typeof errBody?.error === "string" && errBody.error.trim()
+            ? errBody.error
+            : null;
+        throw new Error(apiMessage ?? friendlyProjectCreateError);
       }
 
       const body = await response.json();
-      const destination =
-        formData.scopeType === "optimisation"
-          ? `/projects/${body.project.id}/audit`
-          : `/projects/${body.project.id}`;
-      router.push(destination);
-    } catch {
-      setError(friendlyProjectCreateError);
+
+      // T4 — if the operator picked a Muloo template, apply it through
+      // the existing seed-standard-pack endpoint after create. We surface
+      // any failure as a non-fatal toast so the project still lands on
+      // the onboarding checklist (operator can re-seed from there).
+      let templateSeedWarning: string | null = null;
+      if (formData.useTemplate && formData.templateId && body.project?.id) {
+        // T4 — forward the operator's chosen foundation template so
+        // the seed pack actually applies the Sales / RevOps / Service
+        // template tasks (instead of the generic standard pack). We
+        // surface seed failures as a non-fatal warning that travels
+        // through the navigation to the onboarding page (via query
+        // param) so the operator actually sees it after redirect.
+        try {
+          const seedResponse = await fetch(
+            `/api/projects/${encodeURIComponent(body.project.id)}/seed-standard-pack`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ templateId: formData.templateId })
+            }
+          );
+          if (!seedResponse.ok) {
+            const seedBody = await seedResponse.json().catch(() => null);
+            const seedMessage =
+              typeof seedBody?.error === "string" && seedBody.error.trim()
+                ? seedBody.error
+                : `Template seeding failed (${seedResponse.status}).`;
+            console.warn("[new project] template seed failed", seedMessage);
+            templateSeedWarning = `Project created, but applying the selected template failed: ${seedMessage} You can re-seed it from the project workspace.`;
+          }
+        } catch (templateError) {
+          console.error(
+            "[new project] template seed failed",
+            templateError
+          );
+          templateSeedWarning =
+            "Project created, but applying the selected template failed. You can re-seed it from the project workspace.";
+        }
+      }
+      // T4.3 — after step 3 every newly created project lands on the
+      // onboarding checklist (5-item now-do-these-things list). Optimisation
+      // projects can still reach the audit workspace from the checklist /
+      // overview, but we never drop the operator into a cold workspace.
+      const onboardingUrl = templateSeedWarning
+        ? `/projects/${body.project.id}/onboarding?warning=${encodeURIComponent(templateSeedWarning)}`
+        : `/projects/${body.project.id}/onboarding`;
+      router.push(onboardingUrl);
+    } catch (submitError) {
+      // T4.1 — preserve the API's actionable error message (duplicate
+      // client, validation hints, etc.) instead of swapping it for a
+      // generic toast. Falls back to the friendly default only when the
+      // thrown error doesn't carry a useful message.
+      const message =
+        submitError instanceof Error && submitError.message.trim()
+          ? submitError.message
+          : friendlyProjectCreateError;
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -1240,6 +1423,66 @@ export default function NewProjectPage() {
                       <option key={client.id} value={client.name} />
                     ))}
                   </datalist>
+                  {existingClientMatch && !useExistingClient ? (
+                    <div
+                      role="alert"
+                      className="mt-3 rounded-xl border border-[rgba(73,205,225,0.4)] bg-[rgba(11,26,52,0.7)] p-4 text-sm text-text-secondary"
+                    >
+                      <p className="font-semibold text-white">
+                        {existingClientMatch.name} already exists.
+                      </p>
+                      <p className="mt-1 text-text-muted">
+                        Use the existing client and add a new project under it?
+                        We&apos;ll keep the saved industry, website and socials
+                        as-is.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setUseExistingClient(true)}
+                          className="rounded-lg bg-accent-solid px-3 py-1.5 text-xs font-semibold text-[#03162a] hover:opacity-90"
+                        >
+                          Yes, use existing client
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // T4.1 — picking "different client" must actually
+                            // disambiguate; otherwise the slug-based upsert in
+                            // createProjectRecord would re-attach to the same
+                            // existing Client row. Clear the typed name and
+                            // re-focus so the operator types a unique name
+                            // (different slug) before continuing.
+                            setExistingClientMatch(null);
+                            setUseExistingClient(false);
+                            updateField("clientName", "");
+                          }}
+                          className="rounded-lg border border-[rgba(255,255,255,0.16)] px-3 py-1.5 text-xs text-text-secondary hover:bg-[rgba(255,255,255,0.05)]"
+                        >
+                          No, this is a different client
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {useExistingClient && existingClientMatch ? (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[rgba(73,205,225,0.3)] bg-[rgba(11,26,52,0.5)] px-4 py-3 text-sm text-text-secondary">
+                      <span>
+                        Using existing client{" "}
+                        <span className="font-semibold text-white">
+                          {existingClientMatch.name}
+                        </span>
+                        . Industry, website and socials are managed on the
+                        client record.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setUseExistingClient(false)}
+                        className="rounded-lg border border-[rgba(255,255,255,0.16)] px-2.5 py-1 text-xs text-text-muted hover:bg-[rgba(255,255,255,0.05)]"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : null}
                 </label>
 
                 <label className="block md:col-span-2">
@@ -1344,118 +1587,163 @@ export default function NewProjectPage() {
                   />
                 </label>
 
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    Industry
-                  </span>
-                  <select
-                    value={formData.industry}
-                    onChange={(event) =>
-                      updateField("industry", event.target.value)
-                    }
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                  >
-                    <option value="">Select industry</option>
-                    {industryOptions.map((industry) => (
-                      <option key={industry} value={industry}>
-                        {industry}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {/* T4.1 — when an existing client is reused, hide Industry /
+                    Website / Social fields. They live on the existing Client
+                    row and we don't want to clobber them with empty inputs. */}
+                {!useExistingClient ? (
+                  <>
+                    <label className="block md:col-span-2">
+                      <span className="mb-2 block text-sm text-text-secondary">
+                        Industry
+                      </span>
+                      <select
+                        value={formData.industry}
+                        onChange={(event) =>
+                          updateField("industry", event.target.value)
+                        }
+                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      >
+                        <option value="">Select industry</option>
+                        {industryOptions.map((industry) => (
+                          <option key={industry} value={industry}>
+                            {industry}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
 
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    Primary website
-                  </span>
-                  <input
-                    value={formData.website}
-                    onChange={(event) =>
-                      updateField("website", event.target.value)
-                    }
-                    placeholder="https://example.com"
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                  />
-                </label>
+                    <label className="block md:col-span-2">
+                      <span className="mb-2 block text-sm text-text-secondary">
+                        Primary website
+                      </span>
+                      <input
+                        value={formData.website}
+                        onChange={(event) =>
+                          updateField("website", event.target.value)
+                        }
+                        onBlur={(event) =>
+                          void handleWebsiteBlur(event.target.value)
+                        }
+                        placeholder="https://example.com"
+                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      />
+                      {websiteEnrichmentLoading ? (
+                        <p className="mt-2 text-xs text-text-muted">
+                          Enriching website…
+                        </p>
+                      ) : null}
+                      {websiteEnrichmentError ? (
+                        <p className="mt-2 text-xs text-[#ff8f9f]">
+                          {websiteEnrichmentError}
+                        </p>
+                      ) : null}
+                      {websiteEnrichmentResult &&
+                      !websiteEnrichmentLoading &&
+                      !websiteEnrichmentError ? (
+                        <div className="mt-2 flex items-center gap-2 text-xs text-text-muted">
+                          {websiteEnrichmentResult.logoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={websiteEnrichmentResult.logoUrl}
+                              alt="Detected logo"
+                              className="h-6 w-6 rounded bg-white object-contain p-0.5"
+                            />
+                          ) : null}
+                          <span>
+                            Auto-filled
+                            {websiteEnrichmentResult.industry
+                              ? ` industry "${websiteEnrichmentResult.industry}" and`
+                              : ""}{" "}
+                            socials from this website. Edit any field below if
+                            needed.
+                          </span>
+                        </div>
+                      ) : null}
+                    </label>
 
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    Additional websites
-                  </span>
-                  <textarea
-                    value={formData.additionalWebsitesText}
-                    onChange={(event) =>
-                      updateField("additionalWebsitesText", event.target.value)
-                    }
-                    placeholder={"One URL per line"}
-                    className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                  />
-                </label>
+                    <label className="block md:col-span-2">
+                      <span className="mb-2 block text-sm text-text-secondary">
+                        Additional websites
+                      </span>
+                      <textarea
+                        value={formData.additionalWebsitesText}
+                        onChange={(event) =>
+                          updateField(
+                            "additionalWebsitesText",
+                            event.target.value
+                          )
+                        }
+                        placeholder={"One URL per line"}
+                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      />
+                    </label>
 
-                <label className="block">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    LinkedIn
-                  </span>
-                  <input
-                    value={formData.linkedinUrl}
-                    onChange={(event) =>
-                      updateField("linkedinUrl", event.target.value)
-                    }
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                  />
-                </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm text-text-secondary">
+                        LinkedIn
+                      </span>
+                      <input
+                        value={formData.linkedinUrl}
+                        onChange={(event) =>
+                          updateField("linkedinUrl", event.target.value)
+                        }
+                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      />
+                    </label>
 
-                <label className="block">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    Facebook
-                  </span>
-                  <input
-                    value={formData.facebookUrl}
-                    onChange={(event) =>
-                      updateField("facebookUrl", event.target.value)
-                    }
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                  />
-                </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm text-text-secondary">
+                        Facebook
+                      </span>
+                      <input
+                        value={formData.facebookUrl}
+                        onChange={(event) =>
+                          updateField("facebookUrl", event.target.value)
+                        }
+                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      />
+                    </label>
 
-                <label className="block">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    Instagram
-                  </span>
-                  <input
-                    value={formData.instagramUrl}
-                    onChange={(event) =>
-                      updateField("instagramUrl", event.target.value)
-                    }
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                  />
-                </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm text-text-secondary">
+                        Instagram
+                      </span>
+                      <input
+                        value={formData.instagramUrl}
+                        onChange={(event) =>
+                          updateField("instagramUrl", event.target.value)
+                        }
+                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      />
+                    </label>
 
-                <label className="block">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    X / Twitter
-                  </span>
-                  <input
-                    value={formData.xUrl}
-                    onChange={(event) =>
-                      updateField("xUrl", event.target.value)
-                    }
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                  />
-                </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm text-text-secondary">
+                        X / Twitter
+                      </span>
+                      <input
+                        value={formData.xUrl}
+                        onChange={(event) =>
+                          updateField("xUrl", event.target.value)
+                        }
+                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      />
+                    </label>
 
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm text-text-secondary">
-                    YouTube
-                  </span>
-                  <input
-                    value={formData.youtubeUrl}
-                    onChange={(event) =>
-                      updateField("youtubeUrl", event.target.value)
-                    }
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
-                  />
-                </label>
+                    <label className="block md:col-span-2">
+                      <span className="mb-2 block text-sm text-text-secondary">
+                        YouTube
+                      </span>
+                      <input
+                        value={formData.youtubeUrl}
+                        onChange={(event) =>
+                          updateField("youtubeUrl", event.target.value)
+                        }
+                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      />
+                    </label>
+                  </>
+                ) : null}
 
                 <label className="block">
                   <span
@@ -1874,6 +2162,14 @@ export default function NewProjectPage() {
                 />
               </label>
 
+              {/*
+                T4 — the wizard still offers "Start from a Muloo template",
+                but now both branches POST to /api/projects -> createProjectRecord
+                so portal/champion provisioning, onboarding checklist seeding,
+                existing-client handling, and website-enrichment fields apply
+                uniformly. The selected template is applied via the existing
+                seed-standard-pack endpoint after the project row exists.
+              */}
               {formData.scopeType !== "standalone_quote" ? (
                 <>
                   <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
@@ -1930,8 +2226,24 @@ export default function NewProjectPage() {
                     )?.label ?? ""
                   ],
                   ["Container", formatContainerLabel(formData.scopeType)],
-                  ["Industry", formData.industry],
-                  ["Website", formData.website],
+                  // T4.1 — when reusing an existing client, the wizard
+                  // does NOT overwrite the stored Industry/Website on
+                  // that client (server-side guard). Showing the local
+                  // form values here would misrepresent what will
+                  // actually be used, so we mark them as "Kept from
+                  // existing client".
+                  [
+                    "Industry",
+                    useExistingClient
+                      ? "Kept from existing client"
+                      : formData.industry
+                  ],
+                  [
+                    "Website",
+                    useExistingClient
+                      ? "Kept from existing client"
+                      : formData.website
+                  ],
                   [
                     "Delivery template",
                     deliveryTemplates.find(

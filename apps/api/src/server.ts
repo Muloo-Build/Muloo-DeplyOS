@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
 import { getIntegrationStatus } from "@muloo/config";
 import { runPortalAuditAgent } from "@muloo/executor";
+import { runResearchAgent } from "./queue/processors/researchAgent";
 import { HubSpotClient } from "@muloo/hubspot-client";
 import {
   loadProjectById,
@@ -3181,7 +3182,101 @@ function buildStandardPackSeedTasks(workstreams: ProjectWorkstreamRecord[]) {
   ] as const;
 }
 
-export async function seedProjectStandardPack(projectId: string) {
+// T4 — wizard "Start from a Muloo template" surfaces three foundation
+// templates. Applying them shapes the seeded workstream/task pack so
+// the operator sees the choice reflected in the workspace instead of a
+// generic "standard pack". Unknown / missing keys fall back to the
+// legacy generic seed so existing callers keep working.
+const MULOO_FOUNDATION_TEMPLATES = {
+  "muloo-sales-foundation": {
+    label: "Sales Foundation",
+    focus: "sales",
+    extraTasks: [
+      {
+        title: "Set up sales pipeline stages and required properties",
+        description:
+          "Define the sales pipeline stages, required deal properties, and rotting rules so reps and reporting work day one.",
+        category: "Sales",
+        executionType: "manual",
+        priority: "high",
+        plannedHours: 4
+      },
+      {
+        title: "Configure sales activity and forecasting reports",
+        description:
+          "Stand up the activity, conversion, and forecast dashboards the sales lead needs to run weekly pipeline reviews.",
+        category: "Sales",
+        executionType: "manual",
+        priority: "high",
+        plannedHours: 3
+      }
+    ]
+  },
+  "muloo-revops-foundation": {
+    label: "RevOps Foundation",
+    focus: "revops",
+    extraTasks: [
+      {
+        title: "Audit lifecycle stages and cross-team handoffs",
+        description:
+          "Confirm lifecycle definitions, source-of-truth fields, and the marketing-to-sales / sales-to-CS handoff rules.",
+        category: "RevOps",
+        executionType: "manual",
+        priority: "high",
+        plannedHours: 4
+      },
+      {
+        title: "Stand up RevOps reporting and data hygiene checks",
+        description:
+          "Build the cross-funnel attribution, data quality, and routing dashboards RevOps needs to operate the system.",
+        category: "RevOps",
+        executionType: "manual",
+        priority: "high",
+        plannedHours: 4
+      }
+    ]
+  },
+  "muloo-service-foundation": {
+    label: "Service Foundation",
+    focus: "service",
+    extraTasks: [
+      {
+        title: "Configure ticket pipelines, SLAs, and routing",
+        description:
+          "Define ticket pipelines, SLA policies, and routing rules so the service team can triage from day one.",
+        category: "Service",
+        executionType: "manual",
+        priority: "high",
+        plannedHours: 4
+      },
+      {
+        title: "Set up knowledge base and customer portal essentials",
+        description:
+          "Spin up the knowledge base structure, customer portal access, and feedback survey baseline.",
+        category: "Service",
+        executionType: "manual",
+        priority: "medium",
+        plannedHours: 3
+      }
+    ]
+  }
+} as const;
+
+export type MulooFoundationTemplateId = keyof typeof MULOO_FOUNDATION_TEMPLATES;
+
+export function isMulooFoundationTemplateId(
+  value: string
+): value is MulooFoundationTemplateId {
+  return Object.prototype.hasOwnProperty.call(
+    MULOO_FOUNDATION_TEMPLATES,
+    value
+  );
+}
+
+export async function seedProjectStandardPack(
+  projectId: string,
+  options?: { templateId?: string | null }
+) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
@@ -3194,11 +3289,37 @@ export async function seedProjectStandardPack(projectId: string) {
     throw new Error("Project not found");
   }
 
+  // T4 — if the wizard passed one of the Muloo foundation templates,
+  // apply its template-specific seed tasks on top of the generic pack
+  // so the operator's choice (Sales / RevOps / Service) actually shapes
+  // what they see in the workspace. Unknown ids are silently ignored.
+  const templateId = options?.templateId?.trim() || null;
+  const templateDefinition =
+    templateId && isMulooFoundationTemplateId(templateId)
+      ? MULOO_FOUNDATION_TEMPLATES[templateId]
+      : null;
+
   const existingWorkstreams = normalizeProjectWorkstreams(
     project.deliveryWorkstreams
   );
   const mergedWorkstreams = mergeStandardPackWorkstreams(existingWorkstreams);
-  const seedTasks = buildStandardPackSeedTasks(mergedWorkstreams.workstreams);
+  const baseSeedTasks = buildStandardPackSeedTasks(
+    mergedWorkstreams.workstreams
+  );
+  const implementationWorkstreamId =
+    mergedWorkstreams.workstreams.find(
+      (workstream) => workstream.category === "hubspot_implementation"
+    )?.id ?? null;
+  const templateSeedTasks = templateDefinition
+    ? templateDefinition.extraTasks.map((task) => ({
+        ...task,
+        workstreamId: implementationWorkstreamId,
+        taskOrigin: "seeded_pack" as const,
+        assigneeType: "Human" as const,
+        executionReadiness: "ready" as const
+      }))
+    : [];
+  const seedTasks = [...baseSeedTasks, ...templateSeedTasks];
 
   const existingSeedTasks = await prisma.task.findMany({
     where: {
@@ -3248,6 +3369,10 @@ export async function seedProjectStandardPack(projectId: string) {
       tasksSkipped: seedTasks.length - createdTasks.length,
       questionnaireApplied: true,
       portalConnected: Boolean(resultProject.portal),
+      // T4 — surface which Muloo template was applied so the wizard /
+      // workspace can confirm to the operator that their selection took
+      // effect rather than the generic standard pack.
+      templateApplied: templateDefinition?.label ?? null,
       nextSuggestedAction: resultProject.portal
         ? "Run the portal audit to turn the seeded foundation into prioritised findings and quick wins."
         : "Connect the HubSpot portal next so the audit workspace can generate findings on top of the seeded foundation."
@@ -5379,6 +5504,9 @@ export async function createProjectContributor(
     include: { contact: true }
   });
 
+  // T4.3 — auto-tick "Add contributors" the moment one is created.
+  await markOnboardingChecklistItemFromEvent(projectId, "add_contributors");
+
   return serializeProjectContributor(created);
 }
 
@@ -5817,12 +5945,14 @@ async function fetchClientWebsiteEnrichment(client: {
   const timeout = setTimeout(() => controller.abort(), 10_000);
 
   try {
-    const response = await fetch(targetUrl, {
+    // SSRF: route through publicSafeFetch which validates the URL +
+    // resolves DNS on every redirect hop. The upstream server cannot
+    // trick us into fetching internal addresses by issuing a 302.
+    const response = await publicSafeFetch(targetUrl, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; MulooDeployOS/1.0; +https://deploy.wearemuloo.com)"
       },
-      redirect: "follow",
       signal: controller.signal
     });
 
@@ -12402,7 +12532,13 @@ export async function generateDiscoverySummary(projectId: string) {
   }
 
   if (projectUsesScopedSummaryWorkflow(discoveryPayload.project)) {
-    return generateStandaloneScopeSummary(discoveryPayload);
+    const summary = await generateStandaloneScopeSummary(discoveryPayload);
+    // T4.3 — auto-tick "Run Discovery Structuring Agent".
+    await markOnboardingChecklistItemFromEvent(
+      projectId,
+      "discovery_structuring"
+    );
+    return summary;
   }
 
   const missingInformation = discoveryPayload.discovery.sessions.flatMap(
@@ -12521,6 +12657,10 @@ Rules:
       ...normalizedSummary
     }
   });
+
+  // T4.3 — auto-tick "Run Discovery Structuring Agent" once a real
+  // structured summary has been persisted.
+  await markOnboardingChecklistItemFromEvent(projectId, "discovery_structuring");
 
   return serializeDiscoverySummary(savedSummary);
 }
@@ -13495,6 +13635,8 @@ export async function generateBlueprintForProject(projectId: string) {
       error
     );
   });
+  // T4.3 — auto-tick "Generate Blueprint draft".
+  await markOnboardingChecklistItemFromEvent(projectId, "generate_blueprint");
   return blueprint;
 }
 
@@ -16947,13 +17089,24 @@ export async function createProjectRecord(value: {
   instagramUrl?: unknown;
   xUrl?: unknown;
   youtubeUrl?: unknown;
+  // T4.4 — auto-detected logo URL from website-blur enrichment.
+  enrichedLogoUrl?: unknown;
   clientChampionFirstName?: unknown;
   clientChampionLastName?: unknown;
   clientChampionEmail?: unknown;
+  // T4.1 — operator confirmed "use existing client" in the wizard. When set,
+  // we leave the existing Client row's profile fields (industry, website,
+  // social URLs) alone instead of clobbering them with whatever the wizard
+  // currently has on screen.
+  useExistingClient?: unknown;
 }) {
   const name = typeof value.name === "string" ? value.name.trim() : "";
   const clientName =
     typeof value.clientName === "string" ? value.clientName.trim() : "";
+  const useExistingClient =
+    typeof value.useExistingClient === "boolean"
+      ? value.useExistingClient
+      : false;
   const scopeType =
     typeof value.scopeType === "string" && value.scopeType.trim().length > 0
       ? value.scopeType.trim()
@@ -17041,37 +17194,66 @@ export async function createProjectRecord(value: {
       : undefined;
 
   const project = await prisma.$transaction(async (transaction) => {
+    // T4.1 — when the operator confirmed "use existing client", we leave
+    // every Client profile field alone (just touch updatedAt via empty
+    // update) so we never overwrite curated client data with whatever
+    // happened to be on screen in the wizard.
+    // T4.1 — server-side guard: if a Client with this slug already exists
+    // and the operator did NOT confirm "use existing client", refuse to
+    // attach. Otherwise the upsert would silently re-attach to the existing
+    // row (and, in the !useExistingClient branch, clobber its profile
+    // fields with whatever was on the wizard screen). The wizard surfaces
+    // the existing-client prompt up front, but we defend in depth here.
+    const existingForSlug = await transaction.client.findUnique({
+      where: { slug },
+      select: { id: true, name: true }
+    });
+    if (existingForSlug && !useExistingClient) {
+      throw new Error(
+        `A client named "${existingForSlug.name}" already exists. Either pick "Use existing client" in the wizard or rename this project's client.`
+      );
+    }
+
     const client = await transaction.client.upsert({
       where: { slug },
-      update: {
-        name: clientName,
-        industry:
-          typeof value.industry === "string"
-            ? value.industry.trim() || null
-            : null,
-        website:
-          typeof value.website === "string"
-            ? value.website.trim() || null
-            : null,
-        additionalWebsites: normalizeStringArray(value.additionalWebsites),
-        linkedinUrl:
-          typeof value.linkedinUrl === "string"
-            ? value.linkedinUrl.trim() || null
-            : null,
-        facebookUrl:
-          typeof value.facebookUrl === "string"
-            ? value.facebookUrl.trim() || null
-            : null,
-        instagramUrl:
-          typeof value.instagramUrl === "string"
-            ? value.instagramUrl.trim() || null
-            : null,
-        xUrl: typeof value.xUrl === "string" ? value.xUrl.trim() || null : null,
-        youtubeUrl:
-          typeof value.youtubeUrl === "string"
-            ? value.youtubeUrl.trim() || null
-            : null
-      },
+      update: useExistingClient
+        ? {}
+        : {
+            name: clientName,
+            industry:
+              typeof value.industry === "string"
+                ? value.industry.trim() || null
+                : null,
+            website:
+              typeof value.website === "string"
+                ? value.website.trim() || null
+                : null,
+            additionalWebsites: normalizeStringArray(value.additionalWebsites),
+            linkedinUrl:
+              typeof value.linkedinUrl === "string"
+                ? value.linkedinUrl.trim() || null
+                : null,
+            facebookUrl:
+              typeof value.facebookUrl === "string"
+                ? value.facebookUrl.trim() || null
+                : null,
+            instagramUrl:
+              typeof value.instagramUrl === "string"
+                ? value.instagramUrl.trim() || null
+                : null,
+            xUrl:
+              typeof value.xUrl === "string" ? value.xUrl.trim() || null : null,
+            youtubeUrl:
+              typeof value.youtubeUrl === "string"
+                ? value.youtubeUrl.trim() || null
+                : null,
+            // T4.4 — persist the website-enrichment logo. Only write when
+            // present so we don't blow away an existing curated value.
+            ...(typeof value.enrichedLogoUrl === "string" &&
+            value.enrichedLogoUrl.trim()
+              ? { enrichedLogoUrl: value.enrichedLogoUrl.trim() }
+              : {})
+          },
       create: {
         name: clientName,
         slug,
@@ -17100,6 +17282,11 @@ export async function createProjectRecord(value: {
         youtubeUrl:
           typeof value.youtubeUrl === "string"
             ? value.youtubeUrl.trim() || null
+            : null,
+        // T4.4 — first-time create: capture the website-enrichment logo.
+        enrichedLogoUrl:
+          typeof value.enrichedLogoUrl === "string"
+            ? value.enrichedLogoUrl.trim() || null
             : null
       }
     });
@@ -17187,6 +17374,54 @@ export async function createProjectRecord(value: {
       }
     });
   });
+
+  // T4.3 — seed the onboarding checklist on the project record.
+  // We do this after the transaction so the project id is stable for the
+  // checklist hrefs.
+  await prisma.project.update({
+    where: { id: project.id },
+    data: {
+      onboardingChecklist: buildDefaultOnboardingChecklist(project.id)
+    }
+  });
+
+  // T4.2 — auto-provision the champion as a ClientPortalUser + give them
+  // ClientProjectAccess as the project's client_champion. The invite email
+  // is *not* sent here — the operator must explicitly press "Send" on the
+  // onboarding checklist after previewing the rendered email.
+  const championEmail =
+    typeof value.clientChampionEmail === "string"
+      ? value.clientChampionEmail.trim()
+      : "";
+  const championFirstName =
+    typeof value.clientChampionFirstName === "string"
+      ? value.clientChampionFirstName.trim()
+      : "";
+  const championLastName =
+    typeof value.clientChampionLastName === "string"
+      ? value.clientChampionLastName.trim()
+      : "";
+  if (championEmail && championFirstName) {
+    try {
+      await createClientPortalUserForProject(project.id, {
+        firstName: championFirstName,
+        lastName: championLastName,
+        email: championEmail,
+        role: "client_champion",
+        questionnaireAccess: true
+      });
+    } catch (error) {
+      // T4.2 — champion auto-provisioning is non-fatal so a transient
+      // failure (e.g. portal-user race) doesn't block project creation,
+      // but the operator MUST have an explicit recovery path. We log the
+      // failure and the onboarding page exposes a "Re-provision champion"
+      // action that calls reprovisionProjectChampionPortalUser to retry.
+      console.error(
+        "[createProjectRecord] champion auto-provision failed",
+        error
+      );
+    }
+  }
 
   return serializeProject(project);
 }
@@ -23862,6 +24097,817 @@ export async function inviteClientContactToProjects(
   };
 }
 
+// ---------------------------------------------------------------------------
+// T4 — Onboarding wizard revision
+// ---------------------------------------------------------------------------
+// Helpers below back the new project-creation flow:
+//   * onboarding checklist (T4.3) — JSON column on Project so we don't add
+//     a join table just for five rows per project.
+//   * champion invite preview (T4.2) — operator must see the rendered email
+//     and explicitly press Send before it goes out, even though the
+//     ClientPortalUser + ClientProjectAccess + invite token are provisioned
+//     immediately on project create.
+//   * website enrichment (T4.4) — wizard's website-URL step calls this to
+//     prefill Industry / Logo / Socials before the project exists.
+
+export type OnboardingChecklistItem = {
+  id: string;
+  label: string;
+  description: string;
+  href: string;
+  completedAt: string | null;
+};
+
+const ONBOARDING_CHECKLIST_ITEM_IDS = [
+  "discovery_structuring",
+  "schedule_session_1",
+  "add_contributors",
+  "generate_blueprint",
+  "send_champion_welcome"
+] as const;
+
+type OnboardingChecklistItemId = (typeof ONBOARDING_CHECKLIST_ITEM_IDS)[number];
+
+function isOnboardingChecklistItemId(
+  value: string
+): value is OnboardingChecklistItemId {
+  return (ONBOARDING_CHECKLIST_ITEM_IDS as readonly string[]).includes(value);
+}
+
+export function buildDefaultOnboardingChecklist(
+  projectId: string
+): OnboardingChecklistItem[] {
+  return [
+    {
+      id: "discovery_structuring",
+      label: "Run Discovery Structuring Agent",
+      description:
+        "Generate the structured discovery summary from the workbooks and seed brief.",
+      href: `/projects/${projectId}/discovery`,
+      completedAt: null
+    },
+    {
+      id: "schedule_session_1",
+      label: "Schedule Discovery Session 1",
+      description:
+        "Book the kickoff discovery session with the champion before momentum drops.",
+      href: `/projects/${projectId}/prepare`,
+      completedAt: null
+    },
+    {
+      id: "add_contributors",
+      label: "Add contributors",
+      description:
+        "Invite the people who will fill the workbook so the champion is not alone.",
+      href: `/projects/${projectId}/discovery`,
+      completedAt: null
+    },
+    {
+      id: "generate_blueprint",
+      label: "Generate Blueprint draft",
+      description:
+        "Turn the structured discovery into a first blueprint draft you can shape.",
+      href: `/blueprint/${projectId}`,
+      completedAt: null
+    },
+    {
+      id: "send_champion_welcome",
+      label: "Send champion welcome email",
+      description:
+        "Preview the auto-provisioned portal invite and send it to the champion.",
+      href: `/projects/${projectId}/onboarding#champion-invite`,
+      completedAt: null
+    }
+  ];
+}
+
+function normalizeOnboardingChecklist(
+  projectId: string,
+  raw: unknown
+): OnboardingChecklistItem[] {
+  const defaults = buildDefaultOnboardingChecklist(projectId);
+  if (!Array.isArray(raw)) {
+    return defaults;
+  }
+
+  const byId = new Map<string, OnboardingChecklistItem>();
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const candidate = entry as Record<string, unknown>;
+    if (typeof candidate.id !== "string") continue;
+    if (!isOnboardingChecklistItemId(candidate.id)) continue;
+    byId.set(candidate.id, {
+      id: candidate.id,
+      label:
+        typeof candidate.label === "string"
+          ? candidate.label
+          : defaults.find((item) => item.id === candidate.id)?.label ?? "",
+      description:
+        typeof candidate.description === "string"
+          ? candidate.description
+          : defaults.find((item) => item.id === candidate.id)?.description ??
+            "",
+      href:
+        typeof candidate.href === "string"
+          ? candidate.href
+          : defaults.find((item) => item.id === candidate.id)?.href ?? "",
+      completedAt:
+        typeof candidate.completedAt === "string"
+          ? candidate.completedAt
+          : null
+    });
+  }
+
+  return defaults.map((item) => {
+    const persisted = byId.get(item.id);
+    return persisted
+      ? {
+          ...item,
+          completedAt: persisted.completedAt
+        }
+      : item;
+  });
+}
+
+export async function loadProjectOnboardingChecklist(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      onboardingChecklist: true
+    }
+  });
+  if (!project) {
+    throw new Error("Project not found");
+  }
+  return normalizeOnboardingChecklist(project.id, project.onboardingChecklist);
+}
+
+// T4.3 — auto-tick helper. Called from real project surfaces (discovery
+// structuring run, scheduling artifact, contributor create, blueprint
+// generate) so the checklist reflects what the operator actually did
+// instead of relying on manual toggles. Errors are swallowed because
+// these are best-effort signals — the underlying surface must keep
+// working even if checklist persistence fails.
+export async function markOnboardingChecklistItemFromEvent(
+  projectId: string,
+  itemId: OnboardingChecklistItemId
+) {
+  try {
+    await setProjectOnboardingChecklistItem(projectId, itemId, true);
+  } catch (error) {
+    console.warn(
+      `[onboardingChecklist] auto-tick of ${itemId} for ${projectId} failed`,
+      error
+    );
+  }
+}
+
+export async function setProjectOnboardingChecklistItem(
+  projectId: string,
+  itemId: string,
+  completed: boolean
+) {
+  if (!isOnboardingChecklistItemId(itemId)) {
+    throw new Error("Unknown onboarding checklist item");
+  }
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, onboardingChecklist: true }
+  });
+  if (!project) {
+    throw new Error("Project not found");
+  }
+  const items = normalizeOnboardingChecklist(
+    project.id,
+    project.onboardingChecklist
+  );
+  const next = items.map((item) =>
+    item.id === itemId
+      ? {
+          ...item,
+          completedAt: completed ? new Date().toISOString() : null
+        }
+      : item
+  );
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { onboardingChecklist: next }
+  });
+  return next;
+}
+
+export type ProjectChampionInvitePreview = {
+  champion: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  } | null;
+  projectName: string;
+  subject: string;
+  body: string;
+  accessUrl: string | null;
+  authStatus: "invite_pending" | "active";
+  emailSentAt: string | null;
+  hasInviteToken: boolean;
+  // T4.2 — set when the champion was auto-provisioned to the portal during
+  // project create. Null once the champion accepts the invite.
+  inviteQueuedAt: Date | null;
+  message: string | null;
+};
+
+async function buildProjectChampionInvitePreviewInternal(
+  projectId: string
+): Promise<ProjectChampionInvitePreview> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      name: true,
+      clientChampionFirstName: true,
+      clientChampionLastName: true,
+      clientChampionEmail: true,
+      onboardingChecklist: true
+    }
+  });
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const championEmail = project.clientChampionEmail?.trim().toLowerCase() ?? "";
+  if (!championEmail) {
+    return {
+      champion: null,
+      projectName: project.name,
+      subject: "",
+      body: "",
+      accessUrl: null,
+      authStatus: "invite_pending",
+      emailSentAt: null,
+      hasInviteToken: false,
+      inviteQueuedAt: null,
+      message:
+        "No champion email captured for this project — add one in Project settings to enable the invite."
+    };
+  }
+
+  const championFirstName = project.clientChampionFirstName?.trim() ?? "";
+  const championLastName = project.clientChampionLastName?.trim() ?? "";
+
+  const portalUser = await prisma.clientPortalUser.findUnique({
+    where: { email: championEmail }
+  });
+
+  if (!portalUser) {
+    return {
+      champion: {
+        firstName: championFirstName,
+        lastName: championLastName,
+        email: championEmail
+      },
+      projectName: project.name,
+      subject: "",
+      body: "",
+      accessUrl: null,
+      authStatus: "invite_pending",
+      emailSentAt: null,
+      hasInviteToken: false,
+      inviteQueuedAt: null,
+      message:
+        "Champion was not provisioned to the portal yet. Re-save the project to refresh."
+    };
+  }
+
+  // T4.2 — derive canApproveQuotes from the actual ClientProjectAccess
+  // role rather than hardcoding true. The auto-provisioned champion is
+  // role "client_champion" (cannot approve quotes); only an explicit
+  // "approver" role unlocks the approval messaging in the welcome email.
+  // See generateProjectQuoteApproval flow which gates approval on
+  // access.role === "approver".
+  const championAccess = await prisma.clientProjectAccess.findUnique({
+    where: {
+      userId_projectId: {
+        userId: portalUser.id,
+        projectId: project.id
+      }
+    },
+    select: { role: true, questionnaireAccess: true }
+  });
+
+  // T4.2 — guard against the partial-provisioning case: portal user was
+  // upserted but the per-project ClientProjectAccess row is missing
+  // (createClientPortalUserForProject is non-transactional and the
+  // outer createProjectRecord swallows champion-provisioning errors).
+  // Without an access row the champion literally cannot open the
+  // project, so we MUST block send and surface the reprovision path
+  // instead of rendering a "healthy" preview that would deliver a
+  // broken welcome email. We deliberately reuse the same shape as the
+  // missing-portal-user branch so the existing onboarding UI's
+  // reprovision affordance triggers (it keys off `!hasInviteToken`).
+  if (!championAccess) {
+    return {
+      champion: {
+        firstName: portalUser.firstName,
+        lastName: portalUser.lastName,
+        email: portalUser.email
+      },
+      projectName: project.name,
+      subject: "",
+      body: "",
+      accessUrl: null,
+      authStatus: portalUser.inviteAcceptedAt ? "active" : "invite_pending",
+      emailSentAt: null,
+      hasInviteToken: false,
+      inviteQueuedAt: null,
+      message:
+        "Champion is on the portal but has no access row for this project — re-provision before sending the invite."
+    };
+  }
+
+  const accessUrl = portalUser.inviteToken
+    ? await buildClientAccessUrlForEmail(
+        portalUser.email,
+        portalUser.inviteToken
+      )
+    : await buildClientPortalLoginUrl(portalUser.email);
+
+  const canApproveQuotes = championAccess.role === "approver";
+
+  const inviteEmail = buildClientPortalInviteEmail({
+    contact: {
+      firstName: portalUser.firstName,
+      email: portalUser.email,
+      canApproveQuotes
+    },
+    projects: [{ name: project.name }],
+    accessUrl,
+    questionnaireAccess: championAccess.questionnaireAccess
+  });
+
+  const checklist = normalizeOnboardingChecklist(
+    project.id,
+    project.onboardingChecklist
+  );
+  const sentItem = checklist.find((item) => item.id === "send_champion_welcome");
+
+  // T4.2 — explicit "invite queued" signal. The champion is auto-provisioned
+  // as a ClientPortalUser at project create with a fresh inviteToken; that
+  // moment IS when the invite is queued for operator preview/send. We surface
+  // it as `inviteQueuedAt` so the wizard / onboarding page can clearly show
+  // "queued, awaiting your send" instead of relying on the operator inferring
+  // it from the presence of an invite token.
+  const inviteQueuedAt =
+    portalUser.inviteToken && !portalUser.inviteAcceptedAt
+      ? (portalUser.updatedAt ?? portalUser.createdAt ?? null)
+      : null;
+
+  return {
+    champion: {
+      firstName: portalUser.firstName,
+      lastName: portalUser.lastName,
+      email: portalUser.email
+    },
+    projectName: project.name,
+    subject: inviteEmail.subject,
+    body: inviteEmail.body,
+    accessUrl,
+    authStatus: portalUser.inviteAcceptedAt ? "active" : "invite_pending",
+    emailSentAt: sentItem?.completedAt ?? null,
+    hasInviteToken: Boolean(portalUser.inviteToken),
+    inviteQueuedAt,
+    message: null
+  };
+}
+
+export async function loadProjectChampionInvitePreview(projectId: string) {
+  return buildProjectChampionInvitePreviewInternal(projectId);
+}
+
+// T4.2 — explicit reprovision path. createProjectRecord auto-provisions
+// the champion as a ClientPortalUser, but if that step failed (logged as
+// non-fatal so project creation still succeeds), the operator needs a
+// way to retry from the onboarding page rather than recreating the
+// project.
+export async function reprovisionProjectChampionPortalUser(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      clientChampionEmail: true,
+      clientChampionFirstName: true,
+      clientChampionLastName: true
+    }
+  });
+  if (!project) {
+    throw new Error("Project not found");
+  }
+  const email = project.clientChampionEmail?.trim() ?? "";
+  const firstName = project.clientChampionFirstName?.trim() ?? "";
+  if (!email || !firstName) {
+    throw new Error(
+      "Add a champion first name and email to the project before re-provisioning."
+    );
+  }
+  await createClientPortalUserForProject(projectId, {
+    firstName,
+    lastName: project.clientChampionLastName?.trim() ?? "",
+    email,
+    role: "client_champion",
+    questionnaireAccess: true
+  });
+  return buildProjectChampionInvitePreviewInternal(projectId);
+}
+
+export async function sendProjectChampionInvite(projectId: string) {
+  const preview = await buildProjectChampionInvitePreviewInternal(projectId);
+  // T4.2 — refuse to send if provisioning is incomplete or invite content
+  // is missing. The UI hides the send button in those states, but the
+  // server has to enforce the same invariant for direct API callers so
+  // we never deliver an empty / broken welcome email.
+  if (!preview.champion) {
+    throw new Error(
+      preview.message ?? "Champion email is missing for this project"
+    );
+  }
+  if (
+    !preview.subject?.trim() ||
+    !preview.body?.trim() ||
+    !preview.accessUrl ||
+    preview.message
+  ) {
+    throw new Error(
+      preview.message ??
+        "Champion portal access is not fully provisioned yet — re-provision before sending the invite."
+    );
+  }
+
+  await sendWorkspaceEmail({
+    to: [preview.champion.email],
+    subject: preview.subject,
+    body: preview.body
+  });
+
+  await createProjectMessage({
+    projectId,
+    senderType: "internal",
+    senderName: "Muloo Client Workspace",
+    body: `Champion welcome email sent to ${preview.champion.email}.`
+  });
+
+  await setProjectOnboardingChecklistItem(
+    projectId,
+    "send_champion_welcome",
+    true
+  );
+
+  return buildProjectChampionInvitePreviewInternal(projectId);
+}
+
+const wizardWebsiteEnrichmentIndustryHints: Array<{
+  industry: (typeof industryOptions)[number];
+  keywords: string[];
+}> = [
+  {
+    industry: "Accounting & Advisory",
+    keywords: ["accounting", "accountant", "advisory", "bookkeeping", "tax"]
+  },
+  {
+    industry: "Agency & Professional Services",
+    keywords: [
+      "agency",
+      "consulting",
+      "consultancy",
+      "professional services",
+      "marketing agency"
+    ]
+  },
+  {
+    industry: "Construction & Property",
+    keywords: ["construction", "property", "real estate", "building", "homes"]
+  },
+  {
+    industry: "Education & Training",
+    keywords: [
+      "education",
+      "training",
+      "school",
+      "academy",
+      "university",
+      "course"
+    ]
+  },
+  {
+    industry: "Financial Services",
+    keywords: [
+      "financial services",
+      "finance",
+      "bank",
+      "insurance",
+      "wealth",
+      "lending"
+    ]
+  },
+  {
+    industry: "Healthcare",
+    keywords: [
+      "healthcare",
+      "health care",
+      "clinic",
+      "hospital",
+      "medical",
+      "patient"
+    ]
+  },
+  {
+    industry: "Legal",
+    keywords: ["legal", "law firm", "lawyer", "solicitor", "attorney"]
+  },
+  {
+    industry: "Manufacturing",
+    keywords: ["manufacturing", "manufacturer", "factory", "industrial"]
+  },
+  {
+    industry: "Nonprofit",
+    keywords: ["nonprofit", "non-profit", "charity", "foundation", "ngo"]
+  },
+  {
+    industry: "Retail & Ecommerce",
+    keywords: [
+      "retail",
+      "ecommerce",
+      "e-commerce",
+      "shop",
+      "store",
+      "marketplace"
+    ]
+  },
+  {
+    industry: "SaaS & Technology",
+    keywords: [
+      "saas",
+      "software",
+      "platform",
+      "technology",
+      "cloud",
+      "api",
+      "developers"
+    ]
+  },
+  {
+    industry: "Travel & Hospitality",
+    keywords: [
+      "travel",
+      "hospitality",
+      "hotel",
+      "tourism",
+      "restaurant",
+      "booking"
+    ]
+  }
+];
+
+function inferIndustryFromText(text: string) {
+  const lowered = text.toLowerCase();
+  for (const { industry, keywords } of wizardWebsiteEnrichmentIndustryHints) {
+    if (keywords.some((keyword) => lowered.includes(keyword))) {
+      return industry;
+    }
+  }
+  return null;
+}
+
+// SSRF protection — the wizard exposes website enrichment as a public-ish
+// endpoint that takes operator-supplied URLs and server-side fetches them
+// through fetchClientWebsiteEnrichment. Without these checks an attacker
+// (or a malicious client name) could point us at 127.0.0.1, 169.254.169.254
+// (cloud metadata), or other internal hosts. We only allow http/https on
+// public hostnames.
+function isPrivateIpv4(address: string) {
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(address);
+  if (!match) return false;
+  const a = Number.parseInt(match[1] ?? "", 10);
+  const b = Number.parseInt(match[2] ?? "", 10);
+  return (
+    a === 10 ||
+    a === 127 ||
+    a === 0 ||
+    (a === 169 && b === 254) || // link-local + cloud metadata 169.254.169.254
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    a >= 224 // multicast / reserved
+  );
+}
+
+function isPrivateIpv6(address: string) {
+  const lower = address.toLowerCase();
+  return (
+    lower === "::1" ||
+    lower === "::" ||
+    lower.startsWith("fc") ||
+    lower.startsWith("fd") ||
+    lower.startsWith("fe80") ||
+    // IPv4-mapped IPv6 (::ffff:a.b.c.d) — extract embedded IPv4.
+    (lower.startsWith("::ffff:") && isPrivateIpv4(lower.slice(7)))
+  );
+}
+
+function assertWebsiteUrlIsPublic(rawWebsite: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(
+      rawWebsite.startsWith("http://") || rawWebsite.startsWith("https://")
+        ? rawWebsite
+        : `https://${rawWebsite}`
+    );
+  } catch {
+    throw new Error("That doesn't look like a valid website URL.");
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Only http:// and https:// websites can be enriched.");
+  }
+
+  const hostname = parsed.hostname
+    .toLowerCase()
+    .replace(/^\[/, "")
+    .replace(/\]$/, "");
+  if (!hostname) {
+    throw new Error("That doesn't look like a valid website URL.");
+  }
+  // Block hostname-based internal targets (localhost, *.local, *.internal)
+  // before we even resolve DNS. Note: hostnames that resolve to internal
+  // IPs are also blocked at fetch time via assertHostnameResolvesPublic.
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal") ||
+    hostname.endsWith(".lan") ||
+    hostname === "metadata.google.internal"
+  ) {
+    throw new Error("Internal/private hostnames can't be enriched.");
+  }
+
+  // Reject literal IP destinations in the obvious private/reserved ranges
+  // up-front. DNS hostnames are re-validated later (post-resolution and on
+  // every redirect hop) inside publicSafeFetch.
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+    if (isPrivateIpv4(hostname)) {
+      throw new Error("Internal/private addresses can't be enriched.");
+    }
+  } else if (hostname.includes(":")) {
+    if (isPrivateIpv6(hostname)) {
+      throw new Error("Internal/private addresses can't be enriched.");
+    }
+  }
+
+  return parsed.toString();
+}
+
+// SSRF defence-in-depth: resolve every hostname and reject responses that
+// pointed (or got redirected) to private/loopback/link-local/cloud-metadata
+// ranges. We can't trust the URL parser alone because attackers control the
+// hostname *and* any HTTP redirect chain the upstream server returns.
+async function assertHostnameResolvesPublic(hostname: string) {
+  // IP literals are already validated by assertWebsiteUrlIsPublic; no DNS.
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return;
+  if (hostname.includes(":")) return;
+  const dns = await import("node:dns/promises");
+  let records: Array<{ address: string; family: number }>;
+  try {
+    records = await dns.lookup(hostname, { all: true });
+  } catch {
+    throw new Error(
+      "Could not resolve that website's hostname — please check the URL."
+    );
+  }
+  if (records.length === 0) {
+    throw new Error(
+      "Could not resolve that website's hostname — please check the URL."
+    );
+  }
+  for (const record of records) {
+    if (record.family === 4 && isPrivateIpv4(record.address)) {
+      throw new Error("Internal/private addresses can't be enriched.");
+    }
+    if (record.family === 6 && isPrivateIpv6(record.address)) {
+      throw new Error("Internal/private addresses can't be enriched.");
+    }
+  }
+}
+
+// Manually follows redirects so each hop is re-validated (URL shape +
+// DNS resolution). Without this the upstream could 302 us to
+// http://169.254.169.254/ and the runtime fetch would happily follow it.
+async function publicSafeFetch(
+  initialUrl: string,
+  init: RequestInit,
+  maxRedirects = 5
+): Promise<Response> {
+  let currentUrl = initialUrl;
+  for (let hop = 0; hop <= maxRedirects; hop += 1) {
+    const validated = assertWebsiteUrlIsPublic(currentUrl);
+    const parsed = new URL(validated);
+    await assertHostnameResolvesPublic(parsed.hostname);
+    const response = await fetch(validated, { ...init, redirect: "manual" });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (!location) {
+        return response;
+      }
+      currentUrl = new URL(location, validated).toString();
+      continue;
+    }
+    return response;
+  }
+  throw new Error("Website redirected too many times — aborting enrichment.");
+}
+
+// T4.4 — call the existing research agent (Perplexity-backed
+// runResearchAgent processor in the queue) synchronously to ask for the
+// company's industry. We bypass the queue here because the wizard needs
+// a blur-time answer, but we reuse the same agent + prompt + model so
+// the answer matches what the queued runs return. Falls back to null if
+// the agent is unconfigured or errors — the caller's keyword heuristic
+// covers that case.
+async function inferIndustryViaResearchAgent(params: {
+  website: string;
+  title: string;
+  overview: string;
+}): Promise<(typeof industryOptions)[number] | null> {
+  if (!process.env.PERPLEXITY_API_KEY?.trim()) {
+    return null;
+  }
+  try {
+    const allowed = industryOptions.join(" | ");
+    const result = await runResearchAgent({
+      executionJobId: "wizard-website-enrichment",
+      moduleKey: "research",
+      payload: {
+        query: `Pick the single best-fit industry for the company at ${params.website} from this exact list (return only the industry label, nothing else): ${allowed}.`,
+        context:
+          `Site title: ${params.title}\n\nSite overview: ${params.overview}`.slice(
+            0,
+            4000
+          )
+      }
+    });
+    const content =
+      typeof (result?.output as { content?: unknown })?.content === "string"
+        ? ((result.output as { content: string }).content as string).trim()
+        : "";
+    const match = industryOptions.find((option) =>
+      content.toLowerCase().includes(option.toLowerCase())
+    );
+    return match ?? null;
+  } catch (error) {
+    console.warn("[enrichWebsiteForWizard] research agent fallback:", error);
+    return null;
+  }
+}
+
+export async function enrichWebsiteForWizard(rawWebsite: string) {
+  const website = rawWebsite.trim();
+  if (!website) {
+    throw new Error("Add a website before requesting enrichment");
+  }
+
+  // SSRF guard — see assertWebsiteUrlIsPublic above.
+  const safeWebsite = assertWebsiteUrlIsPublic(website);
+
+  const enrichment = await fetchClientWebsiteEnrichment({
+    website: safeWebsite,
+    additionalWebsites: []
+  });
+
+  // Prefer the research agent's structured pick; fall back to the local
+  // keyword heuristic when the agent isn't configured or doesn't return a
+  // confident match. Either way the operator can override.
+  const agentIndustry = await inferIndustryViaResearchAgent({
+    website: enrichment.finalUrl,
+    title: enrichment.title,
+    overview: enrichment.companyOverview ?? ""
+  });
+  const industry =
+    agentIndustry ??
+    inferIndustryFromText(
+      [enrichment.title, enrichment.companyOverview ?? ""].join(" ")
+    );
+
+  return {
+    finalUrl: enrichment.finalUrl,
+    title: enrichment.title,
+    companyOverview: enrichment.companyOverview,
+    enrichedLogoUrl: enrichment.enrichedLogoUrl,
+    linkedinUrl: enrichment.linkedinUrl,
+    facebookUrl: enrichment.facebookUrl,
+    instagramUrl: enrichment.instagramUrl,
+    xUrl: enrichment.xUrl,
+    youtubeUrl: enrichment.youtubeUrl,
+    industry
+  };
+}
+
 export async function updateClientProjectAccess(
   projectId: string,
   userId: string,
@@ -29233,6 +30279,13 @@ export async function saveDiscoverySession(
       status
     }
   });
+
+  // T4.3 — auto-tick "Schedule Discovery Session 1" when the operator
+  // saves any field on session 1 (i.e. the kickoff session is being
+  // booked / prepared).
+  if (sessionNumber === 1 && Object.keys(normalizedFields).length > 0) {
+    await markOnboardingChecklistItemFromEvent(projectId, "schedule_session_1");
+  }
 
   return {
     session: sessionNumber,

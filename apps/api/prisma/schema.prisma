@@ -323,6 +323,7 @@ model Project {
   spawnedProjects               Project[]               @relation("ProjectLineage")
   spawnedRetainers              Retainer[]              @relation("RetainerLineage")
   handoverDoc                   HandoverDoc?
+  onboardingChecklist           Json?
   auditLogs                     AuditLog[]
   blueprint                     Blueprint?
   clientSubmissions             ClientInputSubmission[]

@@ -264,6 +264,12 @@ import {
   loadLatestPortalSnapshot,
   loadProjectChangeRequests,
   refreshClientEnrichment,
+  enrichWebsiteForWizard,
+  loadProjectOnboardingChecklist,
+  setProjectOnboardingChecklistItem,
+  loadProjectChampionInvitePreview,
+  reprovisionProjectChampionPortalUser,
+  sendProjectChampionInvite,
   loadProjectMessages,
   loadProjectQuoteDocument,
   markAllProjectClientSubmissionsSeen,
@@ -1104,6 +1110,10 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/retainers/*", internalAuth);
   app.use("/api/agencies", internalAuth);
   app.use("/api/agencies/*", internalAuth);
+  // T4.4 — wizard website-enrichment endpoint must require workspace auth.
+  // It performs server-side outbound fetches against operator-supplied URLs;
+  // even with the SSRF allowlist on the URL it should never be public.
+  app.use("/api/website-enrichment", internalAuth);
   app.use("/api/invoices", internalAuth);
   app.use("/api/invoices/*", internalAuth);
   app.use("/api/assistant", internalAuth);
@@ -1919,7 +1929,12 @@ export function createApiApp(config: BaseConfig) {
             "are required",
             "Invalid engagement type",
             "must be a boolean",
-            "must be"
+            "must be",
+            // T4.1 — surface the duplicate-client guard from
+            // createProjectRecord so a stale wizard prompt or a missed
+            // existing-client confirmation produces a clear, actionable
+            // message instead of a generic "Something went wrong".
+            "already exists"
           ];
           if (validationHints.some((hint) => message.includes(hint))) {
             return c.json({ error: message }, 400);
@@ -3894,8 +3909,16 @@ export function createApiApp(config: BaseConfig) {
 
   app.post("/api/projects/:projectId/seed-standard-pack", async (c) => {
     try {
+      // T4 — wizard "Start from a Muloo template" passes the chosen
+      // foundation templateId here. seedProjectStandardPack applies the
+      // template-specific extra tasks on top of the generic pack.
+      const body = (await readJsonBodyOrEmpty(c)) as { templateId?: unknown };
+      const templateId =
+        typeof body.templateId === "string" ? body.templateId.trim() : null;
       return c.json(
-        await seedProjectStandardPack(c.req.param("projectId")),
+        await seedProjectStandardPack(c.req.param("projectId"), {
+          templateId
+        }),
         201
       );
     } catch (error) {
@@ -7019,6 +7042,163 @@ export function createApiApp(config: BaseConfig) {
               : "Failed to refresh client enrichment"
         },
         error instanceof Error && error.message === "Client not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
+  // T4.4 — wizard calls this on website-URL blur (before any project /
+  // client row exists) to prefill Industry, Logo and Socials inline.
+  app.post("/api/website-enrichment", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const website = typeof body.website === "string" ? body.website : "";
+      const enrichment = await enrichWebsiteForWizard(website);
+      return c.json({ enrichment });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to enrich website"
+        },
+        400
+      );
+    }
+  });
+
+  // T4.3 — onboarding checklist read + tick endpoints. JSON column on
+  // Project so we don't add a join table just for five rows per project.
+  app.get("/api/projects/:projectId/onboarding-checklist", async (c) => {
+    try {
+      const items = await loadProjectOnboardingChecklist(
+        c.req.param("projectId")
+      );
+      return c.json({ items });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load onboarding checklist"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
+  app.patch(
+    "/api/projects/:projectId/onboarding-checklist/:itemId",
+    async (c) => {
+      try {
+        const itemId = c.req.param("itemId");
+        // T4.2 — `send_champion_welcome` is the canonical "we sent the
+        // invite email" signal in the wizard/onboarding UI. Letting the
+        // operator manually toggle that checkbox would let the UI claim
+        // an email was sent when no email was actually sent. The state
+        // can only be set by the /champion-invite/send endpoint, which
+        // only flips the flag after a successful sendWorkspaceEmail.
+        if (itemId === "send_champion_welcome") {
+          return c.json(
+            {
+              error:
+                "The champion welcome email checklist item is updated automatically when the invite is actually sent — use the Send button below."
+            },
+            400
+          );
+        }
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const completed = Boolean(body.completed);
+        const items = await setProjectOnboardingChecklistItem(
+          c.req.param("projectId"),
+          itemId,
+          completed
+        );
+        return c.json({ items });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update onboarding checklist item"
+          },
+          error instanceof Error && error.message === "Project not found"
+            ? 404
+            : 400
+        );
+      }
+    }
+  );
+
+  // T4.2 — preview the rendered champion invite email (no send) and an
+  // explicit "send" endpoint the operator presses from the checklist.
+  app.get("/api/projects/:projectId/champion-invite", async (c) => {
+    try {
+      const preview = await loadProjectChampionInvitePreview(
+        c.req.param("projectId")
+      );
+      return c.json({ preview });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to build champion invite preview"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 400
+      );
+    }
+  });
+
+  // T4.2 — explicit recovery action when champion auto-provisioning failed
+  // during create. Re-runs createClientPortalUserForProject and returns the
+  // refreshed invite preview.
+  app.post(
+    "/api/projects/:projectId/champion-invite/reprovision",
+    async (c) => {
+      try {
+        const preview = await reprovisionProjectChampionPortalUser(
+          c.req.param("projectId")
+        );
+        return c.json({ preview });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to re-provision champion portal user"
+          },
+          error instanceof Error && error.message === "Project not found"
+            ? 404
+            : 400
+        );
+      }
+    }
+  );
+
+  app.post("/api/projects/:projectId/champion-invite/send", async (c) => {
+    try {
+      const preview = await sendProjectChampionInvite(c.req.param("projectId"));
+      return c.json({ preview });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to send champion invite"
+        },
+        error instanceof Error && error.message === "Project not found"
           ? 404
           : 400
       );
