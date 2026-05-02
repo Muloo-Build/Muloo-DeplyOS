@@ -70,6 +70,11 @@ import {
   clientAuthCookieName,
   createAgentDefinition,
   createClientContact,
+  createContactNote,
+  deleteClientContact,
+  deleteContactNote,
+  listAllContacts,
+  loadContactDetail,
   createClientDirectoryRecord,
   createClientInviteLink,
   createClientPortalUserForProject,
@@ -1063,6 +1068,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/hubspot/*", internalAuth);
   app.use("/api/portals", internalAuth);
   app.use("/api/portals/*", internalAuth);
+  app.use("/api/contacts", internalAuth);
+  app.use("/api/contacts/*", internalAuth);
   app.use("/api/clients", internalAuth);
   app.use("/api/clients/*", internalAuth);
   app.use("/api/email-settings", internalAuth);
@@ -5938,6 +5945,71 @@ export function createApiApp(config: BaseConfig) {
       }
     }
   );
+
+  // Contacts directory
+  app.get("/api/contacts", async (c) =>
+    c.json({ contacts: await listAllContacts() })
+  );
+
+  app.get("/api/clients/:clientId/contacts/:contactId", async (c) => {
+    try {
+      const detail = await loadContactDetail(
+        c.req.param("clientId"),
+        c.req.param("contactId")
+      );
+      return c.json({ contact: detail });
+    } catch (error) {
+      return c.json(
+        { error: error instanceof Error ? error.message : "Not found" },
+        error instanceof Error && error.message === "Contact not found" ? 404 : 400
+      );
+    }
+  });
+
+  app.delete("/api/clients/:clientId/contacts/:contactId", async (c) => {
+    try {
+      await deleteClientContact(c.req.param("clientId"), c.req.param("contactId"));
+      return c.json({ deleted: true });
+    } catch (error) {
+      return c.json(
+        { error: error instanceof Error ? error.message : "Failed to delete contact" },
+        error instanceof Error && error.message === "Contact not found" ? 404 : 400
+      );
+    }
+  });
+
+  app.post("/api/clients/:clientId/contacts/:contactId/notes", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as { body?: unknown; authorId?: unknown };
+      const note = await createContactNote(
+        c.req.param("clientId"),
+        c.req.param("contactId"),
+        body
+      );
+      return c.json({ note }, 201);
+    } catch (error) {
+      return c.json(
+        { error: error instanceof Error ? error.message : "Failed to create note" },
+        error instanceof Error && error.message === "Contact not found" ? 404 : 400
+      );
+    }
+  });
+
+  app.delete("/api/clients/:clientId/contacts/:contactId/notes/:noteId", async (c) => {
+    try {
+      await deleteContactNote(
+        c.req.param("clientId"),
+        c.req.param("contactId"),
+        c.req.param("noteId")
+      );
+      return c.json({ deleted: true });
+    } catch (error) {
+      return c.json(
+        { error: error instanceof Error ? error.message : "Failed to delete note" },
+        400
+      );
+    }
+  });
 
   app.post("/api/users", async (c) => {
     try {

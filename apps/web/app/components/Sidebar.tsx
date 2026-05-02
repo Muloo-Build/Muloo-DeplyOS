@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import {
   Bot,
   Building2,
+  Contact,
   FileText,
   FolderKanban,
   Inbox,
@@ -100,6 +101,13 @@ const navGroups: NavGroup[] = [
         icon: <Building2 size={18} />,
         isActive: (pathname) =>
           pathname === "/partners" || pathname.startsWith("/partners/")
+      },
+      {
+        href: "/contacts",
+        label: "Contacts",
+        icon: <Contact size={18} />,
+        isActive: (pathname) =>
+          pathname === "/contacts" || pathname.startsWith("/contacts/")
       }
     ]
   },

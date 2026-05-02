@@ -4843,6 +4843,7 @@ function serializeClientContact<
     firstName: string;
     lastName: string | null;
     email: string;
+    phone?: string | null;
     title: string | null;
     canApproveQuotes: boolean;
     createdAt: Date;
@@ -4854,6 +4855,7 @@ function serializeClientContact<
     firstName: contact.firstName,
     lastName: contact.lastName ?? "",
     email: contact.email,
+    phone: contact.phone ?? "",
     title: contact.title ?? "",
     canApproveQuotes: contact.canApproveQuotes,
     createdAt: contact.createdAt.toISOString(),
@@ -21745,12 +21747,150 @@ export async function refreshClientEnrichment(clientId: string) {
   return serializeClientDirectoryRecord(updatedClient);
 }
 
+export async function listAllContacts() {
+  const contacts = await prisma.clientContact.findMany({
+    include: {
+      client: { select: { id: true, name: true, enrichedLogoUrl: true, logoUrl: true, industry: true } },
+      notes: { orderBy: [{ createdAt: "desc" }], take: 1 }
+    },
+    orderBy: [{ firstName: "asc" }]
+  });
+
+  return contacts.map((contact) => ({
+    id: contact.id,
+    clientId: contact.clientId,
+    clientName: contact.client.name,
+    clientLogoUrl: contact.client.enrichedLogoUrl ?? contact.client.logoUrl ?? null,
+    clientIndustry: contact.client.industry ?? null,
+    firstName: contact.firstName,
+    lastName: contact.lastName ?? "",
+    email: contact.email,
+    phone: contact.phone ?? "",
+    title: contact.title ?? "",
+    canApproveQuotes: contact.canApproveQuotes,
+    lastNoteAt: contact.notes[0]?.createdAt.toISOString() ?? null,
+    createdAt: contact.createdAt.toISOString(),
+    updatedAt: contact.updatedAt.toISOString()
+  }));
+}
+
+export async function loadContactDetail(clientId: string, contactId: string) {
+  const contact = await prisma.clientContact.findFirst({
+    where: { id: contactId, clientId },
+    include: {
+      client: {
+        select: {
+          id: true,
+          name: true,
+          enrichedLogoUrl: true,
+          logoUrl: true,
+          industry: true,
+          hubSpotPortalId: true
+        }
+      },
+      notes: { orderBy: [{ createdAt: "desc" }] }
+    }
+  });
+
+  if (!contact) throw new Error("Contact not found");
+
+  const linkedProjects = await prisma.project.findMany({
+    where: { clientId },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      scopeType: true,
+      updatedAt: true,
+      clientAccess: {
+        where: { user: { email: contact.email } },
+        include: { user: { select: { email: true, inviteAcceptedAt: true } } }
+      }
+    },
+    orderBy: [{ updatedAt: "desc" }]
+  });
+
+  return {
+    id: contact.id,
+    clientId: contact.clientId,
+    clientName: contact.client.name,
+    clientLogoUrl: contact.client.enrichedLogoUrl ?? contact.client.logoUrl ?? null,
+    clientIndustry: contact.client.industry ?? null,
+    firstName: contact.firstName,
+    lastName: contact.lastName ?? "",
+    email: contact.email,
+    phone: contact.phone ?? "",
+    title: contact.title ?? "",
+    canApproveQuotes: contact.canApproveQuotes,
+    createdAt: contact.createdAt.toISOString(),
+    updatedAt: contact.updatedAt.toISOString(),
+    notes: contact.notes.map((n) => ({
+      id: n.id,
+      body: n.body,
+      authorId: n.authorId ?? null,
+      createdAt: n.createdAt.toISOString()
+    })),
+    portalProjects: linkedProjects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      status: p.status,
+      scopeType: p.scopeType ?? "discovery",
+      updatedAt: p.updatedAt.toISOString(),
+      portalAccess: p.clientAccess.length > 0
+        ? {
+            role: p.clientAccess[0].role,
+            questionnaireAccess: p.clientAccess[0].questionnaireAccess,
+            authStatus: p.clientAccess[0].user.inviteAcceptedAt ? "active" : "invite_pending"
+          }
+        : null
+    }))
+  };
+}
+
+export async function createContactNote(
+  clientId: string,
+  contactId: string,
+  value: { body?: unknown; authorId?: unknown }
+) {
+  const body = typeof value.body === "string" ? value.body.trim() : "";
+  if (!body) throw new Error("Note body is required");
+
+  const contact = await prisma.clientContact.findFirst({ where: { id: contactId, clientId } });
+  if (!contact) throw new Error("Contact not found");
+
+  const note = await prisma.clientContactNote.create({
+    data: {
+      contactId,
+      body,
+      authorId: typeof value.authorId === "string" ? value.authorId : null
+    }
+  });
+
+  return { id: note.id, body: note.body, authorId: note.authorId ?? null, createdAt: note.createdAt.toISOString() };
+}
+
+export async function deleteContactNote(clientId: string, contactId: string, noteId: string) {
+  const contact = await prisma.clientContact.findFirst({ where: { id: contactId, clientId } });
+  if (!contact) throw new Error("Contact not found");
+
+  await prisma.clientContactNote.deleteMany({ where: { id: noteId, contactId } });
+  return { deleted: true };
+}
+
+export async function deleteClientContact(clientId: string, contactId: string) {
+  const contact = await prisma.clientContact.findFirst({ where: { id: contactId, clientId } });
+  if (!contact) throw new Error("Contact not found");
+  await prisma.clientContact.delete({ where: { id: contactId } });
+  return { deleted: true };
+}
+
 export async function createClientContact(
   clientId: string,
   value: {
     firstName?: unknown;
     lastName?: unknown;
     email?: unknown;
+    phone?: unknown;
     title?: unknown;
     canApproveQuotes?: unknown;
   }
@@ -21761,6 +21901,8 @@ export async function createClientContact(
     typeof value.lastName === "string" ? value.lastName.trim() : "";
   const email =
     typeof value.email === "string" ? value.email.trim().toLowerCase() : "";
+  const phone =
+    typeof value.phone === "string" ? value.phone.trim() : "";
   const title = typeof value.title === "string" ? value.title.trim() : "";
   const canApproveQuotes = Boolean(value.canApproveQuotes);
 
@@ -21774,6 +21916,7 @@ export async function createClientContact(
       firstName,
       lastName: lastName || null,
       email,
+      phone: phone || null,
       title: title || null,
       canApproveQuotes
     }
@@ -21840,6 +21983,13 @@ export async function updateClientContact(
 
   if (value.canApproveQuotes !== undefined) {
     updateData.canApproveQuotes = Boolean(value.canApproveQuotes);
+  }
+
+  if ("phone" in value && value.phone !== undefined) {
+    if (typeof value.phone !== "string") {
+      throw new Error("phone must be a string");
+    }
+    updateData.phone = value.phone.trim() || null;
   }
 
   const contact = await prisma.clientContact.update({

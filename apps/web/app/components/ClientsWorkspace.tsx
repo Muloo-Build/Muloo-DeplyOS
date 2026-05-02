@@ -13,6 +13,7 @@ interface ClientContact {
   firstName: string;
   lastName: string;
   email: string;
+  phone: string;
   title: string;
   canApproveQuotes: boolean;
   portalAssignments: Array<{
@@ -99,6 +100,7 @@ interface ContactDraft {
   firstName: string;
   lastName: string;
   email: string;
+  phone: string;
   title: string;
   canApproveQuotes: boolean;
 }
@@ -178,6 +180,7 @@ function createEmptyContactDraft(): ContactDraft {
     firstName: "",
     lastName: "",
     email: "",
+    phone: "",
     title: "",
     canApproveQuotes: false
   };
@@ -2312,6 +2315,23 @@ export default function ClientsWorkspace({
                               )
                             }
                             className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-white">
+                            Phone
+                          </span>
+                          <input
+                            value={contactDraft.phone}
+                            onChange={(event) =>
+                              updateContactDraft(
+                                client.id,
+                                "phone",
+                                event.target.value
+                              )
+                            }
+                            placeholder="+44 7700 900000"
+                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
                           />
                         </label>
                       </div>

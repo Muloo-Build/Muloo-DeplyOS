@@ -145,6 +145,15 @@ ADMIN
 
 ## Completed Features (most recent first)
 
+### Contacts as a First-Class Surface (May 2026)
+- **Schema**: `phone` field added to `ClientContact`; new `ClientContactNote` model (activity/note log per contact, cascade delete)
+- **Migration**: `20260502094304_add_contact_phone_and_notes` applied to Railway PostgreSQL
+- **API**: `GET /api/contacts` (cross-client directory), `GET/DELETE /api/clients/:id/contacts/:contactId` (detail + delete), `POST/DELETE /api/clients/:id/contacts/:contactId/notes` (add/remove notes)
+- **`/contacts` page**: searchable, filterable directory across all clients; split by approvers vs others; stat cards; links to detail panel
+- **`ContactDetailPanel`**: slide-over with three tabs — Overview (edit name/email/phone/title/approver; delete with confirm), Notes (add/delete timestamped activity notes), Projects (linked projects with portal access status)
+- **Sidebar**: Contacts added to DELIVERY nav group after Partners
+- **ClientsWorkspace**: phone field added to "Add contact" form
+
 ### Ready State Pass (May 2026)
 - **Navigation order**: DELIVERY (Projects, Clients, Partners) before SALES; Partners promoted to full-size nav item
 - **Section renamed**: OPERATIONS → AUTOMATION (Portal Ops, Runs, Agents are HubSpot automation engine tools)
