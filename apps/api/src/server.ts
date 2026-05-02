@@ -24299,34 +24299,82 @@ export async function saveClientInputSubmission(
         }
       });
     } else {
-      // Allocate a fresh version slot above the synthetic floor for this
-      // project. We compute it inside the transaction so concurrent writers
-      // can't race onto the same version (the (projectId, version) unique
-      // would catch a collision, and the partial unique on
-      // (projectId, userId, sessionNumber) catches duplicate inserts for
-      // the same tuple — either way we fail loudly instead of silently
-      // overwriting another user's data).
-      const maxRow = await tx.discoverySubmission.findFirst({
-        where: {
-          projectId,
-          version: { gte: CANONICAL_CLIENT_SUBMISSION_VERSION_FLOOR }
-        },
-        orderBy: { version: "desc" },
-        select: { version: true }
-      });
-      const nextVersion =
-        (maxRow?.version ?? CANONICAL_CLIENT_SUBMISSION_VERSION_FLOOR - 1) + 1;
-      await tx.discoverySubmission.create({
-        data: {
-          projectId,
-          version: nextVersion,
-          status,
-          userId,
-          sessionNumber,
-          answers: normalizedAnswers,
-          legacyClientInputSubmissionId: legacyRow?.id ?? null
+      // Allocate a fresh version slot above the synthetic floor and create
+      // the canonical mirror. Two concurrent transactions can both compute
+      // the same `max(version) + 1` (Read Committed isolation does NOT
+      // serialise this read), so we wrap the create in a retry loop:
+      // on a (projectId, version) unique violation we re-read the max and
+      // try again. The partial unique on (projectId, userId, sessionNumber)
+      // is the real correctness guarantee — only one row per tuple will
+      // ever land regardless of how many retries happen.
+      const MAX_VERSION_RETRIES = 5;
+      let lastError: unknown = null;
+      let created = false;
+      for (let attempt = 0; attempt < MAX_VERSION_RETRIES; attempt += 1) {
+        const maxRow = await tx.discoverySubmission.findFirst({
+          where: {
+            projectId,
+            version: { gte: CANONICAL_CLIENT_SUBMISSION_VERSION_FLOOR }
+          },
+          orderBy: { version: "desc" },
+          select: { version: true }
+        });
+        const nextVersion =
+          (maxRow?.version ?? CANONICAL_CLIENT_SUBMISSION_VERSION_FLOOR - 1) +
+          1 +
+          attempt;
+        try {
+          await tx.discoverySubmission.create({
+            data: {
+              projectId,
+              version: nextVersion,
+              status,
+              userId,
+              sessionNumber,
+              answers: normalizedAnswers,
+              legacyClientInputSubmissionId: legacyRow?.id ?? null
+            }
+          });
+          created = true;
+          break;
+        } catch (err) {
+          // Prisma raises P2002 on unique constraint violation. We retry
+          // ONLY when the conflict is on the (projectId, version) unique;
+          // a conflict on the partial (projectId, userId, sessionNumber)
+          // unique means a parallel writer for the same tuple just landed
+          // — re-throw so the caller sees it (the transaction will be
+          // retried by the outer call).
+          const isPrismaError =
+            typeof err === "object" &&
+            err !== null &&
+            "code" in err &&
+            (err as { code?: unknown }).code === "P2002";
+          const target =
+            isPrismaError &&
+            "meta" in err &&
+            typeof (err as { meta?: unknown }).meta === "object" &&
+            (err as { meta?: { target?: unknown } }).meta !== null
+              ? (err as { meta?: { target?: unknown } }).meta?.target
+              : null;
+          const isVersionConflict =
+            Array.isArray(target) &&
+            target.includes("version") &&
+            target.includes("projectId") &&
+            !target.includes("userId");
+          if (isPrismaError && isVersionConflict) {
+            lastError = err;
+            continue;
+          }
+          throw err;
         }
-      });
+      }
+      if (!created) {
+        throw new Error(
+          `Failed to allocate a canonical DiscoverySubmission version slot for project ${projectId} after ${MAX_VERSION_RETRIES} retries: ${
+            lastError instanceof Error ? lastError.message : String(lastError)
+          }`
+        );
+      }
     }
 
     return legacyRow;

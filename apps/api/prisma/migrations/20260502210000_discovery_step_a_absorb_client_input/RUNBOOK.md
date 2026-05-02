@@ -49,13 +49,30 @@ two clearly-bounded canonicals.
 > migration's backfill should have added. Without that index, two portal
 > users on the same project at the same session number would mirror onto
 > a single canonical row (the original `1_000_000 + sessionNumber` version
-> formula collides across users on `(projectId, version)`). The follow-up
-> migration adds the partial unique; the live write path
-> (`saveClientInputSubmission`) was switched to compute version
-> dynamically per project so both unique constraints are satisfied. At
-> the time of the original migration `ClientInputSubmission` had 0 rows
-> so no data was actually corrupted, but this is the "fix the unique key
-> before any real client-input traffic arrives" patch.
+> formula collides across users on `(projectId, version)`).
+>
+> **Follow-up `20260502240000_discovery_step_a_safe_backfill`** —
+> corrective backfill that re-mirrors any unmirrored `ClientInputSubmission`
+> rows using `ROW_NUMBER() OVER (PARTITION BY projectId ORDER BY createdAt, id)`
+> to allocate a unique version per project starting above
+> `MAX(canonical version)`. Idempotent: a row that already has a
+> canonical mirror (matched via `legacyClientInputSubmissionId`) is
+> skipped. At the time of authoring `ClientInputSubmission` has 0 rows,
+> so this is a no-op on dev/CI — but the SQL is correct for any future
+> environment that has historical client-input data, replacing the
+> `ON CONFLICT DO NOTHING` silent-drop in the original backfill.
+>
+> The live write path (`saveClientInputSubmission`) was rewritten to
+> match: it allocates `version` dynamically per project inside the
+> transaction with a retry-on-`P2002`-version-conflict loop (max 5
+> attempts), so concurrent writers for two different `(userId,
+> sessionNumber)` tuples on the same project always succeed. Conflicts
+> on the partial `(projectId, userId, sessionNumber)` unique re-throw
+> immediately so the caller sees the duplicate-write loud-fail. At the
+> time of the original migration `ClientInputSubmission` had 0 rows so
+> no data was actually corrupted, but this is the "fix the unique key
+> + concurrency-safe writes before any real client-input traffic arrives"
+> patch.
 
 ## Feature flags
 
