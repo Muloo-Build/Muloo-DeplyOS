@@ -1,0 +1,146 @@
+We need to validate the completed Project Contribution Workbook system against the actual product requirement, not against unrelated branch/merge tasks.
+
+Please run a product-level QA against the Project Contribution Workbook system and report results clearly as PASS / FAIL / NEEDS FIX.
+
+The original requirement:
+
+We need to support project-linked contribution workbooks for discovery and delivery input.
+
+The system must allow internal Muloo operators to:
+1. Create project workbooks linked to a project.
+2. Select a workbook/resource type, for example:
+   - HubSpot discovery
+   - Website discovery
+   - Operations discovery
+   - Tech stack/current tools
+   - Product lines/services
+   - Business process/current operations
+   - General project resources
+3. Pull reusable discovery questions from a question library into a project-specific workbook.
+4. Customise workbook questions per project.
+5. Assign workbook questions or sections to specific contributors.
+6. Add project resources such as a Miro board link.
+7. See a readiness/progress summary for the project workbooks.
+8. Support Magnisol seed data as a realistic test case.
+
+The system must allow the client/project champion to:
+1. Access the client portal project workspace.
+2. See project workbooks assigned or visible to them.
+3. Add required contributors from inside the client portal.
+4. Assign or involve contributors without giving them full client portal access.
+5. Allow verified stakeholders/contributors to provide answers, documents, links, or supporting information.
+6. Restrict access so contributors only see the workbook/questions/resources they are assigned to.
+7. Prevent contributors from viewing unrelated project data.
+8. Prevent non-champions from creating contributors.
+9. Prevent unauthorised users from accessing client workbook routes.
+
+Please test the following areas:
+
+A. Data model and migration
+- Confirm DiscoveryEvidence has:
+  - resourceType
+  - assignedContributorIds[]
+  - ownerContributorId
+  - workbookContent JSON
+- Confirm existing DiscoveryEvidence records still work.
+- Confirm new workbook content saves and reloads correctly.
+
+B. Question library
+- Confirm DiscoveryQuestionLibraryItem exists.
+- Confirm CRUD works:
+  - create question
+  - edit question
+  - delete or deactivate question
+  - list/filter by category/resource type
+- Confirm import-into-workbook works.
+- Confirm imported questions can be customised inside the project workbook without altering the original library item.
+
+C. Internal operator UI
+- Confirm ProjectWorkbooksPanel loads for a project.
+- Confirm resource type selector works.
+- Confirm QuestionLibraryPicker can browse/filter questions.
+- Confirm WorkbookContentEditor can:
+  - add questions
+  - edit questions
+  - assign contributors
+  - save workbook content
+  - reload saved content
+- Confirm ProjectReadinessSummary shows 6 columns and updates based on workbook status/completion.
+
+D. Client portal champion flow
+- Log in as or simulate a project champion.
+- Confirm ClientProjectWorkspace shows:
+  - ClientWorkbooksPanel tab
+  - ClientContributorsPanel tab
+- Confirm champion can add contributors.
+- Confirm champion can see project workbooks.
+- Confirm champion can assign contributors where applicable.
+- Confirm champion cannot access unrelated project workbooks.
+
+E. Contributor flow
+- Create or seed a contributor who does not have normal client portal access.
+- Confirm contributor can access only assigned workbook/question/resource areas.
+- Confirm contributor can submit:
+  - answer text
+  - supporting document/file evidence if supported
+  - external link/resource if supported
+- Confirm contributor cannot see:
+  - unrelated workbooks
+  - unrelated project data
+  - admin/operator screens
+  - other contributor-only assignments
+
+F. Security and authorisation regression
+Specifically verify the architect review issues:
+- Per-question assignment checks are enforced.
+- Contributor creation is champion-only.
+- Workbook visibility respects assignment rules.
+- Unauthenticated access returns the expected Client unauthorized error.
+- Authenticated but unauthorised access is blocked.
+- Internal/operator-only endpoints are not exposed to contributors.
+
+G. Magnisol seed validation
+- Confirm Magnisol seed creates:
+  - 82 library items
+  - 13 categories
+  - contributors: Tara, Grant, Devan
+  - 5 internal workbooks
+  - 82 category-matched questions across those workbooks
+  - 1 Miro board resource
+- Confirm seed is idempotent:
+  - Run once
+  - Run again
+  - Confirm no duplicate questions, contributors, workbooks, or Miro resources are created.
+
+H. TypeScript and runtime checks
+- Run typecheck for apps/api.
+- Run typecheck for apps/web.
+- Run any existing tests.
+- Start the app locally.
+- Manually smoke test the internal operator and client portal workbook routes.
+
+I. Final QA output
+Return the result in this format:
+
+## Project Contribution Workbook QA Result
+
+Overall status:
+PASS / FAIL / PARTIAL
+
+## What passed
+List passed areas.
+
+## What failed
+List failed areas with exact file, route, component, or endpoint names.
+
+## Missing requirement coverage
+List anything from the original requirement that has not actually been implemented.
+
+## Security concerns
+List any auth or visibility concerns.
+
+## Recommended fixes
+Give concrete implementation steps.
+
+## Final recommendation
+Say whether this is safe to treat as complete, or whether it needs another build pass.
