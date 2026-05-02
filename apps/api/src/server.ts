@@ -26600,13 +26600,17 @@ function serializeDiscoveryEvidence<
 export async function loadDiscoveryEvidence(
   projectId: string,
   sessionNumber?: number,
-  filters?: { kind?: string }
+  filters?: { kind?: string; includeArchived?: boolean }
 ) {
   const evidenceItems = await prisma.discoveryEvidence.findMany({
     where: {
       projectId,
       ...(sessionNumber !== undefined ? { sessionNumber } : {}),
-      ...(filters?.kind ? { kind: filters.kind } : {})
+      ...(filters?.kind ? { kind: filters.kind } : {}),
+      // T5.3 — archived workbooks (set by closeProject) drop out of the
+      // active evidence surface by default. Pass includeArchived: true to
+      // see archived rows for audit/restore flows.
+      ...(filters?.includeArchived ? {} : { isArchived: false })
     },
     orderBy: [{ sessionNumber: "asc" }, { createdAt: "desc" }]
   });
@@ -26614,8 +26618,14 @@ export async function loadDiscoveryEvidence(
   return evidenceItems.map((item) => serializeDiscoveryEvidence(item));
 }
 
-export async function loadProjectWorkbooks(projectId: string) {
-  return loadDiscoveryEvidence(projectId, undefined, { kind: "workbook" });
+export async function loadProjectWorkbooks(
+  projectId: string,
+  options: { includeArchived?: boolean } = {}
+) {
+  return loadDiscoveryEvidence(projectId, undefined, {
+    kind: "workbook",
+    includeArchived: options.includeArchived === true
+  });
 }
 
 const VALID_WORKBOOK_RESOURCE_TYPES = [
