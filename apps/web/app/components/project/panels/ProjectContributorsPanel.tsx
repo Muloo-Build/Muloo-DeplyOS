@@ -15,6 +15,9 @@ interface Contributor {
   notes: string | null;
   approvalStatus: string;
   portalAccess: boolean;
+  accessToken: string | null;
+  accessTokenExpiresAt: string | null;
+  accessLinkPath: string | null;
   contact: {
     id: string;
     firstName: string;
@@ -443,6 +446,12 @@ export default function ProjectContributorsPanel(props: {
                       </label>
                     </div>
 
+                    <ContributorAccessLink
+                      contributor={contrib}
+                      busy={savingId === contrib.id}
+                      onPatch={(body) => patchContributor(contrib.id, body)}
+                    />
+
                     <div>
                       <p className="mb-1.5 text-xs font-medium text-text-secondary">
                         Assigned workbooks
@@ -505,6 +514,135 @@ export default function ProjectContributorsPanel(props: {
             );
           })}
         </ul>
+      )}
+    </div>
+  );
+}
+
+function ContributorAccessLink({
+  contributor,
+  busy,
+  onPatch
+}: {
+  contributor: Contributor;
+  busy: boolean;
+  onPatch: (body: Record<string, unknown>) => Promise<void>;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const absoluteLink =
+    contributor.accessLinkPath && typeof window !== "undefined"
+      ? `${window.location.origin}${contributor.accessLinkPath}`
+      : contributor.accessLinkPath;
+
+  async function copyLink() {
+    if (!absoluteLink) return;
+    try {
+      await navigator.clipboard.writeText(absoluteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // clipboard write may be denied — silently no-op; the user can
+      // still select the link text manually
+    }
+  }
+
+  if (contributor.portalAccessEnabled) {
+    return (
+      <div className="rounded-xl border border-white/5 bg-black/20 p-3 text-xs text-text-secondary">
+        This contributor signs in via the client portal — no link required.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-xl border border-white/5 bg-black/20 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
+          Contributor link
+        </p>
+        {contributor.accessToken ? (
+          <span className="text-[10px] text-emerald-300">Active</span>
+        ) : (
+          <span className="text-[10px] text-text-secondary">Not issued</span>
+        )}
+      </div>
+
+      {contributor.accessToken && absoluteLink ? (
+        <>
+          <p className="text-[11px] leading-relaxed text-text-secondary">
+            Share this link directly with{" "}
+            <span className="text-white">
+              {contributor.contact?.firstName ?? "the contributor"}
+            </span>
+            . They can open it and answer their assigned questions without
+            logging in.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white">
+              {absoluteLink}
+            </code>
+            <button
+              type="button"
+              onClick={copyLink}
+              className="brand-surface-soft rounded-full border px-3 py-1 text-[11px] text-white"
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-[11px]">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (
+                  !confirm(
+                    "Generate a new link? The old link will stop working immediately."
+                  )
+                ) {
+                  return;
+                }
+                void onPatch({ regenerateAccessToken: true });
+              }}
+              className="text-text-secondary hover:text-white disabled:opacity-50"
+            >
+              Regenerate
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (
+                  !confirm(
+                    "Revoke this link? The contributor will lose access immediately."
+                  )
+                ) {
+                  return;
+                }
+                void onPatch({ revokeAccessToken: true });
+              }}
+              className="text-text-secondary hover:text-rose-400 disabled:opacity-50"
+            >
+              Revoke
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-[11px] leading-relaxed text-text-secondary">
+            No access link is currently issued. Generate one so this
+            contributor can answer their assigned questions without portal
+            access.
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void onPatch({ regenerateAccessToken: true })}
+            className="brand-primary rounded-full px-3 py-1 text-[11px] disabled:opacity-50"
+          >
+            Generate link
+          </button>
+        </>
       )}
     </div>
   );

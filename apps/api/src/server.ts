@@ -4961,6 +4961,8 @@ type SerializableProjectContributor = {
   createdByUserId: string | null;
   createdByContributorId: string | null;
   approvalStatus: string;
+  accessToken: string | null;
+  accessTokenExpiresAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   contact?: {
@@ -4974,7 +4976,22 @@ type SerializableProjectContributor = {
   } | null;
 };
 
+// Slice 2 — Contributor access tokens
+// Generates a high-entropy, URL-safe token used to identify a contributor
+// who does NOT have a full client portal account. The token-only flow
+// will be served at /contributors/:token (the page itself is built in
+// Slice 5; this slice only mints, exposes, and revokes the tokens).
+export function generateContributorAccessToken(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
+
 function serializeProjectContributor(record: SerializableProjectContributor) {
+  // Slice 2: expose the access token (when present) plus a relative
+  // path the operator/champion UI can turn into a copyable absolute URL
+  // via window.location.origin. We deliberately return a *path*, not a
+  // full URL, so the same record can be served from any host (preview,
+  // staging, production, custom domain) without server-side env coupling.
+  const accessToken = record.accessToken ?? null;
   return {
     id: record.id,
     projectId: record.projectId,
@@ -4992,6 +5009,9 @@ function serializeProjectContributor(record: SerializableProjectContributor) {
     createdByUserId: record.createdByUserId ?? null,
     createdByContributorId: record.createdByContributorId ?? null,
     approvalStatus: record.approvalStatus,
+    accessToken,
+    accessTokenExpiresAt: record.accessTokenExpiresAt?.toISOString() ?? null,
+    accessLinkPath: accessToken ? `/contributors/${accessToken}` : null,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     contact: record.contact
@@ -5098,6 +5118,16 @@ export async function createProjectContributor(
       ? value.approvalStatus
       : "approved";
 
+  // Slice 2: contributors without a portal account get a token-only access
+  // link minted at creation time. Contributors WITH portal access don't
+  // need a token (they sign in to the portal directly). On upsert, we only
+  // mint a token in the create branch — if the row already exists we leave
+  // the existing accessToken alone so a re-add doesn't quietly invalidate
+  // an outstanding link.
+  const initialAccessToken = portalAccessEnabled
+    ? null
+    : generateContributorAccessToken();
+
   const created = await prisma.projectContributor.upsert({
     where: { projectId_contactId: { projectId, contactId } },
     update: {
@@ -5130,7 +5160,9 @@ export async function createProjectContributor(
       createdByType,
       createdByUserId,
       createdByContributorId,
-      approvalStatus
+      approvalStatus,
+      accessToken: initialAccessToken,
+      accessTokenExpiresAt: null
     },
     include: { contact: true }
   });
@@ -5152,6 +5184,8 @@ export async function updateProjectContributor(
     relatedQuestionIds?: unknown;
     notes?: unknown;
     approvalStatus?: unknown;
+    regenerateAccessToken?: unknown;
+    revokeAccessToken?: unknown;
   }
 ) {
   const existing = await prisma.projectContributor.findFirst({
@@ -5211,6 +5245,31 @@ export async function updateProjectContributor(
       ["approved", "pending_review", "rejected"].includes(value.approvalStatus)
         ? value.approvalStatus
         : existing.approvalStatus;
+  }
+
+  // Slice 2: token regenerate/revoke + portal-enable auto-revoke.
+  // Resolve the next portalAccessEnabled value (committed value if the
+  // patch sets it, else the existing value) so we can enforce: a
+  // contributor with portal access never has a stale token-only link.
+  const nextPortalEnabled =
+    typeof data.portalAccessEnabled === "boolean"
+      ? data.portalAccessEnabled
+      : existing.portalAccessEnabled;
+
+  if (nextPortalEnabled) {
+    // Portal-enabled contributors sign in directly; force-revoke any
+    // outstanding token even if the caller asked to regenerate, so we
+    // don't leave a hidden active link with no UI to manage it.
+    if (existing.accessToken !== null || value.regenerateAccessToken === true) {
+      data.accessToken = null;
+      data.accessTokenExpiresAt = null;
+    }
+  } else if (value.regenerateAccessToken === true) {
+    data.accessToken = generateContributorAccessToken();
+    data.accessTokenExpiresAt = null;
+  } else if (value.revokeAccessToken === true) {
+    data.accessToken = null;
+    data.accessTokenExpiresAt = null;
   }
 
   const updated = await prisma.projectContributor.update({
@@ -27189,13 +27248,41 @@ export async function loadClientPortalContributors(
   projectId: string,
   userId: string
 ) {
-  await ensureClientPortalProjectAccess(projectId, userId);
+  const access = await ensureClientPortalProjectAccess(projectId, userId);
+  // Slice 2 security: contributor access tokens are bearer credentials
+  // (anyone holding the URL acts as the contributor for token-only
+  // workbook submission). Only an approved champion — or the operator
+  // skeleton portal user used for internal previews — should see other
+  // contributors' tokens. For everyone else, strip token + link path so
+  // a portal contributor cannot impersonate another contributor by
+  // simply listing the project's contributor roster.
+  const skeleton = isSkeletonPortalEmail(access.user.email);
+  const caller = skeleton
+    ? null
+    : await resolveClientPortalContributor(
+        projectId,
+        access.project.clientId,
+        access.user.email
+      );
+  const canSeeTokens = skeleton || isApprovedChampion(caller);
+
   const records = await prisma.projectContributor.findMany({
     where: { projectId },
     include: { contact: true },
     orderBy: { createdAt: "asc" }
   });
-  return records.map((record) => serializeProjectContributor(record));
+  return records.map((record) => {
+    const serialized = serializeProjectContributor(record);
+    if (canSeeTokens) {
+      return serialized;
+    }
+    return {
+      ...serialized,
+      accessToken: null,
+      accessTokenExpiresAt: null,
+      accessLinkPath: null
+    };
+  });
 }
 
 export async function addClientPortalContributor(

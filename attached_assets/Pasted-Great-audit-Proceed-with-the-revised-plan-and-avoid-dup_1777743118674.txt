@@ -1,0 +1,43 @@
+Great audit. Proceed with the revised plan and avoid duplicating anything that already exists.
+
+Important:
+Do not create a new contributor model.
+Do not create duplicate contributor routes.
+Do not rebuild existing champion/contributor logic.
+Use the existing ProjectContributor, ClientPortalUser, ClientProjectAccess, DiscoveryEvidence, and workbook structures wherever possible.
+
+Start with the smallest useful implementation slice:
+
+Slice 2 — Contributor access token foundation
+
+Goal:
+Enable non-portal contributors to access only their assigned workbook content through a secure token link.
+
+Required changes:
+1. Add accessToken and accessTokenExpiresAt to the existing ProjectContributor model.
+2. Add a migration for those fields.
+3. Add server utility logic to generate contributor access tokens.
+4. Update contributor creation flows so that contributors can receive or store an access token when they do not have full portal access.
+5. Do not send emails yet unless email infrastructure already exists. For now, expose the generated contributor link clearly in the operator/champion UI so it can be copied manually.
+6. Keep portalAccessEnabled false by default for these contributors.
+7. Preserve existing client portal champion behaviour.
+
+Important behaviour:
+- A contributor with a token should not need to log in.
+- The token should only identify that contributor.
+- The contributor should only be able to access project/workbook/question content assigned to them.
+- Do not build the full contributor page yet in this slice unless it is tiny. This slice is mostly schema, token generation, API readiness, and copy-link UI.
+
+Please inspect existing files first and reuse:
+- ProjectContributor
+- ClientContributorsPanel
+- ProjectContributorsPanel
+- existing workbook assignment helpers
+- apps/web/app/contributors/[token]/page.tsx stub
+
+Deliverables:
+- List changed files.
+- Include migration name.
+- Explain exactly how the token link is generated.
+- Explain how to test it manually.
+- Run typecheck/build checks.

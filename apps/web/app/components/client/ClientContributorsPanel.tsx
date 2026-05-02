@@ -10,6 +10,9 @@ interface Contributor {
   notes: string | null;
   approvalStatus: string;
   createdByType: string;
+  accessToken: string | null;
+  accessLinkPath: string | null;
+  portalAccessEnabled: boolean;
   contact: {
     firstName: string;
     lastName: string;
@@ -35,6 +38,7 @@ export default function ClientContributorsPanel({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [justAdded, setJustAdded] = useState<Contributor | null>(null);
   const [draft, setDraft] = useState({
     firstName: "",
     lastName: "",
@@ -100,6 +104,11 @@ export default function ClientContributorsPanel({
         notes: ""
       });
       setShowForm(false);
+      // Surface the contributor link banner immediately after add so
+      // the champion can copy it before the page is reloaded.
+      if (data.contributor) {
+        setJustAdded(data.contributor as Contributor);
+      }
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
@@ -128,6 +137,13 @@ export default function ClientContributorsPanel({
         <p className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
           {error}
         </p>
+      ) : null}
+
+      {justAdded ? (
+        <JustAddedBanner
+          contributor={justAdded}
+          onDismiss={() => setJustAdded(null)}
+        />
       ) : null}
 
       {showForm ? (
@@ -193,6 +209,11 @@ export default function ClientContributorsPanel({
             rows={2}
             className="brand-input w-full rounded-lg border px-3 py-2 text-sm"
           />
+          <p className="text-[11px] leading-relaxed text-text-secondary">
+            We&apos;ll generate a private link for this person so they can
+            answer their assigned questions without needing a portal account.
+            You&apos;ll see the link right after you add them.
+          </p>
           <button
             type="button"
             disabled={busy}
@@ -239,10 +260,111 @@ export default function ClientContributorsPanel({
                   ? " · pending review"
                   : ""}
               </p>
+              {!contrib.portalAccessEnabled && contrib.accessLinkPath ? (
+                <ContributorLinkRow path={contrib.accessLinkPath} />
+              ) : null}
             </li>
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+function ContributorLinkRow({ path }: { path: string }) {
+  const [copied, setCopied] = useState(false);
+  const absolute =
+    typeof window !== "undefined" ? `${window.location.origin}${path}` : path;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(absolute);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard may be denied — user can copy the visible text manually.
+    }
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-white/5 bg-black/20 px-2 py-1.5">
+      <span className="text-[10px] uppercase tracking-wide text-text-secondary">
+        Private link
+      </span>
+      <code className="min-w-0 flex-1 truncate text-[11px] text-white">
+        {absolute}
+      </code>
+      <button
+        type="button"
+        onClick={copy}
+        className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-white hover:border-white/30"
+      >
+        {copied ? "Copied" : "Copy"}
+      </button>
+    </div>
+  );
+}
+
+function JustAddedBanner({
+  contributor,
+  onDismiss
+}: {
+  contributor: Contributor;
+  onDismiss: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const absolute =
+    contributor.accessLinkPath && typeof window !== "undefined"
+      ? `${window.location.origin}${contributor.accessLinkPath}`
+      : contributor.accessLinkPath;
+
+  async function copy() {
+    if (!absolute) return;
+    try {
+      await navigator.clipboard.writeText(absolute);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // ignore clipboard denial
+    }
+  }
+
+  if (!absolute) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-white">
+            ✓ {contributor.contact?.firstName} added
+          </p>
+          <p className="mt-0.5 text-xs text-emerald-200">
+            Share this private link with them — they can answer their
+            assigned questions without needing a portal account.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-[11px] text-white">
+              {absolute}
+            </code>
+            <button
+              type="button"
+              onClick={copy}
+              className="brand-primary rounded-full px-3 py-1 text-[11px]"
+            >
+              {copied ? "Copied" : "Copy link"}
+            </button>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-xs text-text-secondary hover:text-white"
+        >
+          Dismiss
+        </button>
+      </div>
     </div>
   );
 }
