@@ -79,6 +79,31 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
+    label: "DELIVERY",
+    items: [
+      {
+        href: "/projects",
+        label: "Projects",
+        icon: <FolderKanban size={18} />,
+        isActive: isProjectsRoute
+      },
+      {
+        href: "/clients",
+        label: "Clients",
+        icon: <Building2 size={18} />,
+        isActive: (pathname) =>
+          pathname === "/clients" || pathname.startsWith("/clients/")
+      },
+      {
+        href: "/partners",
+        label: "Partners",
+        icon: <Building2 size={18} />,
+        isActive: (pathname) =>
+          pathname === "/partners" || pathname.startsWith("/partners/")
+      }
+    ]
+  },
+  {
     label: "SALES",
     items: [
       {
@@ -115,32 +140,6 @@ const navGroups: NavGroup[] = [
         icon: <LineChart size={18} />,
         isActive: (pathname) =>
           pathname === "/financials" || pathname.startsWith("/financials/")
-      }
-    ]
-  },
-  {
-    label: "DELIVERY",
-    items: [
-      {
-        href: "/projects",
-        label: "Projects",
-        icon: <FolderKanban size={18} />,
-        isActive: isProjectsRoute
-      },
-      {
-        href: "/clients",
-        label: "Clients",
-        icon: <Building2 size={18} />,
-        isActive: (pathname) =>
-          pathname === "/clients" || pathname.startsWith("/clients/")
-      },
-      {
-        href: "/partners",
-        label: "Partners",
-        icon: <Building2 size={16} />,
-        compact: true,
-        isActive: (pathname) =>
-          pathname === "/partners" || pathname.startsWith("/partners/")
       }
     ]
   },
