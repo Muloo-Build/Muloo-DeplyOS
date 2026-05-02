@@ -1,0 +1,149 @@
+2026-05-02T09:57:13.399122327Z [inf]  scheduling build on Metal builder "production-builderv3-europe-west4-nvw8"
+2026-05-02T09:57:16.001891595Z [inf]  unpacking archive
+2026-05-02T09:57:16.471454117Z [inf]  uploading snapshot
+2026-05-02T09:57:16.539510780Z [inf]  using build driver nixpacks-v1.41.0
+2026-05-02T09:57:16.996737228Z [inf]  
+2026-05-02T09:57:16.996739344Z [inf]  ╔════════════════ Nixpacks v1.41.0 ═══════════════╗
+2026-05-02T09:57:16.996740129Z [inf]  ║ setup      │ nodejs_24, pnpm-9_x, openssl       ║
+2026-05-02T09:57:16.996741428Z [inf]  ║─────────────────────────────────────────────────║
+2026-05-02T09:57:16.996742024Z [inf]  ║ install    │ pnpm i --frozen-lockfile           ║
+2026-05-02T09:57:16.996743193Z [inf]  ║─────────────────────────────────────────────────║
+2026-05-02T09:57:16.996743792Z [inf]  ║ build      │ NODE_ENV=production pnpm run build ║
+2026-05-02T09:57:16.996744835Z [inf]  ║─────────────────────────────────────────────────║
+2026-05-02T09:57:16.996745399Z [inf]  ║ start      │ NODE_ENV=production pnpm run start ║
+2026-05-02T09:57:16.996746278Z [inf]  ╚═════════════════════════════════════════════════╝
+2026-05-02T09:57:16.996746628Z [inf]  
+2026-05-02T09:57:16.996940535Z [inf]  
+2026-05-02T09:57:16.996941248Z [inf]  Saved output to:
+2026-05-02T09:57:16.996941832Z [inf]    snapshot-target-unpack
+2026-05-02T09:57:17.438623970Z [inf]  [internal] load build definition from Dockerfile
+2026-05-02T09:57:17.438627712Z [inf]  [internal] load build definition from Dockerfile
+2026-05-02T09:57:17.438773583Z [inf]  [internal] load build definition from Dockerfile
+2026-05-02T09:57:17.458177227Z [inf]  [internal] load build definition from Dockerfile
+2026-05-02T09:57:17.468136737Z [inf]  [internal] load metadata for ghcr.io/railwayapp/nixpacks:ubuntu-1745885067
+2026-05-02T09:57:17.750575090Z [inf]  [internal] load metadata for ghcr.io/railwayapp/nixpacks:ubuntu-1745885067
+2026-05-02T09:57:17.750687574Z [inf]  [internal] load .dockerignore
+2026-05-02T09:57:17.750745599Z [inf]  [internal] load .dockerignore
+2026-05-02T09:57:17.751457666Z [inf]  [internal] load .dockerignore
+2026-05-02T09:57:17.783689719Z [inf]  [internal] load .dockerignore
+2026-05-02T09:57:17.789962122Z [wrn]  SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "ANTHROPIC_API_KEY") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+
+2026-05-02T09:57:17.789963135Z [wrn]  SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "GOOGLE_CLIENT_SECRET") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+
+2026-05-02T09:57:17.790011244Z [wrn]  SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "XERO_CLIENT_SECRET") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+
+2026-05-02T09:57:17.790378296Z [wrn]  SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "ANTHROPIC_API_KEY") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+
+2026-05-02T09:57:17.790378859Z [wrn]  SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "GOOGLE_CLIENT_SECRET") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+
+2026-05-02T09:57:17.790474111Z [wrn]  SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "XERO_CLIENT_SECRET") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+
+2026-05-02T09:57:17.790474755Z [wrn]  UndefinedVar: Usage of undefined variable '$NIXPACKS_PATH' (line 18)(https://docs.docker.com/go/dockerfile/rule/undefined-var/)
+ details: Variables should be defined before their use
+
+2026-05-02T09:57:17.792794543Z [inf]  [stage-0 10/10] COPY . /app
+2026-05-02T09:57:17.792794984Z [inf]  [stage-0  9/10] RUN printf '\nPATH=/app/node_modules/.bin:$PATH' >> /root/.profile
+2026-05-02T09:57:17.792796255Z [inf]  [stage-0  8/10] RUN --mount=type=cache,id=s/57f27322-dc22-473b-8f25-30111fe7626c-next/cache,target=/app/.next/cache --mount=type=cache,id=s/57f27322-dc22-473b-8f25-30111fe7626c-apps/web/next/cache,target=/app/apps/web/.next/cache --mount=type=cache,id=s/57f27322-dc22-473b-8f25-30111fe7626c-node_modules/cache,target=/app/node_modules/.cache NODE_ENV=production pnpm run build
+2026-05-02T09:57:17.792796668Z [inf]  [stage-0  7/10] COPY . /app/.
+2026-05-02T09:57:17.792797107Z [inf]  [stage-0  6/10] RUN --mount=type=cache,id=s/57f27322-dc22-473b-8f25-30111fe7626c-/root/local/share/pnpm/store/v3,target=/root/.local/share/pnpm/store/v3 pnpm i --frozen-lockfile
+2026-05-02T09:57:17.792797438Z [inf]  [stage-0  5/10] COPY . /app/.
+2026-05-02T09:57:17.792797743Z [inf]  [stage-0  4/10] RUN nix-env -if .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix && nix-collect-garbage -d
+2026-05-02T09:57:17.792798055Z [inf]  [stage-0  3/10] COPY .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix
+2026-05-02T09:57:17.792798378Z [inf]  [internal] load build context
+2026-05-02T09:57:17.792798693Z [inf]  [stage-0  2/10] WORKDIR /app/
+2026-05-02T09:57:17.792798991Z [inf]  [stage-0  1/10] FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-05-02T09:57:17.792892192Z [inf]  [stage-0  1/10] FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-05-02T09:57:17.792945837Z [inf]  [internal] load build context
+2026-05-02T09:57:17.794681965Z [inf]  [internal] load build context
+2026-05-02T09:57:17.804262243Z [inf]  [stage-0  1/10] FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-05-02T09:57:17.874445039Z [inf]  [internal] load build context
+2026-05-02T09:57:17.887650356Z [inf]  [stage-0  2/10] WORKDIR /app/
+2026-05-02T09:57:17.887650990Z [inf]  [stage-0  3/10] COPY .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix
+2026-05-02T09:57:17.887651421Z [inf]  [stage-0  4/10] RUN nix-env -if .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix && nix-collect-garbage -d
+2026-05-02T09:57:17.887651787Z [inf]  [stage-0  5/10] COPY . /app/.
+2026-05-02T09:57:17.985632494Z [inf]  [stage-0  5/10] COPY . /app/.
+2026-05-02T09:57:17.991961427Z [inf]  [stage-0  6/10] RUN --mount=type=cache,id=s/57f27322-dc22-473b-8f25-30111fe7626c-/root/local/share/pnpm/store/v3,target=/root/.local/share/pnpm/store/v3 pnpm i --frozen-lockfile
+2026-05-02T09:57:19.082553669Z [inf]  Scope: all 13 workspace projects
+
+2026-05-02T09:57:19.09227948Z [inf]  (node:1) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+2026-05-02T09:57:19.12086366Z [inf]  Lockfile is up to date, resolution step is skipped
+
+2026-05-02T09:57:19.145687407Z [inf]  Progress: resolved 1, reused 0, downloaded 0, added 0
+
+2026-05-02T09:57:19.183016284Z [inf]  Packages: +311
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+2026-05-02T09:57:20.146551258Z [inf]  Progress: resolved 311, reused 311, downloaded 0, added 309
+
+2026-05-02T09:57:21.146869709Z [inf]  Progress: resolved 311, reused 311, downloaded 0, added 310
+
+2026-05-02T09:57:22.317114985Z [inf]  Progress: resolved 311, reused 311, downloaded 0, added 311
+
+2026-05-02T09:57:22.317322707Z [inf]  Progress: resolved 311, reused 311, downloaded 0, added 311, done
+
+2026-05-02T09:57:22.492750069Z [inf]  
+dependencies:
++ @types/node 24.12.0
++ @types/react 19.2.14
++ autoprefixer 10.4.27
++ next 14.2.35
++ postcss 8.5.8
++ react 18.3.1
++ react-dom 18.3.1
++ tailwindcss 3.4.19
++ typescript 5.9.3
+
+devDependencies:
++ @eslint/js 9.39.4
++ @typescript-eslint/eslint-plugin 8.57.0
++ @typescript-eslint/parser 8.57.0
++ c8 10.1.3
++ eslint 9.39.4
++ globals 16.5.0
++ prettier 3.8.1
++ tsx 4.21.0
+
+The following dependencies have build scripts that were ignored: esbuild
+To allow the execution of build scripts for these packages, add their names to "pnpm.onlyBuiltDependencies" in your "package.json", then run "pnpm rebuild"
+
+
+2026-05-02T09:57:22.537406804Z [inf]  Done in 3.9s using pnpm v9.15.9
+
+2026-05-02T09:57:22.646371969Z [inf]  [stage-0  6/10] RUN --mount=type=cache,id=s/57f27322-dc22-473b-8f25-30111fe7626c-/root/local/share/pnpm/store/v3,target=/root/.local/share/pnpm/store/v3 pnpm i --frozen-lockfile
+2026-05-02T09:57:22.650560440Z [inf]  [stage-0  7/10] COPY . /app/.
+2026-05-02T09:57:23.060587039Z [inf]  [stage-0  7/10] COPY . /app/.
+2026-05-02T09:57:23.066126071Z [inf]  [stage-0  8/10] RUN --mount=type=cache,id=s/57f27322-dc22-473b-8f25-30111fe7626c-next/cache,target=/app/.next/cache --mount=type=cache,id=s/57f27322-dc22-473b-8f25-30111fe7626c-apps/web/next/cache,target=/app/apps/web/.next/cache --mount=type=cache,id=s/57f27322-dc22-473b-8f25-30111fe7626c-node_modules/cache,target=/app/node_modules/.cache NODE_ENV=production pnpm run build
+2026-05-02T09:57:23.710987538Z [inf]  
+> muloo-deploy-os@0.2.0 build /app
+> cd apps/api && npx prisma generate && cd ../.. && node node_modules/typescript/lib/tsc.js -b tsconfig.json && cd apps/web && next build
+
+
+2026-05-02T09:57:23.852572286Z [inf]  npm warn config production Use `--omit=dev` instead.
+
+2026-05-02T09:57:24.658179591Z [inf]  Prisma schema loaded from prisma/schema.prisma
+
+2026-05-02T09:57:25.615284538Z [inf]  
+✔ Generated Prisma Client (v5.22.0) to ./../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client in 363ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to react to database changes in your app as they happen? Discover how with Pulse: https://pris.ly/tip-1-pulse
+
+
+2026-05-02T09:57:33.043253145Z [inf]  apps/api/src/server.ts(21841,19): error TS2532: Object is possibly 'undefined'.
+
+2026-05-02T09:57:33.043369661Z [inf]  apps/api/src/server.ts(21842,34): error TS2532: Object is possibly 'undefined'.
+apps/api/src/server.ts(21843,25): error TS2532: Object is possibly 'undefined'.
+
+2026-05-02T09:57:33.144989576Z [inf]   ELIFECYCLE  Command failed with exit code 2.
+
+2026-05-02T09:57:33.257451666Z [err]  [stage-0  8/10] RUN --mount=type=cache,id=s/57f27322-dc22-473b-8f25-30111fe7626c-next/cache,target=/app/.next/cache --mount=type=cache,id=s/57f27322-dc22-473b-8f25-30111fe7626c-apps/web/next/cache,target=/app/apps/web/.next/cache --mount=type=cache,id=s/57f27322-dc22-473b-8f25-30111fe7626c-node_modules/cache,target=/app/node_modules/.cache NODE_ENV=production pnpm run build
+2026-05-02T09:57:33.287774194Z [err]  Build Failed: build daemon returned an error < failed to solve: process "/bin/bash -ol pipefail -c NODE_ENV=production pnpm run build" did not complete successfully: exit code: 2 >

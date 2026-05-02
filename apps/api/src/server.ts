@@ -21836,13 +21836,15 @@ export async function loadContactDetail(clientId: string, contactId: string) {
       status: p.status,
       scopeType: p.scopeType ?? "discovery",
       updatedAt: p.updatedAt.toISOString(),
-      portalAccess: p.clientAccess.length > 0
-        ? {
-            role: p.clientAccess[0].role,
-            questionnaireAccess: p.clientAccess[0].questionnaireAccess,
-            authStatus: p.clientAccess[0].user.inviteAcceptedAt ? "active" : "invite_pending"
-          }
-        : null
+      portalAccess: (() => {
+        const access = p.clientAccess[0];
+        if (!access) return null;
+        return {
+          role: access.role,
+          questionnaireAccess: access.questionnaireAccess,
+          authStatus: access.user.inviteAcceptedAt ? "active" : "invite_pending"
+        };
+      })()
     }))
   };
 }
