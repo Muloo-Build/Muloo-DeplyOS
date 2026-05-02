@@ -3576,12 +3576,26 @@ export async function loadRetainerDetail(retainerId: string) {
     return null;
   }
 
+  // T5.4 — surface follow-on projects spawned from this retainer so the
+  // bidirectional link is visible on the retainer page.
+  const spawnedProjects = await prisma.project.findMany({
+    where: { retainerId },
+    select: { id: true, name: true, status: true, createdAt: true },
+    orderBy: { createdAt: "desc" }
+  });
+
   return {
     ...serializeRetainer(retainer),
     periods: retainer.periods.map((period) => ({
       ...serializeRetainerPeriod(period),
       topUps: period.topUps.map(serializeRetainerTopUp),
       ledgerEntries: period.ledgerEntries.map(serializeRetainerLedgerEntry)
+    })),
+    spawnedProjects: spawnedProjects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      status: p.status,
+      createdAt: p.createdAt.toISOString()
     }))
   };
 }
@@ -10223,6 +10237,24 @@ export async function ensureProjectPlanGenerationAllowed(projectId: string) {
 }
 
 export async function loadProjectTasks(projectId: string) {
+  // T5.1 — auto-seed delivery board from Plan-tab workstreams. If the
+  // project has workstreams but no tasks yet, run the idempotent seeder
+  // before returning so active projects are never staring at an empty
+  // kanban. Operator can still apply templates / append manually later.
+  const existingCount = await prisma.task.count({ where: { projectId } });
+  if (existingCount === 0) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { deliveryWorkstreams: true }
+    });
+    const ws = project
+      ? normalizeProjectWorkstreams(project.deliveryWorkstreams)
+      : [];
+    if (ws.length > 0) {
+      await appendWorkstreamTasksToDelivery(projectId).catch(() => undefined);
+    }
+  }
+
   const tasks = await prisma.task.findMany({
     where: { projectId },
     include: {
@@ -30993,11 +31025,11 @@ export async function generateHandoverDoc(projectId: string) {
     where: { projectId },
     create: {
       projectId,
-      content: content as unknown as Prisma.Prisma.InputJsonValue,
+      content: content satisfies HandoverDocContent as Prisma.Prisma.InputJsonValue,
       generatedAt: new Date()
     },
     update: {
-      content: content as unknown as Prisma.Prisma.InputJsonValue,
+      content: content satisfies HandoverDocContent as Prisma.Prisma.InputJsonValue,
       generatedAt: new Date()
     }
   });
@@ -31317,21 +31349,27 @@ export async function spawnProjectFromRetainer(
     scopeType: "discovery"
   });
 
-  // Lineage: forward the chain. If the retainer was itself born from
-  // a project, the new project is born from that same project so the
-  // graph stays connected.
-  if (retainer.bornFromProjectId) {
-    await prisma.project.update({
-      where: { id: created.id },
-      data: { bornFromProjectId: retainer.bornFromProjectId }
-    });
-  }
+  // Bidirectional Project ↔ Retainer link:
+  // - Project.retainerId points back to the spawning retainer so the
+  //   retainer detail page can list spawned projects.
+  // - Project.bornFromProjectId forwards the lineage chain to the
+  //   retainer's source project (if any), keeping the graph connected.
+  await prisma.project.update({
+    where: { id: created.id },
+    data: {
+      retainerId: retainer.id,
+      ...(retainer.bornFromProjectId
+        ? { bornFromProjectId: retainer.bornFromProjectId }
+        : {})
+    }
+  });
 
   return {
     project: {
       id: created.id,
       name: created.name,
       status: created.status,
+      retainerId: retainer.id,
       bornFromProjectId: retainer.bornFromProjectId ?? null
     },
     sourceRetainerId: retainer.id
