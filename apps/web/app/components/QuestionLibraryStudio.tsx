@@ -263,30 +263,46 @@ export default function QuestionLibraryStudio() {
 
   return (
     <div className="space-y-6">
-      {stats && stats.nonCanonicalCount > 0 ? (
-        <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-amber-200">
-                Categorisation health
-              </h2>
-              <p className="mt-1 text-sm text-amber-100/90">
-                {stats.nonCanonicalCount} of {stats.total} questions use
-                categories outside the canonical list. Tech stack, hosting,
-                DNS, integrations, costs, access and security questions should
-                live in their right category — not mixed into website/content
-                discovery.
-              </p>
+      {stats && stats.total > 0 ? (
+        stats.nonCanonicalCount > 0 ? (
+          <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-amber-200">
+                  Categorisation health
+                </h2>
+                <p className="mt-1 text-sm text-amber-100/90">
+                  {stats.nonCanonicalCount} of {stats.total} questions use
+                  categories outside the canonical list. Tech stack, hosting,
+                  DNS, integrations, costs, access and security questions
+                  should live in their right category — not mixed into
+                  website/content discovery.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNonCanonicalOnly((v) => !v)}
+                className="rounded-full border border-amber-300/40 px-4 py-2 text-xs font-medium text-amber-100 hover:bg-amber-500/20"
+              >
+                {showNonCanonicalOnly ? "Show all" : "Show only these"}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowNonCanonicalOnly((v) => !v)}
-              className="rounded-full border border-amber-300/40 px-4 py-2 text-xs font-medium text-amber-100 hover:bg-amber-500/20"
-            >
-              {showNonCanonicalOnly ? "Show all" : "Show only these"}
-            </button>
-          </div>
-        </section>
+          </section>
+        ) : (
+          // T3 — explicit success state. Replaces the previous "panel just
+          // disappears" behaviour so the operator can see at a glance that
+          // every question is sitting in the canonical list.
+          <section className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
+            <h2 className="text-sm font-semibold text-emerald-200">
+              Categorisation health
+            </h2>
+            <p className="mt-1 text-sm text-emerald-100/90">
+              All {stats.total} questions are categorised against the
+              canonical list. New questions can only use the canonical
+              categories — server-side validation rejects anything else.
+            </p>
+          </section>
+        )
       ) : null}
 
       <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">

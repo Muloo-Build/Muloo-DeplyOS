@@ -924,6 +924,177 @@ const defaultDeliveryTemplates = [
         sortOrder: 20
       }
     ]
+  },
+  // T3 Step A — additional default delivery templates so a fresh workspace
+  // boots with at least 5 implementation templates available. Templates
+  // ship with minimal scaffolding tasks; the team writes the detailed
+  // content per project.
+  {
+    slug: "hubspot-data-migration",
+    name: "HubSpot Data Migration",
+    description:
+      "Repeatable data migration delivery template for moving CRM, marketing, and service records into HubSpot with auditing and rollback.",
+    serviceFamily: "hubspot_architecture",
+    category: "hubspot",
+    scopeType: "standalone_quote",
+    recommendedHubs: ["sales", "marketing", "service"],
+    defaultPlannedHours: 48,
+    sortOrder: 30,
+    tasks: [
+      {
+        title: "Map source systems and confirm record-of-truth per object",
+        description:
+          "Document where every object's authoritative copy lives today and how it will map onto HubSpot objects + properties.",
+        category: "01 Discovery",
+        executionType: "manual",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 4,
+        approvalRequired: true,
+        sortOrder: 10
+      },
+      {
+        title: "Define field mapping, transforms, and dedupe rules",
+        description:
+          "Lock the field-by-field mapping spreadsheet, including string transforms, picklist normalisation, and dedupe keys.",
+        category: "02 Mapping",
+        executionType: "manual",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 6,
+        approvalRequired: true,
+        sortOrder: 20
+      },
+      {
+        title: "Run sandbox migration and reconcile counts",
+        description:
+          "Execute the full migration into a HubSpot sandbox, then reconcile counts and spot-check 10 records per object.",
+        category: "03 Sandbox Run",
+        executionType: "agent_ready",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Agent",
+        plannedHours: 4,
+        sortOrder: 30
+      },
+      {
+        title: "Sign off cutover plan with rollback window",
+        description:
+          "Document the production cutover sequence, freeze window, rollback trigger, and post-cutover validation checklist.",
+        category: "04 Cutover",
+        executionType: "client_approval",
+        priority: "high",
+        status: "waiting_on_client",
+        assigneeType: "Client",
+        plannedHours: 1,
+        approvalRequired: true,
+        sortOrder: 40
+      }
+    ]
+  },
+  {
+    slug: "hubspot-integrations-build",
+    name: "HubSpot Integrations Build",
+    description:
+      "Repeatable integration delivery template for connecting HubSpot to upstream/downstream systems via native, iPaaS, or custom workflows.",
+    serviceFamily: "hubspot_architecture",
+    category: "hubspot",
+    scopeType: "standalone_quote",
+    recommendedHubs: ["operations"],
+    defaultPlannedHours: 36,
+    sortOrder: 40,
+    tasks: [
+      {
+        title: "Confirm integration surface and trigger directions",
+        description:
+          "Document which objects sync, which direction(s), the trigger events, and the frequency.",
+        category: "01 Scope",
+        executionType: "manual",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 3,
+        approvalRequired: true,
+        sortOrder: 10
+      },
+      {
+        title: "Decide native vs iPaaS vs custom and document rationale",
+        description:
+          "Pick the integration approach for each surface and capture the trade-offs (cost, maintenance, flexibility).",
+        category: "01 Scope",
+        executionType: "manual",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 2,
+        sortOrder: 20
+      },
+      {
+        title: "Build sandbox integration and run end-to-end test",
+        description:
+          "Implement the integration in a sandbox, then run an end-to-end test covering create / update / delete and error paths.",
+        category: "02 Build",
+        executionType: "agent_ready",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Agent",
+        plannedHours: 6,
+        sortOrder: 30
+      }
+    ]
+  },
+  {
+    slug: "hubspot-portal-launch-readiness",
+    name: "HubSpot Portal Launch Readiness",
+    description:
+      "Pre-launch QA + handoff template covering portal hygiene, user training, and go-live checklist before any production cutover.",
+    serviceFamily: "hubspot_architecture",
+    category: "hubspot",
+    scopeType: "standalone_quote",
+    recommendedHubs: ["sales", "marketing", "service"],
+    defaultPlannedHours: 24,
+    sortOrder: 50,
+    tasks: [
+      {
+        title: "Run portal hygiene audit (users, permissions, properties)",
+        description:
+          "Walk through users, teams, permission sets, custom properties, and pipelines and flag anything that looks unnecessary.",
+        category: "01 Hygiene",
+        executionType: "manual",
+        priority: "medium",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 3,
+        sortOrder: 10
+      },
+      {
+        title: "Prepare and deliver end-user training",
+        description:
+          "Build short role-based training (sales, marketing, service) and deliver via live session + recording.",
+        category: "02 Training",
+        executionType: "manual",
+        priority: "high",
+        status: "todo",
+        assigneeType: "Human",
+        plannedHours: 4,
+        sortOrder: 20
+      },
+      {
+        title: "Sign off go-live checklist with named owner",
+        description:
+          "Walk the go-live checklist with the client champion, confirm named owner per item, and capture sign-off.",
+        category: "03 Go Live",
+        executionType: "client_approval",
+        priority: "high",
+        status: "waiting_on_client",
+        assigneeType: "Client",
+        plannedHours: 1,
+        approvalRequired: true,
+        sortOrder: 30
+      }
+    ]
   }
 ] as const;
 const sessionFieldLabels: Record<number, string[]> = {
@@ -24065,12 +24236,18 @@ export async function saveClientInputSubmission(
 
   // Wrap the legacy + canonical writes in a transaction so we never end up
   // with a half-written state where the legacy row exists but the canonical
-  // mirror is missing (or vice versa). The synthetic version is
-  // (1_000_000 + sessionNumber) for these client-input rows so they never
-  // collide with the real per-section submissions, and we preserve
-  // legacyClientInputSubmissionId so Step B can drop the legacy table
-  // without losing the link.
-  const syntheticVersion = 1_000_000 + sessionNumber;
+  // mirror is missing (or vice versa).
+  //
+  // The canonical mirror is keyed on (projectId, userId, sessionNumber) —
+  // the same composite key the legacy ClientInputSubmission uses — via the
+  // partial unique index added in 20260502230000. The DiscoverySubmission
+  // model also has a (projectId, version) unique that we still have to
+  // satisfy: we allocate version dynamically per project, starting at the
+  // synthetic floor (CANONICAL_CLIENT_SUBMISSION_VERSION_FLOOR) so the
+  // mirrored rows can never collide with the real per-section submissions
+  // (which use small ascending versions starting at 1). The first writer
+  // for a (project,user,session) tuple gets the next free version slot;
+  // subsequent updates reuse that same row.
   const submission = await prisma.$transaction(async (tx) => {
     const legacyRow = legacyWritesEnabled
       ? await tx.clientInputSubmission.upsert({
@@ -24095,34 +24272,62 @@ export async function saveClientInputSubmission(
         })
       : null;
 
-    await tx.discoverySubmission.upsert({
+    // Look up the existing canonical mirror by the partial composite key.
+    // Prisma's typed client doesn't model the partial unique index, so we
+    // use findFirst (sufficient because the partial unique guarantees
+    // uniqueness at the DB level).
+    const existingCanonical = await tx.discoverySubmission.findFirst({
       where: {
-        projectId_version: {
-          projectId,
-          version: syntheticVersion
-        }
-      },
-      update: {
-        status,
-        userId,
-        sessionNumber,
-        answers: normalizedAnswers,
-        // Only set the legacy link when the legacy write is enabled; when
-        // it's off we leave whatever was previously written in place rather
-        // than blanking it out, so the historical association survives
-        // through the soak window.
-        ...(legacyRow ? { legacyClientInputSubmissionId: legacyRow.id } : {})
-      },
-      create: {
         projectId,
-        version: syntheticVersion,
-        status,
         userId,
         sessionNumber,
-        answers: normalizedAnswers,
-        legacyClientInputSubmissionId: legacyRow?.id ?? null
-      }
+        version: { gte: CANONICAL_CLIENT_SUBMISSION_VERSION_FLOOR }
+      },
+      select: { id: true }
     });
+
+    if (existingCanonical) {
+      await tx.discoverySubmission.update({
+        where: { id: existingCanonical.id },
+        data: {
+          status,
+          answers: normalizedAnswers,
+          // Only refresh the legacy link when the legacy write is on; when
+          // it's off we leave whatever was previously written in place so
+          // the historical association survives through the soak window.
+          ...(legacyRow ? { legacyClientInputSubmissionId: legacyRow.id } : {})
+        }
+      });
+    } else {
+      // Allocate a fresh version slot above the synthetic floor for this
+      // project. We compute it inside the transaction so concurrent writers
+      // can't race onto the same version (the (projectId, version) unique
+      // would catch a collision, and the partial unique on
+      // (projectId, userId, sessionNumber) catches duplicate inserts for
+      // the same tuple — either way we fail loudly instead of silently
+      // overwriting another user's data).
+      const maxRow = await tx.discoverySubmission.findFirst({
+        where: {
+          projectId,
+          version: { gte: CANONICAL_CLIENT_SUBMISSION_VERSION_FLOOR }
+        },
+        orderBy: { version: "desc" },
+        select: { version: true }
+      });
+      const nextVersion =
+        (maxRow?.version ?? CANONICAL_CLIENT_SUBMISSION_VERSION_FLOOR - 1) + 1;
+      await tx.discoverySubmission.create({
+        data: {
+          projectId,
+          version: nextVersion,
+          status,
+          userId,
+          sessionNumber,
+          answers: normalizedAnswers,
+          legacyClientInputSubmissionId: legacyRow?.id ?? null
+        }
+      });
+    }
 
     return legacyRow;
   });

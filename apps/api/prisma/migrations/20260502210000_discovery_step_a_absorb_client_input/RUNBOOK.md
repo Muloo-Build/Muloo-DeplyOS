@@ -40,11 +40,22 @@ two clearly-bounded canonicals.
 2. Adds index `(projectId, userId, sessionNumber)` and a partial unique on
    `legacyClientInputSubmissionId` to make backfill idempotent.
 3. Backfills any `ClientInputSubmission` rows into `DiscoverySubmission`.
-   At apply time this is a no-op (0 rows). The backfill writes a
-   synthetic version `1000000 + sessionNumber` so it cannot collide with
-   the existing `(projectId, version)` unique used by real session payloads.
+   At apply time this is a no-op (0 rows).
 4. Re-categorises `DiscoveryQuestionLibraryItem.category` from the legacy
    13-value snake_case set to the canonical 12-value list. Idempotent.
+
+> **Follow-up `20260502230000_discovery_step_a_user_unique`** — adds the
+> partial unique index on `(projectId, userId, sessionNumber)` that this
+> migration's backfill should have added. Without that index, two portal
+> users on the same project at the same session number would mirror onto
+> a single canonical row (the original `1_000_000 + sessionNumber` version
+> formula collides across users on `(projectId, version)`). The follow-up
+> migration adds the partial unique; the live write path
+> (`saveClientInputSubmission`) was switched to compute version
+> dynamically per project so both unique constraints are satisfied. At
+> the time of the original migration `ClientInputSubmission` had 0 rows
+> so no data was actually corrupted, but this is the "fix the unique key
+> before any real client-input traffic arrives" patch.
 
 ## Feature flags
 

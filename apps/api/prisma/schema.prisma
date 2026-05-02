@@ -597,6 +597,10 @@ model DiscoverySubmission {
   project                       Project  @relation(fields: [projectId], references: [id])
 
   @@unique([projectId, version])
+  // T3 Step A — partial unique on (projectId, userId, sessionNumber) is
+  // added in raw SQL by migration 20260502230000_discovery_step_a_user_unique
+  // because Prisma cannot model partial unique indexes in schema.prisma.
+  // The non-unique index below remains for read performance.
   @@index([projectId, userId, sessionNumber])
 }
 

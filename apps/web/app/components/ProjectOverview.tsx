@@ -1116,6 +1116,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       case "overview":
         return (
           <OverviewTab
+            projectId={project.id}
             readinessSummary={
               <ProjectReadinessSummary
                 projectId={project.id}
