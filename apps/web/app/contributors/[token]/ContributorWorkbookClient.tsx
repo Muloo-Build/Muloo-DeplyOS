@@ -17,7 +17,28 @@ interface WorkbookQuestion {
   response?: string | null;
   status?: string;
   assignedContributorIds?: string[];
+  // Slice 5 (new plan): review feedback the operator/champion has
+  // attached to this answer. Surfaced inline so the contributor sees
+  // exactly what to fix without having to email back and forth.
+  reviewerName?: string | null;
+  reviewedAt?: string | null;
+  reviewNotes?: string | null;
 }
+
+const REVIEW_BADGE: Record<string, { label: string; className: string }> = {
+  approved: {
+    label: "Approved",
+    className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+  },
+  needs_clarification: {
+    label: "Please clarify",
+    className: "border-amber-500/30 bg-amber-500/10 text-amber-300"
+  },
+  rejected: {
+    label: "Please redo",
+    className: "border-rose-500/30 bg-rose-500/10 text-rose-300"
+  }
+};
 
 interface WorkbookSection {
   id: string;
@@ -311,17 +332,37 @@ function WorkbookView({
             <div className="space-y-3">
               {section.questions.map((question) => {
                 const key = `${section.id}::${question.id}`;
+                const status = question.status ?? "";
+                const badge = REVIEW_BADGE[status] ?? null;
                 return (
                   <div key={question.id} className="space-y-1">
-                    <label className="block text-xs font-medium text-white">
-                      {question.questionText}
-                      {question.isRequired ? (
-                        <span className="ml-1 text-rose-300">*</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="block text-xs font-medium text-white">
+                        {question.questionText}
+                        {question.isRequired ? (
+                          <span className="ml-1 text-rose-300">*</span>
+                        ) : null}
+                      </label>
+                      {badge ? (
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${badge.className}`}
+                        >
+                          {badge.label}
+                        </span>
                       ) : null}
-                    </label>
+                    </div>
                     {question.helpText ? (
                       <p className="text-[11px] text-text-secondary">
                         {question.helpText}
+                      </p>
+                    ) : null}
+                    {/* Slice 5 (new plan): show reviewer notes inline
+                        so the contributor knows exactly what to revise. */}
+                    {question.reviewNotes &&
+                    (status === "needs_clarification" || status === "rejected") ? (
+                      <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-100">
+                        <span className="font-semibold">Reviewer note:</span>{" "}
+                        {question.reviewNotes}
                       </p>
                     ) : null}
                     <textarea
@@ -336,6 +377,16 @@ function WorkbookView({
                       placeholder="Type your answer…"
                       className="brand-input w-full rounded-lg border px-3 py-2 text-sm"
                     />
+                    {status === "approved" && question.reviewedAt ? (
+                      <p className="text-[10px] text-emerald-300/80">
+                        Approved
+                        {question.reviewerName
+                          ? ` by ${question.reviewerName}`
+                          : ""}{" "}
+                        on {question.reviewedAt.slice(0, 10)} — no further
+                        action needed.
+                      </p>
+                    ) : null}
                   </div>
                 );
               })}

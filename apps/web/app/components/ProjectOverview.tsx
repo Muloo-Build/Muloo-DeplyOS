@@ -24,6 +24,7 @@ import ProjectReadinessSummary from "./project/panels/ProjectReadinessSummary";
 import ProjectActionBar from "./project/panels/ProjectActionBar";
 import ProjectChampionCard from "./project/panels/ProjectChampionCard";
 import ProjectResourcesPanel from "./project/panels/ProjectResourcesPanel";
+import UnifiedProjectResourcesPanel from "./project/panels/UnifiedProjectResourcesPanel";
 import ProjectHubSpotAccessPanel from "./project/panels/ProjectHubSpotAccessPanel";
 import ProjectWorkbookSharingSummary from "./project/panels/ProjectWorkbookSharingSummary";
 import ProjectMeetingsPanel from "./project/panels/ProjectMeetingsPanel";
@@ -1488,7 +1489,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               />
             }
             resourcesPanel={
-              <ProjectResourcesPanel projectId={project.id} />
+              // Slice 6 (new plan): unified resources panel — workbook
+              // sharing + external resources + discovery briefs in one
+              // tabbed view. Replaces the previously-separate
+              // ProjectResourcesPanel + ProjectWorkbookSharingSummary.
+              <UnifiedProjectResourcesPanel
+                projectId={project.id}
+                onOpenDiscovery={() => setActiveTab("discovery")}
+              />
             }
             hubspotPanel={
               <ProjectHubSpotAccessPanel
@@ -1499,12 +1507,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 hubTier={portalSnapshot?.hubTier ?? null}
               />
             }
-            workbookSharingSummary={
-              <ProjectWorkbookSharingSummary
-                projectId={project.id}
-                onOpenDiscovery={() => setActiveTab("discovery")}
-              />
-            }
+            workbookSharingSummary={null}
           />
         );
       case "discovery":

@@ -26944,6 +26944,14 @@ type WorkbookQuestion = {
   responseLinks: unknown[];
   internalNotes: string | null;
   sourceLibraryItemId?: string | null;
+  // Slice 5 (new plan): per-answer review state. When an operator
+  // (or champion) marks an answer as approved / needs_clarification
+  // / rejected, we record who did it and when, plus optional notes
+  // explaining the decision. These are read by the contributor page
+  // so the contributor can see what still needs attention.
+  reviewerName: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
 };
 
 type WorkbookSection = {
@@ -26962,16 +26970,90 @@ type WorkbookContent = {
   sections: WorkbookSection[];
 };
 
+// Slice 4 (new plan): tighten the normalizer so every persisted
+// workbookContent comes out with the canonical shape. Previously
+// this function just *cast* the raw value to WorkbookContent, which
+// meant downstream code (review writes, brief synthesis, contributor
+// filter) had to defensively coerce arrays everywhere. Now we deep-
+// normalize once on read and the rest of the codebase can trust the
+// shape — including the new slice 5 review fields.
+function coerceStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === "string");
+}
+
+function coerceWorkbookQuestion(raw: unknown): WorkbookQuestion | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const id = typeof r.id === "string" ? r.id : null;
+  if (!id) return null;
+  return {
+    id,
+    questionText:
+      typeof r.questionText === "string" ? r.questionText : "",
+    helpText: typeof r.helpText === "string" ? r.helpText : null,
+    answerType:
+      typeof r.answerType === "string" ? r.answerType : "long_text",
+    required: r.required === true,
+    options: coerceStringArray(r.options),
+    tags: coerceStringArray(r.tags),
+    assignedContributorIds: coerceStringArray(r.assignedContributorIds),
+    status: typeof r.status === "string" ? r.status : "unanswered",
+    response: r.response ?? null,
+    responseFiles: Array.isArray(r.responseFiles) ? r.responseFiles : [],
+    responseLinks: Array.isArray(r.responseLinks) ? r.responseLinks : [],
+    internalNotes:
+      typeof r.internalNotes === "string" ? r.internalNotes : null,
+    sourceLibraryItemId:
+      typeof r.sourceLibraryItemId === "string"
+        ? r.sourceLibraryItemId
+        : null,
+    reviewerName:
+      typeof r.reviewerName === "string" ? r.reviewerName : null,
+    reviewedAt: typeof r.reviewedAt === "string" ? r.reviewedAt : null,
+    reviewNotes:
+      typeof r.reviewNotes === "string" ? r.reviewNotes : null
+  };
+}
+
+function coerceWorkbookSection(raw: unknown): WorkbookSection | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const id = typeof r.id === "string" ? r.id : null;
+  if (!id) return null;
+  const questions = Array.isArray(r.questions)
+    ? r.questions
+        .map(coerceWorkbookQuestion)
+        .filter((q): q is WorkbookQuestion => q !== null)
+    : [];
+  return {
+    id,
+    title: typeof r.title === "string" ? r.title : "Untitled section",
+    description:
+      typeof r.description === "string" ? r.description : null,
+    category: typeof r.category === "string" ? r.category : null,
+    linkedWorkstreamId:
+      typeof r.linkedWorkstreamId === "string"
+        ? r.linkedWorkstreamId
+        : null,
+    assignedContributorIds: coerceStringArray(r.assignedContributorIds),
+    status: typeof r.status === "string" ? r.status : "draft",
+    questions
+  };
+}
+
 function ensureWorkbookContent(raw: unknown): WorkbookContent {
-  if (
-    raw &&
-    typeof raw === "object" &&
-    !Array.isArray(raw) &&
-    Array.isArray((raw as WorkbookContent).sections)
-  ) {
-    return raw as WorkbookContent;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { version: 1, sections: [] };
   }
-  return { version: 1, sections: [] };
+  const r = raw as Record<string, unknown>;
+  const sections = Array.isArray(r.sections)
+    ? r.sections
+        .map(coerceWorkbookSection)
+        .filter((s): s is WorkbookSection => s !== null)
+    : [];
+  const version = typeof r.version === "number" ? r.version : 1;
+  return { version, sections };
 }
 
 export async function importLibraryQuestionsIntoWorkbook(
@@ -27054,6 +27136,9 @@ export async function importLibraryQuestionsIntoWorkbook(
       tags: item.tags ?? [],
       assignedContributorIds,
       status: "unanswered",
+      reviewerName: null,
+      reviewedAt: null,
+      reviewNotes: null,
       response: null,
       responseFiles: [],
       responseLinks: [],
@@ -27153,6 +27238,9 @@ export async function createWorkbookFromTemplate(
           tags: [],
           assignedContributorIds: [],
           status: "unanswered",
+          reviewerName: null,
+          reviewedAt: null,
+          reviewNotes: null,
           response: null,
           responseFiles: [],
           responseLinks: [],
@@ -27543,7 +27631,20 @@ export async function saveContributorTokenResponses(
     if ("response" in e) {
       question.response = e.response as WorkbookQuestion["response"];
     }
-    if (typeof e.status === "string") {
+    // Slice 5 (new plan) hardening: contributors must NOT be able to
+    // self-mark answers as "approved" / "needs_clarification" /
+    // "rejected" — those are review states owned by the operator
+    // review endpoint. Only allow safe contributor-controlled
+    // transitions, otherwise auto-derive from the response presence.
+    const CONTRIBUTOR_SAFE_STATUSES = new Set([
+      "answered",
+      "unanswered",
+      "not_applicable"
+    ]);
+    if (
+      typeof e.status === "string" &&
+      CONTRIBUTOR_SAFE_STATUSES.has(e.status)
+    ) {
       question.status = e.status;
     } else if (
       "response" in e &&
@@ -27566,6 +27667,248 @@ export async function saveContributorTokenResponses(
     }
   });
   return { touched, rejected };
+}
+
+// Slice 5 (new plan): per-answer review state. An operator (or
+// champion) can mark an individual question's answer as approved /
+// needs_clarification / rejected with optional notes. We stamp the
+// reviewer name + timestamp server-side so the contributor (and
+// future brief synthesis) can see exactly who signed off and when.
+const REVIEW_STATUSES = new Set([
+  "approved",
+  "needs_clarification",
+  "rejected",
+  "answered",
+  "unanswered"
+]);
+
+export async function setWorkbookQuestionReview(
+  projectId: string,
+  workbookId: string,
+  sectionId: string,
+  questionId: string,
+  value: { status?: unknown; notes?: unknown; reviewerName?: unknown }
+) {
+  const workbook = await prisma.discoveryEvidence.findFirst({
+    where: { id: workbookId, projectId, kind: "workbook" }
+  });
+  if (!workbook) {
+    throw new Error("Workbook not found");
+  }
+  const status =
+    typeof value.status === "string" && REVIEW_STATUSES.has(value.status)
+      ? value.status
+      : null;
+  if (!status) {
+    throw new Error(
+      `status must be one of: ${Array.from(REVIEW_STATUSES).join(", ")}`
+    );
+  }
+  const notes =
+    typeof value.notes === "string" ? value.notes.trim() || null : null;
+  const reviewerName =
+    typeof value.reviewerName === "string"
+      ? value.reviewerName.trim() || null
+      : null;
+
+  const content = ensureWorkbookContent(workbook.workbookContent);
+  const section = content.sections.find((s) => s.id === sectionId);
+  if (!section) throw new Error("Section not found in workbook");
+  const question = section.questions.find((q) => q.id === questionId);
+  if (!question) throw new Error("Question not found in section");
+
+  question.status = status;
+  // Only stamp reviewer + timestamp for *review* outcomes. Reverting
+  // a question to "unanswered" / "answered" clears the audit trail
+  // so the contributor doesn't see stale "approved by" notes.
+  if (status === "approved" || status === "needs_clarification" || status === "rejected") {
+    question.reviewerName = reviewerName;
+    question.reviewedAt = new Date().toISOString();
+    question.reviewNotes = notes;
+  } else {
+    question.reviewerName = null;
+    question.reviewedAt = null;
+    question.reviewNotes = null;
+  }
+
+  await prisma.discoveryEvidence.update({
+    where: { id: workbookId },
+    data: {
+      workbookContent: content as unknown as Prisma.Prisma.InputJsonValue
+    }
+  });
+  return { question };
+}
+
+// Slice 7 (new plan): synthesize a discovery brief draft from the
+// answers an operator has approved. Deliberately deterministic — no
+// LLM call. We pull every internal workbook on the project, group
+// approved questions by section, and emit a markdown document that
+// the team can hand-edit. The brief is persisted as its own
+// DiscoveryEvidence row (kind="workbook", resourceType="discovery_brief")
+// so it shows up alongside other resources in the unified panel and
+// can be versioned by simply re-running the synthesizer.
+function renderDiscoveryBriefMarkdown(args: {
+  projectName: string;
+  workbooks: Array<{
+    title: string;
+    sections: Array<{
+      title: string;
+      questions: Array<{
+        questionText: string;
+        response: string;
+        reviewerName: string | null;
+        reviewedAt: string | null;
+        reviewNotes: string | null;
+      }>;
+    }>;
+  }>;
+}): string {
+  const lines: string[] = [];
+  lines.push(`# Discovery brief — ${args.projectName}`);
+  lines.push("");
+  lines.push(`_Generated ${new Date().toISOString().slice(0, 10)} from approved workbook answers._`);
+  lines.push("");
+  if (args.workbooks.length === 0) {
+    lines.push("_No approved answers yet. Mark workbook responses as **approved** to populate this brief._");
+    return lines.join("\n");
+  }
+  for (const wb of args.workbooks) {
+    lines.push(`## ${wb.title}`);
+    lines.push("");
+    for (const section of wb.sections) {
+      lines.push(`### ${section.title}`);
+      lines.push("");
+      for (const q of section.questions) {
+        lines.push(`**${q.questionText}**`);
+        lines.push("");
+        lines.push(q.response.trim() || "_(no response captured)_");
+        lines.push("");
+        if (q.reviewerName || q.reviewedAt || q.reviewNotes) {
+          const stampParts: string[] = [];
+          if (q.reviewerName) stampParts.push(`Approved by ${q.reviewerName}`);
+          if (q.reviewedAt)
+            stampParts.push(`on ${q.reviewedAt.slice(0, 10)}`);
+          if (stampParts.length > 0) {
+            lines.push(`_${stampParts.join(" ")}_`);
+            lines.push("");
+          }
+          if (q.reviewNotes) {
+            lines.push(`> Reviewer notes: ${q.reviewNotes}`);
+            lines.push("");
+          }
+        }
+      }
+    }
+  }
+  return lines.join("\n").trim();
+}
+
+export async function synthesizeDiscoveryBriefFromWorkbooks(
+  projectId: string,
+  options?: { saveAsResource?: boolean }
+) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, name: true }
+  });
+  if (!project) throw new Error("Project not found");
+
+  const workbookRecords = await prisma.discoveryEvidence.findMany({
+    where: {
+      projectId,
+      kind: "workbook",
+      resourceType: { not: "discovery_brief" }
+    },
+    orderBy: { createdAt: "asc" }
+  });
+
+  const workbooks = workbookRecords
+    .map((record) => {
+      const content = ensureWorkbookContent(record.workbookContent);
+      const sections = content.sections
+        .map((section) => {
+          const approvedQuestions = section.questions
+            .filter((q) => q.status === "approved")
+            .map((q) => ({
+              questionText: q.questionText,
+              response:
+                typeof q.response === "string" ? q.response : "",
+              reviewerName: q.reviewerName,
+              reviewedAt: q.reviewedAt,
+              reviewNotes: q.reviewNotes
+            }));
+          if (approvedQuestions.length === 0) return null;
+          return { title: section.title, questions: approvedQuestions };
+        })
+        .filter(
+          (
+            s
+          ): s is {
+            title: string;
+            questions: {
+              questionText: string;
+              response: string;
+              reviewerName: string | null;
+              reviewedAt: string | null;
+              reviewNotes: string | null;
+            }[];
+          } => s !== null
+        );
+      if (sections.length === 0) return null;
+      return { title: record.sourceLabel, sections };
+    })
+    .filter(
+      (
+        wb
+      ): wb is {
+        title: string;
+        sections: {
+          title: string;
+          questions: {
+            questionText: string;
+            response: string;
+            reviewerName: string | null;
+            reviewedAt: string | null;
+            reviewNotes: string | null;
+          }[];
+        }[];
+      } => wb !== null
+    );
+
+  const markdown = renderDiscoveryBriefMarkdown({
+    projectName: project.name,
+    workbooks
+  });
+  const approvedCount = workbooks.reduce(
+    (acc, wb) =>
+      acc + wb.sections.reduce((s, sec) => s + sec.questions.length, 0),
+    0
+  );
+
+  if (options?.saveAsResource === false) {
+    return { markdown, approvedCount, savedResourceId: null };
+  }
+
+  const sourceLabel = `Discovery brief — ${new Date().toISOString().slice(0, 10)}`;
+  const created = await prisma.discoveryEvidence.create({
+    data: {
+      projectId,
+      kind: "workbook",
+      evidenceType: "operator-note",
+      sourceLabel,
+      sourceUrl: null,
+      content: markdown,
+      resourceType: "discovery_brief",
+      visibility: "internal",
+      status: "draft",
+      sessionNumber: 0,
+      assignedContributorIds: [],
+      sharedWith: [],
+      linkedSectionIds: []
+    }
+  });
+  return { markdown, approvedCount, savedResourceId: created.id };
 }
 
 export async function loadClientPortalContributors(
@@ -27872,7 +28215,22 @@ export async function saveClientPortalWorkbookResponses(
     if ("response" in e) {
       question.response = e.response as WorkbookQuestion["response"];
     }
-    if (typeof e.status === "string") {
+    // Slice 5 (new plan) hardening: only champions may set review
+    // states from this client-portal save path. Plain contributors
+    // (and the legacy contributor-token path) are restricted to
+    // contributor-safe transitions to protect the operator review
+    // gate that powers slice-7 brief synthesis.
+    const ALLOWED_STATUSES = champion
+      ? new Set([
+          "answered",
+          "unanswered",
+          "not_applicable",
+          "approved",
+          "needs_clarification",
+          "rejected"
+        ])
+      : new Set(["answered", "unanswered", "not_applicable"]);
+    if (typeof e.status === "string" && ALLOWED_STATUSES.has(e.status)) {
       question.status = e.status;
     } else if (
       "response" in e &&

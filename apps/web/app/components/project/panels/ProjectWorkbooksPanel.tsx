@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import QuestionLibraryPicker from "./QuestionLibraryPicker";
 import WorkbookContentEditor, {
-  type WorkbookContent
+  type WorkbookContent,
+  type EditorContributor
 } from "./WorkbookContentEditor";
 
 interface Workbook {
@@ -140,6 +141,7 @@ export default function ProjectWorkbooksPanel(props: {
   projectId: string;
   workstreams: WorkstreamOption[];
   contributors?: ContributorOption[];
+  reviewerName?: string;
 }) {
   const [workbooks, setWorkbooks] = useState<Workbook[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -151,6 +153,11 @@ export default function ProjectWorkbooksPanel(props: {
     string | null
   >(null);
   const [savingVisibilityId, setSavingVisibilityId] = useState<string | null>(null);
+  const [fetchedContributors, setFetchedContributors] = useState<
+    ContributorOption[] | null
+  >(null);
+  const [briefBusy, setBriefBusy] = useState(false);
+  const [briefMessage, setBriefMessage] = useState<string | null>(null);
   const [draft, setDraft] = useState({
     sourceLabel: "",
     sourceUrl: "",
@@ -182,6 +189,96 @@ export default function ProjectWorkbooksPanel(props: {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Slice 4 (new plan): pull the project's contributors so the
+  // workbook editor can offer a real multi-select for section /
+  // question assignment. Falls back to the prop if the parent
+  // already provided them, so we don't double-fetch.
+  useEffect(() => {
+    if (props.contributors && props.contributors.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/projects/${props.projectId}/contributors`,
+          { credentials: "include" }
+        );
+        const data = await res.json();
+        if (cancelled || data.error) return;
+        const list = Array.isArray(data.contributors)
+          ? (data.contributors as Array<Record<string, unknown>>).map(
+              (c) => {
+                const contact = (c.contact ?? {}) as Record<string, unknown>;
+                const first =
+                  typeof contact.firstName === "string"
+                    ? contact.firstName
+                    : "";
+                const last =
+                  typeof contact.lastName === "string"
+                    ? contact.lastName
+                    : "";
+                const role = typeof c.role === "string" ? c.role : "";
+                const id = typeof c.id === "string" ? c.id : "";
+                const name = `${first} ${last}`.trim();
+                return {
+                  id,
+                  label: name
+                    ? role
+                      ? `${name} · ${role}`
+                      : name
+                    : role || id
+                };
+              }
+            )
+          : [];
+        setFetchedContributors(list);
+      } catch {
+        setFetchedContributors([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [props.projectId, props.contributors]);
+
+  const editorContributors: EditorContributor[] = useMemo(() => {
+    const source = props.contributors ?? fetchedContributors ?? [];
+    return source.map((c) => ({ id: c.id, label: c.label }));
+  }, [props.contributors, fetchedContributors]);
+
+  // Slice 7 (new plan): generate a brief from approved answers
+  // across every workbook on the project and persist it as a new
+  // resource (resourceType = "discovery_brief"). The unified
+  // resources panel surfaces it for the team to read / share.
+  async function generateBrief() {
+    setBriefBusy(true);
+    setBriefMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${props.projectId}/discovery-brief/synthesize`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ saveAsResource: true })
+        }
+      );
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
+      const count = Number(data.approvedCount ?? 0);
+      setBriefMessage(
+        count === 0
+          ? "Brief saved as a draft, but no approved answers were found yet — approve some workbook responses first."
+          : `Brief saved with ${count} approved answer${count === 1 ? "" : "s"}. Check Resources to read it.`
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to synthesize brief");
+    } finally {
+      setBriefBusy(false);
+    }
+  }
 
   function evidenceTypeForResource(resourceType: string): string {
     switch (resourceType) {
@@ -338,8 +435,22 @@ export default function ProjectWorkbooksPanel(props: {
             >
               {showForm ? "Cancel" : "Add blank"}
             </button>
+            {/* Slice 7 (new plan): one-click brief synthesis. */}
+            <button
+              type="button"
+              disabled={briefBusy}
+              onClick={() => void generateBrief()}
+              className="brand-surface rounded-full border border-emerald-500/30 px-3 py-1.5 text-xs uppercase tracking-wide text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50"
+            >
+              {briefBusy ? "Generating…" : "✓ Generate brief"}
+            </button>
           </div>
         </div>
+        {briefMessage ? (
+          <p className="mt-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5 text-[11px] text-emerald-200">
+            {briefMessage}
+          </p>
+        ) : null}
       </div>
 
       {error ? <p className="text-sm text-rose-400">{error}</p> : null}
@@ -656,6 +767,8 @@ export default function ProjectWorkbooksPanel(props: {
                       projectId={props.projectId}
                       workbookId={wb.id}
                       initialContent={wb.workbookContent}
+                      contributors={editorContributors}
+                      reviewerName={props.reviewerName}
                       onSaved={() => {
                         void load();
                       }}

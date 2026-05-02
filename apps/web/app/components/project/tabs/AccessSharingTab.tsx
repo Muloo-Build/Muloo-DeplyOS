@@ -7,7 +7,11 @@ export default function AccessSharingTab(props: {
   contributorsPanel: ReactNode;
   resourcesPanel: ReactNode;
   hubspotPanel: ReactNode;
-  workbookSharingSummary: ReactNode;
+  // Slice 6 (new plan): the workbook sharing summary used to live
+  // in its own section here. The unified resources panel now owns
+  // both the resources list AND the workbook sharing summary, so
+  // this slot is optional — pass null to hide the legacy section.
+  workbookSharingSummary?: ReactNode;
 }) {
   return (
     <div className="space-y-6">
@@ -61,28 +65,31 @@ export default function AccessSharingTab(props: {
       <section className="brand-surface rounded-3xl border p-6">
         <header className="mb-4">
           <h3 className="text-lg font-semibold text-white">
-            Miro boards &amp; shared resources
+            Project resources
           </h3>
           <p className="mt-1 text-xs text-text-secondary">
-            Links to Google Docs/Sheets, Miro boards, PDFs and other shared
-            resources. Visibility decides who sees them.
+            Workbook sharing status, Miro boards, Google Docs/Sheets, PDFs,
+            and synthesized discovery briefs — all in one place. Visibility
+            decides who sees each item.
           </p>
         </header>
         {props.resourcesPanel}
       </section>
 
-      <section className="brand-surface rounded-3xl border p-6">
-        <header className="mb-4">
-          <h3 className="text-lg font-semibold text-white">
-            Workbook sharing
-          </h3>
-          <p className="mt-1 text-xs text-text-secondary">
-            Quick view of how each workbook is shared. Edit details on the
-            Discovery tab.
-          </p>
-        </header>
-        {props.workbookSharingSummary}
-      </section>
+      {props.workbookSharingSummary ? (
+        <section className="brand-surface rounded-3xl border p-6">
+          <header className="mb-4">
+            <h3 className="text-lg font-semibold text-white">
+              Workbook sharing
+            </h3>
+            <p className="mt-1 text-xs text-text-secondary">
+              Quick view of how each workbook is shared. Edit details on the
+              Discovery tab.
+            </p>
+          </header>
+          {props.workbookSharingSummary}
+        </section>
+      ) : null}
     </div>
   );
 }

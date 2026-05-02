@@ -224,6 +224,8 @@ import {
   deleteWorkbookTemplateQuestion,
   reorderWorkbookTemplateQuestions,
   loadProjectContributors,
+  setWorkbookQuestionReview,
+  synthesizeDiscoveryBriefFromWorkbooks,
   createProjectContributor,
   updateProjectContributor,
   deleteProjectContributor,
@@ -3218,6 +3220,70 @@ export function createApiApp(config: BaseConfig) {
       }
     }
   );
+
+  // Slice 5 (new plan): per-answer review. The operator UI POSTs
+  // here to mark an individual workbook question as approved /
+  // needs_clarification / rejected. The server resolves the
+  // reviewer name from the authenticated session (NOT a client-
+  // supplied field) so the audit trail can't be spoofed, and stamps
+  // the timestamp authoritatively. Mounted under /api/projects/*
+  // so internalAuth covers it.
+  app.all(
+    "/api/projects/:projectId/workbooks/:workbookId/sections/:sectionId/questions/:questionId/review",
+    async (c) => {
+      if (c.req.method !== "POST" && c.req.method !== "PATCH") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const session = await loadAuthenticatedWorkspaceSession(c.env.incoming);
+        const reviewerName = session.authenticated
+          ? session.user.name || session.user.email || null
+          : null;
+        const result = await setWorkbookQuestionReview(
+          c.req.param("projectId"),
+          c.req.param("workbookId"),
+          c.req.param("sectionId"),
+          c.req.param("questionId"),
+          { ...body, reviewerName }
+        );
+        return c.json(result);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to set review";
+        const code =
+          message.includes("not found") || message.includes("Section not found")
+            ? 404
+            : 400;
+        return c.json({ error: message }, code);
+      }
+    }
+  );
+
+  // Slice 7 (new plan): generate a discovery brief draft from the
+  // approved answers across all workbooks on the project. The brief
+  // is saved as its own DiscoveryEvidence row (resourceType =
+  // "discovery_brief") so it shows up in the unified resources
+  // panel. POST body { saveAsResource?: boolean } — when false the
+  // server returns the markdown without persisting (preview).
+  app.all("/api/projects/:projectId/discovery-brief/synthesize", async (c) => {
+    if (c.req.method !== "POST") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const result = await synthesizeDiscoveryBriefFromWorkbooks(
+        c.req.param("projectId"),
+        { saveAsResource: body.saveAsResource !== false }
+      );
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to synthesize";
+      const code = message === "Project not found" ? 404 : 400;
+      return c.json({ error: message }, code);
+    }
+  });
 
   app.get("/api/projects/:projectId/workstream-hours", async (c) => {
     try {
