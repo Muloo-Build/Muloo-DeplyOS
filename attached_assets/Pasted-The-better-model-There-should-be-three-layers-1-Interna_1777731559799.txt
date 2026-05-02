@@ -1,0 +1,57 @@
+The better model
+There should be three layers:
+1. Internal workbooks
+These are for Muloo only.
+Use cases:
+HubSpot audit notesInternal discovery checklistMeeting notes converted into questionsTechnical reviewScope planningRisk reviewDelivery assumptions
+These should not show in the client portal unless explicitly shared.
+2. Contributor workbooks
+These are shared with specific people.
+Use cases:
+Tara answers commercial/project champion questionsGrant answers website/design questionsDevan answers tech stack/integration questionsFinance answers billing/process questionsOps answers service delivery questions
+These people do not need full portal access.
+They get a secure contributor link or invite. They only see the workbook/questions assigned to them. They answer, upload docs, add links, and then Muloo vets the input.
+3. Client-facing approved view
+This is what the client portal should show.
+Use cases:
+Progress summaryWhat input is still neededApproved discovery outputsHigh-level project planScope and quote statusDelivery progressMessagesTasks
+The client portal should not show six raw internal workbooks by default. That is too noisy, and frankly it exposes the sausage factory. Clients do not need to see the sausage factory. They need the breakfast.
+What is wrong in your screenshot
+The client portal is showing a Workbooks tab, and it looks like the client can see long raw discovery workbook content.
+That is dangerous from a UX point of view because:
+It overwhelms the client.It makes the project look unfinished.It exposes internal structure too early.It blurs the line between contributor input and approved discovery.It turns the portal into admin homework.
+For the client champion, this is okay only if the workbook is deliberately shared with them.
+For normal client users, no.
+For external contributors, definitely no full portal.
+The correct visibility rules
+Each workbook should have a visibility setting:
+Internal onlyContributor link onlyClient champion visibleClient portal visiblePublished discovery outputArchived
+And maybe a separate status:
+DraftSharedIn progressSubmittedUnder reviewApprovedUsed in plan
+That distinction matters.
+Visibility answers: who can see it?
+Status answers: where is it in the process?
+The workflow should be this
+1. Muloo creates workbook internally2. Muloo selects questions from the library or meeting notes3. Muloo assigns questions/sections to contributors4. Contributors answer via secure link, not full portal5. Muloo reviews/vets answers6. Approved answers become discovery evidence7. Discovery evidence feeds:   - project summary   - scope   - blueprint   - quote   - delivery plan   - risks and assumptions8. Client portal shows the approved/summary layer, not the messy raw layer
+That is the product.
+Right now it looks like:
+Workbook created → dump into client portal
+That is not the product.
+What the client portal should show instead
+For Magnisol, the client portal overview should show something like:
+Input needed from your teamWebsite content workbookAssigned to: GrantStatus: 6 of 14 answeredDue: WednesdayTechnology stack workbookAssigned to: DevanStatus: 12 of 24 answeredDue: FridayCommercial/project champion workbookAssigned to: TaraStatus: 8 of 15 answeredDue: Wednesday
+With buttons like:
+Copy contributor linkRemind contributorView submitted answersApprove for discovery
+But the actual raw workbook editor should live mostly in the internal Deploy OS side.
+What I would change before your next prompt
+I would not ask them to build “Generate next actions” yet until the workbook visibility model is cleaned up.
+Otherwise the AI/action layer will build on a messy permission model, and that is how portals become haunted houses.
+Give Replit this first:
+We need to correct the product model and visibility rules for Project Workbooks before continuing with meeting extraction or next actions.The current implementation appears to show too many workbooks in the client portal. This is not the intended model.## Core product intentProject Workbooks are not simply client portal forms.They are a discovery evidence collection system.Muloo should be able to create internal workbooks, share selected workbooks or questions with external contributors, collect answers/documents/links, vet the information internally, and then promote approved information into discovery outputs, project plans, scope, blueprints, quotes, and delivery plans.External contributors do not need full client portal access.The client portal should show approved or intentionally shared input areas only, not every raw internal workbook by default.## Required model changesAdd clear visibility and lifecycle fields to workbooks / DiscoveryEvidence records if they do not already exist.Recommended fields:visibility:- internal_only- contributor_link- client_champion- client_portal- published_output- archivedstatus:- draft- shared- in_progress- submitted- under_review- approved- used_in_planIf equivalent fields already exist, reuse them rather than duplicating.## Required behaviour### Internal operator sideMuloo operators must be able to:- create a workbook as internal_only by default- choose whether to share the full workbook or only assigned questions- assign specific questions/sections to contributors- generate or copy contributor links- see submitted answers- mark answers as reviewed- approve answers for discovery- promote approved answers into discovery evidence / project plan inputsDefault workbook visibility must be internal_only.### Contributor sideContributors must not need full portal access.A contributor should access only:- the workbook/question sections assigned to them- their own answers- upload/link fields related to their assignment- submission statusContributors must not see:- unrelated workbooks- unrelated contributors- full client portal- internal notes- project admin- quote/commercial internals unless explicitly assigned### Client portal sideThe client portal should not show all workbooks by default.The client portal Workbooks tab should show only:- workbooks with visibility client_portal- workbooks assigned to the logged-in champion if visibility client_champion- a simplified input progress summary for contributor-linked workbooks, if the viewer is an approved project championFor normal client users:- hide raw workbooks unless explicitly marked client_portalFor project champions:- show contributor input status, not necessarily all raw workbook content- allow copying contributor links only if champion permissions allow it## UX changes requiredIn the internal Workbooks list, show badges:- Internal only- Contributor link- Champion visible- Client portal visible- Published outputAlso show lifecycle status:- Draft- Shared- In progress- Submitted- Under review- Approved- Used in planAdd a visibility selector to the workbook editor.Add a clear warning before making a workbook client-portal visible:"Client portal visibility means this workbook can be seen by approved client portal users. Use contributor links if you only want specific stakeholders to answer assigned questions."## Client portal cleanupUpdate the client portal Workbooks tab so it is not a dump of all internal workbooks.Instead show:1. Input required from your team2. Contributor progress3. Workbooks shared with you4. Approved discovery outputs, where availableIf there are no client-visible workbooks, show:"No workbooks have been shared directly in the portal yet. Muloo may still be collecting input from assigned contributors."## Data reviewCheck the Magnisol seed.The Magnisol seed currently creates multiple workbooks. These should not all be client portal visible by default.Set seeded workbook visibility appropriately:- Internal discovery/process workbooks: internal_only- Contributor-specific workbooks: contributor_link- Any workbook intended for Tara as champion: client_champion- Only explicitly published/approved summaries: client_portal or published_output## Security checksVerify:- unauthenticated users cannot access workbook data- normal client users cannot see internal_only workbooks- normal client users cannot see contributor_link-only workbooks- contributors can only see assigned questions/sections- champions can only manage contributors if they are approved champions- operator/internal endpoints are not accessible from contributor links- client portal visibility does not leak internal notes or unapproved answers## Manual QA scenarioUse Magnisol.1. Open internal Deploy OS project.2. Confirm all workbooks show visibility badges.3. Confirm internal workbooks are internal_only by default.4. Create a contributor workbook for Devan.5. Assign only tech stack questions to Devan.6. Copy contributor link.7. Open contributor link as Devan.8. Confirm Devan only sees assigned tech stack questions.9. Submit answers.10. Return to internal Deploy OS.11. Confirm answers are visible as submitted / under review.12. Approve selected answers.13. Confirm approved answers can be used as discovery evidence.14. Open client portal as normal client user.15. Confirm internal workbooks are not visible.16. Open client portal as Tara/project champion.17. Confirm Tara sees contributor progress and only champion-visible/shared items.18. Mark one workbook client_portal visible.19. Confirm it appears in the client portal.20. Mark it internal_only again.21. Confirm it disappears from the client portal.## Final output requiredReturn:- Files changed- Data model changes- Routes changed- Permission rules changed- Client portal changes- Magnisol seed changes- Manual QA result- Any remaining gaps
+My opinion
+You are right to question this before giving the next prompt.
+The workbook system is powerful, but the portal is currently treating it like a big shared filing cabinet.
+That is wrong.
+It should behave more like this:
+Internal workspace = messy truthContributor links = controlled input collectionClient portal = clean approved project viewFinal deliverable = polished discovery and plan
+That is the architecture. Keep that line clean, or this thing will get confusing fast.
