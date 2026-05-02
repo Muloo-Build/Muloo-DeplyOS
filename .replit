@@ -55,3 +55,7 @@ MULOO_DEV_BYPASS = "true"
 deploymentTarget = "vm"
 run = ["pnpm", "start"]
 build = ["bash", "scripts/build.sh"]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000
