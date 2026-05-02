@@ -132,7 +132,7 @@ export default function CloseProjectWizard({
         {step === 2 ? (
           <div className="mt-4 space-y-3 text-sm">
             <p className="text-text-secondary">
-              Capture client NPS (0–10). Optional but recommended.
+              Capture client NPS (0–10). Required to close the project.
             </p>
             <div className="grid grid-cols-11 gap-1">
               {Array.from({ length: 11 }).map((_, n) => (
@@ -168,7 +168,8 @@ export default function CloseProjectWizard({
               <button
                 type="button"
                 onClick={() => setStep(3)}
-                className="rounded-xl bg-[#51d0b0] px-4 py-2 text-sm font-semibold text-[#0b1126]"
+                disabled={npsScore === null}
+                className="rounded-xl bg-[#51d0b0] px-4 py-2 text-sm font-semibold text-[#0b1126] disabled:opacity-50"
               >
                 Next
               </button>

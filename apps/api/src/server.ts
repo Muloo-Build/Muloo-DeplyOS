@@ -10492,6 +10492,24 @@ async function createExecutionJobForTask(input: {
 }
 
 export async function loadProjectTaskBoard(projectId: string) {
+  // T5.1 — auto-seed delivery board from Plan-tab workstreams. Mirrors the
+  // guard in loadProjectTasks so the kanban surface (which the operator
+  // actually opens) populates on first load instead of staring at an empty
+  // board.
+  const existingCount = await prisma.task.count({ where: { projectId } });
+  if (existingCount === 0) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { deliveryWorkstreams: true }
+    });
+    const ws = project
+      ? normalizeProjectWorkstreams(project.deliveryWorkstreams)
+      : [];
+    if (ws.length > 0) {
+      await appendWorkstreamTasksToDelivery(projectId).catch(() => undefined);
+    }
+  }
+
   const tasks = await prisma.task.findMany({
     where: { projectId },
     include: {
@@ -31126,17 +31144,20 @@ export async function closeProject(
     throw err;
   }
 
-  let npsScore: number | null = null;
-  if (input.npsScore !== undefined && input.npsScore !== null && input.npsScore !== "") {
-    const parsed =
-      typeof input.npsScore === "number"
-        ? input.npsScore
-        : Number.parseInt(String(input.npsScore), 10);
-    if (Number.isNaN(parsed) || parsed < 0 || parsed > 10) {
-      throw new Error("NPS score must be an integer between 0 and 10");
-    }
-    npsScore = parsed;
+  // T5.3 — NPS score is mandatory at close: every closed project records a
+  // 0–10 raw NPS so the close ritual produces analyzable data, not an
+  // optional gap.
+  if (input.npsScore === undefined || input.npsScore === null || input.npsScore === "") {
+    throw new Error("NPS score is required to close a project (0–10)");
   }
+  const parsed =
+    typeof input.npsScore === "number"
+      ? input.npsScore
+      : Number.parseInt(String(input.npsScore), 10);
+  if (Number.isNaN(parsed) || parsed < 0 || parsed > 10) {
+    throw new Error("NPS score must be an integer between 0 and 10");
+  }
+  const npsScore: number = parsed;
 
   const npsNote =
     typeof input.npsNote === "string" && input.npsNote.trim() !== ""
