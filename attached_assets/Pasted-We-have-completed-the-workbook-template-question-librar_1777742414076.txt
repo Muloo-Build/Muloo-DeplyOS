@@ -1,0 +1,45 @@
+We have completed the workbook/template/question-library refactor. Before adding more features, please review the current implementation and extend it specifically around contributor access and project champion control.
+
+Important context:
+Workbooks are now global templates under Operations, and project workbooks are copy-on-add instances. This is correct and must stay.
+
+The next goal is to support real discovery collaboration:
+1. A project champion inside the client portal should be able to invite contributors to a specific project.
+2. Contributors should not need full client portal access.
+3. Contributors should only access the specific workbook or workbook sections they have been invited to complete.
+4. Contributors may include internal client stakeholders, external consultants, technical contacts, finance/admin contacts, website contacts, or operations contacts.
+5. The operator should still be able to review, validate, approve, reject, or edit submitted answers before they become part of the formal discovery record.
+6. The project should support linking external resources such as a Miro board, Google Drive folder, meeting notes, and uploaded documents.
+7. The project discovery area should help operators turn gathered workbook answers into a discovery plan or delivery brief later.
+
+Please inspect the current schema, API routes, and UI first. Do not duplicate existing models or routes if something similar already exists under a different name.
+
+Deliver this in small safe slices:
+
+Slice 1:
+Audit the current contributor, client portal, workbook, evidence, and project membership models. Report what already exists and what is missing.
+
+Slice 2:
+Add a project contributor model only if needed. It should support name, email, role/type, projectId, invitation status, invitedBy, invitedAt, acceptedAt, and access scope.
+
+Slice 3:
+Add project champion controls in the client portal to invite/manage contributors for a project.
+
+Slice 4:
+Add workbook assignment support so a contributor can be assigned to a full workbook or specific sections/questions.
+
+Slice 5:
+Create a contributor access page that is simple, secure, and focused only on completing assigned workbook content. Do not show full portal navigation.
+
+Slice 6:
+Add operator review states for submitted workbook answers: pending review, approved, needs clarification, rejected. Keep this simple and reuse existing response structures where possible.
+
+Slice 7:
+Add a project resources area for links/files including Miro board URL, Google Drive folder URL, meeting notes, uploaded docs, and general reference links.
+
+For every slice:
+- Make it independently shippable.
+- Avoid breaking existing workbook template behaviour.
+- Preserve copy-on-add behaviour.
+- Run typecheck/build checks.
+- Summarise changed files and test steps.
