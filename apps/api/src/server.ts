@@ -14849,6 +14849,7 @@ export async function ensureDeliveryTemplatesSeeded() {
 // grow in already-bootstrapped environments and so re-running the seed does
 // not duplicate templates.
 const defaultWorkbookTemplates: Array<{
+  slug: string;
   title: string;
   description: string;
   category: string;
@@ -14861,6 +14862,7 @@ const defaultWorkbookTemplates: Array<{
   }>;
 }> = [
   {
+    slug: "business-discovery-workbook",
     title: "Business Discovery Workbook",
     description:
       "Capture business context, goals, current pain points, and stakeholder map for the engagement.",
@@ -14885,6 +14887,7 @@ const defaultWorkbookTemplates: Array<{
     ]
   },
   {
+    slug: "platform-architecture-workbook",
     title: "Platform Architecture Workbook",
     description:
       "Capture the CRM, marketing, service, website, and integrations baseline so the build sits on facts, not assumptions.",
@@ -14914,6 +14917,7 @@ const defaultWorkbookTemplates: Array<{
     ]
   },
   {
+    slug: "data-and-migration-workbook",
     title: "Data and Migration Workbook",
     description:
       "Capture the source systems, data shape, owners, quality issues, and the cutover plan for the migration.",
@@ -14946,19 +14950,23 @@ const defaultWorkbookTemplates: Array<{
 ];
 
 export async function ensureWorkbookTemplatesSeeded() {
-  // Title is a DB-enforced unique (migration
-  // 20260502250000_workbook_template_title_unique), so we can use a true
-  // upsert here. This makes the boot seed safe under multi-instance API
-  // boot — two instances racing past a findFirst probe would have both
-  // called `create` and produced duplicate templates; with the unique
-  // constraint + upsert, the second writer is a no-op.
+  // Seed identity is `slug` (DB-enforced unique via migration
+  // 20260502260000_workbook_template_slug). Slug is non-editable — the
+  // upsert can never accidentally recreate a "canonical" template or
+  // overwrite an operator-edited template, even if the operator
+  // renames the title or rewrites the description in-product.
   //
-  // Sections are NOT touched on update (workbook templates are
-  // operator-edited after seeding; we only ever (re-)create sections
-  // when the parent template row is brand new).
+  // Multi-instance-boot safe: the second writer's upsert is a no-op
+  // because the first writer's create already inserted the slug.
+  //
+  // Operator-edited rows: `update` only refreshes the description /
+  // category / suggested type / visibility / tags — title is left as
+  // whatever the operator last set, sections are NEVER touched on
+  // update (we only (re-)create sections when the parent template row
+  // is brand new).
   for (const template of defaultWorkbookTemplates) {
     await prisma.workbookTemplate.upsert({
-      where: { title: template.title },
+      where: { slug: template.slug },
       update: {
         description: template.description,
         category: template.category,
@@ -14967,6 +14975,7 @@ export async function ensureWorkbookTemplatesSeeded() {
         tags: template.tags
       },
       create: {
+        slug: template.slug,
         title: template.title,
         description: template.description,
         category: template.category,
@@ -28019,6 +28028,7 @@ export async function createWorkbookFromTemplate(
     workstreamId?: unknown;
     ownerName?: unknown;
     sessionNumber?: unknown;
+    dueDate?: unknown;
   }
 ) {
   const project = await prisma.project.findUnique({
@@ -28110,7 +28120,20 @@ export async function createWorkbookFromTemplate(
   const explicitOwnerName = normalizeOptionalText(value.ownerName);
   const ownerName =
     explicitOwnerName ?? (await defaultWorkbookOwnerName(projectId));
-  const dueDate = addBusinessDaysFromNow(5);
+
+  let explicitDueDate: Date | null = null;
+  const rawDueDate = value.dueDate;
+  if (rawDueDate instanceof Date) {
+    if (!Number.isNaN(rawDueDate.getTime())) {
+      explicitDueDate = rawDueDate;
+    }
+  } else if (typeof rawDueDate === "string" && rawDueDate.trim().length > 0) {
+    const parsed = new Date(rawDueDate);
+    if (!Number.isNaN(parsed.getTime())) {
+      explicitDueDate = parsed;
+    }
+  }
+  const dueDate = explicitDueDate ?? addBusinessDaysFromNow(5);
 
   const evidenceItem = await prisma.discoveryEvidence.create({
     data: {

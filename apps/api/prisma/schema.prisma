@@ -649,10 +649,17 @@ model DiscoveryQuestionLibraryItem {
 
 model WorkbookTemplate {
   id                       String                     @id @default(cuid())
-  // T3 Step A — title is unique so the boot seed can use a real upsert.
-  // Migration `20260502250000_workbook_template_title_unique` enforces it
-  // at the DB level; the seed in apps/api/src/server.ts uses
-  // `prisma.workbookTemplate.upsert({ where: { title } })`.
+  // T3 Step A — `slug` is the stable, non-editable seed identity used by
+  // ensureWorkbookTemplatesSeeded (matches how DeliveryTemplate keys
+  // its seed). Nullable + unique so operator-created templates can omit
+  // it (Postgres treats NULLs as distinct under a UNIQUE by default).
+  // Migration `20260502260000_workbook_template_slug` adds the column +
+  // backfills the 3 known seeded titles.
+  slug                     String?                    @unique
+  // Title remains unique (migration
+  // `20260502250000_workbook_template_title_unique`) to prevent
+  // operator-created duplicates, but it is operator-editable so the
+  // seed no longer keys off it.
   title                    String                     @unique
   description              String?
   category                 String?
