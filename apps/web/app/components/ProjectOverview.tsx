@@ -16,11 +16,16 @@ import DiscoveryTab from "./project/tabs/DiscoveryTab";
 import OverviewTab from "./project/tabs/OverviewTab";
 import PlanTab from "./project/tabs/PlanTab";
 import PortalTab from "./project/tabs/PortalTab";
+import AccessSharingTab from "./project/tabs/AccessSharingTab";
 import ProjectWorkstreamsHoursPanel from "./project/panels/ProjectWorkstreamsHoursPanel";
 import ProjectWorkbooksPanel from "./project/panels/ProjectWorkbooksPanel";
 import ProjectContributorsPanel from "./project/panels/ProjectContributorsPanel";
 import ProjectReadinessSummary from "./project/panels/ProjectReadinessSummary";
 import ProjectActionBar from "./project/panels/ProjectActionBar";
+import ProjectChampionCard from "./project/panels/ProjectChampionCard";
+import ProjectResourcesPanel from "./project/panels/ProjectResourcesPanel";
+import ProjectHubSpotAccessPanel from "./project/panels/ProjectHubSpotAccessPanel";
+import ProjectWorkbookSharingSummary from "./project/panels/ProjectWorkbookSharingSummary";
 import ProjectMeetingsPanel from "./project/panels/ProjectMeetingsPanel";
 import Breadcrumb from "./project/Breadcrumb";
 
@@ -1460,16 +1465,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             }
           />
         );
-      case "discovery":
+      case "access":
         return (
-          <DiscoveryTab
-            workbooksPanel={
-              <ProjectWorkbooksPanel
-                projectId={project.id}
-                workstreams={(project.deliveryWorkstreams ?? []).map((ws) => ({
-                  id: ws.id,
-                  name: ws.name
-                }))}
+          <AccessSharingTab
+            championCard={
+              <ProjectChampionCard
+                championName={null}
+                championEmail={project.clientChampionEmail ?? null}
+                championRole={null}
               />
             }
             contributorsPanel={
@@ -1481,6 +1484,39 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   lastName: c.lastName,
                   email: c.email,
                   title: c.title
+                }))}
+              />
+            }
+            resourcesPanel={
+              <ProjectResourcesPanel projectId={project.id} />
+            }
+            hubspotPanel={
+              <ProjectHubSpotAccessPanel
+                projectId={project.id}
+                connectionReady={Boolean(project.portal?.connected)}
+                portalRecordId={project.portal?.id ?? null}
+                hubDomain={project.portal?.hubDomain ?? null}
+                hubTier={portalSnapshot?.hubTier ?? null}
+              />
+            }
+            workbookSharingSummary={
+              <ProjectWorkbookSharingSummary
+                projectId={project.id}
+                onOpenDiscovery={() => setActiveTab("discovery")}
+              />
+            }
+          />
+        );
+      case "discovery":
+        return (
+          <DiscoveryTab
+            projectId={project.id}
+            workbooksPanel={
+              <ProjectWorkbooksPanel
+                projectId={project.id}
+                workstreams={(project.deliveryWorkstreams ?? []).map((ws) => ({
+                  id: ws.id,
+                  name: ws.name
                 }))}
               />
             }
@@ -2205,8 +2241,8 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 setMeetingModalOpen(true);
               }}
               onCreateWorkbook={() => setActiveTab("discovery")}
-              onAddContributor={() => setActiveTab("discovery")}
-              onAddResource={() => setActiveTab("discovery")}
+              onAddContributor={() => setActiveTab("access")}
+              onAddResource={() => setActiveTab("access")}
               onOpenClientPortal={() => void openClientPortalPreview()}
             />
           }

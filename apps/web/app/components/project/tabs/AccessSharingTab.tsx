@@ -1,0 +1,88 @@
+"use client";
+
+import type { ReactNode } from "react";
+
+export default function AccessSharingTab(props: {
+  championCard: ReactNode;
+  contributorsPanel: ReactNode;
+  resourcesPanel: ReactNode;
+  hubspotPanel: ReactNode;
+  workbookSharingSummary: ReactNode;
+}) {
+  return (
+    <div className="space-y-6">
+      <section className="brand-surface-soft rounded-2xl border border-white/10 p-4">
+        <p className="text-sm font-semibold text-white">Access &amp; Sharing</p>
+        <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+          One place to control who can see this project. Configure the client
+          champion, invite contributors who need to fill in workbooks, manage
+          shared Miro boards and documents, and handle HubSpot access — both
+          the partner invite for the client and the internal Deploy OS
+          connection.
+        </p>
+      </section>
+
+      <section className="brand-surface rounded-3xl border p-6">
+        <header className="mb-4">
+          <h3 className="text-lg font-semibold text-white">Client champion</h3>
+          <p className="mt-1 text-xs text-text-secondary">
+            The single person on the client side responsible for reviewing and
+            approving project work.
+          </p>
+        </header>
+        {props.championCard}
+      </section>
+
+      <section className="brand-surface rounded-3xl border p-6">
+        <header className="mb-4">
+          <h3 className="text-lg font-semibold text-white">
+            External contributors
+          </h3>
+          <p className="mt-1 text-xs text-text-secondary">
+            People you need input from who do not need a full client portal
+            account. Assign them workbooks below.
+          </p>
+        </header>
+        {props.contributorsPanel}
+      </section>
+
+      <section className="brand-surface rounded-3xl border p-6">
+        <header className="mb-4">
+          <h3 className="text-lg font-semibold text-white">HubSpot access</h3>
+          <p className="mt-1 text-xs text-text-secondary">
+            Two separate actions: the client invites Muloo as a partner/admin
+            into their HubSpot portal, and Muloo separately connects that
+            portal to Deploy OS for audits and tracking.
+          </p>
+        </header>
+        {props.hubspotPanel}
+      </section>
+
+      <section className="brand-surface rounded-3xl border p-6">
+        <header className="mb-4">
+          <h3 className="text-lg font-semibold text-white">
+            Miro boards &amp; shared resources
+          </h3>
+          <p className="mt-1 text-xs text-text-secondary">
+            Links to Google Docs/Sheets, Miro boards, PDFs and other shared
+            resources. Visibility decides who sees them.
+          </p>
+        </header>
+        {props.resourcesPanel}
+      </section>
+
+      <section className="brand-surface rounded-3xl border p-6">
+        <header className="mb-4">
+          <h3 className="text-lg font-semibold text-white">
+            Workbook sharing
+          </h3>
+          <p className="mt-1 text-xs text-text-secondary">
+            Quick view of how each workbook is shared. Edit details on the
+            Discovery tab.
+          </p>
+        </header>
+        {props.workbookSharingSummary}
+      </section>
+    </div>
+  );
+}

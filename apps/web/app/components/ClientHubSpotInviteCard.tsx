@@ -67,9 +67,12 @@ export default function ClientHubSpotInviteCard() {
   // Render the invite card
   return (
     <div className="rounded-2xl border border-[rgba(123,226,239,0.3)] bg-[rgba(123,226,239,0.08)] p-6 mb-6">
-      <h3 className="text-white font-semibold mb-2">Connect your HubSpot</h3>
+      <h3 className="text-white font-semibold mb-2">Invite Muloo to HubSpot</h3>
       <p className="text-text-secondary text-sm mb-4">
-        This lets Muloo audit your portal and run the work you approved. A HubSpot Super Admin from your team needs to click the link. Takes about 10 seconds.
+        Use this link to invite Muloo as a partner/admin in your HubSpot
+        portal. This gives us the access needed to complete the approved
+        setup work. A HubSpot Super Admin from your team needs to click the
+        link. Takes about 10 seconds.
       </p>
       <a
         href={data.partnerInviteUrl}
@@ -77,7 +80,7 @@ export default function ClientHubSpotInviteCard() {
         rel="noopener noreferrer"
         className="inline-block px-4 py-2 bg-[#7be2ef] hover:bg-[#69d4dd] text-[#0f1419] font-medium rounded-lg transition-colors text-sm"
       >
-        Connect HubSpot
+        Open invite in HubSpot ↗
       </a>
     </div>
   );

@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 export type ProjectDetailTabKey =
   | "overview"
   | "meetings"
+  | "access"
   | "discovery"
   | "plan"
   | "delivery"
@@ -15,6 +16,7 @@ export type ProjectDetailTabKey =
 const tabs: Array<{ key: ProjectDetailTabKey; label: string }> = [
   { key: "overview", label: "Overview" },
   { key: "meetings", label: "Meetings" },
+  { key: "access", label: "Access & Sharing" },
   { key: "discovery", label: "Discovery" },
   { key: "plan", label: "Plan" },
   { key: "delivery", label: "Delivery" },
@@ -27,8 +29,10 @@ const tabHelperText: Record<ProjectDetailTabKey, string> = {
     "Snapshot of this project: status, owners, and the next best action.",
   meetings:
     "Meeting notes and follow-ups. Add latest meetings here to capture decisions, risks, and tasks.",
+  access:
+    "Configure who has access to what: client champion, contributors, HubSpot, Miro and shared resources.",
   discovery:
-    "Workbooks, contributors, and discovery evidence used to scope this engagement.",
+    "Workbooks and discovery evidence used to scope this engagement.",
   plan: "Workstreams and the delivery plan for this project.",
   delivery:
     "Live delivery view: tasks, hours, and progress against the plan.",

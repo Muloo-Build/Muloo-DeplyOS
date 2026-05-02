@@ -540,38 +540,12 @@ export default function ClientProjectWorkspace({
           {activeTab === "overview" ? (
             <div className="space-y-5">
               <ClientHubSpotInviteCard />
-              {detail.project.portal && !detail.project.portal.connected ? (
-                <div className="rounded-2xl border border-[#49cde1]/30 bg-[rgba(73,205,225,0.08)] p-6">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex-1">
-                      <p className="text-xs uppercase tracking-[0.18em] text-[#9be4f0]">
-                        HubSpot connection
-                      </p>
-                      <h3 className="mt-2 text-lg font-semibold text-white">
-                        Connect your HubSpot
-                      </h3>
-                      <p className="mt-2 text-sm text-text-secondary">
-                        Authorise Muloo to read and write into your HubSpot
-                        portal so we can configure properties, workflows, and
-                        objects against your real environment.
-                      </p>
-                      {connectError ? (
-                        <p className="mt-3 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
-                          {connectError}
-                        </p>
-                      ) : null}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleStartHubSpotConnect}
-                      disabled={connectingHubSpot}
-                      className="rounded-xl bg-[#49cde1] px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-[#71dbeb] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {connectingHubSpot ? "Redirecting..." : "Connect HubSpot"}
-                    </button>
-                  </div>
-                </div>
-              ) : detail.project.portal?.connected ? (
+              {/*
+                The internal "Connect HubSpot portal to Deploy OS" OAuth flow
+                is now an operator-only action and is not surfaced in the
+                client portal. Clients only see the partner invite above.
+              */}
+              {detail.project.portal?.connected ? (
                 <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/5 px-5 py-3 text-sm text-emerald-100">
                   HubSpot connected ·{" "}
                   <span className="text-emerald-50">
