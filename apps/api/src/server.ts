@@ -26174,6 +26174,600 @@ export async function deleteDiscoveryQuestionLibraryItem(id: string) {
   return { success: true };
 }
 
+const WORKBOOK_TEMPLATE_VISIBILITIES = new Set([
+  "internal",
+  "client_facing"
+]);
+
+const WORKBOOK_TEMPLATE_ANSWER_TYPES = new Set([
+  "text",
+  "long_text",
+  "yes_no",
+  "multiple_choice",
+  "file_upload",
+  "link"
+]);
+
+function normalizeTemplateVisibility(value: unknown): string {
+  if (typeof value === "string" && WORKBOOK_TEMPLATE_VISIBILITIES.has(value)) {
+    return value;
+  }
+  return "internal";
+}
+
+function normalizeTemplateAnswerType(value: unknown): string {
+  if (
+    typeof value === "string" &&
+    WORKBOOK_TEMPLATE_ANSWER_TYPES.has(value)
+  ) {
+    return value;
+  }
+  return "text";
+}
+
+function serializeWorkbookTemplateQuestion(question: {
+  id: string;
+  sectionId: string;
+  libraryQuestionId: string | null;
+  questionText: string;
+  helpText: string | null;
+  answerType: string;
+  options: string[];
+  isRequired: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: question.id,
+    sectionId: question.sectionId,
+    libraryQuestionId: question.libraryQuestionId,
+    questionText: question.questionText,
+    helpText: question.helpText,
+    answerType: question.answerType,
+    options: question.options,
+    isRequired: question.isRequired,
+    sortOrder: question.sortOrder,
+    createdAt: question.createdAt.toISOString(),
+    updatedAt: question.updatedAt.toISOString()
+  };
+}
+
+function serializeWorkbookTemplateSection(section: {
+  id: string;
+  templateId: string;
+  title: string;
+  description: string | null;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+  questions?: {
+    id: string;
+    sectionId: string;
+    libraryQuestionId: string | null;
+    questionText: string;
+    helpText: string | null;
+    answerType: string;
+    options: string[];
+    isRequired: boolean;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }[];
+}) {
+  return {
+    id: section.id,
+    templateId: section.templateId,
+    title: section.title,
+    description: section.description,
+    sortOrder: section.sortOrder,
+    questions: (section.questions ?? []).map(serializeWorkbookTemplateQuestion),
+    createdAt: section.createdAt.toISOString(),
+    updatedAt: section.updatedAt.toISOString()
+  };
+}
+
+function serializeWorkbookTemplate(template: {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  suggestedProjectType: string | null;
+  suggestedContributorRole: string | null;
+  defaultVisibility: string;
+  tags: string[];
+  isArchived: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  sections?: {
+    id: string;
+    templateId: string;
+    title: string;
+    description: string | null;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+    questions?: {
+      id: string;
+      sectionId: string;
+      libraryQuestionId: string | null;
+      questionText: string;
+      helpText: string | null;
+      answerType: string;
+      options: string[];
+      isRequired: boolean;
+      sortOrder: number;
+      createdAt: Date;
+      updatedAt: Date;
+    }[];
+  }[];
+}) {
+  const sections = template.sections ?? [];
+  const sectionCount = sections.length;
+  const questionCount = sections.reduce(
+    (acc, s) => acc + (s.questions?.length ?? 0),
+    0
+  );
+  return {
+    id: template.id,
+    title: template.title,
+    description: template.description,
+    category: template.category,
+    suggestedProjectType: template.suggestedProjectType,
+    suggestedContributorRole: template.suggestedContributorRole,
+    defaultVisibility: template.defaultVisibility,
+    tags: template.tags,
+    isArchived: template.isArchived,
+    sections: sections.map(serializeWorkbookTemplateSection),
+    sectionCount,
+    questionCount,
+    createdAt: template.createdAt.toISOString(),
+    updatedAt: template.updatedAt.toISOString()
+  };
+}
+
+export async function loadWorkbookTemplates(filters?: {
+  search?: string | undefined;
+  category?: string | undefined;
+  isArchived?: boolean | undefined;
+  suggestedProjectType?: string | undefined;
+}) {
+  const where: Prisma.Prisma.WorkbookTemplateWhereInput = {};
+  if (filters?.category) where.category = filters.category;
+  if (filters?.suggestedProjectType) {
+    where.suggestedProjectType = filters.suggestedProjectType;
+  }
+  if (filters?.isArchived !== undefined) {
+    where.isArchived = filters.isArchived;
+  }
+  if (filters?.search && filters.search.trim().length > 0) {
+    const term = filters.search.trim();
+    where.OR = [
+      { title: { contains: term, mode: "insensitive" } },
+      { description: { contains: term, mode: "insensitive" } },
+      { tags: { has: term } }
+    ];
+  }
+  const templates = await prisma.workbookTemplate.findMany({
+    where,
+    orderBy: [{ isArchived: "asc" }, { title: "asc" }],
+    include: {
+      sections: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          questions: { orderBy: { sortOrder: "asc" } }
+        }
+      }
+    }
+  });
+  return templates.map(serializeWorkbookTemplate);
+}
+
+export async function loadWorkbookTemplate(id: string) {
+  const template = await prisma.workbookTemplate.findUnique({
+    where: { id },
+    include: {
+      sections: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          questions: { orderBy: { sortOrder: "asc" } }
+        }
+      }
+    }
+  });
+  if (!template) throw new Error("Workbook template not found");
+  return serializeWorkbookTemplate(template);
+}
+
+export async function createWorkbookTemplate(value: Record<string, unknown>) {
+  const title = typeof value.title === "string" ? value.title.trim() : "";
+  if (!title) throw new Error("title is required");
+  const template = await prisma.workbookTemplate.create({
+    data: {
+      title,
+      description: normalizeOptionalText(value.description),
+      category: normalizeOptionalText(value.category),
+      suggestedProjectType: normalizeOptionalText(value.suggestedProjectType),
+      suggestedContributorRole: normalizeOptionalText(
+        value.suggestedContributorRole
+      ),
+      defaultVisibility: normalizeTemplateVisibility(value.defaultVisibility),
+      tags: normalizeStringArray(value.tags),
+      isArchived: value.isArchived === true
+    },
+    include: {
+      sections: {
+        orderBy: { sortOrder: "asc" },
+        include: { questions: { orderBy: { sortOrder: "asc" } } }
+      }
+    }
+  });
+  return serializeWorkbookTemplate(template);
+}
+
+export async function updateWorkbookTemplate(
+  id: string,
+  value: Record<string, unknown>
+) {
+  const existing = await prisma.workbookTemplate.findUnique({ where: { id } });
+  if (!existing) throw new Error("Workbook template not found");
+  const data: Prisma.Prisma.WorkbookTemplateUpdateInput = {};
+  if (value.title !== undefined) {
+    const v = typeof value.title === "string" ? value.title.trim() : "";
+    if (!v) throw new Error("title must be non-empty");
+    data.title = v;
+  }
+  if (value.description !== undefined) {
+    data.description = normalizeOptionalText(value.description);
+  }
+  if (value.category !== undefined) {
+    data.category = normalizeOptionalText(value.category);
+  }
+  if (value.suggestedProjectType !== undefined) {
+    data.suggestedProjectType = normalizeOptionalText(
+      value.suggestedProjectType
+    );
+  }
+  if (value.suggestedContributorRole !== undefined) {
+    data.suggestedContributorRole = normalizeOptionalText(
+      value.suggestedContributorRole
+    );
+  }
+  if (value.defaultVisibility !== undefined) {
+    data.defaultVisibility = normalizeTemplateVisibility(
+      value.defaultVisibility
+    );
+  }
+  if (value.tags !== undefined) {
+    data.tags = normalizeStringArray(value.tags);
+  }
+  if (value.isArchived !== undefined) {
+    data.isArchived = value.isArchived === true;
+  }
+  const updated = await prisma.workbookTemplate.update({
+    where: { id },
+    data,
+    include: {
+      sections: {
+        orderBy: { sortOrder: "asc" },
+        include: { questions: { orderBy: { sortOrder: "asc" } } }
+      }
+    }
+  });
+  return serializeWorkbookTemplate(updated);
+}
+
+export async function deleteWorkbookTemplate(id: string) {
+  const existing = await prisma.workbookTemplate.findUnique({
+    where: { id },
+    include: { _count: { select: { projectWorkbooks: true } } }
+  });
+  if (!existing) throw new Error("Workbook template not found");
+  await prisma.workbookTemplate.delete({ where: { id } });
+  return {
+    success: true,
+    detachedProjectWorkbooks: existing._count.projectWorkbooks
+  };
+}
+
+export async function duplicateWorkbookTemplate(
+  id: string,
+  options?: { title?: string }
+) {
+  const source = await prisma.workbookTemplate.findUnique({
+    where: { id },
+    include: {
+      sections: {
+        orderBy: { sortOrder: "asc" },
+        include: { questions: { orderBy: { sortOrder: "asc" } } }
+      }
+    }
+  });
+  if (!source) throw new Error("Workbook template not found");
+  const newTitle =
+    typeof options?.title === "string" && options.title.trim().length > 0
+      ? options.title.trim()
+      : `${source.title} (copy)`;
+  const created = await prisma.workbookTemplate.create({
+    data: {
+      title: newTitle,
+      description: source.description,
+      category: source.category,
+      suggestedProjectType: source.suggestedProjectType,
+      suggestedContributorRole: source.suggestedContributorRole,
+      defaultVisibility: source.defaultVisibility,
+      tags: source.tags,
+      isArchived: false,
+      sections: {
+        create: source.sections.map((section) => ({
+          title: section.title,
+          description: section.description,
+          sortOrder: section.sortOrder,
+          questions: {
+            create: section.questions.map((question) => ({
+              libraryQuestionId: question.libraryQuestionId,
+              questionText: question.questionText,
+              helpText: question.helpText,
+              answerType: question.answerType,
+              options: question.options,
+              isRequired: question.isRequired,
+              sortOrder: question.sortOrder
+            }))
+          }
+        }))
+      }
+    },
+    include: {
+      sections: {
+        orderBy: { sortOrder: "asc" },
+        include: { questions: { orderBy: { sortOrder: "asc" } } }
+      }
+    }
+  });
+  return serializeWorkbookTemplate(created);
+}
+
+export async function createWorkbookTemplateSection(
+  templateId: string,
+  value: Record<string, unknown>
+) {
+  const template = await prisma.workbookTemplate.findUnique({
+    where: { id: templateId },
+    select: { id: true }
+  });
+  if (!template) throw new Error("Workbook template not found");
+  const title = typeof value.title === "string" ? value.title.trim() : "";
+  if (!title) throw new Error("title is required");
+  const last = await prisma.workbookTemplateSection.findFirst({
+    where: { templateId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true }
+  });
+  const sortOrder =
+    typeof value.sortOrder === "number"
+      ? value.sortOrder
+      : (last?.sortOrder ?? -1) + 1;
+  const section = await prisma.workbookTemplateSection.create({
+    data: {
+      templateId,
+      title,
+      description: normalizeOptionalText(value.description),
+      sortOrder
+    },
+    include: { questions: { orderBy: { sortOrder: "asc" } } }
+  });
+  return serializeWorkbookTemplateSection(section);
+}
+
+export async function updateWorkbookTemplateSection(
+  sectionId: string,
+  value: Record<string, unknown>
+) {
+  const existing = await prisma.workbookTemplateSection.findUnique({
+    where: { id: sectionId }
+  });
+  if (!existing) throw new Error("Workbook template section not found");
+  const data: Prisma.Prisma.WorkbookTemplateSectionUpdateInput = {};
+  if (value.title !== undefined) {
+    const v = typeof value.title === "string" ? value.title.trim() : "";
+    if (!v) throw new Error("title must be non-empty");
+    data.title = v;
+  }
+  if (value.description !== undefined) {
+    data.description = normalizeOptionalText(value.description);
+  }
+  if (value.sortOrder !== undefined && typeof value.sortOrder === "number") {
+    data.sortOrder = value.sortOrder;
+  }
+  const updated = await prisma.workbookTemplateSection.update({
+    where: { id: sectionId },
+    data,
+    include: { questions: { orderBy: { sortOrder: "asc" } } }
+  });
+  return serializeWorkbookTemplateSection(updated);
+}
+
+export async function deleteWorkbookTemplateSection(sectionId: string) {
+  const existing = await prisma.workbookTemplateSection.findUnique({
+    where: { id: sectionId }
+  });
+  if (!existing) throw new Error("Workbook template section not found");
+  await prisma.workbookTemplateSection.delete({ where: { id: sectionId } });
+  return { success: true };
+}
+
+export async function reorderWorkbookTemplateSections(
+  templateId: string,
+  orderedIds: unknown
+) {
+  if (!Array.isArray(orderedIds)) {
+    throw new Error("orderedIds must be an array");
+  }
+  const ids = orderedIds.filter((v): v is string => typeof v === "string");
+  await prisma.$transaction(
+    ids.map((id, index) =>
+      prisma.workbookTemplateSection.updateMany({
+        where: { id, templateId },
+        data: { sortOrder: index }
+      })
+    )
+  );
+  return { success: true };
+}
+
+export async function createWorkbookTemplateQuestion(
+  sectionId: string,
+  value: Record<string, unknown>
+) {
+  const section = await prisma.workbookTemplateSection.findUnique({
+    where: { id: sectionId },
+    select: { id: true }
+  });
+  if (!section) throw new Error("Workbook template section not found");
+
+  let libraryQuestionId: string | null = null;
+  let questionText: string;
+  let helpText: string | null = null;
+  let answerType = "text";
+  let options: string[] = [];
+
+  if (
+    typeof value.libraryQuestionId === "string" &&
+    value.libraryQuestionId.trim().length > 0
+  ) {
+    const lib = await prisma.discoveryQuestionLibraryItem.findUnique({
+      where: { id: value.libraryQuestionId.trim() }
+    });
+    if (!lib) throw new Error("Linked library question not found");
+    libraryQuestionId = lib.id;
+    questionText =
+      typeof value.questionText === "string" && value.questionText.trim()
+        ? value.questionText.trim()
+        : lib.questionText;
+    helpText =
+      value.helpText !== undefined
+        ? normalizeOptionalText(value.helpText)
+        : lib.helpText;
+    answerType =
+      typeof value.answerType === "string"
+        ? normalizeTemplateAnswerType(value.answerType)
+        : normalizeTemplateAnswerType(lib.answerType);
+    options =
+      value.options !== undefined ? normalizeStringArray(value.options) : lib.options;
+  } else {
+    const v =
+      typeof value.questionText === "string" ? value.questionText.trim() : "";
+    if (!v) throw new Error("questionText is required");
+    questionText = v;
+    helpText = normalizeOptionalText(value.helpText);
+    answerType = normalizeTemplateAnswerType(value.answerType);
+    options = normalizeStringArray(value.options);
+  }
+
+  const last = await prisma.workbookTemplateQuestion.findFirst({
+    where: { sectionId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true }
+  });
+  const sortOrder =
+    typeof value.sortOrder === "number"
+      ? value.sortOrder
+      : (last?.sortOrder ?? -1) + 1;
+
+  const question = await prisma.workbookTemplateQuestion.create({
+    data: {
+      sectionId,
+      libraryQuestionId,
+      questionText,
+      helpText,
+      answerType,
+      options,
+      isRequired: value.isRequired === true,
+      sortOrder
+    }
+  });
+  return serializeWorkbookTemplateQuestion(question);
+}
+
+export async function updateWorkbookTemplateQuestion(
+  questionId: string,
+  value: Record<string, unknown>
+) {
+  const existing = await prisma.workbookTemplateQuestion.findUnique({
+    where: { id: questionId }
+  });
+  if (!existing) throw new Error("Workbook template question not found");
+  const data: Prisma.Prisma.WorkbookTemplateQuestionUpdateInput = {};
+  if (value.questionText !== undefined) {
+    const v =
+      typeof value.questionText === "string" ? value.questionText.trim() : "";
+    if (!v) throw new Error("questionText must be non-empty");
+    data.questionText = v;
+  }
+  if (value.helpText !== undefined) {
+    data.helpText = normalizeOptionalText(value.helpText);
+  }
+  if (value.answerType !== undefined) {
+    data.answerType = normalizeTemplateAnswerType(value.answerType);
+  }
+  if (value.options !== undefined) {
+    data.options = normalizeStringArray(value.options);
+  }
+  if (value.isRequired !== undefined) {
+    data.isRequired = value.isRequired === true;
+  }
+  if (value.sortOrder !== undefined && typeof value.sortOrder === "number") {
+    data.sortOrder = value.sortOrder;
+  }
+  if (value.libraryQuestionId !== undefined) {
+    if (
+      value.libraryQuestionId === null ||
+      value.libraryQuestionId === ""
+    ) {
+      data.libraryQuestion = { disconnect: true };
+    } else if (typeof value.libraryQuestionId === "string") {
+      const lib = await prisma.discoveryQuestionLibraryItem.findUnique({
+        where: { id: value.libraryQuestionId }
+      });
+      if (!lib) throw new Error("Linked library question not found");
+      data.libraryQuestion = { connect: { id: lib.id } };
+    }
+  }
+  const updated = await prisma.workbookTemplateQuestion.update({
+    where: { id: questionId },
+    data
+  });
+  return serializeWorkbookTemplateQuestion(updated);
+}
+
+export async function deleteWorkbookTemplateQuestion(questionId: string) {
+  const existing = await prisma.workbookTemplateQuestion.findUnique({
+    where: { id: questionId }
+  });
+  if (!existing) throw new Error("Workbook template question not found");
+  await prisma.workbookTemplateQuestion.delete({ where: { id: questionId } });
+  return { success: true };
+}
+
+export async function reorderWorkbookTemplateQuestions(
+  sectionId: string,
+  orderedIds: unknown
+) {
+  if (!Array.isArray(orderedIds)) {
+    throw new Error("orderedIds must be an array");
+  }
+  const ids = orderedIds.filter((v): v is string => typeof v === "string");
+  await prisma.$transaction(
+    ids.map((id, index) =>
+      prisma.workbookTemplateQuestion.updateMany({
+        where: { id, sectionId },
+        data: { sortOrder: index }
+      })
+    )
+  );
+  return { success: true };
+}
+
 type WorkbookQuestion = {
   id: string;
   questionText: string;

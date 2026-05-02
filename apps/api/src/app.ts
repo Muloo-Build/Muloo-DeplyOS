@@ -205,6 +205,20 @@ import {
   updateDiscoveryQuestionLibraryItem,
   deleteDiscoveryQuestionLibraryItem,
   importLibraryQuestionsIntoWorkbook,
+  loadWorkbookTemplates,
+  loadWorkbookTemplate,
+  createWorkbookTemplate,
+  updateWorkbookTemplate,
+  deleteWorkbookTemplate,
+  duplicateWorkbookTemplate,
+  createWorkbookTemplateSection,
+  updateWorkbookTemplateSection,
+  deleteWorkbookTemplateSection,
+  reorderWorkbookTemplateSections,
+  createWorkbookTemplateQuestion,
+  updateWorkbookTemplateQuestion,
+  deleteWorkbookTemplateQuestion,
+  reorderWorkbookTemplateQuestions,
   loadProjectContributors,
   createProjectContributor,
   updateProjectContributor,
@@ -1083,6 +1097,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/discovery/*", internalAuth);
   app.use("/api/discovery-question-library", internalAuth);
   app.use("/api/discovery-question-library/*", internalAuth);
+  app.use("/api/workbook-templates", internalAuth);
+  app.use("/api/workbook-templates/*", internalAuth);
   app.use("/api/projects", internalAuth);
   app.use("/api/projects/*", internalAuth);
   app.use("/api/tasks", internalAuth);
@@ -2742,6 +2758,302 @@ export function createApiApp(config: BaseConfig) {
         return c.json(
           { error: message },
           message === "Question library item not found" ? 404 : 400
+        );
+      }
+    }
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/workbook-templates", async (c) => {
+    if (c.req.method === "GET") {
+      try {
+        const url = new URL(c.req.url);
+        const archivedParam = url.searchParams.get("isArchived");
+        const isArchived =
+          archivedParam === null ? undefined : archivedParam === "true";
+        return c.json({
+          templates: await loadWorkbookTemplates({
+            search: url.searchParams.get("search") ?? undefined,
+            category: url.searchParams.get("category") ?? undefined,
+            suggestedProjectType:
+              url.searchParams.get("suggestedProjectType") ?? undefined,
+            isArchived
+          })
+        });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to load workbook templates"
+          },
+          400
+        );
+      }
+    }
+    if (c.req.method === "POST") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const template = await createWorkbookTemplate(body);
+        return c.json({ template }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create workbook template"
+          },
+          400
+        );
+      }
+    }
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/workbook-templates/:templateId", async (c) => {
+    const templateId = c.req.param("templateId");
+    if (c.req.method === "GET") {
+      try {
+        return c.json({ template: await loadWorkbookTemplate(templateId) });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to load workbook template";
+        return c.json(
+          { error: message },
+          message === "Workbook template not found" ? 404 : 400
+        );
+      }
+    }
+    if (c.req.method === "PATCH" || c.req.method === "PUT") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const template = await updateWorkbookTemplate(templateId, body);
+        return c.json({ template });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to update workbook template";
+        return c.json(
+          { error: message },
+          message === "Workbook template not found" ? 404 : 400
+        );
+      }
+    }
+    if (c.req.method === "DELETE") {
+      try {
+        const result = await deleteWorkbookTemplate(templateId);
+        return c.json(result);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to delete workbook template";
+        return c.json(
+          { error: message },
+          message === "Workbook template not found" ? 404 : 400
+        );
+      }
+    }
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/workbook-templates/:templateId/duplicate", async (c) => {
+    if (c.req.method !== "POST") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+    const templateId = c.req.param("templateId");
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const options: { title?: string } = {};
+      if (typeof body.title === "string") options.title = body.title;
+      const template = await duplicateWorkbookTemplate(templateId, options);
+      return c.json({ template }, 201);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to duplicate workbook template";
+      return c.json(
+        { error: message },
+        message === "Workbook template not found" ? 404 : 400
+      );
+    }
+  });
+
+  app.all("/api/workbook-templates/:templateId/sections", async (c) => {
+    const templateId = c.req.param("templateId");
+    if (c.req.method === "POST") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const section = await createWorkbookTemplateSection(templateId, body);
+        return c.json({ section }, 201);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to create section";
+        return c.json(
+          { error: message },
+          message === "Workbook template not found" ? 404 : 400
+        );
+      }
+    }
+    if (c.req.method === "PATCH") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const result = await reorderWorkbookTemplateSections(
+          templateId,
+          body.orderedIds
+        );
+        return c.json(result);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to reorder sections"
+          },
+          400
+        );
+      }
+    }
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/workbook-templates/sections/:sectionId", async (c) => {
+    const sectionId = c.req.param("sectionId");
+    if (c.req.method === "PATCH" || c.req.method === "PUT") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const section = await updateWorkbookTemplateSection(sectionId, body);
+        return c.json({ section });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to update section";
+        return c.json(
+          { error: message },
+          message === "Workbook template section not found" ? 404 : 400
+        );
+      }
+    }
+    if (c.req.method === "DELETE") {
+      try {
+        await deleteWorkbookTemplateSection(sectionId);
+        return c.json({ success: true });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to delete section";
+        return c.json(
+          { error: message },
+          message === "Workbook template section not found" ? 404 : 400
+        );
+      }
+    }
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all(
+    "/api/workbook-templates/sections/:sectionId/questions",
+    async (c) => {
+      const sectionId = c.req.param("sectionId");
+      if (c.req.method === "POST") {
+        try {
+          const body = (await readJsonBodyOrEmpty(c)) as Record<
+            string,
+            unknown
+          >;
+          const question = await createWorkbookTemplateQuestion(
+            sectionId,
+            body
+          );
+          return c.json({ question }, 201);
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Failed to create question";
+          const status =
+            message === "Workbook template section not found"
+              ? 404
+              : message === "Linked library question not found"
+                ? 404
+                : 400;
+          return c.json({ error: message }, status);
+        }
+      }
+      if (c.req.method === "PATCH") {
+        try {
+          const body = (await readJsonBodyOrEmpty(c)) as Record<
+            string,
+            unknown
+          >;
+          const result = await reorderWorkbookTemplateQuestions(
+            sectionId,
+            body.orderedIds
+          );
+          return c.json(result);
+        } catch (error) {
+          return c.json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to reorder questions"
+            },
+            400
+          );
+        }
+      }
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+  );
+
+  app.all("/api/workbook-templates/questions/:questionId", async (c) => {
+    const questionId = c.req.param("questionId");
+    if (c.req.method === "PATCH" || c.req.method === "PUT") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const question = await updateWorkbookTemplateQuestion(
+          questionId,
+          body
+        );
+        return c.json({ question });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to update question";
+        const status =
+          message === "Workbook template question not found"
+            ? 404
+            : message === "Linked library question not found"
+              ? 404
+              : 400;
+        return c.json({ error: message }, status);
+      }
+    }
+    if (c.req.method === "DELETE") {
+      try {
+        await deleteWorkbookTemplateQuestion(questionId);
+        return c.json({ success: true });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to delete question";
+        return c.json(
+          { error: message },
+          message === "Workbook template question not found" ? 404 : 400
         );
       }
     }
