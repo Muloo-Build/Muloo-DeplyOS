@@ -14946,14 +14946,27 @@ const defaultWorkbookTemplates: Array<{
 ];
 
 export async function ensureWorkbookTemplatesSeeded() {
+  // Title is a DB-enforced unique (migration
+  // 20260502250000_workbook_template_title_unique), so we can use a true
+  // upsert here. This makes the boot seed safe under multi-instance API
+  // boot — two instances racing past a findFirst probe would have both
+  // called `create` and produced duplicate templates; with the unique
+  // constraint + upsert, the second writer is a no-op.
+  //
+  // Sections are NOT touched on update (workbook templates are
+  // operator-edited after seeding; we only ever (re-)create sections
+  // when the parent template row is brand new).
   for (const template of defaultWorkbookTemplates) {
-    const existing = await prisma.workbookTemplate.findFirst({
+    await prisma.workbookTemplate.upsert({
       where: { title: template.title },
-      select: { id: true }
-    });
-    if (existing) continue;
-    await prisma.workbookTemplate.create({
-      data: {
+      update: {
+        description: template.description,
+        category: template.category,
+        suggestedProjectType: template.suggestedProjectType,
+        defaultVisibility: template.defaultVisibility,
+        tags: template.tags
+      },
+      create: {
         title: template.title,
         description: template.description,
         category: template.category,
