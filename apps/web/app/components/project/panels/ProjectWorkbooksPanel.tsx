@@ -304,6 +304,18 @@ export default function ProjectWorkbooksPanel(props: {
               the visibility control on each workbook to share it with
               contributors, the project champion, or the full client portal.
             </p>
+            <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+              <strong className="text-white">Recommended:</strong> start from a
+              reusable template managed in{" "}
+              <a
+                href="/workbooks"
+                className="font-medium text-brand-teal hover:underline"
+              >
+                Operations → Workbooks
+              </a>
+              . Use “Add blank” only for one-off project workbooks that are not
+              worth promoting into a template.
+            </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <button
@@ -312,7 +324,7 @@ export default function ProjectWorkbooksPanel(props: {
                 setShowTemplatePicker((value) => !value);
                 if (!showTemplatePicker) setShowForm(false);
               }}
-              className="brand-surface rounded-full border border-brand-teal/40 px-3 py-1.5 text-xs uppercase tracking-wide text-brand-teal hover:border-brand-teal/60"
+              className="brand-primary rounded-full px-3 py-1.5 text-xs uppercase tracking-wide"
             >
               {showTemplatePicker ? "Cancel" : "+ From template"}
             </button>
@@ -322,9 +334,9 @@ export default function ProjectWorkbooksPanel(props: {
                 setShowForm((value) => !value);
                 if (!showForm) setShowTemplatePicker(false);
               }}
-              className="brand-surface rounded-full border border-white/10 px-3 py-1.5 text-xs uppercase tracking-wide text-white hover:border-white/30"
+              className="brand-surface rounded-full border border-white/10 px-3 py-1.5 text-xs uppercase tracking-wide text-text-secondary hover:border-white/30 hover:text-white"
             >
-              {showForm ? "Cancel" : "Add workbook"}
+              {showForm ? "Cancel" : "Add blank"}
             </button>
           </div>
         </div>

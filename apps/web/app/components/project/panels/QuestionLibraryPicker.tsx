@@ -142,9 +142,24 @@ export default function QuestionLibraryPicker(props: {
   return (
     <div className="brand-surface space-y-4 rounded-2xl border p-4">
       <div className="flex items-center justify-between gap-3">
-        <h4 className="text-sm font-semibold text-white">
-          Discovery question library
-        </h4>
+        <div className="min-w-0">
+          <h4 className="text-sm font-semibold text-white">
+            Discovery question library
+          </h4>
+          <p className="mt-0.5 text-[11px] text-text-secondary">
+            Pick reusable questions to import into this workbook. Manage the
+            global library under{" "}
+            <a
+              href="/question-library"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-brand-teal hover:underline"
+            >
+              Operations → Question library ↗
+            </a>
+            .
+          </p>
+        </div>
         <button
           type="button"
           onClick={props.onClose}

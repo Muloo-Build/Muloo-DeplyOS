@@ -23,6 +23,21 @@ export default function DiscoveryTab(props: {
           >
             Access &amp; Sharing
           </button>
+          . Reusable workbook templates and the global question library are
+          managed under{" "}
+          <a
+            href="/workbooks"
+            className="font-medium text-brand-teal hover:underline"
+          >
+            Operations → Workbooks
+          </a>{" "}
+          and{" "}
+          <a
+            href="/question-library"
+            className="font-medium text-brand-teal hover:underline"
+          >
+            Operations → Question library
+          </a>
           .
         </p>
       </section>
