@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import QuestionLibraryPicker from "./QuestionLibraryPicker";
+import WorkbookContentEditor, {
+  type WorkbookContent
+} from "./WorkbookContentEditor";
 
 interface Workbook {
   id: string;
@@ -9,6 +13,10 @@ interface Workbook {
   sourceLabel: string;
   sourceUrl: string | null;
   content: string | null;
+  workbookContent: WorkbookContent | null;
+  resourceType: string | null;
+  assignedContributorIds: string[];
+  ownerContributorId: string | null;
   kind: string | null;
   workstreamId: string | null;
   status: string | null;
@@ -25,20 +33,31 @@ interface WorkstreamOption {
   name: string;
 }
 
-const EVIDENCE_TYPE_LABEL: Record<string, string> = {
-  "uploaded-doc": "Doc / Sheet / PDF",
-  "website-link": "Link",
-  "miro-note": "Miro",
-  "operator-note": "Note",
-  "client-input": "Form"
-};
+interface ContributorOption {
+  id: string;
+  label: string;
+}
+
+const RESOURCE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "internal_workbook", label: "Internal workbook (structured)" },
+  { value: "google_sheet", label: "Google Sheet" },
+  { value: "google_doc", label: "Google Doc" },
+  { value: "google_form", label: "Google Form" },
+  { value: "pdf", label: "PDF" },
+  { value: "miro_board", label: "Miro board" },
+  { value: "external_url", label: "External URL" }
+];
+
+const RESOURCE_TYPE_LABEL: Record<string, string> = Object.fromEntries(
+  RESOURCE_TYPE_OPTIONS.map((opt) => [opt.value, opt.label])
+);
 
 const EVIDENCE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "uploaded-doc", label: "Google Doc / Sheet / PDF" },
+  { value: "uploaded-doc", label: "Doc / Sheet / PDF" },
   { value: "website-link", label: "Link" },
-  { value: "miro-note", label: "Miro board" },
-  { value: "operator-note", label: "Internal note" },
-  { value: "client-input", label: "Form / questionnaire" }
+  { value: "miro-note", label: "Miro" },
+  { value: "operator-note", label: "Note" },
+  { value: "client-input", label: "Form" }
 ];
 
 const STATUS_OPTIONS = [
@@ -46,6 +65,7 @@ const STATUS_OPTIONS = [
   "shared",
   "in_progress",
   "submitted",
+  "reviewed",
   "needs_review",
   "approved"
 ];
@@ -53,14 +73,20 @@ const STATUS_OPTIONS = [
 export default function ProjectWorkbooksPanel(props: {
   projectId: string;
   workstreams: WorkstreamOption[];
+  contributors?: ContributorOption[];
 }) {
   const [workbooks, setWorkbooks] = useState<Workbook[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [openWorkbookId, setOpenWorkbookId] = useState<string | null>(null);
+  const [pickingForWorkbookId, setPickingForWorkbookId] = useState<
+    string | null
+  >(null);
   const [draft, setDraft] = useState({
     sourceLabel: "",
     sourceUrl: "",
+    resourceType: "internal_workbook",
     evidenceType: "uploaded-doc",
     workstreamId: "",
     status: "draft",
@@ -88,6 +114,21 @@ export default function ProjectWorkbooksPanel(props: {
     void load();
   }, [load]);
 
+  function evidenceTypeForResource(resourceType: string): string {
+    switch (resourceType) {
+      case "miro_board":
+        return "miro-note";
+      case "google_form":
+        return "client-input";
+      case "external_url":
+        return "website-link";
+      case "internal_workbook":
+        return "operator-note";
+      default:
+        return "uploaded-doc";
+    }
+  }
+
   async function createWorkbook() {
     if (!draft.sourceLabel.trim()) {
       setError("Workbook name is required");
@@ -96,6 +137,7 @@ export default function ProjectWorkbooksPanel(props: {
     setBusy(true);
     setError(null);
     try {
+      const isInternal = draft.resourceType === "internal_workbook";
       const res = await fetch(`/api/projects/${props.projectId}/workbooks`, {
         method: "POST",
         credentials: "include",
@@ -103,11 +145,13 @@ export default function ProjectWorkbooksPanel(props: {
         body: JSON.stringify({
           sourceLabel: draft.sourceLabel.trim(),
           sourceUrl: draft.sourceUrl.trim() || null,
-          evidenceType: draft.evidenceType,
+          evidenceType: evidenceTypeForResource(draft.resourceType),
+          resourceType: draft.resourceType,
           workstreamId: draft.workstreamId || null,
           status: draft.status,
           ownerName: draft.ownerName.trim() || null,
           content: draft.content.trim() || null,
+          workbookContent: isInternal ? { version: 1, sections: [] } : null,
           sessionNumber: 0
         })
       });
@@ -118,6 +162,7 @@ export default function ProjectWorkbooksPanel(props: {
       setDraft({
         sourceLabel: "",
         sourceUrl: "",
+        resourceType: "internal_workbook",
         evidenceType: "uploaded-doc",
         workstreamId: "",
         status: "draft",
@@ -144,6 +189,7 @@ export default function ProjectWorkbooksPanel(props: {
       if (!res.ok || data.error) {
         throw new Error(data.error ?? "Failed");
       }
+      if (openWorkbookId === id) setOpenWorkbookId(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
@@ -154,7 +200,8 @@ export default function ProjectWorkbooksPanel(props: {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-text-secondary">
-          External Google Sheets, Docs, PDFs, or forms shared with stakeholders.
+          Internal workbooks, Google Sheets/Docs, Miro boards and PDFs shared
+          with stakeholders.
         </p>
         <button
           type="button"
@@ -178,24 +225,15 @@ export default function ProjectWorkbooksPanel(props: {
             placeholder="Workbook name"
             className="brand-input w-full rounded-lg border px-3 py-2 text-sm"
           />
-          <input
-            type="url"
-            value={draft.sourceUrl}
-            onChange={(e) =>
-              setDraft({ ...draft, sourceUrl: e.target.value })
-            }
-            placeholder="https://docs.google.com/..."
-            className="brand-input w-full rounded-lg border px-3 py-2 text-sm"
-          />
           <div className="grid gap-3 sm:grid-cols-2">
             <select
-              value={draft.evidenceType}
+              value={draft.resourceType}
               onChange={(e) =>
-                setDraft({ ...draft, evidenceType: e.target.value })
+                setDraft({ ...draft, resourceType: e.target.value })
               }
               className="brand-input rounded-lg border px-3 py-2 text-sm"
             >
-              {EVIDENCE_TYPE_OPTIONS.map((opt) => (
+              {RESOURCE_TYPE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -236,6 +274,15 @@ export default function ProjectWorkbooksPanel(props: {
               className="brand-input rounded-lg border px-3 py-2 text-sm"
             />
           </div>
+          {draft.resourceType !== "internal_workbook" ? (
+            <input
+              type="url"
+              value={draft.sourceUrl}
+              onChange={(e) => setDraft({ ...draft, sourceUrl: e.target.value })}
+              placeholder="https://..."
+              className="brand-input w-full rounded-lg border px-3 py-2 text-sm"
+            />
+          ) : null}
           <textarea
             value={draft.content}
             onChange={(e) => setDraft({ ...draft, content: e.target.value })}
@@ -264,6 +311,14 @@ export default function ProjectWorkbooksPanel(props: {
             const workstream = props.workstreams.find(
               (ws) => ws.id === wb.workstreamId
             );
+            const isInternal = wb.resourceType === "internal_workbook";
+            const isOpen = openWorkbookId === wb.id;
+            const sectionsCount = wb.workbookContent?.sections?.length ?? 0;
+            const questionsCount =
+              wb.workbookContent?.sections?.reduce(
+                (acc, s) => acc + (s.questions?.length ?? 0),
+                0
+              ) ?? 0;
             return (
               <li
                 key={wb.id}
@@ -275,10 +330,17 @@ export default function ProjectWorkbooksPanel(props: {
                       {wb.sourceLabel}
                     </p>
                     <p className="text-xs text-text-secondary">
-                      {EVIDENCE_TYPE_LABEL[wb.evidenceType] ?? wb.evidenceType}
+                      {wb.resourceType
+                        ? RESOURCE_TYPE_LABEL[wb.resourceType] ?? wb.resourceType
+                        : EVIDENCE_TYPE_OPTIONS.find(
+                            (o) => o.value === wb.evidenceType
+                          )?.label ?? wb.evidenceType}
                       {wb.status ? ` · ${wb.status}` : ""}
                       {wb.ownerName ? ` · owner ${wb.ownerName}` : ""}
                       {workstream ? ` · ${workstream.name}` : ""}
+                      {isInternal
+                        ? ` · ${sectionsCount} sections · ${questionsCount} questions`
+                        : ""}
                     </p>
                     {wb.sourceUrl ? (
                       <a
@@ -296,14 +358,72 @@ export default function ProjectWorkbooksPanel(props: {
                       </p>
                     ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => deleteWorkbook(wb.id)}
-                    className="text-xs text-text-secondary hover:text-rose-400"
-                  >
-                    Remove
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {isInternal ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenWorkbookId(isOpen ? null : wb.id)
+                          }
+                          className="text-xs text-brand-teal hover:underline"
+                        >
+                          {isOpen ? "Close" : "Edit"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPickingForWorkbookId(
+                              pickingForWorkbookId === wb.id ? null : wb.id
+                            )
+                          }
+                          className="text-xs text-brand-teal hover:underline"
+                        >
+                          {pickingForWorkbookId === wb.id
+                            ? "Close library"
+                            : "+ From library"}
+                        </button>
+                      </>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => deleteWorkbook(wb.id)}
+                      className="text-xs text-text-secondary hover:text-rose-400"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
+
+                {isInternal && pickingForWorkbookId === wb.id ? (
+                  <div className="mt-3">
+                    <QuestionLibraryPicker
+                      projectId={props.projectId}
+                      workbookId={wb.id}
+                      sections={(wb.workbookContent?.sections ?? []).map(
+                        (s) => ({ id: s.id, title: s.title })
+                      )}
+                      onImported={() => {
+                        void load();
+                      }}
+                      onClose={() => setPickingForWorkbookId(null)}
+                    />
+                  </div>
+                ) : null}
+
+                {isInternal && isOpen ? (
+                  <div className="mt-3 border-t border-white/5 pt-3">
+                    <WorkbookContentEditor
+                      projectId={props.projectId}
+                      workbookId={wb.id}
+                      initialContent={wb.workbookContent}
+                      onSaved={() => {
+                        void load();
+                      }}
+                      onClose={() => setOpenWorkbookId(null)}
+                    />
+                  </div>
+                ) : null}
               </li>
             );
           })}

@@ -145,6 +145,14 @@ ADMIN
 
 ## Completed Features (most recent first)
 
+### Project Contribution Workbooks (May 2026)
+- **Schema**: `DiscoveryEvidence` extended with `resourceType`, `assignedContributorIds[]`, `ownerContributorId`, `workbookContent Json?` (parallel to existing `content` String?). New `DiscoveryQuestionLibraryItem` model for the reusable question bank (category, subcategory, questionText, helpText, answerType, options[], tags[], stakeholderType, defaultRequired, hubspot/website area links, complexityLevel).
+- **Resource types**: `google_sheet | google_doc | google_form | pdf | miro_board | internal_workbook | external_url`. `internal_workbook` stores structured `{ version: 1, sections: [{ id, title, status, questions: [{ id, questionText, answerType, status, response }] }] }` directly in `workbookContent`.
+- **Question library API**: `GET/POST/PATCH/DELETE /api/discovery-question-library*` for CRUD; `POST /api/projects/:p/workbooks/:w/questions/import` to copy library items into a workbook.
+- **Internal operator UI**: `QuestionLibraryPicker.tsx` + `WorkbookContentEditor.tsx`; `ProjectWorkbooksPanel.tsx` rewritten to support resourceType selector and per-workbook Edit + From-library buttons. `ProjectReadinessSummary.tsx` upgraded to a 6-column grid (Workbooks / Questions answered / Questions total / Miro boards).
+- **Client portal champion flow**: New routes `GET/POST /api/client/projects/:projectId/contributors`, `GET /api/client/projects/:projectId/workbooks`, `PATCH /api/client/projects/:projectId/workbooks/:workbookId/responses`. Champions can add stakeholders (created via `clientContact.upsert` + `projectContributor` with `createdByType: "client_champion"`, `approvalStatus: "pending_review"`) and answer their assigned workbook questions. New `ClientWorkbooksPanel.tsx` + `ClientContributorsPanel.tsx` wired into `ClientProjectWorkspace.tsx` as Workbooks + Contributors tabs.
+- **Magnisol seed**: `prisma/seed-question-library.ts` (82 library items across 13 categories) and enhanced `prisma/seed-magnisol.ts` (3 contributors: Tara/Grant/Devan, 5 internal workbooks pre-populated with category-matched library questions, 1 Miro board resource). Both idempotent. Run with `npx tsx prisma/seed-question-library.ts && npx tsx prisma/seed-magnisol.ts` from `apps/api`.
+
 ### Contacts as a First-Class Surface (May 2026)
 - **Schema**: `phone` field added to `ClientContact`; new `ClientContactNote` model (activity/note log per contact, cascade delete)
 - **Migration**: `20260502094304_add_contact_phone_and_notes` applied to Railway PostgreSQL

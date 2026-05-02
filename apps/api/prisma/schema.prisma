@@ -588,27 +588,55 @@ model DiscoverySubmission {
   @@unique([projectId, version])
 }
 
+model DiscoveryQuestionLibraryItem {
+  id                          String   @id @default(cuid())
+  category                    String
+  subcategory                 String?
+  questionText                String
+  helpText                    String?
+  answerType                  String
+  options                     String[] @default([])
+  tags                        String[] @default([])
+  recommendedStakeholderType  String?
+  defaultRequired             Boolean  @default(false)
+  linkedHubSpotArea           String?
+  linkedWebsiteArea           String?
+  complexityLevel             String   @default("standard")
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@index([category])
+  @@index([linkedHubSpotArea])
+  @@index([linkedWebsiteArea])
+  @@index([recommendedStakeholderType])
+}
+
 model DiscoveryEvidence {
-  id               String   @id @default(cuid())
-  projectId        String
-  sessionNumber    Int
-  evidenceType     String
-  sourceLabel      String
-  sourceUrl        String?
-  content          String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  kind             String?
-  workstreamId     String?
-  status           String?
-  ownerName        String?
-  sharedWith       String[] @default([])
-  dueDate          DateTime?
-  linkedSectionIds String[] @default([])
-  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                     String   @id @default(cuid())
+  projectId              String
+  sessionNumber          Int
+  evidenceType           String
+  sourceLabel            String
+  sourceUrl              String?
+  content                String?
+  workbookContent        Json?
+  resourceType           String?
+  assignedContributorIds String[] @default([])
+  ownerContributorId     String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  kind                   String?
+  workstreamId           String?
+  status                 String?
+  ownerName              String?
+  sharedWith             String[] @default([])
+  dueDate                DateTime?
+  linkedSectionIds       String[] @default([])
+  project                Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, sessionNumber, createdAt])
   @@index([projectId, kind])
+  @@index([projectId, resourceType])
 }
 
 model ProjectContributor {

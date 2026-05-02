@@ -10,9 +10,16 @@ interface WorkstreamHourRow {
   scopeRisk: "low" | "medium" | "high" | null;
 }
 
+interface WorkbookSection {
+  id: string;
+  questions?: Array<{ status?: string }>;
+}
+
 interface Workbook {
   id: string;
   status: string | null;
+  resourceType?: string | null;
+  workbookContent?: { sections?: WorkbookSection[] } | null;
 }
 
 interface Contributor {
@@ -95,6 +102,23 @@ export default function ProjectReadinessSummary(props: ReadinessProps) {
   const draftWorkbooks = workbooks.filter(
     (wb) => !wb.status || wb.status === "draft"
   ).length;
+  const miroBoards = workbooks.filter(
+    (wb) => wb.resourceType === "miro_board"
+  );
+
+  let questionsTotal = 0;
+  let questionsAnswered = 0;
+  workbooks.forEach((wb) => {
+    (wb.workbookContent?.sections ?? []).forEach((section) => {
+      (section.questions ?? []).forEach((q) => {
+        questionsTotal += 1;
+        if (q.status === "answered" || q.status === "approved") {
+          questionsAnswered += 1;
+        }
+      });
+    });
+  });
+  const questionsUnanswered = questionsTotal - questionsAnswered;
 
   const overCapWorkstreams = hours.filter(
     (h) => h.hourCap !== null && h.actualHours > h.hourCap
@@ -115,14 +139,27 @@ export default function ProjectReadinessSummary(props: ReadinessProps) {
       detail: hours.length === 0 ? "Add workstreams" : null
     },
     {
-      label: "Workbooks shared",
-      value: String(sharedWorkbooks + completedWorkbooks),
-      detail: `${completedWorkbooks} done · ${draftWorkbooks} draft`
+      label: "Workbooks",
+      value: String(workbooks.length),
+      detail: `${completedWorkbooks} done · ${sharedWorkbooks} shared · ${draftWorkbooks} draft`
     },
     {
       label: "Contributors",
       value: String(contributors.length),
       detail: `${contributors.filter((c) => c.portalAccess).length} with portal`
+    },
+    {
+      label: "Questions",
+      value: questionsTotal === 0 ? "—" : `${questionsAnswered}/${questionsTotal}`,
+      detail:
+        questionsTotal === 0
+          ? "No structured workbooks"
+          : `${questionsUnanswered} unanswered`
+    },
+    {
+      label: "Miro boards",
+      value: String(miroBoards.length),
+      detail: miroBoards.length === 0 ? "Not linked" : null
     },
     {
       label: "Pending changes",
@@ -139,7 +176,7 @@ export default function ProjectReadinessSummary(props: ReadinessProps) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map((stat) => (
           <div
             key={stat.label}

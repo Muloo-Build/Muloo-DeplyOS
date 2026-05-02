@@ -15,6 +15,42 @@ const TARA_LAST = "De Marzo";
 const TARA_EMAIL = "tara.de.marzo@magnisol.com";
 const TARA_TITLE = "Client Champion";
 
+interface MagnisolContact {
+  firstName: string;
+  lastName: string;
+  email: string;
+  title: string;
+  role: string;
+  stakeholderType: string;
+  organisation: string | null;
+  notes: string;
+}
+
+const EXTRA_CONTACTS: MagnisolContact[] = [
+  {
+    firstName: "Grant",
+    lastName: "Watt",
+    email: "grant@tusk.studio",
+    title: "Partner Lead, Tusk",
+    role: "stakeholder",
+    stakeholderType: "partner",
+    organisation: "Tusk",
+    notes:
+      "Tusk owns website design + brand. Joins discovery to align HubSpot CMS with the new website system."
+  },
+  {
+    firstName: "Devan",
+    lastName: "Smit",
+    email: "devan.smit@magnisol.com",
+    title: "Head of Technology",
+    role: "subject_matter_expert",
+    stakeholderType: "technical",
+    organisation: "Magnisol",
+    notes:
+      "Tech lead. Owns integrations, data migration, and tooling consolidation answers."
+  }
+];
+
 const WORKSTREAMS: Array<{
   id: string;
   name: string;
@@ -106,40 +142,90 @@ const WORKSTREAMS: Array<{
   }
 ];
 
-const WORKBOOKS: Array<{
+interface SeedWorkbook {
   sourceLabel: string;
   evidenceType: string;
+  resourceType: string;
   workstreamId: string;
   status: string;
   ownerName: string;
   notes: string;
-}> = [
+  sourceUrl?: string;
+  libraryCategories: string[];
+  sectionTitle: string;
+}
+
+const WORKBOOKS: SeedWorkbook[] = [
   {
     sourceLabel: "Magnisol HubSpot and Website Discovery Workbook",
-    evidenceType: "uploaded-doc",
+    evidenceType: "operator-note",
+    resourceType: "internal_workbook",
     workstreamId: "ws_magnisol_discovery",
-    status: "draft",
+    status: "shared",
     ownerName: "Tara De Marzo",
     notes:
-      "Combined discovery workbook covering HubSpot + website requirements. Questionnaire-led; populated by stakeholders before Wednesday session."
+      "Combined discovery workbook covering HubSpot + website requirements. Questionnaire-led; populated by stakeholders before Wednesday session.",
+    libraryCategories: ["brand_positioning", "goals_success", "operational_pain"],
+    sectionTitle: "Brand, goals & operational pain"
+  },
+  {
+    sourceLabel: "Magnisol Sales & Marketing Workbook",
+    evidenceType: "operator-note",
+    resourceType: "internal_workbook",
+    workstreamId: "ws_magnisol_discovery",
+    status: "shared",
+    ownerName: "Tara De Marzo",
+    notes: "HubSpot Sales + Marketing discovery. Owned by Tara, contributed to by Magnisol commercial team.",
+    libraryCategories: ["sales_process", "marketing_content"],
+    sectionTitle: "Sales & marketing process"
+  },
+  {
+    sourceLabel: "Magnisol Service & Reporting Workbook",
+    evidenceType: "operator-note",
+    resourceType: "internal_workbook",
+    workstreamId: "ws_magnisol_discovery",
+    status: "shared",
+    ownerName: "Tara De Marzo",
+    notes: "Service desk, customer experience and leadership reporting expectations.",
+    libraryCategories: ["service_support", "reporting_analytics"],
+    sectionTitle: "Service & reporting"
   },
   {
     sourceLabel: "Magnisol Technology Stack and Cost Workbook",
-    evidenceType: "uploaded-doc",
+    evidenceType: "operator-note",
+    resourceType: "internal_workbook",
     workstreamId: "ws_magnisol_discovery",
-    status: "draft",
-    ownerName: "Tara De Marzo",
+    status: "shared",
+    ownerName: "Devan Smit",
     notes:
-      "Inventory of all current technologies across Magnisol with associated costs. Source for HubSpot consolidation analysis."
+      "Inventory of all current technologies across Magnisol with associated costs. Source for HubSpot consolidation analysis.",
+    libraryCategories: ["tech_stack", "integrations", "data_migration", "compliance_governance"],
+    sectionTitle: "Tech stack, integrations & compliance"
   },
   {
     sourceLabel: "Magnisol Website Content and Journey Workbook",
-    evidenceType: "uploaded-doc",
+    evidenceType: "operator-note",
+    resourceType: "internal_workbook",
     workstreamId: "ws_magnisol_website_setup",
-    status: "draft",
-    ownerName: "Tara De Marzo",
+    status: "shared",
+    ownerName: "Grant Watt",
     notes:
-      "Captures website structure, client journey, pillar pages, case studies, and integration showcase requirements."
+      "Captures website structure, client journey, pillar pages, case studies, and integration showcase requirements.",
+    libraryCategories: ["website_architecture", "website_content"],
+    sectionTitle: "Website architecture & content"
+  },
+  {
+    sourceLabel: "Magnisol Discovery Process Map (Miro)",
+    evidenceType: "miro-note",
+    resourceType: "miro_board",
+    workstreamId: "ws_magnisol_discovery",
+    status: "shared",
+    ownerName: "Jarrud van der Merwe",
+    notes:
+      "Live Miro board for visual SOPs, current-state process maps and the future-state architecture sketch.",
+    sourceUrl: "https://miro.com/app/board/magnisol-discovery-placeholder/",
+    libraryCategories: [],
+    sectionTitle: ""
   }
 ];
 
@@ -251,8 +337,48 @@ async function ensureContributor(projectId: string, contactId: string) {
   });
 }
 
+async function buildWorkbookContent(
+  workbook: SeedWorkbook
+): Promise<Prisma.InputJsonValue | null> {
+  if (workbook.resourceType !== "internal_workbook") return null;
+  if (workbook.libraryCategories.length === 0) {
+    return { version: 1, sections: [] } as unknown as Prisma.InputJsonValue;
+  }
+  const items = await prisma.discoveryQuestionLibraryItem.findMany({
+    where: { category: { in: workbook.libraryCategories } },
+    orderBy: [{ category: "asc" }, { createdAt: "asc" }]
+  });
+  const section = {
+    id: `section_${workbook.libraryCategories.join("_")}`,
+    title: workbook.sectionTitle || "Discovery questions",
+    description: null,
+    category: workbook.libraryCategories.join(","),
+    linkedWorkstreamId: workbook.workstreamId,
+    assignedContributorIds: [] as string[],
+    status: "draft",
+    questions: items.map((item) => ({
+      id: `q_${item.id}`,
+      questionText: item.questionText,
+      helpText: item.helpText,
+      answerType: item.answerType,
+      required: item.defaultRequired,
+      options: item.options ?? [],
+      tags: item.tags ?? [],
+      assignedContributorIds: [] as string[],
+      status: "unanswered",
+      response: null,
+      responseFiles: [] as unknown[],
+      responseLinks: [] as unknown[],
+      internalNotes: null,
+      sourceLibraryItemId: item.id
+    }))
+  };
+  return { version: 1, sections: [section] } as unknown as Prisma.InputJsonValue;
+}
+
 async function ensureWorkbooks(projectId: string) {
   for (const workbook of WORKBOOKS) {
+    const workbookContent = await buildWorkbookContent(workbook);
     const existing = await prisma.discoveryEvidence.findFirst({
       where: {
         projectId,
@@ -260,15 +386,23 @@ async function ensureWorkbooks(projectId: string) {
         sourceLabel: workbook.sourceLabel
       }
     });
+    const baseData = {
+      evidenceType: workbook.evidenceType,
+      resourceType: workbook.resourceType,
+      workstreamId: workbook.workstreamId,
+      status: workbook.status,
+      ownerName: workbook.ownerName,
+      content: workbook.notes,
+      sourceUrl: workbook.sourceUrl ?? null
+    };
     if (existing) {
       await prisma.discoveryEvidence.update({
         where: { id: existing.id },
         data: {
-          evidenceType: workbook.evidenceType,
-          workstreamId: workbook.workstreamId,
-          status: workbook.status,
-          ownerName: workbook.ownerName,
-          content: workbook.notes
+          ...baseData,
+          ...(workbookContent !== null
+            ? { workbookContent }
+            : { workbookContent: Prisma.DbNull })
         }
       });
     } else {
@@ -276,16 +410,59 @@ async function ensureWorkbooks(projectId: string) {
         data: {
           projectId,
           sessionNumber: 0,
-          evidenceType: workbook.evidenceType,
           sourceLabel: workbook.sourceLabel,
-          content: workbook.notes,
           kind: "workbook",
-          workstreamId: workbook.workstreamId,
-          status: workbook.status,
-          ownerName: workbook.ownerName
+          ...baseData,
+          ...(workbookContent !== null
+            ? { workbookContent }
+            : { workbookContent: Prisma.DbNull })
         }
       });
     }
+  }
+}
+
+async function ensureExtraContributors(
+  projectId: string,
+  clientId: string
+) {
+  for (const contact of EXTRA_CONTACTS) {
+    const c = await prisma.clientContact.upsert({
+      where: { clientId_email: { clientId, email: contact.email } },
+      update: {
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        title: contact.title
+      },
+      create: {
+        clientId,
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        email: contact.email,
+        title: contact.title
+      }
+    });
+    await prisma.projectContributor.upsert({
+      where: { projectId_contactId: { projectId, contactId: c.id } },
+      update: {
+        role: contact.role,
+        stakeholderType: contact.stakeholderType,
+        organisation: contact.organisation,
+        notes: contact.notes,
+        createdByType: "internal",
+        approvalStatus: "approved"
+      },
+      create: {
+        projectId,
+        contactId: c.id,
+        role: contact.role,
+        stakeholderType: contact.stakeholderType,
+        organisation: contact.organisation,
+        notes: contact.notes,
+        createdByType: "internal",
+        approvalStatus: "approved"
+      }
+    });
   }
 }
 
@@ -337,11 +514,12 @@ async function main() {
   const project = await ensureProject(client.id, portal.id);
   const contact = await ensureContact(client.id);
   await ensureContributor(project.id, contact.id);
+  await ensureExtraContributors(project.id, client.id);
   await ensureWorkbooks(project.id);
   await ensureChangeLogEntry(project.id);
 
   console.log(
-    `OK. Magnisol project ${project.id} ready with ${WORKSTREAMS.length} workstreams + ${WORKBOOKS.length} workbooks + 1 contributor + 1 change log entry.`
+    `OK. Magnisol project ${project.id} ready with ${WORKSTREAMS.length} workstreams + ${WORKBOOKS.length} workbooks/resources + ${1 + EXTRA_CONTACTS.length} contributors + 1 change log entry.`
   );
 }
 

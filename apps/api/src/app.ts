@@ -181,6 +181,10 @@ import {
   deleteClientDirectoryRecord,
   loadClientInbox,
   loadClientInboxSummary,
+  loadClientPortalContributors,
+  loadClientPortalWorkbooks,
+  addClientPortalContributor,
+  saveClientPortalWorkbookResponses,
   loadClientProjectDetail,
   loadClientProjectsForUser,
   loadClientQuoteDocument,
@@ -191,6 +195,11 @@ import {
   loadProjectWorkbooks,
   updateProjectWorkbook,
   deleteProjectWorkbook,
+  loadDiscoveryQuestionLibrary,
+  createDiscoveryQuestionLibraryItem,
+  updateDiscoveryQuestionLibraryItem,
+  deleteDiscoveryQuestionLibraryItem,
+  importLibraryQuestionsIntoWorkbook,
   loadProjectContributors,
   createProjectContributor,
   updateProjectContributor,
@@ -2509,6 +2518,121 @@ export function createApiApp(config: BaseConfig) {
       }
     }
 
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all(
+    "/api/projects/:projectId/workbooks/:workbookId/questions/import",
+    async (c) => {
+      const projectId = c.req.param("projectId");
+      const workbookId = c.req.param("workbookId");
+      if (c.req.method !== "POST") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+      try {
+        await ensureProjectScopeUnlocked(projectId);
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const workbook = await importLibraryQuestionsIntoWorkbook(
+          projectId,
+          workbookId,
+          body
+        );
+        return c.json({ workbook });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to import questions";
+        const status =
+          message === "Workbook not found"
+            ? 404
+            : message === "No matching question library items found"
+              ? 404
+              : 400;
+        return c.json({ error: message }, status);
+      }
+    }
+  );
+
+  app.all("/api/discovery-question-library", async (c) => {
+    if (c.req.method === "GET") {
+      try {
+        const url = new URL(c.req.url);
+        return c.json({
+          items: await loadDiscoveryQuestionLibrary({
+            category: url.searchParams.get("category") ?? undefined,
+            linkedHubSpotArea:
+              url.searchParams.get("linkedHubSpotArea") ?? undefined,
+            linkedWebsiteArea:
+              url.searchParams.get("linkedWebsiteArea") ?? undefined,
+            recommendedStakeholderType:
+              url.searchParams.get("recommendedStakeholderType") ?? undefined,
+            search: url.searchParams.get("search") ?? undefined
+          })
+        });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to load question library"
+          },
+          400
+        );
+      }
+    }
+    if (c.req.method === "POST") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const item = await createDiscoveryQuestionLibraryItem(body);
+        return c.json({ item }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create question library item"
+          },
+          400
+        );
+      }
+    }
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/discovery-question-library/:questionId", async (c) => {
+    const questionId = c.req.param("questionId");
+    if (c.req.method === "PATCH" || c.req.method === "PUT") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const item = await updateDiscoveryQuestionLibraryItem(questionId, body);
+        return c.json({ item });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to update question library item";
+        return c.json(
+          { error: message },
+          message === "Question library item not found" ? 404 : 400
+        );
+      }
+    }
+    if (c.req.method === "DELETE") {
+      try {
+        await deleteDiscoveryQuestionLibraryItem(questionId);
+        return c.json({ success: true });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to delete question library item";
+        return c.json(
+          { error: message },
+          message === "Question library item not found" ? 404 : 400
+        );
+      }
+    }
     return c.json({ error: "Method Not Allowed" }, 405);
   });
 
@@ -6874,6 +6998,85 @@ export function createApiApp(config: BaseConfig) {
       if (!msg) return c.json({ error: "Message not found" }, 404);
       await prisma.projectMessage.delete({ where: { id: messageId } });
       return c.json({ deleted: true });
+    }
+  );
+
+  app.all("/api/client/projects/:projectId/contributors", async (c) => {
+    if (c.req.method === "GET") {
+      try {
+        const contributors = await loadClientPortalContributors(
+          c.req.param("projectId"),
+          c.get("clientUserId")
+        );
+        return c.json({ contributors });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to load";
+        const code = message === "Project not found" ? 404 : 400;
+        return c.json({ error: message }, code);
+      }
+    }
+    if (c.req.method === "POST") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const contributor = await addClientPortalContributor(
+          c.req.param("projectId"),
+          c.get("clientUserId"),
+          body
+        );
+        return c.json({ contributor }, 201);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to add";
+        const code = message === "Project not found" ? 404 : 400;
+        return c.json({ error: message }, code);
+      }
+    }
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/client/projects/:projectId/workbooks", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+    try {
+      const workbooks = await loadClientPortalWorkbooks(
+        c.req.param("projectId"),
+        c.get("clientUserId")
+      );
+      return c.json({ workbooks });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load";
+      const code = message === "Project not found" ? 404 : 400;
+      return c.json({ error: message }, code);
+    }
+  });
+
+  app.all(
+    "/api/client/projects/:projectId/workbooks/:workbookId/responses",
+    async (c) => {
+      if (c.req.method !== "PATCH") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const result = await saveClientPortalWorkbookResponses(
+          c.req.param("projectId"),
+          c.get("clientUserId"),
+          c.req.param("workbookId"),
+          body
+        );
+        return c.json(result);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed";
+        const code =
+          message === "Project not found" || message === "Workbook not found"
+            ? 404
+            : 400;
+        return c.json({ error: message }, code);
+      }
     }
   );
 

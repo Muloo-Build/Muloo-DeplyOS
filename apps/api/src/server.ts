@@ -25510,6 +25510,10 @@ function serializeDiscoveryEvidence<
     sourceLabel: string;
     sourceUrl: string | null;
     content: string | null;
+    workbookContent?: Prisma.Prisma.JsonValue | null;
+    resourceType?: string | null;
+    assignedContributorIds?: string[];
+    ownerContributorId?: string | null;
     createdAt: Date;
     updatedAt: Date;
     kind?: string | null;
@@ -25529,6 +25533,10 @@ function serializeDiscoveryEvidence<
     sourceLabel: evidence.sourceLabel,
     sourceUrl: evidence.sourceUrl,
     content: evidence.content,
+    workbookContent: evidence.workbookContent ?? null,
+    resourceType: evidence.resourceType ?? null,
+    assignedContributorIds: evidence.assignedContributorIds ?? [],
+    ownerContributorId: evidence.ownerContributorId ?? null,
     createdAt: evidence.createdAt.toISOString(),
     updatedAt: evidence.updatedAt.toISOString(),
     kind: evidence.kind ?? null,
@@ -25562,6 +25570,23 @@ export async function loadProjectWorkbooks(projectId: string) {
   return loadDiscoveryEvidence(projectId, undefined, { kind: "workbook" });
 }
 
+const VALID_WORKBOOK_RESOURCE_TYPES = [
+  "google_sheet",
+  "google_doc",
+  "google_form",
+  "pdf",
+  "miro_board",
+  "internal_workbook",
+  "external_url"
+] as const;
+
+function normalizeWorkbookResourceType(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  return (VALID_WORKBOOK_RESOURCE_TYPES as readonly string[]).includes(value)
+    ? value
+    : null;
+}
+
 export async function createDiscoveryEvidence(
   projectId: string,
   sessionNumber: number,
@@ -25570,6 +25595,10 @@ export async function createDiscoveryEvidence(
     sourceLabel?: unknown;
     sourceUrl?: unknown;
     content?: unknown;
+    workbookContent?: unknown;
+    resourceType?: unknown;
+    assignedContributorIds?: unknown;
+    ownerContributorId?: unknown;
     kind?: unknown;
     workstreamId?: unknown;
     status?: unknown;
@@ -25598,22 +25627,22 @@ export async function createDiscoveryEvidence(
     );
   }
 
-  const sharedWith = Array.isArray(value.sharedWith)
-    ? value.sharedWith.filter(
-        (entry): entry is string =>
-          typeof entry === "string" && entry.trim().length > 0
-      )
-    : [];
-  const linkedSectionIds = Array.isArray(value.linkedSectionIds)
-    ? value.linkedSectionIds.filter(
-        (entry): entry is string =>
-          typeof entry === "string" && entry.trim().length > 0
-      )
-    : [];
+  const sharedWith = normalizeStringArray(value.sharedWith);
+  const linkedSectionIds = normalizeStringArray(value.linkedSectionIds);
+  const assignedContributorIds = normalizeStringArray(
+    value.assignedContributorIds
+  );
   const dueDate =
     typeof value.dueDate === "string" && value.dueDate.trim().length > 0
       ? new Date(value.dueDate)
       : null;
+
+  const workbookContent =
+    value.workbookContent !== undefined &&
+    value.workbookContent !== null &&
+    typeof value.workbookContent === "object"
+      ? (value.workbookContent as Prisma.Prisma.InputJsonValue)
+      : Prisma.Prisma.DbNull;
 
   const evidenceItem = await prisma.discoveryEvidence.create({
     data: {
@@ -25623,6 +25652,10 @@ export async function createDiscoveryEvidence(
       sourceLabel,
       sourceUrl: sourceUrl || null,
       content: content || null,
+      workbookContent,
+      resourceType: normalizeWorkbookResourceType(value.resourceType),
+      assignedContributorIds,
+      ownerContributorId: normalizeOptionalText(value.ownerContributorId),
       kind,
       workstreamId: normalizeOptionalText(value.workstreamId),
       status: normalizeOptionalText(value.status),
@@ -25643,6 +25676,10 @@ export async function updateProjectWorkbook(
     sourceLabel?: unknown;
     sourceUrl?: unknown;
     content?: unknown;
+    workbookContent?: unknown;
+    resourceType?: unknown;
+    assignedContributorIds?: unknown;
+    ownerContributorId?: unknown;
     workstreamId?: unknown;
     status?: unknown;
     ownerName?: unknown;
@@ -25672,6 +25709,25 @@ export async function updateProjectWorkbook(
   if (value.content !== undefined) {
     data.content = normalizeOptionalText(value.content);
   }
+  if (value.workbookContent !== undefined) {
+    if (value.workbookContent === null) {
+      data.workbookContent = Prisma.Prisma.DbNull;
+    } else if (typeof value.workbookContent === "object") {
+      data.workbookContent =
+        value.workbookContent as Prisma.Prisma.InputJsonValue;
+    }
+  }
+  if (value.resourceType !== undefined) {
+    data.resourceType = normalizeWorkbookResourceType(value.resourceType);
+  }
+  if (value.assignedContributorIds !== undefined) {
+    data.assignedContributorIds = normalizeStringArray(
+      value.assignedContributorIds
+    );
+  }
+  if (value.ownerContributorId !== undefined) {
+    data.ownerContributorId = normalizeOptionalText(value.ownerContributorId);
+  }
   if (value.workstreamId !== undefined) {
     data.workstreamId = normalizeOptionalText(value.workstreamId);
   }
@@ -25691,20 +25747,10 @@ export async function updateProjectWorkbook(
     data.evidenceType = value.evidenceType;
   }
   if (value.sharedWith !== undefined) {
-    data.sharedWith = Array.isArray(value.sharedWith)
-      ? value.sharedWith.filter(
-          (entry): entry is string =>
-            typeof entry === "string" && entry.trim().length > 0
-        )
-      : [];
+    data.sharedWith = normalizeStringArray(value.sharedWith);
   }
   if (value.linkedSectionIds !== undefined) {
-    data.linkedSectionIds = Array.isArray(value.linkedSectionIds)
-      ? value.linkedSectionIds.filter(
-          (entry): entry is string =>
-            typeof entry === "string" && entry.trim().length > 0
-        )
-      : [];
+    data.linkedSectionIds = normalizeStringArray(value.linkedSectionIds);
   }
   if (value.dueDate !== undefined) {
     if (value.dueDate === null || value.dueDate === "") {
@@ -25735,6 +25781,659 @@ export async function deleteProjectWorkbook(
   }
   await prisma.discoveryEvidence.delete({ where: { id: workbookId } });
   return { success: true };
+}
+
+const VALID_LIBRARY_ANSWER_TYPES = [
+  "short_text",
+  "long_text",
+  "single_select",
+  "multi_select",
+  "url",
+  "file_request",
+  "yes_no",
+  "date",
+  "number",
+  "table",
+  "stakeholder_list"
+] as const;
+
+const VALID_LIBRARY_COMPLEXITY = ["basic", "standard", "advanced"] as const;
+
+function normalizeLibraryAnswerType(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  return (VALID_LIBRARY_ANSWER_TYPES as readonly string[]).includes(value)
+    ? value
+    : null;
+}
+
+function normalizeLibraryComplexity(value: unknown): string {
+  if (typeof value !== "string") return "standard";
+  return (VALID_LIBRARY_COMPLEXITY as readonly string[]).includes(value)
+    ? value
+    : "standard";
+}
+
+function serializeLibraryItem<
+  T extends {
+    id: string;
+    category: string;
+    subcategory: string | null;
+    questionText: string;
+    helpText: string | null;
+    answerType: string;
+    options: string[];
+    tags: string[];
+    recommendedStakeholderType: string | null;
+    defaultRequired: boolean;
+    linkedHubSpotArea: string | null;
+    linkedWebsiteArea: string | null;
+    complexityLevel: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+>(item: T) {
+  return {
+    id: item.id,
+    category: item.category,
+    subcategory: item.subcategory,
+    questionText: item.questionText,
+    helpText: item.helpText,
+    answerType: item.answerType,
+    options: item.options ?? [],
+    tags: item.tags ?? [],
+    recommendedStakeholderType: item.recommendedStakeholderType,
+    defaultRequired: item.defaultRequired,
+    linkedHubSpotArea: item.linkedHubSpotArea,
+    linkedWebsiteArea: item.linkedWebsiteArea,
+    complexityLevel: item.complexityLevel,
+    createdAt: item.createdAt.toISOString(),
+    updatedAt: item.updatedAt.toISOString()
+  };
+}
+
+export async function loadDiscoveryQuestionLibrary(filters?: {
+  category?: string | undefined;
+  linkedHubSpotArea?: string | undefined;
+  linkedWebsiteArea?: string | undefined;
+  recommendedStakeholderType?: string | undefined;
+  search?: string | undefined;
+}) {
+  const where: Prisma.Prisma.DiscoveryQuestionLibraryItemWhereInput = {};
+  if (filters?.category) where.category = filters.category;
+  if (filters?.linkedHubSpotArea) where.linkedHubSpotArea = filters.linkedHubSpotArea;
+  if (filters?.linkedWebsiteArea) where.linkedWebsiteArea = filters.linkedWebsiteArea;
+  if (filters?.recommendedStakeholderType) {
+    where.recommendedStakeholderType = filters.recommendedStakeholderType;
+  }
+  if (filters?.search && filters.search.trim().length > 0) {
+    const term = filters.search.trim();
+    where.OR = [
+      { questionText: { contains: term, mode: "insensitive" } },
+      { helpText: { contains: term, mode: "insensitive" } },
+      { tags: { has: term } }
+    ];
+  }
+  const items = await prisma.discoveryQuestionLibraryItem.findMany({
+    where,
+    orderBy: [{ category: "asc" }, { createdAt: "asc" }]
+  });
+  return items.map(serializeLibraryItem);
+}
+
+export async function createDiscoveryQuestionLibraryItem(value: {
+  category?: unknown;
+  subcategory?: unknown;
+  questionText?: unknown;
+  helpText?: unknown;
+  answerType?: unknown;
+  options?: unknown;
+  tags?: unknown;
+  recommendedStakeholderType?: unknown;
+  defaultRequired?: unknown;
+  linkedHubSpotArea?: unknown;
+  linkedWebsiteArea?: unknown;
+  complexityLevel?: unknown;
+}) {
+  const category =
+    typeof value.category === "string" ? value.category.trim() : "";
+  const questionText =
+    typeof value.questionText === "string" ? value.questionText.trim() : "";
+  const answerType = normalizeLibraryAnswerType(value.answerType);
+  if (!category || !questionText || !answerType) {
+    throw new Error("category, questionText, and answerType are required");
+  }
+  const item = await prisma.discoveryQuestionLibraryItem.create({
+    data: {
+      category,
+      subcategory: normalizeOptionalText(value.subcategory),
+      questionText,
+      helpText: normalizeOptionalText(value.helpText),
+      answerType,
+      options: normalizeStringArray(value.options),
+      tags: normalizeStringArray(value.tags),
+      recommendedStakeholderType: normalizeOptionalText(
+        value.recommendedStakeholderType
+      ),
+      defaultRequired: value.defaultRequired === true,
+      linkedHubSpotArea: normalizeOptionalText(value.linkedHubSpotArea),
+      linkedWebsiteArea: normalizeOptionalText(value.linkedWebsiteArea),
+      complexityLevel: normalizeLibraryComplexity(value.complexityLevel)
+    }
+  });
+  return serializeLibraryItem(item);
+}
+
+export async function updateDiscoveryQuestionLibraryItem(
+  id: string,
+  value: Record<string, unknown>
+) {
+  const existing = await prisma.discoveryQuestionLibraryItem.findUnique({
+    where: { id }
+  });
+  if (!existing) {
+    throw new Error("Question library item not found");
+  }
+  const data: Prisma.Prisma.DiscoveryQuestionLibraryItemUpdateInput = {};
+  if (value.category !== undefined) {
+    const v = typeof value.category === "string" ? value.category.trim() : "";
+    if (!v) throw new Error("category must be non-empty");
+    data.category = v;
+  }
+  if (value.questionText !== undefined) {
+    const v =
+      typeof value.questionText === "string" ? value.questionText.trim() : "";
+    if (!v) throw new Error("questionText must be non-empty");
+    data.questionText = v;
+  }
+  if (value.answerType !== undefined) {
+    const v = normalizeLibraryAnswerType(value.answerType);
+    if (!v) throw new Error("Invalid answerType");
+    data.answerType = v;
+  }
+  if (value.subcategory !== undefined) {
+    data.subcategory = normalizeOptionalText(value.subcategory);
+  }
+  if (value.helpText !== undefined) {
+    data.helpText = normalizeOptionalText(value.helpText);
+  }
+  if (value.options !== undefined) {
+    data.options = normalizeStringArray(value.options);
+  }
+  if (value.tags !== undefined) {
+    data.tags = normalizeStringArray(value.tags);
+  }
+  if (value.recommendedStakeholderType !== undefined) {
+    data.recommendedStakeholderType = normalizeOptionalText(
+      value.recommendedStakeholderType
+    );
+  }
+  if (value.defaultRequired !== undefined) {
+    data.defaultRequired = value.defaultRequired === true;
+  }
+  if (value.linkedHubSpotArea !== undefined) {
+    data.linkedHubSpotArea = normalizeOptionalText(value.linkedHubSpotArea);
+  }
+  if (value.linkedWebsiteArea !== undefined) {
+    data.linkedWebsiteArea = normalizeOptionalText(value.linkedWebsiteArea);
+  }
+  if (value.complexityLevel !== undefined) {
+    data.complexityLevel = normalizeLibraryComplexity(value.complexityLevel);
+  }
+  const updated = await prisma.discoveryQuestionLibraryItem.update({
+    where: { id },
+    data
+  });
+  return serializeLibraryItem(updated);
+}
+
+export async function deleteDiscoveryQuestionLibraryItem(id: string) {
+  const existing = await prisma.discoveryQuestionLibraryItem.findUnique({
+    where: { id }
+  });
+  if (!existing) {
+    throw new Error("Question library item not found");
+  }
+  await prisma.discoveryQuestionLibraryItem.delete({ where: { id } });
+  return { success: true };
+}
+
+type WorkbookQuestion = {
+  id: string;
+  questionText: string;
+  helpText: string | null;
+  answerType: string;
+  required: boolean;
+  options: string[];
+  tags: string[];
+  assignedContributorIds: string[];
+  status: string;
+  response: unknown;
+  responseFiles: unknown[];
+  responseLinks: unknown[];
+  internalNotes: string | null;
+  sourceLibraryItemId?: string | null;
+};
+
+type WorkbookSection = {
+  id: string;
+  title: string;
+  description?: string | null;
+  category?: string | null;
+  linkedWorkstreamId?: string | null;
+  assignedContributorIds: string[];
+  status: string;
+  questions: WorkbookQuestion[];
+};
+
+type WorkbookContent = {
+  version: number;
+  sections: WorkbookSection[];
+};
+
+function ensureWorkbookContent(raw: unknown): WorkbookContent {
+  if (
+    raw &&
+    typeof raw === "object" &&
+    !Array.isArray(raw) &&
+    Array.isArray((raw as WorkbookContent).sections)
+  ) {
+    return raw as WorkbookContent;
+  }
+  return { version: 1, sections: [] };
+}
+
+export async function importLibraryQuestionsIntoWorkbook(
+  projectId: string,
+  workbookId: string,
+  value: {
+    questionIds?: unknown;
+    targetSectionId?: unknown;
+    newSection?: unknown;
+    assignedContributorIds?: unknown;
+  }
+) {
+  const workbook = await prisma.discoveryEvidence.findFirst({
+    where: { id: workbookId, projectId, kind: "workbook" }
+  });
+  if (!workbook) {
+    throw new Error("Workbook not found");
+  }
+  const questionIds = normalizeStringArray(value.questionIds);
+  if (questionIds.length === 0) {
+    throw new Error("questionIds must contain at least one id");
+  }
+  const items = await prisma.discoveryQuestionLibraryItem.findMany({
+    where: { id: { in: questionIds } }
+  });
+  if (items.length === 0) {
+    throw new Error("No matching question library items found");
+  }
+  const orderedItems = questionIds
+    .map((id) => items.find((item) => item.id === id))
+    .filter((item): item is (typeof items)[number] => Boolean(item));
+
+  const assignedContributorIds = normalizeStringArray(
+    value.assignedContributorIds
+  );
+
+  const content = ensureWorkbookContent(workbook.workbookContent);
+
+  let targetSection: WorkbookSection | undefined;
+  const targetSectionId =
+    typeof value.targetSectionId === "string" ? value.targetSectionId : null;
+  if (targetSectionId) {
+    targetSection = content.sections.find((s) => s.id === targetSectionId);
+    if (!targetSection) {
+      throw new Error("targetSectionId not found in workbook");
+    }
+  } else if (value.newSection && typeof value.newSection === "object") {
+    const ns = value.newSection as Record<string, unknown>;
+    const title = typeof ns.title === "string" ? ns.title.trim() : "";
+    if (!title) {
+      throw new Error("newSection.title is required when creating a section");
+    }
+    targetSection = {
+      id: `section_${Date.now().toString(36)}_${Math.random()
+        .toString(36)
+        .slice(2, 8)}`,
+      title,
+      description: normalizeOptionalText(ns.description),
+      category: normalizeOptionalText(ns.category),
+      linkedWorkstreamId: normalizeOptionalText(ns.linkedWorkstreamId),
+      assignedContributorIds: normalizeStringArray(ns.assignedContributorIds),
+      status: typeof ns.status === "string" ? ns.status : "draft",
+      questions: []
+    };
+    content.sections.push(targetSection);
+  } else {
+    throw new Error("Either targetSectionId or newSection is required");
+  }
+
+  for (const item of orderedItems) {
+    const question: WorkbookQuestion = {
+      id: `q_${item.id}_${Date.now().toString(36)}_${Math.random()
+        .toString(36)
+        .slice(2, 6)}`,
+      questionText: item.questionText,
+      helpText: item.helpText,
+      answerType: item.answerType,
+      required: item.defaultRequired,
+      options: item.options ?? [],
+      tags: item.tags ?? [],
+      assignedContributorIds,
+      status: "unanswered",
+      response: null,
+      responseFiles: [],
+      responseLinks: [],
+      internalNotes: null,
+      sourceLibraryItemId: item.id
+    };
+    targetSection.questions.push(question);
+  }
+
+  const updated = await prisma.discoveryEvidence.update({
+    where: { id: workbookId },
+    data: { workbookContent: content as unknown as Prisma.Prisma.InputJsonValue }
+  });
+  return serializeDiscoveryEvidence(updated);
+}
+
+async function ensureClientPortalProjectAccess(
+  projectId: string,
+  userId: string
+) {
+  const access = await prisma.clientProjectAccess.findUnique({
+    where: { userId_projectId: { userId, projectId } },
+    include: {
+      project: { select: { id: true, clientId: true } },
+      user: { select: { id: true, email: true, firstName: true, lastName: true } }
+    }
+  });
+  if (!access) {
+    throw new Error("Project not found");
+  }
+  return access;
+}
+
+async function resolveClientPortalContributor(
+  projectId: string,
+  clientId: string,
+  email: string
+) {
+  const normalizedEmail = email.toLowerCase();
+  const contact = await prisma.clientContact.findUnique({
+    where: { clientId_email: { clientId, email: normalizedEmail } }
+  });
+  if (!contact) return null;
+  return prisma.projectContributor.findUnique({
+    where: { projectId_contactId: { projectId, contactId: contact.id } }
+  });
+}
+
+function isApprovedChampion(
+  contributor: { role: string; approvalStatus: string } | null
+): boolean {
+  if (!contributor) return false;
+  return (
+    contributor.role === "client_champion" &&
+    contributor.approvalStatus === "approved"
+  );
+}
+
+function canContributorSubmit(
+  contributor: {
+    approvalStatus: string;
+    canSubmitWorkbookResponses: boolean;
+  } | null
+): boolean {
+  if (!contributor) return false;
+  return (
+    contributor.approvalStatus === "approved" &&
+    contributor.canSubmitWorkbookResponses
+  );
+}
+
+function workbookAssignsContributor(
+  workbook: {
+    assignedContributorIds: string[];
+    ownerContributorId: string | null;
+  },
+  content: WorkbookContent,
+  contributorId: string
+): boolean {
+  if (workbook.ownerContributorId === contributorId) return true;
+  if (workbook.assignedContributorIds.includes(contributorId)) return true;
+  for (const section of content.sections) {
+    if (section.assignedContributorIds?.includes(contributorId)) return true;
+    for (const question of section.questions) {
+      if (question.assignedContributorIds?.includes(contributorId)) return true;
+    }
+  }
+  return false;
+}
+
+function questionAssignsContributor(
+  workbook: {
+    assignedContributorIds: string[];
+    ownerContributorId: string | null;
+  },
+  section: WorkbookSection,
+  question: WorkbookQuestion,
+  contributorId: string
+): boolean {
+  if (question.assignedContributorIds?.includes(contributorId)) return true;
+  if (section.assignedContributorIds?.includes(contributorId)) return true;
+  if (workbook.assignedContributorIds.includes(contributorId)) return true;
+  if (workbook.ownerContributorId === contributorId) return true;
+  return false;
+}
+
+export async function loadClientPortalContributors(
+  projectId: string,
+  userId: string
+) {
+  await ensureClientPortalProjectAccess(projectId, userId);
+  const records = await prisma.projectContributor.findMany({
+    where: { projectId },
+    include: { contact: true },
+    orderBy: { createdAt: "asc" }
+  });
+  return records.map((record) => serializeProjectContributor(record));
+}
+
+export async function addClientPortalContributor(
+  projectId: string,
+  userId: string,
+  value: {
+    firstName?: unknown;
+    lastName?: unknown;
+    email?: unknown;
+    title?: unknown;
+    phone?: unknown;
+    role?: unknown;
+    stakeholderType?: unknown;
+    organisation?: unknown;
+    notes?: unknown;
+  }
+) {
+  const access = await ensureClientPortalProjectAccess(projectId, userId);
+  const caller = await resolveClientPortalContributor(
+    projectId,
+    access.project.clientId,
+    access.user.email
+  );
+  if (!isApprovedChampion(caller)) {
+    throw new Error(
+      "Only an approved client champion can add contributors to this project"
+    );
+  }
+  const firstName = normalizeOptionalText(value.firstName);
+  const emailRaw = normalizeOptionalText(value.email);
+  if (!firstName) {
+    throw new Error("firstName is required");
+  }
+  if (!emailRaw) {
+    throw new Error("email is required");
+  }
+  const email = emailRaw.toLowerCase();
+  const lastName = normalizeOptionalText(value.lastName);
+  const title = normalizeOptionalText(value.title);
+  const phone = normalizeOptionalText(value.phone);
+  const clientId = access.project.clientId;
+
+  const contact = await prisma.clientContact.upsert({
+    where: { clientId_email: { clientId, email } },
+    update: {
+      firstName,
+      ...(lastName !== null ? { lastName } : {}),
+      ...(title !== null ? { title } : {}),
+      ...(phone !== null ? { phone } : {})
+    },
+    create: {
+      clientId,
+      firstName,
+      lastName,
+      email,
+      title,
+      phone
+    }
+  });
+
+  return createProjectContributor(projectId, {
+    contactId: contact.id,
+    role: value.role ?? "contributor",
+    stakeholderType: value.stakeholderType,
+    organisation: value.organisation,
+    notes: value.notes,
+    createdByType: "client_champion",
+    createdByUserId: userId,
+    createdByContributorId: caller?.id,
+    approvalStatus: "pending_review",
+    canSubmitWorkbookResponses: true
+  });
+}
+
+export async function loadClientPortalWorkbooks(
+  projectId: string,
+  userId: string
+) {
+  const access = await ensureClientPortalProjectAccess(projectId, userId);
+  const caller = await resolveClientPortalContributor(
+    projectId,
+    access.project.clientId,
+    access.user.email
+  );
+  const records = await prisma.discoveryEvidence.findMany({
+    where: {
+      projectId,
+      kind: "workbook",
+      status: { in: ["shared", "in_progress", "needs_review", "submitted"] }
+    },
+    orderBy: { createdAt: "asc" }
+  });
+  if (isApprovedChampion(caller)) {
+    return records.map((record) => serializeDiscoveryEvidence(record));
+  }
+  if (!caller || caller.approvalStatus !== "approved") {
+    return [];
+  }
+  const visible = records.filter((record) =>
+    workbookAssignsContributor(
+      record,
+      ensureWorkbookContent(record.workbookContent),
+      caller.id
+    )
+  );
+  return visible.map((record) => serializeDiscoveryEvidence(record));
+}
+
+export async function saveClientPortalWorkbookResponses(
+  projectId: string,
+  userId: string,
+  workbookId: string,
+  value: { responses?: unknown }
+) {
+  const access = await ensureClientPortalProjectAccess(projectId, userId);
+  const caller = await resolveClientPortalContributor(
+    projectId,
+    access.project.clientId,
+    access.user.email
+  );
+  if (!canContributorSubmit(caller)) {
+    throw new Error(
+      "Your contributor record is not approved to submit responses on this project"
+    );
+  }
+  const callerId = caller!.id;
+  const champion = isApprovedChampion(caller);
+  const workbook = await prisma.discoveryEvidence.findFirst({
+    where: { id: workbookId, projectId, kind: "workbook" }
+  });
+  if (!workbook) {
+    throw new Error("Workbook not found");
+  }
+  if (
+    workbook.status !== "shared" &&
+    workbook.status !== "in_progress" &&
+    workbook.status !== "needs_review"
+  ) {
+    throw new Error("Workbook is not open for responses");
+  }
+  if (!Array.isArray(value.responses)) {
+    throw new Error("responses must be an array");
+  }
+  const content = ensureWorkbookContent(workbook.workbookContent);
+  if (
+    !champion &&
+    !workbookAssignsContributor(workbook, content, callerId)
+  ) {
+    throw new Error("You are not assigned to this workbook");
+  }
+  let touched = 0;
+  let rejected = 0;
+  for (const entry of value.responses) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    const sectionId = typeof e.sectionId === "string" ? e.sectionId : null;
+    const questionId = typeof e.questionId === "string" ? e.questionId : null;
+    if (!sectionId || !questionId) continue;
+    const section = content.sections.find((s) => s.id === sectionId);
+    if (!section) continue;
+    const question = section.questions.find((q) => q.id === questionId);
+    if (!question) continue;
+    if (
+      !champion &&
+      !questionAssignsContributor(workbook, section, question, callerId)
+    ) {
+      rejected += 1;
+      continue;
+    }
+    if ("response" in e) {
+      question.response = e.response as WorkbookQuestion["response"];
+    }
+    if (typeof e.status === "string") {
+      question.status = e.status;
+    } else if (
+      "response" in e &&
+      typeof e.response === "string" &&
+      e.response.trim().length > 0 &&
+      question.status === "unanswered"
+    ) {
+      question.status = "answered";
+    }
+    touched += 1;
+  }
+  const updated = await prisma.discoveryEvidence.update({
+    where: { id: workbookId },
+    data: {
+      workbookContent: content as unknown as Prisma.Prisma.InputJsonValue,
+      status:
+        workbook.status === "shared" && touched > 0
+          ? "in_progress"
+          : workbook.status
+    }
+  });
+  return { workbook: serializeDiscoveryEvidence(updated), touched, rejected };
 }
 
 export async function saveDiscoverySession(

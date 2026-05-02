@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import ClientHubSpotInviteCard from "./ClientHubSpotInviteCard";
 import ClientShell from "./ClientShell";
+import ClientWorkbooksPanel from "./client/ClientWorkbooksPanel";
+import ClientContributorsPanel from "./client/ClientContributorsPanel";
 import PortalProjectAssistant from "./PortalProjectAssistant";
 import {
   clientSessionDefinitions,
@@ -19,7 +21,13 @@ import {
 } from "./portalExperience";
 import { resolveLatestQuoteIdForProject } from "../lib/quotes/resolveLatestQuoteId";
 
-type WorkspaceTab = "overview" | "tasks" | "messages" | "delivery";
+type WorkspaceTab =
+  | "overview"
+  | "tasks"
+  | "workbooks"
+  | "contributors"
+  | "messages"
+  | "delivery";
 
 interface ClientMessage {
   id: string;
@@ -478,6 +486,8 @@ export default function ClientProjectWorkspace({
   const tabs: { key: WorkspaceTab; label: string }[] = [
     { key: "overview", label: "Overview" },
     ...(questionnaireAssigned ? [{ key: "tasks" as WorkspaceTab, label: "Tasks" }] : []),
+    { key: "workbooks", label: "Workbooks" },
+    { key: "contributors", label: "Contributors" },
     { key: "messages", label: "Messages" },
     { key: "delivery", label: "Delivery" }
   ];
@@ -1077,6 +1087,14 @@ export default function ClientProjectWorkspace({
                 On desktop you can still use Ctrl+Enter or Cmd+Enter to send quickly.
               </p>
             </div>
+          ) : null}
+
+          {activeTab === "workbooks" ? (
+            <ClientWorkbooksPanel projectId={detail.project.id} />
+          ) : null}
+
+          {activeTab === "contributors" ? (
+            <ClientContributorsPanel projectId={detail.project.id} />
           ) : null}
 
           {activeTab === "delivery" ? (
