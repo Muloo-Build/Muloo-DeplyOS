@@ -71,49 +71,56 @@ const STATUS_OPTIONS = [
   "approved"
 ];
 
-const VISIBILITY_OPTIONS: Array<{ value: string; label: string; description: string }> = [
+const VISIBILITY_OPTIONS: Array<{
+  value: string;
+  label: string;
+  description: string;
+}> = [
   {
     value: "internal",
     label: "Internal only",
-    description: "Muloo team only — not visible in client portal"
+    description: "Only the Muloo team can see this. Nothing appears in the client portal."
   },
   {
     value: "contributor_link",
-    label: "Contributor link only",
-    description: "Visible to assigned contributors via secure link"
+    label: "Contributor access",
+    description: "Assigned contributors can fill it in via a secure link. They do not need a portal account."
   },
   {
     value: "client_champion",
-    label: "Client champion",
-    description: "Visible to the project champion in the client portal"
+    label: "Client champion review",
+    description: "The project champion sees it in their portal so they can review or approve."
   },
   {
     value: "client_portal",
-    label: "Client portal",
-    description: "Visible to all client portal users on this project"
+    label: "Client portal visible",
+    description: "Everyone on the client portal for this project can see it."
   }
 ];
 
-const VISIBILITY_BADGE: Record<string, { label: string; className: string }> = {
+const VISIBILITY_BADGE: Record<
+  string,
+  { label: string; className: string; tooltip: string }
+> = {
   internal: {
-    label: "Internal",
-    className:
-      "border-white/10 bg-white/5 text-text-secondary"
+    label: "Internal only",
+    className: "border-white/10 bg-white/5 text-text-secondary",
+    tooltip: "Muloo team only. Not shared with the client portal."
   },
   contributor_link: {
-    label: "Contributors",
-    className:
-      "border-amber-500/30 bg-amber-500/10 text-amber-300"
+    label: "Contributor access",
+    className: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+    tooltip: "Assigned contributors can fill it in via a secure link."
   },
   client_champion: {
-    label: "Champion",
-    className:
-      "border-blue-500/30 bg-blue-500/10 text-blue-300"
+    label: "Champion review",
+    className: "border-blue-500/30 bg-blue-500/10 text-blue-300",
+    tooltip: "The project champion sees it in their portal."
   },
   client_portal: {
     label: "Client portal",
-    className:
-      "border-brand-teal/40 bg-brand-teal/10 text-brand-teal"
+    className: "border-brand-teal/40 bg-brand-teal/10 text-brand-teal",
+    tooltip: "Visible to all client portal users on this project."
   }
 };
 
@@ -271,22 +278,28 @@ export default function ProjectWorkbooksPanel(props: {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-white">Workbooks</p>
-          <p className="text-xs text-text-secondary">
-            Internal workbooks stay hidden from clients until you deliberately
-            share them. Use the visibility control on each workbook to decide
-            who can see it.
-          </p>
+      <div className="brand-surface-soft rounded-2xl border border-white/10 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-white">
+              Workbooks — discovery & contribution tools
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+              Workbooks collect structured input from contributors who often do
+              not have client portal access. They are{" "}
+              <strong className="text-white">internal by default</strong> — use
+              the visibility control on each workbook to share it with
+              contributors, the project champion, or the full client portal.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowForm((value) => !value)}
+            className="brand-surface shrink-0 rounded-full border border-white/10 px-3 py-1.5 text-xs uppercase tracking-wide text-white hover:border-white/30"
+          >
+            {showForm ? "Cancel" : "Add workbook"}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm((value) => !value)}
-          className="brand-surface-soft shrink-0 rounded-full border px-3 py-1.5 text-xs uppercase tracking-wide text-white"
-        >
-          {showForm ? "Cancel" : "Add workbook"}
-        </button>
       </div>
 
       {error ? <p className="text-sm text-rose-400">{error}</p> : null}

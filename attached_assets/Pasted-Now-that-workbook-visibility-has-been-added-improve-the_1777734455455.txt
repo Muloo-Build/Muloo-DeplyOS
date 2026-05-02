@@ -1,0 +1,47 @@
+Now that workbook visibility has been added, improve the workbook UX so the purpose of workbooks is clear to both operators and client champions.
+
+Context:
+Workbooks are not meant to be normal portal pages by default. They are discovery and contribution tools linked to a project. They allow Muloo to collect structured input from external contributors who may not have client portal access. The information can then be reviewed, cleaned up, and used as part of discovery, scoping, planning, and final deliverables.
+
+Please improve the UI and guidance around workbooks.
+
+Requirements:
+
+1. Operator project view
+- Add a short explanatory intro at the top of the Workbooks tab.
+- Explain that workbooks are internal by default and can be shared with contributors, the project champion, or the full client portal.
+- Make the visibility controls easy to understand.
+- Use plain labels:
+  - Internal only
+  - Contributor access
+  - Client champion review
+  - Client portal visible
+- Add helper text below each option explaining exactly who can see it.
+
+2. Client portal
+- Do not show a generic workbook list if no workbook has been shared.
+- Show an empty state explaining:
+  “Workbooks are shared when we need input, review, or approval from your team.”
+- If the logged-in user is the project champion, show a clear area where they can see workbooks requiring review or input.
+- Make sure internal workbooks never appear in the client portal.
+
+3. Contributor flow
+- Add clear UI copy explaining that contributors do not need full portal access.
+- They should only access workbooks assigned or shared with them.
+- Add a placeholder/state for future contributor links if the route does not exist yet.
+
+4. UX polish
+- Add a visibility badge to each workbook card.
+- Add a small explanation of the badge on hover or nearby helper text.
+- Avoid technical terms like visibilityScope.
+- Keep the UI consistent with the rest of the project dashboard.
+
+5. Do not change the existing data model unless required.
+- Use the current DiscoveryEvidence visibility field.
+- Preserve current status behaviour.
+- Visibility controls access.
+- Status controls workflow/progress.
+
+6. Run typecheck for both API and web packages.
+- Report changed files.
+- Report test results.

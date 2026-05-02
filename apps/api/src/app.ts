@@ -7152,11 +7152,11 @@ export function createApiApp(config: BaseConfig) {
       return c.json({ error: "Method Not Allowed" }, 405);
     }
     try {
-      const workbooks = await loadClientPortalWorkbooks(
+      const result = await loadClientPortalWorkbooks(
         c.req.param("projectId"),
         c.get("clientUserId")
       );
-      return c.json({ workbooks });
+      return c.json(result);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to load";

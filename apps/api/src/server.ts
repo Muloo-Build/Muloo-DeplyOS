@@ -26549,9 +26549,11 @@ export async function loadClientPortalWorkbooks(
         access.user.email
       );
 
+  const championView = skeleton || isApprovedChampion(caller);
+
   // Champion and skeleton key see workbooks explicitly shared at
   // client_champion or client_portal visibility level.
-  if (skeleton || isApprovedChampion(caller)) {
+  if (championView) {
     const records = await prisma.discoveryEvidence.findMany({
       where: {
         projectId,
@@ -26560,12 +26562,22 @@ export async function loadClientPortalWorkbooks(
       },
       orderBy: { createdAt: "asc" }
     });
-    return records.map((record) => serializeDiscoveryEvidence(record));
+    return {
+      workbooks: records.map((record) => serializeDiscoveryEvidence(record)),
+      viewer: {
+        isChampion: true,
+        isContributor: false,
+        skeleton
+      }
+    };
   }
 
   // Unapproved / no contributor record — see nothing.
   if (!caller || caller.approvalStatus !== "approved") {
-    return [];
+    return {
+      workbooks: [],
+      viewer: { isChampion: false, isContributor: false, skeleton: false }
+    };
   }
 
   // Approved contributors see workbooks where:
@@ -26588,7 +26600,10 @@ export async function loadClientPortalWorkbooks(
       caller.id
     )
   );
-  return visible.map((record) => serializeDiscoveryEvidence(record));
+  return {
+    workbooks: visible.map((record) => serializeDiscoveryEvidence(record)),
+    viewer: { isChampion: false, isContributor: true, skeleton: false }
+  };
 }
 
 export async function saveClientPortalWorkbookResponses(
