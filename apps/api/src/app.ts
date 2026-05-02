@@ -2085,6 +2085,20 @@ export function createApiApp(config: BaseConfig) {
   app.patch("/api/projects/:projectId/status", async (c) => {
     const body = projectStatusUpdateSchema.parse(await readJsonBodyOrEmpty(c));
 
+    // T5.3 — completion can only happen via the Close Project wizard
+    // (POST /api/projects/:projectId/close), which enforces handover +
+    // NPS + workbook archive. Reject any caller trying to flip status
+    // to "complete"/"completed" through the legacy generic status endpoint.
+    if (body.status === "complete" || body.status === "completed") {
+      return c.json(
+        {
+          error:
+            "Use POST /api/projects/:projectId/close to complete a project — handover + NPS + workbook archive must be recorded."
+        },
+        409
+      );
+    }
+
     try {
       const project = await updateProjectRecordStatus(
         c.req.param("projectId"),
@@ -3665,6 +3679,10 @@ export function createApiApp(config: BaseConfig) {
     "/api/projects/:projectId/delivery/seed-from-workstreams",
     async (c) => {
       try {
+        await ensureProjectScopeUnlocked(
+          c.req.param("projectId"),
+          "Approved scope is locked. Use change management to seed more delivery tasks."
+        );
         const result = await appendWorkstreamTasksToDelivery(
           c.req.param("projectId")
         );
@@ -3693,6 +3711,10 @@ export function createApiApp(config: BaseConfig) {
         return c.json({ error: "templateId is required" }, 400);
       }
       try {
+        await ensureProjectScopeUnlocked(
+          c.req.param("projectId"),
+          "Approved scope is locked. Use change management to apply additional templates."
+        );
         const result = await applyImplementationTemplateToProject(
           c.req.param("projectId"),
           templateId
