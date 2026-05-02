@@ -1,0 +1,212 @@
+# Deploy OS Project Contribution Workbooks Plan
+
+## Context
+
+Deploy OS now has the foundation required to support more complex projects like Magnisol.
+
+The current Magnisol support pass added:
+
+- Project level contributors using `ProjectContributor`
+- Workbooks using `DiscoveryEvidence` with `kind = workbook`
+- Workstream metadata using `Project.deliveryWorkstreams` JSON v2
+- Project readiness summary in the Overview tab
+- Workbooks and contributors panels inside the Discovery tab
+- Workstream hours and scope risk visibility inside the Plan tab
+- Change management extensions using `WorkRequest.reason` and `WorkRequest.impactedWorkstreamIds`
+- A Magnisol seed script with workstreams, Tara as contributor, workbooks and an initial change log entry
+
+This next pass should turn the foundation into a proper Project Contribution Workbook system.
+
+The goal is to support real HubSpot discovery, website discovery, technical discovery, business operations discovery, service line mapping, product line mapping and partner collaboration.
+
+This should not become a bloated survey app.
+
+It should be a practical delivery tool that helps Muloo structure project discovery, collect stakeholder input, request documents, link Miro boards, assign questions and track what is missing before implementation starts.
+
+---
+
+# Core Goal
+
+Create a Project Contribution Workbook system inside Deploy OS.
+
+A project should be able to have:
+
+- Multiple workbooks
+- Multiple contributors
+- Contributors who do not require full client portal access
+- Project champions who can add required contributors from the client portal
+- Miro boards linked to the discovery process
+- Reusable question libraries
+- Project specific workbook sections and questions
+- Document and form submission requests
+- Contributor assignments by section or question
+- Readiness tracking based on what has been answered, uploaded, reviewed or is still missing
+
+---
+
+# Important Design Principle
+
+Reuse what already exists.
+
+Do not create duplicate systems unless there is no clean existing equivalent.
+
+Current models and concepts to reuse:
+
+- `ProjectContributor`
+- `ClientContact`
+- `ClientPortalUser`
+- `ClientProjectAccess`
+- `DiscoveryEvidence`
+- `Project.deliveryWorkstreams`
+- `Project.clientQuestionnaireConfig`
+- `ClientInputSubmission`
+- `WorkRequest`
+- Existing project tabs and layout
+
+Avoid creating new models for workbooks, contributors or change logs unless absolutely necessary.
+
+If a new model is required, explain why before implementing.
+
+---
+
+# User Types and Permissions
+
+## Internal Operator
+
+Usually Jarrud or another Muloo user.
+
+Can:
+
+- Create and edit project workbooks
+- Add and edit contributors
+- Create question libraries
+- Pull questions into project workbooks
+- Assign sections and questions to contributors
+- Review submitted answers
+- Approve or reject submitted information
+- Grant full portal access if needed
+- Add Miro board links and external assets
+- Manage discovery readiness
+
+## Project Champion
+
+A client side lead for the project.
+
+Example: Tara for Magnisol.
+
+Can:
+
+- Log into the client portal
+- View the project they are linked to
+- View workbooks assigned to them
+- Add required project contributors
+- Assign contributors to relevant subject areas if allowed
+- Submit answers
+- Upload or link requested documents
+- Add notes for Muloo
+- Suggest additional stakeholders
+
+Cannot:
+
+- Grant full client portal access to others
+- Delete internal Muloo users
+- Edit commercial or billing fields
+- Change project scope
+- Approve quotes unless they already have quote approval permission
+- Access other projects unless specifically granted
+
+## Project Contributor
+
+A verified stakeholder linked to a specific project.
+
+Can:
+
+- Be linked to a project without having client portal access
+- Be assigned to workbook sections or questions
+- Submit information if they are allowed to
+- Upload documents or links if enabled
+- Provide answers around their subject area
+
+Does not automatically get:
+
+- Full client portal access
+- Access to all project documents
+- Access to quotes
+- Access to billing
+- Access to other client projects
+
+---
+
+# Key Distinction
+
+Do not treat these as the same thing:
+
+## Client Portal User
+
+A person with login access to the client portal.
+
+## Project Contributor
+
+A verified stakeholder linked to a project.
+
+## Workbook Respondent
+
+A person expected to answer workbook questions, upload docs, share links or validate information.
+
+These can overlap, but should not be forced to.
+
+Example:
+
+- Tara can be project champion, contributor and portal user
+- A Magnisol technical stakeholder can be contributor and workbook respondent but not portal user
+- A Tusk designer can be partner contributor but not client portal user
+- Jarrud is internal owner and reviewer
+
+---
+
+# Phase 1: Contributor Model Enhancements
+
+## Goal
+
+Extend `ProjectContributor` so it can support internal and client champion created contributors.
+
+## Requirements
+
+Keep using `ProjectContributor`.
+
+Add or confirm support for:
+
+- `role`
+- `stakeholderType`
+- `organisation`
+- `portalAccessEnabled`
+- `canSubmitWorkbookResponses`
+- `notes`
+- `createdByType`
+- `createdByUserId`
+- `createdByContributorId`
+- `approvalStatus`
+
+Suggested fields:
+
+```ts
+type ProjectContributor = {
+  id: string
+  projectId: string
+  contactId: string
+  role: string
+  stakeholderType: string | null
+  organisation: string | null
+  portalUserId: string | null
+  portalAccessEnabled: boolean
+  canSubmitWorkbookResponses: boolean
+  relatedWorkbookIds: string[]
+  relatedQuestionIds: string[]
+  notes: string | null
+  createdByType: "internal" | "client_champion" | "system"
+  createdByUserId: string | null
+  createdByContributorId: string | null
+  approvalStatus: "approved" | "pending_review" | "rejected"
+  createdAt: Date
+  updatedAt: Date
+}
