@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { KeyRound, Search, ExternalLink, Loader2 } from "lucide-react";
 
+import Breadcrumb from "../components/Breadcrumb";
+
 type ProjectRow = {
   id: string;
   name: string;
@@ -106,17 +108,24 @@ export default function SkeletonKeyPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-6 py-10">
-      <header className="space-y-2">
-        <div className="flex items-center gap-2 text-amber-600">
-          <KeyRound size={20} />
-          <span className="text-sm font-semibold uppercase tracking-wide">
-            Internal operator tool
-          </span>
+      <Breadcrumb
+        items={[
+          { label: "Admin", href: "/settings" },
+          { label: "Skeleton Key" }
+        ]}
+      />
+
+      <header className="space-y-3">
+        <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">
+          <KeyRound size={14} />
+          Internal operator tool
         </div>
-        <h1 className="text-2xl font-semibold text-slate-900">Skeleton key</h1>
-        <p className="max-w-2xl text-sm text-slate-600">
-          Open any client project portal as the {""}
-          <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">
+        <h1 className="text-3xl font-semibold tracking-tight text-white">
+          Skeleton Key
+        </h1>
+        <p className="max-w-2xl text-sm text-text-secondary">
+          Open any client project portal as the{" "}
+          <code className="rounded bg-background-elevated px-1.5 py-0.5 text-xs text-text-secondary">
             skeleton@muloo.internal
           </code>{" "}
           operator. The skeleton account is auto-granted champion-level access so
@@ -129,45 +138,45 @@ export default function SkeletonKeyPage() {
       <div className="relative">
         <Search
           size={16}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
         />
         <input
           type="search"
           placeholder="Filter by project, client, or status"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
-          className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-text-muted focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10"
         />
       </div>
 
       {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
           {error}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-slate-500">
+        <div className="flex items-center gap-2 text-sm text-text-secondary">
           <Loader2 size={16} className="animate-spin" />
           Loading projects…
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-background-elevated text-xs uppercase tracking-[0.2em] text-text-muted">
               <tr>
-                <th className="px-4 py-3 text-left">Project</th>
-                <th className="px-4 py-3 text-left">Client</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 text-left font-medium">Project</th>
+                <th className="px-4 py-3 text-left font-medium">Client</th>
+                <th className="px-4 py-3 text-left font-medium">Status</th>
+                <th className="px-4 py-3 text-right font-medium">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[rgba(255,255,255,0.05)]">
               {filtered.length === 0 ? (
                 <tr>
                   <td
                     colSpan={4}
-                    className="px-4 py-8 text-center text-sm text-slate-500"
+                    className="px-4 py-8 text-center text-sm text-text-muted"
                   >
                     {projects.length === 0
                       ? "No projects found."
@@ -179,31 +188,34 @@ export default function SkeletonKeyPage() {
                   const busy = pendingId === project.id;
                   const rowErr = rowError[project.id];
                   return (
-                    <tr key={project.id} className="hover:bg-slate-50">
+                    <tr
+                      key={project.id}
+                      className="transition-colors hover:bg-background-elevated"
+                    >
                       <td className="px-4 py-3 align-top">
-                        <div className="font-medium text-slate-900">
+                        <div className="font-medium text-white">
                           {project.name}
                         </div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-text-muted">
                           {project.id}
                         </div>
                         {rowErr ? (
-                          <div className="mt-1 text-xs text-red-600">
+                          <div className="mt-1 text-xs text-rose-300">
                             {rowErr}
                           </div>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3 align-top text-slate-700">
+                      <td className="px-4 py-3 align-top text-text-secondary">
                         {project.clientName ?? "—"}
                       </td>
-                      <td className="px-4 py-3 align-top text-slate-700">
+                      <td className="px-4 py-3 align-top text-text-secondary">
                         {project.status ?? "—"}
                       </td>
                       <td className="px-4 py-3 align-top text-right">
                         <div className="flex justify-end gap-2">
                           <Link
                             href={`/projects/${project.id}`}
-                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            className="inline-flex items-center gap-1 rounded-lg border border-[rgba(255,255,255,0.08)] bg-background-elevated px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:border-white/20 hover:text-white"
                           >
                             Operator view
                           </Link>
@@ -211,7 +223,7 @@ export default function SkeletonKeyPage() {
                             type="button"
                             onClick={() => openClientPortal(project.id)}
                             disabled={busy}
-                            className="inline-flex items-center gap-1 rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {busy ? (
                               <Loader2 size={12} className="animate-spin" />

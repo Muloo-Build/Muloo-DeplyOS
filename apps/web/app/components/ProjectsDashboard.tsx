@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { FolderKanban } from "lucide-react";
+import { FolderKanban, MoreHorizontal } from "lucide-react";
 
 import AppShell from "./AppShell";
 import EmptyState from "./EmptyState";
@@ -147,9 +147,69 @@ export default function ProjectsDashboard({
   const [updatingProjectId, setUpdatingProjectId] = useState<string | null>(
     null
   );
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const lastFocusedRef = useRef<HTMLElement | null>(null);
   const searchParams = useSearchParams();
   const statusFilter = searchParams.get("status") ?? initialStatus;
   const filterMeta = getFilterMeta(statusFilter);
+
+  useEffect(() => {
+    if (!openMenuId) {
+      return;
+    }
+    function handlePointerDown(event: MouseEvent) {
+      if (
+        menuRef.current &&
+        event.target instanceof Node &&
+        !menuRef.current.contains(event.target)
+      ) {
+        setOpenMenuId(null);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpenMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openMenuId]);
+
+  useEffect(() => {
+    if (!pendingDelete) {
+      // Restore focus to whatever opened the modal, if we still have a handle.
+      const previous = lastFocusedRef.current;
+      lastFocusedRef.current = null;
+      if (previous && document.contains(previous)) {
+        previous.focus();
+      }
+      return;
+    }
+    // Capture the trigger element so we can restore focus on close.
+    if (
+      document.activeElement instanceof HTMLElement &&
+      lastFocusedRef.current === null
+    ) {
+      lastFocusedRef.current = document.activeElement;
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setPendingDelete(null);
+        setDeleteConfirmText("");
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [pendingDelete]);
 
   useEffect(() => {
     async function fetchProjects() {
@@ -182,14 +242,6 @@ export default function ProjectsDashboard({
   }, [statusFilter]);
 
   async function deleteProject(project: Project) {
-    const confirmed = window.confirm(
-      `Delete "${project.name}"? This will remove the project, its discovery sessions, and its blueprint.`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     setDeletingProjectId(project.id);
 
     try {
@@ -213,6 +265,8 @@ export default function ProjectsDashboard({
         return nextProjects;
       });
       toast.success(`"${project.name}" deleted.`);
+      setPendingDelete(null);
+      setDeleteConfirmText("");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to delete project"
@@ -329,47 +383,82 @@ export default function ProjectsDashboard({
               {formatRelativeDate(project.updatedAt)}
             </div>
 
-            <div className="flex items-start justify-end gap-3 text-sm font-medium">
-              <Link href={`/projects/${project.id}`} className="text-white">
-                View
-              </Link>
-              <Link
-                href={`/projects/${project.id}/edit`}
-                className="text-[#8bd5ff] transition-opacity hover:opacity-80"
-              >
-                Edit
-              </Link>
-              {archived ? (
-                <button
-                  type="button"
-                  onClick={() => void updateProjectStatus(project, "active")}
-                  disabled={updatingProjectId === project.id}
-                  className="text-[#8bd5ff] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {updatingProjectId === project.id
-                    ? "Restoring..."
-                    : "Restore"}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => void updateProjectStatus(project, "archived")}
-                  disabled={updatingProjectId === project.id}
-                  className="text-[#ffd38b] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {updatingProjectId === project.id
-                    ? "Archiving..."
-                    : "Archive"}
-                </button>
-              )}
+            <div className="relative flex items-start justify-end text-sm font-medium">
               <button
                 type="button"
-                onClick={() => void deleteProject(project)}
-                disabled={deletingProjectId === project.id}
-                className="text-[#ff8b8b] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() =>
+                  setOpenMenuId((current) =>
+                    current === project.id ? null : project.id
+                  )
+                }
+                aria-haspopup="menu"
+                aria-expanded={openMenuId === project.id}
+                aria-label={`Actions for ${project.name}`}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.06)] bg-background-elevated text-text-secondary transition hover:border-white/15 hover:text-white"
               >
-                {deletingProjectId === project.id ? "Deleting..." : "Delete"}
+                <MoreHorizontal size={16} />
               </button>
+              {openMenuId === project.id ? (
+                <div
+                  ref={menuRef}
+                  role="menu"
+                  aria-label={`Actions for ${project.name}`}
+                  className="absolute right-0 top-11 z-20 w-48 overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#111933] py-1 shadow-2xl"
+                >
+                  <Link
+                    href={`/projects/${project.id}/edit`}
+                    role="menuitem"
+                    onClick={() => setOpenMenuId(null)}
+                    className="block px-3 py-2 text-sm text-text-secondary transition hover:bg-background-elevated hover:text-white"
+                  >
+                    Edit
+                  </Link>
+                  {archived ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        void updateProjectStatus(project, "active");
+                      }}
+                      disabled={updatingProjectId === project.id}
+                      className="block w-full px-3 py-2 text-left text-sm text-text-secondary transition hover:bg-background-elevated hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {updatingProjectId === project.id
+                        ? "Restoring…"
+                        : "Restore from archive"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        void updateProjectStatus(project, "archived");
+                      }}
+                      disabled={updatingProjectId === project.id}
+                      className="block w-full px-3 py-2 text-left text-sm text-text-secondary transition hover:bg-background-elevated hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {updatingProjectId === project.id
+                        ? "Archiving…"
+                        : "Archive"}
+                    </button>
+                  )}
+                  <div className="my-1 border-t border-[rgba(255,255,255,0.06)]" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpenMenuId(null);
+                      setPendingDelete(project);
+                      setDeleteConfirmText("");
+                    }}
+                    className="block w-full px-3 py-2 text-left text-sm text-rose-300 transition hover:bg-rose-500/10 hover:text-rose-200"
+                  >
+                    Delete project…
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         ))}
@@ -503,6 +592,75 @@ export default function ProjectsDashboard({
           </div>
         )}
       </div>
+
+      {pendingDelete ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-project-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(2,6,23,0.72)] px-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setPendingDelete(null);
+              setDeleteConfirmText("");
+            }
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl border border-rose-400/30 bg-[#111933] p-6 shadow-2xl">
+            <h3
+              id="delete-project-title"
+              className="text-lg font-semibold text-white"
+            >
+              Delete &ldquo;{pendingDelete.name}&rdquo;?
+            </h3>
+            <p className="mt-2 text-sm text-text-secondary">
+              This permanently removes the project, its discovery sessions,
+              workbooks, blueprint and any linked records. This cannot be
+              undone.
+            </p>
+            <p className="mt-4 text-sm text-text-secondary">
+              Type{" "}
+              <code className="rounded bg-background-elevated px-1.5 py-0.5 text-xs text-white">
+                {pendingDelete.name}
+              </code>{" "}
+              to confirm.
+            </p>
+            <input
+              type="text"
+              autoFocus
+              value={deleteConfirmText}
+              onChange={(event) => setDeleteConfirmText(event.target.value)}
+              placeholder="Project name"
+              className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white placeholder:text-text-muted focus:border-rose-300/40 focus:outline-none focus:ring-1 focus:ring-rose-300/20"
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingDelete(null);
+                  setDeleteConfirmText("");
+                }}
+                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-2 text-sm font-medium text-text-secondary transition hover:border-white/15 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={
+                  deleteConfirmText !== pendingDelete.name ||
+                  deletingProjectId === pendingDelete.id
+                }
+                onClick={() => void deleteProject(pendingDelete)}
+                className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deletingProjectId === pendingDelete.id
+                  ? "Deleting…"
+                  : "Delete project"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </AppShell>
   );
 }

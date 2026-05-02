@@ -153,6 +153,18 @@ ADMIN
 - **Client portal champion flow**: New routes `GET/POST /api/client/projects/:projectId/contributors`, `GET /api/client/projects/:projectId/workbooks`, `PATCH /api/client/projects/:projectId/workbooks/:workbookId/responses`. Champions can add stakeholders (created via `clientContact.upsert` + `projectContributor` with `createdByType: "client_champion"`, `approvalStatus: "pending_review"`) and answer their assigned workbook questions. New `ClientWorkbooksPanel.tsx` + `ClientContributorsPanel.tsx` wired into `ClientProjectWorkspace.tsx` as Workbooks + Contributors tabs.
 - **Magnisol seed**: `prisma/seed-question-library.ts` (82 library items across 13 categories) and enhanced `prisma/seed-magnisol.ts` (3 contributors: Tara/Grant/Devan, 5 internal workbooks pre-populated with category-matched library questions, 1 Miro board resource). Both idempotent. Run with `npx tsx prisma/seed-question-library.ts && npx tsx prisma/seed-magnisol.ts` from `apps/api`.
 
+### Architect Audit — Phase 0 + 1.1 (May 2026)
+- **Sidebar**: collapsed from 5 groups (DELIVERY/SALES/AUTOMATION/OPERATIONS/ADMIN, 19 items) to 4 groups all visible above the fold:
+  - WORK: Command Centre, Inbox, Projects, Clients, Partners
+  - SELL: Quotes, Retainers, Invoices, Financials
+  - LIBRARY: Workbooks, Question Library, Implementation Templates, Products, Agents
+  - ADMIN: Settings, Skeleton Key
+- Contacts and Runs removed from visible nav (routes still resolve at `/contacts` and `/runs`); Clients now active-highlights on `/contacts*`, Agents on `/runs*`
+- Portal Ops link removed from sidebar (still reachable from individual projects)
+- **Skeleton Key** (`/skeleton-key`): full dark-theme rewrite (background-card / background-elevated tokens, text-white/text-text-secondary, border-rgba(255,255,255,0.07)). Added Admin → Skeleton Key breadcrumb and amber "Internal operator tool" chip. Amber CTA preserved as the privileged-action accent.
+- **Quotes** filter rail: bare "?" pill replaced with labelled "? What do these mean?" pill; popover content unchanged.
+- **Projects list rows**: inline View/Edit/Archive/Delete collapsed into a "•••" overflow popover (click-outside + Escape to close). Delete now opens a confirmation modal that requires typing the project name verbatim before the destructive button enables; modal supports Escape-to-close and restores focus to the trigger after close.
+
 ### Contacts as a First-Class Surface (May 2026)
 - **Schema**: `phone` field added to `ClientContact`; new `ClientContactNote` model (activity/note log per contact, cascade delete)
 - **Migration**: `20260502094304_add_contact_phone_and_notes` applied to Railway PostgreSQL

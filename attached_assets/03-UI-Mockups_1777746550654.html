@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Deploy OS — Architect Audit UI Mockups</title>
+<style>
+  :root{
+    --bg:#0a0e1f; --panel:#11172d; --panel-2:#171e3a; --line:#222a4d;
+    --text:#e7eaf6; --muted:#8893b8; --accent:#9b6dff; --accent-2:#ff6dc4;
+    --green:#4cd5b3; --amber:#ffc06c; --red:#ff6f7d; --blue:#5fa9ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;background:#040816;color:var(--text);line-height:1.45;font-size:14px}
+  body{padding:32px 24px}
+  .container{max-width:1400px;margin:0 auto}
+  h1.page-title{font-size:28px;font-weight:700;margin-bottom:8px;background:linear-gradient(90deg,#fff,#9b6dff,#ff6dc4);-webkit-background-clip:text;background-clip:text;color:transparent;display:inline-block}
+  .subtitle{color:var(--muted);margin-bottom:24px;font-size:14px}
+  .section{margin-bottom:48px}
+  .section-label{display:inline-block;font-size:11px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;font-weight:600}
+  h2{font-size:20px;font-weight:700;margin-bottom:6px}
+  .section-desc{color:var(--muted);font-size:13px;margin-bottom:16px;max-width:760px}
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .frame{background:var(--bg);border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative}
+  .frame-label{position:absolute;top:10px;right:12px;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;font-weight:700;padding:4px 8px;border-radius:6px;z-index:5}
+  .frame-label.before{background:rgba(255,111,125,.15);color:var(--red);border:1px solid rgba(255,111,125,.3)}
+  .frame-label.after{background:rgba(76,213,179,.15);color:var(--green);border:1px solid rgba(76,213,179,.3)}
+  .frame-inner{display:flex;min-height:480px}
+
+  /* sidebar */
+  .sb{background:#0c1228;border-right:1px solid var(--line);width:170px;padding:14px 8px;flex-shrink:0}
+  .sb .logo{font-size:20px;font-weight:800;background:linear-gradient(90deg,#9b6dff,#ff6dc4);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:2px;padding:0 6px}
+  .sb .logo-sub{font-size:10px;color:var(--muted);margin-bottom:14px;padding:0 6px}
+  .sb-group{font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin:14px 6px 6px;font-weight:600}
+  .sb-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;font-size:12px;color:var(--text);cursor:pointer;margin-bottom:1px}
+  .sb-item:hover{background:rgba(155,109,255,.08)}
+  .sb-item.active{background:linear-gradient(90deg,rgba(155,109,255,.25),transparent);border-left:2px solid var(--accent);padding-left:6px}
+  .sb-icon{width:14px;height:14px;background:rgba(155,109,255,.2);border-radius:3px;flex-shrink:0}
+  .sb-fold{position:absolute;bottom:0;left:0;right:0;border-top:1px dashed rgba(255,111,125,.4);font-size:9px;color:var(--red);text-align:center;padding:3px;background:rgba(255,111,125,.08);text-transform:uppercase;letter-spacing:1px}
+
+  /* main */
+  .main{flex:1;padding:18px;overflow:hidden;position:relative}
+  .greet{font-size:11px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+  .greet-name{font-size:22px;font-weight:700;margin-bottom:14px}
+
+  /* generic card */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+  .card-label{font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;font-weight:600}
+  .card-title{font-size:14px;font-weight:600;margin-bottom:4px}
+  .card-desc{color:var(--muted);font-size:12px}
+
+  /* stats row */
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px}
+  .stat-label{font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:4px;font-weight:600}
+  .stat-num{font-size:22px;font-weight:700}
+  .stat-desc{font-size:10px;color:var(--muted);margin-top:2px}
+
+  /* attention strip */
+  .attention{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  .att-card{background:linear-gradient(135deg,rgba(155,109,255,.12),rgba(255,109,196,.06));border:1px solid rgba(155,109,255,.3);border-radius:10px;padding:12px;cursor:pointer;transition:transform .1s}
+  .att-card:hover{transform:translateY(-2px)}
+  .att-num{font-size:24px;font-weight:700;margin-bottom:2px}
+  .att-label{font-size:11px;color:var(--text);font-weight:500;margin-bottom:6px}
+  .att-cta{font-size:10px;color:var(--accent-2);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+  .att-card.amber{background:linear-gradient(135deg,rgba(255,192,108,.12),rgba(255,192,108,.04));border-color:rgba(255,192,108,.3)}
+  .att-card.amber .att-cta{color:var(--amber)}
+  .att-card.green{background:linear-gradient(135deg,rgba(76,213,179,.08),rgba(76,213,179,.02));border-color:rgba(76,213,179,.2)}
+  .att-card.green .att-cta{color:var(--green)}
+
+  /* row */
+  .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
+
+  /* before clutter */
+  .clutter{padding:10px;border:1px dashed rgba(255,111,125,.4);border-radius:8px;background:rgba(255,111,125,.04);margin-bottom:8px}
+  .clutter-label{font-size:9px;color:var(--red);letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-bottom:4px}
+  .clutter-body{color:var(--muted);font-size:11px}
+
+  /* tabs */
+  .tabs{display:flex;gap:18px;border-bottom:1px solid var(--line);margin-bottom:14px;font-size:12px}
+  .tab{padding:8px 0;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent}
+  .tab.active{color:var(--text);border-bottom-color:var(--accent)}
+  .tab.before{padding:8px 0;color:var(--muted)}
+
+  /* phase indicator */
+  .phase{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-bottom:14px;padding:8px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+  .phase-dot{width:10px;height:10px;border-radius:50%;background:var(--line)}
+  .phase-dot.done{background:var(--green)}
+  .phase-dot.current{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .phase-name{font-weight:600;color:var(--text)}
+  .phase-sep{flex:1;height:1px;background:var(--line)}
+  .phase-sep.done{background:var(--green)}
+
+  /* dual nav (before) */
+  .dual-rail{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px}
+  .rail-label{font-size:9px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-bottom:6px}
+  .rail-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .rail-col{background:#0c1228;border:1px solid var(--line);border-radius:6px;padding:8px}
+  .rail-col-label{font-size:8px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+  .rail-btn{display:inline-block;background:#1a2148;border:1px solid var(--line);border-radius:4px;padding:3px 7px;font-size:10px;margin:2px}
+
+  /* nba (after) */
+  .nba-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+  .nba{background:linear-gradient(135deg,rgba(95,169,255,.08),transparent);border:1px solid rgba(95,169,255,.25);border-radius:10px;padding:12px}
+  .nba-tag{display:inline-block;font-size:9px;letter-spacing:1px;text-transform:uppercase;font-weight:700;padding:2px 6px;border-radius:4px;margin-bottom:6px}
+  .nba-tag.warn{background:rgba(255,192,108,.2);color:var(--amber)}
+  .nba-tag.info{background:rgba(95,169,255,.2);color:var(--blue)}
+  .nba-tag.action{background:rgba(155,109,255,.2);color:var(--accent)}
+  .nba-title{font-size:12px;font-weight:600;margin-bottom:4px;line-height:1.3}
+  .nba-desc{font-size:10px;color:var(--muted);margin-bottom:8px}
+  .nba-cta{font-size:10px;color:var(--blue);font-weight:600;cursor:pointer}
+
+  /* table */
+  table.tbl{width:100%;border-collapse:collapse;font-size:11px}
+  table.tbl th{text-align:left;padding:8px 6px;font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--line);font-weight:600}
+  table.tbl td{padding:9px 6px;border-bottom:1px solid var(--line)}
+  table.tbl tr:hover td{background:rgba(155,109,255,.04)}
+  .pill{display:inline-block;font-size:9px;padding:2px 6px;border-radius:10px;background:var(--panel-2);color:var(--muted);font-weight:600;letter-spacing:.5px}
+  .pill.green{background:rgba(76,213,179,.15);color:var(--green)}
+  .pill.amber{background:rgba(255,192,108,.15);color:var(--amber)}
+  .pill.red{background:rgba(255,111,125,.15);color:var(--red)}
+  .pill.muted{background:var(--panel-2);color:var(--muted)}
+  .toggle{display:inline-block;width:24px;height:14px;background:var(--green);border-radius:8px;position:relative;vertical-align:middle}
+  .toggle:after{content:'';position:absolute;right:1px;top:1px;width:12px;height:12px;border-radius:50%;background:white}
+  .toggle.off{background:var(--line)}
+  .toggle.off:after{right:auto;left:1px}
+  .ovl{display:inline-block;color:var(--muted);font-size:14px;cursor:pointer;padding:0 6px}
+
+  /* before agents stack */
+  .agent-stack{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px}
+  .agent-stack-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:6px}
+  .agent-field{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:2px}
+  .agent-input{background:#0c1228;border:1px solid var(--line);border-radius:4px;padding:5px 7px;font-size:10px;color:var(--text)}
+  .agent-prompt{background:#0c1228;border:1px solid var(--line);border-radius:4px;padding:8px;font-size:10px;color:var(--muted);min-height:36px;margin-top:4px}
+
+  /* sidebar after callouts */
+  .sb-callout{background:linear-gradient(180deg,rgba(76,213,179,.1),transparent);border:1px solid rgba(76,213,179,.25);border-radius:6px;padding:5px;font-size:9px;color:var(--green);margin:6px;line-height:1.3;text-align:center}
+
+  /* legend */
+  .legend{display:flex;gap:18px;padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:24px;font-size:12px;color:var(--muted)}
+  .leg-item{display:flex;align-items:center;gap:8px}
+  .leg-dot{width:10px;height:10px;border-radius:3px}
+  .annotations{padding:12px 16px;background:rgba(155,109,255,.06);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;margin-top:12px;margin-bottom:24px;font-size:13px;color:var(--text);line-height:1.55}
+  .annotations strong{color:var(--accent-2)}
+  .pp{font-size:12px;color:var(--muted);margin-bottom:8px}
+
+  /* nav header */
+  .pheader{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .pname{font-size:18px;font-weight:700}
+  .pmeta{font-size:11px;color:var(--muted)}
+  .quickadd{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:none}
+
+  /* agent header */
+  .agent-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px}
+  .filter-row{display:flex;gap:6px;align-items:center;font-size:11px}
+  .search-box{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 10px;color:var(--muted);font-size:11px;flex:1}
+  .filter-pill{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px 10px;font-size:10px;color:var(--muted)}
+  .filter-pill.on{background:var(--accent);color:white;border-color:var(--accent)}
+
+  /* footer note */
+  .footer{padding:24px;text-align:center;color:var(--muted);font-size:12px;border-top:1px solid var(--line);margin-top:48px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1 class="page-title">Deploy OS — UI Mockups</h1>
+<p class="subtitle">Architect audit, 2 May 2026. Side-by-side comparisons of the four most cluttered surfaces, before and after.</p>
+
+<div class="legend">
+  <div class="leg-item"><div class="leg-dot" style="background:rgba(255,111,125,.6)"></div>BEFORE — current state</div>
+  <div class="leg-item"><div class="leg-dot" style="background:rgba(76,213,179,.6)"></div>AFTER — proposed redesign</div>
+  <div class="leg-item"><div class="leg-dot" style="background:rgba(155,109,255,.6)"></div>Annotated rationale below each comparison</div>
+</div>
+
+<!-- =============== SIDEBAR =============== -->
+<div class="section">
+  <div class="section-label">Mockup 1 of 4</div>
+  <h2>Sidebar — fix the landscape</h2>
+  <p class="section-desc">Today: 19 items in 5 groups, with the most strategic groups (AUTOMATION, OPERATIONS, ADMIN) below the fold on a 13-inch laptop. After: 14 items in 4 groups, all visible without scrolling.</p>
+
+  <div class="compare">
+    <!-- BEFORE -->
+    <div class="frame" style="min-height:520px">
+      <div class="frame-label before">Before</div>
+      <div class="frame-inner">
+        <div class="sb" style="position:relative;width:100%">
+          <div class="logo">muloo</div>
+          <div class="logo-sub">Deploy OS</div>
+          <div class="sb-item active"><div class="sb-icon"></div>Command Centre</div>
+          <div class="sb-item"><div class="sb-icon"></div>Inbox</div>
+          <div class="sb-group">Delivery</div>
+          <div class="sb-item"><div class="sb-icon"></div>Projects</div>
+          <div class="sb-item"><div class="sb-icon"></div>Clients</div>
+          <div class="sb-item"><div class="sb-icon"></div>Partners</div>
+          <div class="sb-item"><div class="sb-icon"></div>Contacts</div>
+          <div class="sb-group">Sales</div>
+          <div class="sb-item"><div class="sb-icon"></div>Quotes</div>
+          <div class="sb-item"><div class="sb-icon"></div>Products</div>
+          <div class="sb-item"><div class="sb-icon"></div>Retainers</div>
+          <div class="sb-item"><div class="sb-icon"></div>Invoices</div>
+          <div class="sb-item"><div class="sb-icon"></div>Financials</div>
+          <div class="sb-fold">⌄ scroll for Automation, Operations, Admin (9 more items)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="frame" style="min-height:520px">
+      <div class="frame-label after">After</div>
+      <div class="frame-inner">
+        <div class="sb" style="position:relative;width:100%">
+          <div class="logo">muloo</div>
+          <div class="logo-sub">Deploy OS</div>
+          <div class="sb-group">Work</div>
+          <div class="sb-item active"><div class="sb-icon"></div>Command Centre</div>
+          <div class="sb-item"><div class="sb-icon"></div>Inbox</div>
+          <div class="sb-item"><div class="sb-icon"></div>Projects</div>
+          <div class="sb-item"><div class="sb-icon"></div>Clients</div>
+          <div class="sb-item"><div class="sb-icon"></div>Partners</div>
+          <div class="sb-group">Sell</div>
+          <div class="sb-item"><div class="sb-icon"></div>Quotes</div>
+          <div class="sb-item"><div class="sb-icon"></div>Retainers</div>
+          <div class="sb-item"><div class="sb-icon"></div>Invoices</div>
+          <div class="sb-item"><div class="sb-icon"></div>Financials</div>
+          <div class="sb-group">Library</div>
+          <div class="sb-item"><div class="sb-icon"></div>Workbooks</div>
+          <div class="sb-item"><div class="sb-icon"></div>Question Library</div>
+          <div class="sb-item"><div class="sb-icon"></div>Implementation Templates</div>
+          <div class="sb-item"><div class="sb-icon"></div>Products</div>
+          <div class="sb-item"><div class="sb-icon"></div>Agents</div>
+          <div class="sb-group">Admin</div>
+          <div class="sb-item"><div class="sb-icon"></div>Settings</div>
+          <div class="sb-item"><div class="sb-icon"></div>Skeleton Key</div>
+          <div class="sb-callout">All 17 items above the fold. Runs and Contacts moved into sub-views.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <strong>Why this matters:</strong> nothing is hidden. Contacts becomes a tab inside Clients (the page itself already says "Go to Clients"). Runs becomes a tab inside Agents (it's debug, not a daily destination). Products moves to Library (it's catalogue, not pipeline). The OPERATIONS group renames to LIBRARY — a delivery lead intuitively reaches for "Library" when they want a template.
+  </div>
+</div>
+
+<!-- =============== COMMAND CENTRE =============== -->
+<div class="section">
+  <div class="section-label">Mockup 2 of 4</div>
+  <h2>Command Centre — make the home page actually useful</h2>
+  <p class="section-desc">Today: 7 stacked panels mixing live data with setup prompts and an 8-card news feed. After: a single top strip of "what needs you", live work below, background collapsed.</p>
+
+  <div class="compare">
+    <!-- BEFORE -->
+    <div class="frame" style="min-height:680px">
+      <div class="frame-label before">Before</div>
+      <div class="frame-inner">
+        <div class="main" style="width:100%">
+          <div class="greet">Command Centre</div>
+          <div class="greet-name">Good evening, Jarrud.</div>
+          <div class="card" style="background:rgba(255,192,108,.08);border-color:rgba(255,192,108,.3);margin-bottom:12px">
+            <div style="font-size:12px;font-weight:600;color:var(--amber)">⚠️ URGENT: Quotes Awaiting Approval</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:3px">Morning brief updated 4d ago</div>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="stat-label">Live</div><div class="stat-num">5</div><div class="stat-desc">non-archived</div></div>
+            <div class="stat"><div class="stat-label">In delivery</div><div class="stat-num">0</div><div class="stat-desc">executing</div></div>
+            <div class="stat"><div class="stat-label">Awaiting approval</div><div class="stat-num">2</div><div class="stat-desc">quote shared</div></div>
+            <div class="stat"><div class="stat-label">Blocked external</div><div class="stat-num">2</div><div class="stat-desc">on client/partner</div></div>
+            <div class="stat"><div class="stat-label">Overdue invoices</div><div class="stat-num">0</div><div class="stat-desc">all clean</div></div>
+          </div>
+          <div class="row">
+            <div class="card">
+              <div class="card-label">Email</div>
+              <div class="card-title">Client Gmail watchlists</div>
+              <div class="clutter" style="margin-top:8px">
+                <div class="clutter-label">Setup prompt</div>
+                <div class="clutter-body">Add the exact Gmail label on the client record…</div>
+              </div>
+              <div class="card-desc">EPIUSE UK · "label is live, no messages yet"</div>
+            </div>
+            <div class="card">
+              <div class="card-label">Calendar</div>
+              <div class="card-title">Today in Google Calendar</div>
+              <div class="card-desc" style="margin-bottom:8px">jarrud@muloo.co</div>
+              <div class="clutter">
+                <div class="clutter-label">Empty state</div>
+                <div class="clutter-body">No events scheduled for today.</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-label">Tasks</div>
+              <div class="card-title">Private Google Tasks</div>
+              <div class="clutter">
+                <div class="clutter-label">Setup prompt</div>
+                <div class="clutter-body">Add Google Workspace credentials once…</div>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="card">
+              <div class="card-label">Compose</div>
+              <div class="card-title">AI-assisted email composer</div>
+              <div class="card-desc">Use the same plain-text drafting flow…</div>
+            </div>
+            <div class="card">
+              <div class="card-label">Projects</div>
+              <div class="card-title">Projects in delivery</div>
+              <div class="clutter">
+                <div class="clutter-label">Empty state</div>
+                <div class="clutter-body">No projects are currently in delivery.</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-label">Runs</div>
+              <div class="card-title">Recent automation</div>
+              <div class="clutter">
+                <div class="clutter-label">3 × FAILED runs visible</div>
+                <div class="clutter-body">Prepare Brief · Transnova · FAILED</div>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:8px">
+            <div class="card-label">Daily Signal</div>
+            <div class="card-title">Industry movement worth knowing</div>
+            <div class="clutter" style="background:rgba(255,111,125,.06)">
+              <div class="clutter-label">8 news cards · ~50% of viewport</div>
+              <div class="clutter-body">News feed dominates the page. Operational signal is buried above.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="frame" style="min-height:680px">
+      <div class="frame-label after">After</div>
+      <div class="frame-inner">
+        <div class="main" style="width:100%">
+          <div class="greet">Command Centre · Saturday 02 May</div>
+          <div class="greet-name">Good evening, Jarrud.</div>
+          <div class="attention">
+            <div class="att-card">
+              <div class="att-num">2</div>
+              <div class="att-label">Quotes awaiting client approval</div>
+              <div class="att-cta">Open quotes →</div>
+            </div>
+            <div class="att-card amber">
+              <div class="att-num">82</div>
+              <div class="att-label">Discovery questions unanswered · Magnisol</div>
+              <div class="att-cta">Chase Tara →</div>
+            </div>
+            <div class="att-card amber">
+              <div class="att-num">2</div>
+              <div class="att-label">Projects blocked on client / partner</div>
+              <div class="att-cta">Review blockers →</div>
+            </div>
+            <div class="att-card green">
+              <div class="att-num">0</div>
+              <div class="att-label">Overdue invoices · Magnisol portal disconnected</div>
+              <div class="att-cta">Reconnect portal →</div>
+            </div>
+          </div>
+          <div class="stats" style="grid-template-columns:repeat(4,1fr)">
+            <div class="stat"><div class="stat-label">Live projects</div><div class="stat-num">5</div></div>
+            <div class="stat"><div class="stat-label">In delivery</div><div class="stat-num">0</div></div>
+            <div class="stat"><div class="stat-label">Pipeline</div><div class="stat-num" style="font-size:18px">R59k</div></div>
+            <div class="stat"><div class="stat-label">MRR</div><div class="stat-num" style="font-size:18px">R0</div></div>
+          </div>
+          <div class="card">
+            <div class="card-label">Live work</div>
+            <div class="card-title" style="margin-bottom:6px">Today</div>
+            <div class="card-desc">No calendar events · no tasks. You can coast or open a project below.</div>
+          </div>
+          <div class="card">
+            <div class="card-label">Projects</div>
+            <div class="card-title">Active projects (5)</div>
+            <div class="card-desc" style="margin-top:4px">Magnisol HubSpot and Website Delivery · ACTIVE · Today</div>
+            <div class="card-desc">Transnova HubSpot Optimisation · DRAFT · Today</div>
+            <div class="card-desc">CRM Framework &amp; Data Management · DRAFT · Today</div>
+          </div>
+          <div class="card" style="background:transparent;border-style:dashed">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div class="card-label">Background</div>
+                <div class="card-desc" style="margin-top:4px">⌃ Daily Signal · 8 new today &nbsp;&nbsp; ⌃ Recent automation · 3 failed</div>
+              </div>
+              <div style="font-size:11px;color:var(--muted)">Click to expand</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <strong>Why this matters:</strong> the home page now answers "what needs me?" in the first 100 pixels. Setup prompts disappear once integrations are connected (they don't belong on the daily home). Daily Signal collapses by default — it's a nice-to-have, not your morning brief. The AI email composer moves out of Command Centre and into the surfaces where you'd actually use it (project Comms tab, contacts page).
+  </div>
+</div>
+
+<!-- =============== PROJECT WORKSPACE =============== -->
+<div class="section">
+  <div class="section-label">Mockup 3 of 4</div>
+  <h2>Project workspace — kill the dual nav</h2>
+  <p class="section-desc">Today: two competing navigation systems (Workflow rail + tabs) plus a row of generic "Next Actions" — 23 nav targets before any content. After: one slim phase indicator, lifecycle-ordered tabs, three real next-best-action cards.</p>
+
+  <div class="compare">
+    <!-- BEFORE -->
+    <div class="frame" style="min-height:520px">
+      <div class="frame-label before">Before</div>
+      <div class="frame-inner">
+        <div class="main" style="width:100%">
+          <div class="dual-rail">
+            <div class="rail-label">Workflow → Follow-on Work</div>
+            <div class="rail-row">
+              <div class="rail-col">
+                <div class="rail-col-label">Context</div>
+                <span class="rail-btn">Project Summary</span>
+                <span class="rail-btn">Prepare</span>
+                <span class="rail-btn">Inputs</span>
+              </div>
+              <div class="rail-col">
+                <div class="rail-col-label">Diagnose</div>
+                <span class="rail-btn">Portal Audit</span>
+              </div>
+              <div class="rail-col">
+                <div class="rail-col-label">Plan</div>
+                <span class="rail-btn">Blueprint</span>
+                <span class="rail-btn">Scope &amp; Approval</span>
+              </div>
+              <div class="rail-col">
+                <div class="rail-col-label">Deliver</div>
+                <span class="rail-btn">Change Mgmt</span>
+                <span class="rail-btn">Delivery Board</span>
+              </div>
+            </div>
+          </div>
+          <div class="pheader">
+            <div>
+              <div class="pmeta">Projects › Magnisol HubSpot and Website Delivery › overview</div>
+              <div class="pname">Magnisol HubSpot and Website Delivery <span class="pill green">ACTIVE</span></div>
+              <div class="pmeta">Magnisol · IMPLEMENTATION · sales, marketing, cms</div>
+            </div>
+          </div>
+          <div class="tabs">
+            <div class="tab active">Overview</div><div class="tab">Meetings</div><div class="tab">Access &amp; Sharing</div>
+            <div class="tab">Discovery</div><div class="tab">Plan</div><div class="tab">Delivery</div>
+            <div class="tab">Comms</div><div class="tab">Portal</div>
+          </div>
+          <div class="clutter" style="margin-bottom:14px">
+            <div class="clutter-label">"Next Actions" — generic shortcuts, not next best actions</div>
+            <div class="clutter-body">Add latest meeting · Create workbook · Add contributor · Add resource · Open client portal · Generate next actions</div>
+          </div>
+          <div class="card">
+            <div class="card-label">Project readiness</div>
+            <div class="card-desc">Workstreams 3 · Workbooks 6 · Contributors 3 · Questions 0/82 · Miro 1 · Pending changes 0</div>
+          </div>
+          <div style="font-size:11px;color:var(--red);text-align:center;padding:12px;border:1px dashed rgba(255,111,125,.4);border-radius:6px">23 navigation targets visible before any actual content</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="frame" style="min-height:520px">
+      <div class="frame-label after">After</div>
+      <div class="frame-inner">
+        <div class="main" style="width:100%">
+          <div class="pheader">
+            <div>
+              <div class="pmeta">Projects › Magnisol</div>
+              <div class="pname">Magnisol HubSpot and Website Delivery <span class="pill green">ACTIVE</span></div>
+              <div class="pmeta">Magnisol · Implementation · sales, marketing, cms</div>
+            </div>
+            <button class="quickadd">+ Quick add</button>
+          </div>
+          <div class="phase">
+            <span class="phase-name">Phase</span>
+            <div class="phase-dot done"></div><span style="color:var(--green)">Discovery 60%</span>
+            <div class="phase-sep"></div>
+            <div class="phase-dot current"></div><span style="color:var(--accent)">Plan</span>
+            <div class="phase-sep"></div>
+            <div class="phase-dot"></div><span>Delivery</span>
+            <div class="phase-sep"></div>
+            <div class="phase-dot"></div><span>Handover</span>
+          </div>
+          <div class="tabs">
+            <div class="tab active">Overview</div><div class="tab">Discovery</div><div class="tab">Plan</div>
+            <div class="tab">Delivery</div><div class="tab">Change</div><div class="tab">Comms</div>
+            <div class="tab">Portal</div><div class="tab">Settings</div>
+          </div>
+          <div class="card-label" style="margin-bottom:8px">⚡ Next best actions (3)</div>
+          <div class="nba-grid">
+            <div class="nba">
+              <div class="nba-tag warn">Overdue · 4d</div>
+              <div class="nba-title">Discovery Session 1 unanswered by Tara</div>
+              <div class="nba-desc">82 questions waiting · last chase 4 days ago</div>
+              <div class="nba-cta">Send chase email →</div>
+            </div>
+            <div class="nba">
+              <div class="nba-tag info">Stale · 7d</div>
+              <div class="nba-title">Agent summary needs refresh</div>
+              <div class="nba-desc">Last generated 7d ago by Discovery Structuring</div>
+              <div class="nba-cta">Re-run agent →</div>
+            </div>
+            <div class="nba">
+              <div class="nba-tag action">Connect</div>
+              <div class="nba-title">Magnisol portal disconnected</div>
+              <div class="nba-desc">Champion can't access workbooks. Reconnect or skeleton-key in.</div>
+              <div class="nba-cta">Reconnect →</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-label">Project readiness</div>
+            <div class="card-desc">Workstreams 3 · Workbooks 6 · Contributors 3 · Questions 0/82 · Miro 1 · Pending changes 0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <strong>Why this matters:</strong> one navigation rail, one phase indicator, three real next-best-actions driven by data — not generic shortcuts. The "Quick add" button preserves access to the old shortcuts (Add meeting / Create workbook / etc.) without giving them top-of-page real estate. A delivery lead can land on a project and within 3 seconds know what's blocking and where to click. Tabs reordered to lifecycle order (Discovery → Plan → Delivery → Change → Comms → Portal → Settings) — Meetings folds under Comms, Access &amp; Sharing folds under Settings.
+  </div>
+</div>
+
+<!-- =============== AGENTS =============== -->
+<div class="section">
+  <div class="section-label">Mockup 4 of 4</div>
+  <h2>Agents — directory, not a stack of forms</h2>
+  <p class="section-desc">Today: a vertically stacked list where every agent renders its full edit form open at once, with duplicates visible. After: a sortable, searchable directory table; click row to edit in a side panel.</p>
+
+  <div class="compare">
+    <!-- BEFORE -->
+    <div class="frame" style="min-height:560px">
+      <div class="frame-label before">Before</div>
+      <div class="frame-inner">
+        <div class="main" style="width:100%">
+          <div class="greet">Agents</div>
+          <div class="greet-name">Agent Studio</div>
+          <div class="agent-stack">
+            <div class="agent-stack-row">
+              <div><div class="agent-field">Name</div><div class="agent-input">Discovery Structuring Agent</div></div>
+              <div><div class="agent-field">Purpose</div><div class="agent-input">Turn meeting notes…</div></div>
+              <div><div class="agent-field">Service family</div><div class="agent-input">HubSpot Architecture</div></div>
+              <div><div class="agent-field">Provider</div><div class="agent-input">Anthropic / Claude</div></div>
+            </div>
+            <div class="agent-stack-row" style="grid-template-columns:1fr 1fr 1fr">
+              <div><div class="agent-field">Model</div><div class="agent-input">claude-sonnet</div></div>
+              <div><div class="agent-field">Trigger</div><div class="agent-input">manual</div></div>
+              <div><div class="agent-field">Approval</div><div class="agent-input">review_required</div></div>
+            </div>
+            <div class="agent-prompt">System prompt: Structure discovery inputs into Muloo's operating model…</div>
+          </div>
+          <div class="agent-stack">
+            <div class="agent-stack-row">
+              <div><div class="agent-field">Name</div><div class="agent-input">Delivery Planner Agent</div></div>
+              <div><div class="agent-field">Purpose</div><div class="agent-input">Convert approved discovery…</div></div>
+              <div><div class="agent-field">Service family</div><div class="agent-input">HubSpot Architecture</div></div>
+              <div><div class="agent-field">Provider</div><div class="agent-input">Anthropic / Claude</div></div>
+            </div>
+            <div class="agent-prompt">System prompt: Break approved scope into practical phases…</div>
+          </div>
+          <div class="agent-stack" style="border-color:rgba(255,111,125,.4);background:rgba(255,111,125,.04)">
+            <div class="clutter-label" style="margin-bottom:6px">Duplicate of next agent ↓</div>
+            <div class="agent-stack-row">
+              <div><div class="agent-field">Name</div><div class="agent-input">Scope &amp; Commercial Agent</div></div>
+              <div><div class="agent-field">Provider</div><div class="agent-input">OpenAI / ChatGPT</div></div>
+              <div><div class="agent-field">Model</div><div class="agent-input">gpt-5.4</div></div>
+              <div><div class="agent-field">Trigger</div><div class="agent-input">manual</div></div>
+            </div>
+          </div>
+          <div class="agent-stack">
+            <div class="agent-stack-row">
+              <div><div class="agent-field">Name</div><div class="agent-input">Scope &amp; Commercial Agent</div></div>
+              <div><div class="agent-field">Provider</div><div class="agent-input">OpenAI / ChatGPT</div></div>
+              <div><div class="agent-field">Model</div><div class="agent-input">gpt-5.4</div></div>
+              <div><div class="agent-field">Trigger</div><div class="agent-input">manual</div></div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--red);text-align:center;padding:10px;border:1px dashed rgba(255,111,125,.4);border-radius:6px">Endless scroll · no search · no filter · duplicates · no last-run data · no run trigger</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="frame" style="min-height:560px">
+      <div class="frame-label after">After</div>
+      <div class="frame-inner">
+        <div class="main" style="width:100%">
+          <div class="greet">Library · Agents</div>
+          <div class="greet-name">Agent directory</div>
+          <div class="agent-header">
+            <div class="search-box">🔍 Search agents…</div>
+            <div class="filter-row">
+              <span class="filter-pill on">All · 6</span>
+              <span class="filter-pill">Active · 5</span>
+              <span class="filter-pill">Failed recently · 1</span>
+            </div>
+            <button class="quickadd">+ New agent</button>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>Name</th><th>Service family</th><th>Trigger</th><th>Last run</th><th>Status</th><th>Active</th><th></th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div style="font-weight:600">Discovery Structuring</div><div style="color:var(--muted);font-size:10px">Turn meeting notes into structured discovery</div></td>
+                <td>HubSpot Architecture</td>
+                <td>Manual</td>
+                <td>4d ago</td>
+                <td><span class="pill green">OK</span></td>
+                <td><span class="toggle"></span></td>
+                <td><span class="ovl">⋯</span></td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">Delivery Planner</div><div style="color:var(--muted);font-size:10px">Convert approved discovery into phased plan</div></td>
+                <td>HubSpot Architecture</td>
+                <td>Manual</td>
+                <td>9d ago</td>
+                <td><span class="pill green">OK</span></td>
+                <td><span class="toggle"></span></td>
+                <td><span class="ovl">⋯</span></td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">Scope &amp; Commercial</div><div style="color:var(--muted);font-size:10px">Translate scope into clean commercial options</div></td>
+                <td>HubSpot Architecture</td>
+                <td>Manual</td>
+                <td>1d ago</td>
+                <td><span class="pill amber">REVIEW · 1</span></td>
+                <td><span class="toggle"></span></td>
+                <td><span class="ovl">⋯</span></td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">Portal Audit</div><div style="color:var(--muted);font-size:10px">Audit HubSpot portals like a senior architect</div></td>
+                <td>HubSpot Architecture</td>
+                <td>On request</td>
+                <td>Never</td>
+                <td><span class="pill muted">IDLE</span></td>
+                <td><span class="toggle"></span></td>
+                <td><span class="ovl">⋯</span></td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">Prepare Brief</div><div style="color:var(--muted);font-size:10px">Auto-prefill new project from website</div></td>
+                <td>Onboarding</td>
+                <td>Auto · on project create</td>
+                <td>11h ago</td>
+                <td><span class="pill red">FAILED · retry?</span></td>
+                <td><span class="toggle"></span></td>
+                <td><span class="ovl">⋯</span></td>
+              </tr>
+              <tr>
+                <td><div style="font-weight:600">Daily Signal Fetcher</div><div style="color:var(--muted);font-size:10px">Pull industry news for Command Centre</div></td>
+                <td>Operations</td>
+                <td>Cron · daily 06:00</td>
+                <td>4h ago</td>
+                <td><span class="pill green">OK</span></td>
+                <td><span class="toggle off"></span></td>
+                <td><span class="ovl">⋯</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="card" style="margin-top:12px">
+            <div class="card-label">Review queue</div>
+            <div class="card-title">1 agent output waiting for human review</div>
+            <div class="card-desc" style="margin-top:4px">Scope &amp; Commercial · Magnisol Phase 2 quote draft · queued 1d ago</div>
+            <div style="margin-top:8px"><span class="att-cta" style="color:var(--blue);font-weight:600">Open review queue →</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <strong>Why this matters:</strong> a directory you can scan, search, sort and de-duplicate. Last-run timestamps make staleness visible. Failed runs surface their own retry. The Review Queue gives "review_required" outputs a real home (today they save silently with no chase mechanic). Click a row to open the editor in a side panel without losing your place. The catalogue can scale to 30+ agents without becoming unusable.
+  </div>
+</div>
+
+<div class="footer">
+  These mockups are illustrative — pixel-level layouts, copy and styling are suggestions only.<br>
+  Companion docs: <strong>01-Audit-Report.md</strong> · <strong>02-Action-Plan.md</strong> · <strong>04-Audit-Report.docx</strong>
+</div>
+
+</div>
+</body>
+</html>

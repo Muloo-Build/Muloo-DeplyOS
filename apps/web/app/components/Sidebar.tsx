@@ -8,7 +8,6 @@ import {
   Bot,
   BookOpen,
   Building2,
-  Contact,
   FileText,
   FolderKanban,
   Inbox,
@@ -20,7 +19,6 @@ import {
   LogOut,
   Menu,
   Package,
-  PlaySquare,
   Receipt,
   Settings,
   Wallet,
@@ -42,10 +40,7 @@ type NavGroup = {
 };
 
 function isProjectsRoute(pathname: string): boolean {
-  if (
-    pathname.startsWith("/projects/portal-ops") ||
-    pathname.startsWith("/operations")
-  ) {
+  if (pathname.startsWith("/operations")) {
     return false;
   }
 
@@ -59,7 +54,7 @@ function isProjectsRoute(pathname: string): boolean {
 
 const navGroups: NavGroup[] = [
   {
-    label: "",
+    label: "WORK",
     items: [
       {
         href: "/command-centre",
@@ -79,12 +74,7 @@ const navGroups: NavGroup[] = [
         isActive: (pathname) =>
           pathname === "/inbox" || pathname.startsWith("/inbox/"),
         badge: "inbox"
-      }
-    ]
-  },
-  {
-    label: "DELIVERY",
-    items: [
+      },
       {
         href: "/projects",
         label: "Projects",
@@ -95,8 +85,12 @@ const navGroups: NavGroup[] = [
         href: "/clients",
         label: "Clients",
         icon: <Building2 size={18} />,
+        // Contacts is a sub-view of Clients; route still works at /contacts.
         isActive: (pathname) =>
-          pathname === "/clients" || pathname.startsWith("/clients/")
+          pathname === "/clients" ||
+          pathname.startsWith("/clients/") ||
+          pathname === "/contacts" ||
+          pathname.startsWith("/contacts/")
       },
       {
         href: "/partners",
@@ -104,18 +98,11 @@ const navGroups: NavGroup[] = [
         icon: <Building2 size={18} />,
         isActive: (pathname) =>
           pathname === "/partners" || pathname.startsWith("/partners/")
-      },
-      {
-        href: "/contacts",
-        label: "Contacts",
-        icon: <Contact size={18} />,
-        isActive: (pathname) =>
-          pathname === "/contacts" || pathname.startsWith("/contacts/")
       }
     ]
   },
   {
-    label: "SALES",
+    label: "SELL",
     items: [
       {
         href: "/quotes",
@@ -123,13 +110,6 @@ const navGroups: NavGroup[] = [
         icon: <FileText size={18} />,
         isActive: (pathname) =>
           pathname === "/quotes" || pathname.startsWith("/quotes/")
-      },
-      {
-        href: "/products",
-        label: "Products",
-        icon: <Package size={18} />,
-        isActive: (pathname) =>
-          pathname === "/products" || pathname.startsWith("/products/")
       },
       {
         href: "/retainers",
@@ -155,36 +135,7 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    label: "AUTOMATION",
-    items: [
-      {
-        href: "/projects/portal-ops",
-        label: "Portal Ops",
-        icon: <LayoutDashboard size={16} />,
-        compact: true,
-        isActive: (pathname) =>
-          pathname === "/projects/portal-ops" ||
-          pathname.startsWith("/projects/portal-ops/")
-      },
-      {
-        href: "/runs",
-        label: "Runs",
-        icon: <PlaySquare size={16} />,
-        compact: true,
-        isActive: (pathname) => pathname === "/runs" || pathname.startsWith("/runs/")
-      },
-      {
-        href: "/agents",
-        label: "Agents",
-        icon: <Bot size={16} />,
-        compact: true,
-        isActive: (pathname) =>
-          pathname === "/agents" || pathname.startsWith("/agents/")
-      }
-    ]
-  },
-  {
-    label: "OPERATIONS",
+    label: "LIBRARY",
     items: [
       {
         href: "/workbooks",
@@ -207,6 +158,24 @@ const navGroups: NavGroup[] = [
         icon: <LayoutTemplate size={18} />,
         isActive: (pathname) =>
           pathname === "/templates" || pathname.startsWith("/templates/")
+      },
+      {
+        href: "/products",
+        label: "Products",
+        icon: <Package size={18} />,
+        isActive: (pathname) =>
+          pathname === "/products" || pathname.startsWith("/products/")
+      },
+      {
+        href: "/agents",
+        label: "Agents",
+        icon: <Bot size={18} />,
+        // Runs is a debug/observability surface; route still works at /runs.
+        isActive: (pathname) =>
+          pathname === "/agents" ||
+          pathname.startsWith("/agents/") ||
+          pathname === "/runs" ||
+          pathname.startsWith("/runs/")
       }
     ]
   },
@@ -214,18 +183,18 @@ const navGroups: NavGroup[] = [
     label: "ADMIN",
     items: [
       {
-        href: "/skeleton-key",
-        label: "Skeleton key",
-        icon: <KeyRound size={18} />,
-        isActive: (pathname) =>
-          pathname === "/skeleton-key" || pathname.startsWith("/skeleton-key/")
-      },
-      {
         href: "/settings",
         label: "Settings",
         icon: <Settings size={18} />,
         isActive: (pathname) =>
           pathname === "/settings" || pathname.startsWith("/settings/")
+      },
+      {
+        href: "/skeleton-key",
+        label: "Skeleton Key",
+        icon: <KeyRound size={18} />,
+        isActive: (pathname) =>
+          pathname === "/skeleton-key" || pathname.startsWith("/skeleton-key/")
       }
     ]
   }
