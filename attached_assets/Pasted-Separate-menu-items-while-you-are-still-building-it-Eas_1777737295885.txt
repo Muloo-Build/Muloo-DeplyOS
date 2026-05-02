@@ -1,0 +1,376 @@
+Separate menu items while you are still building it. Easier to debug and easier to think through.
+
+What the global Workbooks page does
+
+This is where Muloo creates reusable workbook structures.
+
+It should allow you to:
+
+Create a workbook template
+Edit workbook name and description
+Add sections
+Add questions from the question library
+Create custom questions
+Reorder sections
+Reorder questions
+Tag the workbook by project type
+Define suggested contributor roles
+Define default visibility
+Preview as contributor
+Duplicate workbook
+Archive workbook
+
+Example workbook templates:
+
+HubSpot Discovery Workbook
+Website Discovery Workbook
+Tech Stack and Access Workbook
+Reporting Discovery Workbook
+Sales Process Workbook
+Service Hub Workbook
+CMS Migration Workbook
+Marketing Campaign Readiness Workbook
+Stakeholder Interview Workbook
+What the global Question Library does
+
+This is your master question bank.
+
+Each question should have metadata:
+
+Question
+Category
+Section
+Recommended workbook
+Suggested contributor role
+Question type
+Required/optional
+Internal/client-facing
+Tags
+Difficulty
+
+Example categories:
+
+Business Goals
+Current State
+CRM and Sales
+Marketing
+Website and CMS
+Service and Support
+Reporting
+Data and Migration
+Integrations
+Security and Access
+Operations
+Handover
+
+This is where you fix the messy question grouping properly.
+
+Not inside each project. Inside the source library.
+
+What the project page should show
+
+The project page should only show project-specific usage.
+
+On the project Discovery tab, show:
+
+Discovery Workbooks
+- HubSpot Discovery Workbook
+- Website Discovery Workbook
+- Tech Stack and Access Workbook
+
+Each card should show:
+
+Status
+Visibility
+Assigned contributors
+Progress
+Last updated
+Actions:
+Open project workbook
+Assign contributors
+Change visibility
+Remove from project
+
+The project page should have a button:
+
+Add workbook from library
+
+That opens a modal:
+
+Select workbook template
+Choose sections to include
+Assign contributors
+Set visibility
+Create project workbook
+
+Once added to a project, it becomes a project workbook instance.
+
+That means you can edit it for that specific project without damaging the global template.
+
+The correct data model
+
+This is the clean mental model:
+
+Question Library
+Reusable master questions
+
+Workbook Templates
+Reusable workbook structures made from library questions
+
+Project Workbooks
+A copied instance of a workbook template attached to one project
+
+Contributor Assignments
+Which contributors can answer which project workbooks
+
+Workbook Responses
+Answers submitted by contributors
+
+That separation is important.
+
+Otherwise, one day you edit the “Tech Stack” workbook for Magnisol and accidentally change the default workbook for every future project. That is how innocent systems become haunted.
+
+What I’d tell Replit next
+
+Use this prompt:
+
+We need to refactor the workbook UX architecture. The workbook builder and question library should not live inside the project discovery page. The project page should only show workbooks attached to that specific project.
+
+Please implement a cleaner separation between global workbook tools and project workbook instances.
+
+Context:
+Deploy OS uses workbooks to collect structured discovery input from contributors and clients. Workbooks should be reusable across projects, but once added to a project they become project-specific instances that can be edited without changing the source template.
+
+Current issue:
+The Discovery tab on the project page is overloaded. It currently contains workbook creation, question library selection, workbook editing, contributor context, and project discovery progress. This makes the project page confusing and too dense.
+
+Required changes:
+
+1. Left navigation
+Add a new section under Operations called:
+
+Workbooks
+
+Add another item if needed:
+
+Question Library
+
+Rename the existing Templates nav item to:
+
+Implementation Templates
+
+Reason:
+The current Templates are implementation/build templates, not discovery workbook templates.
+
+2. Global Workbooks page
+Create a new global Workbooks page accessible from the left nav.
+
+This page should manage reusable workbook templates.
+
+The page should include:
+- List of workbook templates
+- Create workbook template
+- Edit workbook template
+- Duplicate workbook template
+- Archive/remove workbook template
+- Preview workbook template
+- Search/filter by category, hub, project type, or contributor role
+
+Each workbook template should support:
+- Title
+- Description
+- Category
+- Suggested project type
+- Suggested contributor role
+- Default visibility
+- Sections
+- Questions
+- Tags
+- Active/archived status
+
+Suggested workbook template examples:
+- HubSpot Discovery Workbook
+- Website Discovery Workbook
+- Tech Stack and Access Workbook
+- Reporting Discovery Workbook
+- Sales Process Workbook
+- Service Hub Workbook
+- CMS Migration Workbook
+- Marketing Campaign Readiness Workbook
+- Stakeholder Interview Workbook
+
+3. Global Question Library
+Create or improve a global Question Library page.
+
+This page should manage reusable questions.
+
+Each library question should support:
+- Question text
+- Helper text
+- Category
+- Section
+- Suggested workbook type
+- Suggested contributor role
+- HubSpot area
+- Question type:
+  - Text
+  - Long text
+  - Yes/no
+  - Multiple choice
+  - File upload
+  - Link/url
+- Required/optional
+- Internal/client-facing
+- Tags
+- Active/archived status
+
+Question categories should include:
+- Business Goals
+- Current State
+- CRM and Sales
+- Marketing
+- Website and CMS
+- Service and Support
+- Reporting
+- Data and Migration
+- Integrations
+- Security and Access
+- Operations
+- Handover
+
+Important:
+Technology stack, hosting, DNS, integrations, costs, access, permissions, data security, and platform questions should be categorised under technical, integrations, data, or security sections. They should not be mixed randomly into website/content discovery.
+
+4. Project Discovery tab cleanup
+Remove the full workbook builder and question library browsing UI from the project Discovery tab.
+
+The project page should only show project workbook instances attached to that project.
+
+For each attached project workbook card, show:
+- Workbook title
+- Description
+- Source template name if applicable
+- Visibility badge
+- Status badge
+- Assigned contributors
+- Sections count
+- Questions count
+- Answered/unanswered count
+- Last updated
+
+Actions:
+- Open
+- Assign contributors
+- Change visibility
+- Edit project copy
+- Remove from project
+
+5. Add workbook from library flow
+On the project Discovery tab, keep a button:
+
+Add workbook from library
+
+This should open a modal where the operator can:
+- Select a workbook template
+- Preview sections/questions
+- Choose which sections to include
+- Assign contributors
+- Set visibility
+- Create project workbook
+
+Important:
+When a workbook template is added to a project, create a project-specific workbook instance/copy.
+Editing the project workbook should not change the global workbook template.
+
+6. Project workbook editing
+A project workbook instance should be editable from the project page, but only as a project copy.
+
+Allow the operator to:
+- Edit title
+- Edit description
+- Add/remove sections
+- Add/remove questions
+- Reorder sections
+- Reorder questions
+- Move questions between sections
+- Assign contributors
+- Change visibility
+- Save changes
+
+Make it clear in the UI:
+“You are editing the project copy. The global workbook template will not be changed.”
+
+7. Contributor-facing workbook remains simple
+Contributors should only see assigned project workbook instances, not global templates or the question library.
+
+Contributor workbook page should show:
+- Project name
+- Workbook title
+- Intro
+- Progress bar
+- Sections
+- Questions grouped clearly
+- Save draft
+- Submit
+- I don’t know option where useful
+- Needs discussion flag
+
+8. Access & Sharing remains separate
+Do not put contributor management and portal setup back into Discovery.
+
+Project access setup belongs in the Access & Sharing tab.
+
+Access & Sharing should manage:
+- Client champion
+- Contributors
+- Contributor assignments
+- Portal visibility
+- HubSpot partner invite link
+- Internal HubSpot Deploy OS connection
+- Miro links
+- Shared resources
+
+9. Data model guidance
+Use this conceptual structure if existing models allow it:
+
+- LibraryQuestion: reusable master question
+- WorkbookTemplate: reusable workbook structure
+- WorkbookTemplateSection: sections inside templates
+- WorkbookTemplateQuestion: questions linked to template sections
+- ProjectWorkbook: project-specific workbook instance
+- ProjectWorkbookSection: copied section for a project
+- ProjectWorkbookQuestion: copied question for a project
+- WorkbookResponse: contributor/client answer
+
+If the current schema uses DiscoveryEvidence for workbooks, do not break existing data. Add a migration or compatibility layer if needed.
+
+10. UX requirements
+- Do not show huge expanded question lists by default.
+- Use collapsed cards and modals.
+- Keep the project page focused.
+- Make every visible action button clickable.
+- Avoid ambiguous labels like Templates where the template type is unclear.
+- Use plain English labels.
+
+11. Testing
+Run:
+- API typecheck
+- Web typecheck
+- Existing tests if available
+
+Report:
+- Files changed
+- Routes added/changed
+- Models/migrations added
+- Manual test steps
+- Any backwards compatibility notes
+The big decision
+
+You should stop treating “workbooks” as a project feature.
+
+They are a platform capability.
+
+Projects consume workbooks.
+Projects do not own the workbook system.
+
+That one shift will make the whole thing cleaner.
