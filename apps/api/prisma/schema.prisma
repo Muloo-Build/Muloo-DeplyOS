@@ -375,7 +375,11 @@ model ReportTemplate {
 
 model ReportInstallation {
   id                 String         @id @default(cuid())
-  projectId          String
+  // projectId is the project that *last initiated* this install — kept for
+  // audit. Installation state itself is keyed by (portalId, templateSlug)
+  // so that multiple projects sharing one HubSpot portal observe the same
+  // status and cannot create duplicate reports in that portal.
+  projectId          String?
   portalId           String
   templateId         String
   templateSlug       String
@@ -390,11 +394,11 @@ model ReportInstallation {
   executionJobId     String?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
-  project            Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project            Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   portal             HubSpotPortal  @relation(fields: [portalId], references: [id], onDelete: Cascade)
   template           ReportTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  @@unique([projectId, templateSlug])
+  @@unique([portalId, templateSlug])
   @@index([portalId, status])
   @@index([projectId, status])
   @@index([templateId])

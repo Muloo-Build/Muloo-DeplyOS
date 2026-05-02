@@ -32586,12 +32586,20 @@ export async function loadReportPack(projectId: string) {
     throw new Error(`Project not found: ${projectId}`);
   }
 
+  // Installations are per-portal (a single HubSpot portal may be shared by
+  // multiple projects). Resolve the portal first, then load installs by
+  // portalId so two projects on the same portal see the same install state.
+  const portalRow = project.portalId
+    ? await prisma.hubSpotPortal.findUnique({ where: { portalId: project.portalId } })
+    : null;
   const [templates, installations] = await Promise.all([
     prisma.reportTemplate.findMany({
       where: { isActive: true },
       orderBy: [{ hub: "asc" }, { displayOrder: "asc" }, { name: "asc" }]
     }),
-    prisma.reportInstallation.findMany({ where: { projectId } })
+    portalRow
+      ? prisma.reportInstallation.findMany({ where: { portalId: portalRow.id } })
+      : Promise.resolve([])
   ]);
 
   const installBySlug = new Map(installations.map((i) => [i.templateSlug, i]));
@@ -32635,15 +32643,24 @@ export async function loadReportPack(projectId: string) {
   };
 }
 
-async function enqueueReportInstall(installationId: string) {
+async function enqueueReportInstall(installationId: string, requestingProjectId?: string) {
   const installation = await prisma.reportInstallation.findUnique({
     where: { id: installationId }
   });
   if (!installation) throw new Error("Installation row missing after creation");
 
+  // ExecutionJob requires a projectId — prefer the project that triggered
+  // this enqueue, falling back to the audit projectId on the installation.
+  const jobProjectId = requestingProjectId ?? installation.projectId;
+  if (!jobProjectId) {
+    throw new Error(
+      `Cannot enqueue report install ${installation.id}: no project context available.`
+    );
+  }
+
   const job = await prisma.executionJob.create({
     data: {
-      projectId: installation.projectId,
+      projectId: jobProjectId,
       moduleKey: "report_install",
       executionMethod: "queue",
       mode: "apply",
@@ -32668,7 +32685,7 @@ async function enqueueReportInstall(installationId: string) {
     {
       executionJobId: job.id,
       moduleKey: "report_install",
-      projectId: installation.projectId,
+      projectId: jobProjectId,
       portalId: installation.portalId,
       payload: {
         installationId: installation.id,
@@ -32733,15 +32750,17 @@ export async function installReportTemplates(input: {
     const template = bySlug.get(slug)!;
     const existing = await prisma.reportInstallation.findUnique({
       where: {
-        projectId_templateSlug: {
-          projectId: project.id,
+        portalId_templateSlug: {
+          portalId: portal.id,
           templateSlug: slug
         }
       }
     });
     // Concurrency guard — never enqueue a duplicate job while one is still
     // pending or running. Operators must use retryReportInstallation (which
-    // resets status) to force a re-install.
+    // resets status) to force a re-install. Because installs are keyed per
+    // portal, this also prevents two different projects on the same portal
+    // from racing to create duplicate HubSpot reports.
     if (existing && (existing.status === "pending" || existing.status === "running")) {
       skipped.push({
         templateSlug: slug,
@@ -32751,14 +32770,14 @@ export async function installReportTemplates(input: {
     }
     const install = await prisma.reportInstallation.upsert({
       where: {
-        projectId_templateSlug: {
-          projectId: project.id,
+        portalId_templateSlug: {
+          portalId: portal.id,
           templateSlug: slug
         }
       },
       update: {
         templateId: template.id,
-        portalId: portal.id,
+        projectId: project.id,
         status: "pending",
         errorMessage: null
       },
@@ -32771,7 +32790,7 @@ export async function installReportTemplates(input: {
       }
     });
 
-    const result = await enqueueReportInstall(install.id);
+    const result = await enqueueReportInstall(install.id, project.id);
     enqueued.push({
       templateSlug: slug,
       installationId: result.installationId,
