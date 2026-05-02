@@ -25550,6 +25550,7 @@ function serializeDiscoveryEvidence<
     sharedWith?: string[];
     dueDate?: Date | null;
     linkedSectionIds?: string[];
+    sourceTemplateId?: string | null;
   }
 >(evidence: T) {
   return {
@@ -25573,7 +25574,8 @@ function serializeDiscoveryEvidence<
     ownerName: evidence.ownerName ?? null,
     sharedWith: evidence.sharedWith ?? [],
     dueDate: evidence.dueDate ? evidence.dueDate.toISOString() : null,
-    linkedSectionIds: evidence.linkedSectionIds ?? []
+    linkedSectionIds: evidence.linkedSectionIds ?? [],
+    sourceTemplateId: evidence.sourceTemplateId ?? null
   };
 }
 
@@ -26907,6 +26909,148 @@ export async function importLibraryQuestionsIntoWorkbook(
     data: { workbookContent: content as unknown as Prisma.Prisma.InputJsonValue }
   });
   return serializeDiscoveryEvidence(updated);
+}
+
+function newWorkbookSectionId() {
+  return `section_${Date.now().toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+}
+
+function newWorkbookQuestionIdFromTemplate(templateQuestionId: string) {
+  return `q_${templateQuestionId}_${Date.now().toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 6)}`;
+}
+
+function mapTemplateVisibilityToWorkbookVisibility(
+  templateVisibility: string
+): string {
+  switch (templateVisibility) {
+    case "client_facing":
+      return "client_portal";
+    case "internal":
+    default:
+      return "internal";
+  }
+}
+
+export async function createWorkbookFromTemplate(
+  projectId: string,
+  templateId: string,
+  value: {
+    sourceLabel?: unknown;
+    visibility?: unknown;
+    workstreamId?: unknown;
+    ownerName?: unknown;
+    sessionNumber?: unknown;
+  }
+) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true }
+  });
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const template = await prisma.workbookTemplate.findUnique({
+    where: { id: templateId },
+    include: {
+      sections: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          questions: { orderBy: { sortOrder: "asc" } }
+        }
+      }
+    }
+  });
+  if (!template) {
+    throw new Error("Workbook template not found");
+  }
+  if (template.isArchived) {
+    throw new Error(
+      "Workbook template is archived; unarchive it before adding to a project"
+    );
+  }
+
+  const sections: WorkbookSection[] = template.sections.map((section) => {
+    const newSection: WorkbookSection = {
+      id: newWorkbookSectionId(),
+      title: section.title,
+      description: section.description ?? null,
+      category: null,
+      linkedWorkstreamId: null,
+      assignedContributorIds: [],
+      status: "draft",
+      questions: section.questions.map((question) => {
+        const q: WorkbookQuestion = {
+          id: newWorkbookQuestionIdFromTemplate(question.id),
+          questionText: question.questionText,
+          helpText: question.helpText ?? null,
+          answerType: question.answerType,
+          required: question.isRequired,
+          options: question.options ?? [],
+          tags: [],
+          assignedContributorIds: [],
+          status: "unanswered",
+          response: null,
+          responseFiles: [],
+          responseLinks: [],
+          internalNotes: null,
+          sourceLibraryItemId: question.libraryQuestionId ?? null
+        };
+        return q;
+      })
+    };
+    return newSection;
+  });
+
+  const workbookContent: WorkbookContent = {
+    version: 1,
+    sections
+  };
+
+  const sourceLabelOverride =
+    typeof value.sourceLabel === "string" ? value.sourceLabel.trim() : "";
+  const sourceLabel = sourceLabelOverride || template.title;
+
+  const visibility =
+    typeof value.visibility === "string" && value.visibility.length > 0
+      ? value.visibility
+      : mapTemplateVisibilityToWorkbookVisibility(template.defaultVisibility);
+
+  const sessionNumberRaw = value.sessionNumber;
+  const sessionNumber =
+    typeof sessionNumberRaw === "number"
+      ? sessionNumberRaw
+      : Number(sessionNumberRaw ?? 0);
+
+  const evidenceItem = await prisma.discoveryEvidence.create({
+    data: {
+      projectId,
+      sessionNumber: Number.isFinite(sessionNumber) ? sessionNumber : 0,
+      evidenceType: "operator-note",
+      sourceLabel,
+      sourceUrl: null,
+      content: template.description ?? null,
+      workbookContent: workbookContent as unknown as Prisma.Prisma.InputJsonValue,
+      resourceType: "internal_workbook",
+      assignedContributorIds: [],
+      ownerContributorId: null,
+      kind: "workbook",
+      workstreamId: normalizeOptionalText(value.workstreamId),
+      status: "draft",
+      visibility: normalizeVisibility(visibility),
+      ownerName: normalizeOptionalText(value.ownerName),
+      sharedWith: [],
+      dueDate: null,
+      linkedSectionIds: [],
+      sourceTemplateId: template.id
+    }
+  });
+
+  return serializeDiscoveryEvidence(evidenceItem);
 }
 
 export const MULOO_SKELETON_PORTAL_EMAIL = "skeleton@muloo.internal";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import QuestionLibraryPicker from "./QuestionLibraryPicker";
 import WorkbookContentEditor, {
   type WorkbookContent
@@ -25,8 +25,20 @@ interface Workbook {
   sharedWith: string[];
   dueDate: string | null;
   linkedSectionIds: string[];
+  sourceTemplateId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface TemplateChoice {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  suggestedProjectType: string | null;
+  defaultVisibility: string;
+  sectionCount: number;
+  questionCount: number;
 }
 
 interface WorkstreamOption {
@@ -133,6 +145,7 @@ export default function ProjectWorkbooksPanel(props: {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [openWorkbookId, setOpenWorkbookId] = useState<string | null>(null);
   const [pickingForWorkbookId, setPickingForWorkbookId] = useState<
     string | null
@@ -292,17 +305,44 @@ export default function ProjectWorkbooksPanel(props: {
               contributors, the project champion, or the full client portal.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowForm((value) => !value)}
-            className="brand-surface shrink-0 rounded-full border border-white/10 px-3 py-1.5 text-xs uppercase tracking-wide text-white hover:border-white/30"
-          >
-            {showForm ? "Cancel" : "Add workbook"}
-          </button>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowTemplatePicker((value) => !value);
+                if (!showTemplatePicker) setShowForm(false);
+              }}
+              className="brand-surface rounded-full border border-brand-teal/40 px-3 py-1.5 text-xs uppercase tracking-wide text-brand-teal hover:border-brand-teal/60"
+            >
+              {showTemplatePicker ? "Cancel" : "+ From template"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm((value) => !value);
+                if (!showForm) setShowTemplatePicker(false);
+              }}
+              className="brand-surface rounded-full border border-white/10 px-3 py-1.5 text-xs uppercase tracking-wide text-white hover:border-white/30"
+            >
+              {showForm ? "Cancel" : "Add workbook"}
+            </button>
+          </div>
         </div>
       </div>
 
       {error ? <p className="text-sm text-rose-400">{error}</p> : null}
+
+      {showTemplatePicker ? (
+        <FromTemplatePicker
+          projectId={props.projectId}
+          workstreams={props.workstreams}
+          onCreated={() => {
+            setShowTemplatePicker(false);
+            void load();
+          }}
+          onError={setError}
+        />
+      ) : null}
 
       {showForm ? (
         <div className="brand-surface-soft space-y-3 rounded-2xl border p-4">
@@ -484,6 +524,14 @@ export default function ProjectWorkbooksPanel(props: {
                           {wb.status}
                         </span>
                       ) : null}
+                      {wb.sourceTemplateId ? (
+                        <span
+                          title="Created from a workbook template. Edits here do not affect the template."
+                          className="cursor-help rounded-full border border-brand-teal/30 bg-brand-teal/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-brand-teal"
+                        >
+                          From template
+                        </span>
+                      ) : null}
                     </div>
                     <p className="mt-0.5 text-xs text-text-secondary">
                       {wb.resourceType
@@ -607,6 +655,294 @@ export default function ProjectWorkbooksPanel(props: {
             );
           })}
         </ul>
+      )}
+    </div>
+  );
+}
+
+function FromTemplatePicker(props: {
+  projectId: string;
+  workstreams: WorkstreamOption[];
+  onCreated: () => void;
+  onError: (message: string | null) => void;
+}) {
+  const [templates, setTemplates] = useState<TemplateChoice[] | null>(null);
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState({
+    sourceLabel: "",
+    visibility: "internal",
+    workstreamId: "",
+    ownerName: ""
+  });
+
+  const load = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      params.set("isArchived", "false");
+      if (search.trim()) params.set("search", search.trim());
+      const res = await fetch(
+        `/api/workbook-templates?${params.toString()}`,
+        { credentials: "include" }
+      );
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error ?? "Failed to load templates");
+      }
+      setTemplates((data.templates ?? []) as TemplateChoice[]);
+    } catch (err) {
+      props.onError(
+        err instanceof Error ? err.message : "Failed to load templates"
+      );
+    }
+  }, [search, props]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => void load(), 200);
+    return () => clearTimeout(handle);
+  }, [load]);
+
+  const selected = useMemo(
+    () => templates?.find((t) => t.id === selectedId) ?? null,
+    [templates, selectedId]
+  );
+
+  function pickTemplate(t: TemplateChoice) {
+    setSelectedId(t.id);
+    setDraft({
+      sourceLabel: t.title,
+      visibility:
+        t.defaultVisibility === "client_facing" ? "client_portal" : "internal",
+      workstreamId: "",
+      ownerName: ""
+    });
+  }
+
+  async function createFromTemplate() {
+    if (!selected) return;
+    if (!draft.sourceLabel.trim()) {
+      props.onError("Workbook name is required");
+      return;
+    }
+    setBusy(true);
+    props.onError(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${props.projectId}/workbooks/from-template`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            templateId: selected.id,
+            sourceLabel: draft.sourceLabel.trim(),
+            visibility: draft.visibility,
+            workstreamId: draft.workstreamId || null,
+            ownerName: draft.ownerName.trim() || null,
+            sessionNumber: 0
+          })
+        }
+      );
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error ?? "Failed to create workbook");
+      }
+      props.onCreated();
+    } catch (err) {
+      props.onError(
+        err instanceof Error ? err.message : "Failed to create workbook"
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="brand-surface-soft space-y-3 rounded-2xl border border-brand-teal/30 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-white">
+            Add workbook from template
+          </p>
+          <p className="mt-0.5 text-xs text-text-secondary">
+            Pick a template — a copy will be added to this project. Editing
+            the project copy does not change the template, and changes to the
+            template later do not retroactively change this copy.
+          </p>
+        </div>
+      </div>
+
+      {selected ? (
+        <div className="space-y-3">
+          <div className="rounded-xl border border-brand-teal/30 bg-brand-teal/5 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-white">
+                {selected.title}
+              </p>
+              <button
+                type="button"
+                onClick={() => setSelectedId(null)}
+                disabled={busy}
+                className="text-xs text-text-secondary hover:text-white disabled:opacity-50"
+              >
+                Pick a different template
+              </button>
+            </div>
+            {selected.description ? (
+              <p className="mt-1 text-xs text-text-secondary">
+                {selected.description}
+              </p>
+            ) : null}
+            <p className="mt-1 text-[11px] text-text-muted">
+              {selected.sectionCount} section
+              {selected.sectionCount === 1 ? "" : "s"} ·{" "}
+              {selected.questionCount} question
+              {selected.questionCount === 1 ? "" : "s"}
+            </p>
+          </div>
+
+          <input
+            type="text"
+            value={draft.sourceLabel}
+            onChange={(e) =>
+              setDraft({ ...draft, sourceLabel: e.target.value })
+            }
+            placeholder="Workbook name in this project"
+            className="brand-input w-full rounded-lg border px-3 py-2 text-sm"
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <select
+              value={draft.workstreamId}
+              onChange={(e) =>
+                setDraft({ ...draft, workstreamId: e.target.value })
+              }
+              className="brand-input rounded-lg border px-3 py-2 text-sm"
+            >
+              <option value="">No linked workstream</option>
+              {props.workstreams.map((ws) => (
+                <option key={ws.id} value={ws.id}>
+                  {ws.name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={draft.ownerName}
+              onChange={(e) =>
+                setDraft({ ...draft, ownerName: e.target.value })
+              }
+              placeholder="Owner (e.g. Tara)"
+              className="brand-input rounded-lg border px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-medium text-text-secondary">
+              Visibility — who can see this workbook?
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {VISIBILITY_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex cursor-pointer items-start gap-2 rounded-xl border p-2.5 text-xs transition ${
+                    draft.visibility === opt.value
+                      ? "border-brand-teal/50 bg-brand-teal/10"
+                      : "border-white/10 hover:border-white/20"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="from-template-visibility"
+                    value={opt.value}
+                    checked={draft.visibility === opt.value}
+                    onChange={() =>
+                      setDraft({ ...draft, visibility: opt.value })
+                    }
+                    className="mt-0.5 shrink-0 accent-brand-teal"
+                  />
+                  <span>
+                    <span className="block font-semibold text-white">
+                      {opt.label}
+                    </span>
+                    <span className="text-text-secondary">
+                      {opt.description}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={busy || !draft.sourceLabel.trim()}
+            onClick={createFromTemplate}
+            className="brand-primary rounded-full px-4 py-2 text-sm disabled:opacity-50"
+          >
+            {busy ? "Creating…" : "Add workbook to project"}
+          </button>
+        </div>
+      ) : (
+        <>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search templates…"
+            className="brand-input w-full rounded-lg border px-3 py-2 text-sm"
+          />
+          {!templates ? (
+            <p className="text-xs text-text-secondary">Loading…</p>
+          ) : templates.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-white/10 p-4 text-xs text-text-secondary">
+              No active templates yet. Build one in the{" "}
+              <a
+                href="/workbooks"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-brand-teal hover:underline"
+              >
+                Workbooks
+              </a>{" "}
+              section under Operations.
+            </p>
+          ) : (
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {templates.map((t) => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    onClick={() => pickTemplate(t)}
+                    className="block w-full rounded-xl border border-white/10 bg-background-elevated p-3 text-left transition hover:border-brand-teal/40"
+                  >
+                    <p className="text-sm font-semibold text-white">
+                      {t.title}
+                    </p>
+                    {t.description ? (
+                      <p className="mt-1 line-clamp-2 text-xs text-text-secondary">
+                        {t.description}
+                      </p>
+                    ) : null}
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-text-secondary">
+                      {t.category ? (
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                          {t.category}
+                        </span>
+                      ) : null}
+                      {t.suggestedProjectType ? (
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                          {t.suggestedProjectType}
+                        </span>
+                      ) : null}
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                        {t.sectionCount}s · {t.questionCount}q
+                      </span>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </div>
   );

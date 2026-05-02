@@ -205,6 +205,7 @@ import {
   updateDiscoveryQuestionLibraryItem,
   deleteDiscoveryQuestionLibraryItem,
   importLibraryQuestionsIntoWorkbook,
+  createWorkbookFromTemplate,
   loadWorkbookTemplates,
   loadWorkbookTemplate,
   createWorkbookTemplate,
@@ -2576,6 +2577,42 @@ export function createApiApp(config: BaseConfig) {
 
     return c.json({ error: "Method Not Allowed" }, 405);
   });
+
+  app.all(
+    "/api/projects/:projectId/workbooks/from-template",
+    async (c) => {
+      const projectId = c.req.param("projectId");
+      if (c.req.method !== "POST") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+      try {
+        await ensureProjectScopeUnlocked(projectId);
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const templateId =
+          typeof body.templateId === "string" ? body.templateId : "";
+        if (!templateId) {
+          return c.json({ error: "templateId is required" }, 400);
+        }
+        const workbook = await createWorkbookFromTemplate(
+          projectId,
+          templateId,
+          body
+        );
+        return c.json({ workbook }, 201);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to create workbook from template";
+        const status =
+          message === "Project not found" ||
+          message === "Workbook template not found"
+            ? 404
+            : 400;
+        return c.json({ error: message }, status);
+      }
+    }
+  );
 
   app.all(
     "/api/projects/:projectId/workbooks/:workbookId/questions/import",
