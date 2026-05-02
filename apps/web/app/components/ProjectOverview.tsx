@@ -1510,7 +1510,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       case "discovery":
         return (
           <DiscoveryTab
-            projectId={project.id}
+            onOpenAccessSharing={() => setActiveTab("access")}
             workbooksPanel={
               <ProjectWorkbooksPanel
                 projectId={project.id}

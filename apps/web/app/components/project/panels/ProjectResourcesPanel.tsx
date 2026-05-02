@@ -136,6 +136,13 @@ export default function ProjectResourcesPanel({
       setError("Resource title is required");
       return;
     }
+    // Server requires either a sourceUrl OR content for non-workbook
+    // evidence rows. Enforce sourceUrl client-side so users always have a
+    // working link to share — that's the whole point of a "resource" entry.
+    if (!draft.sourceUrl.trim() && !draft.content.trim()) {
+      setError("Add a link (URL) or some notes for this resource");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -264,7 +271,7 @@ export default function ProjectResourcesPanel({
             type="url"
             value={draft.sourceUrl}
             onChange={(e) => setDraft({ ...draft, sourceUrl: e.target.value })}
-            placeholder="https://… (link to the resource)"
+            placeholder="https://… (link to the resource — required unless you add notes below)"
             className="brand-input w-full rounded-lg border px-3 py-2 text-sm"
           />
           <div>

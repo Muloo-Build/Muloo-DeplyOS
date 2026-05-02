@@ -230,8 +230,6 @@ export default function ClientProjectWorkspace({
     useState<ClientQuestionnaireDefinitionMap>(createDefaultClientQuestionnaireDefinitionMap());
   const [detail, setDetail] = useState<ClientProjectDetail | null>(null);
   const [latestQuoteId, setLatestQuoteId] = useState<string | null>(null);
-  const [connectingHubSpot, setConnectingHubSpot] = useState(false);
-  const [connectError, setConnectError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<number, Record<string, string>>>({ 1: {}, 2: {}, 3: {}, 4: {} });
   const [sessionSaveState, setSessionSaveState] = useState<Record<number, SessionSaveState>>({});
   const [pageError, setPageError] = useState<string | null>(null);
@@ -352,32 +350,9 @@ export default function ClientProjectWorkspace({
     });
   }
 
-  async function handleStartHubSpotConnect() {
-    if (!detail) return;
-    setConnectingHubSpot(true);
-    setConnectError(null);
-    try {
-      const response = await fetch(
-        `/api/client/projects/${encodeURIComponent(detail.project.id)}/hubspot/connect/start`,
-        {
-          method: "POST",
-          credentials: "include"
-        }
-      );
-      const body = (await response.json().catch(() => null)) as
-        | { authUrl?: string; error?: string }
-        | null;
-      if (!response.ok || !body?.authUrl) {
-        throw new Error(body?.error ?? "Failed to start HubSpot connection");
-      }
-      window.location.href = body.authUrl;
-    } catch (error) {
-      setConnectError(
-        error instanceof Error ? error.message : "Failed to start HubSpot connection"
-      );
-      setConnectingHubSpot(false);
-    }
-  }
+  // Internal HubSpot OAuth flow (Connect to Deploy OS) is operator-only and
+  // no longer surfaced in the client portal. The previous handler has been
+  // removed; clients only see the partner invite via ClientHubSpotInviteCard.
 
   async function saveSession(sessionNumber: number, options?: { mode?: "manual" | "autosave"; answersOverride?: Record<string, string> }) {
     const mode = options?.mode ?? "manual";

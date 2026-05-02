@@ -1,14 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 export default function DiscoveryTab(props: {
-  projectId: string;
   sessionsTracker: ReactNode;
   progressSummary: ReactNode;
   notesPreview: ReactNode;
   workbooksPanel?: ReactNode;
+  onOpenAccessSharing: () => void;
 }) {
   return (
     <div className="space-y-6">
@@ -17,12 +16,13 @@ export default function DiscoveryTab(props: {
           Discovery is for sessions, workbooks and notes that scope this
           engagement. Contributors, HubSpot, Miro boards and shared resources
           have moved to{" "}
-          <Link
-            href={`/projects/${props.projectId}?tab=access`}
+          <button
+            type="button"
+            onClick={props.onOpenAccessSharing}
             className="font-medium text-brand-teal hover:underline"
           >
             Access &amp; Sharing
-          </Link>
+          </button>
           .
         </p>
       </section>
