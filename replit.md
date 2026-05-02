@@ -62,8 +62,22 @@ Note: The API startup requires `DATABASE_URL` (Prisma) and `REDIS_URL` (BullMQ).
 
 Uses **pnpm** (v10+, included with nodejs-18 module). The `packageManager` field was removed from root `package.json` to avoid corepack version enforcement issues on Replit.
 
+## UI Component Conventions
+
+- **Toast**: `useToast()` hook → `toast.success("...")` / `toast.error("...")`. `ToastProvider` is mounted in both `AppShell` and `ClientShell`. All async operation feedback must use toasts, not inline state banners.
+- **LoadingSkeleton**: Use `<SkeletonRows count={N} height="h-28" gap="gap-4" rounded="rounded-2xl" />` instead of manual `[0,1,2].map(animate-pulse)` loops. `<SkeletonBlock />` for single-panel skeletons.
+- **EmptyState**: Use `<EmptyState icon={...} title="..." description="..." primaryCta={{ label, href }} />` for zero-data states. Supports `className` override for inline use inside cards.
+- **Breadcrumb**: `<Breadcrumb items={[{ label, href? }]} />` — use on any page deeper than one level from root. Last item (no href) renders in white. All other items link in muted text with hover-to-white.
+
 ## Completed Features (recent)
 
+- **Systematic UX sweep (May 2026)**: Full improvement pass across all key screens:
+  - `Breadcrumb.tsx` created — reusable page-level breadcrumb nav component
+  - `ProjectsDashboard` fully rewired: `useToast` replaces inline error banners; `SkeletonRows` replaces manual skeleton loops; `EmptyState` + `FolderKanban` icon for zero-project state; stats cards with colour-coded values
+  - `ClientsWorkspace`: all async success/error messages (`createClient`, `saveClientProfile`, `addContact`, `deleteClient`, etc.) migrated to `toast.success()` / `toast.error()` — inline `error` retained only for form validation
+  - Delivery page: redundant "Project Overview" button removed (covered by WorkflowNav); "Back to overview" text link replaced with `Breadcrumb`; "Change Mgmt" label cleaned to "Change log"
+  - Audit page: `Breadcrumb` added; loading state uses `SkeletonBlock`; "Back to project overview" button added to the no-portal-connected state
+  - Skeleton sweep: `SkeletonRows` adopted in `ProjectPrepareWorkspace`, `DiscoveryWorkspace`, `BlueprintWorkspace`, `ProjectOverview`, `ProjectEditWorkspace`, `PortalAuditWorkspace` — replacing all manual `[0,1,2].map(animate-pulse)` patterns
 - **DB migration**: `executionTier` and `coworkInstruction` columns added to `ExecutionJob` table; `portalQuoteEnabled` boolean added to `Project` (default `true`)
 - **AI assistant**: Enhanced with live workspace context (active projects, clients, open tasks, blocked counts)
 - **Client portal rebuild**: Full redesign — tab-based workspace (Overview / Tasks / Messages / Delivery), cleaner `ClientShell` nav with active state, improved `ClientProjectsDashboard` with status badges

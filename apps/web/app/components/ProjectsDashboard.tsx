@@ -3,8 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { FolderKanban } from "lucide-react";
 
 import AppShell from "./AppShell";
+import EmptyState from "./EmptyState";
+import { SkeletonRows } from "./LoadingSkeleton";
+import { useToast } from "./Toast";
 import { isLiveProjectStatus } from "./projectStatus";
 
 interface Project {
@@ -128,6 +132,7 @@ export default function ProjectsDashboard({
 }: {
   initialStatus?: string | null;
 }) {
+  const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [stats, setStats] = useState<ProjectStats>({
     total: 0,
@@ -136,8 +141,6 @@ export default function ProjectsDashboard({
     completed: 0
   });
   const [loading, setLoading] = useState(true);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [statusError, setStatusError] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(
     null
   );
@@ -167,7 +170,9 @@ export default function ProjectsDashboard({
         setProjects(items);
         setStats(calculateStats(items));
       } catch (error) {
-        console.error(error);
+        toast.error(
+          error instanceof Error ? error.message : "Failed to load projects"
+        );
       } finally {
         setLoading(false);
       }
@@ -185,8 +190,6 @@ export default function ProjectsDashboard({
       return;
     }
 
-    setDeleteError(null);
-    setStatusError(null);
     setDeletingProjectId(project.id);
 
     try {
@@ -209,8 +212,9 @@ export default function ProjectsDashboard({
         setStats(calculateStats(nextProjects));
         return nextProjects;
       });
+      toast.success(`"${project.name}" deleted.`);
     } catch (error) {
-      setDeleteError(
+      toast.error(
         error instanceof Error ? error.message : "Failed to delete project"
       );
     } finally {
@@ -222,8 +226,6 @@ export default function ProjectsDashboard({
     project: Project,
     status: "archived" | "active"
   ) {
-    setDeleteError(null);
-    setStatusError(null);
     setUpdatingProjectId(project.id);
 
     try {
@@ -248,8 +250,13 @@ export default function ProjectsDashboard({
             : currentProject
         )
       );
+      toast.success(
+        status === "archived"
+          ? `"${project.name}" archived.`
+          : `"${project.name}" restored.`
+      );
     } catch (error) {
-      setStatusError(
+      toast.error(
         error instanceof Error ? error.message : "Failed to update project"
       );
     } finally {
@@ -416,42 +423,20 @@ export default function ProjectsDashboard({
           ))}
         </div>
 
-        {deleteError ? (
-          <div className="mb-6 rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card px-5 py-4 text-sm text-white">
-            {deleteError}
-          </div>
-        ) : null}
-
-        {statusError ? (
-          <div className="mb-6 rounded-2xl border border-[rgba(240,160,80,0.35)] bg-background-card px-5 py-4 text-sm text-white">
-            {statusError}
-          </div>
-        ) : null}
-
         {loading ? (
-          <div className="grid gap-3">
-            {[0, 1, 2].map((row) => (
-              <div
-                key={row}
-                className="h-24 animate-pulse rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card"
-              />
-            ))}
-          </div>
+          <SkeletonRows
+            count={3}
+            height="h-24"
+            rounded="rounded-2xl"
+            gap="gap-3"
+          />
         ) : activeProjects.length === 0 && archivedProjects.length === 0 ? (
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-12 text-center">
-            <h2 className="text-xl font-semibold text-white">
-              No projects yet
-            </h2>
-            <p className="mt-3 text-text-secondary">
-              Start a project, capture discovery, then shape the delivery plan.
-            </p>
-            <Link
-              href="/projects/new"
-              className="mt-6 inline-flex rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white"
-            >
-              Create Project
-            </Link>
-          </div>
+          <EmptyState
+            icon={<FolderKanban size={32} />}
+            title="No projects yet"
+            description="Start a project, capture discovery, then shape the delivery plan."
+            primaryCta={{ label: "Create your first project →", href: "/projects/new" }}
+          />
         ) : (
           <div className="space-y-8">
             {filterMeta ? (
@@ -487,9 +472,12 @@ export default function ProjectsDashboard({
                 </p>
               </div>
               {activeProjects.length === 0 ? (
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8 text-sm text-text-secondary">
-                  No active projects right now.
-                </div>
+                <EmptyState
+                  title="No active projects right now"
+                  description="Projects you're actively working on will appear here."
+                  primaryCta={{ label: "New project →", href: "/projects/new" }}
+                  className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-10 text-center flex flex-col items-center"
+                />
               ) : (
                 renderProjectTable(activeProjects)
               )}
@@ -505,7 +493,7 @@ export default function ProjectsDashboard({
                 </p>
               </div>
               {archivedProjects.length === 0 ? (
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8 text-sm text-text-secondary">
+                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-8 text-sm text-text-secondary">
                   No archived projects yet.
                 </div>
               ) : (

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AppShell from "../../../components/AppShell";
+import Breadcrumb from "../../../components/Breadcrumb";
 import DeliveryBoard from "../../../components/DeliveryBoard";
 import ProjectWorkflowNav from "../../../components/ProjectWorkflowNav";
 
@@ -12,15 +13,15 @@ export default function ProjectDeliveryBoardPage({
     <AppShell>
       <div className="p-8">
         <ProjectWorkflowNav projectId={params.id} />
+        <Breadcrumb
+          items={[
+            { label: "Projects", href: "/projects" },
+            { label: "Delivery Board" }
+          ]}
+        />
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <Link
-              href={`/projects/${params.id}`}
-              className="text-sm text-text-muted"
-            >
-              Back to overview
-            </Link>
-            <h1 className="mt-3 text-3xl font-bold font-heading text-white">
+            <h1 className="text-3xl font-bold font-heading text-white">
               Delivery Board
             </h1>
             <p className="mt-2 text-text-secondary">
@@ -30,16 +31,10 @@ export default function ProjectDeliveryBoardPage({
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
-              href={`/projects/${params.id}`}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
-            >
-              Project Overview
-            </Link>
-            <Link
               href={`/projects/${params.id}/changes`}
               className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
             >
-              Change Mgmt
+              Change log
             </Link>
             <Link
               href={`/projects/${params.id}/quote`}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { SkeletonRows } from "./LoadingSkeleton";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
 
 interface ProjectSummary {
@@ -877,13 +878,8 @@ export default function PortalAuditWorkspace({
           </div>
 
           {loading ? (
-            <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-24 animate-pulse rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
-                />
-              ))}
+            <div className="mt-6">
+              <SkeletonRows count={3} height="h-24" gap="gap-3" rounded="rounded-2xl" />
             </div>
           ) : (
             <>

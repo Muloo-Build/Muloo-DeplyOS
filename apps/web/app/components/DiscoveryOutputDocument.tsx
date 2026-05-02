@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import AppShell from "./AppShell";
+import { SkeletonRows } from "./LoadingSkeleton";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
 
 interface Project {
@@ -294,7 +295,7 @@ export default function DiscoveryOutputDocument({
             {[0, 1, 2].map((row) => (
               <div
                 key={row}
-                className="h-28 animate-pulse rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card"
+                className="h-28 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-white/5 animate-pulse"
               />
             ))}
           </div>

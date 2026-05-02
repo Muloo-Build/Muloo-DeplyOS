@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import AppShell from "../../../components/AppShell";
+import Breadcrumb from "../../../components/Breadcrumb";
+import { SkeletonBlock } from "../../../components/LoadingSkeleton";
 import PortalAuditWorkspace from "../../../components/PortalAuditWorkspace";
 
 interface ProjectAuditState {
@@ -83,10 +86,15 @@ export default function ProjectAuditPage({
   return (
     <AppShell>
       <div className="p-8">
+        <Breadcrumb
+          items={[
+            { label: "Projects", href: "/projects" },
+            { label: "Project", href: `/projects/${params.id}` },
+            { label: "Portal Audit" }
+          ]}
+        />
         {loading ? (
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8 text-text-secondary">
-            Loading audit workspace...
-          </div>
+          <SkeletonBlock height="h-64" />
         ) : error ? (
           <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-8 text-white">
             {error}
@@ -102,6 +110,12 @@ export default function ProjectAuditPage({
               <h1 className="mt-3 text-2xl font-semibold text-white">
                 Connect a HubSpot portal to start auditing this project.
               </h1>
+              <Link
+                href={`/projects/${params.id}`}
+                className="mt-6 inline-flex rounded-xl border border-[rgba(255,255,255,0.08)] px-5 py-2.5 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.16)]"
+              >
+                Back to project overview
+              </Link>
             </div>
           </div>
         ) : (

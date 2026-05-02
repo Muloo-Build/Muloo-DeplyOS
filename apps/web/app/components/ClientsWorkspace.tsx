@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import AppShell from "./AppShell";
 import ClientInvoicesPanel from "./ClientInvoicesPanel";
 import SlideOver from "./SlideOver";
+import { useToast } from "./Toast";
 
 interface ClientContact {
   id: string;
@@ -489,6 +490,7 @@ export default function ClientsWorkspace({
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [creatingClient, setCreatingClient] = useState(false);
@@ -568,7 +570,7 @@ export default function ClientsWorkspace({
         return nextDrafts;
       });
     } catch (loadError) {
-      setError(
+      toast.error(
         loadError instanceof Error
           ? loadError.message
           : "Failed to load clients"
@@ -593,7 +595,7 @@ export default function ClientsWorkspace({
       const body = await response.json();
       setPortalOptions(body.portals ?? []);
     } catch (loadError) {
-      setError(
+      toast.error(
         loadError instanceof Error
           ? loadError.message
           : "Failed to load HubSpot portals"
@@ -848,10 +850,10 @@ export default function ClientsWorkspace({
       setClientDraft(createEmptyClientDraft(workspaceMode));
       setExpandedClientIds((currentIds) => [body.client.id, ...currentIds]);
       setNewClientPanelOpen(false);
-      setFeedback("Client added to the workspace.");
+      toast.success("Client added to the workspace.");
       await refreshClients({ background: true });
     } catch (createError) {
-      setError(
+      toast.error(
         createError instanceof Error
           ? createError.message
           : "Failed to create client"
@@ -894,10 +896,10 @@ export default function ClientsWorkspace({
           client.id === clientId ? { ...client, ...body.client } : client
         )
       );
-      setFeedback("Client profile updated.");
+      toast.success("Client profile updated.");
       await refreshClients({ background: true });
     } catch (saveError) {
-      setError(
+      toast.error(
         saveError instanceof Error
           ? saveError.message
           : "Failed to update client"
@@ -925,10 +927,10 @@ export default function ClientsWorkspace({
         throw new Error(body?.error ?? "Failed to refresh enrichment");
       }
 
-      setFeedback("Client enrichment refreshed.");
+      toast.success("Client enrichment refreshed.");
       await refreshClients({ background: true });
     } catch (refreshError) {
-      setError(
+      toast.error(
         refreshError instanceof Error
           ? refreshError.message
           : "Failed to refresh enrichment"
@@ -968,7 +970,7 @@ export default function ClientsWorkspace({
 
       window.location.href = body.authUrl;
     } catch (connectError) {
-      setError(
+      toast.error(
         connectError instanceof Error
           ? connectError.message
           : "Failed to start HubSpot portal connection"
@@ -1009,10 +1011,10 @@ export default function ClientsWorkspace({
         ...currentDrafts,
         [clientId]: createEmptyContactDraft()
       }));
-      setFeedback("Client contact added.");
+      toast.success("Client contact added.");
       await refreshClients({ background: true });
     } catch (saveError) {
-      setError(
+      toast.error(
         saveError instanceof Error ? saveError.message : "Failed to add contact"
       );
     } finally {
@@ -1061,9 +1063,9 @@ export default function ClientsWorkspace({
             : client
         )
       );
-      setFeedback("Contact approval authority updated.");
+      toast.success("Contact approval authority updated.");
     } catch (updateError) {
-      setError(
+      toast.error(
         updateError instanceof Error
           ? updateError.message
           : "Failed to update contact"
@@ -1106,7 +1108,7 @@ export default function ClientsWorkspace({
         throw new Error(body?.error ?? "Failed to update portal access");
       }
 
-      setFeedback(
+      toast.success(
         body?.emailSent
           ? `${contact.firstName || contact.email} now has project portal access and the onboarding email was sent.`
           : body?.emailError
@@ -1115,7 +1117,7 @@ export default function ClientsWorkspace({
       );
       await refreshClients({ background: true });
     } catch (inviteError) {
-      setError(
+      toast.error(
         inviteError instanceof Error
           ? inviteError.message
           : "Failed to update portal access"
@@ -1186,9 +1188,9 @@ export default function ClientsWorkspace({
         return nextDrafts;
       });
       setConfirmingDeleteClientId(null);
-      setFeedback("Client deleted from the workspace.");
+      toast.success("Client deleted from the workspace.");
     } catch (deleteError) {
-      setError(
+      toast.error(
         deleteError instanceof Error
           ? deleteError.message
           : "Failed to delete client"
@@ -2674,8 +2676,6 @@ export default function ClientsWorkspace({
           <div>
             {error ? (
               <p className="text-sm text-[#ff8f9c]">{error}</p>
-            ) : feedback ? (
-              <p className="text-sm text-status-success">{feedback}</p>
             ) : (
               <p className="text-sm text-text-secondary">
                 Search keeps the directory clean, regions stay controlled, and

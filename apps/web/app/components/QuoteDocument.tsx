@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
 import ClientShell from "./ClientShell";
+import { SkeletonRows } from "./LoadingSkeleton";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
 import {
   type PortalExperience,
@@ -1591,7 +1592,7 @@ export default function QuoteDocument({
             {[0, 1, 2].map((row) => (
               <div
                 key={row}
-                className="h-28 animate-pulse rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card"
+                className="h-28 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-white/5 animate-pulse"
               />
             ))}
           </div>

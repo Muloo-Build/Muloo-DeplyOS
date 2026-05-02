@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
+import { SkeletonRows } from "./LoadingSkeleton";
 import ProjectContextSidebar from "./project/ProjectContextSidebar";
 import ProjectDetailLayout, {
   type ProjectDetailTabKey
@@ -1050,14 +1051,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     return (
       <AppShell>
         <div className="p-8">
-          <div className="grid gap-4">
-            {[0, 1, 2].map((row) => (
-              <div
-                key={row}
-                className="h-28 animate-pulse rounded-2xl border border-white/10 bg-white/5"
-              />
-            ))}
-          </div>
+          <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-2xl" />
         </div>
       </AppShell>
     );
