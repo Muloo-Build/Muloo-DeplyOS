@@ -16,6 +16,7 @@ import {
   LayoutTemplate,
   Library,
   LineChart,
+  BarChart3,
   LogOut,
   Menu,
   Package,
@@ -176,6 +177,13 @@ const navGroups: NavGroup[] = [
           pathname.startsWith("/agents/") ||
           pathname === "/runs" ||
           pathname.startsWith("/runs/")
+      },
+      {
+        href: "/reports",
+        label: "Reports",
+        icon: <BarChart3 size={18} />,
+        isActive: (pathname) =>
+          pathname === "/reports" || pathname.startsWith("/reports/")
       }
     ]
   },

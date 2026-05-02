@@ -2,6 +2,7 @@ import { runPortalAudit } from './processors/portalAudit';
 import { runPropertyApply } from './processors/propertyApply';
 import { runDashboardBuild } from './processors/dashboardBuild';
 import { runResearchAgent } from './processors/researchAgent';
+import { runReportInstall } from './processors/reportInstall';
 
 export interface JobPayload {
   executionJobId: string;
@@ -31,6 +32,8 @@ export async function routeJob(data: JobPayload): Promise<JobResult> {
       return runDashboardBuild(data);
     case 'research':
       return runResearchAgent(data);
+    case 'report_install':
+      return runReportInstall(data);
     default:
       throw new Error(`Unknown moduleKey: ${data.moduleKey}`);
   }

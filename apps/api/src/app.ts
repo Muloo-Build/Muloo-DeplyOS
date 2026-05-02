@@ -167,6 +167,9 @@ import {
   generateHandoverDoc,
   loadHandoverDoc,
   loadProjectLineage,
+  loadReportPack,
+  installReportTemplates,
+  retryReportInstallation,
   loadRetainerLineage,
   spawnProjectFromRetainer,
   setProjectBornFromProject,
@@ -1132,6 +1135,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/workbook-templates/*", internalAuth);
   app.use("/api/projects", internalAuth);
   app.use("/api/projects/*", internalAuth);
+  app.use("/api/report-installations", internalAuth);
+  app.use("/api/report-installations/*", internalAuth);
   app.use("/api/tasks", internalAuth);
   app.use("/api/tasks/*", internalAuth);
   app.use("/api/solution-options", internalAuth);
@@ -3905,6 +3910,60 @@ export function createApiApp(config: BaseConfig) {
     const lineage = await loadRetainerLineage(c.req.param("retainerId"));
     if (!lineage) return c.json({ error: "Retainer not found" }, 404);
     return c.json({ lineage });
+  });
+
+  // T8 — HubSpot Standard Report Pack
+  app.get("/api/projects/:projectId/report-pack", async (c) => {
+    try {
+      const data = await loadReportPack(c.req.param("projectId"));
+      return c.json(data);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load report pack";
+      const status = message.startsWith("Project not found") ? 404 : 400;
+      return c.json({ error: message }, status);
+    }
+  });
+
+  app.post("/api/projects/:projectId/report-pack/install", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        templateSlugs?: unknown;
+      };
+      const slugs = Array.isArray(body.templateSlugs)
+        ? body.templateSlugs.filter(
+            (s): s is string => typeof s === "string" && s.trim().length > 0
+          )
+        : [];
+      const result = await installReportTemplates({
+        projectId: c.req.param("projectId"),
+        templateSlugs: slugs
+      });
+      return c.json(result, 202);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to install report templates";
+      const status = message.startsWith("Project not found") ? 404 : 400;
+      return c.json({ error: message }, status);
+    }
+  });
+
+  app.post("/api/report-installations/:installationId/retry", async (c) => {
+    try {
+      const result = await retryReportInstallation(
+        c.req.param("installationId")
+      );
+      return c.json(result, 202);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to retry report installation";
+      const status = message.startsWith("Installation not found") ? 404 : 400;
+      return c.json({ error: message }, status);
+    }
   });
 
   app.post("/api/projects/:projectId/seed-standard-pack", async (c) => {

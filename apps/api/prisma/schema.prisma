@@ -262,6 +262,7 @@ model HubSpotPortal {
   snapshots      PortalSnapshot[]
   projects       Project[]
   workflowRuns   WorkflowRun[]
+  reportInstallations ReportInstallation[]
 }
 
 model Project {
@@ -347,9 +348,56 @@ model Project {
   taskApprovals                 TaskApproval[]
   workRequests                  WorkRequest[]
   workflowRuns                  WorkflowRun[]
+  reportInstallations           ReportInstallation[]
 
   @@index([retainerId])
   @@index([bornFromProjectId])
+}
+
+model ReportTemplate {
+  id            String               @id @default(cuid())
+  slug          String               @unique
+  name          String
+  hub           String
+  section       String
+  chartType     String
+  description   String
+  displayOrder  Int                  @default(0)
+  spec          Json
+  isActive      Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  installations ReportInstallation[]
+
+  @@index([hub, displayOrder])
+  @@index([isActive])
+}
+
+model ReportInstallation {
+  id                 String         @id @default(cuid())
+  projectId          String
+  portalId           String
+  templateId         String
+  templateSlug       String
+  status             String         @default("pending")
+  hubspotReportId    String?
+  hubspotDashboardId String?
+  hubspotReportUrl   String?
+  errorMessage       String?
+  lastInstalledAt    DateTime?
+  lastAttemptAt      DateTime?
+  attemptCount       Int            @default(0)
+  executionJobId     String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  project            Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  portal             HubSpotPortal  @relation(fields: [portalId], references: [id], onDelete: Cascade)
+  template           ReportTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, templateSlug])
+  @@index([portalId, status])
+  @@index([projectId, status])
+  @@index([templateId])
 }
 
 model HandoverDoc {

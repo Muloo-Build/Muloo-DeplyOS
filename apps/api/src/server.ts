@@ -26,6 +26,10 @@ import {
 import { resolveHubSpotWriteToken } from "./queue/processors/resolveHubSpotWriteToken";
 import { executionQueue } from "./queue/index";
 import {
+  TemplateEngine as ReportTemplateEngine,
+  type ReportTemplate as ReportTemplateDef
+} from "@muloo/report-templates";
+import {
   ensureClientBillToEntity,
   resolveBillToEntityForRetainer,
   loadProjectClientRetainerSummary
@@ -32508,4 +32512,291 @@ export async function loadRetainerLineage(retainerId: string) {
         }
       : null
   };
+}
+
+// ============================================================================
+// T8 — HubSpot Standard Report Pack
+// ============================================================================
+//
+// Catalogue lives in code (`packages/report-templates`). The `ReportTemplate`
+// table mirrors the catalogue so the UI can group by hub and join per-portal
+// installation status without importing a JS package across process bounds.
+// `ReportInstallation` tracks per-(project,template) install state.
+
+const reportTemplateEngineSingleton = new ReportTemplateEngine();
+
+function reportTemplateSpec(template: ReportTemplateDef) {
+  // Deterministic spec snapshot used for catalogue-row mirroring. portalId is
+  // not template-defined, so we feed a placeholder; the real portalId is
+  // injected at install time inside the queue processor.
+  return template.build({ portalId: "__catalogue__" });
+}
+
+export async function ensureReportTemplatesSeeded() {
+  const templates = reportTemplateEngineSingleton.getAllTemplates();
+  const codeSlugs = new Set(templates.map((t) => t.id));
+  for (const template of templates) {
+    const hub = template.hub ?? "marketing";
+    const spec = reportTemplateSpec(template) as unknown as Prisma.Prisma.InputJsonValue;
+    await prisma.reportTemplate.upsert({
+      where: { slug: template.id },
+      update: {
+        name: template.name,
+        hub,
+        section: template.section,
+        chartType: template.chartType,
+        description: template.description,
+        displayOrder: template.displayOrder ?? 0,
+        spec,
+        isActive: true
+      },
+      create: {
+        slug: template.id,
+        name: template.name,
+        hub,
+        section: template.section,
+        chartType: template.chartType,
+        description: template.description,
+        displayOrder: template.displayOrder ?? 0,
+        spec,
+        isActive: true
+      }
+    });
+  }
+  // Deactivate (soft-delete) any catalogue rows whose code-defined template
+  // was removed. We never hard-delete because installation rows reference
+  // them via FK. The UI filters by isActive=true so retired templates fall
+  // out of the picker but historic install rows stay readable.
+  if (codeSlugs.size > 0) {
+    await prisma.reportTemplate.updateMany({
+      where: { isActive: true, slug: { notIn: Array.from(codeSlugs) } },
+      data: { isActive: false }
+    });
+  }
+}
+
+export async function loadReportPack(projectId: string) {
+  await ensureReportTemplatesSeeded();
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, name: true, portalId: true }
+  });
+  if (!project) {
+    throw new Error(`Project not found: ${projectId}`);
+  }
+
+  const [templates, installations] = await Promise.all([
+    prisma.reportTemplate.findMany({
+      where: { isActive: true },
+      orderBy: [{ hub: "asc" }, { displayOrder: "asc" }, { name: "asc" }]
+    }),
+    prisma.reportInstallation.findMany({ where: { projectId } })
+  ]);
+
+  const installBySlug = new Map(installations.map((i) => [i.templateSlug, i]));
+
+  const items = templates.map((t) => {
+    const install = installBySlug.get(t.slug) ?? null;
+    return {
+      template: {
+        id: t.id,
+        slug: t.slug,
+        name: t.name,
+        hub: t.hub,
+        section: t.section,
+        chartType: t.chartType,
+        description: t.description,
+        displayOrder: t.displayOrder
+      },
+      installation: install
+        ? {
+            id: install.id,
+            status: install.status,
+            hubspotReportId: install.hubspotReportId,
+            hubspotReportUrl: install.hubspotReportUrl,
+            errorMessage: install.errorMessage,
+            lastInstalledAt: install.lastInstalledAt?.toISOString() ?? null,
+            lastAttemptAt: install.lastAttemptAt?.toISOString() ?? null,
+            attemptCount: install.attemptCount,
+            executionJobId: install.executionJobId
+          }
+        : null
+    };
+  });
+
+  return {
+    project: {
+      id: project.id,
+      name: project.name,
+      portalId: project.portalId
+    },
+    items
+  };
+}
+
+async function enqueueReportInstall(installationId: string) {
+  const installation = await prisma.reportInstallation.findUnique({
+    where: { id: installationId }
+  });
+  if (!installation) throw new Error("Installation row missing after creation");
+
+  const job = await prisma.executionJob.create({
+    data: {
+      projectId: installation.projectId,
+      moduleKey: "report_install",
+      executionMethod: "queue",
+      mode: "apply",
+      status: "queued",
+      resultStatus: "pending",
+      payload: {
+        installationId: installation.id,
+        templateSlug: installation.templateSlug,
+        portalId: installation.portalId
+      } as Prisma.Prisma.InputJsonValue,
+      outputSummary: `Queued report install for ${installation.templateSlug}.`
+    }
+  });
+
+  await prisma.reportInstallation.update({
+    where: { id: installation.id },
+    data: { executionJobId: job.id, status: "pending" }
+  });
+
+  await executionQueue.add(
+    "report_install",
+    {
+      executionJobId: job.id,
+      moduleKey: "report_install",
+      projectId: installation.projectId,
+      portalId: installation.portalId,
+      payload: {
+        installationId: installation.id,
+        templateSlug: installation.templateSlug,
+        portalId: installation.portalId
+      }
+    },
+    { jobId: job.id }
+  );
+
+  return { installationId: installation.id, executionJobId: job.id };
+}
+
+export async function installReportTemplates(input: {
+  projectId: string;
+  templateSlugs: string[];
+}) {
+  await ensureReportTemplatesSeeded();
+
+  const project = await prisma.project.findUnique({
+    where: { id: input.projectId },
+    select: { id: true, portalId: true }
+  });
+  if (!project) throw new Error(`Project not found: ${input.projectId}`);
+  if (!project.portalId) {
+    throw new Error("Project has no linked HubSpot portal");
+  }
+
+  const slugs = Array.from(
+    new Set(
+      (input.templateSlugs ?? [])
+        .map((s) => (typeof s === "string" ? s.trim() : ""))
+        .filter(Boolean)
+    )
+  );
+  if (slugs.length === 0) throw new Error("templateSlugs required");
+
+  const templates = await prisma.reportTemplate.findMany({
+    where: { slug: { in: slugs }, isActive: true }
+  });
+  const bySlug = new Map(templates.map((t) => [t.slug, t]));
+  const missing = slugs.filter((s) => !bySlug.has(s));
+  if (missing.length > 0) {
+    throw new Error(`Unknown template slugs: ${missing.join(", ")}`);
+  }
+
+  const portal = await prisma.hubSpotPortal.findUnique({
+    where: { portalId: project.portalId }
+  });
+  if (!portal) {
+    throw new Error(`HubSpot portal not found: ${project.portalId}`);
+  }
+
+  const enqueued: Array<{
+    templateSlug: string;
+    installationId: string;
+    executionJobId: string;
+  }> = [];
+
+  const skipped: Array<{ templateSlug: string; reason: string }> = [];
+  for (const slug of slugs) {
+    const template = bySlug.get(slug)!;
+    const existing = await prisma.reportInstallation.findUnique({
+      where: {
+        projectId_templateSlug: {
+          projectId: project.id,
+          templateSlug: slug
+        }
+      }
+    });
+    // Concurrency guard — never enqueue a duplicate job while one is still
+    // pending or running. Operators must use retryReportInstallation (which
+    // resets status) to force a re-install.
+    if (existing && (existing.status === "pending" || existing.status === "running")) {
+      skipped.push({
+        templateSlug: slug,
+        reason: `already ${existing.status}`
+      });
+      continue;
+    }
+    const install = await prisma.reportInstallation.upsert({
+      where: {
+        projectId_templateSlug: {
+          projectId: project.id,
+          templateSlug: slug
+        }
+      },
+      update: {
+        templateId: template.id,
+        portalId: portal.id,
+        status: "pending",
+        errorMessage: null
+      },
+      create: {
+        projectId: project.id,
+        portalId: portal.id,
+        templateId: template.id,
+        templateSlug: slug,
+        status: "pending"
+      }
+    });
+
+    const result = await enqueueReportInstall(install.id);
+    enqueued.push({
+      templateSlug: slug,
+      installationId: result.installationId,
+      executionJobId: result.executionJobId
+    });
+  }
+
+  return { projectId: project.id, queued: enqueued, skipped };
+}
+
+export async function retryReportInstallation(installationId: string) {
+  const install = await prisma.reportInstallation.findUnique({
+    where: { id: installationId }
+  });
+  if (!install) throw new Error(`Installation not found: ${installationId}`);
+  // Block retry while another attempt is mid-flight to prevent duplicate
+  // HubSpot reports being created from concurrent retries.
+  if (install.status === "pending" || install.status === "running") {
+    throw new Error(
+      `Installation already ${install.status}; wait for it to finish before retrying.`
+    );
+  }
+  await prisma.reportInstallation.update({
+    where: { id: install.id },
+    data: { status: "pending", errorMessage: null }
+  });
+  return enqueueReportInstall(install.id);
 }
