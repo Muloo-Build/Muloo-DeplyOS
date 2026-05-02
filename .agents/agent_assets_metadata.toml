@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "UnZWOkK2NJEoEVpFA8d64"
+uri = "file://attached_assets/Breeze-API-Research-2026-05.md"
+type = "text"
+title = "Breeze API Surface Research (May 2026)"
