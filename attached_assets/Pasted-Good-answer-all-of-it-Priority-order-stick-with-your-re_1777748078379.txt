@@ -1,0 +1,20 @@
+Good answer, all of it.
+Priority order: stick with your recommendation, with three sub-day quick wins inserted at the front because they cost nothing and kill the "feels half-built" perception:
+
+Fix broken sidebar links (/portal-ops, /implementation-templates)
+Skeleton Key dark mode + Muloo logo + breadcrumb
+Project list — collapse per-row View/Edit/Archive/Delete into a ⋯ overflow with double-confirm on Delete
+
+Then your sequence: change-tab wiring → agent dedupe → discovery unification → onboarding wizard → delivery/handover surface → financials forecast.
+Sandbox portal: I'll set up a fresh HubSpot dev sandbox today and connect it through the existing OAuth flow. I'll let you know when it's live so you can hit it.
+Breeze: Option A for now — Breeze stays a hub-in-scope tag, no agent build. But spend the half-day mapping the current Breeze API surface as a separate research task and report back what's feasible. I want to know what's possible before I commit to building Breeze-driven actions. That research goes into the discovery unification phase, not before.
+Reports: Option A — standard report templates per hub via API. Reusable across every client portal, packageable as a "Muloo Standard Report Pack", predictable scope. Option B (AI describe-and-build flow) is interesting but it's a v2 feature, not v1. Park it.
+Switch to Plan mode and draft the task breakdown — one task per row in your table plus the three quick wins above. Each task needs:
+
+Clear acceptance criteria
+Explicit dependencies (especially anything that touches DiscoverySubmission, ClientInputSubmission, DiscoveryEvidence)
+Migration plan where schema changes are involved
+Roll-back plan for the bigger ones (discovery unification, agent dedupe with unique constraint)
+
+Cross-reference my existing audit deliverables in /Audit-2026-05-02-Architect-Review/ (especially 02-Action-Plan.md) and the Master Queue — call out any overlap or conflict so I can decide what stays in the queue vs gets re-prioritised.
+Don't start any build work yet. Show me the plan first.
