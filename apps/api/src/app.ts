@@ -1077,6 +1077,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/work-requests/*", internalAuth);
   app.use("/api/discovery", internalAuth);
   app.use("/api/discovery/*", internalAuth);
+  app.use("/api/discovery-question-library", internalAuth);
+  app.use("/api/discovery-question-library/*", internalAuth);
   app.use("/api/projects", internalAuth);
   app.use("/api/projects/*", internalAuth);
   app.use("/api/tasks", internalAuth);
