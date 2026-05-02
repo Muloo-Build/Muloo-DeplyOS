@@ -210,3 +210,13 @@ ADMIN
 - **Human QA review panel**: Agent output review with "Mark QA Passed" / "Send Back for Rework"
 - **Portal audit model selector**: Full stack provider/model routing for audit engine
 - **Operator portal preview**: 1-hour preview tokens; "Preview client portal →" in workspace
+
+## T3 — Discovery model unification (Step A applied 2026-05-02)
+
+- **Canonical session payload**: `DiscoverySubmission` (sessions). Step A (additive) absorbed `userId`, `sessionNumber`, `answers`, `legacyClientInputSubmissionId` from the legacy `ClientInputSubmission`. Reads always go through the canonical model.
+- **Canonical workbook backing store**: `DiscoveryEvidence` with `kind="workbook"`. NOT being unified into `DiscoverySubmission` — it's an active second canonical for workbooks, not a duplicate.
+- **Legacy duplicate**: `ClientInputSubmission` (0 rows in DB). Dual-write retained behind env flag `DISCOVERY_LEGACY_CLIENT_INPUT_WRITES` (default `on`). Step B will drop the table after a 1-week soak.
+- **Canonical question categories**: 12 entries in `apps/web/app/components/questionLibraryConstants.ts` and mirrored in `apps/api/src/discoveryQuestionCategories.ts`. Server validation rejects non-canonical values on create/update.
+- **Chase mechanics**: Workbook overdue = `dueDate < now()` AND any question still `status="unanswered"`. Surfaced on the project Discovery tab and the Command Centre "What needs you" strip via `loadProjectDiscoveryOverdueSummary` / `loadOverdueDiscoverySummary`.
+
+See `apps/api/prisma/migrations/20260502210000_discovery_step_a_absorb_client_input/RUNBOOK.md` for the full inventory, deviation note, and Step B prep.

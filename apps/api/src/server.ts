@@ -18,6 +18,10 @@ import Prisma from "@prisma/client";
 import { DEFAULT_WORKSPACE_ID, getApiKey, moduleCatalog } from "@muloo/shared";
 import { z, ZodError } from "zod";
 import { prisma } from "./prisma";
+import {
+  CANONICAL_DISCOVERY_CATEGORIES,
+  isCanonicalDiscoveryCategory
+} from "./discoveryQuestionCategories";
 import { resolveHubSpotWriteToken } from "./queue/processors/resolveHubSpotWriteToken";
 import { executionQueue } from "./queue/index";
 import {
@@ -14465,13 +14469,16 @@ async function ensureAgentCatalogSeeded() {
 }
 
 async function ensureDeliveryTemplatesSeeded() {
-  const existingCount = await prisma.deliveryTemplate.count();
-
-  if (existingCount > 0) {
-    return;
-  }
-
+  // Upsert by slug so adding new entries to defaultDeliveryTemplates grows
+  // the seed in already-bootstrapped environments instead of being skipped.
+  // Tasks are only seeded the first time a template is created — we don't
+  // overwrite tasks the team has edited in production.
   for (const template of defaultDeliveryTemplates) {
+    const existing = await prisma.deliveryTemplate.findUnique({
+      where: { slug: template.slug },
+      select: { id: true }
+    });
+    if (existing) continue;
     await prisma.deliveryTemplate.create({
       data: {
         slug: template.slug,
@@ -14498,6 +14505,135 @@ async function ensureDeliveryTemplatesSeeded() {
             assigneeType: task.assigneeType,
             plannedHours: task.plannedHours ?? null,
             sortOrder: task.sortOrder
+          }))
+        }
+      }
+    });
+  }
+}
+
+// Canonical workbook seed templates. Each template is a thin scaffold: the
+// team fills in the actual question text from the global question library
+// using the workbook template editor. The seed is upsert-by-title so it can
+// grow in already-bootstrapped environments and so re-running the seed does
+// not duplicate templates.
+const defaultWorkbookTemplates: Array<{
+  title: string;
+  description: string;
+  category: string;
+  suggestedProjectType: string | null;
+  defaultVisibility: "internal" | "shared";
+  tags: string[];
+  sections: Array<{
+    title: string;
+    description: string | null;
+  }>;
+}> = [
+  {
+    title: "Business Discovery Workbook",
+    description:
+      "Capture business context, goals, current pain points, and stakeholder map for the engagement.",
+    category: "discovery",
+    suggestedProjectType: "discovery",
+    defaultVisibility: "internal",
+    tags: ["discovery", "business"],
+    sections: [
+      {
+        title: "Business Goals",
+        description: "Why this engagement exists and what success looks like."
+      },
+      {
+        title: "Current State",
+        description:
+          "What's working, what's broken, and where the team feels stuck today."
+      },
+      {
+        title: "Operations",
+        description: "Team shape, ways of working, and operating constraints."
+      }
+    ]
+  },
+  {
+    title: "Platform Architecture Workbook",
+    description:
+      "Capture the CRM, marketing, service, website, and integrations baseline so the build sits on facts, not assumptions.",
+    category: "platform",
+    suggestedProjectType: "implementation",
+    defaultVisibility: "internal",
+    tags: ["platform", "architecture"],
+    sections: [
+      {
+        title: "CRM and Sales",
+        description: "Pipelines, deal stages, sales rituals, and SLAs."
+      },
+      {
+        title: "Marketing",
+        description:
+          "Channels, audiences, automation, and content production."
+      },
+      {
+        title: "Website and CMS",
+        description: "Stack, ownership, and content publishing flow."
+      },
+      {
+        title: "Integrations",
+        description:
+          "What's connected today, what should be, and the data direction."
+      }
+    ]
+  },
+  {
+    title: "Data and Migration Workbook",
+    description:
+      "Capture the source systems, data shape, owners, quality issues, and the cutover plan for the migration.",
+    category: "data",
+    suggestedProjectType: "migration",
+    defaultVisibility: "internal",
+    tags: ["data", "migration"],
+    sections: [
+      {
+        title: "Data and Migration",
+        description: "Source systems, target shape, mapping, and timing."
+      },
+      {
+        title: "Security and Access",
+        description:
+          "Access controls, retention rules, and compliance constraints."
+      },
+      {
+        title: "Reporting",
+        description:
+          "What reporting must work on day one of the new system."
+      },
+      {
+        title: "Handover",
+        description:
+          "Who owns each part of the new system after go-live."
+      }
+    ]
+  }
+];
+
+async function ensureWorkbookTemplatesSeeded() {
+  for (const template of defaultWorkbookTemplates) {
+    const existing = await prisma.workbookTemplate.findFirst({
+      where: { title: template.title },
+      select: { id: true }
+    });
+    if (existing) continue;
+    await prisma.workbookTemplate.create({
+      data: {
+        title: template.title,
+        description: template.description,
+        category: template.category,
+        suggestedProjectType: template.suggestedProjectType,
+        defaultVisibility: template.defaultVisibility,
+        tags: template.tags,
+        sections: {
+          create: template.sections.map((section, index) => ({
+            title: section.title,
+            description: section.description,
+            sortOrder: index * 10
           }))
         }
       }
@@ -23758,25 +23894,77 @@ export async function saveClientInputSubmission(
         ? "complete"
         : "in_progress";
 
-  const submission = await prisma.clientInputSubmission.upsert({
-    where: {
-      projectId_userId_sessionNumber: {
-        projectId,
+  // T3 Step A — dual-write to the canonical DiscoverySubmission so reads
+  // can move over before Step B drops ClientInputSubmission. The legacy
+  // write is gated by DISCOVERY_LEGACY_CLIENT_INPUT_WRITES (default "on")
+  // so we can stop writing to ClientInputSubmission ahead of Step B simply
+  // by flipping the env to "off".
+  const legacyWritesEnabled =
+    (process.env.DISCOVERY_LEGACY_CLIENT_INPUT_WRITES ?? "on").toLowerCase() !==
+    "off";
+
+  // Wrap the legacy + canonical writes in a transaction so we never end up
+  // with a half-written state where the legacy row exists but the canonical
+  // mirror is missing (or vice versa). The synthetic version is
+  // (1_000_000 + sessionNumber) for these client-input rows so they never
+  // collide with the real per-section submissions, and we preserve
+  // legacyClientInputSubmissionId so Step B can drop the legacy table
+  // without losing the link.
+  const syntheticVersion = 1_000_000 + sessionNumber;
+  const submission = await prisma.$transaction(async (tx) => {
+    const legacyRow = legacyWritesEnabled
+      ? await tx.clientInputSubmission.upsert({
+          where: {
+            projectId_userId_sessionNumber: {
+              projectId,
+              userId,
+              sessionNumber
+            }
+          },
+          update: {
+            answers: normalizedAnswers,
+            status
+          },
+          create: {
+            projectId,
+            userId,
+            sessionNumber,
+            answers: normalizedAnswers,
+            status
+          }
+        })
+      : null;
+
+    await tx.discoverySubmission.upsert({
+      where: {
+        projectId_version: {
+          projectId,
+          version: syntheticVersion
+        }
+      },
+      update: {
+        status,
         userId,
-        sessionNumber
+        sessionNumber,
+        answers: normalizedAnswers,
+        // Only set the legacy link when the legacy write is enabled; when
+        // it's off we leave whatever was previously written in place rather
+        // than blanking it out, so the historical association survives
+        // through the soak window.
+        ...(legacyRow ? { legacyClientInputSubmissionId: legacyRow.id } : {})
+      },
+      create: {
+        projectId,
+        version: syntheticVersion,
+        status,
+        userId,
+        sessionNumber,
+        answers: normalizedAnswers,
+        legacyClientInputSubmissionId: legacyRow?.id ?? null
       }
-    },
-    update: {
-      answers: normalizedAnswers,
-      status
-    },
-    create: {
-      projectId,
-      userId,
-      sessionNumber,
-      answers: normalizedAnswers,
-      status
-    }
+    });
+
+    return legacyRow;
   });
 
   const submittedByName =
@@ -23793,7 +23981,124 @@ export async function saveClientInputSubmission(
     }
   });
 
-  return serializeClientInputSubmission(submission);
+  // When the legacy write is disabled we synthesize a serialized payload
+  // from the values we just wrote so the API contract stays the same for
+  // /api/client/projects/:projectId/submissions/:sessionId callers.
+  if (submission) {
+    return serializeClientInputSubmission(submission);
+  }
+  return {
+    id: `ds_${projectId}_${userId}_${sessionNumber}`,
+    projectId,
+    userId,
+    sessionNumber,
+    answers: normalizedAnswers,
+    status,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+// T3 — Chase mechanics. Workbooks live in DiscoveryEvidence with
+// kind="workbook". A workbook is "overdue" when it has a dueDate in the
+// past AND at least one question still in status "unanswered". The
+// per-workbook owner and dueDate stay on the DiscoveryEvidence row; we do
+// NOT add a per-question dueDate yet (YAGNI — only escalate to per-question
+// chase if the team explicitly asks).
+type WorkbookContentShape = {
+  sections?: Array<{
+    questions?: Array<{ status?: string | null } | null> | null;
+  } | null> | null;
+} | null;
+
+function workbookHasUnansweredQuestion(content: WorkbookContentShape): boolean {
+  if (!content || !content.sections) return false;
+  for (const section of content.sections) {
+    const questions = section?.questions;
+    if (!questions) continue;
+    for (const q of questions) {
+      if ((q?.status ?? "unanswered") === "unanswered") return true;
+    }
+  }
+  return false;
+}
+
+export async function loadProjectDiscoveryOverdueSummary(projectId: string) {
+  const now = new Date();
+  const workbooks = await prisma.discoveryEvidence.findMany({
+    where: {
+      projectId,
+      kind: "workbook",
+      dueDate: { lt: now }
+    },
+    select: {
+      id: true,
+      sourceLabel: true,
+      dueDate: true,
+      ownerContributorId: true,
+      workbookContent: true
+    }
+  });
+  let overdueCount = 0;
+  let oldestDueDate: Date | null = null;
+  for (const wb of workbooks) {
+    if (!workbookHasUnansweredQuestion(wb.workbookContent as WorkbookContentShape)) {
+      continue;
+    }
+    overdueCount += 1;
+    if (wb.dueDate && (!oldestDueDate || wb.dueDate < oldestDueDate)) {
+      oldestDueDate = wb.dueDate;
+    }
+  }
+  return {
+    overdueCount,
+    oldestDueDate: oldestDueDate ? oldestDueDate.toISOString() : null
+  };
+}
+
+export async function loadOverdueDiscoverySummary() {
+  const now = new Date();
+  const workbooks = await prisma.discoveryEvidence.findMany({
+    where: {
+      kind: "workbook",
+      dueDate: { lt: now }
+    },
+    select: {
+      projectId: true,
+      dueDate: true,
+      workbookContent: true,
+      project: { select: { id: true, name: true } }
+    }
+  });
+  const projectMap = new Map<
+    string,
+    { projectId: string; projectName: string; overdueCount: number }
+  >();
+  let overdueWorkbookCount = 0;
+  for (const wb of workbooks) {
+    if (!workbookHasUnansweredQuestion(wb.workbookContent as WorkbookContentShape)) {
+      continue;
+    }
+    overdueWorkbookCount += 1;
+    const key = wb.projectId;
+    const entry = projectMap.get(key);
+    if (entry) {
+      entry.overdueCount += 1;
+    } else {
+      projectMap.set(key, {
+        projectId: wb.projectId,
+        projectName: wb.project?.name ?? "Untitled project",
+        overdueCount: 1
+      });
+    }
+  }
+  return {
+    overdueWorkbookCount,
+    affectedProjectCount: projectMap.size,
+    projects: Array.from(projectMap.values()).sort(
+      (a, b) => b.overdueCount - a.overdueCount
+    )
+  };
 }
 
 export async function loadProjectMessages(projectId: string) {
@@ -26311,6 +26616,16 @@ export async function createDiscoveryQuestionLibraryItem(value: {
   if (!category || !questionText || !answerType) {
     throw new Error("category, questionText, and answerType are required");
   }
+  // Server-side validation: new questions MUST land on the canonical
+  // category list. Editing legacy rows (updateDiscoveryQuestionLibraryItem)
+  // still allows preserving an existing legacy value so we can fix one
+  // field at a time, but the create path is the gate that prevents new
+  // legacy categories from appearing.
+  if (!isCanonicalDiscoveryCategory(category)) {
+    throw new Error(
+      `category must be one of the canonical discovery categories: ${CANONICAL_DISCOVERY_CATEGORIES.join(", ")}`
+    );
+  }
   const item = await prisma.discoveryQuestionLibraryItem.create({
     data: {
       category,
@@ -26346,6 +26661,15 @@ export async function updateDiscoveryQuestionLibraryItem(
   if (value.category !== undefined) {
     const v = typeof value.category === "string" ? value.category.trim() : "";
     if (!v) throw new Error("category must be non-empty");
+    // Updating a category MUST land on the canonical list. We deliberately
+    // don't allow re-saving a legacy value here because the data migration
+    // already moved everything to canonical; any non-canonical value coming
+    // in via PATCH is either a typo or someone bypassing the form.
+    if (!isCanonicalDiscoveryCategory(v)) {
+      throw new Error(
+        `category must be one of the canonical discovery categories: ${CANONICAL_DISCOVERY_CATEGORIES.join(", ")}`
+      );
+    }
     data.category = v;
   }
   if (value.questionText !== undefined) {
@@ -26564,6 +26888,7 @@ export async function loadWorkbookTemplates(filters?: {
   isArchived?: boolean | undefined;
   suggestedProjectType?: string | undefined;
 }) {
+  await ensureWorkbookTemplatesSeeded();
   const where: Prisma.Prisma.WorkbookTemplateWhereInput = {};
   if (filters?.category) where.category = filters.category;
   if (filters?.suggestedProjectType) {

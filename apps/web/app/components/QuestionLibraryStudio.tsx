@@ -376,6 +376,7 @@ export default function QuestionLibraryStudio() {
           }}
           onSave={() => void saveCreate()}
           saveLabel="Create question"
+          restrictToCanonical
         />
       ) : null}
 
@@ -513,13 +514,24 @@ function DraftForm(props: {
   onSave: () => void;
   saveLabel: string;
   onDelete?: () => void;
+  // T3 — when creating a NEW question we constrain the category dropdown
+  // to the canonical 12 only. When editing an existing legacy row we keep
+  // the legacy value visible so the operator can leave it in place while
+  // they fix other fields, then convert to canonical in a separate save.
+  restrictToCanonical?: boolean;
 }) {
   const { draft, setDraft } = props;
   const categoryOptions = useMemo(() => {
     const set = new Set<string>(CANONICAL_CATEGORIES);
-    if (draft.category && !set.has(draft.category)) set.add(draft.category);
+    if (
+      !props.restrictToCanonical &&
+      draft.category &&
+      !set.has(draft.category)
+    ) {
+      set.add(draft.category);
+    }
     return Array.from(set);
-  }, [draft.category]);
+  }, [draft.category, props.restrictToCanonical]);
 
   return (
     <div className="space-y-3 rounded-xl border border-brand-teal/30 bg-background-elevated p-4">

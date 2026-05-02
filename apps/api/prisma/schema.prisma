@@ -569,26 +569,35 @@ model ClientInputSubmission {
 }
 
 model DiscoverySubmission {
-  id                    String   @id @default(cuid())
-  projectId             String
-  version               Int      @default(1)
-  status                String   @default("draft")
-  businessContext       Json?
-  platformContext       Json?
-  crmArchitecture       Json?
-  salesRequirements     Json?
-  marketingRequirements Json?
-  serviceRequirements   Json?
-  integrationsData      Json?
-  governanceOps         Json?
-  risksAssumptions      Json?
-  completedSections     String[]
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  sections              Json?
-  project               Project  @relation(fields: [projectId], references: [id])
+  id                            String   @id @default(cuid())
+  projectId                     String
+  version                       Int      @default(1)
+  status                        String   @default("draft")
+  businessContext               Json?
+  platformContext               Json?
+  crmArchitecture               Json?
+  salesRequirements             Json?
+  marketingRequirements         Json?
+  serviceRequirements           Json?
+  integrationsData              Json?
+  governanceOps                 Json?
+  risksAssumptions              Json?
+  completedSections             String[]
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+  sections                      Json?
+  // T3 Step A — fields absorbed from the legacy ClientInputSubmission so
+  // sessions can read from a single canonical model. Step B will retire
+  // ClientInputSubmission entirely after the soak window. See
+  // 20260502210000_discovery_step_a_absorb_client_input/RUNBOOK.md.
+  userId                        String?
+  sessionNumber                 Int?
+  answers                       Json?
+  legacyClientInputSubmissionId String?  @unique
+  project                       Project  @relation(fields: [projectId], references: [id])
 
   @@unique([projectId, version])
+  @@index([projectId, userId, sessionNumber])
 }
 
 model ProjectMeetingNote {

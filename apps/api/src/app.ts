@@ -198,6 +198,8 @@ import {
   loadPartnerUsersForProject,
   loadDiscoveryEvidence,
   loadProjectWorkbooks,
+  loadProjectDiscoveryOverdueSummary,
+  loadOverdueDiscoverySummary,
   updateProjectWorkbook,
   deleteProjectWorkbook,
   loadDiscoveryQuestionLibrary,
@@ -6001,6 +6003,28 @@ export function createApiApp(config: BaseConfig) {
     c.json({
       summary: await loadInvoiceDashboardSummary()
     })
+  );
+
+  // T3 chase mechanics — workspace-level summary used by Command Centre's
+  // "What needs you" strip. Counts workbooks where dueDate < now AND at
+  // least one question is still unanswered, grouped by project.
+  app.get("/api/discovery/overdue-summary", async (c) =>
+    c.json({
+      summary: await loadOverdueDiscoverySummary()
+    })
+  );
+
+  // T3 chase mechanics — project-level summary used inside the project's
+  // Discovery tab to show how many workbooks are sitting overdue with
+  // unanswered questions.
+  app.get(
+    "/api/projects/:projectId/discovery/overdue-summary",
+    async (c) =>
+      c.json({
+        summary: await loadProjectDiscoveryOverdueSummary(
+          c.req.param("projectId")
+        )
+      })
   );
 
   app.get("/api/invoices/:invoiceId", async (c) => {

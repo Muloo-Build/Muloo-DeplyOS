@@ -386,6 +386,11 @@ export default function MulooCommandCentre() {
     paidThisMonth: number;
     paidThisMonthCurrency: string;
   } | null>(null);
+  // T3 chase mechanics — workspace-level overdue discovery summary.
+  const [discoveryOverdue, setDiscoveryOverdue] = useState<{
+    overdueWorkbookCount: number;
+    affectedProjectCount: number;
+  } | null>(null);
   const [activeProjects, setActiveProjects] = useState<ProjectListItem[]>([]);
   const [recentRuns, setRecentRuns] = useState<ExecutionRun[]>([]);
   const [clientEmailQueues, setClientEmailQueues] = useState<
@@ -462,6 +467,7 @@ export default function MulooCommandCentre() {
           awaitingApprovalCountResponse,
           blockedExternalCountResponse,
           invoiceSummaryResponse,
+          discoveryOverdueResponse,
           activeProjectsResponse,
           recentRunsResponse,
           clientEmailQueuesResponse,
@@ -478,6 +484,7 @@ export default function MulooCommandCentre() {
           fetch("/api/projects?status=awaiting_approval&count=true"),
           fetch("/api/projects?status=blocked_external&count=true"),
           fetch("/api/invoices/summary"),
+          fetch("/api/discovery/overdue-summary"),
           fetch("/api/projects?status=in_delivery&limit=4"),
           fetch("/api/execution-jobs?limit=4"),
           fetch("/api/workspace/emails/client-queues"),
@@ -573,6 +580,24 @@ export default function MulooCommandCentre() {
             paidThisMonthCurrency:
               invoiceSummaryBody.summary.paidThisMonthCurrency ?? "ZAR"
           });
+        }
+        if (discoveryOverdueResponse.ok) {
+          const discoveryOverdueBody = (await discoveryOverdueResponse
+            .json()
+            .catch(() => null)) as {
+            summary?: {
+              overdueWorkbookCount?: number;
+              affectedProjectCount?: number;
+            };
+          } | null;
+          if (discoveryOverdueBody?.summary) {
+            setDiscoveryOverdue({
+              overdueWorkbookCount:
+                discoveryOverdueBody.summary.overdueWorkbookCount ?? 0,
+              affectedProjectCount:
+                discoveryOverdueBody.summary.affectedProjectCount ?? 0
+            });
+          }
         }
         setActiveProjects(activeProjectsBody?.projects ?? []);
         setRecentRuns(recentRunsBody?.runs ?? []);
@@ -1030,10 +1055,13 @@ export default function MulooCommandCentre() {
               (blockedExternalCount ?? 0) > 0;
             const overdueInvoicesAttention =
               (invoiceSummary?.overdueCount ?? 0) > 0;
+            const overdueDiscoveryAttention =
+              (discoveryOverdue?.overdueWorkbookCount ?? 0) > 0;
             const anyAttention =
               awaitingApprovalAttention ||
               blockedExternalAttention ||
-              overdueInvoicesAttention;
+              overdueInvoicesAttention ||
+              overdueDiscoveryAttention;
 
             return (
               <>
@@ -1073,6 +1101,30 @@ export default function MulooCommandCentre() {
                           value={blockedExternalCount}
                           tone="danger"
                         />
+                      ) : null}
+                      {overdueDiscoveryAttention ? (
+                        <Link
+                          href="/projects"
+                          className="rounded-2xl border border-status-error/30 bg-status-error/10 p-5 text-white transition hover:border-status-error/60"
+                        >
+                          <p className="text-sm text-text-secondary">
+                            Overdue discovery workbooks
+                          </p>
+                          <p className="mt-3 text-4xl font-semibold">
+                            {discoveryOverdue?.overdueWorkbookCount ?? 0}
+                          </p>
+                          <p className="mt-2 text-xs text-text-secondary">
+                            Across{" "}
+                            {discoveryOverdue?.affectedProjectCount ?? 0}{" "}
+                            project
+                            {(discoveryOverdue?.affectedProjectCount ?? 0) ===
+                            1
+                              ? ""
+                              : "s"}{" "}
+                            · workbooks past their due date with unanswered
+                            questions.
+                          </p>
+                        </Link>
                       ) : null}
                       {overdueInvoicesAttention ? (
                         <Link
