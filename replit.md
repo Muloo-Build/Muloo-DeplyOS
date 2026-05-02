@@ -213,10 +213,14 @@ ADMIN
 
 ## T3 — Discovery model unification (Step A applied 2026-05-02)
 
-- **Canonical session payload**: `DiscoverySubmission` (sessions). Step A (additive) absorbed `userId`, `sessionNumber`, `answers`, `legacyClientInputSubmissionId` from the legacy `ClientInputSubmission`. Reads always go through the canonical model.
-- **Canonical workbook backing store**: `DiscoveryEvidence` with `kind="workbook"`. NOT being unified into `DiscoverySubmission` — it's an active second canonical for workbooks, not a duplicate.
-- **Legacy duplicate**: `ClientInputSubmission` (0 rows in DB). Dual-write retained behind env flag `DISCOVERY_LEGACY_CLIENT_INPUT_WRITES` (default `on`). Step B will drop the table after a 1-week soak.
-- **Canonical question categories**: 12 entries in `apps/web/app/components/questionLibraryConstants.ts` and mirrored in `apps/api/src/discoveryQuestionCategories.ts`. Server validation rejects non-canonical values on create/update.
-- **Chase mechanics**: Workbook overdue = `dueDate < now()` AND any question still `status="unanswered"`. Surfaced on the project Discovery tab and the Command Centre "What needs you" strip via `loadProjectDiscoveryOverdueSummary` / `loadOverdueDiscoverySummary`.
+- **Canonical session payload**: `DiscoverySubmission` (sessions). Step A (additive) absorbed `userId`, `sessionNumber`, `answers`, `legacyClientInputSubmissionId` from the legacy `ClientInputSubmission`.
+- **Canonical workbook backing store**: `DiscoveryEvidence` with `kind="workbook"`. Distinct surface and shape from sessions — kept as a second canonical, deviation from the audit framing flagged for sign-off in the RUNBOOK.
+- **Legacy duplicate**: `ClientInputSubmission` (0 rows). Step B will drop it after the soak.
+- **Cutover flags** (both default to current behaviour):
+  - `DISCOVERY_LEGACY_CLIENT_INPUT_WRITES` (default `on`) — dual-write to legacy + canonical inside one `prisma.$transaction`.
+  - `DISCOVERY_CANONICAL_READS` (default `off`) — all four read paths flip to canonical via `loadDiscoveryClientSubmissionsForRead` / `…ForReadWithUsers` helpers.
+- **Canonical question categories**: 12 entries in `apps/web/app/components/questionLibraryConstants.ts` mirrored in `apps/api/src/discoveryQuestionCategories.ts` (drift filed as follow-up to move into `packages/shared`). Server validates on create + update.
+- **Chase mechanics**: New workbooks default `dueDate` to **+5 business days** and `ownerName` to the project's **client champion**. Overdue rule: `dueDate < now()` AND any question still `status="unanswered"`. Surfaced on the Discovery tab and the Command Centre "What needs you" strip via `loadProjectDiscoveryOverdueSummary` / `loadOverdueDiscoverySummary`.
+- **Boot seed**: `apps/api/src/index.ts` calls `ensureDeliveryTemplatesSeeded()` + `ensureWorkbookTemplatesSeeded()` at server boot (Promise.allSettled — failures log a warning, don't block boot). Both upsert by stable identity, safe on every boot.
 
-See `apps/api/prisma/migrations/20260502210000_discovery_step_a_absorb_client_input/RUNBOOK.md` for the full inventory, deviation note, and Step B prep.
+See `apps/api/prisma/migrations/20260502210000_discovery_step_a_absorb_client_input/RUNBOOK.md` for the full inventory, the canonical-model decision (with the explicit sign-off note), and Step B prep.

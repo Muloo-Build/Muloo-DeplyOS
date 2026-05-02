@@ -6194,6 +6194,161 @@ function serializeClientInputSubmission<
   };
 }
 
+// ---------------------------------------------------------------------------
+// T3 Step A — canonical-read switch + chase defaults
+// ---------------------------------------------------------------------------
+// During the soak window we read from `ClientInputSubmission` by default and
+// can flip the entire app to read from the canonical `DiscoverySubmission`
+// table by setting DISCOVERY_CANONICAL_READS=on. Once Step B drops the
+// legacy table this flag becomes the only mode. Both writes (legacy +
+// canonical) happen inside one transaction in `saveClientInputSubmission`,
+// so the two stores stay in lockstep until we cut the legacy table.
+
+type DiscoveryClientSubmissionShape = {
+  id: string;
+  projectId: string;
+  userId: string;
+  sessionNumber: number;
+  status: string;
+  answers: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+function isCanonicalDiscoveryReadsEnabled(): boolean {
+  return (
+    (process.env.DISCOVERY_CANONICAL_READS ?? "off").toLowerCase() === "on"
+  );
+}
+
+const CANONICAL_CLIENT_SUBMISSION_VERSION_FLOOR = 1_000_000;
+
+function mapDiscoverySubmissionToClientShape(row: {
+  id: string;
+  projectId: string;
+  userId: string | null;
+  sessionNumber: number | null;
+  status: string;
+  answers: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}): DiscoveryClientSubmissionShape | null {
+  if (!row.userId || row.sessionNumber === null) return null;
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    userId: row.userId,
+    sessionNumber: row.sessionNumber,
+    status: row.status,
+    answers: row.answers,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  };
+}
+
+export async function loadDiscoveryClientSubmissionsForRead(args: {
+  projectId: string;
+  userId?: string;
+  orderBy?: "session-asc" | "updated-desc-then-session";
+}): Promise<DiscoveryClientSubmissionShape[]> {
+  const { projectId, userId, orderBy = "session-asc" } = args;
+  if (isCanonicalDiscoveryReadsEnabled()) {
+    const rows = await prisma.discoverySubmission.findMany({
+      where: {
+        projectId,
+        ...(userId ? { userId } : { userId: { not: null } }),
+        version: { gte: CANONICAL_CLIENT_SUBMISSION_VERSION_FLOOR }
+      },
+      orderBy:
+        orderBy === "updated-desc-then-session"
+          ? [{ updatedAt: "desc" }, { sessionNumber: "asc" }]
+          : [{ sessionNumber: "asc" }]
+    });
+    return rows
+      .map(mapDiscoverySubmissionToClientShape)
+      .filter((r): r is DiscoveryClientSubmissionShape => r !== null);
+  }
+  const rows = await prisma.clientInputSubmission.findMany({
+    where: {
+      projectId,
+      ...(userId ? { userId } : {})
+    },
+    orderBy:
+      orderBy === "updated-desc-then-session"
+        ? [{ updatedAt: "desc" }, { sessionNumber: "asc" }]
+        : [{ sessionNumber: "asc" }]
+  });
+  return rows;
+}
+
+export async function loadDiscoveryClientSubmissionsForReadWithUsers(
+  projectId: string
+): Promise<
+  Array<
+    DiscoveryClientSubmissionShape & {
+      user: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+      } | null;
+    }
+  >
+> {
+  const submissions = await loadDiscoveryClientSubmissionsForRead({
+    projectId,
+    orderBy: "updated-desc-then-session"
+  });
+  if (submissions.length === 0) return [];
+  const userIds = Array.from(new Set(submissions.map((s) => s.userId)));
+  const users = await prisma.clientPortalUser.findMany({
+    where: { id: { in: userIds } },
+    select: { id: true, firstName: true, lastName: true, email: true }
+  });
+  const usersById = new Map(users.map((u) => [u.id, u]));
+  return submissions.map((submission) => ({
+    ...submission,
+    user: usersById.get(submission.userId) ?? null
+  }));
+}
+
+// Chase mechanics defaults: when a workbook is created without an explicit
+// owner / due date, default the owner to the project's client champion (so
+// chase nudges have a name attached) and the due date to +5 business days.
+// Per-question owners/due dates remain a YAGNI follow-up.
+function addBusinessDaysFromNow(days: number): Date {
+  const date = new Date();
+  let added = 0;
+  while (added < days) {
+    date.setDate(date.getDate() + 1);
+    const dow = date.getDay();
+    if (dow !== 0 && dow !== 6) added += 1;
+  }
+  return date;
+}
+
+async function defaultWorkbookOwnerName(
+  projectId: string
+): Promise<string | null> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      clientChampionFirstName: true,
+      clientChampionLastName: true,
+      clientChampionEmail: true
+    }
+  });
+  if (!project) return null;
+  const fullName = [
+    project.clientChampionFirstName ?? "",
+    project.clientChampionLastName ?? ""
+  ]
+    .join(" ")
+    .trim();
+  if (fullName) return fullName;
+  return project.clientChampionEmail ?? null;
+}
+
 function serializeProjectMessage<
   T extends {
     id: string;
@@ -11507,15 +11662,20 @@ async function loadProjectAiComposerContext(projectId: string) {
         category: true
       }
     }),
-    prisma.clientInputSubmission.findMany({
-      where: { projectId },
-      orderBy: [{ updatedAt: "desc" }],
-      select: {
-        sessionNumber: true,
-        answers: true,
-        updatedAt: true
-      }
-    }),
+    // T3 Step A — read through the canonical-aware helper so flipping
+    // DISCOVERY_CANONICAL_READS=on switches this loader over without code
+    // changes. We only need a subset of columns but the helper returns the
+    // full shape; the cost is negligible.
+    loadDiscoveryClientSubmissionsForRead({
+      projectId,
+      orderBy: "updated-desc-then-session"
+    }).then((rows) =>
+      rows.map((r) => ({
+        sessionNumber: r.sessionNumber,
+        answers: r.answers,
+        updatedAt: r.updatedAt
+      }))
+    ),
     prisma.projectContext.findUnique({
       where: {
         projectId_contextType: {
@@ -14468,7 +14628,7 @@ async function ensureAgentCatalogSeeded() {
   }
 }
 
-async function ensureDeliveryTemplatesSeeded() {
+export async function ensureDeliveryTemplatesSeeded() {
   // Upsert by slug so adding new entries to defaultDeliveryTemplates grows
   // the seed in already-bootstrapped environments instead of being skipped.
   // Tasks are only seeded the first time a template is created — we don't
@@ -14614,7 +14774,7 @@ const defaultWorkbookTemplates: Array<{
   }
 ];
 
-async function ensureWorkbookTemplatesSeeded() {
+export async function ensureWorkbookTemplatesSeeded() {
   for (const template of defaultWorkbookTemplates) {
     const existing = await prisma.workbookTemplate.findFirst({
       where: { title: template.title },
@@ -23603,12 +23763,12 @@ export async function loadClientProjectDetail(
   }
 
   const [submissions, portalTasks, retainer] = await Promise.all([
-    prisma.clientInputSubmission.findMany({
-      where: {
-        projectId,
-        userId
-      },
-      orderBy: [{ sessionNumber: "asc" }]
+    // T3 Step A — canonical-aware read; falls back to legacy when
+    // DISCOVERY_CANONICAL_READS is off (default during the soak window).
+    loadDiscoveryClientSubmissionsForRead({
+      projectId,
+      userId,
+      orderBy: "session-asc"
     }),
     prisma.task.findMany({
       where: {
@@ -23700,12 +23860,12 @@ export async function loadPortalAssistantProjectContext(
   }
 
   const [submissions, visibleTasks, recentMessages] = await Promise.all([
-    prisma.clientInputSubmission.findMany({
-      where: {
-        projectId,
-        userId
-      },
-      orderBy: [{ sessionNumber: "asc" }]
+    // T3 Step A — canonical-aware read; falls back to legacy when
+    // DISCOVERY_CANONICAL_READS is off (default during the soak window).
+    loadDiscoveryClientSubmissionsForRead({
+      projectId,
+      userId,
+      orderBy: "session-asc"
     }),
     prisma.task.findMany({
       where: {
@@ -24211,24 +24371,16 @@ export async function markAllProjectClientSubmissionsSeen() {
 }
 
 export async function loadProjectClientInputSubmissions(projectId: string) {
-  const submissions = await prisma.clientInputSubmission.findMany({
-    where: { projectId },
-    orderBy: [{ updatedAt: "desc" }, { sessionNumber: "asc" }],
-    include: {
-      user: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true
-        }
-      }
-    }
-  });
+  // T3 Step A — canonical-aware read with user join. Helper picks
+  // canonical (DiscoverySubmission) when DISCOVERY_CANONICAL_READS=on, else
+  // legacy. We then stitch user data on the side because DiscoverySubmission
+  // does not carry a Prisma relation to ClientPortalUser.
+  const submissions =
+    await loadDiscoveryClientSubmissionsForReadWithUsers(projectId);
 
   return submissions.map((submission) => ({
     ...serializeClientInputSubmission(submission),
-    user: serializeClientPortalUser(submission.user)
+    user: submission.user ? serializeClientPortalUser(submission.user) : null
   }));
 }
 
@@ -26198,10 +26350,27 @@ export async function createDiscoveryEvidence(
   const assignedContributorIds = normalizeStringArray(
     value.assignedContributorIds
   );
-  const dueDate =
+  const explicitDueDate =
     typeof value.dueDate === "string" && value.dueDate.trim().length > 0
       ? new Date(value.dueDate)
       : null;
+  const explicitOwnerName = normalizeOptionalText(value.ownerName);
+
+  // T3 Step A — chase mechanics defaults: when a workbook is created
+  // without an explicit due date, default to +5 business days; when no
+  // owner is provided, default ownerName to the project's client champion
+  // so chase nudges always have a name attached. Per-question owners /
+  // due dates remain a YAGNI follow-up.
+  const dueDate = isWorkbook
+    ? explicitDueDate && !Number.isNaN(explicitDueDate.getTime())
+      ? explicitDueDate
+      : addBusinessDaysFromNow(5)
+    : explicitDueDate && !Number.isNaN(explicitDueDate.getTime())
+      ? explicitDueDate
+      : null;
+  const ownerName = isWorkbook
+    ? (explicitOwnerName ?? (await defaultWorkbookOwnerName(projectId)))
+    : explicitOwnerName;
 
   const workbookContent =
     value.workbookContent !== undefined &&
@@ -26228,9 +26397,9 @@ export async function createDiscoveryEvidence(
       visibility: normalizeVisibility(
         value.visibility ?? (kind === "workbook" ? "internal" : undefined)
       ),
-      ownerName: normalizeOptionalText(value.ownerName),
+      ownerName,
       sharedWith,
-      dueDate: dueDate && !Number.isNaN(dueDate.getTime()) ? dueDate : null,
+      dueDate,
       linkedSectionIds
     }
   });
@@ -27669,6 +27838,14 @@ export async function createWorkbookFromTemplate(
       ? sessionNumberRaw
       : Number(sessionNumberRaw ?? 0);
 
+  // T3 Step A — chase mechanics defaults for template-spawned workbooks:
+  // default ownerName to the project's client champion and dueDate to
+  // +5 business days when not explicitly set on the spawn payload.
+  const explicitOwnerName = normalizeOptionalText(value.ownerName);
+  const ownerName =
+    explicitOwnerName ?? (await defaultWorkbookOwnerName(projectId));
+  const dueDate = addBusinessDaysFromNow(5);
+
   const evidenceItem = await prisma.discoveryEvidence.create({
     data: {
       projectId,
@@ -27685,9 +27862,9 @@ export async function createWorkbookFromTemplate(
       workstreamId: normalizeOptionalText(value.workstreamId),
       status: "draft",
       visibility: normalizeVisibility(visibility),
-      ownerName: normalizeOptionalText(value.ownerName),
+      ownerName,
       sharedWith: [],
-      dueDate: null,
+      dueDate,
       linkedSectionIds: [],
       sourceTemplateId: template.id
     }

@@ -8,20 +8,26 @@
 | `ClientInputSubmission` | 0    | 0                 | n/a        | Legacy unused write path. True duplicate; absorbed here. Dropped in Step B follow-up.          |
 | `DiscoveryEvidence`     | 17   | 4                 | today      | Repurposed as the **workbook backing store** (`kind:"workbook"`, `workbookContent` jsonb).     |
 
-## Deviation from the audit framing
+## Canonical-model recommendation (the unification decision)
 
-The audit phase 4.1 assumed three overlapping models needed unification onto
-one canonical. The data shows the picture is different:
+The audit framed this as "three overlapping discovery models → one canonical."
+The data shows the picture is different and the recommendation Step A locks
+in is:
 
-- `ClientInputSubmission` is the only true duplicate — it has zero rows and
-  no live read path that can't be served by `DiscoverySubmission`. Step A
-  absorbs its shape; Step B drops the table.
-- `DiscoveryEvidence` is **not** duplicate. It's the active workbook store
-  used by every workbook surface (`/api/projects/:id/workbooks`,
-  `loadProjectWorkbooks`, `WorkbookContentEditor`). Folding it into
-  `DiscoverySubmission` would be a much larger, riskier refactor with no
-  user-facing benefit. We treat it as the canonical workbook model and
-  document the boundary instead.
+- **Sessions** → `DiscoverySubmission` is the single canonical. Absorbs
+  `userId`, `sessionNumber`, `answers`, `legacyClientInputSubmissionId`
+  (Step A) and is the only table read after the cutover (Step B).
+- **Workbooks** → `DiscoveryEvidence` (with `kind:"workbook"`,
+  `workbookContent` jsonb) remains the canonical. It is **not** an
+  overlapping duplicate of `DiscoverySubmission` — it stores a different
+  shape (rich workbook content, contributors, evidence sources) that
+  serves a different surface (operator workbooks, not client sessions).
+
+Folding `DiscoveryEvidence` into `DiscoverySubmission` would be a much
+larger, riskier refactor with no user-facing benefit and would break the
+workbook surfaces. We treat sessions and workbooks as two clearly-bounded
+canonicals and document the boundary instead. **This deviates from the
+audit's "one canonical" framing — flagged here for explicit sign-off.**
 
 So the cutover collapses to: deprecate `ClientInputSubmission`, keep
 `DiscoverySubmission` (sessions) and `DiscoveryEvidence` (workbooks) as
@@ -40,15 +46,71 @@ two clearly-bounded canonicals.
 4. Re-categorises `DiscoveryQuestionLibraryItem.category` from the legacy
    13-value snake_case set to the canonical 12-value list. Idempotent.
 
-## Feature flag
+## Feature flags
 
-`DISCOVERY_LEGACY_CLIENT_INPUT_WRITES` (default: `on`).
+Two independent env flags govern the cutover. Defaults preserve existing
+behaviour so apply + restart is safe with no operator action.
 
-- `on` — `saveClientInputSubmission` writes to BOTH
-  `ClientInputSubmission` and `DiscoverySubmission` (mirrored). Reads always
-  come from the canonical (`DiscoverySubmission`).
-- `off` — write path skips `ClientInputSubmission`. Use this once Step A
-  has soaked for at least a week and the team is ready for Step B.
+| Env var                                    | Default | When `on`                                                                       | When `off`                                                                |
+|--------------------------------------------|---------|---------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| `DISCOVERY_LEGACY_CLIENT_INPUT_WRITES`     | `on`    | `saveClientInputSubmission` writes to BOTH legacy + canonical (in one $transaction) | Skips the legacy write — only writes the canonical.                        |
+| `DISCOVERY_CANONICAL_READS`                | `off`   | All four read paths read from `DiscoverySubmission` (filtered to the mirrored rows).  | All four read paths read from `ClientInputSubmission` (current behaviour). |
+
+Recommended cutover sequence:
+
+1. Apply Step A. Both flags at default → app behaves exactly as before but
+   now mirrors writes into `DiscoverySubmission`.
+2. After ≥48h of clean dual-write, set `DISCOVERY_CANONICAL_READS=on`.
+   Reads now come from canonical; legacy keeps being written so a flip
+   back is instant.
+3. After ≥1 week with `DISCOVERY_CANONICAL_READS=on` and no parity drift,
+   set `DISCOVERY_LEGACY_CLIENT_INPUT_WRITES=off`. Legacy table goes
+   read-only.
+4. Run Step B (drop the legacy table) — see below.
+
+## Read paths covered by the canonical-reads switch
+
+All four legacy read paths are now wrapped behind the canonical-aware
+helper `loadDiscoveryClientSubmissionsForRead` (and the
+with-users variant for the operator list). When
+`DISCOVERY_CANONICAL_READS=on` they read from `DiscoverySubmission`
+filtered to `version >= 1_000_000` AND `userId IS NOT NULL`.
+
+- `apps/api/src/server.ts` — internal project context loader (assistant prep)
+- `loadClientProjectDetail` — client portal session list
+- `loadPortalAssistantProjectContext` — portal AI context
+- `loadProjectClientInputSubmissions` — operator-facing list (uses the
+  with-users variant: `DiscoverySubmission` lacks a `user` relation, so
+  we hand-stitch `ClientPortalUser` rows by `userId`).
+
+The dual-write in `saveClientInputSubmission` is wrapped in
+`prisma.$transaction`, so during the soak the two stores stay in
+lockstep — flipping the read flag is safe at any time.
+
+## Chase mechanics defaults
+
+T3 also wires defaults so workbook chase signals never go dark:
+
+- New workbooks (both `createDiscoveryEvidence` with `kind:"workbook"`
+  and the template-spawn path) default `dueDate` to **+5 business days**
+  when no explicit date is provided.
+- They default `ownerName` to the project's **client champion** (full
+  name, falling back to email) when no owner is provided.
+- The overdue rule is unchanged: workbook is overdue when
+  `dueDate < now()` AND any question still has `status:"unanswered"`.
+- Per-question owner / due date is **deferred (YAGNI)** to a follow-up
+  task — workbook-level granularity is sufficient for v1 chase.
+
+## Boot seed
+
+`apps/api/src/index.ts` calls `ensureDeliveryTemplatesSeeded()` and
+`ensureWorkbookTemplatesSeeded()` at server boot inside a
+`Promise.allSettled`, so a transient DB hiccup at startup logs a warning
+but does not block the API from coming up. Both seed functions upsert by
+stable identity (`slug` for delivery templates, `title` for workbook
+templates), so they're safe to run on every boot. The lazy seed in
+`loadWorkbookTemplates` / `loadDeliveryTemplates` remains as a fallback
+for any caller that hits the loader before boot completes.
 
 ## Soak window
 
@@ -60,9 +122,9 @@ Minimum **1 week** between Step A apply and Step B prep. Monitor:
 
 ## Rollback (Step A)
 
-Step A is fully additive. Rollback = stop reading the new columns (no app
-deploy needed; the feature flag is the kill switch) and run a reverse
-migration:
+Step A is fully additive. Rollback = stop reading the new columns
+(`DISCOVERY_CANONICAL_READS=off` is the in-app kill switch — no deploy
+needed) and run a reverse migration:
 
 ```sql
 DROP INDEX IF EXISTS "DiscoverySubmission_legacyClientInputSubmissionId_key";
@@ -78,38 +140,33 @@ The category re-categorisation is left in place on rollback — no rollback
 SQL is provided for that change because it lands the data into the right
 home regardless of whether the additive Step A holds.
 
-## Read-path migration (prerequisite for Step B)
-
-Step A intentionally keeps the four read paths pointed at `ClientInputSubmission` because the dual-write keeps that table populated. **Before** Step B drops the legacy table, the following call sites must be repointed at `DiscoverySubmission` (filter: `version >= 1_000_000` AND `userId IS NOT NULL`):
-
-- `apps/api/src/server.ts:11510` — internal project context loader (assistant prep)
-- `apps/api/src/server.ts:23606` — `loadClientProjectDetail` (client portal session list)
-- `apps/api/src/server.ts:23703` — `loadPortalAssistantProjectContext` (portal AI context)
-- `apps/api/src/server.ts:24207` — `loadProjectClientInputSubmissions` (operator-facing list)
-
-Because `DiscoverySubmission` does not have a `user` relation, the operator-facing list (24207) needs a hand-roll join to `User` by `userId` (or a schema relation added in Step B). The other three return shapes are simpler and just need `serializeClientInputSubmission` to accept the canonical row shape.
-
-Atomicity: the dual-write in `saveClientInputSubmission` is wrapped in `prisma.$transaction`, so during the soak the two tables stay in lockstep — flipping `DISCOVERY_LEGACY_CLIENT_INPUT_WRITES=off` is safe once the read-path migration above lands.
-
 ## Step B prep (separate migration, after soak)
 
 Before running Step B:
 
-1. Confirm `DISCOVERY_LEGACY_CLIENT_INPUT_WRITES=off` has been live for
+1. Confirm `DISCOVERY_CANONICAL_READS=on` AND
+   `DISCOVERY_LEGACY_CLIENT_INPUT_WRITES=off` have both been live for
    the full soak window with no regressions.
 2. Take an on-demand DB snapshot. **Log the snapshot ID at the top of the
    Step B RUNBOOK before running the migration.**
 3. Step B drops `ClientInputSubmission`, removes the
-   `saveClientInputSubmission` / `loadProjectClientInputSubmissions` server
-   functions, and removes the `legacyClientInputSubmissionId` column once
-   no rollback is plausible.
+   `saveClientInputSubmission` / `loadProjectClientInputSubmissions`
+   server functions' legacy branches, removes both env flags, and
+   removes the `legacyClientInputSubmissionId` column once no rollback
+   is plausible.
 
 ## Sub-decision sign-off
 
 - Canonical = `DiscoverySubmission` for sessions, `DiscoveryEvidence` for
-  workbooks. Documented above.
-- Feature flag mechanism = `process.env`. Single boolean, no DB plumbing.
+  workbooks. **Deviates from the audit's "one canonical" framing —
+  needs explicit sign-off.**
+- Feature flag mechanism = `process.env`. Two independent booleans, no
+  DB plumbing.
 - Soak window = 1 week minimum.
 - Canonical category list = the 12 entries in
   `apps/web/app/components/questionLibraryConstants.ts` →
-  `CANONICAL_CATEGORIES`. Mirrored server-side.
+  `CANONICAL_CATEGORIES`. Mirrored server-side in
+  `apps/api/src/discoveryQuestionCategories.ts` (drift risk filed as a
+  follow-up to move into `packages/shared`).
+- Chase defaults: workbook `dueDate` = +5 business days, `ownerName` =
+  project client champion. Per-question owner/due date deferred (YAGNI).
