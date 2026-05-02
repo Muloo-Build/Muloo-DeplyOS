@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 export type ProjectDetailTabKey =
   | "overview"
+  | "meetings"
   | "discovery"
   | "plan"
   | "delivery"
@@ -13,12 +14,29 @@ export type ProjectDetailTabKey =
 
 const tabs: Array<{ key: ProjectDetailTabKey; label: string }> = [
   { key: "overview", label: "Overview" },
+  { key: "meetings", label: "Meetings" },
   { key: "discovery", label: "Discovery" },
   { key: "plan", label: "Plan" },
   { key: "delivery", label: "Delivery" },
   { key: "comms", label: "Comms" },
   { key: "portal", label: "Portal" }
 ];
+
+const tabHelperText: Record<ProjectDetailTabKey, string> = {
+  overview:
+    "Snapshot of this project: status, owners, and the next best action.",
+  meetings:
+    "Meeting notes and follow-ups. Add latest meetings here to capture decisions, risks, and tasks.",
+  discovery:
+    "Workbooks, contributors, and discovery evidence used to scope this engagement.",
+  plan: "Workstreams and the delivery plan for this project.",
+  delivery:
+    "Live delivery view: tasks, hours, and progress against the plan.",
+  comms:
+    "Messages and comms log shared with the client and partner team.",
+  portal:
+    "Client portal user management and discovery submissions."
+};
 
 export default function ProjectDetailLayout(props: {
   backHref: string;
@@ -32,15 +50,21 @@ export default function ProjectDetailLayout(props: {
   sidebar: ReactNode;
   children: ReactNode;
   actions?: ReactNode;
+  primaryActions?: ReactNode;
+  breadcrumb?: ReactNode;
 }) {
   return (
     <div className="space-y-6">
       <section className="brand-surface rounded-3xl border p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <Link href={props.backHref} className="text-sm text-text-secondary hover:text-white">
-              ← Back to projects
-            </Link>
+          <div className="min-w-0 flex-1">
+            {props.breadcrumb ? (
+              <div className="mb-2">{props.breadcrumb}</div>
+            ) : (
+              <Link href={props.backHref} className="text-sm text-text-secondary hover:text-white">
+                ← Back to projects
+              </Link>
+            )}
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <h1 className="text-3xl font-semibold text-white">{props.title}</h1>
               <button
@@ -81,6 +105,14 @@ export default function ProjectDetailLayout(props: {
             })}
           </nav>
         </div>
+
+        <p className="mt-3 text-xs text-text-secondary">
+          {tabHelperText[props.activeTab]}
+        </p>
+
+        {props.primaryActions ? (
+          <div className="mt-4">{props.primaryActions}</div>
+        ) : null}
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">

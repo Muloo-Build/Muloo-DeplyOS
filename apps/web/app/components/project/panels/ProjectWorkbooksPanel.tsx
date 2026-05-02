@@ -304,7 +304,13 @@ export default function ProjectWorkbooksPanel(props: {
       {!workbooks ? (
         <p className="text-sm text-text-secondary">Loading…</p>
       ) : workbooks.length === 0 ? (
-        <p className="text-sm text-text-secondary">No workbooks yet.</p>
+        <div className="brand-surface rounded-2xl border border-dashed border-white/10 p-6 text-center">
+          <p className="text-sm font-medium text-white">No workbooks yet</p>
+          <p className="mt-1 text-xs text-text-secondary">
+            Create a workbook to collect discovery input from the client,
+            project champion, or external contributors.
+          </p>
+        </div>
       ) : (
         <ul className="space-y-2">
           {workbooks.map((wb) => {

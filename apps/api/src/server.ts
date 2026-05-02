@@ -25851,6 +25851,147 @@ function serializeLibraryItem<
   };
 }
 
+function serializeProjectMeetingNote(
+  note: Prisma.Prisma.ProjectMeetingNoteGetPayload<{}>
+) {
+  return {
+    id: note.id,
+    projectId: note.projectId,
+    title: note.title,
+    meetingDate: note.meetingDate.toISOString(),
+    attendees: note.attendees,
+    notes: note.notes,
+    transcript: note.transcript,
+    links: Array.isArray(note.links) ? (note.links as string[]) : [],
+    relatedWorkstreamId: note.relatedWorkstreamId,
+    relatedWorkbookId: note.relatedWorkbookId,
+    createdBy: note.createdBy,
+    createdAt: note.createdAt.toISOString(),
+    updatedAt: note.updatedAt.toISOString()
+  };
+}
+
+export async function loadProjectMeetingNotes(projectId: string) {
+  const notes = await prisma.projectMeetingNote.findMany({
+    where: { projectId },
+    orderBy: { meetingDate: "desc" }
+  });
+  return notes.map(serializeProjectMeetingNote);
+}
+
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item) => item.length > 0);
+  }
+  return [];
+}
+
+export async function createProjectMeetingNote(
+  projectId: string,
+  value: Record<string, unknown>,
+  createdBy: string | null = null
+) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true }
+  });
+  if (!project) throw new Error("Project not found");
+
+  const title =
+    typeof value.title === "string" && value.title.trim().length > 0
+      ? value.title.trim()
+      : null;
+  if (!title) throw new Error("title is required");
+
+  let meetingDate = new Date();
+  if (typeof value.meetingDate === "string" && value.meetingDate.length > 0) {
+    const parsed = new Date(value.meetingDate);
+    if (!Number.isNaN(parsed.getTime())) meetingDate = parsed;
+  }
+
+  const note = await prisma.projectMeetingNote.create({
+    data: {
+      projectId,
+      title,
+      meetingDate,
+      attendees: parseStringArray(value.attendees),
+      notes: typeof value.notes === "string" ? value.notes : "",
+      transcript:
+        typeof value.transcript === "string" ? value.transcript : "",
+      links: parseStringArray(value.links),
+      relatedWorkstreamId:
+        typeof value.relatedWorkstreamId === "string" &&
+        value.relatedWorkstreamId.length > 0
+          ? value.relatedWorkstreamId
+          : null,
+      relatedWorkbookId:
+        typeof value.relatedWorkbookId === "string" &&
+        value.relatedWorkbookId.length > 0
+          ? value.relatedWorkbookId
+          : null,
+      createdBy
+    }
+  });
+  return serializeProjectMeetingNote(note);
+}
+
+export async function updateProjectMeetingNote(
+  projectId: string,
+  noteId: string,
+  value: Record<string, unknown>
+) {
+  const existing = await prisma.projectMeetingNote.findFirst({
+    where: { id: noteId, projectId },
+    select: { id: true }
+  });
+  if (!existing) throw new Error("Meeting note not found");
+  const data: Prisma.Prisma.ProjectMeetingNoteUpdateInput = {};
+  if (typeof value.title === "string" && value.title.trim().length > 0) {
+    data.title = value.title.trim();
+  }
+  if (typeof value.meetingDate === "string" && value.meetingDate.length > 0) {
+    const parsed = new Date(value.meetingDate);
+    if (!Number.isNaN(parsed.getTime())) data.meetingDate = parsed;
+  }
+  if (value.attendees !== undefined) {
+    data.attendees = parseStringArray(value.attendees);
+  }
+  if (typeof value.notes === "string") data.notes = value.notes;
+  if (typeof value.transcript === "string") data.transcript = value.transcript;
+  if (value.links !== undefined) data.links = parseStringArray(value.links);
+  if (value.relatedWorkstreamId !== undefined) {
+    data.relatedWorkstreamId =
+      typeof value.relatedWorkstreamId === "string" &&
+      value.relatedWorkstreamId.length > 0
+        ? value.relatedWorkstreamId
+        : null;
+  }
+  if (value.relatedWorkbookId !== undefined) {
+    data.relatedWorkbookId =
+      typeof value.relatedWorkbookId === "string" &&
+      value.relatedWorkbookId.length > 0
+        ? value.relatedWorkbookId
+        : null;
+  }
+  const note = await prisma.projectMeetingNote.update({
+    where: { id: noteId },
+    data
+  });
+  return serializeProjectMeetingNote(note);
+}
+
+export async function deleteProjectMeetingNote(
+  projectId: string,
+  noteId: string
+) {
+  const result = await prisma.projectMeetingNote.deleteMany({
+    where: { id: noteId, projectId }
+  });
+  if (result.count === 0) throw new Error("Meeting note not found");
+}
+
 export async function loadDiscoveryQuestionLibrary(filters?: {
   category?: string | undefined;
   linkedHubSpotArea?: string | undefined;

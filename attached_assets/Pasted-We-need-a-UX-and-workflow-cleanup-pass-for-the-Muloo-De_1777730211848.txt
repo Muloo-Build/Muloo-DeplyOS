@@ -1,0 +1,260 @@
+We need a UX and workflow cleanup pass for the Muloo Deploy OS project workspace.
+
+Current issue:
+The Project Contribution Workbook system appears to exist technically, but the portal is difficult to navigate. It is not obvious how to create a workbook, add the latest meeting notes, add contributors, or understand the next best action. Editing a project may also be creating a new project or visually behaving as if it has duplicated the project, which needs to be investigated and fixed.
+
+The goal:
+Make the project workspace action-led, not menu-led.
+
+Primary product principle:
+When I open a project, I should immediately know what to do next.
+
+Please implement the following improvements.
+
+## 1. Add a primary project action bar
+
+On the project detail / project workspace page, add a clear action bar near the top, directly under the project title/status area.
+
+Buttons:
+
+- Add latest meeting
+- Create workbook
+- Add contributor
+- Add resource / Miro board
+- Open client portal view
+- Generate next actions
+
+These should be visually prominent and always easy to find.
+
+Do not bury these actions inside tabs.
+
+## 2. Add "Add latest meeting" workflow
+
+Create a new workflow/modal/page called "Add latest meeting".
+
+The user should be able to:
+- Add meeting title
+- Add meeting date
+- Paste meeting notes
+- Paste transcript
+- Add attendee names
+- Add links mentioned in the meeting
+- Optionally select related workstream
+- Optionally select related workbook
+
+After saving, the system should store the meeting against the project.
+
+If a suitable project meeting/note model already exists, use it.
+If not, create a lightweight ProjectMeetingNote or ProjectActivity model.
+
+Fields needed:
+- id
+- projectId
+- title
+- meetingDate
+- attendees[]
+- notes
+- transcript
+- links[]
+- relatedWorkstreamId nullable
+- relatedWorkbookId nullable
+- createdBy
+- createdAt
+- updatedAt
+
+## 3. Add meeting review / extraction screen
+
+After saving meeting notes, show a review screen that organises possible outputs.
+
+Sections:
+
+- Project summary updates
+- Discovery questions found
+- Risks / blockers
+- Scope changes
+- Internal tasks
+- Client follow-up items
+- Contributor questions
+- Resource links / Miro links
+
+For now, this can be rule-based or manually editable if AI extraction is not already wired.
+
+Each suggested item should have:
+- checkbox
+- editable text
+- target destination
+- apply button
+
+Example destinations:
+- Add to project summary
+- Add to workbook
+- Add to workstream
+- Add to quick wins
+- Add to risks
+- Add as task
+- Add as client follow-up
+- Add as resource
+
+## 4. Simplify workbook creation
+
+Add a very obvious "Create workbook" button.
+
+The create workbook flow should be a guided modal with these steps:
+
+Step 1: Select workbook type
+Options:
+- HubSpot Discovery
+- Website Discovery
+- Tech Stack & Tools
+- Operations Discovery
+- Sales Process
+- Marketing & Content
+- Service & Support
+- Custom Workbook
+
+Step 2: Choose starting point
+Options:
+- Start blank
+- Use question library
+- Use existing template
+- Import from latest meeting
+
+Step 3: Assign contributors
+Options:
+- Project champion
+- Existing contributors
+- Add new contributor
+- Assign later
+
+Step 4: Review and create
+
+After creation, open the workbook editor directly.
+
+## 5. Fix project edit behaviour
+
+Investigate the edit project flow.
+
+Expected behaviour:
+- Clicking "Edit project" should update the existing project.
+- It must not create a duplicate project.
+- It must preserve the original project ID.
+- After saving, the user should be returned to the same project detail page.
+- The project list should not show duplicates unless duplicates genuinely exist in the database.
+
+Please check:
+- Edit project form submit handler
+- API route used by edit project
+- Whether it is calling POST create instead of PATCH/PUT update
+- Whether project ID is missing from the update call
+- Whether frontend state is duplicating the project after update
+
+Add a regression check for this.
+
+## 6. Reduce project page confusion
+
+The project page currently has too many tabs and sections without a clear next step.
+
+Please reorganise the project page into these high-level areas:
+
+Top:
+- Project title
+- Client
+- Status
+- Quote status
+- Readiness snapshot
+- Primary action bar
+
+Main tabs:
+- Overview
+- Meetings
+- Workbooks
+- Contributors
+- Resources
+- Workstreams
+- Delivery
+- Client Portal
+
+The "Meetings" tab should show latest meeting notes and extracted actions.
+
+The "Workbooks" tab should show:
+- existing workbooks
+- create workbook button
+- workbook status
+- assigned contributors
+- unanswered question count
+- last updated date
+
+The "Contributors" tab should show:
+- contributors
+- access status
+- assigned workbooks/questions
+- invite/copy link actions
+
+The "Resources" tab should show:
+- Miro boards
+- Google Docs
+- Sheets
+- PDFs
+- external URLs
+
+## 7. Add empty state guidance
+
+Every empty section must explain what to do next.
+
+Examples:
+
+No workbooks yet:
+"Create a workbook to collect discovery input from the client, project champion, or external contributors."
+
+Button:
+"Create workbook"
+
+No meetings yet:
+"Add your latest client meeting notes and Deploy OS will help turn them into tasks, risks, questions, and scope updates."
+
+Button:
+"Add latest meeting"
+
+No contributors yet:
+"Add project contributors who can answer specific workbook questions without needing full client portal access."
+
+Button:
+"Add contributor"
+
+## 8. Add breadcrumb and "you are here" guidance
+
+On project pages, add a clear breadcrumb:
+
+Projects / Magnisol HubSpot and Website Delivery / Workbooks
+
+Also show a small helper line under the tab title explaining what the current area is for.
+
+## 9. QA requirements
+
+Test the following:
+
+- Create a workbook from project overview
+- Create a workbook from Workbooks tab
+- Create a workbook using question library
+- Create a workbook from latest meeting notes
+- Add a contributor from the project overview
+- Add a contributor from Contributors tab
+- Add latest meeting notes
+- Save meeting notes
+- Convert meeting note item into a workbook question
+- Convert meeting note item into a task/follow-up
+- Add a Miro/resource link
+- Edit an existing project and confirm no duplicate is created
+- Reload the page and confirm all saved data persists
+- Confirm client/contributor permissions still work
+
+## Final output required
+
+Return:
+
+1. Files changed
+2. Routes/endpoints added or modified
+3. Data models added or modified
+4. Screens/components added or modified
+5. How to test manually
+6. Any unresolved issues

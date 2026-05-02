@@ -329,6 +329,7 @@ model Project {
   retainer                      Retainer?               @relation(fields: [retainerId], references: [id])
   contextEntries                ProjectContext[]
   contributors                  ProjectContributor[]
+  meetingNotes                  ProjectMeetingNote[]
   messages                      ProjectMessage[]
   quotes                        ProjectQuote[]
   recommendations               Recommendation[]
@@ -586,6 +587,25 @@ model DiscoverySubmission {
   project               Project  @relation(fields: [projectId], references: [id])
 
   @@unique([projectId, version])
+}
+
+model ProjectMeetingNote {
+  id                  String   @id @default(cuid())
+  projectId           String
+  title               String
+  meetingDate         DateTime
+  attendees           String[] @default([])
+  notes               String   @default("")
+  transcript          String   @default("")
+  links               Json?
+  relatedWorkstreamId String?
+  relatedWorkbookId   String?
+  createdBy           String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, meetingDate])
 }
 
 model DiscoveryQuestionLibraryItem {

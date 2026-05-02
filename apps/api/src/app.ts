@@ -197,6 +197,10 @@ import {
   updateProjectWorkbook,
   deleteProjectWorkbook,
   loadDiscoveryQuestionLibrary,
+  loadProjectMeetingNotes,
+  createProjectMeetingNote,
+  updateProjectMeetingNote,
+  deleteProjectMeetingNote,
   createDiscoveryQuestionLibraryItem,
   updateDiscoveryQuestionLibraryItem,
   deleteDiscoveryQuestionLibraryItem,
@@ -2585,6 +2589,78 @@ export function createApiApp(config: BaseConfig) {
               : 400;
         return c.json({ error: message }, status);
       }
+    }
+  );
+
+  app.all("/api/projects/:projectId/meeting-notes", async (c) => {
+    const projectId = c.req.param("projectId");
+    if (c.req.method === "GET") {
+      try {
+        return c.json({ notes: await loadProjectMeetingNotes(projectId) });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to load meeting notes"
+          },
+          400
+        );
+      }
+    }
+    if (c.req.method === "POST") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const note = await createProjectMeetingNote(projectId, body);
+        return c.json({ note }, 201);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to save meeting";
+        const status = message === "Project not found" ? 404 : 400;
+        return c.json({ error: message }, status);
+      }
+    }
+    return c.json({ error: "Method not allowed" }, 405);
+  });
+
+  app.all(
+    "/api/projects/:projectId/meeting-notes/:noteId",
+    async (c) => {
+      const projectId = c.req.param("projectId");
+      const noteId = c.req.param("noteId");
+      if (c.req.method === "PATCH") {
+        try {
+          const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+          const note = await updateProjectMeetingNote(projectId, noteId, body);
+          return c.json({ note });
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Failed to update meeting";
+          return c.json(
+            { error: message },
+            message === "Meeting note not found" ? 404 : 400
+          );
+        }
+      }
+      if (c.req.method === "DELETE") {
+        try {
+          await deleteProjectMeetingNote(projectId, noteId);
+          return c.json({ success: true });
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Failed to delete meeting";
+          return c.json(
+            { error: message },
+            message === "Meeting note not found" ? 404 : 400
+          );
+        }
+      }
+      return c.json({ error: "Method not allowed" }, 405);
     }
   );
 

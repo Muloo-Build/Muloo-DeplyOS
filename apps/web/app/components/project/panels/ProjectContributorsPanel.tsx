@@ -205,7 +205,13 @@ export default function ProjectContributorsPanel(props: {
       {!contributors ? (
         <p className="text-sm text-text-secondary">Loading…</p>
       ) : contributors.length === 0 ? (
-        <p className="text-sm text-text-secondary">No contributors yet.</p>
+        <div className="brand-surface rounded-2xl border border-dashed border-white/10 p-6 text-center">
+          <p className="text-sm font-medium text-white">No contributors yet</p>
+          <p className="mt-1 text-xs text-text-secondary">
+            Add project contributors who can answer specific workbook questions
+            without needing full client portal access.
+          </p>
+        </div>
       ) : (
         <ul className="space-y-2">
           {contributors.map((contrib) => (

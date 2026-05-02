@@ -20,6 +20,9 @@ import ProjectWorkstreamsHoursPanel from "./project/panels/ProjectWorkstreamsHou
 import ProjectWorkbooksPanel from "./project/panels/ProjectWorkbooksPanel";
 import ProjectContributorsPanel from "./project/panels/ProjectContributorsPanel";
 import ProjectReadinessSummary from "./project/panels/ProjectReadinessSummary";
+import ProjectActionBar from "./project/panels/ProjectActionBar";
+import ProjectMeetingsPanel from "./project/panels/ProjectMeetingsPanel";
+import Breadcrumb from "./project/Breadcrumb";
 
 interface Project {
   id: string;
@@ -280,6 +283,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [portalSnapshot, setPortalSnapshot] = useState<PortalSnapshot | null>(null);
   const [taskBoard, setTaskBoard] = useState<TaskBoardResponse | null>(null);
   const [activeTab, setActiveTab] = useState<ProjectDetailTabKey>("overview");
+  const [meetingModalOpen, setMeetingModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summaryBusy, setSummaryBusy] = useState(false);
@@ -1815,6 +1819,19 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             }
           />
         );
+      case "meetings":
+        return (
+          <ProjectMeetingsPanel
+            projectId={project.id}
+            workstreams={(project.deliveryWorkstreams ?? []).map((ws) => ({
+              id: ws.id,
+              name: ws.name
+            }))}
+            workbooks={[]}
+            modalOpen={meetingModalOpen}
+            setModalOpen={setMeetingModalOpen}
+          />
+        );
       case "portal":
         return (
           <PortalTab
@@ -2171,6 +2188,28 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           hubsInScope={project.selectedHubs}
           activeTab={activeTab}
           onTabChange={setActiveTab}
+          breadcrumb={
+            <Breadcrumb
+              items={[
+                { label: "Projects", href: "/projects" },
+                { label: project.name },
+                { label: formatLabel(activeTab) }
+              ]}
+            />
+          }
+          primaryActions={
+            <ProjectActionBar
+              projectId={project.id}
+              onAddMeeting={() => {
+                setActiveTab("meetings");
+                setMeetingModalOpen(true);
+              }}
+              onCreateWorkbook={() => setActiveTab("discovery")}
+              onAddContributor={() => setActiveTab("discovery")}
+              onAddResource={() => setActiveTab("discovery")}
+              onOpenClientPortal={() => void openClientPortalPreview()}
+            />
+          }
           actions={
             <>
               <Link

@@ -1,0 +1,194 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { CalendarPlus, Trash2 } from "lucide-react";
+import AddMeetingNoteModal from "./AddMeetingNoteModal";
+
+type MeetingNote = {
+  id: string;
+  title: string;
+  meetingDate: string;
+  attendees: string[];
+  notes: string;
+  transcript: string;
+  links: string[];
+  relatedWorkstreamId: string | null;
+  relatedWorkbookId: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type WorkstreamOption = { id: string; name: string };
+type WorkbookOption = { id: string; sourceLabel: string };
+
+export default function ProjectMeetingsPanel({
+  projectId,
+  workstreams = [],
+  workbooks = [],
+  modalOpen,
+  setModalOpen
+}: {
+  projectId: string;
+  workstreams?: WorkstreamOption[];
+  workbooks?: WorkbookOption[];
+  modalOpen?: boolean;
+  setModalOpen?: (open: boolean) => void;
+}) {
+  const [notes, setNotes] = useState<MeetingNote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  const open = modalOpen ?? internalOpen;
+  const setOpen = setModalOpen ?? setInternalOpen;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/meeting-notes`,
+        { credentials: "include" }
+      );
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to load meetings");
+      }
+      setNotes(Array.isArray(body.notes) ? body.notes : []);
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Failed to load meetings"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function deleteNote(noteId: string) {
+    if (!confirm("Delete this meeting note?")) return;
+    const response = await fetch(
+      `/api/projects/${encodeURIComponent(projectId)}/meeting-notes/${encodeURIComponent(noteId)}`,
+      { method: "DELETE", credentials: "include" }
+    );
+    if (response.ok) {
+      void load();
+    }
+  }
+
+  return (
+    <section className="space-y-4">
+      <header className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Meeting notes</h2>
+          <p className="text-xs text-text-secondary">
+            Capture meeting notes and turn them into tasks, questions, or
+            follow-ups from this tab.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-brand-teal px-3 py-2 text-sm font-semibold text-white hover:brightness-110"
+        >
+          <CalendarPlus size={16} />
+          Add latest meeting
+        </button>
+      </header>
+
+      {error ? (
+        <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+          {error}
+        </div>
+      ) : null}
+
+      {loading ? (
+        <p className="text-sm text-text-secondary">Loading meetings…</p>
+      ) : notes.length === 0 ? (
+        <div className="brand-surface rounded-2xl border border-dashed border-white/10 p-8 text-center">
+          <p className="text-sm text-white">No meetings yet</p>
+          <p className="mt-1 text-xs text-text-secondary">
+            Add your latest client meeting notes and Deploy OS will help turn
+            them into tasks, risks, questions, and scope updates.
+          </p>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-teal px-3 py-2 text-sm font-semibold text-white hover:brightness-110"
+          >
+            <CalendarPlus size={16} />
+            Add latest meeting
+          </button>
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {notes.map((note) => (
+            <li
+              key={note.id}
+              className="brand-surface rounded-2xl border border-white/10 p-4"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-white">
+                    {note.title}
+                  </h3>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    {new Date(note.meetingDate).toLocaleDateString()} ·{" "}
+                    {note.attendees.length > 0
+                      ? note.attendees.join(", ")
+                      : "No attendees recorded"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => deleteNote(note.id)}
+                  className="rounded-md p-1 text-text-secondary hover:bg-white/5 hover:text-red-300"
+                  aria-label="Delete meeting"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              {note.notes ? (
+                <p className="mt-2 whitespace-pre-wrap text-xs text-white/90">
+                  {note.notes}
+                </p>
+              ) : null}
+              {note.links.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {note.links.map((link, idx) => (
+                    <a
+                      key={`${note.id}-link-${idx}`}
+                      href={link}
+                      target="_blank"
+                      rel="noopener"
+                      className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-brand-teal hover:underline"
+                    >
+                      {link}
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+              <p className="mt-2 text-[11px] uppercase tracking-wide text-text-secondary/70">
+                Extraction → tasks · questions · follow-ups · resources (coming
+                soon)
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <AddMeetingNoteModal
+        open={open}
+        projectId={projectId}
+        workstreams={workstreams}
+        workbooks={workbooks}
+        onClose={() => setOpen(false)}
+        onSaved={() => void load()}
+      />
+    </section>
+  );
+}
