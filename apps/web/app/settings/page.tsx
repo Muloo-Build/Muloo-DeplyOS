@@ -53,7 +53,7 @@ export default function SettingsPage() {
             href: "/settings/products"
           },
           {
-            label: "Templates",
+            label: "Implementation Templates",
             title: "Delivery templates",
             description:
               "Open the repeatable delivery-pattern library for theme installs, onboarding, migrations, and other jobs.",

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Bot,
+  BookOpen,
   Building2,
   Contact,
   FileText,
@@ -13,13 +14,14 @@ import {
   Inbox,
   KeyRound,
   LayoutDashboard,
+  LayoutTemplate,
+  Library,
   LineChart,
   LogOut,
   Menu,
   Package,
   PlaySquare,
   Receipt,
-  ScrollText,
   Settings,
   Wallet,
   X
@@ -182,15 +184,35 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    label: "ADMIN",
+    label: "OPERATIONS",
     items: [
       {
+        href: "/workbooks",
+        label: "Workbooks",
+        icon: <BookOpen size={18} />,
+        isActive: (pathname) =>
+          pathname === "/workbooks" || pathname.startsWith("/workbooks/")
+      },
+      {
+        href: "/question-library",
+        label: "Question Library",
+        icon: <Library size={18} />,
+        isActive: (pathname) =>
+          pathname === "/question-library" ||
+          pathname.startsWith("/question-library/")
+      },
+      {
         href: "/templates",
-        label: "Templates",
-        icon: <ScrollText size={18} />,
+        label: "Implementation Templates",
+        icon: <LayoutTemplate size={18} />,
         isActive: (pathname) =>
           pathname === "/templates" || pathname.startsWith("/templates/")
-      },
+      }
+    ]
+  },
+  {
+    label: "ADMIN",
+    items: [
       {
         href: "/skeleton-key",
         label: "Skeleton key",
