@@ -10,18 +10,21 @@ export type ProjectDetailTabKey =
   | "discovery"
   | "plan"
   | "delivery"
+  | "change"
   | "comms"
   | "portal";
 
+// Visible tabs in lifecycle order. Meetings is absorbed into Comms (kept as a
+// programmatic key so existing CTAs that set activeTab="meetings" still work).
 const tabs: Array<{ key: ProjectDetailTabKey; label: string }> = [
   { key: "overview", label: "Overview" },
-  { key: "meetings", label: "Meetings" },
-  { key: "access", label: "Access & Sharing" },
   { key: "discovery", label: "Discovery" },
   { key: "plan", label: "Plan" },
   { key: "delivery", label: "Delivery" },
+  { key: "change", label: "Change" },
   { key: "comms", label: "Comms" },
-  { key: "portal", label: "Portal" }
+  { key: "portal", label: "Portal" },
+  { key: "access", label: "Settings" }
 ];
 
 const tabHelperText: Record<ProjectDetailTabKey, string> = {
@@ -30,14 +33,16 @@ const tabHelperText: Record<ProjectDetailTabKey, string> = {
   meetings:
     "Meeting notes and follow-ups. Add latest meetings here to capture decisions, risks, and tasks.",
   access:
-    "Configure who has access to what: client champion, contributors, HubSpot, Miro and shared resources.",
+    "Project settings: who has access, contributors, HubSpot, Miro and shared resources.",
   discovery:
     "Workbooks and discovery evidence used to scope this engagement.",
   plan: "Workstreams and the delivery plan for this project.",
   delivery:
     "Live delivery view: tasks, hours, and progress against the plan.",
+  change:
+    "Scope-change requests, pricing decisions, and the audit trail of approved or rejected changes.",
   comms:
-    "Messages and comms log shared with the client and partner team.",
+    "Messages, meetings, and comms log shared with the client and partner team.",
   portal:
     "Client portal user management and discovery submissions."
 };

@@ -1704,17 +1704,55 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             changeManagement={
               <div className="space-y-3 text-sm text-text-secondary">
                 <p>
-                  Use the change-management workspace to review scope changes once the approved plan starts moving.
+                  Scope changes now live on the dedicated <strong className="text-white">Change</strong> tab. Open it to triage requests, price them, and approve or reject.
                 </p>
-                <Link
-                  href={`/projects/${project.id}/changes`}
-                  className="inline-flex brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("change")}
+                  className="inline-flex brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
                 >
-                  View Changes →
-                </Link>
+                  Open Change tab →
+                </button>
               </div>
             }
           />
+        );
+      case "change":
+        return (
+          <div className="space-y-6">
+            <section className="brand-surface rounded-3xl border p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                    Change management
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">
+                    Scope changes for this project
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm text-text-secondary">
+                    Triage incoming change requests, price them, and capture the audit trail of approvals or rejections. Approved changes append to delivery; rejected changes carry the reason for the record.
+                  </p>
+                </div>
+                <Link
+                  href={`/projects/${project.id}/changes`}
+                  className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
+                >
+                  Open changes workspace →
+                </Link>
+              </div>
+            </section>
+            <section className="brand-surface rounded-3xl border p-6">
+              <h3 className="text-lg font-semibold text-white">
+                What lives here
+              </h3>
+              <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                <li>• <span className="text-white">Pending changes</span> — requests captured from the Inbox or raised internally, awaiting triage.</li>
+                <li>• <span className="text-white">Priced + approved</span> — the audit trail of accepted scope changes, with cost deltas.</li>
+                <li>• <span className="text-white">Rejected</span> — declined requests with the reason on file.</li>
+                <li>• <span className="text-white">Scope diff</span> — current scope vs the originally signed-off baseline.</li>
+              </ul>
+            </section>
+          </div>
         );
       case "comms":
         return (

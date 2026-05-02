@@ -1023,55 +1023,118 @@ export default function MulooCommandCentre() {
             </div>
           </header>
 
-          <section className="grid gap-4 xl:grid-cols-5">
-            <StatCard
-              href="/projects?status=live"
-              label="Live projects"
-              helper="All non-archived projects in the workspace."
-              value={liveProjectsCount}
-              tone="neutral"
-            />
-            <StatCard
-              href="/projects?status=in_delivery"
-              label="In delivery"
-              helper="Projects currently being executed right now."
-              value={deliveryProjectsCount}
-              tone="neutral"
-            />
-            <StatCard
-              href="/projects?status=awaiting_approval"
-              label="Awaiting approval"
-              helper="Projects with a quote shared and waiting for approval."
-              value={awaitingApprovalCount}
-              tone="warning"
-            />
-            <StatCard
-              href="/projects?status=blocked_external"
-              label="Blocked external"
-              helper="Projects waiting on client or partner input."
-              value={blockedExternalCount}
-              tone="danger"
-            />
-            <Link
-              href="/retainers"
-              className="rounded-2xl border border-brand-teal/25 bg-brand-teal/10 p-5 text-white transition hover:border-brand-teal/60"
-            >
-              <p className="text-sm text-text-secondary">Overdue invoices</p>
-              <p className="mt-3 text-4xl font-semibold">
-                {invoiceSummary?.overdueCount ?? "..."}
-              </p>
-              <p className="mt-2 text-xs text-text-secondary">
-                Draft {invoiceSummary?.draftCount ?? 0} · Sent {invoiceSummary?.sentCount ?? 0} · Paid this month{" "}
-                {invoiceSummary
-                  ? new Intl.NumberFormat("en-ZA", {
-                      style: "currency",
-                      currency: invoiceSummary.paidThisMonthCurrency,
-                      maximumFractionDigits: 0
-                    }).format(invoiceSummary.paidThisMonth)
-                  : "..."}
-              </p>
-            </Link>
-          </section>
+          {(() => {
+            const awaitingApprovalAttention =
+              (awaitingApprovalCount ?? 0) > 0;
+            const blockedExternalAttention =
+              (blockedExternalCount ?? 0) > 0;
+            const overdueInvoicesAttention =
+              (invoiceSummary?.overdueCount ?? 0) > 0;
+            const anyAttention =
+              awaitingApprovalAttention ||
+              blockedExternalAttention ||
+              overdueInvoicesAttention;
+
+            return (
+              <>
+                <section className="brand-surface rounded-3xl border p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <SectionLabel
+                      label="What needs you"
+                      title={
+                        anyAttention
+                          ? "These items are waiting on a decision from you."
+                          : "Nothing requires you right now. Coast."
+                      }
+                      body={
+                        anyAttention
+                          ? "Cleared items disappear from this strip. Each card opens the filtered list."
+                          : "When work needs your attention — quotes pending approval, projects blocked on client input, overdue invoices — they show up here."
+                      }
+                    />
+                  </div>
+
+                  {anyAttention ? (
+                    <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {awaitingApprovalAttention ? (
+                        <StatCard
+                          href="/projects?status=awaiting_approval"
+                          label="Awaiting approval"
+                          helper="Quotes shared with the client and waiting for sign-off."
+                          value={awaitingApprovalCount}
+                          tone="warning"
+                        />
+                      ) : null}
+                      {blockedExternalAttention ? (
+                        <StatCard
+                          href="/projects?status=blocked_external"
+                          label="Blocked external"
+                          helper="Projects waiting on client or partner input."
+                          value={blockedExternalCount}
+                          tone="danger"
+                        />
+                      ) : null}
+                      {overdueInvoicesAttention ? (
+                        <Link
+                          href="/invoices?status=OVERDUE"
+                          className="rounded-2xl border border-status-error/30 bg-status-error/10 p-5 text-white transition hover:border-status-error/60"
+                        >
+                          <p className="text-sm text-text-secondary">
+                            Overdue invoices
+                          </p>
+                          <p className="mt-3 text-4xl font-semibold">
+                            {invoiceSummary?.overdueCount ?? 0}
+                          </p>
+                          <p className="mt-2 text-xs text-text-secondary">
+                            Draft {invoiceSummary?.draftCount ?? 0} · Sent{" "}
+                            {invoiceSummary?.sentCount ?? 0} · Paid this month{" "}
+                            {invoiceSummary
+                              ? new Intl.NumberFormat("en-ZA", {
+                                  style: "currency",
+                                  currency:
+                                    invoiceSummary.paidThisMonthCurrency,
+                                  maximumFractionDigits: 0
+                                }).format(invoiceSummary.paidThisMonth)
+                              : "..."}
+                          </p>
+                        </Link>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-text-secondary">
+                      Last activity will surface here as soon as a quote needs
+                      sign-off, a project blocks on client input, or an invoice
+                      slips overdue.
+                    </div>
+                  )}
+                </section>
+
+                <section className="brand-surface rounded-3xl border p-6">
+                  <SectionLabel
+                    label="Workspace at a glance"
+                    title="Where the workspace stands today."
+                    body="Always-on context: where projects sit even when nothing requires action."
+                  />
+                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                    <StatCard
+                      href="/projects?status=live"
+                      label="Live projects"
+                      helper="All non-archived projects in the workspace."
+                      value={liveProjectsCount}
+                      tone="neutral"
+                    />
+                    <StatCard
+                      href="/projects?status=in_delivery"
+                      label="In delivery"
+                      helper="Projects currently being executed right now."
+                      value={deliveryProjectsCount}
+                      tone="neutral"
+                    />
+                  </div>
+                </section>
+              </>
+            );
+          })()}
 
           <section className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr_0.8fr]">
             <div className="brand-surface rounded-3xl border p-6">

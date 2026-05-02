@@ -70,6 +70,7 @@ export default function InvoicesWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [xeroConnected, setXeroConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -98,6 +99,37 @@ export default function InvoicesWorkspace() {
       }
     }
     void load();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadXero() {
+      try {
+        const response = await fetch("/api/workspace/xero/status", {
+          credentials: "include"
+        });
+        if (!response.ok) {
+          // Treat non-OK as unknown — never force "Connect Xero" on a transient
+          // server hiccup, since that would mislead operators into a setup flow
+          // for an integration that may already be connected.
+          return;
+        }
+        const body = (await response.json()) as {
+          connected?: boolean;
+          configured?: boolean;
+        };
+        if (!cancelled) {
+          setXeroConnected(Boolean(body.connected));
+        }
+      } catch {
+        // Network error: leave xeroConnected as null (unknown) so we fall
+        // through to the safe default CTA rather than the wrong one.
+      }
+    }
+    void loadXero();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filtered = useMemo(() => {
@@ -241,12 +273,16 @@ export default function InvoicesWorkspace() {
               }
               description={
                 invoices.length === 0
-                  ? "Invoices appear here once you record a retainer block or approve a top-up. Once Xero is connected, drafts flow there too."
+                  ? xeroConnected === false
+                    ? "Connect Xero from workspace settings so retainer blocks and top-ups can sync drafts straight into your accounting."
+                    : "Invoices appear here once you record a retainer block or approve a top-up. Drafts will flow into Xero automatically."
                   : "Adjust the status filter or clear the search to see more."
               }
               primaryCta={
                 invoices.length === 0
-                  ? { label: "Open retainers", href: "/retainers" }
+                  ? xeroConnected === false
+                    ? { label: "Connect Xero", href: "/settings" }
+                    : { label: "Open retainers", href: "/retainers" }
                   : undefined
               }
             />

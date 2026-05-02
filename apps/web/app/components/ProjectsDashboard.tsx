@@ -492,7 +492,7 @@ export default function ProjectsDashboard({
         <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[
             ["Total Projects", `${stats.total}`, "text-white"],
-            ["In Execution", `${stats.inExecution}`, "text-status-info"],
+            ["In delivery", `${stats.inExecution}`, "text-status-info"],
             [
               "Awaiting Approval",
               `${stats.awaitingApproval}`,
