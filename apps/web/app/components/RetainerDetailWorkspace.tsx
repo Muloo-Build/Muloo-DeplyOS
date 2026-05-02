@@ -35,6 +35,12 @@ interface RetainerDetail {
   deliverables?: Array<{ title: string; description?: string }> | null;
   approvalTerms?: string | null;
   requirements?: string | null;
+  spawnedProjects?: Array<{
+    id: string;
+    name: string;
+    status: string;
+    createdAt: string;
+  }>;
   periods: Array<{
     id: string;
     periodMonth: string;
@@ -463,6 +469,28 @@ export default function RetainerDetailWorkspace({
               {spawning ? "Spawning…" : "Spawn follow-on project"}
             </button>
           </div>
+          {retainer?.spawnedProjects && retainer.spawnedProjects.length > 0 ? (
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                Spawned projects
+              </p>
+              <ul className="mt-2 space-y-1.5">
+                {retainer.spawnedProjects.map((p) => (
+                  <li key={p.id} className="flex items-center gap-2 text-sm">
+                    <Link
+                      href={`/projects/${p.id}`}
+                      className="font-medium text-white hover:underline"
+                    >
+                      {p.name}
+                    </Link>
+                    <span className="text-xs text-text-secondary">
+                      · {p.status} · {formatDate(p.createdAt)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">

@@ -31099,13 +31099,20 @@ export async function closeProject(
 
   const handover = await prisma.handoverDoc.findUnique({
     where: { projectId },
-    select: { id: true }
+    select: { id: true, sharedToPortalAt: true }
   });
   if (!handover) {
     const err = new Error(
       "Handover doc not generated yet — generate it before closing the project"
     );
     (err as Error & { code?: string }).code = "HANDOVER_REQUIRED";
+    throw err;
+  }
+  if (!handover.sharedToPortalAt) {
+    const err = new Error(
+      "Handover doc has not been shared to the client portal yet — share it before closing the project"
+    );
+    (err as Error & { code?: string }).code = "HANDOVER_NOT_SHARED";
     throw err;
   }
 
@@ -31337,16 +31344,21 @@ export async function spawnProjectFromRetainer(
     overrides.name?.trim() ||
     `Follow-on · ${source?.name ?? retainer.client.name}`;
 
+  // When the source project has selected hubs we keep them and use the
+  // standard discovery scopeType; otherwise we fall back to standalone_quote
+  // so creation does not fail on the selectedHubs gate (operator can choose
+  // hubs later inside the project).
+  const sourceHubs = source?.selectedHubs ?? [];
   const created = await createProjectRecord({
     name: baseName,
     clientName: retainer.client.name,
     serviceFamily: source?.serviceFamily,
     engagementType: source?.engagementType,
-    selectedHubs: source?.selectedHubs ?? [],
+    selectedHubs: sourceHubs,
     scopeExecutiveSummary:
       source?.scopeExecutiveSummary ?? retainer.scopeSummary ?? undefined,
     commercialBrief: source?.commercialBrief ?? undefined,
-    scopeType: "discovery"
+    scopeType: sourceHubs.length > 0 ? "discovery" : "standalone_quote"
   });
 
   // Bidirectional Project ↔ Retainer link:
