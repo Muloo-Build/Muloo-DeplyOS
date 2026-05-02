@@ -122,7 +122,7 @@ export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) {
     // Fail soft in components that may render outside a provider — log and no-op.
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
       // eslint-disable-next-line no-console
       console.warn("[useToast] used outside ToastProvider");
     }

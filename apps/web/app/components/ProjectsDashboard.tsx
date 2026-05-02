@@ -383,13 +383,13 @@ export default function ProjectsDashboard({
         <div className="mb-8 flex items-end justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
-              Delivery orchestration
+              Delivery
             </p>
             <h1 className="mt-3 text-3xl font-bold font-heading text-white">
               Projects
             </h1>
             <p className="mt-2 text-text-secondary">
-              Discovery-led HubSpot implementation planning for the Muloo team.
+              HubSpot implementation, optimisation, and integration projects across all active clients.
             </p>
           </div>
           <Link

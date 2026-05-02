@@ -144,7 +144,7 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    label: "OPERATIONS",
+    label: "AUTOMATION",
     items: [
       {
         href: "/projects/portal-ops",
@@ -361,7 +361,7 @@ export default function Sidebar() {
             <span className="font-medium">Sign out</span>
           </button>
           <p className="mt-4 px-2 text-xs uppercase tracking-[0.2em] text-text-muted">
-            Internal delivery workspace
+            Muloo Deploy OS
           </p>
         </div>
       </aside>

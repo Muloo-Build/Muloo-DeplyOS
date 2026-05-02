@@ -485,8 +485,8 @@ export default function ClientsWorkspace({
   const workspaceLabel = isPartnerWorkspace ? "Partner" : "Client";
   const workspaceLabelPlural = isPartnerWorkspace ? "Partners" : "Clients";
   const workspaceDescription = isPartnerWorkspace
-    ? "A dedicated directory for partner-tagged companies, their portal users, and the projects they are connected to."
-    : "A tighter CRM-lite directory: active clients first, fast search, expandable company records, linked contacts, and linked projects without turning this into a full CRM.";
+    ? "External delivery partners, agencies, and collaborators who receive structured briefs and execute work on behalf of Muloo clients."
+    : "Companies Muloo is delivering HubSpot work for — implementation, optimisation, integration, or ongoing support. Linked to projects, contacts, and portal history.";
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
