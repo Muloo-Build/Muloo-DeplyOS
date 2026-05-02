@@ -35,8 +35,28 @@ interface ChangeRequest {
   updatedAt: string;
 }
 
-const PENDING_STATUSES = new Set(["new", "under_review", "priced"]);
-const APPROVED_STATUSES = new Set([
+interface QuoteTotals {
+  totalHumanHours?: number;
+  totalFeeZar?: number;
+  grandTotalZar?: number;
+}
+
+interface QuoteRecord {
+  id: string;
+  version: number;
+  status: string;
+  approvedAt?: string | null;
+  totals?: QuoteTotals | null;
+}
+
+const PENDING_STATUSES = new Set(["new", "under_review"]);
+const PRICED_OR_APPROVED_STATUSES = new Set([
+  "priced",
+  "approved",
+  "appended_to_delivery",
+  "closed"
+]);
+const SCOPE_AFFECTING_STATUSES = new Set([
   "approved",
   "appended_to_delivery",
   "closed"
@@ -50,14 +70,14 @@ function formatStatusLabel(status: string) {
 }
 
 function statusPillClass(status: string) {
-  if (APPROVED_STATUSES.has(status)) {
+  if (status === "priced") {
+    return "bg-[rgba(245,196,82,0.16)] text-[#f5d28a]";
+  }
+  if (SCOPE_AFFECTING_STATUSES.has(status)) {
     return "bg-[rgba(45,212,160,0.16)] text-[#78f0c8]";
   }
   if (REJECTED_STATUSES.has(status)) {
     return "bg-[rgba(224,80,96,0.16)] text-[#ff98a7]";
-  }
-  if (status === "priced") {
-    return "bg-[rgba(255,214,102,0.16)] text-[#ffd666]";
   }
   return "bg-[rgba(123,226,239,0.12)] text-[#7be2ef]";
 }
@@ -109,6 +129,7 @@ export default function ChangeTab({
   project: ChangeTabProject;
 }) {
   const [requests, setRequests] = useState<ChangeRequest[] | null>(null);
+  const [baselineQuote, setBaselineQuote] = useState<QuoteRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,18 +140,54 @@ export default function ChangeTab({
       setLoading(true);
       setError(null);
       setRequests(null);
+      setBaselineQuote(null);
       try {
-        const response = await fetch(
-          `/api/projects/${encodeURIComponent(projectId)}/changes`
-        );
-        if (!response.ok) {
+        const [changesResult, quotesResult] = await Promise.allSettled([
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/changes`),
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/quotes`)
+        ]);
+
+        if (changesResult.status === "rejected" || !changesResult.value.ok) {
           throw new Error("Failed to load change requests");
         }
-        const body = (await response.json()) as {
+
+        const changesBody = (await changesResult.value.json()) as {
           workRequests?: ChangeRequest[];
         };
+
+        // Quote fetch is best-effort — failure degrades the baseline to the
+        // workstream-estimate fallback, but never blocks the change list.
+        let quote: QuoteRecord | null = null;
+        if (quotesResult.status === "fulfilled" && quotesResult.value.ok) {
+          try {
+            const quotesBody = (await quotesResult.value.json()) as {
+              quotes?: QuoteRecord[];
+            };
+            const quotes = quotesBody.quotes ?? [];
+            // Prefer the most-recently-approved quote (the actual signed-off
+            // baseline). Fall back to the latest quote by version so an
+            // unapproved-but-shared quote can still seed the diff.
+            const approvedSorted = quotes
+              .filter((entry) => Boolean(entry.approvedAt))
+              .sort((left, right) => {
+                const leftAt = new Date(left.approvedAt ?? 0).getTime();
+                const rightAt = new Date(right.approvedAt ?? 0).getTime();
+                return rightAt - leftAt;
+              });
+            quote =
+              approvedSorted[0] ??
+              quotes
+                .slice()
+                .sort((left, right) => right.version - left.version)[0] ??
+              null;
+          } catch {
+            quote = null;
+          }
+        }
+
         if (!cancelled) {
-          setRequests(body.workRequests ?? []);
+          setRequests(changesBody.workRequests ?? []);
+          setBaselineQuote(quote);
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -156,14 +213,14 @@ export default function ChangeTab({
     const list = requests ?? [];
     return {
       pending: list.filter((request) => PENDING_STATUSES.has(request.status)),
-      approved: list.filter((request) =>
-        APPROVED_STATUSES.has(request.status)
+      pricedOrApproved: list.filter((request) =>
+        PRICED_OR_APPROVED_STATUSES.has(request.status)
       ),
       rejected: list.filter((request) => REJECTED_STATUSES.has(request.status))
     };
   }, [requests]);
 
-  const baselineHours = useMemo(() => {
+  const workstreamEstimateHours = useMemo(() => {
     const workstreams = project.deliveryWorkstreams ?? [];
     return workstreams.reduce(
       (sum, workstream) =>
@@ -175,8 +232,42 @@ export default function ChangeTab({
     );
   }, [project.deliveryWorkstreams]);
 
+  const baseline = useMemo(() => {
+    const totals = baselineQuote?.totals ?? null;
+    const quoteHours =
+      typeof totals?.totalHumanHours === "number"
+        ? totals.totalHumanHours
+        : null;
+    const quoteFee =
+      typeof totals?.grandTotalZar === "number"
+        ? totals.grandTotalZar
+        : typeof totals?.totalFeeZar === "number"
+          ? totals.totalFeeZar
+          : null;
+
+    if (baselineQuote && (quoteHours !== null || quoteFee !== null)) {
+      return {
+        source: "quote" as const,
+        hours: quoteHours ?? 0,
+        fee: quoteFee ?? 0,
+        approvedAt: baselineQuote.approvedAt ?? null,
+        version: baselineQuote.version
+      };
+    }
+
+    return {
+      source: "workstreams" as const,
+      hours: workstreamEstimateHours,
+      fee: null as number | null,
+      approvedAt: null,
+      version: null
+    };
+  }, [baselineQuote, workstreamEstimateHours]);
+
   const approvedDelta = useMemo(() => {
-    const list = grouped.approved;
+    const list = (requests ?? []).filter((request) =>
+      SCOPE_AFFECTING_STATUSES.has(request.status)
+    );
     const hours = list.reduce(
       (sum, request) =>
         sum +
@@ -194,7 +285,7 @@ export default function ChangeTab({
       0
     );
     return { hours, fee };
-  }, [grouped.approved]);
+  }, [requests]);
 
   return (
     <div className="space-y-6">
@@ -231,28 +322,28 @@ export default function ChangeTab({
       <section className="brand-surface rounded-3xl border p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="text-lg font-semibold text-white">Scope diff</h3>
-          {project.scopeLockedAt ? (
-            <span className="text-xs text-text-muted">
-              Scope locked {formatDate(project.scopeLockedAt)}
-            </span>
-          ) : (
-            <span className="text-xs text-text-muted">
-              Scope not yet locked
-            </span>
-          )}
+          <span className="text-xs text-text-muted">
+            {baseline.source === "quote"
+              ? baseline.approvedAt
+                ? `Baseline: approved quote v${baseline.version} (${formatDate(baseline.approvedAt)})`
+                : `Baseline: latest quote v${baseline.version} (not yet approved)`
+              : project.scopeLockedAt
+                ? `Baseline: workstream estimates · scope locked ${formatDate(project.scopeLockedAt)}`
+                : "Baseline: workstream estimates · scope not yet locked"}
+          </span>
         </div>
         <p className="mt-1 text-sm text-text-muted">
-          Workstream estimate vs approved change-request impact. Baseline is
-          the current sum of delivery workstream hour estimates; a true locked
-          snapshot is not yet captured separately.
+          Originally signed-off scope vs current scope, with approved
+          change-request impact in between.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div className="brand-surface-soft rounded-2xl border p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-              Workstream estimate
+              Originally signed-off
             </p>
             <p className="mt-2 text-sm text-white">
-              {formatHours(baselineHours)}
+              {formatHours(baseline.hours)}
+              {baseline.fee !== null ? ` · ${formatZar(baseline.fee)}` : ""}
             </p>
           </div>
           <div className="brand-surface-soft rounded-2xl border p-4">
@@ -271,8 +362,11 @@ export default function ChangeTab({
             </p>
             <p className="mt-2 text-sm text-white">
               {loading
-                ? formatHours(baselineHours)
-                : formatHours(baselineHours + approvedDelta.hours)}
+                ? formatHours(baseline.hours)
+                : formatHours(baseline.hours + approvedDelta.hours)}
+              {baseline.fee !== null
+                ? ` · ${formatZar(baseline.fee + (loading ? 0 : approvedDelta.fee))}`
+                : ""}
             </p>
           </div>
         </div>
@@ -302,8 +396,8 @@ export default function ChangeTab({
         title="Priced + approved"
         description="The audit trail of accepted scope changes, with cost deltas."
         loading={loading}
-        items={grouped.approved}
-        emptyText="No approved changes yet."
+        items={grouped.pricedOrApproved}
+        emptyText="No priced or approved changes yet."
         renderMeta={(request) => (
           <span
             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusPillClass(request.status)}`}
