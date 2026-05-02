@@ -1,0 +1,796 @@
+Phase 2: Client Portal Contributor Management
+Goal
+
+Allow the project champion to add required project contributors from inside the client portal.
+
+Rules
+Only approved project champions can add contributors
+Contributors are linked to the current project only
+Contributors do not automatically receive full portal access
+Contributors should be created as ProjectContributor records
+Reuse ClientContact where possible
+If the email exists as a ClientContact for the client, reuse it
+If the email does not exist, create a new ClientContact
+portalUserId remains optional
+portalAccessEnabled defaults to false
+canSubmitWorkbookResponses defaults to true
+Client Portal UI
+
+Inside the project portal view, add a section:
+
+Project Contributors
+
+The champion should be able to:
+
+View existing contributors
+Add a contributor
+Enter name
+Enter email
+Select role
+Select stakeholder type
+Add organisation if external
+Mark whether the person should answer workbook questions
+Assign the contributor to one or more workbook sections
+Add notes about what information the contributor owns
+Suggested contributor roles
+Client champion
+Technical stakeholder
+Sales stakeholder
+Marketing stakeholder
+Operations stakeholder
+Finance or commercial stakeholder
+Product owner
+Service line owner
+Website owner
+Content owner
+Agency partner
+Design partner
+Implementation partner
+Data owner
+Reporting owner
+Legal or compliance stakeholder
+Other
+Permissions
+
+Project champions can:
+
+Add contributors to their own project
+Edit contributor details they added
+Suggest contributor assignments
+Add notes
+
+Project champions cannot:
+
+Delete internal Muloo users
+Grant full portal access
+View commercial settings
+View unrelated projects
+Modify project status
+Modify billing
+Modify quote approval settings
+Phase 3: Workbook Resource Types
+Goal
+
+Extend workbooks so they can support external resources and internal structured workbooks.
+
+Continue using DiscoveryEvidence with kind = workbook where possible.
+
+Required resource types
+
+Add support for:
+
+google_sheet
+google_doc
+google_form
+pdf
+miro_board
+internal_workbook
+external_url
+
+Suggested fields on DiscoveryEvidence or equivalent:
+
+type ProjectWorkbookResource = {
+  id: string
+  projectId: string
+  kind: "workbook"
+  resourceType:
+    | "google_sheet"
+    | "google_doc"
+    | "google_form"
+    | "pdf"
+    | "miro_board"
+    | "internal_workbook"
+    | "external_url"
+  sourceLabel: string
+  sourceUrl: string | null
+  workstreamId: string | null
+  accessStatus: "draft" | "shared" | "in_progress" | "submitted" | "reviewed" | "archived"
+  ownerName: string | null
+  ownerContributorId: string | null
+  assignedContributorIds: string[]
+  sharedWith: string[]
+  dueDate: Date | null
+  linkedSectionIds: string[]
+  notes: string | null
+  content: Json | null
+}
+Miro board support
+
+Miro should be a first class project asset.
+
+The user should be able to add:
+
+Board name
+Miro board URL
+Linked workstream
+Owner
+Status
+Related workbook sections
+Notes
+
+Example:
+
+Name: Magnisol Discovery Miro Board
+Resource Type: Miro Board
+URL: https://miro.com/...
+Linked Workstream: HubSpot and Website Discovery
+Status: Active
+Owner: Jarrud or Tusk
+Shared With: Tara, Tusk, Magnisol stakeholders
+Phase 4: Internal Structured Workbook Format
+Goal
+
+Allow the project to store an internal structured workbook with sections, questions and responses.
+
+This may live in:
+
+DiscoveryEvidence.content
+or Project.clientQuestionnaireConfig
+
+Use the existing shape if possible.
+
+Suggested workbook JSON shape
+{
+  "version": 1,
+  "sections": [
+    {
+      "id": "section_tech_stack",
+      "title": "Current Tech Stack",
+      "description": "Capture the tools currently used across the business.",
+      "category": "technical_stack",
+      "linkedWorkstreamId": "workstream_discovery",
+      "assignedContributorIds": [],
+      "status": "draft",
+      "questions": [
+        {
+          "id": "q_current_crm",
+          "questionText": "What CRM or customer database are you currently using?",
+          "helpText": "Include HubSpot, Salesforce, spreadsheets, Zoho, Freshworks or any internal tools.",
+          "answerType": "long_text",
+          "required": true,
+          "assignedContributorIds": [],
+          "tags": ["crm", "tech_stack", "hubspot"],
+          "status": "unanswered",
+          "response": null,
+          "responseFiles": [],
+          "internalNotes": null
+        }
+      ]
+    }
+  ]
+}
+Supported answer types
+short_text
+long_text
+single_select
+multi_select
+url
+file_request
+yes_no
+date
+number
+table
+stakeholder_list
+Question status
+unanswered
+answered
+needs_clarification
+approved
+not_applicable
+Section status
+draft
+shared
+in_progress
+submitted
+reviewed
+blocked
+Phase 5: Contributor Submissions
+Goal
+
+Allow contributors or internal operators to submit information against workbook questions.
+
+For this pass, internal operator submission is enough if external contributor access is too large.
+
+Do not build public token access unless it is simple and secure.
+
+Submission fields
+
+Each question should support:
+
+type WorkbookQuestionResponse = {
+  value: string | string[] | number | boolean | null
+  submittedByContributorId: string | null
+  submittedByPortalUserId: string | null
+  submittedAt: Date | null
+  reviewedAt: Date | null
+  reviewedByUserId: string | null
+  status: "unanswered" | "answered" | "needs_clarification" | "approved" | "not_applicable"
+  responseFiles: WorkbookFileReference[]
+  responseLinks: WorkbookLinkReference[]
+  internalNotes: string | null
+}
+File and link references
+type WorkbookFileReference = {
+  id: string
+  label: string
+  url: string
+  uploadedByContributorId: string | null
+  uploadedAt: Date
+  notes: string | null
+}
+type WorkbookLinkReference = {
+  id: string
+  label: string
+  url: string
+  type: "google_drive" | "dropbox" | "website" | "miro" | "hubspot" | "other"
+  addedByContributorId: string | null
+  addedAt: Date
+  notes: string | null
+}
+Phase 6: Discovery Question Library
+Goal
+
+Create a reusable discovery question library that can be pulled into project workbooks.
+
+The library should support HubSpot discovery, website discovery and real business operations discovery.
+
+Suggested model
+
+If there is no existing suitable model, create a new model:
+
+type DiscoveryQuestionLibraryItem = {
+  id: string
+  category: string
+  subcategory: string | null
+  questionText: string
+  helpText: string | null
+  answerType: string
+  options: string[]
+  tags: string[]
+  recommendedStakeholderType: string | null
+  defaultRequired: boolean
+  linkedHubSpotArea: string | null
+  linkedWebsiteArea: string | null
+  complexityLevel: "basic" | "standard" | "advanced"
+  createdAt: Date
+  updatedAt: Date
+}
+Question categories
+
+Create library support for:
+
+HubSpot CRM discovery
+HubSpot Sales Hub discovery
+HubSpot Marketing Hub discovery
+HubSpot Service Hub discovery
+HubSpot CMS and website discovery
+Website content and sitemap
+Technical stack and current tools
+Operations and business process
+Products and service lines
+Reporting and KPIs
+Integrations and data migration
+Governance and ownership
+Regionalisation, multi brand and multi region
+Compliance and risk
+User adoption and training
+Data quality and deduplication
+Lead capture and forms
+Customer lifecycle
+Sales process
+Marketing campaigns
+Support process
+Website analytics and tracking
+SEO and content governance
+Library UI
+
+Inside Project Discovery tab, allow the operator to:
+
+Open question library
+Filter by category
+Filter by HubSpot area
+Filter by website area
+Filter by stakeholder type
+Search questions
+Select multiple questions
+Add selected questions to a project workbook
+Assign selected questions to a workbook section
+Assign selected questions to contributors
+Phase 7: Pull Questions Into Project Workbooks
+Goal
+
+Allow an operator to create a project specific workbook using the question library.
+
+Operator flow
+
+Inside Project Discovery:
+
+Create or open workbook
+Choose workbook type
+Select categories
+Pull in questions
+Group questions into sections
+Link sections to workstreams
+Assign contributors
+Add due dates
+Add Miro board link
+Mark workbook as draft, shared or in progress
+Supported workbook types
+HubSpot Discovery Workbook
+Website Discovery Workbook
+Technical Stack Workbook
+Business Operations Workbook
+Product and Service Lines Workbook
+Content and Brand Workbook
+Reporting and Dashboard Workbook
+Migration and Data Workbook
+Regionalisation Workbook
+Custom Workbook
+Phase 8: UI Placement
+
+Do not create new top level navigation.
+
+Use the existing Project UI.
+
+Project Overview tab
+
+Update the readiness summary to show:
+
+Workbooks created
+Workbooks shared
+Contributors requested
+Contributors added
+Contributors assigned to workbook sections
+Questions answered
+Questions unanswered
+Documents requested
+Documents received
+Pending clarifications
+Pending changes
+Miro board linked
+Readiness score or readiness state
+
+Suggested readiness states:
+
+Not started
+Discovery setup
+Waiting on contributors
+In review
+Ready for blueprint
+Blocked
+Project Discovery tab
+
+Add or improve these sections:
+
+Workbooks panel
+Contributors panel
+Miro board and project assets panel
+Question library picker
+Project workbook builder
+Workbook response review panel
+Project Plan tab
+
+Connect workbook and discovery status to workstreams.
+
+Show:
+
+Workstream name
+Linked workbook sections
+Assigned contributors
+Required discovery completion
+Hour cap
+Used hours
+Remaining hours
+Scope risk
+Client Portal project view
+
+Add:
+
+Project contributors section for champion
+Workbook sections assigned to champion
+Workbook sections assigned to other contributors
+Add contributor button
+Submit answer or add note where allowed
+Upload document or add link where allowed
+Phase 9: Seed Data
+Goal
+
+Extend the Magnisol seed to create a practical discovery setup.
+
+Magnisol seed should create
+
+Project:
+
+Magnisol HubSpot and Website Delivery
+
+Workstreams:
+
+HubSpot and Website Discovery
+Basic HubSpot Setup
+Website Setup
+
+Project contributors:
+
+Tara De Marzo
+Role: Client Champion
+Stakeholder Type: Client Champion
+Portal Access Enabled: true or existing current value
+Can Submit Workbook Responses: true
+
+Additional example contributors:
+
+Tusk Design Partner
+Role: Design Partner
+Stakeholder Type: Agency Partner
+Portal Access Enabled: false
+Can Submit Workbook Responses: true
+Magnisol Technical Stakeholder
+Role: Technical Stakeholder
+Stakeholder Type: Technical
+Portal Access Enabled: false
+Can Submit Workbook Responses: true
+
+Workbooks:
+
+Magnisol HubSpot and Website Discovery Workbook
+Resource Type: Internal Workbook
+Linked Workstream: HubSpot and Website Discovery
+Magnisol Technical Stack Workbook
+Resource Type: Internal Workbook
+Linked Workstream: HubSpot and Website Discovery
+Magnisol Business Operations Workbook
+Resource Type: Internal Workbook
+Linked Workstream: HubSpot and Website Discovery
+Magnisol Product and Service Lines Workbook
+Resource Type: Internal Workbook
+Linked Workstream: HubSpot and Website Discovery
+Magnisol Content and Website Discovery Workbook
+Resource Type: Internal Workbook
+Linked Workstream: Website Setup
+
+Miro board placeholder:
+
+Magnisol Discovery Miro Board
+Resource Type: Miro Board
+Source URL: placeholder URL or empty
+Linked Workstream: HubSpot and Website Discovery
+Status: Draft
+
+Question library seed:
+
+Create at least 80 reusable questions across:
+
+HubSpot CRM
+Sales Hub
+Marketing Hub
+Service Hub
+CMS and website
+Tech stack
+Operations
+Product lines and service lines
+Reporting
+Integrations
+Data migration
+Governance
+Regionalisation
+Website content
+Compliance
+Starter Question Library
+Technical Stack and Current Tools
+What CRM or customer database are you currently using?
+What marketing automation tools are currently in use?
+What email marketing tools are currently in use?
+What website platform or CMS is currently used?
+What analytics tools are currently used?
+What reporting dashboards are currently relied on?
+What sales tools are currently used by the team?
+What customer support or ticketing tools are currently used?
+What finance or billing systems are currently used?
+What integrations are business critical today?
+Business Operations
+How does the business currently generate new leads?
+How are leads qualified?
+How are leads handed to sales?
+How are new customers onboarded?
+What are the main operational bottlenecks today?
+Which processes are currently managed in spreadsheets?
+Which processes are currently manual but should be automated?
+Which teams need visibility into customer activity?
+Where does work get stuck between departments?
+What information do teams repeatedly ask each other for?
+HubSpot CRM Discovery
+Which teams will use HubSpot?
+Which objects are required: contacts, companies, deals, tickets, custom objects?
+What data must be captured on contacts?
+What data must be captured on companies?
+What data must be captured on deals?
+What data must be captured on tickets?
+Are there existing duplicate data issues?
+What lifecycle stages should be tracked?
+What lead statuses should be tracked?
+What ownership rules are required?
+Sales Hub Discovery
+What is the current sales process?
+How many sales pipelines are required?
+What are the deal stages for each pipeline?
+What qualifies a deal to move between stages?
+What sales activities should be tracked?
+What sales reports are required?
+What forecasting rules are needed?
+Who owns sales follow up?
+What sales templates or sequences are required?
+What handover is required from marketing to sales?
+Marketing Hub Discovery
+What forms are currently used?
+What landing pages are required?
+What campaigns are currently active?
+What lead sources should be tracked?
+What marketing lists or segments are required?
+What email types are sent today?
+What consent and subscription types are required?
+What marketing reports are required?
+What workflows are required for lead nurturing?
+What campaign attribution is needed?
+Service Hub Discovery
+How do customers currently request support?
+What ticket pipelines are required?
+What ticket stages are required?
+What support SLAs are required?
+Who owns incoming support requests?
+What support categories should be tracked?
+What escalation rules are required?
+What customer communication templates are needed?
+What support reporting is required?
+Is a customer portal required?
+Website Discovery
+What is the main purpose of the website?
+Who are the primary website audiences?
+What pages are required?
+What regions or countries need different content?
+What languages are required?
+What forms are required on the website?
+What calls to action are required?
+What content must be migrated?
+What SEO requirements exist?
+What tracking and analytics must be installed?
+Content and Brand
+Who owns website content?
+Who approves content changes?
+Are brand guidelines available?
+Are image and asset libraries available?
+What tone of voice should the website use?
+What case studies or proof points are available?
+What product or service pages are required?
+What blog or resource content exists?
+What content is outdated?
+What content needs to be created from scratch?
+Products and Service Lines
+What products or services does the business offer?
+How are services grouped?
+Which services should appear on the website?
+Which services should be tracked in HubSpot?
+Are there regional differences in services?
+Are there different buyer personas per service?
+Which services are most profitable?
+Which services should be cross sold?
+Which services require separate pipelines?
+Which services require separate forms or journeys?
+Reporting and KPIs
+What are the most important business KPIs?
+What does leadership need to see weekly?
+What does sales need to see daily?
+What does marketing need to report on?
+What does service need to report on?
+What reports are currently created manually?
+What dashboards exist today?
+What data is missing from current reporting?
+What decisions should dashboards support?
+Who needs access to which dashboards?
+Integrations and Data Migration
+What systems need to integrate with HubSpot?
+What data must be migrated?
+Where does the source of truth live today?
+How clean is the existing data?
+Are there required data mappings?
+Are there historical records that must be preserved?
+Are there API limitations to consider?
+What real time syncs are required?
+What batch imports are acceptable?
+Who will validate migrated data?
+Governance and Ownership
+Who owns HubSpot internally?
+Who approves new properties?
+Who approves workflows?
+Who can create forms?
+Who can create lists?
+Who can update website pages?
+What naming conventions are required?
+What permission levels are needed?
+What training is required?
+What documentation must be handed over?
+Regionalisation and Multi Region
+Which regions need unique website content?
+Which regions need unique forms?
+Which regions need unique pipelines?
+Which regions need unique reports?
+Which regions share the same CRM process?
+Which regions have different products or services?
+Which regions need separate domains or subdomains?
+Which regions need language variations?
+Which region owns global content?
+Which region owns local content?
+API Requirements
+
+Add or extend endpoints as needed.
+
+Project contributors
+GET /api/projects/:projectId/contributors
+POST /api/projects/:projectId/contributors
+PATCH /api/projects/:projectId/contributors/:contributorId
+DELETE /api/projects/:projectId/contributors/:contributorId
+
+Extend to support new fields and client champion created contributors.
+
+Client portal contributor management
+GET /api/client-portal/projects/:projectId/contributors
+POST /api/client-portal/projects/:projectId/contributors
+PATCH /api/client-portal/projects/:projectId/contributors/:contributorId
+
+These must be scoped to the authenticated client portal user and project access.
+
+Workbooks
+GET /api/projects/:projectId/workbooks
+POST /api/projects/:projectId/workbooks
+PATCH /api/projects/:projectId/workbooks/:workbookId
+DELETE /api/projects/:projectId/workbooks/:workbookId
+
+Extend to support:
+
+resource type
+Miro board
+internal workbook JSON
+assigned contributors
+linked sections
+status
+response tracking
+Question library
+
+If a new model is created:
+
+GET /api/discovery-question-library
+POST /api/discovery-question-library
+PATCH /api/discovery-question-library/:questionId
+DELETE /api/discovery-question-library/:questionId
+
+Also add:
+
+POST /api/projects/:projectId/workbooks/:workbookId/questions/import
+
+This should import selected question library items into a project workbook.
+
+Validation and Safety
+Do not break existing projects
+
+Existing projects must continue to load.
+
+Existing workbooks with kind = workbook must still work.
+
+Existing DiscoveryEvidence records without the new fields must still serialise safely.
+
+Existing ProjectContributor records must receive safe defaults.
+
+Existing Project.deliveryWorkstreams v1 records must remain readable.
+
+No tab explosion
+
+Do not add new top level navigation.
+
+Do not add new project tabs unless absolutely required.
+
+Prefer:
+
+Overview tab for readiness
+Discovery tab for contributors, workbooks, Miro and questions
+Plan tab for workstream impact and scope risk
+Change Management for scope changes and decisions
+No portal access leakage
+
+Adding a contributor must not create portal access by default.
+
+Project champion can add contributors, but cannot grant full portal access.
+
+Full portal access must require internal approval.
+
+Testing Checklist
+Database
+Prisma schema generates
+Migration applies cleanly
+Existing records load with defaults
+Seed runs idempotently
+Magnisol seed can run multiple times without duplicates
+API
+
+Test:
+
+Create project contributor internally
+Create project contributor from client portal as champion
+Add contributor with existing ClientContact email
+Add contributor with new email
+Add workbook with resource type miro_board
+Add workbook with resource type internal_workbook
+Add workbook with assigned contributors
+Import questions from question library into workbook
+Save workbook response
+Mark response as approved
+Read readiness summary
+UI
+
+Test:
+
+Existing project Overview loads
+Existing project Discovery loads
+Existing project Plan loads
+Magnisol project Overview loads
+Magnisol Discovery shows workbooks
+Magnisol Discovery shows contributors
+Miro board can be added
+Question library can be opened
+Questions can be added to workbook
+Contributors can be assigned
+Champion can add contributor from client portal
+Contributor does not get full portal access automatically
+Permissions
+
+Test:
+
+Internal user can add and edit contributors
+Champion can add contributors for their own project
+Champion cannot grant portal access
+Champion cannot access unrelated projects
+Contributor without portal access cannot log in by default
+Contributor can still be recorded as a workbook respondent
+Expected Outcome
+
+At the end of this pass, Deploy OS should support a real discovery workflow:
+
+Muloo creates a project
+Muloo defines workstreams
+Muloo creates one or more workbooks
+Muloo links a Miro board
+Muloo assigns a project champion
+The project champion adds required contributors in the client portal
+Contributors are linked to the project without full portal access
+Muloo pulls questions from a reusable question library
+Questions are grouped into workbook sections
+Sections are assigned to contributors
+Documents, forms and links are requested
+Responses are tracked
+Missing information is visible in readiness summary
+The project becomes ready for blueprint and implementation
+
+This is the point where Deploy OS starts solving the real operational mess: discovery, stakeholder alignment, missing information, unclear ownership and project drift.
+
+Do this as a reuse first extension of the current Magnisol foundation.
+
+
+My suggestion: give Claude this exact file and tell it **not to implement everything in one monster commit**. Ask it to first do a reuse audit and propose the smallest schema/API/UI footprint, just like the Magnisol pass. Then approve the plan before code starts.
