@@ -10,6 +10,7 @@ import ProjectDetailLayout, {
   type ProjectDetailTabKey
 } from "./project/ProjectDetailLayout";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
+import ChangeTab from "./project/tabs/ChangeTab";
 import CommsTab from "./project/tabs/CommsTab";
 import DeliveryTab from "./project/tabs/DeliveryTab";
 import DiscoveryTab from "./project/tabs/DiscoveryTab";
@@ -1719,40 +1720,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         );
       case "change":
         return (
-          <div className="space-y-6">
-            <section className="brand-surface rounded-3xl border p-6">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                    Change management
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">
-                    Scope changes for this project
-                  </h2>
-                  <p className="mt-2 max-w-2xl text-sm text-text-secondary">
-                    Triage incoming change requests, price them, and capture the audit trail of approvals or rejections. Approved changes append to delivery; rejected changes carry the reason for the record.
-                  </p>
-                </div>
-                <Link
-                  href={`/projects/${project.id}/changes`}
-                  className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-white"
-                >
-                  Open changes workspace →
-                </Link>
-              </div>
-            </section>
-            <section className="brand-surface rounded-3xl border p-6">
-              <h3 className="text-lg font-semibold text-white">
-                What lives here
-              </h3>
-              <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-                <li>• <span className="text-white">Pending changes</span> — requests captured from the Inbox or raised internally, awaiting triage.</li>
-                <li>• <span className="text-white">Priced + approved</span> — the audit trail of accepted scope changes, with cost deltas.</li>
-                <li>• <span className="text-white">Rejected</span> — declined requests with the reason on file.</li>
-                <li>• <span className="text-white">Scope diff</span> — current scope vs the originally signed-off baseline.</li>
-              </ul>
-            </section>
-          </div>
+          <ChangeTab
+            projectId={projectId}
+            project={{
+              id: project.id,
+              scopeLockedAt: project.scopeLockedAt ?? null,
+              deliveryWorkstreams: project.deliveryWorkstreams ?? null
+            }}
+          />
         );
       case "comms":
         return (
