@@ -437,6 +437,8 @@ model AgentDefinition {
   updatedAt      DateTime @updatedAt
   serviceFamily  String   @default("hubspot_architecture")
   tasks          Task[]
+
+  @@unique([name, serviceFamily])
 }
 
 model DeliveryTemplate {

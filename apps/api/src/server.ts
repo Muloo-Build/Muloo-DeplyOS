@@ -6880,6 +6880,62 @@ export async function loadAgentRuns() {
   return jobs.map((job) => serializeExecutionJob(job));
 }
 
+export async function loadAgentRunSummaries() {
+  const jobs = await prisma.executionJob.findMany({
+    where: {
+      moduleKey: "agent-task",
+      task: { is: { assignedAgentId: { not: null } } }
+    },
+    select: {
+      status: true,
+      createdAt: true,
+      completedAt: true,
+      task: { select: { assignedAgentId: true } }
+    },
+    orderBy: [{ createdAt: "desc" }]
+  });
+
+  const failureWindowStart = Date.now() - 24 * 60 * 60 * 1000;
+  const failureStatuses = new Set(["failed", "error", "errored"]);
+
+  const byAgent = new Map<
+    string,
+    {
+      agentId: string;
+      lastRunAt: string | null;
+      lastRunStatus: string | null;
+      recentFailureCount: number;
+    }
+  >();
+
+  for (const job of jobs) {
+    const agentId = job.task?.assignedAgentId;
+    if (!agentId) continue;
+    const completedOrCreated = job.completedAt ?? job.createdAt;
+    const isFailure = failureStatuses.has(job.status.toLowerCase());
+
+    let entry = byAgent.get(agentId);
+    if (!entry) {
+      entry = {
+        agentId,
+        lastRunAt: completedOrCreated.toISOString(),
+        lastRunStatus: job.status,
+        recentFailureCount: 0
+      };
+      byAgent.set(agentId, entry);
+    }
+
+    if (
+      isFailure &&
+      completedOrCreated.getTime() >= failureWindowStart
+    ) {
+      entry.recentFailureCount += 1;
+    }
+  }
+
+  return Array.from(byAgent.values());
+}
+
 export async function loadProjectExecutionJobStatus(
   projectId: string,
   jobId: string
@@ -14376,8 +14432,23 @@ async function ensureWorkspaceEmailOAuthConnectionsSeeded() {
 
 async function ensureAgentCatalogSeeded() {
   for (const agent of defaultAgentCatalog) {
-    const existingAgent = await prisma.agentDefinition.findUnique({
-      where: { slug: agent.slug }
+    // Guard against both unique keys: slug AND (name, serviceFamily). The
+    // composite unique was added in
+    // 20260502200000_dedupe_agents_unique_name_service_family — without this
+    // check a renamed seed entry whose (name, serviceFamily) already exists
+    // would throw P2002 and break loadAgentCatalog for the whole workspace.
+    const seedServiceFamily =
+      "serviceFamily" in agent && typeof (agent as { serviceFamily?: unknown }).serviceFamily === "string"
+        ? (agent as { serviceFamily: string }).serviceFamily
+        : "hubspot_architecture";
+
+    const existingAgent = await prisma.agentDefinition.findFirst({
+      where: {
+        OR: [
+          { slug: agent.slug },
+          { name: agent.name, serviceFamily: seedServiceFamily }
+        ]
+      }
     });
 
     if (existingAgent) {

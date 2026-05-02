@@ -1,5 +1,5 @@
 import AppShell from "../components/AppShell";
-import AgentStudio from "../components/AgentStudio";
+import AgentDirectory from "../components/AgentDirectory";
 import HubSpotAgentWorkbench from "../components/HubSpotAgentWorkbench";
 
 export default function AgentsPage() {
@@ -12,14 +12,16 @@ export default function AgentsPage() {
               Agents
             </p>
             <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-              Agent Studio
+              Agent Directory
             </h1>
             <p className="mt-3 max-w-3xl text-text-secondary">
-              Build, configure, and test the AI agents that handle HubSpot discovery extraction, blueprint generation, portal analysis, and automation across delivery workflows.
+              Search, filter, and manage every operational agent. Click a row to
+              edit; use the side panel to create new agents or adjust existing
+              ones without losing your place.
             </p>
           </div>
 
-          <AgentStudio />
+          <AgentDirectory />
           <HubSpotAgentWorkbench />
         </div>
       </div>

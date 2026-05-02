@@ -128,6 +128,7 @@ import {
   isUniqueConstraintError,
   loadAuthenticatedWorkspaceSession,
   loadAgentRuns,
+  loadAgentRunSummaries,
   loadAgentCatalog,
   loadAiRouting,
   loadClientMemory,
@@ -6202,6 +6203,12 @@ export function createApiApp(config: BaseConfig) {
   app.get("/api/agents", async (c) =>
     c.json({
       agents: await loadAgentCatalog()
+    })
+  );
+
+  app.get("/api/agents/run-summaries", async (c) =>
+    c.json({
+      summaries: await loadAgentRunSummaries()
     })
   );
 
