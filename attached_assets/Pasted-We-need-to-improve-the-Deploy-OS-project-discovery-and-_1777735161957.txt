@@ -1,0 +1,275 @@
+We need to improve the Deploy OS project discovery and client portal workflow. The current workbook visibility work is a good foundation, but the UX is confusing and the project setup, HubSpot access, contributors, Miro links, and workbook assignment are all mixed into the discovery screen.
+
+Please implement a cleaner structure around project access, client portal setup, contributor assignment, and workbook usability.
+
+Context:
+Deploy OS is used by Muloo to manage HubSpot and website delivery projects. Workbooks are discovery/contribution tools. They are used to collect structured input from client stakeholders and external contributors. Contributors do not always need full client portal access. Different contributors should receive different workbooks depending on their role.
+
+Important:
+The client should not connect their HubSpot portal directly to Deploy OS. The client action is to invite Muloo as partner/admin into their HubSpot portal. Muloo/operator users will then connect the client’s HubSpot portal to Deploy OS internally.
+
+Goals:
+1. Make buttons clickable where they currently appear as dead UI.
+2. Add a proper Portal Setup or Access & Sharing screen.
+3. Separate HubSpot partner invitation from internal HubSpot connection.
+4. Improve contributor management.
+5. Improve workbook assignment and contributor-facing workbook navigation.
+6. Prepare for a question library/workbook builder model.
+7. Make the discovery questions easier to manage, group, edit, and assign.
+
+Detailed requirements:
+
+1. Add a new project tab
+Add a new tab to the operator project detail view called:
+
+Access & Sharing
+
+This tab should include:
+- Client portal status
+- Client champion details
+- External contributors
+- HubSpot partner/admin invite link
+- Internal HubSpot connection status
+- Miro board links
+- Shared resources
+- Workbook sharing status
+- Quick actions
+
+The tab should make it obvious this is where the operator configures who has access to what.
+
+2. HubSpot access model
+Separate the two HubSpot actions clearly.
+
+Client-facing action:
+Label:
+Invite Muloo to HubSpot
+
+Description:
+Use this link to invite Muloo as a partner/admin in your HubSpot portal. This gives us the access needed to complete the approved setup work.
+
+Operator/internal action:
+Label:
+Connect HubSpot portal to Deploy OS
+
+Description:
+Internal Muloo action. Connects this client portal to Deploy OS for audits, setup tracking, validation, and future automation.
+
+Rules:
+- The client portal should not show the internal Deploy OS connection action.
+- The client portal may show the partner/admin invite action if needed.
+- The operator view may show both actions, clearly labelled.
+- Avoid generic “Connect HubSpot” copy because it is ambiguous.
+
+3. Contributor management
+In Access & Sharing, allow the operator to:
+- Add a contributor
+- Edit contributor name
+- Edit email
+- Edit role/title
+- Mark whether they have portal access
+- Mark whether they are client champion
+- Assign one or more workbooks to the contributor
+- Remove contributor
+- Copy contributor invite/access link if supported
+- Show contributor status:
+  - Not invited
+  - Invited
+  - In progress
+  - Submitted
+
+Contributors should not automatically get access to all workbooks. They should only see assigned workbooks.
+
+4. Miro board and resource links
+In Access & Sharing, allow the operator to:
+- Add Miro board links
+- Add Google Doc/Sheet links
+- Add PDF/resource links
+- Give each resource a title
+- Give each resource a type:
+  - Miro board
+  - Google Doc
+  - Google Sheet
+  - PDF
+  - Other link
+- Mark whether the resource is internal only, contributor visible, champion visible, or client portal visible
+
+5. Workbook assignment logic
+Each workbook should support:
+- Visibility level
+- Assigned contributors
+- Assigned client champion
+- Sections
+- Questions
+- Status
+- Progress
+
+Visibility still controls broad access:
+- Internal only
+- Contributor access
+- Client champion review
+- Client portal visible
+
+Assignment controls who specifically receives it:
+- A contributor only sees workbooks assigned to them.
+- A client champion sees champion review workbooks and any assigned workbooks.
+- A normal portal user only sees client portal visible workbooks.
+
+6. Improve the operator workbook card
+On each workbook card, show:
+- Workbook title
+- Description
+- Visibility badge
+- Status badge
+- Number of sections
+- Number of questions
+- Number answered
+- Assigned contributors
+- Actions:
+  - Edit
+  - Preview
+  - Assign
+  - Change visibility
+  - Remove
+
+Make sure these actions are actual clickable buttons.
+
+7. Workbook editing
+Add or improve the workbook edit experience so the operator can:
+- Edit workbook title
+- Edit description
+- Edit sections
+- Edit questions
+- Reorder sections
+- Reorder questions
+- Move a question between sections
+- Mark a question required/optional
+- Mark question type:
+  - Text
+  - Long text
+  - Yes/no
+  - Multiple choice
+  - File upload
+  - Link/url
+- Save changes
+
+Do not force all questions into one long flat list.
+
+8. Question library foundation
+If a question library model already exists, use it.
+If it does not exist, create a lightweight foundation for it.
+
+Each library question should support:
+- Question text
+- Description/helper text
+- Category
+- Section
+- Suggested contributor role
+- Question type
+- Tags
+- Required/optional
+- Internal/client-facing flag
+
+Suggested categories:
+- Business goals
+- Current state
+- Website and content
+- CRM and sales
+- Marketing
+- Service and support
+- Reporting
+- Data and migration
+- Integrations
+- Security and access
+- Operations
+- Handover
+
+Important:
+Move technology stack, cost, access, security, DNS, hosting, integration, and platform questions into appropriate technical/security sections. They should not sit randomly inside website or general discovery sections.
+
+9. Contributor-facing workbook page
+Create or improve the contributor workbook page.
+
+The contributor should see:
+- Project name
+- Workbook title
+- Short intro
+- Progress bar
+- Sections
+- One section at a time or clearly grouped accordion sections
+- Save draft button
+- Submit workbook button
+- Clear required/optional indicators
+- “I don’t know” option where appropriate
+- “Needs discussion” flag where appropriate
+
+Do not show:
+- Internal notes
+- Other workbooks they are not assigned to
+- Client portal navigation
+- Internal project data
+- Delivery board
+- HubSpot connection controls
+
+The page should feel simple and guided.
+
+10. Client portal workbook view
+The client portal should show:
+- Only workbooks visible to the current user
+- Clear empty state if no workbooks are shared
+- For champion users, a section called “Workbooks needing your review”
+- For normal portal users, only approved/shared workbook outputs
+
+Empty state copy:
+“Workbooks are shared when we need input, review, or approval from your team. There is nothing for you to complete right now.”
+
+11. Project readiness numbers
+Update project readiness so the numbers are not misleading.
+
+For workbooks, show:
+- Total workbooks
+- Internal workbooks
+- Contributor workbooks
+- Client visible workbooks
+- Completed workbooks
+
+For contributors, show:
+- Total contributors
+- Contributors with portal access
+- Contributors without portal access
+- Contributors with assigned workbooks
+
+For questions, show:
+- Total questions
+- Answered
+- Unanswered
+- Required unanswered
+
+12. Navigation and UX
+The current discovery screen is too dense.
+Improve navigation by separating:
+- Discovery sessions
+- Workbooks
+- Contributors
+- Resources
+- Progress
+
+Either use separate panels inside the Discovery tab or move setup-related items into Access & Sharing.
+
+Do not show a massive expanded workbook by default. Use collapsed sections and allow “Edit” or “Open” to expand.
+
+13. Type safety and testing
+Run:
+- API typecheck
+- Web typecheck
+- Any existing tests
+
+Report:
+- Files changed
+- New models/fields if any
+- Routes changed
+- Any migrations added
+- Manual test steps
+
+Do not remove existing functionality.
+Preserve current workbook visibility logic.
+Preserve existing project meeting notes work.
