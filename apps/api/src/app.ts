@@ -7534,6 +7534,35 @@ export function createApiApp(config: BaseConfig) {
     return c.json(detail);
   });
 
+  // T5.2 — Client-portal handover doc. Only returns the doc once an operator
+  // has shared it to portal (sharedToPortalAt set). Authz piggy-backs on the
+  // surrounding /api/client/projects/* internalAuth + clientUserId scoping
+  // (loadClientProjectDetail rejects non-members with 404).
+  app.get("/api/client/projects/:projectId/handover", async (c) => {
+    const projectId = c.req.param("projectId");
+    const detail = await loadClientProjectDetail(
+      projectId,
+      c.get("clientUserId")
+    );
+    if (!detail) return c.json({ error: "Project not found" }, 404);
+    const doc = await prisma.handoverDoc.findUnique({
+      where: { projectId }
+    });
+    if (!doc || !doc.sharedToPortalAt) {
+      return c.json({ doc: null });
+    }
+    return c.json({
+      doc: {
+        id: doc.id,
+        projectId: doc.projectId,
+        content: doc.content,
+        generatedAt: doc.generatedAt.toISOString(),
+        sharedToPortalAt: doc.sharedToPortalAt.toISOString(),
+        updatedAt: doc.updatedAt.toISOString()
+      }
+    });
+  });
+
   app.all(
     "/api/client/projects/:projectId/submissions/:sessionId",
     async (c) => {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import ClientHubSpotInviteCard from "./ClientHubSpotInviteCard";
+import ClientPortalHandoverCard from "./client/ClientPortalHandoverCard";
 import ClientShell from "./ClientShell";
 import ClientWorkbooksPanel from "./client/ClientWorkbooksPanel";
 import ClientContributorsPanel from "./client/ClientContributorsPanel";
@@ -514,6 +515,7 @@ export default function ClientProjectWorkspace({
 
           {activeTab === "overview" ? (
             <div className="space-y-5">
+              <ClientPortalHandoverCard projectId={projectId} />
               <ClientHubSpotInviteCard />
               {/*
                 The internal "Connect HubSpot portal to Deploy OS" OAuth flow

@@ -30,6 +30,7 @@ interface ProjectTask {
   qaRequired: boolean;
   executionReadiness: string;
   approvalRequired: boolean;
+  hubspotTicketId?: string | null;
   dependencyIds: string[];
   assigneeType: string | null;
   executionPath: {
@@ -338,7 +339,8 @@ export default function DeliveryBoard({
     executionReadiness: "not_ready",
     approvalRequired: false,
     assigneeType: "Human",
-    assignedAgentId: ""
+    assignedAgentId: "",
+    hubspotTicketId: ""
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -547,7 +549,8 @@ export default function DeliveryBoard({
       executionReadiness: "not_ready",
       approvalRequired: false,
       assigneeType: "Human",
-      assignedAgentId: ""
+      assignedAgentId: "",
+      hubspotTicketId: ""
     });
   }
 
@@ -686,7 +689,8 @@ export default function DeliveryBoard({
       executionReadiness: task.executionReadiness,
       approvalRequired: task.approvalRequired,
       assigneeType: task.assigneeType ?? "Human",
-      assignedAgentId: task.assignedAgentId ?? ""
+      assignedAgentId: task.assignedAgentId ?? "",
+      hubspotTicketId: task.hubspotTicketId ?? ""
     });
   }
 
@@ -1155,22 +1159,64 @@ export default function DeliveryBoard({
                   : "none set"}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void generatePlan()}
-              disabled={
-                generating ||
-                selectedTemplateIds.length === 0 ||
-                (scopeLocked && !canGenerateLockedApprovedPlan)
-              }
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-white px-4 py-3 text-sm font-medium text-[#081120] disabled:cursor-not-allowed disabled:bg-[rgba(255,255,255,0.08)] disabled:text-text-muted"
-            >
-              {generating
-                ? "Loading Templates..."
-                : totalCount > 0
-                  ? "Replace Board with Templates"
-                  : "Load Selected Templates"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (selectedTemplateIds.length === 0) return;
+                  setGenerating(true);
+                  setError(null);
+                  try {
+                    for (const tid of selectedTemplateIds) {
+                      const res = await fetch(
+                        `/api/projects/${encodeURIComponent(projectId)}/delivery/apply-template`,
+                        {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ templateId: tid })
+                        }
+                      );
+                      const body = await res.json().catch(() => null);
+                      if (!res.ok) {
+                        throw new Error(
+                          body?.error ?? "Failed to apply template"
+                        );
+                      }
+                    }
+                    setShowTemplatePicker(false);
+                    await loadTasks();
+                  } catch (err) {
+                    setError(
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to apply template"
+                    );
+                  } finally {
+                    setGenerating(false);
+                  }
+                }}
+                disabled={generating || selectedTemplateIds.length === 0}
+                className="rounded-xl border border-[rgba(81,208,176,0.4)] bg-[rgba(81,208,176,0.12)] px-4 py-3 text-sm font-medium text-[#51d0b0] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {generating ? "Applying..." : "Apply (append)"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void generatePlan()}
+                disabled={
+                  generating ||
+                  selectedTemplateIds.length === 0 ||
+                  (scopeLocked && !canGenerateLockedApprovedPlan)
+                }
+                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-white px-4 py-3 text-sm font-medium text-[#081120] disabled:cursor-not-allowed disabled:bg-[rgba(255,255,255,0.08)] disabled:text-text-muted"
+              >
+                {generating
+                  ? "Loading Templates..."
+                  : totalCount > 0
+                    ? "Replace Board with Templates"
+                    : "Load Selected Templates"}
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 grid gap-3 xl:grid-cols-2">
@@ -2167,6 +2213,24 @@ export default function DeliveryBoard({
                                           }
                                           placeholder="Actual hours"
                                           className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                                          HubSpot ticket ID
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={taskDraft.hubspotTicketId}
+                                          onChange={(event) =>
+                                            setTaskDraft((current) => ({
+                                              ...current,
+                                              hubspotTicketId:
+                                                event.target.value
+                                            }))
+                                          }
+                                          placeholder="e.g. 12345"
+                                          className="mt-1 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
                                         />
                                       </div>
                                       <div className="flex flex-wrap gap-4">

@@ -291,6 +291,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [findings, setFindings] = useState<FindingRecord[]>([]);
   const [portalSnapshot, setPortalSnapshot] = useState<PortalSnapshot | null>(null);
   const [taskBoard, setTaskBoard] = useState<TaskBoardResponse | null>(null);
+  const [lineage, setLineage] = useState<{
+    bornFromProject: { id: string; name: string; status: string } | null;
+    spawnedRetainers: Array<{ id: string; serviceLine: string; status: string }>;
+  } | null>(null);
   const [activeTab, setActiveTab] = useState<ProjectDetailTabKey>("overview");
   const [meetingModalOpen, setMeetingModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -462,6 +466,17 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     }
 
     void load();
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}/lineage`
+        );
+        const body = await res.json().catch(() => null);
+        if (res.ok && body?.lineage) setLineage(body.lineage);
+      } catch {
+        // best-effort; lineage badge is non-critical
+      }
+    })();
   }, [projectId]);
 
   useEffect(() => {
@@ -2244,6 +2259,30 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           projectId={project.id}
           engagementType={project.engagementType}
         />
+        {lineage &&
+        (lineage.bornFromProject ||
+          (lineage.spawnedRetainers && lineage.spawnedRetainers.length > 0)) ? (
+          <div className="mb-3 flex flex-wrap gap-2 text-xs">
+            {lineage.bornFromProject ? (
+              <Link
+                href={`/projects/${lineage.bornFromProject.id}`}
+                className="rounded-full border border-[rgba(73,205,225,0.35)] bg-[rgba(73,205,225,0.1)] px-3 py-1 text-[#7be2ef] hover:bg-[rgba(73,205,225,0.2)]"
+              >
+                Born from project: {lineage.bornFromProject.name}
+              </Link>
+            ) : null}
+            {lineage.spawnedRetainers?.map((r) => (
+              <Link
+                key={r.id}
+                href={`/retainers/${r.id}`}
+                className="rounded-full border border-[rgba(81,208,176,0.35)] bg-[rgba(81,208,176,0.1)] px-3 py-1 text-[#51d0b0] hover:bg-[rgba(81,208,176,0.2)]"
+              >
+                Spawned retainer · {formatLabel(r.serviceLine)} ·{" "}
+                {formatLabel(r.status)}
+              </Link>
+            ))}
+          </div>
+        ) : null}
         <ProjectDetailLayout
           backHref="/projects"
           title={project.name}

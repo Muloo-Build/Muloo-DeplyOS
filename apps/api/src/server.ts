@@ -115,7 +115,9 @@ const validTaskOriginValues = [
   "questionnaire",
   "template",
   "seeded_pack",
-  "change_request"
+  "change_request",
+  "workstream_seed",
+  "implementation_template"
 ] as const;
 const validTaskValidationStatusValues = [
   "pending",
@@ -31094,7 +31096,7 @@ export async function closeProject(
     await tx.project.update({
       where: { id: projectId },
       data: {
-        status: "completed",
+        status: "complete",
         completedAt: now,
         ...(npsScore !== null
           ? { npsScore, npsNote, npsCapturedAt: now }
