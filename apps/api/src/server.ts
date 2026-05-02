@@ -25501,6 +25501,32 @@ export async function updateAgentDefinition(
   return serializeAgentDefinition(agent);
 }
 
+const VALID_WORKBOOK_VISIBILITY = [
+  "internal",
+  "contributor_link",
+  "client_champion",
+  "client_portal"
+] as const;
+
+export type WorkbookVisibility = (typeof VALID_WORKBOOK_VISIBILITY)[number];
+
+function normalizeVisibility(value: unknown): WorkbookVisibility {
+  if (
+    typeof value === "string" &&
+    (VALID_WORKBOOK_VISIBILITY as readonly string[]).includes(value)
+  ) {
+    return value as WorkbookVisibility;
+  }
+  return "internal";
+}
+
+export const VISIBILITY_LABEL: Record<WorkbookVisibility, string> = {
+  internal: "Internal only",
+  contributor_link: "Contributor link only",
+  client_champion: "Client champion",
+  client_portal: "Client portal"
+};
+
 function serializeDiscoveryEvidence<
   T extends {
     id: string;
@@ -25519,6 +25545,7 @@ function serializeDiscoveryEvidence<
     kind?: string | null;
     workstreamId?: string | null;
     status?: string | null;
+    visibility?: string | null;
     ownerName?: string | null;
     sharedWith?: string[];
     dueDate?: Date | null;
@@ -25542,6 +25569,7 @@ function serializeDiscoveryEvidence<
     kind: evidence.kind ?? null,
     workstreamId: evidence.workstreamId ?? null,
     status: evidence.status ?? null,
+    visibility: normalizeVisibility(evidence.visibility),
     ownerName: evidence.ownerName ?? null,
     sharedWith: evidence.sharedWith ?? [],
     dueDate: evidence.dueDate ? evidence.dueDate.toISOString() : null,
@@ -25602,6 +25630,7 @@ export async function createDiscoveryEvidence(
     kind?: unknown;
     workstreamId?: unknown;
     status?: unknown;
+    visibility?: unknown;
     ownerName?: unknown;
     sharedWith?: unknown;
     dueDate?: unknown;
@@ -25659,6 +25688,9 @@ export async function createDiscoveryEvidence(
       kind,
       workstreamId: normalizeOptionalText(value.workstreamId),
       status: normalizeOptionalText(value.status),
+      visibility: normalizeVisibility(
+        value.visibility ?? (kind === "workbook" ? "internal" : undefined)
+      ),
       ownerName: normalizeOptionalText(value.ownerName),
       sharedWith,
       dueDate: dueDate && !Number.isNaN(dueDate.getTime()) ? dueDate : null,
@@ -25682,6 +25714,7 @@ export async function updateProjectWorkbook(
     ownerContributorId?: unknown;
     workstreamId?: unknown;
     status?: unknown;
+    visibility?: unknown;
     ownerName?: unknown;
     sharedWith?: unknown;
     dueDate?: unknown;
@@ -25745,6 +25778,9 @@ export async function updateProjectWorkbook(
       throw new Error("Invalid evidenceType");
     }
     data.evidenceType = value.evidenceType;
+  }
+  if (value.visibility !== undefined) {
+    data.visibility = normalizeVisibility(value.visibility);
   }
   if (value.sharedWith !== undefined) {
     data.sharedWith = normalizeStringArray(value.sharedWith);
@@ -26512,21 +26548,40 @@ export async function loadClientPortalWorkbooks(
         access.project.clientId,
         access.user.email
       );
-  const records = await prisma.discoveryEvidence.findMany({
-    where: {
-      projectId,
-      kind: "workbook",
-      status: { in: ["shared", "in_progress", "needs_review", "submitted"] }
-    },
-    orderBy: { createdAt: "asc" }
-  });
+
+  // Champion and skeleton key see workbooks explicitly shared at
+  // client_champion or client_portal visibility level.
   if (skeleton || isApprovedChampion(caller)) {
+    const records = await prisma.discoveryEvidence.findMany({
+      where: {
+        projectId,
+        kind: "workbook",
+        visibility: { in: ["client_champion", "client_portal"] }
+      },
+      orderBy: { createdAt: "asc" }
+    });
     return records.map((record) => serializeDiscoveryEvidence(record));
   }
+
+  // Unapproved / no contributor record — see nothing.
   if (!caller || caller.approvalStatus !== "approved") {
     return [];
   }
-  const visible = records.filter((record) =>
+
+  // Approved contributors see workbooks where:
+  //   - visibility allows contributor access (contributor_link, client_champion, client_portal)
+  //   - AND they are specifically assigned to the workbook or a section/question within it.
+  const candidateRecords = await prisma.discoveryEvidence.findMany({
+    where: {
+      projectId,
+      kind: "workbook",
+      visibility: {
+        in: ["contributor_link", "client_champion", "client_portal"]
+      }
+    },
+    orderBy: { createdAt: "asc" }
+  });
+  const visible = candidateRecords.filter((record) =>
     workbookAssignsContributor(
       record,
       ensureWorkbookContent(record.workbookContent),

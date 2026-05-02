@@ -20,6 +20,7 @@ interface Workbook {
   kind: string | null;
   workstreamId: string | null;
   status: string | null;
+  visibility: string | null;
   ownerName: string | null;
   sharedWith: string[];
   dueDate: string | null;
@@ -70,6 +71,52 @@ const STATUS_OPTIONS = [
   "approved"
 ];
 
+const VISIBILITY_OPTIONS: Array<{ value: string; label: string; description: string }> = [
+  {
+    value: "internal",
+    label: "Internal only",
+    description: "Muloo team only — not visible in client portal"
+  },
+  {
+    value: "contributor_link",
+    label: "Contributor link only",
+    description: "Visible to assigned contributors via secure link"
+  },
+  {
+    value: "client_champion",
+    label: "Client champion",
+    description: "Visible to the project champion in the client portal"
+  },
+  {
+    value: "client_portal",
+    label: "Client portal",
+    description: "Visible to all client portal users on this project"
+  }
+];
+
+const VISIBILITY_BADGE: Record<string, { label: string; className: string }> = {
+  internal: {
+    label: "Internal",
+    className:
+      "border-white/10 bg-white/5 text-text-secondary"
+  },
+  contributor_link: {
+    label: "Contributors",
+    className:
+      "border-amber-500/30 bg-amber-500/10 text-amber-300"
+  },
+  client_champion: {
+    label: "Champion",
+    className:
+      "border-blue-500/30 bg-blue-500/10 text-blue-300"
+  },
+  client_portal: {
+    label: "Client portal",
+    className:
+      "border-brand-teal/40 bg-brand-teal/10 text-brand-teal"
+  }
+};
+
 export default function ProjectWorkbooksPanel(props: {
   projectId: string;
   workstreams: WorkstreamOption[];
@@ -83,6 +130,7 @@ export default function ProjectWorkbooksPanel(props: {
   const [pickingForWorkbookId, setPickingForWorkbookId] = useState<
     string | null
   >(null);
+  const [savingVisibilityId, setSavingVisibilityId] = useState<string | null>(null);
   const [draft, setDraft] = useState({
     sourceLabel: "",
     sourceUrl: "",
@@ -90,6 +138,7 @@ export default function ProjectWorkbooksPanel(props: {
     evidenceType: "uploaded-doc",
     workstreamId: "",
     status: "draft",
+    visibility: "internal",
     ownerName: "",
     content: ""
   });
@@ -149,6 +198,7 @@ export default function ProjectWorkbooksPanel(props: {
           resourceType: draft.resourceType,
           workstreamId: draft.workstreamId || null,
           status: draft.status,
+          visibility: draft.visibility,
           ownerName: draft.ownerName.trim() || null,
           content: draft.content.trim() || null,
           workbookContent: isInternal ? { version: 1, sections: [] } : null,
@@ -166,6 +216,7 @@ export default function ProjectWorkbooksPanel(props: {
         evidenceType: "uploaded-doc",
         workstreamId: "",
         status: "draft",
+        visibility: "internal",
         ownerName: "",
         content: ""
       });
@@ -175,6 +226,28 @@ export default function ProjectWorkbooksPanel(props: {
       setError(err instanceof Error ? err.message : "Failed");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function updateVisibility(workbookId: string, visibility: string) {
+    setSavingVisibilityId(workbookId);
+    try {
+      const res = await fetch(
+        `/api/projects/${props.projectId}/workbooks/${workbookId}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ visibility })
+        }
+      );
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update visibility");
+    } finally {
+      setSavingVisibilityId(null);
     }
   }
 
@@ -199,14 +272,18 @@ export default function ProjectWorkbooksPanel(props: {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-text-secondary">
-          Internal workbooks, Google Sheets/Docs, Miro boards and PDFs shared
-          with stakeholders.
-        </p>
+        <div>
+          <p className="text-sm font-medium text-white">Workbooks</p>
+          <p className="text-xs text-text-secondary">
+            Internal workbooks stay hidden from clients until you deliberately
+            share them. Use the visibility control on each workbook to decide
+            who can see it.
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => setShowForm((value) => !value)}
-          className="brand-surface-soft rounded-full border px-3 py-1.5 text-xs uppercase tracking-wide text-white"
+          className="brand-surface-soft shrink-0 rounded-full border px-3 py-1.5 text-xs uppercase tracking-wide text-white"
         >
           {showForm ? "Cancel" : "Add workbook"}
         </button>
@@ -250,6 +327,40 @@ export default function ProjectWorkbooksPanel(props: {
                 </option>
               ))}
             </select>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-medium text-text-secondary">
+              Visibility — who can see this workbook?
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {VISIBILITY_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex cursor-pointer items-start gap-2 rounded-xl border p-2.5 text-xs transition ${
+                    draft.visibility === opt.value
+                      ? "border-brand-teal/50 bg-brand-teal/10"
+                      : "border-white/10 hover:border-white/20"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="visibility"
+                    value={opt.value}
+                    checked={draft.visibility === opt.value}
+                    onChange={() => setDraft({ ...draft, visibility: opt.value })}
+                    className="mt-0.5 shrink-0 accent-brand-teal"
+                  />
+                  <span>
+                    <span className="block font-semibold text-white">
+                      {opt.label}
+                    </span>
+                    <span className="text-text-secondary">{opt.description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <select
               value={draft.workstreamId}
               onChange={(e) =>
@@ -307,8 +418,9 @@ export default function ProjectWorkbooksPanel(props: {
         <div className="brand-surface rounded-2xl border border-dashed border-white/10 p-6 text-center">
           <p className="text-sm font-medium text-white">No workbooks yet</p>
           <p className="mt-1 text-xs text-text-secondary">
-            Create a workbook to collect discovery input from the client,
-            project champion, or external contributors.
+            Create a workbook to collect discovery input. New workbooks default
+            to <strong className="text-white">Internal only</strong> — nothing
+            is shown to clients until you deliberately share it.
           </p>
         </div>
       ) : (
@@ -325,29 +437,61 @@ export default function ProjectWorkbooksPanel(props: {
                 (acc, s) => acc + (s.questions?.length ?? 0),
                 0
               ) ?? 0;
+            const answeredCount =
+              wb.workbookContent?.sections?.reduce(
+                (acc, s) =>
+                  acc +
+                  (s.questions ?? []).filter(
+                    (q) =>
+                      q.status === "answered" || q.status === "approved"
+                  ).length,
+                0
+              ) ?? 0;
+            const visKey = (wb.visibility ?? "internal") as keyof typeof VISIBILITY_BADGE;
+            const badge = VISIBILITY_BADGE[visKey] ?? VISIBILITY_BADGE.internal;
             return (
               <li
                 key={wb.id}
                 className="brand-surface-soft rounded-2xl border p-3"
               >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-white">
-                      {wb.sourceLabel}
-                    </p>
-                    <p className="text-xs text-text-secondary">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-white">
+                        {wb.sourceLabel}
+                      </p>
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${badge.className}`}
+                      >
+                        {badge.label}
+                      </span>
+                      {wb.status ? (
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-text-secondary">
+                          {wb.status}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-0.5 text-xs text-text-secondary">
                       {wb.resourceType
                         ? RESOURCE_TYPE_LABEL[wb.resourceType] ?? wb.resourceType
                         : EVIDENCE_TYPE_OPTIONS.find(
                             (o) => o.value === wb.evidenceType
                           )?.label ?? wb.evidenceType}
-                      {wb.status ? ` · ${wb.status}` : ""}
-                      {wb.ownerName ? ` · owner ${wb.ownerName}` : ""}
+                      {wb.ownerName ? ` · owner: ${wb.ownerName}` : ""}
                       {workstream ? ` · ${workstream.name}` : ""}
-                      {isInternal
-                        ? ` · ${sectionsCount} sections · ${questionsCount} questions`
-                        : ""}
+                      {isInternal && questionsCount > 0
+                        ? ` · ${answeredCount}/${questionsCount} answered`
+                        : isInternal
+                          ? ` · ${sectionsCount} sections`
+                          : ""}
                     </p>
+                    {wb.content ? (
+                      <p className="mt-1 text-xs text-text-secondary">
+                        {wb.content}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
                     {wb.sourceUrl ? (
                       <a
                         href={wb.sourceUrl}
@@ -358,13 +502,6 @@ export default function ProjectWorkbooksPanel(props: {
                         Open ↗
                       </a>
                     ) : null}
-                    {wb.content ? (
-                      <p className="mt-1 text-xs text-text-secondary">
-                        {wb.content}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-2">
                     {isInternal ? (
                       <>
                         <button
@@ -399,6 +536,28 @@ export default function ProjectWorkbooksPanel(props: {
                       Remove
                     </button>
                   </div>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] text-text-secondary">
+                    Visibility:
+                  </span>
+                  {VISIBILITY_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      disabled={savingVisibilityId === wb.id}
+                      onClick={() => updateVisibility(wb.id, opt.value)}
+                      title={opt.description}
+                      className={`rounded-full border px-2 py-0.5 text-[10px] transition disabled:opacity-50 ${
+                        (wb.visibility ?? "internal") === opt.value
+                          ? "border-brand-teal/50 bg-brand-teal/10 text-brand-teal"
+                          : "border-white/10 text-text-secondary hover:border-white/30 hover:text-white"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
 
                 {isInternal && pickingForWorkbookId === wb.id ? (

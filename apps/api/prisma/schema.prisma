@@ -648,6 +648,7 @@ model DiscoveryEvidence {
   kind                   String?
   workstreamId           String?
   status                 String?
+  visibility             String?
   ownerName              String?
   sharedWith             String[] @default([])
   dueDate                DateTime?

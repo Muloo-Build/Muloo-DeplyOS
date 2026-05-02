@@ -123,9 +123,16 @@ export default function ClientWorkbooksPanel({
   }
   if (workbooks.length === 0) {
     return (
-      <p className="text-sm text-text-secondary">
-        No workbooks have been shared with you yet.
-      </p>
+      <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-6 text-center">
+        <p className="text-sm font-medium text-white">
+          No workbooks shared with you yet
+        </p>
+        <p className="mt-1 text-xs text-text-secondary">
+          Your project team will share specific workbooks with you when they
+          need your input. Check back soon, or contact your project champion if
+          you were expecting something here.
+        </p>
+      </div>
     );
   }
 
