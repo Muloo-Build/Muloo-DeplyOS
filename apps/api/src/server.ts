@@ -26138,6 +26138,48 @@ export async function importLibraryQuestionsIntoWorkbook(
   return serializeDiscoveryEvidence(updated);
 }
 
+export const MULOO_SKELETON_PORTAL_EMAIL = "skeleton@muloo.internal";
+
+export function isSkeletonPortalEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return email.trim().toLowerCase() === MULOO_SKELETON_PORTAL_EMAIL;
+}
+
+export async function ensureSkeletonPortalAccess(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true }
+  });
+  if (!project) {
+    throw new Error("Project not found");
+  }
+  const existing = await prisma.clientPortalUser.findUnique({
+    where: { email: MULOO_SKELETON_PORTAL_EMAIL }
+  });
+  const portalUser =
+    existing ??
+    (await prisma.clientPortalUser.create({
+      data: {
+        firstName: "Skeleton",
+        lastName: "Key",
+        email: MULOO_SKELETON_PORTAL_EMAIL,
+        password: crypto.randomBytes(32).toString("hex"),
+        inviteAcceptedAt: new Date()
+      }
+    }));
+  await prisma.clientProjectAccess.upsert({
+    where: { userId_projectId: { userId: portalUser.id, projectId } },
+    update: {},
+    create: {
+      userId: portalUser.id,
+      projectId,
+      role: "skeleton_operator",
+      questionnaireAccess: true
+    }
+  });
+  return portalUser;
+}
+
 async function ensureClientPortalProjectAccess(
   projectId: string,
   userId: string
@@ -26257,12 +26299,15 @@ export async function addClientPortalContributor(
   }
 ) {
   const access = await ensureClientPortalProjectAccess(projectId, userId);
-  const caller = await resolveClientPortalContributor(
-    projectId,
-    access.project.clientId,
-    access.user.email
-  );
-  if (!isApprovedChampion(caller)) {
+  const skeleton = isSkeletonPortalEmail(access.user.email);
+  const caller = skeleton
+    ? null
+    : await resolveClientPortalContributor(
+        projectId,
+        access.project.clientId,
+        access.user.email
+      );
+  if (!skeleton && !isApprovedChampion(caller)) {
     throw new Error(
       "Only an approved client champion can add contributors to this project"
     );
@@ -26318,11 +26363,14 @@ export async function loadClientPortalWorkbooks(
   userId: string
 ) {
   const access = await ensureClientPortalProjectAccess(projectId, userId);
-  const caller = await resolveClientPortalContributor(
-    projectId,
-    access.project.clientId,
-    access.user.email
-  );
+  const skeleton = isSkeletonPortalEmail(access.user.email);
+  const caller = skeleton
+    ? null
+    : await resolveClientPortalContributor(
+        projectId,
+        access.project.clientId,
+        access.user.email
+      );
   const records = await prisma.discoveryEvidence.findMany({
     where: {
       projectId,
@@ -26331,7 +26379,7 @@ export async function loadClientPortalWorkbooks(
     },
     orderBy: { createdAt: "asc" }
   });
-  if (isApprovedChampion(caller)) {
+  if (skeleton || isApprovedChampion(caller)) {
     return records.map((record) => serializeDiscoveryEvidence(record));
   }
   if (!caller || caller.approvalStatus !== "approved") {
@@ -26354,18 +26402,21 @@ export async function saveClientPortalWorkbookResponses(
   value: { responses?: unknown }
 ) {
   const access = await ensureClientPortalProjectAccess(projectId, userId);
-  const caller = await resolveClientPortalContributor(
-    projectId,
-    access.project.clientId,
-    access.user.email
-  );
-  if (!canContributorSubmit(caller)) {
+  const skeleton = isSkeletonPortalEmail(access.user.email);
+  const caller = skeleton
+    ? null
+    : await resolveClientPortalContributor(
+        projectId,
+        access.project.clientId,
+        access.user.email
+      );
+  if (!skeleton && !canContributorSubmit(caller)) {
     throw new Error(
       "Your contributor record is not approved to submit responses on this project"
     );
   }
-  const callerId = caller!.id;
-  const champion = isApprovedChampion(caller);
+  const callerId = skeleton ? "__skeleton__" : caller!.id;
+  const champion = skeleton || isApprovedChampion(caller);
   const workbook = await prisma.discoveryEvidence.findFirst({
     where: { id: workbookId, projectId, kind: "workbook" }
   });

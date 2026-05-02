@@ -18,6 +18,7 @@ const protectedWorkspaceRoutePrefixes = [
   "/projects",
   "/runs",
   "/settings",
+  "/skeleton-key",
   "/templates",
   "/workspace"
 ];

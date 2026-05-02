@@ -11,6 +11,7 @@ import {
   FileText,
   FolderKanban,
   Inbox,
+  KeyRound,
   LayoutDashboard,
   LineChart,
   LogOut,
@@ -189,6 +190,13 @@ const navGroups: NavGroup[] = [
         icon: <ScrollText size={18} />,
         isActive: (pathname) =>
           pathname === "/templates" || pathname.startsWith("/templates/")
+      },
+      {
+        href: "/skeleton-key",
+        label: "Skeleton key",
+        icon: <KeyRound size={18} />,
+        isActive: (pathname) =>
+          pathname === "/skeleton-key" || pathname.startsWith("/skeleton-key/")
       },
       {
         href: "/settings",

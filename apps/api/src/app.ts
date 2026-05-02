@@ -185,6 +185,7 @@ import {
   loadClientPortalWorkbooks,
   addClientPortalContributor,
   saveClientPortalWorkbookResponses,
+  ensureSkeletonPortalAccess,
   loadClientProjectDetail,
   loadClientProjectsForUser,
   loadClientQuoteDocument,
@@ -2140,6 +2141,39 @@ export function createApiApp(config: BaseConfig) {
         token,
         previewUrl: `/api/client-auth/preview?token=${token}`
       });
+    }
+  );
+
+  app.post(
+    "/api/admin/skeleton-key/:projectId",
+    internalAuth,
+    async (c) => {
+      const projectId = c.req.param("projectId");
+      if (!projectId) {
+        return c.json({ error: "projectId is required" }, 400);
+      }
+      try {
+        const portalUser = await ensureSkeletonPortalAccess(projectId);
+        for (const [tok, rec] of portalPreviewTokens) {
+          if (rec.expiresAt < Date.now()) {
+            portalPreviewTokens.delete(tok);
+          }
+        }
+        const token = crypto.randomUUID();
+        portalPreviewTokens.set(token, {
+          clientUserId: portalUser.id,
+          projectId,
+          expiresAt: Date.now() + 60 * 60 * 1000
+        });
+        return c.json({
+          token,
+          previewUrl: `/api/client-auth/preview?token=${token}`
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to mint skeleton key";
+        return c.json({ error: message }, 400);
+      }
     }
   );
 
