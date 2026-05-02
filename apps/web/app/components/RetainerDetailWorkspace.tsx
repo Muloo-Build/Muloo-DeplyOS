@@ -98,6 +98,14 @@ export default function RetainerDetailWorkspace({
   const [savingInvoice, setSavingInvoice] = useState(false);
   const [retainer, setRetainer] = useState<RetainerDetail | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
+  const [lineage, setLineage] = useState<{
+    bornFromProject: {
+      id: string;
+      name: string;
+      status: string;
+      completedAt: string | null;
+    } | null;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [invoiceForm, setInvoiceForm] = useState({
@@ -160,6 +168,20 @@ export default function RetainerDetailWorkspace({
 
   useEffect(() => {
     void loadDetail();
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/retainers/${encodeURIComponent(retainerId)}/lineage`,
+          { credentials: "include" }
+        );
+        const body = await res.json().catch(() => null);
+        if (res.ok && body?.lineage) {
+          setLineage(body.lineage);
+        }
+      } catch {
+        // lineage is best-effort; ignore
+      }
+    })();
   }, [retainerId]);
 
   const selectedPeriod = useMemo(
@@ -367,6 +389,22 @@ export default function RetainerDetailWorkspace({
         {feedback ? (
           <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
             {feedback}
+          </div>
+        ) : null}
+        {lineage?.bornFromProject ? (
+          <div className="rounded-2xl border border-[rgba(73,205,225,0.3)] bg-[rgba(73,205,225,0.08)] px-4 py-3 text-sm text-[#7be2ef]">
+            <span className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              Born from project
+            </span>
+            <Link
+              href={`/projects/${lineage.bornFromProject.id}`}
+              className="ml-3 font-semibold text-white hover:underline"
+            >
+              {lineage.bornFromProject.name}
+            </Link>
+            <span className="ml-2 text-xs text-text-secondary">
+              · {lineage.bornFromProject.status}
+            </span>
           </div>
         ) : null}
 

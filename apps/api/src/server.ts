@@ -6723,6 +6723,8 @@ export function serializeTask<
     recommendationId?: string | null;
     workstreamId?: string | null;
     taskOrigin?: string | null;
+    hubspotTicketId?: string | null;
+    sourceWorkstreamItemId?: string | null;
     priority: string;
     status: string;
     plannedHours: number | null;
@@ -6788,6 +6790,8 @@ export function serializeTask<
     recommendationId: task.recommendationId ?? null,
     workstreamId: task.workstreamId ?? null,
     taskOrigin: task.taskOrigin ?? "manual",
+    hubspotTicketId: task.hubspotTicketId ?? null,
+    sourceWorkstreamItemId: task.sourceWorkstreamItemId ?? null,
     priority: task.priority,
     status: task.status,
     plannedHours: task.plannedHours,
@@ -10871,6 +10875,8 @@ export async function createProjectTask(
     assigneeType?: unknown;
     executionReadiness?: unknown;
     assignedAgentId?: unknown;
+    hubspotTicketId?: unknown;
+    sourceWorkstreamItemId?: unknown;
   }
 ) {
   const status =
@@ -10945,6 +10951,12 @@ export async function createProjectTask(
     projectId,
     value.workstreamId
   );
+  const normalizedHubspotTicketId = normalizeOptionalTaskString(
+    value.hubspotTicketId
+  );
+  const normalizedSourceWorkstreamItemId = normalizeOptionalTaskString(
+    value.sourceWorkstreamItemId
+  );
 
   const task = await prisma.task.create({
     data: {
@@ -10954,6 +10966,8 @@ export async function createProjectTask(
       category: normalizedCategory || null,
       workstreamId: resolvedWorkstreamId,
       taskOrigin: normalizedTaskOrigin,
+      hubspotTicketId: normalizedHubspotTicketId,
+      sourceWorkstreamItemId: normalizedSourceWorkstreamItemId,
       executionType: normalizedExecutionType,
       executionLaneRationale: normalizeOptionalTaskString(
         value.executionLaneRationale
@@ -11045,6 +11059,7 @@ export async function updateProjectTaskRecord(
     assignedAgentId?: unknown;
     plannedHours?: unknown;
     actualHours?: unknown;
+    hubspotTicketId?: unknown;
   }
 ) {
   const existingTask = await prisma.task.findFirst({
@@ -11160,6 +11175,13 @@ export async function updateProjectTaskRecord(
     data.hubspotTierRequired = normalizeOptionalTaskString(
       value.hubspotTierRequired
     );
+  }
+
+  if (value.hubspotTicketId !== undefined) {
+    // T5.1 — HubSpot ticket linking. Treated as metadata (not blocked by
+    // scope-lock) so delivery operators can attach a ticket after scope
+    // is signed off.
+    data.hubspotTicketId = normalizeOptionalTaskString(value.hubspotTicketId);
   }
 
   if (value.coworkBrief !== undefined) {
@@ -30649,5 +30671,575 @@ export async function bulkArchiveQuotes(
       id: quote.id,
       previousStatus: quote.status
     }))
+  };
+}
+
+// =====================================================================
+// T5 — Delivery + handover surface
+// =====================================================================
+//
+// Server functions backing task #7 (T5). Four sub-steps:
+//   T5.1  appendWorkstreamTasksToDelivery + applyImplementationTemplateToProject
+//   T5.2  generateHandoverDoc / loadHandoverDoc / updateHandoverDocContent /
+//         shareHandoverDocToPortal
+//   T5.3  closeProject (validates handover, records NPS, archives workbooks,
+//         optionally spawns retainer)
+//   T5.4  setProjectBornFromProject + loadProjectLineage / loadRetainerLineage
+//
+// All functions are additive — they introduce new server-side surfaces and
+// do not modify existing behaviour.
+
+export async function appendWorkstreamTasksToDelivery(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, deliveryWorkstreams: true }
+  });
+  if (!project) throw new Error("Project not found");
+
+  const workstreams = normalizeProjectWorkstreams(project.deliveryWorkstreams);
+
+  if (workstreams.length === 0) {
+    return { createdCount: 0, skippedCount: 0, totalWorkstreams: 0 };
+  }
+
+  // Idempotency: skip workstream items already represented as a Task
+  // (matched by sourceWorkstreamItemId).
+  const workstreamIds = workstreams.map((w) => w.id);
+  const existing = await prisma.task.findMany({
+    where: {
+      projectId,
+      sourceWorkstreamItemId: { in: workstreamIds }
+    },
+    select: { sourceWorkstreamItemId: true }
+  });
+  const skipIds = new Set(
+    existing
+      .map((t) => t.sourceWorkstreamItemId)
+      .filter((id): id is string => Boolean(id))
+  );
+
+  const createdIds: string[] = [];
+  for (const ws of workstreams) {
+    if (skipIds.has(ws.id)) continue;
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        title: ws.name,
+        description: ws.summary || null,
+        category: ws.category,
+        workstreamId: ws.id,
+        sourceWorkstreamItemId: ws.id,
+        taskOrigin: "workstream_seed",
+        status: "todo",
+        priority: "medium",
+        plannedHours: ws.estimatedHours ?? null,
+        assigneeType: "Human"
+      }
+    });
+    createdIds.push(task.id);
+  }
+
+  return {
+    createdCount: createdIds.length,
+    skippedCount: workstreams.length - createdIds.length,
+    totalWorkstreams: workstreams.length
+  };
+}
+
+export async function applyImplementationTemplateToProject(
+  projectId: string,
+  templateId: string
+) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true }
+  });
+  if (!project) throw new Error("Project not found");
+
+  const template = await prisma.deliveryTemplate.findUnique({
+    where: { id: templateId },
+    include: { tasks: { orderBy: { sortOrder: "asc" } } }
+  });
+  if (!template) throw new Error("Delivery template not found");
+
+  // Idempotency: skip template tasks already represented as a Task on this
+  // project. We use a synthetic sourceWorkstreamItemId of `tpl:<templateId>:<taskId>`
+  // so re-applying the same template is a no-op.
+  const sourceIds = template.tasks.map(
+    (t) => `tpl:${template.id}:${t.id}`
+  );
+  const existing = await prisma.task.findMany({
+    where: {
+      projectId,
+      sourceWorkstreamItemId: { in: sourceIds }
+    },
+    select: { sourceWorkstreamItemId: true }
+  });
+  const skipIds = new Set(
+    existing
+      .map((t) => t.sourceWorkstreamItemId)
+      .filter((id): id is string => Boolean(id))
+  );
+
+  const toCreate = template.tasks.filter(
+    (t) => !skipIds.has(`tpl:${template.id}:${t.id}`)
+  );
+
+  const created = await prisma.$transaction(
+    toCreate.map((t) =>
+      prisma.task.create({
+        data: {
+          projectId,
+          title: t.title,
+          description: t.description ?? null,
+          category: t.category ?? null,
+          executionType: t.executionType,
+          priority: t.priority,
+          status: "todo",
+          qaRequired: t.qaRequired,
+          approvalRequired: t.approvalRequired,
+          assigneeType: t.assigneeType ?? "Human",
+          plannedHours: t.plannedHours ?? null,
+          taskOrigin: "implementation_template",
+          sourceWorkstreamItemId: `tpl:${template.id}:${t.id}`
+        }
+      })
+    )
+  );
+
+  return {
+    createdCount: created.length,
+    skippedCount: template.tasks.length - created.length,
+    templateName: template.name,
+    templateSlug: template.slug
+  };
+}
+
+// --- T5.2 Handover doc ---
+
+type HandoverDocSection = {
+  key: string;
+  title: string;
+  body: string;
+  items?: Array<{ label: string; value: string; url?: string | null }>;
+};
+
+type HandoverDocContent = {
+  generatedAt: string;
+  sections: HandoverDocSection[];
+  trainingLinks: Array<{ label: string; url: string }>;
+};
+
+async function buildHandoverDocContent(
+  projectId: string
+): Promise<HandoverDocContent> {
+  const [project, blueprint, evidence, messages] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: projectId },
+      include: { client: { select: { name: true } } }
+    }),
+    prisma.blueprint.findUnique({
+      where: { projectId },
+      include: {
+        tasks: { orderBy: [{ phase: "asc" }, { order: "asc" }] }
+      }
+    }),
+    prisma.discoveryEvidence.findMany({
+      where: { projectId, kind: "workbook", isArchived: false },
+      orderBy: [{ sessionNumber: "asc" }, { createdAt: "desc" }]
+    }),
+    prisma.projectMessage.findMany({
+      where: { projectId },
+      orderBy: { createdAt: "desc" },
+      take: 50
+    })
+  ]);
+  if (!project) throw new Error("Project not found");
+
+  const sections: HandoverDocSection[] = [];
+
+  sections.push({
+    key: "overview",
+    title: "Project Overview",
+    body: [
+      `Client: ${project.client.name}`,
+      `Project: ${project.name}`,
+      `Engagement type: ${project.engagementType}`,
+      project.scopeExecutiveSummary ?? project.commercialBrief ?? ""
+    ]
+      .filter(Boolean)
+      .join("\n")
+  });
+
+  sections.push({
+    key: "scope",
+    title: "Scope",
+    body: project.scopeExecutiveSummary ?? "(no executive summary captured)",
+    items: blueprint
+      ? blueprint.tasks.map((t) => ({
+          label: `Phase ${t.phase} · ${t.phaseName}`,
+          value: t.name
+        }))
+      : []
+  });
+
+  // Decisions Log: project messages whose body starts with "Decision:"
+  // (operator convention). A dedicated decisions table is YAGNI for T5.
+  const decisionMessages = messages.filter((m) =>
+    /^decision[:\-]/i.test(m.body.trim())
+  );
+  sections.push({
+    key: "decisions",
+    title: "Decisions Log",
+    body:
+      decisionMessages.length === 0
+        ? "(no decisions logged — prefix project messages with 'Decision:' to capture them here)"
+        : "",
+    items: decisionMessages.map((m) => ({
+      label: `${m.senderName} · ${m.createdAt.toISOString().slice(0, 10)}`,
+      value: m.body
+    }))
+  });
+
+  sections.push({
+    key: "workbookOutputs",
+    title: "Workbook Outputs",
+    body:
+      evidence.length === 0
+        ? "(no workbooks captured)"
+        : `${evidence.length} workbook${evidence.length === 1 ? "" : "s"} captured.`,
+    items: evidence.map((e) => ({
+      label: e.sourceLabel,
+      value: e.content ?? "(no content)",
+      url: e.sourceUrl
+    }))
+  });
+
+  sections.push({
+    key: "trainingLinks",
+    title: "Training Links",
+    body: "Add links to recorded handover walkthroughs and SOPs."
+  });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    sections,
+    trainingLinks: []
+  };
+}
+
+function serializeHandoverDoc(doc: {
+  id: string;
+  projectId: string;
+  content: Prisma.Prisma.JsonValue;
+  generatedAt: Date;
+  sharedToPortalAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: doc.id,
+    projectId: doc.projectId,
+    content: doc.content,
+    generatedAt: doc.generatedAt.toISOString(),
+    sharedToPortalAt: doc.sharedToPortalAt?.toISOString() ?? null,
+    createdAt: doc.createdAt.toISOString(),
+    updatedAt: doc.updatedAt.toISOString()
+  };
+}
+
+export async function loadHandoverDoc(projectId: string) {
+  const existing = await prisma.handoverDoc.findUnique({
+    where: { projectId }
+  });
+  return existing ? serializeHandoverDoc(existing) : null;
+}
+
+export async function generateHandoverDoc(projectId: string) {
+  const content = await buildHandoverDocContent(projectId);
+  const doc = await prisma.handoverDoc.upsert({
+    where: { projectId },
+    create: {
+      projectId,
+      content: content as unknown as Prisma.Prisma.InputJsonValue,
+      generatedAt: new Date()
+    },
+    update: {
+      content: content as unknown as Prisma.Prisma.InputJsonValue,
+      generatedAt: new Date()
+    }
+  });
+  return serializeHandoverDoc(doc);
+}
+
+export async function updateHandoverDocContent(
+  projectId: string,
+  content: unknown
+) {
+  if (!content || typeof content !== "object" || Array.isArray(content)) {
+    throw new Error("Handover doc content must be a JSON object");
+  }
+  const existing = await prisma.handoverDoc.findUnique({
+    where: { projectId }
+  });
+  if (!existing) {
+    throw new Error("Handover doc not generated yet");
+  }
+  const doc = await prisma.handoverDoc.update({
+    where: { projectId },
+    data: { content: content as Prisma.Prisma.InputJsonValue }
+  });
+  return serializeHandoverDoc(doc);
+}
+
+export async function shareHandoverDocToPortal(projectId: string) {
+  const existing = await prisma.handoverDoc.findUnique({
+    where: { projectId }
+  });
+  if (!existing) {
+    throw new Error("Handover doc not generated yet");
+  }
+  const doc = await prisma.handoverDoc.update({
+    where: { projectId },
+    data: { sharedToPortalAt: new Date() }
+  });
+  return serializeHandoverDoc(doc);
+}
+
+// --- T5.3 Close project wizard ---
+
+export type CloseProjectInput = {
+  npsScore?: unknown;
+  npsNote?: unknown;
+  archiveWorkbooks?: unknown;
+  convertToRetainer?: unknown;
+  retainer?: unknown;
+};
+
+export async function closeProject(
+  projectId: string,
+  input: CloseProjectInput
+) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, clientId: true, deliveryOwner: true }
+  });
+  if (!project) throw new Error("Project not found");
+
+  const handover = await prisma.handoverDoc.findUnique({
+    where: { projectId },
+    select: { id: true }
+  });
+  if (!handover) {
+    const err = new Error(
+      "Handover doc not generated yet — generate it before closing the project"
+    );
+    (err as Error & { code?: string }).code = "HANDOVER_REQUIRED";
+    throw err;
+  }
+
+  let npsScore: number | null = null;
+  if (input.npsScore !== undefined && input.npsScore !== null && input.npsScore !== "") {
+    const parsed =
+      typeof input.npsScore === "number"
+        ? input.npsScore
+        : Number.parseInt(String(input.npsScore), 10);
+    if (Number.isNaN(parsed) || parsed < 0 || parsed > 10) {
+      throw new Error("NPS score must be an integer between 0 and 10");
+    }
+    npsScore = parsed;
+  }
+
+  const npsNote =
+    typeof input.npsNote === "string" && input.npsNote.trim() !== ""
+      ? input.npsNote.trim()
+      : null;
+
+  const archiveWorkbooks = input.archiveWorkbooks !== false;
+
+  // Pre-validate the retainer payload BEFORE we mutate the project so that a
+  // ZodError doesn't leave the project half-closed (status=completed +
+  // workbooks archived but no retainer). createRetainerRecord runs the same
+  // schema parse + does its own writes; we re-parse here as a fail-fast.
+  const wantsRetainer =
+    input.convertToRetainer === true &&
+    input.retainer !== null &&
+    typeof input.retainer === "object";
+  let retainerPayload: Record<string, unknown> | null = null;
+  if (wantsRetainer) {
+    retainerPayload = {
+      ...(input.retainer as Record<string, unknown>),
+      clientId: project.clientId
+    };
+    const validation = retainerCreateSchema.safeParse(retainerPayload);
+    if (!validation.success) {
+      throw new Error(
+        `Retainer payload invalid: ${validation.error.errors
+          .map((e) => `${e.path.join(".")}: ${e.message}`)
+          .join("; ")}`
+      );
+    }
+  }
+
+  const now = new Date();
+  let workbooksArchivedCount = 0;
+  await prisma.$transaction(async (tx) => {
+    if (archiveWorkbooks) {
+      const result = await tx.discoveryEvidence.updateMany({
+        where: { projectId, kind: "workbook", isArchived: false },
+        data: { isArchived: true }
+      });
+      workbooksArchivedCount = result.count;
+    }
+    await tx.project.update({
+      where: { id: projectId },
+      data: {
+        status: "completed",
+        completedAt: now,
+        ...(npsScore !== null
+          ? { npsScore, npsNote, npsCapturedAt: now }
+          : {})
+      }
+    });
+  });
+
+  let retainer: Awaited<ReturnType<typeof createRetainerRecord>> | null = null;
+  if (retainerPayload) {
+    // Note: createRetainerRecord intentionally runs outside the project-close
+    // transaction because it spans Retainer + RetainerPeriod + AuditLog writes
+    // and we already validated the payload above. If retainer creation fails
+    // here, the project remains closed and an operator can retry the convert
+    // step as a follow-up (DRAFT retainer is cheap to create).
+    const created = await createRetainerRecord(retainerPayload);
+    await prisma.retainer.update({
+      where: { id: created.id },
+      data: { bornFromProjectId: projectId }
+    });
+    retainer = { ...created, bornFromProjectId: projectId } as typeof created;
+  }
+
+  const closed = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      status: true,
+      completedAt: true,
+      npsScore: true,
+      npsNote: true,
+      npsCapturedAt: true
+    }
+  });
+
+  return {
+    project: closed,
+    retainer,
+    workbooksArchivedCount,
+    handoverDocId: handover.id
+  };
+}
+
+// --- T5.4 Project ↔ Retainer lineage ---
+
+export async function setProjectBornFromProject(
+  projectId: string,
+  bornFromProjectId: string | null
+) {
+  if (bornFromProjectId === projectId) {
+    throw new Error("A project cannot be born from itself");
+  }
+  if (bornFromProjectId !== null) {
+    const parent = await prisma.project.findUnique({
+      where: { id: bornFromProjectId },
+      select: { id: true }
+    });
+    if (!parent) throw new Error("Parent project not found");
+  }
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { bornFromProjectId }
+  });
+  return loadProjectLineage(projectId);
+}
+
+export async function loadProjectLineage(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      completedAt: true,
+      npsScore: true,
+      npsNote: true,
+      npsCapturedAt: true,
+      bornFromProjectId: true,
+      bornFromProject: {
+        select: { id: true, name: true, status: true }
+      },
+      spawnedProjects: {
+        select: { id: true, name: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" }
+      },
+      spawnedRetainers: {
+        select: {
+          id: true,
+          serviceLine: true,
+          status: true,
+          startDate: true,
+          createdAt: true
+        },
+        orderBy: { createdAt: "desc" }
+      }
+    }
+  });
+  if (!project) return null;
+  return {
+    id: project.id,
+    name: project.name,
+    status: project.status,
+    completedAt: project.completedAt?.toISOString() ?? null,
+    npsScore: project.npsScore,
+    npsNote: project.npsNote,
+    npsCapturedAt: project.npsCapturedAt?.toISOString() ?? null,
+    bornFromProjectId: project.bornFromProjectId,
+    bornFromProject: project.bornFromProject,
+    spawnedProjects: project.spawnedProjects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      status: p.status,
+      createdAt: p.createdAt.toISOString()
+    })),
+    spawnedRetainers: project.spawnedRetainers.map((r) => ({
+      id: r.id,
+      serviceLine: r.serviceLine,
+      status: r.status,
+      startDate: r.startDate.toISOString(),
+      createdAt: r.createdAt.toISOString()
+    }))
+  };
+}
+
+export async function loadRetainerLineage(retainerId: string) {
+  const retainer = await prisma.retainer.findUnique({
+    where: { id: retainerId },
+    select: {
+      id: true,
+      bornFromProjectId: true,
+      bornFromProject: {
+        select: { id: true, name: true, status: true, completedAt: true }
+      }
+    }
+  });
+  if (!retainer) return null;
+  return {
+    id: retainer.id,
+    bornFromProjectId: retainer.bornFromProjectId,
+    bornFromProject: retainer.bornFromProject
+      ? {
+          ...retainer.bornFromProject,
+          completedAt:
+            retainer.bornFromProject.completedAt?.toISOString() ?? null
+        }
+      : null
   };
 }

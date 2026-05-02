@@ -17,6 +17,8 @@ import DiscoveryTab from "./project/tabs/DiscoveryTab";
 import OverviewTab from "./project/tabs/OverviewTab";
 import PlanTab from "./project/tabs/PlanTab";
 import PortalTab from "./project/tabs/PortalTab";
+import HandoverPanel from "./project/HandoverPanel";
+import CloseProjectWizard from "./project/CloseProjectWizard";
 import AccessSharingTab from "./project/tabs/AccessSharingTab";
 import ProjectWorkstreamsHoursPanel from "./project/panels/ProjectWorkstreamsHoursPanel";
 import ProjectWorkbooksPanel from "./project/panels/ProjectWorkbooksPanel";
@@ -355,6 +357,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [portalQuoteToggleBusy, setPortalQuoteToggleBusy] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
   const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
+  const [closeWizardOpen, setCloseWizardOpen] = useState(false);
 
   async function loadProjectData() {
     const [
@@ -1151,7 +1154,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       key={s}
                       type="button"
                       disabled={statusBusy || project.status === s}
-                      onClick={() => void changeProjectStatus(s)}
+                      onClick={() => {
+                        if (s === "complete") {
+                          setCloseWizardOpen(true);
+                          return;
+                        }
+                        void changeProjectStatus(s);
+                      }}
                       className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
                         project.status === s
                           ? "border-[rgba(73,205,225,0.28)] bg-[rgba(73,205,225,0.12)] text-[#7be2ef]"
@@ -1890,6 +1899,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       case "portal":
         return (
           <PortalTab
+            handover={<HandoverPanel projectId={project.id} />}
             userManagement={
               <div className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2">
@@ -2318,6 +2328,30 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
           {activeTabContent}
         </ProjectDetailLayout>
       </div>
+      <CloseProjectWizard
+        projectId={project.id}
+        open={closeWizardOpen}
+        onClose={() => setCloseWizardOpen(false)}
+        onCompleted={(result) => {
+          if (result.project) {
+            setProject((p) =>
+              p
+                ? {
+                    ...p,
+                    status: result.project!.status,
+                    completedAt: result.project!.completedAt
+                  }
+                : p
+            );
+          }
+          setStatusFeedback(
+            result.retainerId
+              ? "Project closed and retainer created"
+              : "Project closed"
+          );
+          setTimeout(() => setStatusFeedback(null), 4000);
+        }}
+      />
     </AppShell>
   );
 }

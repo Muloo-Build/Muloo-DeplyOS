@@ -314,6 +314,15 @@ model Project {
   latestClientSubmissionSeenAt  DateTime?
   latestClientSubmissionSession Int?
   latestClientSubmissionByName  String?
+  npsScore                      Int?
+  npsNote                       String?
+  npsCapturedAt                 DateTime?
+  completedAt                   DateTime?
+  bornFromProjectId             String?
+  bornFromProject               Project?                @relation("ProjectLineage", fields: [bornFromProjectId], references: [id], onDelete: SetNull)
+  spawnedProjects               Project[]               @relation("ProjectLineage")
+  spawnedRetainers              Retainer[]              @relation("RetainerLineage")
+  handoverDoc                   HandoverDoc?
   auditLogs                     AuditLog[]
   blueprint                     Blueprint?
   clientSubmissions             ClientInputSubmission[]
@@ -339,6 +348,18 @@ model Project {
   workflowRuns                  WorkflowRun[]
 
   @@index([retainerId])
+  @@index([bornFromProjectId])
+}
+
+model HandoverDoc {
+  id               String    @id @default(cuid())
+  projectId        String    @unique
+  content          Json
+  generatedAt      DateTime  @default(now())
+  sharedToPortalAt DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model ProjectContext {
@@ -734,12 +755,14 @@ model DiscoveryEvidence {
   dueDate                DateTime?
   linkedSectionIds       String[] @default([])
   sourceTemplateId       String?
+  isArchived             Boolean  @default(false)
   project                Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sourceTemplate         WorkbookTemplate? @relation(fields: [sourceTemplateId], references: [id], onDelete: SetNull)
 
   @@index([projectId, sessionNumber, createdAt])
   @@index([projectId, kind])
   @@index([projectId, resourceType])
+  @@index([projectId, isArchived])
   @@index([sourceTemplateId])
 }
 
@@ -858,6 +881,8 @@ model Task {
   billingOverrideReason  String?
   workstreamId           String?
   taskOrigin             String                @default("manual")
+  hubspotTicketId        String?
+  sourceWorkstreamItemId String?
   executionJobs          ExecutionJob[]
   retainerLedgerEntries  RetainerLedgerEntry[]
   assignedAgent          AgentDefinition?      @relation(fields: [assignedAgentId], references: [id])
@@ -883,6 +908,8 @@ model Retainer {
   deliverables    Json?
   approvalTerms   String?
   requirements    String?
+  bornFromProjectId String?
+  bornFromProject Project?            @relation("RetainerLineage", fields: [bornFromProjectId], references: [id], onDelete: SetNull)
   invoices        Invoice[]
   projects        Project[]
   billToEntity    BillToEntity        @relation("RetainerBillToEntity", fields: [billToEntityId], references: [id])
@@ -894,6 +921,7 @@ model Retainer {
   @@index([billToEntityId])
   @@index([serviceLine, status])
   @@index([startDate])
+  @@index([bornFromProjectId])
 }
 
 model RetainerPeriod {

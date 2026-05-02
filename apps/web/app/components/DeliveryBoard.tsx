@@ -2386,9 +2386,57 @@ export default function DeliveryBoard({
             </div>
           ) : (
             <div className="mt-6 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary">
-              {mode === "internal"
-                ? "Load the prescribed delivery templates to create the working delivery board for this project."
-                : "No delivery board has been published for this project yet."}
+              {mode === "internal" ? (
+                <div className="space-y-3">
+                  <p>
+                    No delivery tasks yet. Seed the board from Plan-tab
+                    workstreams or apply the prescribed implementation
+                    templates.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={
+                        generating || projectWorkstreams.length === 0
+                      }
+                      onClick={async () => {
+                        setGenerating(true);
+                        try {
+                          const res = await fetch(
+                            `/api/projects/${encodeURIComponent(projectId)}/delivery/seed-from-workstreams`,
+                            { method: "POST" }
+                          );
+                          const body = await res.json().catch(() => null);
+                          if (!res.ok) {
+                            throw new Error(body?.error ?? "Failed to seed");
+                          }
+                          await loadTasks();
+                        } catch (err) {
+                          setError(
+                            err instanceof Error
+                              ? err.message
+                              : "Failed to seed tasks"
+                          );
+                        } finally {
+                          setGenerating(false);
+                        }
+                      }}
+                      className="rounded-xl bg-[#51d0b0] px-4 py-2 text-sm font-semibold text-[#0b1126] disabled:opacity-50"
+                    >
+                      Seed from workstreams ({projectWorkstreams.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowTemplatePicker(true)}
+                      className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10"
+                    >
+                      Apply implementation template
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                "No delivery board has been published for this project yet."
+              )}
             </div>
           )}
         </>

@@ -225,3 +225,37 @@ ADMIN
 - **Per-user uniqueness**: Migration `20260502230000_discovery_step_a_user_unique` adds a partial unique on `DiscoverySubmission(projectId, userId, sessionNumber) WHERE userId IS NOT NULL AND sessionNumber IS NOT NULL`. The live write path allocates `version` dynamically per project (above the synthetic floor of 1_000_000) so the existing `(projectId, version)` unique never collides across users.
 
 See `apps/api/prisma/migrations/20260502210000_discovery_step_a_absorb_client_input/RUNBOOK.md` for the full inventory, the canonical-model decision (with the explicit sign-off note), and Step B prep.
+
+## T5 — Delivery + handover surface (2026-05-02)
+
+- **Migration**: `20260502270000_t5_delivery_handover_surface` (additive, idempotent `IF NOT EXISTS` guards). Adds:
+  - `Task.hubspotTicketId` (single nullable FK-like field; can evolve to a join table if multi-ticket-per-task ever becomes real) and `Task.sourceWorkstreamItemId` (stable seed key for idempotency).
+  - `DiscoveryEvidence.isArchived` (defaults `false`) — flipped on project close.
+  - `Project.npsScore` (0–10), `Project.npsNote`, `Project.npsCapturedAt`, `Project.completedAt`, `Project.bornFromProjectId` (self-FK).
+  - `Retainer.bornFromProjectId` (FK to Project) — bidirectional lineage.
+  - New model `HandoverDoc { projectId @unique, content Json, generatedAt, sharedToPortalAt?, updatedAt }`.
+
+- **Server (apps/api/src/server.ts, T5 block at tail)**:
+  - `appendWorkstreamTasksToDelivery(projectId)` — converts `Project.deliveryWorkstreams` items → Tasks; idempotent via `sourceWorkstreamItemId`.
+  - `applyImplementationTemplateToProject(projectId, templateId)` — spawns Tasks from `DeliveryTemplate.tasks`; idempotent via synthetic `sourceWorkstreamItemId = "tpl:<templateId>:<taskId>"`.
+  - `generateHandoverDoc/loadHandoverDoc/updateHandoverDocContent/shareHandoverDocToPortal` — auto-generates a 5-section JSON doc (overview, scope, decisions, workbook outputs, training links). Decisions are scraped from project messages prefixed `decision[:\-]`.
+  - `closeProject(projectId, input)` — pre-validates retainer payload via `retainerCreateSchema.safeParse` to fail-fast before mutating, then in one `prisma.$transaction` archives workbooks + flips `status="completed"` + records NPS. Retainer creation runs after the tx (re-using `createRetainerRecord`) and links `bornFromProjectId`.
+  - `setProjectBornFromProject` / `loadProjectLineage` / `loadRetainerLineage` — bidirectional Project↔Retainer/Project lineage with circularity guard.
+  - `serializeTask` + `createProjectTask` + `updateProjectTaskRecord` round-trip `hubspotTicketId` (NOT scope-locked — operators can attach tickets after lock) and `sourceWorkstreamItemId`.
+
+- **Routes (apps/api/src/app.ts)**:
+  - `POST /api/projects/:id/delivery/seed-from-workstreams`
+  - `POST /api/projects/:id/delivery/apply-template`
+  - `GET|POST|PATCH /api/projects/:id/handover` (GET auto-generates on first read)
+  - `POST /api/projects/:id/handover/share`
+  - `POST /api/projects/:id/close`
+  - `GET|PATCH /api/projects/:id/lineage`
+  - `GET /api/retainers/:id/lineage`
+
+- **UI**:
+  - `HandoverPanel.tsx` (loads/regenerates/shares the doc; rendered under PortalTab via new optional `handover` slot).
+  - `CloseProjectWizard.tsx` — 3-step modal (handover confirm → NPS 0–10 + optional note → archive workbooks + optional retainer convert with `serviceLine`/`blockSize`/`currency`/`startDate`). Wired in `ProjectOverview.tsx` to intercept the "complete" status transition.
+  - `DeliveryBoard.tsx` empty-state — "Seed from workstreams" + "Apply implementation template" buttons.
+  - `RetainerDetailWorkspace.tsx` — fetches `/api/retainers/:id/lineage` and shows a "Born from project" badge linking back.
+
+- **Sub-decisions baked in**: NPS 0–10; npsNote optional; born-from keeps both source + target visible; HubSpot ticket = single nullable field on Task; handover content JSONB sections [overview, scope, decisions, workbook outputs, training links]; new endpoints follow existing internal-API auth pattern (no per-route guards — auth lives at the app shell).

@@ -161,6 +161,16 @@ import {
   serializeClientPortalUser,
   convertWorkRequestToProject,
   appendApprovedChangeRequestToDelivery,
+  appendWorkstreamTasksToDelivery,
+  applyImplementationTemplateToProject,
+  closeProject,
+  generateHandoverDoc,
+  loadHandoverDoc,
+  loadProjectLineage,
+  loadRetainerLineage,
+  setProjectBornFromProject,
+  shareHandoverDocToPortal,
+  updateHandoverDocContent,
   updateAgentDefinition,
   updateWorkspaceTodo,
   updateWorkspaceAiRouting,
@@ -3643,6 +3653,202 @@ export function createApiApp(config: BaseConfig) {
 
   app.get("/api/projects/:projectId/tasks/board", async (c) => {
     return c.json(await loadProjectTaskBoard(c.req.param("projectId")));
+  });
+
+  // ============================================================
+  // T5 — Delivery + handover surface
+  // ============================================================
+
+  // T5.1 — Seed delivery board from Plan-tab workstreams (idempotent).
+  app.post(
+    "/api/projects/:projectId/delivery/seed-from-workstreams",
+    async (c) => {
+      try {
+        const result = await appendWorkstreamTasksToDelivery(
+          c.req.param("projectId")
+        );
+        return c.json(result, 201);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to seed tasks";
+        return c.json(
+          { error: message },
+          message === "Project not found" ? 404 : 400
+        );
+      }
+    }
+  );
+
+  // T5.1 — Apply an Implementation (delivery) template to a project.
+  app.post(
+    "/api/projects/:projectId/delivery/apply-template",
+    async (c) => {
+      const body = (await readJsonBodyOrEmpty(c)) as { templateId?: unknown };
+      const templateId =
+        typeof body.templateId === "string" && body.templateId.trim()
+          ? body.templateId.trim()
+          : null;
+      if (!templateId) {
+        return c.json({ error: "templateId is required" }, 400);
+      }
+      try {
+        const result = await applyImplementationTemplateToProject(
+          c.req.param("projectId"),
+          templateId
+        );
+        return c.json(result, 201);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to apply template";
+        const status =
+          message === "Project not found" ||
+          message === "Delivery template not found"
+            ? 404
+            : 400;
+        return c.json({ error: message }, status);
+      }
+    }
+  );
+
+  // T5.2 — Handover doc CRUD + share-to-portal.
+  // GET auto-generates the doc on first read so the Portal tab can rely on
+  // a single load to surface the canonical doc.
+  app.all("/api/projects/:projectId/handover", async (c) => {
+    const projectId = c.req.param("projectId");
+    if (c.req.method === "GET") {
+      try {
+        const existing = await loadHandoverDoc(projectId);
+        if (existing) return c.json({ doc: existing });
+        const doc = await generateHandoverDoc(projectId);
+        return c.json({ doc });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to load handover";
+        return c.json(
+          { error: message },
+          message === "Project not found" ? 404 : 400
+        );
+      }
+    }
+    if (c.req.method === "POST") {
+      try {
+        const doc = await generateHandoverDoc(projectId);
+        return c.json({ doc, regenerated: true });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to generate handover";
+        return c.json(
+          { error: message },
+          message === "Project not found" ? 404 : 400
+        );
+      }
+    }
+    if (c.req.method === "PATCH") {
+      const body = (await readJsonBodyOrEmpty(c)) as { content?: unknown };
+      try {
+        const doc = await updateHandoverDocContent(projectId, body.content);
+        return c.json({ doc });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to update handover";
+        return c.json(
+          { error: message },
+          message === "Handover doc not generated yet" ? 409 : 400
+        );
+      }
+    }
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.post("/api/projects/:projectId/handover/share", async (c) => {
+    try {
+      const doc = await shareHandoverDocToPortal(c.req.param("projectId"));
+      return c.json({ doc });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to share handover";
+      return c.json(
+        { error: message },
+        message === "Handover doc not generated yet" ? 409 : 400
+      );
+    }
+  });
+
+  // T5.3 — Close project wizard.
+  app.post("/api/projects/:projectId/close", async (c) => {
+    const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+    try {
+      const result = await closeProject(c.req.param("projectId"), {
+        npsScore: body.npsScore,
+        npsNote: body.npsNote,
+        archiveWorkbooks: body.archiveWorkbooks,
+        convertToRetainer: body.convertToRetainer,
+        retainer: body.retainer
+      });
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to close project";
+      const code =
+        error instanceof Error
+          ? (error as Error & { code?: string }).code
+          : undefined;
+      const status =
+        code === "HANDOVER_REQUIRED"
+          ? 409
+          : message === "Project not found"
+            ? 404
+            : 400;
+      return c.json({ error: message, code: code ?? null }, status);
+    }
+  });
+
+  // T5.4 — Project ↔ Retainer lineage surfaces.
+  app.all("/api/projects/:projectId/lineage", async (c) => {
+    const projectId = c.req.param("projectId");
+    if (c.req.method === "GET") {
+      const lineage = await loadProjectLineage(projectId);
+      if (!lineage) return c.json({ error: "Project not found" }, 404);
+      return c.json({ lineage });
+    }
+    if (c.req.method === "PATCH") {
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        bornFromProjectId?: unknown;
+      };
+      const next =
+        body.bornFromProjectId === null
+          ? null
+          : typeof body.bornFromProjectId === "string" &&
+              body.bornFromProjectId.trim().length > 0
+            ? body.bornFromProjectId.trim()
+            : undefined;
+      if (next === undefined) {
+        return c.json(
+          { error: "bornFromProjectId must be a string or null" },
+          400
+        );
+      }
+      try {
+        const lineage = await setProjectBornFromProject(projectId, next);
+        return c.json({ lineage });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to update lineage";
+        return c.json(
+          { error: message },
+          message === "Parent project not found" ? 404 : 400
+        );
+      }
+    }
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.get("/api/retainers/:retainerId/lineage", async (c) => {
+    const lineage = await loadRetainerLineage(c.req.param("retainerId"));
+    if (!lineage) return c.json({ error: "Retainer not found" }, 404);
+    return c.json({ lineage });
   });
 
   app.post("/api/projects/:projectId/seed-standard-pack", async (c) => {
