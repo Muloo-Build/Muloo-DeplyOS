@@ -30917,16 +30917,46 @@ async function buildHandoverDocContent(
     }))
   });
 
+  // Auto-pull training links: project messages prefixed with "Training:" or
+  // "Training-" where the body contains a URL. Operator convention; matches
+  // the "Decision:" pattern used above. Falls back to an empty list which
+  // the renderer hides.
+  const trainingMessages = messages.filter((m) =>
+    /^training[:\-]/i.test(m.body.trim())
+  );
+  const urlRegex = /(https?:\/\/\S+)/i;
+  const trainingLinks: Array<{ label: string; url: string }> = [];
+  for (const m of trainingMessages) {
+    const match = m.body.match(urlRegex);
+    if (!match) continue;
+    const url = (match[1] ?? "").replace(/[),.]+$/, "");
+    if (!url) continue;
+    const label = m.body
+      .replace(/^training[:\-]\s*/i, "")
+      .replace(url, "")
+      .trim()
+      .replace(/[\s\-–:]+$/, "")
+      .slice(0, 120) || url;
+    trainingLinks.push({ label, url });
+  }
   sections.push({
     key: "trainingLinks",
     title: "Training Links",
-    body: "Add links to recorded handover walkthroughs and SOPs."
+    body:
+      trainingLinks.length === 0
+        ? "(no training links yet — prefix project messages with 'Training:' and include a URL to capture them here)"
+        : `${trainingLinks.length} training resource${trainingLinks.length === 1 ? "" : "s"} attached.`,
+    items: trainingLinks.map((l) => ({
+      label: l.label,
+      value: l.url,
+      url: l.url
+    }))
   });
 
   return {
     generatedAt: new Date().toISOString(),
     sections,
-    trainingLinks: []
+    trainingLinks
   };
 }
 
@@ -31024,7 +31054,14 @@ export async function closeProject(
 ) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { id: true, clientId: true, deliveryOwner: true }
+    select: {
+      id: true,
+      clientId: true,
+      deliveryOwner: true,
+      serviceFamily: true,
+      scopeExecutiveSummary: true,
+      commercialBrief: true
+    }
   });
   if (!project) throw new Error("Project not found");
 
@@ -31069,8 +31106,21 @@ export async function closeProject(
     typeof input.retainer === "object";
   let retainerPayload: Record<string, unknown> | null = null;
   if (wantsRetainer) {
+    // Pre-fill from project context: clientId is mandatory; scopeSummary
+    // defaults to the project's executive summary / commercial brief so the
+    // operator doesn't have to retype it, and serviceLine maps from
+    // serviceFamily when the wizard didn't override it.
+    const overrides = input.retainer as Record<string, unknown>;
+    const inferredScope =
+      project.scopeExecutiveSummary ?? project.commercialBrief ?? null;
+    const inferredServiceLine =
+      project.serviceFamily === "custom_engineering"
+        ? "TECHNICAL_DELIVERY"
+        : "CONSULTING";
     retainerPayload = {
-      ...(input.retainer as Record<string, unknown>),
+      serviceLine: inferredServiceLine,
+      scopeSummary: inferredScope,
+      ...overrides,
       clientId: project.clientId
     };
     const validation = retainerCreateSchema.safeParse(retainerPayload);
@@ -31218,6 +31268,73 @@ export async function loadProjectLineage(projectId: string) {
       startDate: r.startDate.toISOString(),
       createdAt: r.createdAt.toISOString()
     }))
+  };
+}
+
+// T5.4 — Spawn a follow-on Project from a Retainer. Carries the lineage
+// chain forward by setting the new Project's bornFromProjectId to the
+// retainer's bornFromProjectId (its source project). Pre-fills name,
+// clientId, engagementType, scope summary, and selected hubs from the
+// source project when available so the operator just confirms.
+export async function spawnProjectFromRetainer(
+  retainerId: string,
+  overrides: { name?: string } = {}
+) {
+  const retainer = await prisma.retainer.findUnique({
+    where: { id: retainerId },
+    include: {
+      client: { select: { id: true, name: true } },
+      bornFromProject: {
+        select: {
+          id: true,
+          name: true,
+          engagementType: true,
+          serviceFamily: true,
+          selectedHubs: true,
+          scopeExecutiveSummary: true,
+          commercialBrief: true,
+          deliveryOwner: true
+        }
+      }
+    }
+  });
+  if (!retainer) throw new Error("Retainer not found");
+
+  const source = retainer.bornFromProject;
+  const baseName =
+    overrides.name?.trim() ||
+    `Follow-on · ${source?.name ?? retainer.client.name}`;
+
+  const created = await createProjectRecord({
+    name: baseName,
+    clientName: retainer.client.name,
+    serviceFamily: source?.serviceFamily,
+    engagementType: source?.engagementType,
+    selectedHubs: source?.selectedHubs ?? [],
+    scopeExecutiveSummary:
+      source?.scopeExecutiveSummary ?? retainer.scopeSummary ?? undefined,
+    commercialBrief: source?.commercialBrief ?? undefined,
+    scopeType: "discovery"
+  });
+
+  // Lineage: forward the chain. If the retainer was itself born from
+  // a project, the new project is born from that same project so the
+  // graph stays connected.
+  if (retainer.bornFromProjectId) {
+    await prisma.project.update({
+      where: { id: created.id },
+      data: { bornFromProjectId: retainer.bornFromProjectId }
+    });
+  }
+
+  return {
+    project: {
+      id: created.id,
+      name: created.name,
+      status: created.status,
+      bornFromProjectId: retainer.bornFromProjectId ?? null
+    },
+    sourceRetainerId: retainer.id
   };
 }
 

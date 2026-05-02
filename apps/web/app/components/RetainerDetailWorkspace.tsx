@@ -108,6 +108,7 @@ export default function RetainerDetailWorkspace({
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [spawning, setSpawning] = useState(false);
   const [invoiceForm, setInvoiceForm] = useState({
     reference: "",
     invoiceType: "RETAINER_BLOCK" as "RETAINER_BLOCK" | "TOP_UP" | "OTHER",
@@ -407,6 +408,62 @@ export default function RetainerDetailWorkspace({
             </span>
           </div>
         ) : null}
+
+        <div className="rounded-2xl border border-white/10 bg-background-card px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                Follow-on project
+              </p>
+              <p className="mt-1 text-sm text-text-secondary">
+                Spawn a new project from this retainer. Carries scope, hubs,
+                and lineage forward from the source project.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={spawning}
+              onClick={async () => {
+                setSpawning(true);
+                setError(null);
+                setFeedback(null);
+                try {
+                  const res = await fetch(
+                    `/api/retainers/${encodeURIComponent(retainerId)}/spawn-project`,
+                    {
+                      method: "POST",
+                      headers: { "content-type": "application/json" },
+                      body: JSON.stringify({})
+                    }
+                  );
+                  const body = await res.json().catch(() => null);
+                  if (!res.ok) {
+                    throw new Error(
+                      body?.error ?? "Failed to spawn project"
+                    );
+                  }
+                  setFeedback(
+                    `Spawned project ${body?.project?.name ?? ""}`.trim()
+                  );
+                  if (body?.project?.id) {
+                    router.push(`/projects/${body.project.id}`);
+                  }
+                } catch (err) {
+                  setError(
+                    err instanceof Error
+                      ? err.message
+                      : "Failed to spawn project"
+                  );
+                } finally {
+                  setSpawning(false);
+                }
+              }}
+              className="rounded-lg border border-[rgba(81,208,176,0.4)] bg-[rgba(81,208,176,0.12)] px-3 py-1.5 text-xs font-medium text-[#9be8d2] transition hover:bg-[rgba(81,208,176,0.2)] disabled:opacity-50"
+            >
+              {spawning ? "Spawning…" : "Spawn follow-on project"}
+            </button>
+          </div>
+        </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">

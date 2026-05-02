@@ -2,17 +2,22 @@
 
 import { useEffect, useState } from "react";
 
+type HandoverItem = { label: string; value: string; url?: string | null };
 type HandoverSection = {
   key: string;
   title: string;
   body?: string;
-  bullets?: string[];
+  items?: HandoverItem[];
 };
 
 type HandoverDoc = {
   id: string;
   projectId: string;
-  content: { title?: string; sections?: HandoverSection[] } | null;
+  content: {
+    title?: string;
+    sections?: HandoverSection[];
+    trainingLinks?: Array<{ label: string; url: string }>;
+  } | null;
   generatedAt: string;
   sharedToPortalAt: string | null;
   updatedAt: string;
@@ -87,15 +92,57 @@ export default function ClientPortalHandoverCard({
                   {section.body}
                 </p>
               ) : null}
-              {section.bullets && section.bullets.length > 0 ? (
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-text-secondary">
-                  {section.bullets.map((b, idx) => (
-                    <li key={idx}>{b}</li>
+              {section.items && section.items.length > 0 ? (
+                <ul className="mt-2 space-y-1.5">
+                  {section.items.map((item, idx) => (
+                    <li
+                      key={`${section.key}-${idx}`}
+                      className="rounded-lg bg-white/5 px-2 py-1.5 text-sm"
+                    >
+                      <div className="font-medium text-white">
+                        {item.label}
+                      </div>
+                      <div className="mt-0.5 whitespace-pre-line text-text-secondary">
+                        {item.value}
+                      </div>
+                      {item.url ? (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-block text-xs text-[#51d0b0] hover:underline"
+                        >
+                          Open link →
+                        </a>
+                      ) : null}
+                    </li>
                   ))}
                 </ul>
               ) : null}
             </div>
           ))}
+          {doc.content?.trainingLinks &&
+          doc.content.trainingLinks.length > 0 ? (
+            <div>
+              <p className="text-sm font-semibold text-white">
+                Training resources
+              </p>
+              <ul className="mt-2 space-y-1 text-sm">
+                {doc.content.trainingLinks.map((link, idx) => (
+                  <li key={idx}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#51d0b0] hover:underline"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {sections.length === 0 ? (
             <p className="text-sm text-text-secondary">
               Handover content is empty.

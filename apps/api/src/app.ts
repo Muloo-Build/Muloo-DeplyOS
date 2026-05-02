@@ -168,6 +168,7 @@ import {
   loadHandoverDoc,
   loadProjectLineage,
   loadRetainerLineage,
+  spawnProjectFromRetainer,
   setProjectBornFromProject,
   shareHandoverDocToPortal,
   updateHandoverDocContent,
@@ -3843,6 +3844,24 @@ export function createApiApp(config: BaseConfig) {
       }
     }
     return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.post("/api/retainers/:retainerId/spawn-project", async (c) => {
+    const body = (await readJsonBodyOrEmpty(c)) as { name?: unknown };
+    try {
+      const result = await spawnProjectFromRetainer(
+        c.req.param("retainerId"),
+        typeof body.name === "string" ? { name: body.name } : {}
+      );
+      return c.json(result, 201);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to spawn project";
+      return c.json(
+        { error: message },
+        message === "Retainer not found" ? 404 : 400
+      );
+    }
   });
 
   app.get("/api/retainers/:retainerId/lineage", async (c) => {
