@@ -267,4 +267,120 @@ DeployOS surface without committing to APIs that don't exist.
 - CRM Properties v3 — `developers.hubspot.com/docs/api-reference/crm-properties-v3/guide`
 - Breeze product pages — `hubspot.com/products/artificial-intelligence` and SKU pages for Breeze Intelligence (marketing surface, not developer reference)
 
+---
+
+## Appendix A — Per-endpoint reference table
+
+For each Breeze-or-Breeze-adjacent surface, the table below records the
+exact reference, auth/scopes, GA/beta/private-beta status, and rate
+limit. Where a value is not in HubSpot's developer documentation it is
+marked **"not publicly documented"** rather than inferred. **Do not treat
+inferred values as verified.**
+
+| # | Surface / endpoint family | Reference (developers.hubspot.com path) | Auth / scopes | Status | Rate limit |
+|---|---|---|---|---|---|
+| A1 | Breeze Copilot (in-app chat) | No developer reference page exists. Marketing page only (`hubspot.com/products/artificial-intelligence/breeze-copilot`). | N/A — portal-only. | GA in portal; **no public API.** | N/A. |
+| A2 | Breeze Agents (Prospecting / Content / Customer / Social) — trigger / configure | No developer reference page exists. Marketing surface only. | N/A — portal-only. | GA in portal per SKU; **no public API for trigger or configuration.** "Agents API" referenced in marketing but **not publicly documented** as a developer endpoint at time of writing. | N/A. |
+| A3 | Breeze Intelligence — read enriched contact properties | `docs/api-reference/crm-objects-v3/contacts` + `docs/api-reference/crm-properties-v3/guide`. Property names (`breeze_intent_*` family) are **not publicly documented** as a fixed list — discoverable per-portal via `GET /crm/v3/properties/companies`. | Private app token or OAuth. **Scope:** standard `crm.objects.companies.read` / `crm.objects.contacts.read` for the records; whether the SKU additionally requires a `breeze-intelligence` scope is **not publicly documented** — verify in a sandbox portal with the SKU enabled before relying on it. | GA (SKU-gated). | Standard CRM API rate limit applies: **100 requests / 10 seconds per private app** (Pro+) or **150 req/10s** for Enterprise. Reference: `developers.hubspot.com/docs/api/usage-details` (general API usage page). No Breeze-specific limit documented. |
+| A4 | Breeze Intelligence — on-demand enrichment | **No endpoint.** | N/A. | **Not shipped.** Enrichment runs on HubSpot's schedule. | N/A. |
+| A5 | AI subject line generation (marketing email) | `docs/api-reference/marketing/emails` (subject-line AI is exposed as a sub-action; **specific endpoint path is not surfaced as a top-level reference page** — invoked as part of the marketing email AI tooling). | Private app token; `marketing-email` scope. | GA in portal; programmatic surface is **partially documented** — the precise REST contract is **not publicly documented** as a standalone reference page. Treat as **call via portal UI / partner SDK** until verified. | Standard public-API rate limit (see A3 row). No endpoint-specific limit documented. |
+| A6 | Blog post AI draft | `docs/api-reference/marketing/blog-posts` covers blog CRUD; **AI draft generation is not exposed as a standalone documented endpoint** — surfaced through the portal UI's AI assistant. | Private app token; `content` scope. | Beta in portal. **Not publicly documented as a programmatic endpoint** at time of writing. | N/A — see "not publicly documented." |
+| A7 | AI image generation (asset library) | Surfaced in the portal as an AI tool inside the file manager; **no developer reference page** for programmatic generation. | N/A. | Beta. **Portal-only.** | N/A. |
+| A8 | AI engagement timeline summary | Surfaced in the portal record sidebar; **no developer reference page** for programmatic invocation. | N/A. | Beta. **Portal-only.** | N/A. |
+| A9 | Custom workflow actions (DeployOS receives calls **from** HubSpot workflows) | `docs/api/automation/custom-workflow-actions` (definition) + `docs/apps/developer-platform/add-features/custom-workflow-actions` (build guide). | Private app token; `automation` scope to register. The action itself receives a signed webhook payload from HubSpot. | GA. | Inbound calls *to* DeployOS — limit is set by DeployOS, not HubSpot. HubSpot retries failed deliveries with exponential backoff (specifics **not exhaustively documented**). |
+| A10 | Agent tools (DeployOS exposes tools that HubSpot Copilot/agents can call) | `docs/apps/developer-platform/add-features/agent-tools/create-an-agent-tool` (build guide). | Public app required; OAuth. Scopes depend on the tool's CRM reads/writes. | GA per the build guide; ecosystem maturity is early. | Inbound calls *to* DeployOS — limit set by DeployOS. HubSpot's invocation rate per portal is **not publicly documented.** |
+
+**Caveat on this table:** anywhere a value is "not publicly documented",
+that means a reference page could not be located in the public
+`developers.hubspot.com` index. It does **not** mean no such limit/scope
+exists — it means relying on it requires either a sandbox-portal
+verification or contact with HubSpot developer relations.
+
+---
+
+## Appendix B — Payload / response details for the API-callable candidates
+
+For the candidate actions in §3 marked "API-callable today", the
+operational detail required to actually wire each one:
+
+### B1. Read Breeze Intelligence intent on a company (capability 4.1)
+
+- **Discovery call:** `GET /crm/v3/properties/companies` — filter the
+  response for properties whose `name` begins with `breeze_intent_` to
+  enumerate intent-related properties for the connected portal.
+  - **Response shape:** standard properties list — `{ results: [{ name,
+    label, type, fieldType, ... }] }`. Property names are **not
+    publicly documented** as a fixed list and must be discovered.
+- **Read call:** `GET /crm/v3/objects/companies/{companyId}` with
+  `properties=breeze_intent_score,breeze_intent_topic,...` (names from
+  the discovery call).
+  - **Request:** standard CRM read, no body.
+  - **Response shape:** `{ id, properties: { breeze_intent_score: "...", breeze_intent_topic: "...", ... }, createdAt, updatedAt }`.
+- **Failure mode when SKU not licensed:** the properties simply do not
+  appear in the discovery call's results. The read call returns the
+  record without the intent properties — it does **not** error.
+
+### B2. Register DeployOS as a HubSpot agent tool (capability 4.2)
+
+- **No single REST call** — registration happens via a HubSpot
+  developer **project** (`hsproject.json` + an `app` artifact) deployed
+  through the HubSpot CLI, not via a standalone API.
+- **Request/response shape:** the tool itself is an HTTP endpoint
+  DeployOS hosts. HubSpot invokes it with a JSON payload conforming to
+  the tool's declared input schema (defined in the project manifest);
+  DeployOS responds with a JSON payload conforming to the declared
+  output schema. Exact envelope/signing details are in the agent-tools
+  build guide (referenced in row A10) and are **subject to change** as
+  the surface is early-GA.
+- **Implication:** wiring this is **not** "add an endpoint to
+  apps/api"; it requires shipping a HubSpot developer project, which
+  changes our integration's deployment topology.
+
+### B3. AI subject line generation (capability 4.3)
+
+- **Endpoint contract:** **not publicly documented** as a standalone
+  REST reference page at time of writing. The feature is invoked via
+  the marketing-email portal UI and (per HubSpot partner SDKs) appears
+  to expose a `POST` against the marketing emails sub-resource with a
+  prompt-style body. **Until verified against a working portal call,
+  treat the request/response shape as unknown.**
+- **Implication:** even though this is the lowest-effort item in §4, it
+  is not safely buildable from the public docs alone. A spike against a
+  sandbox portal would be required before estimating with confidence.
+
+### B4. Read engagements + summarise (the "non-Breeze" alternative path)
+
+Included for completeness — this is what the report recommends doing
+**instead of** wrapping Breeze Copilot:
+
+- **Read engagements:** `GET /crm/v3/objects/{contacts|deals|companies}/{id}/associations/engagements`
+  then `GET /crm/v3/objects/notes/{id}` (or calls/emails/meetings) per
+  association. Standard CRM v3 contracts, fully documented.
+- **Summarise:** Anthropic call from DeployOS — already wired in
+  `executeHubSpotAgentAction`.
+- **Rate limit:** standard CRM API rate (A3 row).
+- **No Breeze involved at any layer.**
+
+---
+
+## Appendix C — Verification status of each claim in the recommendation
+
+To address the "tighten any claims that appear inferred" review note:
+
+| Claim in the report | Verified against | Confidence |
+|---|---|---|
+| Breeze Copilot has no public API | Searched `developers.hubspot.com` reference index for "copilot" — no developer reference page found. | High. |
+| Breeze Agents have no trigger API | Searched `developers.hubspot.com` for "Breeze Agents API", "agents API"; no GA reference page found. Marketing pages only. | High (negative result; could change quickly). |
+| Breeze Intelligence properties prefixed `breeze_intent_*` | **Inferred** from HubSpot release notes wording and partner-community discussion. **Not verified** in a sandbox portal with the SKU enabled. The exact property names should be discovered via `GET /crm/v3/properties/companies` per portal. | Medium — directionally correct, exact names unverified. |
+| `breeze-intelligence` scope is required to read intent properties | **Not publicly documented as a distinct scope.** Standard `crm.objects.companies.read` may suffice once the SKU is enabled on the portal. **Unverified — assume standard scope first; only request a Breeze-specific scope if a 403 says otherwise.** | Low — explicitly flagged as unverified. |
+| AI subject-line endpoint is "GA" | **Inferred** from the feature's GA status in the portal UI. The standalone REST endpoint is **not publicly documented** as a developer reference page; treat the API-level GA claim as unverified. | Low — flagged here. |
+| Blog AI draft / image generation are "Beta" | Per portal UI labelling; programmatic API status is **not publicly documented.** | Low — flagged here. |
+| Custom workflow actions and agent tools are GA and documented | Verified against `developers.hubspot.com/docs/api/automation/custom-workflow-actions` and `.../agent-tools/create-an-agent-tool`. | High. |
+| Standard CRM API rate limit (100 req/10s Pro / 150 req/10s Enterprise) | Verified against the public usage-details page. | High. |
+
+If a Build decision is taken later despite the Defer recommendation,
+the lowest-confidence rows above (Breeze property names, Breeze
+scope, AI subject-line REST contract) should each be confirmed via a
+sandbox portal spike **before** the implementation task is sized.
+
 *End of research note.*
