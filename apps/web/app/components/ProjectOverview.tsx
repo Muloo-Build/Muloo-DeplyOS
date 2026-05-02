@@ -293,6 +293,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [taskBoard, setTaskBoard] = useState<TaskBoardResponse | null>(null);
   const [lineage, setLineage] = useState<{
     bornFromProject: { id: string; name: string; status: string } | null;
+    retainer: {
+      id: string;
+      serviceLine: string;
+      status: string;
+    } | null;
     spawnedRetainers: Array<{ id: string; serviceLine: string; status: string }>;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<ProjectDetailTabKey>("overview");
@@ -2261,6 +2266,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         />
         {lineage &&
         (lineage.bornFromProject ||
+          lineage.retainer ||
           (lineage.spawnedRetainers && lineage.spawnedRetainers.length > 0)) ? (
           <div className="mb-3 flex flex-wrap gap-2 text-xs">
             {lineage.bornFromProject ? (
@@ -2269,6 +2275,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 className="rounded-full border border-[rgba(73,205,225,0.35)] bg-[rgba(73,205,225,0.1)] px-3 py-1 text-[#7be2ef] hover:bg-[rgba(73,205,225,0.2)]"
               >
                 Born from project: {lineage.bornFromProject.name}
+              </Link>
+            ) : null}
+            {lineage.retainer ? (
+              <Link
+                href={`/retainers/${lineage.retainer.id}`}
+                className="rounded-full border border-[rgba(155,232,210,0.35)] bg-[rgba(155,232,210,0.1)] px-3 py-1 text-[#9be8d2] hover:bg-[rgba(155,232,210,0.2)]"
+              >
+                Linked retainer · {formatLabel(lineage.retainer.serviceLine)} ·{" "}
+                {formatLabel(lineage.retainer.status)}
               </Link>
             ) : null}
             {lineage.spawnedRetainers?.map((r) => (

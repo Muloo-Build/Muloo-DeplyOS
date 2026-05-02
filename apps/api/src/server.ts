@@ -31298,6 +31298,10 @@ export async function loadProjectLineage(projectId: string) {
       bornFromProject: {
         select: { id: true, name: true, status: true }
       },
+      retainerId: true,
+      retainer: {
+        select: { id: true, serviceLine: true, status: true, startDate: true }
+      },
       spawnedProjects: {
         select: { id: true, name: true, status: true, createdAt: true },
         orderBy: { createdAt: "desc" }
@@ -31325,6 +31329,15 @@ export async function loadProjectLineage(projectId: string) {
     npsCapturedAt: project.npsCapturedAt?.toISOString() ?? null,
     bornFromProjectId: project.bornFromProjectId,
     bornFromProject: project.bornFromProject,
+    retainerId: project.retainerId,
+    retainer: project.retainer
+      ? {
+          id: project.retainer.id,
+          serviceLine: project.retainer.serviceLine,
+          status: project.retainer.status,
+          startDate: project.retainer.startDate.toISOString()
+        }
+      : null,
     spawnedProjects: project.spawnedProjects.map((p) => ({
       id: p.id,
       name: p.name,
