@@ -40,7 +40,16 @@ interface ProjectDetail {
     owner: string;
     summary: string;
     portalSummary?: string | null;
+    estimatedHours?: number | null;
+    hourCap?: number | null;
+    billingOwner?: string | null;
+    deliveryOwner?: string | null;
+    scopeRisk?: string | null;
+    notes?: string | null;
   }> | null;
+  billingOwner?: string | null;
+  deliveryOwner?: string | null;
+  partnerName?: string | null;
   internalCommercials?: {
     billingRoute: string;
     partnerName?: string | null;
@@ -89,6 +98,12 @@ interface WorkstreamDraft {
   owner: string;
   summary: string;
   portalSummary: string;
+  estimatedHours: string;
+  hourCap: string;
+  billingOwner: string;
+  deliveryOwner: string;
+  scopeRisk: string;
+  notes: string;
 }
 
 interface CommercialLineDraft {
@@ -124,6 +139,9 @@ interface FormState {
   platformConfiguration: PlatformPackageDraft[];
   deliveryWorkstreams: WorkstreamDraft[];
   internalCommercials: InternalCommercialsDraft;
+  billingOwner: string;
+  deliveryOwner: string;
+  partnerName: string;
 }
 
 const serviceFamilies = [
@@ -353,7 +371,13 @@ function createWorkstreamDraft(index: number): WorkstreamDraft {
     status: "planned",
     owner: "muloo",
     summary: "",
-    portalSummary: ""
+    portalSummary: "",
+    estimatedHours: "",
+    hourCap: "",
+    billingOwner: "",
+    deliveryOwner: "",
+    scopeRisk: "",
+    notes: ""
   };
 }
 
@@ -400,15 +424,41 @@ function buildInitialForm(project: ProjectDetail): FormState {
     selectedHubs: project.selectedHubs ?? [],
     platformConfiguration,
     deliveryWorkstreams:
-      project.deliveryWorkstreams?.map((workstream) => ({
-        id: workstream.id,
-        name: workstream.name,
-        category: workstream.category,
-        status: workstream.status,
-        owner: workstream.owner,
-        summary: workstream.summary,
-        portalSummary: workstream.portalSummary ?? ""
-      })) ?? [],
+      project.deliveryWorkstreams?.map((workstream) => {
+        const ws = workstream as ProjectDetail["deliveryWorkstreams"] extends
+          | (infer Item)[]
+          | null
+          | undefined
+          ? Item
+          : never;
+        const extended = ws as typeof ws & {
+          estimatedHours?: number | null;
+          hourCap?: number | null;
+          billingOwner?: string | null;
+          deliveryOwner?: string | null;
+          scopeRisk?: string | null;
+          notes?: string | null;
+        };
+        return {
+          id: workstream.id,
+          name: workstream.name,
+          category: workstream.category,
+          status: workstream.status,
+          owner: workstream.owner,
+          summary: workstream.summary,
+          portalSummary: workstream.portalSummary ?? "",
+          estimatedHours:
+            extended.estimatedHours == null
+              ? ""
+              : String(extended.estimatedHours),
+          hourCap:
+            extended.hourCap == null ? "" : String(extended.hourCap),
+          billingOwner: extended.billingOwner ?? "",
+          deliveryOwner: extended.deliveryOwner ?? "",
+          scopeRisk: extended.scopeRisk ?? "",
+          notes: extended.notes ?? ""
+        };
+      }) ?? [],
     internalCommercials: {
       billingRoute: project.internalCommercials?.billingRoute ?? "direct",
       partnerName: project.internalCommercials?.partnerName ?? "",
@@ -429,7 +479,10 @@ function buildInitialForm(project: ProjectDetail): FormState {
           billingOwner: line.billingOwner,
           notes: line.notes ?? ""
         })) ?? []
-    }
+    },
+    billingOwner: project.billingOwner ?? "",
+    deliveryOwner: project.deliveryOwner ?? "",
+    partnerName: project.partnerName ?? ""
   };
 }
 
@@ -755,7 +808,22 @@ export default function ProjectEditWorkspace({
           ),
           includesPortalAudit: form.includesPortalAudit,
           hubs: form.selectedHubs,
-          deliveryWorkstreams: form.deliveryWorkstreams,
+          billingOwner: form.billingOwner.trim() || null,
+          deliveryOwner: form.deliveryOwner.trim() || null,
+          partnerName: form.partnerName.trim() || null,
+          deliveryWorkstreams: form.deliveryWorkstreams.map((ws) => ({
+            ...ws,
+            estimatedHours:
+              ws.estimatedHours.trim().length > 0
+                ? Number(ws.estimatedHours)
+                : null,
+            hourCap:
+              ws.hourCap.trim().length > 0 ? Number(ws.hourCap) : null,
+            billingOwner: ws.billingOwner.trim() || null,
+            deliveryOwner: ws.deliveryOwner.trim() || null,
+            scopeRisk: ws.scopeRisk.trim() || null,
+            notes: ws.notes.trim() || null
+          })),
           internalCommercials: {
             billingRoute: form.internalCommercials.billingRoute,
             partnerName: form.internalCommercials.partnerName,

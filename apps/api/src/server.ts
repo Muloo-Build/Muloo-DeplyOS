@@ -1773,11 +1773,33 @@ type ProjectPlatformConfigurationItem = {
 type ProjectWorkstreamRecord = {
   id: string;
   name: string;
-  category: "discovery" | "website" | "hubspot_implementation" | "other";
-  status: "planned" | "active" | "paused" | "complete";
+  category:
+    | "discovery"
+    | "website"
+    | "hubspot_implementation"
+    | "marketing"
+    | "service"
+    | "integration"
+    | "partner_delivery"
+    | "other";
+  status:
+    | "planned"
+    | "active"
+    | "paused"
+    | "complete"
+    | "waiting_on_client"
+    | "blocked";
   owner: "muloo" | "partner" | "shared";
   summary: string;
   portalSummary: string | null;
+  estimatedHours: number | null;
+  hourCap: number | null;
+  billingOwner: string | null;
+  deliveryOwner: string | null;
+  linkedWorkbookIds: string[];
+  linkedDiscoverySectionIds: string[];
+  scopeRisk: "low" | "medium" | "high" | null;
+  notes: string | null;
 };
 
 type ProjectCommercialLine = {
@@ -1809,15 +1831,22 @@ const validProjectWorkstreamCategories = [
   "discovery",
   "website",
   "hubspot_implementation",
+  "marketing",
+  "service",
+  "integration",
+  "partner_delivery",
   "other"
 ] as const;
 const validProjectWorkstreamStatuses = [
   "planned",
   "active",
   "paused",
-  "complete"
+  "complete",
+  "waiting_on_client",
+  "blocked"
 ] as const;
 const validProjectWorkstreamOwners = ["muloo", "partner", "shared"] as const;
+const validProjectWorkstreamScopeRisks = ["low", "medium", "high"] as const;
 const validProjectCommercialPricingModels = [
   "fixed_fee",
   "monthly_rollout",
@@ -1942,6 +1971,30 @@ function normalizeProjectWorkstreams(value: unknown) {
           ? (record.owner.trim() as ProjectWorkstreamRecord["owner"])
           : "muloo";
 
+      const scopeRisk =
+        typeof record.scopeRisk === "string" &&
+        validProjectWorkstreamScopeRisks.includes(
+          record.scopeRisk.trim() as (typeof validProjectWorkstreamScopeRisks)[number]
+        )
+          ? (record.scopeRisk.trim() as ProjectWorkstreamRecord["scopeRisk"])
+          : null;
+
+      const linkedWorkbookIds = Array.isArray(record.linkedWorkbookIds)
+        ? record.linkedWorkbookIds.filter(
+            (entry): entry is string =>
+              typeof entry === "string" && entry.trim().length > 0
+          )
+        : [];
+
+      const linkedDiscoverySectionIds = Array.isArray(
+        record.linkedDiscoverySectionIds
+      )
+        ? record.linkedDiscoverySectionIds.filter(
+            (entry): entry is string =>
+              typeof entry === "string" && entry.trim().length > 0
+          )
+        : [];
+
       return {
         id:
           normalizeOptionalText(record.id) ??
@@ -1951,7 +2004,15 @@ function normalizeProjectWorkstreams(value: unknown) {
         status,
         owner,
         summary: normalizeOptionalText(record.summary) ?? "",
-        portalSummary: normalizeOptionalText(record.portalSummary)
+        portalSummary: normalizeOptionalText(record.portalSummary),
+        estimatedHours: normalizeOptionalNumber(record.estimatedHours),
+        hourCap: normalizeOptionalNumber(record.hourCap),
+        billingOwner: normalizeOptionalText(record.billingOwner),
+        deliveryOwner: normalizeOptionalText(record.deliveryOwner),
+        linkedWorkbookIds,
+        linkedDiscoverySectionIds,
+        scopeRisk,
+        notes: normalizeOptionalText(record.notes)
       } satisfies ProjectWorkstreamRecord;
     })
     .filter((item): item is ProjectWorkstreamRecord => item !== null);
@@ -2729,6 +2790,17 @@ async function resolveProjectOwner(ownerName?: string, ownerEmail?: string) {
 function mergeStandardPackWorkstreams(
   existingWorkstreams: ProjectWorkstreamRecord[]
 ) {
+  const workstreamDefaults = {
+    estimatedHours: null,
+    hourCap: null,
+    billingOwner: null,
+    deliveryOwner: null,
+    linkedWorkbookIds: [] as string[],
+    linkedDiscoverySectionIds: [] as string[],
+    scopeRisk: null,
+    notes: null
+  } as const;
+
   const standardWorkstreams: ProjectWorkstreamRecord[] = [
     {
       id: "workstream_discovery",
@@ -2739,7 +2811,8 @@ function mergeStandardPackWorkstreams(
       summary:
         "Capture goals, current state, constraints, and decision-making inputs before scoping delivery.",
       portalSummary:
-        "Discovery is where Muloo gathers context, confirms goals, and shapes the right rollout path."
+        "Discovery is where Muloo gathers context, confirms goals, and shapes the right rollout path.",
+      ...workstreamDefaults
     },
     {
       id: "workstream_implementation",
@@ -2750,7 +2823,8 @@ function mergeStandardPackWorkstreams(
       summary:
         "Translate approved audit and discovery outcomes into HubSpot delivery, data structure, and reporting work.",
       portalSummary:
-        "Implementation covers the CRM setup, data model, automation, reporting, and portal optimisation work."
+        "Implementation covers the CRM setup, data model, automation, reporting, and portal optimisation work.",
+      ...workstreamDefaults
     },
     {
       id: "workstream_website",
@@ -2761,7 +2835,8 @@ function mergeStandardPackWorkstreams(
       summary:
         "Track website requirements, CMS changes, forms, and launch dependencies alongside HubSpot delivery.",
       portalSummary:
-        "Website work covers forms, pages, CMS requirements, and launch dependencies linked to the project."
+        "Website work covers forms, pages, CMS requirements, and launch dependencies linked to the project.",
+      ...workstreamDefaults
     }
   ];
 
@@ -4391,6 +4466,9 @@ function serializeProject<
     commercialBrief?: string | null;
     deliveryWorkstreams?: unknown | null;
     internalCommercials?: unknown | null;
+    billingOwner?: string | null;
+    deliveryOwner?: string | null;
+    partnerName?: string | null;
     lastAgenda?: unknown | null;
     clientChampionFirstName?: string | null;
     clientChampionLastName?: string | null;
@@ -4489,6 +4567,9 @@ function serializeProject<
     internalCommercials: normalizeProjectInternalCommercials(
       normalizedProject.internalCommercials
     ),
+    billingOwner: normalizedProject.billingOwner ?? null,
+    deliveryOwner: normalizedProject.deliveryOwner ?? null,
+    partnerName: normalizedProject.partnerName ?? null,
     packagingAssessment,
     clientName: normalizedProject.client.name,
     hubsInScope: normalizedProject.selectedHubs,
@@ -4861,6 +4942,272 @@ function serializeClientContact<
     createdAt: contact.createdAt.toISOString(),
     updatedAt: contact.updatedAt.toISOString()
   };
+}
+
+type SerializableProjectContributor = {
+  id: string;
+  projectId: string;
+  contactId: string;
+  role: string;
+  portalUserId: string | null;
+  relatedWorkbookIds: string[];
+  relatedQuestionIds: string[];
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  contact?: {
+    id: string;
+    firstName: string;
+    lastName: string | null;
+    email: string;
+    phone: string | null;
+    title: string | null;
+    clientId: string;
+  } | null;
+};
+
+function serializeProjectContributor(record: SerializableProjectContributor) {
+  return {
+    id: record.id,
+    projectId: record.projectId,
+    contactId: record.contactId,
+    role: record.role,
+    portalUserId: record.portalUserId,
+    relatedWorkbookIds: record.relatedWorkbookIds ?? [],
+    relatedQuestionIds: record.relatedQuestionIds ?? [],
+    notes: record.notes,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+    contact: record.contact
+      ? {
+          id: record.contact.id,
+          firstName: record.contact.firstName,
+          lastName: record.contact.lastName ?? "",
+          email: record.contact.email,
+          phone: record.contact.phone ?? "",
+          title: record.contact.title ?? "",
+          clientId: record.contact.clientId
+        }
+      : null,
+    portalAccess: record.portalUserId !== null
+  };
+}
+
+export async function loadProjectContributors(projectId: string) {
+  const records = await prisma.projectContributor.findMany({
+    where: { projectId },
+    include: { contact: true },
+    orderBy: { createdAt: "asc" }
+  });
+  return records.map((record) => serializeProjectContributor(record));
+}
+
+export async function createProjectContributor(
+  projectId: string,
+  value: {
+    contactId?: unknown;
+    role?: unknown;
+    portalUserId?: unknown;
+    relatedWorkbookIds?: unknown;
+    relatedQuestionIds?: unknown;
+    notes?: unknown;
+  }
+) {
+  const contactId = normalizeOptionalText(value.contactId);
+  if (!contactId) {
+    throw new Error("contactId is required");
+  }
+  const contact = await prisma.clientContact.findUnique({
+    where: { id: contactId }
+  });
+  if (!contact) {
+    throw new Error("Contact not found");
+  }
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { clientId: true }
+  });
+  if (!project) {
+    throw new Error("Project not found");
+  }
+  if (project.clientId !== contact.clientId) {
+    throw new Error("Contact does not belong to project's client");
+  }
+
+  const role = normalizeOptionalText(value.role) ?? "contributor";
+  const relatedWorkbookIds = Array.isArray(value.relatedWorkbookIds)
+    ? value.relatedWorkbookIds.filter(
+        (entry): entry is string =>
+          typeof entry === "string" && entry.trim().length > 0
+      )
+    : [];
+  const relatedQuestionIds = Array.isArray(value.relatedQuestionIds)
+    ? value.relatedQuestionIds.filter(
+        (entry): entry is string =>
+          typeof entry === "string" && entry.trim().length > 0
+      )
+    : [];
+  const portalUserId = normalizeOptionalText(value.portalUserId);
+  const notes = normalizeOptionalText(value.notes);
+
+  const created = await prisma.projectContributor.upsert({
+    where: { projectId_contactId: { projectId, contactId } },
+    update: {
+      role,
+      portalUserId,
+      relatedWorkbookIds,
+      relatedQuestionIds,
+      notes
+    },
+    create: {
+      projectId,
+      contactId,
+      role,
+      portalUserId,
+      relatedWorkbookIds,
+      relatedQuestionIds,
+      notes
+    },
+    include: { contact: true }
+  });
+
+  return serializeProjectContributor(created);
+}
+
+export async function updateProjectContributor(
+  projectId: string,
+  contributorId: string,
+  value: {
+    role?: unknown;
+    portalUserId?: unknown;
+    relatedWorkbookIds?: unknown;
+    relatedQuestionIds?: unknown;
+    notes?: unknown;
+  }
+) {
+  const existing = await prisma.projectContributor.findFirst({
+    where: { id: contributorId, projectId }
+  });
+  if (!existing) {
+    throw new Error("Contributor not found");
+  }
+
+  const data: Prisma.Prisma.ProjectContributorUpdateInput = {};
+  if (value.role !== undefined) {
+    data.role = normalizeOptionalText(value.role) ?? "contributor";
+  }
+  if (value.portalUserId !== undefined) {
+    data.portalUserId = normalizeOptionalText(value.portalUserId);
+  }
+  if (value.relatedWorkbookIds !== undefined) {
+    data.relatedWorkbookIds = Array.isArray(value.relatedWorkbookIds)
+      ? value.relatedWorkbookIds.filter(
+          (entry): entry is string =>
+            typeof entry === "string" && entry.trim().length > 0
+        )
+      : [];
+  }
+  if (value.relatedQuestionIds !== undefined) {
+    data.relatedQuestionIds = Array.isArray(value.relatedQuestionIds)
+      ? value.relatedQuestionIds.filter(
+          (entry): entry is string =>
+            typeof entry === "string" && entry.trim().length > 0
+        )
+      : [];
+  }
+  if (value.notes !== undefined) {
+    data.notes = normalizeOptionalText(value.notes);
+  }
+
+  const updated = await prisma.projectContributor.update({
+    where: { id: contributorId },
+    data,
+    include: { contact: true }
+  });
+  return serializeProjectContributor(updated);
+}
+
+export async function deleteProjectContributor(
+  projectId: string,
+  contributorId: string
+) {
+  const existing = await prisma.projectContributor.findFirst({
+    where: { id: contributorId, projectId }
+  });
+  if (!existing) {
+    throw new Error("Contributor not found");
+  }
+  await prisma.projectContributor.delete({ where: { id: contributorId } });
+  return { success: true };
+}
+
+export async function computeWorkstreamHours(projectId: string) {
+  const [project, tasks] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: projectId },
+      select: { deliveryWorkstreams: true }
+    }),
+    prisma.task.findMany({
+      where: { projectId },
+      select: {
+        id: true,
+        workstreamId: true,
+        plannedHours: true,
+        actualHours: true,
+        billableHours: true,
+        status: true
+      }
+    })
+  ]);
+  if (!project) {
+    throw new Error("Project not found");
+  }
+  const workstreams = normalizeProjectWorkstreams(project.deliveryWorkstreams);
+
+  return workstreams.map((workstream) => {
+    const linked = tasks.filter((task) => task.workstreamId === workstream.id);
+    const plannedHours = linked.reduce(
+      (sum, task) => sum + (task.plannedHours ?? 0),
+      0
+    );
+    const actualHours = linked.reduce(
+      (sum, task) => sum + (task.actualHours ?? 0),
+      0
+    );
+    const billableHours = linked.reduce(
+      (sum, task) => sum + (task.billableHours ?? 0),
+      0
+    );
+    const cap = workstream.hourCap ?? null;
+    const remainingHours = cap !== null ? cap - actualHours : null;
+    const percentOfCap = cap && cap > 0 ? (actualHours / cap) * 100 : null;
+
+    let scopeRisk: "low" | "medium" | "high" | null = workstream.scopeRisk;
+    if (!scopeRisk && cap !== null && cap > 0) {
+      if (actualHours >= cap) scopeRisk = "high";
+      else if (actualHours / cap >= 0.8) scopeRisk = "medium";
+      else scopeRisk = "low";
+    }
+
+    return {
+      workstreamId: workstream.id,
+      name: workstream.name,
+      category: workstream.category,
+      status: workstream.status,
+      owner: workstream.owner,
+      billingOwner: workstream.billingOwner,
+      deliveryOwner: workstream.deliveryOwner,
+      estimatedHours: workstream.estimatedHours,
+      hourCap: cap,
+      plannedHours,
+      actualHours,
+      billableHours,
+      remainingHours,
+      percentOfCap,
+      taskCount: linked.length,
+      scopeRisk
+    };
+  });
 }
 
 function normalizeClientRoleTags(value: unknown) {
@@ -6874,6 +7221,8 @@ function serializeWorkRequest<
     approvedByName?: string | null;
     rejectedAt?: Date | null;
     deliveryAppendedAt?: Date | null;
+    reason?: string | null;
+    impactedWorkstreamIds?: string[] | null;
     links: string[];
     status: string;
     createdAt: Date;
@@ -6904,6 +7253,8 @@ function serializeWorkRequest<
     approvedByName: request.approvedByName ?? null,
     rejectedAt: request.rejectedAt?.toISOString() ?? null,
     deliveryAppendedAt: request.deliveryAppendedAt?.toISOString() ?? null,
+    reason: request.reason ?? null,
+    impactedWorkstreamIds: request.impactedWorkstreamIds ?? [],
     links: request.links,
     status: request.status,
     createdAt: request.createdAt.toISOString(),
@@ -15989,6 +16340,9 @@ export async function updateProjectRecord(
     clientChampionFirstName?: unknown;
     clientChampionLastName?: unknown;
     clientChampionEmail?: unknown;
+    billingOwner?: unknown;
+    deliveryOwner?: unknown;
+    partnerName?: unknown;
   }
 ) {
   await ensureProjectScopeUnlocked(projectId);
@@ -16027,6 +16381,9 @@ export async function updateProjectRecord(
     clientChampionFirstName?: string;
     clientChampionLastName?: string;
     clientChampionEmail?: string;
+    billingOwner?: string | null;
+    deliveryOwner?: string | null;
+    partnerName?: string | null;
   } = {};
 
   if (value.name !== undefined) {
@@ -16256,6 +16613,16 @@ export async function updateProjectRecord(
     normalizedPayload.hubs = normalizedHubs;
   }
 
+  if (value.billingOwner !== undefined) {
+    normalizedPayload.billingOwner = normalizeOptionalText(value.billingOwner);
+  }
+  if (value.deliveryOwner !== undefined) {
+    normalizedPayload.deliveryOwner = normalizeOptionalText(value.deliveryOwner);
+  }
+  if (value.partnerName !== undefined) {
+    normalizedPayload.partnerName = normalizeOptionalText(value.partnerName);
+  }
+
   if (
     normalizedPayload.name === undefined &&
     normalizedPayload.clientName === undefined &&
@@ -16289,7 +16656,10 @@ export async function updateProjectRecord(
     normalizedPayload.clientYoutubeUrl === undefined &&
     normalizedPayload.clientChampionFirstName === undefined &&
     normalizedPayload.clientChampionLastName === undefined &&
-    normalizedPayload.clientChampionEmail === undefined
+    normalizedPayload.clientChampionEmail === undefined &&
+    normalizedPayload.billingOwner === undefined &&
+    normalizedPayload.deliveryOwner === undefined &&
+    normalizedPayload.partnerName === undefined
   ) {
     throw new Error("At least one editable field is required");
   }
@@ -16565,6 +16935,15 @@ export async function updateProjectRecord(
           ? {
               clientChampionEmail: normalizedPayload.clientChampionEmail || null
             }
+          : {}),
+        ...(normalizedPayload.billingOwner !== undefined
+          ? { billingOwner: normalizedPayload.billingOwner || null }
+          : {}),
+        ...(normalizedPayload.deliveryOwner !== undefined
+          ? { deliveryOwner: normalizedPayload.deliveryOwner || null }
+          : {}),
+        ...(normalizedPayload.partnerName !== undefined
+          ? { partnerName: normalizedPayload.partnerName || null }
           : {})
       },
       include: { client: true, portal: true, discovery: true }
@@ -20535,6 +20914,8 @@ export async function createWorkRequest(value: {
   deliveryTasks?: unknown;
   approvedByName?: unknown;
   status?: unknown;
+  reason?: unknown;
+  impactedWorkstreamIds?: unknown;
 }) {
   const title = typeof value.title === "string" ? value.title.trim() : "";
   const requestType =
@@ -20658,6 +21039,13 @@ export async function createWorkRequest(value: {
       deliveryAppendedAt:
         requestedStatus === "appended_to_delivery" ? new Date() : null,
       links,
+      reason: normalizeOptionalText(value.reason),
+      impactedWorkstreamIds: Array.isArray(value.impactedWorkstreamIds)
+        ? value.impactedWorkstreamIds.filter(
+            (entry): entry is string =>
+              typeof entry === "string" && entry.trim().length > 0
+          )
+        : [],
       status:
         requestType === "change_request" && requestedStatus
           ? requestedStatus
@@ -20789,6 +21177,8 @@ export async function updateWorkRequest(
     commercialImpactFeeZar?: unknown;
     deliveryTasks?: unknown;
     approvedByName?: unknown;
+    reason?: unknown;
+    impactedWorkstreamIds?: unknown;
   }
 ) {
   const existingRequest = await prisma.workRequest.findUnique({
@@ -20980,6 +21370,19 @@ export async function updateWorkRequest(
       typeof value.approvedByName === "string"
         ? value.approvedByName.trim() || null
         : null;
+  }
+
+  if (value.reason !== undefined) {
+    updateData.reason = normalizeOptionalText(value.reason);
+  }
+
+  if (value.impactedWorkstreamIds !== undefined) {
+    updateData.impactedWorkstreamIds = Array.isArray(value.impactedWorkstreamIds)
+      ? value.impactedWorkstreamIds.filter(
+          (entry): entry is string =>
+            typeof entry === "string" && entry.trim().length > 0
+        )
+      : [];
   }
 
   const request = await prisma.workRequest.update({
@@ -25015,6 +25418,13 @@ function serializeDiscoveryEvidence<
     content: string | null;
     createdAt: Date;
     updatedAt: Date;
+    kind?: string | null;
+    workstreamId?: string | null;
+    status?: string | null;
+    ownerName?: string | null;
+    sharedWith?: string[];
+    dueDate?: Date | null;
+    linkedSectionIds?: string[];
   }
 >(evidence: T) {
   return {
@@ -25026,23 +25436,36 @@ function serializeDiscoveryEvidence<
     sourceUrl: evidence.sourceUrl,
     content: evidence.content,
     createdAt: evidence.createdAt.toISOString(),
-    updatedAt: evidence.updatedAt.toISOString()
+    updatedAt: evidence.updatedAt.toISOString(),
+    kind: evidence.kind ?? null,
+    workstreamId: evidence.workstreamId ?? null,
+    status: evidence.status ?? null,
+    ownerName: evidence.ownerName ?? null,
+    sharedWith: evidence.sharedWith ?? [],
+    dueDate: evidence.dueDate ? evidence.dueDate.toISOString() : null,
+    linkedSectionIds: evidence.linkedSectionIds ?? []
   };
 }
 
 export async function loadDiscoveryEvidence(
   projectId: string,
-  sessionNumber?: number
+  sessionNumber?: number,
+  filters?: { kind?: string }
 ) {
   const evidenceItems = await prisma.discoveryEvidence.findMany({
     where: {
       projectId,
-      ...(sessionNumber !== undefined ? { sessionNumber } : {})
+      ...(sessionNumber !== undefined ? { sessionNumber } : {}),
+      ...(filters?.kind ? { kind: filters.kind } : {})
     },
     orderBy: [{ sessionNumber: "asc" }, { createdAt: "desc" }]
   });
 
   return evidenceItems.map((item) => serializeDiscoveryEvidence(item));
+}
+
+export async function loadProjectWorkbooks(projectId: string) {
+  return loadDiscoveryEvidence(projectId, undefined, { kind: "workbook" });
 }
 
 export async function createDiscoveryEvidence(
@@ -25053,6 +25476,13 @@ export async function createDiscoveryEvidence(
     sourceLabel?: unknown;
     sourceUrl?: unknown;
     content?: unknown;
+    kind?: unknown;
+    workstreamId?: unknown;
+    status?: unknown;
+    ownerName?: unknown;
+    sharedWith?: unknown;
+    dueDate?: unknown;
+    linkedSectionIds?: unknown;
   }
 ) {
   const evidenceType =
@@ -25065,12 +25495,31 @@ export async function createDiscoveryEvidence(
   const sourceUrl =
     typeof value.sourceUrl === "string" ? value.sourceUrl.trim() : "";
   const content = typeof value.content === "string" ? value.content.trim() : "";
+  const kind = normalizeOptionalText(value.kind);
+  const isWorkbook = kind === "workbook";
 
-  if (!evidenceType || !sourceLabel || (!content && !sourceUrl)) {
+  if (!evidenceType || !sourceLabel || (!isWorkbook && !content && !sourceUrl)) {
     throw new Error(
       "evidenceType, sourceLabel, and either content or sourceUrl are required"
     );
   }
+
+  const sharedWith = Array.isArray(value.sharedWith)
+    ? value.sharedWith.filter(
+        (entry): entry is string =>
+          typeof entry === "string" && entry.trim().length > 0
+      )
+    : [];
+  const linkedSectionIds = Array.isArray(value.linkedSectionIds)
+    ? value.linkedSectionIds.filter(
+        (entry): entry is string =>
+          typeof entry === "string" && entry.trim().length > 0
+      )
+    : [];
+  const dueDate =
+    typeof value.dueDate === "string" && value.dueDate.trim().length > 0
+      ? new Date(value.dueDate)
+      : null;
 
   const evidenceItem = await prisma.discoveryEvidence.create({
     data: {
@@ -25079,11 +25528,119 @@ export async function createDiscoveryEvidence(
       evidenceType,
       sourceLabel,
       sourceUrl: sourceUrl || null,
-      content: content || null
+      content: content || null,
+      kind,
+      workstreamId: normalizeOptionalText(value.workstreamId),
+      status: normalizeOptionalText(value.status),
+      ownerName: normalizeOptionalText(value.ownerName),
+      sharedWith,
+      dueDate: dueDate && !Number.isNaN(dueDate.getTime()) ? dueDate : null,
+      linkedSectionIds
     }
   });
 
   return serializeDiscoveryEvidence(evidenceItem);
+}
+
+export async function updateProjectWorkbook(
+  projectId: string,
+  workbookId: string,
+  value: {
+    sourceLabel?: unknown;
+    sourceUrl?: unknown;
+    content?: unknown;
+    workstreamId?: unknown;
+    status?: unknown;
+    ownerName?: unknown;
+    sharedWith?: unknown;
+    dueDate?: unknown;
+    linkedSectionIds?: unknown;
+    evidenceType?: unknown;
+  }
+) {
+  const existing = await prisma.discoveryEvidence.findFirst({
+    where: { id: workbookId, projectId, kind: "workbook" }
+  });
+  if (!existing) {
+    throw new Error("Workbook not found");
+  }
+
+  const data: Prisma.Prisma.DiscoveryEvidenceUpdateInput = {};
+  if (value.sourceLabel !== undefined) {
+    const v =
+      typeof value.sourceLabel === "string" ? value.sourceLabel.trim() : "";
+    if (!v) throw new Error("sourceLabel must be non-empty");
+    data.sourceLabel = v;
+  }
+  if (value.sourceUrl !== undefined) {
+    data.sourceUrl = normalizeOptionalText(value.sourceUrl);
+  }
+  if (value.content !== undefined) {
+    data.content = normalizeOptionalText(value.content);
+  }
+  if (value.workstreamId !== undefined) {
+    data.workstreamId = normalizeOptionalText(value.workstreamId);
+  }
+  if (value.status !== undefined) {
+    data.status = normalizeOptionalText(value.status);
+  }
+  if (value.ownerName !== undefined) {
+    data.ownerName = normalizeOptionalText(value.ownerName);
+  }
+  if (value.evidenceType !== undefined) {
+    if (
+      typeof value.evidenceType !== "string" ||
+      !isValidDiscoveryEvidenceType(value.evidenceType)
+    ) {
+      throw new Error("Invalid evidenceType");
+    }
+    data.evidenceType = value.evidenceType;
+  }
+  if (value.sharedWith !== undefined) {
+    data.sharedWith = Array.isArray(value.sharedWith)
+      ? value.sharedWith.filter(
+          (entry): entry is string =>
+            typeof entry === "string" && entry.trim().length > 0
+        )
+      : [];
+  }
+  if (value.linkedSectionIds !== undefined) {
+    data.linkedSectionIds = Array.isArray(value.linkedSectionIds)
+      ? value.linkedSectionIds.filter(
+          (entry): entry is string =>
+            typeof entry === "string" && entry.trim().length > 0
+        )
+      : [];
+  }
+  if (value.dueDate !== undefined) {
+    if (value.dueDate === null || value.dueDate === "") {
+      data.dueDate = null;
+    } else if (typeof value.dueDate === "string") {
+      const parsed = new Date(value.dueDate);
+      data.dueDate = Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+  }
+
+  const updated = await prisma.discoveryEvidence.update({
+    where: { id: workbookId },
+    data
+  });
+
+  return serializeDiscoveryEvidence(updated);
+}
+
+export async function deleteProjectWorkbook(
+  projectId: string,
+  workbookId: string
+) {
+  const existing = await prisma.discoveryEvidence.findFirst({
+    where: { id: workbookId, projectId, kind: "workbook" }
+  });
+  if (!existing) {
+    throw new Error("Workbook not found");
+  }
+  await prisma.discoveryEvidence.delete({ where: { id: workbookId } });
+  return { success: true };
 }
 
 export async function saveDiscoverySession(

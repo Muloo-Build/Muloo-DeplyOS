@@ -188,6 +188,14 @@ import {
   loadPortalAssistantProjectContext,
   loadPartnerUsersForProject,
   loadDiscoveryEvidence,
+  loadProjectWorkbooks,
+  updateProjectWorkbook,
+  deleteProjectWorkbook,
+  loadProjectContributors,
+  createProjectContributor,
+  updateProjectContributor,
+  deleteProjectContributor,
+  computeWorkstreamHours,
   loadDiscoverySessionsPayload,
   loadDiscoverySummary,
   loadDiscoverySummaryWithRetry,
@@ -2376,6 +2384,13 @@ export function createApiApp(config: BaseConfig) {
             sourceLabel?: unknown;
             sourceUrl?: unknown;
             content?: unknown;
+            kind?: unknown;
+            workstreamId?: unknown;
+            status?: unknown;
+            ownerName?: unknown;
+            sharedWith?: unknown;
+            dueDate?: unknown;
+            linkedSectionIds?: unknown;
           };
           const evidenceItem = await createDiscoveryEvidence(
             c.req.param("projectId"),
@@ -2396,6 +2411,221 @@ export function createApiApp(config: BaseConfig) {
       return c.json({ error: "Method Not Allowed" }, 405);
     }
   );
+
+  app.all("/api/projects/:projectId/workbooks", async (c) => {
+    const projectId = c.req.param("projectId");
+
+    if (c.req.method === "GET") {
+      try {
+        return c.json({ workbooks: await loadProjectWorkbooks(projectId) });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to load workbooks"
+          },
+          400
+        );
+      }
+    }
+
+    if (c.req.method === "POST") {
+      try {
+        await ensureProjectScopeUnlocked(projectId);
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const sessionNumberRaw = body.sessionNumber;
+        const sessionNumber =
+          typeof sessionNumberRaw === "number"
+            ? sessionNumberRaw
+            : Number(sessionNumberRaw ?? 0);
+        const workbook = await createDiscoveryEvidence(
+          projectId,
+          Number.isFinite(sessionNumber) ? sessionNumber : 0,
+          { ...body, kind: "workbook" }
+        );
+        return c.json({ workbook }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create workbook"
+          },
+          400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/projects/:projectId/workbooks/:workbookId", async (c) => {
+    const projectId = c.req.param("projectId");
+    const workbookId = c.req.param("workbookId");
+
+    if (c.req.method === "PATCH" || c.req.method === "PUT") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const workbook = await updateProjectWorkbook(
+          projectId,
+          workbookId,
+          body
+        );
+        return c.json({ workbook });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to update workbook"
+          },
+          error instanceof Error && error.message === "Workbook not found"
+            ? 404
+            : 400
+        );
+      }
+    }
+
+    if (c.req.method === "DELETE") {
+      try {
+        await deleteProjectWorkbook(projectId, workbookId);
+        return c.json({ success: true });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to delete workbook"
+          },
+          error instanceof Error && error.message === "Workbook not found"
+            ? 404
+            : 400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all("/api/projects/:projectId/contributors", async (c) => {
+    const projectId = c.req.param("projectId");
+
+    if (c.req.method === "GET") {
+      try {
+        return c.json({
+          contributors: await loadProjectContributors(projectId)
+        });
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to load contributors"
+          },
+          400
+        );
+      }
+    }
+
+    if (c.req.method === "POST") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const contributor = await createProjectContributor(projectId, body);
+        return c.json({ contributor }, 201);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to create contributor"
+          },
+          400
+        );
+      }
+    }
+
+    return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.all(
+    "/api/projects/:projectId/contributors/:contributorId",
+    async (c) => {
+      const projectId = c.req.param("projectId");
+      const contributorId = c.req.param("contributorId");
+
+      if (c.req.method === "PATCH" || c.req.method === "PUT") {
+        try {
+          const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+          const contributor = await updateProjectContributor(
+            projectId,
+            contributorId,
+            body
+          );
+          return c.json({ contributor });
+        } catch (error) {
+          return c.json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update contributor"
+            },
+            error instanceof Error && error.message === "Contributor not found"
+              ? 404
+              : 400
+          );
+        }
+      }
+
+      if (c.req.method === "DELETE") {
+        try {
+          await deleteProjectContributor(projectId, contributorId);
+          return c.json({ success: true });
+        } catch (error) {
+          return c.json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to delete contributor"
+            },
+            error instanceof Error && error.message === "Contributor not found"
+              ? 404
+              : 400
+          );
+        }
+      }
+
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+  );
+
+  app.get("/api/projects/:projectId/workstream-hours", async (c) => {
+    try {
+      return c.json({
+        workstreamHours: await computeWorkstreamHours(c.req.param("projectId"))
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to compute workstream hours"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 400
+      );
+    }
+  });
 
   app.all("/api/projects/:projectId/discovery-summary", async (c) => {
     if (c.req.method === "GET") {
@@ -5835,6 +6065,37 @@ export function createApiApp(config: BaseConfig) {
         error instanceof Error && error.message === "Client not found"
           ? 404
           : 400
+      );
+    }
+  });
+
+  app.get("/api/clients/:clientId/contacts", async (c) => {
+    try {
+      const clientId = c.req.param("clientId");
+      const contacts = await prisma.clientContact.findMany({
+        where: { clientId },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          title: true,
+          canApproveQuotes: true,
+          clientId: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      });
+      return c.json({ contacts });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to load contacts"
+        },
+        400
       );
     }
   });

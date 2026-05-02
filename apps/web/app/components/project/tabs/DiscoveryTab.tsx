@@ -6,6 +6,8 @@ export default function DiscoveryTab(props: {
   sessionsTracker: ReactNode;
   progressSummary: ReactNode;
   notesPreview: ReactNode;
+  workbooksPanel?: ReactNode;
+  contributorsPanel?: ReactNode;
 }) {
   return (
     <div className="space-y-6">
@@ -13,6 +15,22 @@ export default function DiscoveryTab(props: {
         <h3 className="text-lg font-semibold text-white">Q&A sessions</h3>
         <div className="mt-4">{props.sessionsTracker}</div>
       </section>
+      {props.workbooksPanel ? (
+        <section className="brand-surface rounded-3xl border p-6">
+          <h3 className="text-lg font-semibold text-white">
+            Discovery workbooks
+          </h3>
+          <div className="mt-4">{props.workbooksPanel}</div>
+        </section>
+      ) : null}
+      {props.contributorsPanel ? (
+        <section className="brand-surface rounded-3xl border p-6">
+          <h3 className="text-lg font-semibold text-white">
+            External contributors
+          </h3>
+          <div className="mt-4">{props.contributorsPanel}</div>
+        </section>
+      ) : null}
       <section className="brand-surface rounded-3xl border p-6">
         <h3 className="text-lg font-semibold text-white">Discovery progress</h3>
         <div className="mt-4">{props.progressSummary}</div>

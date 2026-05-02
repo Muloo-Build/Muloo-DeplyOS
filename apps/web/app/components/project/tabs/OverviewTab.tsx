@@ -20,9 +20,15 @@ export default function OverviewTab(props: {
   quickWins: ReactNode;
   clientAccess: ReactNode;
   partnerAccess: ReactNode;
+  readinessSummary?: ReactNode;
 }) {
   return (
     <div className="space-y-6">
+      {props.readinessSummary ? (
+        <OverviewCard title="Project readiness">
+          {props.readinessSummary}
+        </OverviewCard>
+      ) : null}
       <div className="grid gap-6 xl:grid-cols-2">
         <OverviewCard title="Client access">{props.clientAccess}</OverviewCard>
         <OverviewCard title="Partner access">{props.partnerAccess}</OverviewCard>
