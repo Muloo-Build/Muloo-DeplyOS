@@ -521,13 +521,11 @@ export default function ProjectPortalOps() {
     <div className="space-y-6">
       <section className="brand-surface rounded-3xl border p-6 sm:p-8">
         <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
-          Operations
+          Automation
         </p>
         <h1 className="mt-3 text-3xl font-semibold text-white">Portal Ops</h1>
         <p className="mt-3 max-w-4xl text-sm text-text-secondary sm:text-base">
-          Run practical HubSpot requests against a specific client portal, check
-          the connection health first, and keep recent execution history visible
-          while you work.
+          Run HubSpot operations directly against a connected client portal. Check the portal connection health, execute requests, and review the execution log as you work.
         </p>
       </section>
 

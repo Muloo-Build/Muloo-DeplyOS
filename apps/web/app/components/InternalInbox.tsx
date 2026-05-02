@@ -238,8 +238,12 @@ export default function InternalInbox() {
 
         <div className="mt-6 space-y-4">
           {filteredMessages.length === 0 ? (
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4 text-sm text-text-secondary">
-              No project messages yet.
+            <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5">
+              <p className="text-sm text-text-secondary">
+                {selectedProjectId
+                  ? "No messages for this project yet. Send the first one above."
+                  : "No project messages yet. Choose a project and send a message above."}
+              </p>
             </div>
           ) : (
             filteredMessages.map((message) => (

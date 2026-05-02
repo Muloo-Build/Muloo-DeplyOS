@@ -234,11 +234,10 @@ export default function RetainersWorkspace() {
               Retainers
             </p>
             <h1 className="mt-2 text-3xl font-semibold text-white">
-              Retainer workspace
+              Retainers
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-text-secondary">
-              Create retainers, lock bill-to entities at inception, and keep the
-              commercial record clean before invoicing gets involved.
+              Ongoing commercial agreements — monthly support, managed delivery, or fixed-scope commitments. Create retainers, lock the billing entity, and feed invoices from here.
             </p>
           </div>
 

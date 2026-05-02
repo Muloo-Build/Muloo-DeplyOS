@@ -10,11 +10,10 @@ export default function InboxPage() {
             Inbox
           </p>
           <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-            Requests and project messages
+            Work requests and messages
           </h1>
           <p className="mt-3 max-w-3xl text-text-secondary">
-            Keep client intake, quick project messages, and lightweight
-            coordination in one place.
+            Incoming quote requests and change requests arrive here for triage, routing, and conversion to projects. Project messages sit alongside for fast coordination.
           </p>
         </div>
 

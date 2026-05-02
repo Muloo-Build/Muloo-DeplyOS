@@ -5,8 +5,8 @@ import SettingsShell from "../components/SettingsShell";
 export default function SettingsPage() {
   return (
     <SettingsShell
-      title="Workspace Settings"
-      subtitle="Organize workspace administration into clearer areas for team access, provider connections, templates, and commercial setup."
+      title="Settings"
+      subtitle="Manage connections, team access, AI routing, email delivery, and the commercial and template libraries that power the workspace."
     >
       <div className="grid gap-6 xl:grid-cols-2">
         {[
@@ -21,7 +21,7 @@ export default function SettingsPage() {
             label: "Team",
             title: "Users and access levels",
             description:
-              "Manage workspace users, roles, and future permission layers in a dedicated admin page.",
+              "Add and manage workspace users, set roles, and control who has access to the platform.",
             href: "/settings/team"
           },
           {

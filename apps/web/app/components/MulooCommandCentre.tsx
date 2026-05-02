@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import AppShell from "./AppShell";
+import { SkeletonRows } from "./LoadingSkeleton";
 
 interface CountResponse {
   count: number;
@@ -1055,7 +1056,7 @@ export default function MulooCommandCentre() {
               href="/retainers"
               className="rounded-2xl border border-brand-teal/25 bg-brand-teal/10 p-5 text-white transition hover:border-brand-teal/60"
             >
-              <p className="text-sm text-text-secondary">Invoices</p>
+              <p className="text-sm text-text-secondary">Overdue invoices</p>
               <p className="mt-3 text-4xl font-semibold">
                 {invoiceSummary?.overdueCount ?? "..."}
               </p>
@@ -1582,12 +1583,12 @@ export default function MulooCommandCentre() {
 
             <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {loading ? (
-                <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary md:col-span-2 xl:col-span-4">
-                  Loading daily industry signal...
+                <div className="md:col-span-2 xl:col-span-4">
+                  <SkeletonRows count={2} height="h-32" gap="gap-4" rounded="rounded-2xl" />
                 </div>
               ) : industrySignals.length === 0 ? (
-                <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary md:col-span-2 xl:col-span-4">
-                  No industry feed items are available right now.
+                <div className="brand-surface-soft rounded-2xl border p-5 text-sm text-text-secondary md:col-span-2 xl:col-span-4">
+                  No industry feed items available right now. Signal sources will populate once external feeds are active.
                 </div>
               ) : (
                 industrySignals.map((item) => (

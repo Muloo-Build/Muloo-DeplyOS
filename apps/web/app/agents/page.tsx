@@ -15,8 +15,7 @@ export default function AgentsPage() {
               Agent Studio
             </h1>
             <p className="mt-3 max-w-3xl text-text-secondary">
-              Create and manage the agents that shape discovery, planning,
-              quoting, and later deployment work across DeployOS.
+              Build, configure, and test the AI agents that handle HubSpot discovery extraction, blueprint generation, portal analysis, and automation across delivery workflows.
             </p>
           </div>
 

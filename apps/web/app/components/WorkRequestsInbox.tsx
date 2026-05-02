@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import EmptyState from "./EmptyState";
+import { SkeletonRows } from "./LoadingSkeleton";
+
 interface WorkRequest {
   id: string;
   projectId: string | null;
@@ -153,13 +156,12 @@ export default function WorkRequestsInbox() {
       ) : null}
 
       {loading ? (
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4 text-sm text-text-secondary">
-          Loading work requests...
-        </div>
+        <SkeletonRows count={3} />
       ) : requests.length === 0 ? (
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4 text-sm text-text-secondary">
-          No work requests yet.
-        </div>
+        <EmptyState
+          title="No work requests yet"
+          description="Quote requests and change requests submitted through the client portal will appear here for triage and routing."
+        />
       ) : (
         requests.map((request) => (
           <div
@@ -236,7 +238,7 @@ export default function WorkRequestsInbox() {
                     : generalStatuses
                   ).map((status) => (
                     <option key={status} value={status}>
-                      {status}
+                      {status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                     </option>
                   ))}
                 </select>
