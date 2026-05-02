@@ -17,6 +17,7 @@ interface Contributor {
   portalAccess: boolean;
   accessToken: string | null;
   accessTokenExpiresAt: string | null;
+  accessTokenLastUsedAt: string | null;
   accessLinkPath: string | null;
   contact: {
     id: string;
@@ -186,6 +187,34 @@ export default function ProjectContributorsPanel(props: {
     }
   }
 
+  // Slice 4: dedicated promote action so the previous champion (if any)
+  // is demoted in the same transaction. Uses the explicit promote
+  // sub-route, not a role-edit, so the single-champion invariant holds.
+  async function promoteToChampion(id: string) {
+    const current = contributors?.find(
+      (c) => c.role === "client_champion" && c.approvalStatus === "approved"
+    );
+    const message = current
+      ? `Promote this contributor to champion? ${current.contact?.firstName ?? "The current champion"} will be demoted to plain contributor.`
+      : "Promote this contributor to project champion?";
+    if (!confirm(message)) return;
+    setSavingId(id);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${props.projectId}/contributors/${id}/promote-champion`,
+        { method: "POST", credentials: "include" }
+      );
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   async function removeContributor(id: string) {
     if (!confirm("Remove this contributor from the project?")) return;
     try {
@@ -235,6 +264,21 @@ export default function ProjectContributorsPanel(props: {
       </div>
 
       {error ? <p className="text-sm text-rose-400">{error}</p> : null}
+
+      {contributors && contributors.length > 0 && !contributors.some(
+        (c) => c.role === "client_champion" && c.approvalStatus === "approved"
+      ) ? (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3">
+          <p className="text-sm font-medium text-amber-200">
+            No project champion designated
+          </p>
+          <p className="mt-0.5 text-xs text-amber-200/80">
+            Promote one approved contributor to champion so they can manage
+            other contributors and approve workbook submissions on the
+            client side.
+          </p>
+        </div>
+      ) : null}
 
       {showForm ? (
         <div className="brand-surface-soft space-y-3 rounded-2xl border p-4">
@@ -355,6 +399,16 @@ export default function ProjectContributorsPanel(props: {
                     ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
+                    {!isChampion ? (
+                      <button
+                        type="button"
+                        disabled={savingId === contrib.id}
+                        onClick={() => promoteToChampion(contrib.id)}
+                        className="text-xs text-blue-300 hover:text-blue-200 disabled:opacity-50"
+                      >
+                        Make champion
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() =>
@@ -590,6 +644,15 @@ function ContributorAccessLink({
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
+          {/* Slice 6 + 7: expiry control + audit row. Expiry is sent
+              as a YYYY-MM-DD string and parsed server-side. lastUsedAt
+              gives the operator a cheap sanity check that the link
+              actually reached its recipient. */}
+          <ContributorAccessExpiryRow
+            contributor={contributor}
+            busy={busy}
+            onPatch={onPatch}
+          />
           <div className="flex flex-wrap items-center gap-3 text-[11px]">
             <button
               type="button"
@@ -644,6 +707,70 @@ function ContributorAccessLink({
           </button>
         </>
       )}
+    </div>
+  );
+}
+
+// Slice 6 + 7: expiry editor + last-used display, kept as a small
+// sub-component so the same shape can be lifted into the champion
+// panel later if needed. The expiry input uses an HTML date picker;
+// blur/onChange both commit so a date pick saves immediately, and
+// "Clear" re-sends an empty string which the server treats as null.
+function ContributorAccessExpiryRow({
+  contributor,
+  busy,
+  onPatch
+}: {
+  contributor: Contributor;
+  busy: boolean;
+  onPatch: (body: Record<string, unknown>) => Promise<void>;
+}) {
+  const expiryDateValue = contributor.accessTokenExpiresAt
+    ? new Date(contributor.accessTokenExpiresAt).toISOString().slice(0, 10)
+    : "";
+  const lastUsed = contributor.accessTokenLastUsedAt
+    ? new Date(contributor.accessTokenLastUsedAt)
+    : null;
+  const isExpired =
+    contributor.accessTokenExpiresAt &&
+    new Date(contributor.accessTokenExpiresAt).getTime() < Date.now();
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-secondary">
+      <label className="flex items-center gap-2">
+        <span className="uppercase tracking-wide">Expires</span>
+        <input
+          type="date"
+          value={expiryDateValue}
+          disabled={busy}
+          onChange={(e) =>
+            void onPatch({ accessTokenExpiresAt: e.target.value || null })
+          }
+          className="brand-input rounded-md border px-2 py-0.5 text-[11px]"
+        />
+      </label>
+      {expiryDateValue ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void onPatch({ accessTokenExpiresAt: null })}
+          className="hover:text-white disabled:opacity-50"
+        >
+          Clear
+        </button>
+      ) : (
+        <span className="text-text-muted">Never expires</span>
+      )}
+      {isExpired ? (
+        <span className="rounded-full border border-rose-400/30 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-300">
+          Expired
+        </span>
+      ) : null}
+      <span className="ml-auto text-[10px]">
+        {lastUsed
+          ? `Last opened ${lastUsed.toLocaleDateString()}`
+          : "Never opened"}
+      </span>
     </div>
   );
 }

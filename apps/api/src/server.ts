@@ -4963,6 +4963,7 @@ type SerializableProjectContributor = {
   approvalStatus: string;
   accessToken: string | null;
   accessTokenExpiresAt: Date | null;
+  accessTokenLastUsedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   contact?: {
@@ -4981,6 +4982,24 @@ type SerializableProjectContributor = {
 // who does NOT have a full client portal account. The token-only flow
 // will be served at /contributors/:token (the page itself is built in
 // Slice 5; this slice only mints, exposes, and revokes the tokens).
+// Slice 6: parse the expiry value coming from the wire. Accepts:
+//   - null / "" → clear expiry (link never expires)
+//   - ISO date string → parsed Date
+//   - anything else → throws so we don't silently set a wrong date
+function parseAccessTokenExpiry(value: unknown): Date | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") return null;
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error("Invalid expiry date");
+    }
+    return parsed;
+  }
+  throw new Error("Invalid expiry date");
+}
+
 export function generateContributorAccessToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
@@ -5011,6 +5030,8 @@ function serializeProjectContributor(record: SerializableProjectContributor) {
     approvalStatus: record.approvalStatus,
     accessToken,
     accessTokenExpiresAt: record.accessTokenExpiresAt?.toISOString() ?? null,
+    accessTokenLastUsedAt:
+      record.accessTokenLastUsedAt?.toISOString() ?? null,
     accessLinkPath: accessToken ? `/contributors/${accessToken}` : null,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
@@ -5186,6 +5207,7 @@ export async function updateProjectContributor(
     approvalStatus?: unknown;
     regenerateAccessToken?: unknown;
     revokeAccessToken?: unknown;
+    accessTokenExpiresAt?: unknown;
   }
 ) {
   const existing = await prisma.projectContributor.findFirst({
@@ -5247,6 +5269,31 @@ export async function updateProjectContributor(
         : existing.approvalStatus;
   }
 
+  // Slice 4: enforce single-champion rule. If the role is being changed
+  // *to* client_champion AND the target isn't already champion, refuse
+  // when another champion already exists. Operators must use the
+  // explicit promote action (designateProjectChampion) to transfer the
+  // role atomically — that way the previous champion is demoted in the
+  // same transaction instead of being silently overwritten.
+  if (
+    data.role === "client_champion" &&
+    existing.role !== "client_champion"
+  ) {
+    const other = await prisma.projectContributor.findFirst({
+      where: {
+        projectId,
+        role: "client_champion",
+        id: { not: contributorId }
+      },
+      select: { id: true }
+    });
+    if (other) {
+      throw new Error(
+        "This project already has a champion. Use the promote action to transfer the role."
+      );
+    }
+  }
+
   // Slice 2: token regenerate/revoke + portal-enable auto-revoke.
   // Resolve the next portalAccessEnabled value (committed value if the
   // patch sets it, else the existing value) so we can enforce: a
@@ -5266,10 +5313,24 @@ export async function updateProjectContributor(
     }
   } else if (value.regenerateAccessToken === true) {
     data.accessToken = generateContributorAccessToken();
-    data.accessTokenExpiresAt = null;
+    data.accessTokenExpiresAt = parseAccessTokenExpiry(
+      value.accessTokenExpiresAt
+    );
+    data.accessTokenLastUsedAt = null;
   } else if (value.revokeAccessToken === true) {
     data.accessToken = null;
     data.accessTokenExpiresAt = null;
+    data.accessTokenLastUsedAt = null;
+  } else if (
+    value.accessTokenExpiresAt !== undefined &&
+    existing.accessToken !== null
+  ) {
+    // Slice 6: standalone expiry update — only honored when there's
+    // an active token to gate. Setting an expiry on a revoked token
+    // would be misleading.
+    data.accessTokenExpiresAt = parseAccessTokenExpiry(
+      value.accessTokenExpiresAt
+    );
   }
 
   const updated = await prisma.projectContributor.update({
@@ -5277,6 +5338,45 @@ export async function updateProjectContributor(
     data,
     include: { contact: true }
   });
+  return serializeProjectContributor(updated);
+}
+
+// Slice 4: dedicated "promote to champion" action. Atomically demotes
+// any existing client_champion on the project to plain contributor,
+// then promotes the target contributor to client_champion + approved.
+// Wrapped in a transaction so a project can never end up with two
+// champions or zero champions due to a partial failure.
+export async function designateProjectChampion(
+  projectId: string,
+  contributorId: string
+) {
+  const target = await prisma.projectContributor.findFirst({
+    where: { id: contributorId, projectId }
+  });
+  if (!target) {
+    throw new Error("Contributor not found");
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.projectContributor.updateMany({
+      where: {
+        projectId,
+        role: "client_champion",
+        id: { not: contributorId }
+      },
+      data: { role: "contributor" }
+    });
+    await tx.projectContributor.update({
+      where: { id: contributorId },
+      data: { role: "client_champion", approvalStatus: "approved" }
+    });
+  });
+  const updated = await prisma.projectContributor.findFirst({
+    where: { id: contributorId, projectId },
+    include: { contact: true }
+  });
+  if (!updated) {
+    throw new Error("Contributor not found");
+  }
   return serializeProjectContributor(updated);
 }
 
@@ -27244,6 +27344,230 @@ function questionAssignsContributor(
   return false;
 }
 
+// Slice 5: token-bearer access. Resolves a contributor by their
+// access token (the bearer credential issued in slice 2), enforces
+// expiry, and returns the contributor + project basics + the subset
+// of workbooks visible to them. Workbook visibility uses the same
+// assignment helpers (`workbookAssignsContributor`) the portal flow
+// already uses, so token-bearers can never see workbooks they're not
+// assigned to. The returned WorkbookContent is also FILTERED — empty
+// sections and unassigned questions are stripped so the contributor
+// only sees what they're expected to answer.
+function filterWorkbookContentForContributor(
+  workbook: {
+    assignedContributorIds: string[];
+    ownerContributorId: string | null;
+  },
+  content: WorkbookContent,
+  contributorId: string
+): WorkbookContent {
+  const wholeWorkbookAssigned =
+    workbook.ownerContributorId === contributorId ||
+    workbook.assignedContributorIds.includes(contributorId);
+
+  const filteredSections = content.sections
+    .map((section) => {
+      const sectionAssigned =
+        wholeWorkbookAssigned ||
+        section.assignedContributorIds?.includes(contributorId) === true;
+
+      const visibleQuestions = section.questions.filter((question) => {
+        if (sectionAssigned) return true;
+        return (
+          question.assignedContributorIds?.includes(contributorId) === true
+        );
+      });
+
+      if (!sectionAssigned && visibleQuestions.length === 0) {
+        return null;
+      }
+      return { ...section, questions: visibleQuestions };
+    })
+    .filter((section): section is WorkbookSection => section !== null);
+
+  return { version: content.version, sections: filteredSections };
+}
+
+async function resolveContributorByToken(token: string) {
+  if (typeof token !== "string" || token.trim().length === 0) {
+    throw new Error("Invalid access token");
+  }
+  const contributor = await prisma.projectContributor.findUnique({
+    where: { accessToken: token },
+    include: {
+      contact: true,
+      project: { select: { id: true, name: true, clientId: true } }
+    }
+  });
+  if (!contributor) {
+    throw new Error("Invalid access token");
+  }
+  if (
+    contributor.accessTokenExpiresAt &&
+    contributor.accessTokenExpiresAt.getTime() < Date.now()
+  ) {
+    throw new Error("This access link has expired");
+  }
+  if (contributor.approvalStatus !== "approved") {
+    throw new Error("This access link is not yet approved");
+  }
+  // Slice 7: stamp lastUsedAt on every successful resolution so
+  // operators can see whether the contributor has actually opened
+  // the link. Fire-and-forget — a failed audit write must not block
+  // the contributor from accessing their workbook.
+  prisma.projectContributor
+    .update({
+      where: { id: contributor.id },
+      data: { accessTokenLastUsedAt: new Date() }
+    })
+    .catch(() => {
+      /* ignore audit write errors */
+    });
+  return contributor;
+}
+
+export async function loadContributorWorkspaceByToken(token: string) {
+  const contributor = await resolveContributorByToken(token);
+  // Pull every project workbook then filter to this contributor —
+  // mirrors the assignment pattern used in loadClientPortalWorkbooks
+  // for non-champion contributors. Visibility must include the
+  // contributor_link tier; champion-only / portal-only workbooks are
+  // out of reach for token-bearers by design.
+  const workbookRecords = await prisma.discoveryEvidence.findMany({
+    where: {
+      projectId: contributor.projectId,
+      kind: "workbook",
+      visibility: {
+        in: ["contributor_link", "client_champion", "client_portal"]
+      }
+    },
+    orderBy: { createdAt: "asc" }
+  });
+  const visibleWorkbooks = workbookRecords
+    .filter((record) =>
+      workbookAssignsContributor(
+        record,
+        ensureWorkbookContent(record.workbookContent),
+        contributor.id
+      )
+    )
+    .map((record) => {
+      const fullContent = ensureWorkbookContent(record.workbookContent);
+      const filtered = filterWorkbookContentForContributor(
+        record,
+        fullContent,
+        contributor.id
+      );
+      // Serialize first, then replace workbookContent on the
+      // serialized DTO so we avoid type-juggling between Prisma's
+      // JsonValue and InputJsonValue.
+      const serialized = serializeDiscoveryEvidence(record);
+      return {
+        ...serialized,
+        workbookContent: filtered as unknown as typeof serialized.workbookContent
+      };
+    });
+
+  return {
+    contributor: {
+      id: contributor.id,
+      role: contributor.role,
+      organisation: contributor.organisation ?? null,
+      notes: contributor.notes ?? null,
+      contact: {
+        firstName: contributor.contact.firstName,
+        lastName: contributor.contact.lastName ?? "",
+        email: contributor.contact.email,
+        title: contributor.contact.title ?? ""
+      },
+      accessTokenExpiresAt:
+        contributor.accessTokenExpiresAt?.toISOString() ?? null
+    },
+    project: {
+      id: contributor.project.id,
+      name: contributor.project.name
+    },
+    workbooks: visibleWorkbooks
+  };
+}
+
+export async function saveContributorTokenResponses(
+  token: string,
+  workbookId: string,
+  value: { responses?: unknown }
+) {
+  const contributor = await resolveContributorByToken(token);
+  if (!contributor.canSubmitWorkbookResponses) {
+    throw new Error("This access link cannot submit responses");
+  }
+  const workbook = await prisma.discoveryEvidence.findFirst({
+    where: {
+      id: workbookId,
+      projectId: contributor.projectId,
+      kind: "workbook"
+    }
+  });
+  if (!workbook) {
+    throw new Error("Workbook not found");
+  }
+  if (
+    workbook.status !== "shared" &&
+    workbook.status !== "in_progress" &&
+    workbook.status !== "needs_review"
+  ) {
+    throw new Error("Workbook is not open for responses");
+  }
+  if (!Array.isArray(value.responses)) {
+    throw new Error("responses must be an array");
+  }
+  const content = ensureWorkbookContent(workbook.workbookContent);
+  if (!workbookAssignsContributor(workbook, content, contributor.id)) {
+    throw new Error("You are not assigned to this workbook");
+  }
+  let touched = 0;
+  let rejected = 0;
+  for (const entry of value.responses) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    const sectionId = typeof e.sectionId === "string" ? e.sectionId : null;
+    const questionId = typeof e.questionId === "string" ? e.questionId : null;
+    if (!sectionId || !questionId) continue;
+    const section = content.sections.find((s) => s.id === sectionId);
+    if (!section) continue;
+    const question = section.questions.find((q) => q.id === questionId);
+    if (!question) continue;
+    if (!questionAssignsContributor(workbook, section, question, contributor.id)) {
+      rejected += 1;
+      continue;
+    }
+    if ("response" in e) {
+      question.response = e.response as WorkbookQuestion["response"];
+    }
+    if (typeof e.status === "string") {
+      question.status = e.status;
+    } else if (
+      "response" in e &&
+      typeof e.response === "string" &&
+      e.response.trim().length > 0 &&
+      question.status === "unanswered"
+    ) {
+      question.status = "answered";
+    }
+    touched += 1;
+  }
+  await prisma.discoveryEvidence.update({
+    where: { id: workbookId },
+    data: {
+      workbookContent: content as unknown as Prisma.Prisma.InputJsonValue,
+      status:
+        workbook.status === "shared" && touched > 0
+          ? "in_progress"
+          : workbook.status
+    }
+  });
+  return { touched, rejected };
+}
+
 export async function loadClientPortalContributors(
   projectId: string,
   userId: string
@@ -27357,6 +27681,56 @@ export async function addClientPortalContributor(
     createdByContributorId: caller?.id,
     approvalStatus: "pending_review",
     canSubmitWorkbookResponses: true
+  });
+}
+
+// Slice 3: champion-side token management. Only an approved champion
+// (or the operator skeleton) may regenerate / revoke a contributor's
+// access token from the client portal. We deliberately whitelist ONLY
+// the token flags here — champions cannot use this route to change a
+// contributor's role, approval status, workbook assignments, etc.
+// Those remain operator-side concerns.
+export async function updateClientPortalContributorToken(
+  projectId: string,
+  userId: string,
+  contributorId: string,
+  value: {
+    regenerateAccessToken?: unknown;
+    revokeAccessToken?: unknown;
+    accessTokenExpiresAt?: unknown;
+  }
+) {
+  const access = await ensureClientPortalProjectAccess(projectId, userId);
+  const skeleton = isSkeletonPortalEmail(access.user.email);
+  const caller = skeleton
+    ? null
+    : await resolveClientPortalContributor(
+        projectId,
+        access.project.clientId,
+        access.user.email
+      );
+  if (!skeleton && !isApprovedChampion(caller)) {
+    throw new Error(
+      "Only an approved client champion can manage contributor links"
+    );
+  }
+  const target = await prisma.projectContributor.findFirst({
+    where: { id: contributorId, projectId }
+  });
+  if (!target) {
+    throw new Error("Contributor not found");
+  }
+  // Champions cannot manage tokens for portal-enabled contributors;
+  // those people sign in directly and never receive a token.
+  if (target.portalAccessEnabled) {
+    throw new Error(
+      "This contributor uses the client portal — no link to manage"
+    );
+  }
+  return updateProjectContributor(projectId, contributorId, {
+    regenerateAccessToken: value.regenerateAccessToken,
+    revokeAccessToken: value.revokeAccessToken,
+    accessTokenExpiresAt: value.accessTokenExpiresAt
   });
 }
 

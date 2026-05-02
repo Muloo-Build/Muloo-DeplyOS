@@ -11,6 +11,8 @@ interface Contributor {
   approvalStatus: string;
   createdByType: string;
   accessToken: string | null;
+  accessTokenExpiresAt: string | null;
+  accessTokenLastUsedAt: string | null;
   accessLinkPath: string | null;
   portalAccessEnabled: boolean;
   contact: {
@@ -260,8 +262,18 @@ export default function ClientContributorsPanel({
                   ? " · pending review"
                   : ""}
               </p>
-              {!contrib.portalAccessEnabled && contrib.accessLinkPath ? (
-                <ContributorLinkRow path={contrib.accessLinkPath} />
+              {!contrib.portalAccessEnabled ? (
+                <ContributorLinkRow
+                  projectId={projectId}
+                  contributor={contrib}
+                  onUpdated={(next) => {
+                    setContributors((prev) =>
+                      prev
+                        ? prev.map((c) => (c.id === next.id ? next : c))
+                        : prev
+                    );
+                  }}
+                />
               ) : null}
             </li>
           ))}
@@ -271,12 +283,86 @@ export default function ClientContributorsPanel({
   );
 }
 
-function ContributorLinkRow({ path }: { path: string }) {
+function ChampionExpiryRow({
+  contributor,
+  busy,
+  patch
+}: {
+  contributor: Contributor;
+  busy: boolean;
+  patch: (body: Record<string, unknown>) => Promise<void>;
+}) {
+  const expiryDateValue = contributor.accessTokenExpiresAt
+    ? new Date(contributor.accessTokenExpiresAt).toISOString().slice(0, 10)
+    : "";
+  const lastUsed = contributor.accessTokenLastUsedAt
+    ? new Date(contributor.accessTokenLastUsedAt)
+    : null;
+  const isExpired =
+    contributor.accessTokenExpiresAt &&
+    new Date(contributor.accessTokenExpiresAt).getTime() < Date.now();
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-[10px] text-text-secondary">
+      <label className="flex items-center gap-1.5">
+        <span className="uppercase tracking-wide">Expires</span>
+        <input
+          type="date"
+          value={expiryDateValue}
+          disabled={busy}
+          onChange={(e) =>
+            void patch({ accessTokenExpiresAt: e.target.value || null })
+          }
+          className="brand-input rounded-md border px-1.5 py-0.5 text-[10px]"
+        />
+      </label>
+      {expiryDateValue ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void patch({ accessTokenExpiresAt: null })}
+          className="hover:text-white disabled:opacity-50"
+        >
+          Clear
+        </button>
+      ) : (
+        <span>Never expires</span>
+      )}
+      {isExpired ? (
+        <span className="rounded-full border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-rose-300">
+          Expired
+        </span>
+      ) : null}
+      <span className="ml-auto">
+        {lastUsed
+          ? `Last opened ${lastUsed.toLocaleDateString()}`
+          : "Never opened"}
+      </span>
+    </div>
+  );
+}
+
+function ContributorLinkRow({
+  projectId,
+  contributor,
+  onUpdated
+}: {
+  projectId: string;
+  contributor: Contributor;
+  onUpdated: (next: Contributor) => void;
+}) {
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const path = contributor.accessLinkPath;
   const absolute =
-    typeof window !== "undefined" ? `${window.location.origin}${path}` : path;
+    path && typeof window !== "undefined"
+      ? `${window.location.origin}${path}`
+      : path;
 
   async function copy() {
+    if (!absolute) return;
     try {
       await navigator.clipboard.writeText(absolute);
       setCopied(true);
@@ -286,21 +372,118 @@ function ContributorLinkRow({ path }: { path: string }) {
     }
   }
 
+  // Slice 3: champion-side regen / revoke. Goes through the dedicated
+  // PATCH /api/client/projects/:projectId/contributors/:contributorId
+  // route which whitelists only the token flags.
+  async function patch(body: Record<string, unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/client/projects/${encodeURIComponent(projectId)}/contributors/${encodeURIComponent(contributor.id)}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        }
+      );
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
+      if (data.contributor) {
+        onUpdated(data.contributor as Contributor);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!absolute) {
+    return (
+      <div className="mt-2 space-y-1.5 rounded-lg border border-white/5 bg-black/20 px-2 py-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wide text-text-secondary">
+            Private link
+          </span>
+          <span className="text-[10px] text-text-secondary">Not issued</span>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void patch({ regenerateAccessToken: true })}
+            className="ml-auto brand-primary rounded-full px-2 py-0.5 text-[10px] disabled:opacity-50"
+          >
+            Generate
+          </button>
+        </div>
+        {error ? <p className="text-[10px] text-rose-300">{error}</p> : null}
+      </div>
+    );
+  }
+
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-white/5 bg-black/20 px-2 py-1.5">
-      <span className="text-[10px] uppercase tracking-wide text-text-secondary">
-        Private link
-      </span>
-      <code className="min-w-0 flex-1 truncate text-[11px] text-white">
-        {absolute}
-      </code>
-      <button
-        type="button"
-        onClick={copy}
-        className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-white hover:border-white/30"
-      >
-        {copied ? "Copied" : "Copy"}
-      </button>
+    <div className="mt-2 space-y-1.5 rounded-lg border border-white/5 bg-black/20 px-2 py-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] uppercase tracking-wide text-text-secondary">
+          Private link
+        </span>
+        <code className="min-w-0 flex-1 truncate text-[11px] text-white">
+          {absolute}
+        </code>
+        <button
+          type="button"
+          onClick={copy}
+          className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-white hover:border-white/30"
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      {/* Slice 6 + 7: champions get the same expiry / lastUsed view
+          their delivery counterpart sees, so they can self-serve link
+          rotation without operator intervention. */}
+      <ChampionExpiryRow
+        contributor={contributor}
+        busy={busy}
+        patch={patch}
+      />
+      <div className="flex flex-wrap items-center gap-3 text-[10px]">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            if (
+              !confirm(
+                "Generate a new link? The old link will stop working immediately."
+              )
+            ) {
+              return;
+            }
+            void patch({ regenerateAccessToken: true });
+          }}
+          className="text-text-secondary hover:text-white disabled:opacity-50"
+        >
+          Regenerate
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            if (
+              !confirm(
+                "Revoke this link? The contributor will lose access immediately."
+              )
+            ) {
+              return;
+            }
+            void patch({ revokeAccessToken: true });
+          }}
+          className="text-text-secondary hover:text-rose-400 disabled:opacity-50"
+        >
+          Revoke
+        </button>
+        {error ? <span className="text-rose-300">{error}</span> : null}
+      </div>
     </div>
   );
 }

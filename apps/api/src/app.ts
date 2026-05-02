@@ -182,6 +182,9 @@ import {
   loadClientInbox,
   loadClientInboxSummary,
   loadClientPortalContributors,
+  updateClientPortalContributorToken,
+  loadContributorWorkspaceByToken,
+  saveContributorTokenResponses,
   loadClientPortalWorkbooks,
   addClientPortalContributor,
   saveClientPortalWorkbookResponses,
@@ -224,6 +227,7 @@ import {
   createProjectContributor,
   updateProjectContributor,
   deleteProjectContributor,
+  designateProjectChampion,
   computeWorkstreamHours,
   loadDiscoverySessionsPayload,
   loadDiscoverySummary,
@@ -3189,6 +3193,29 @@ export function createApiApp(config: BaseConfig) {
       }
 
       return c.json({ error: "Method Not Allowed" }, 405);
+    }
+  );
+
+  // Slice 4: operator champion designation. POST is idempotent — calling
+  // it on the existing champion is a no-op that returns the contributor.
+  app.all(
+    "/api/projects/:projectId/contributors/:contributorId/promote-champion",
+    async (c) => {
+      if (c.req.method !== "POST") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+      try {
+        const contributor = await designateProjectChampion(
+          c.req.param("projectId"),
+          c.req.param("contributorId")
+        );
+        return c.json({ contributor });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to promote";
+        const code = message === "Contributor not found" ? 404 : 400;
+        return c.json({ error: message }, code);
+      }
     }
   );
 
@@ -7496,6 +7523,37 @@ export function createApiApp(config: BaseConfig) {
     return c.json({ error: "Method Not Allowed" }, 405);
   });
 
+  // Slice 3: champion-side contributor sub-route (PATCH only) for
+  // regenerating / revoking access tokens from the client portal. No
+  // operator-side fields (role, approval, assignments) are accepted
+  // here — see updateClientPortalContributorToken for the whitelist.
+  app.all(
+    "/api/client/projects/:projectId/contributors/:contributorId",
+    async (c) => {
+      if (c.req.method !== "PATCH" && c.req.method !== "PUT") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const contributor = await updateClientPortalContributorToken(
+          c.req.param("projectId"),
+          c.get("clientUserId"),
+          c.req.param("contributorId"),
+          body
+        );
+        return c.json({ contributor });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to update";
+        const code =
+          message === "Project not found" || message === "Contributor not found"
+            ? 404
+            : 400;
+        return c.json({ error: message }, code);
+      }
+    }
+  );
+
   app.all("/api/client/projects/:projectId/workbooks", async (c) => {
     if (c.req.method !== "GET") {
       return c.json({ error: "Method Not Allowed" }, 405);
@@ -7536,6 +7594,65 @@ export function createApiApp(config: BaseConfig) {
           message === "Project not found" || message === "Workbook not found"
             ? 404
             : 400;
+        return c.json({ error: message }, code);
+      }
+    }
+  );
+
+  // Slice 5: contributor token-bearer routes. Intentionally NOT mounted
+  // under any auth middleware — the URL token IS the credential. The
+  // server-side resolver (resolveContributorByToken) enforces validity,
+  // approval status, and expiry. Mounted under /api/contributors/access
+  // so it doesn't collide with the operator /api/projects/*/contributors
+  // surface and so the bare /api/contributors prefix stays free for
+  // future use without retroactively breaking auth.
+  app.all("/api/contributors/access/:token", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+    try {
+      const data = await loadContributorWorkspaceByToken(c.req.param("token"));
+      return c.json(data);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load";
+      const code =
+        message === "Invalid access token" ||
+        message === "This access link has expired" ||
+        message === "This access link is not yet approved"
+          ? 401
+          : 400;
+      return c.json({ error: message }, code);
+    }
+  });
+
+  app.all(
+    "/api/contributors/access/:token/workbooks/:workbookId/responses",
+    async (c) => {
+      if (c.req.method !== "PATCH" && c.req.method !== "PUT") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const result = await saveContributorTokenResponses(
+          c.req.param("token"),
+          c.req.param("workbookId"),
+          body
+        );
+        return c.json(result);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed";
+        const code =
+          message === "Invalid access token" ||
+          message === "This access link has expired" ||
+          message === "This access link is not yet approved" ||
+          message === "This access link cannot submit responses" ||
+          message === "You are not assigned to this workbook"
+            ? 401
+            : message === "Workbook not found"
+              ? 404
+              : 400;
         return c.json({ error: message }, code);
       }
     }
