@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface TemplateMeta {
   id: string;
@@ -90,12 +91,27 @@ export default function ReportPackInstaller({
   const [hubFilter, setHubFilter] = useState<string>("all");
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const router = useRouter();
+
+  // Mirror the parent /reports page's session-expiry handling: a 401 from
+  // any installer fetch means the operator's cookie has expired, so route
+  // them to /login rather than surfacing a raw "HTTP 401" error banner.
+  // Returns true when the response was a 401 and the redirect was issued
+  // (callers should bail out without further processing).
+  function handleSessionExpiry(res: Response): boolean {
+    if (res.status === 401) {
+      router.replace("/login");
+      return true;
+    }
+    return false;
+  }
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/report-pack`);
+      if (handleSessionExpiry(res)) return;
       if (!res.ok) {
         const body = await res.json().catch(() => ({}) as { error?: string });
         throw new Error(body?.error ?? `HTTP ${res.status}`);
@@ -178,6 +194,7 @@ export default function ReportPackInstaller({
           body: JSON.stringify({ templateSlugs: Array.from(selected) })
         }
       );
+      if (handleSessionExpiry(res)) return;
       if (!res.ok) {
         const body = await res.json().catch(() => ({}) as { error?: string });
         throw new Error(body?.error ?? `HTTP ${res.status}`);
@@ -222,6 +239,7 @@ export default function ReportPackInstaller({
           body: JSON.stringify({ requestingProjectId: projectId })
         }
       );
+      if (handleSessionExpiry(res)) return;
       if (!res.ok) {
         const body = await res.json().catch(() => ({}) as { error?: string });
         throw new Error(body?.error ?? `HTTP ${res.status}`);
