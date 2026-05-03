@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import ReportPackInstaller from "../components/ReportPackInstaller";
@@ -12,6 +13,7 @@ interface ProjectSummary {
 }
 
 export default function ReportsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -21,7 +23,14 @@ export default function ReportsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/projects");
+        const res = await fetch("/api/projects", { credentials: "include" });
+        // Match the rest of the workspace — when the session has expired
+        // the operator should land on /login, not see a raw "HTTP 401"
+        // error string.
+        if (res.status === 401) {
+          if (!cancelled) router.replace("/login");
+          return;
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = (await res.json()) as
           | { projects?: ProjectSummary[] }

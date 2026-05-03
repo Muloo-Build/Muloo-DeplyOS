@@ -30468,13 +30468,8 @@ Example format:
     const extractedFields = normalizeDiscoveryFields(
       JSON.parse(extractJsonBlock(rawText)) as unknown
     );
-    console.log(
-      "[discovery/extract] Parsed fields:",
-      JSON.stringify(extractedFields)
-    );
     return { fields: extractedFields };
   } catch {
-    console.log("[discovery/extract] Parsed fields:", JSON.stringify({}));
     return { fields: {} };
   }
 }

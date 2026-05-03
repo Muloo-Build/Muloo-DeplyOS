@@ -177,7 +177,30 @@ export async function runReportInstall(data: JobPayload): Promise<JobResult> {
   });
   const config: TemplateConfig = { portalId: externalPortalId };
 
+  // Note on auth path: HubSpot does not expose a public REST endpoint for
+  // creating Reports. The internal /api/reports/v2 endpoints require a
+  // browser-session CSRF token, which is captured by the portal-session
+  // surface (POST /api/portal-session) and stored on PortalSession. There
+  // is no private-app-token alternative to swap in here today; if HubSpot
+  // ever ships a public Reports-create API, fork the path here.
+
   try {
+    // Re-install hardening — if this row already has a `hubspotReportId`
+    // from a prior successful install, delete the old report first so the
+    // re-run replaces rather than duplicates. We do not abort the install
+    // if the delete fails: the prior report may have been removed in the
+    // portal already, and the row's `lastInstalledAt`/`hubspotReportId`
+    // will be overwritten by the create below regardless.
+    if (installation.hubspotReportId) {
+      const priorReportId = installation.hubspotReportId;
+      const deleteResult = await executor.deleteReport(priorReportId);
+      if (!deleteResult.success) {
+        console.warn(
+          `[report_install] failed to delete prior report ${priorReportId} for installation ${installation.id}: ${deleteResult.error ?? "unknown"}. Proceeding with fresh create — operator may need to clean up manually.`,
+        );
+      }
+    }
+
     const reportDef = template.build(config);
     const createResult = await executor.createReport(reportDef);
     if (!createResult.success) {

@@ -230,6 +230,48 @@ export class BrowserSessionExecutor {
   }
 
   /**
+   * Delete a report by HubSpot report id. Used by re-install / cleanup
+   * paths so that re-running an installation does not orphan duplicates
+   * in the portal — callers should always delete the prior `hubspotReportId`
+   * before issuing a fresh `createReport`.
+   */
+  async deleteReport(reportId: string): Promise<ExecutionResult> {
+    try {
+      const url = `${this.apiBaseUrl}/api/reports/v2/reports/${encodeURIComponent(reportId)}?${this.buildPortalParam()}`;
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: this.headers
+      });
+
+      // 404 is treated as success — the report is already gone, which is
+      // exactly the post-condition the caller wanted.
+      if (!response.ok && response.status !== 404) {
+        const body = await response.text();
+        return {
+          success: false,
+          action: 'delete_report',
+          error: `Failed with status ${response.status}: ${body}`,
+          tier: 'browser_session'
+        };
+      }
+
+      return {
+        success: true,
+        action: 'delete_report',
+        data: { reportId, alreadyGone: response.status === 404 },
+        tier: 'browser_session'
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        action: 'delete_report',
+        error: err?.message || 'Unknown error',
+        tier: 'browser_session'
+      };
+    }
+  }
+
+  /**
    * Create a dashboard
    */
   async createDashboard(

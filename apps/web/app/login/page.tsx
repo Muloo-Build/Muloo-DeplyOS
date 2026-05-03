@@ -77,6 +77,9 @@ export default function LoginPage() {
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               placeholder="Your workspace email or username"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
               className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
             />
           </label>
@@ -89,6 +92,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
               className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
             />
           </label>
