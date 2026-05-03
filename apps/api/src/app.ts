@@ -226,6 +226,19 @@ import {
   createProjectMeetingNote,
   updateProjectMeetingNote,
   deleteProjectMeetingNote,
+  loadProjectTimeEntries,
+  createProjectTimeEntry,
+  deleteProjectTimeEntry,
+  loadProjectRisks,
+  createProjectRisk,
+  updateProjectRisk,
+  deleteProjectRisk,
+  extractMeetingIntelligence,
+  generateProjectCopilot,
+  generateWeeklyStatusDraft,
+  loadProjectHealthScore,
+  loadProjectHealthSummaryBatch,
+  loadCapacityFeed,
   createDiscoveryQuestionLibraryItem,
   updateDiscoveryQuestionLibraryItem,
   deleteDiscoveryQuestionLibraryItem,
@@ -2847,6 +2860,190 @@ export function createApiApp(config: BaseConfig) {
       return c.json({ error: "Method not allowed" }, 405);
     }
   );
+
+  // Delivery Ops Pack — TimeEntry CRUD
+  app.all("/api/projects/:projectId/time-entries", async (c) => {
+    const projectId = c.req.param("projectId");
+    if (c.req.method === "GET") {
+      try {
+        return c.json(await loadProjectTimeEntries(projectId));
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed";
+        return c.json({ error: message }, message === "Project not found" ? 404 : 400);
+      }
+    }
+    if (c.req.method === "POST") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const entry = await createProjectTimeEntry(projectId, body);
+        return c.json({ entry }, 201);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed";
+        return c.json({ error: message }, message === "Project not found" ? 404 : 400);
+      }
+    }
+    return c.json({ error: "Method not allowed" }, 405);
+  });
+
+  app.all("/api/projects/:projectId/time-entries/:entryId", async (c) => {
+    if (c.req.method !== "DELETE") {
+      return c.json({ error: "Method not allowed" }, 405);
+    }
+    try {
+      await deleteProjectTimeEntry(
+        c.req.param("projectId"),
+        c.req.param("entryId")
+      );
+      return c.json({ success: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed";
+      return c.json({ error: message }, message === "Time entry not found" ? 404 : 400);
+    }
+  });
+
+  // Delivery Ops Pack — RAID (risks/issues/decisions/assumptions)
+  app.all("/api/projects/:projectId/risks", async (c) => {
+    const projectId = c.req.param("projectId");
+    if (c.req.method === "GET") {
+      try {
+        return c.json({ risks: await loadProjectRisks(projectId) });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed";
+        return c.json({ error: message }, message === "Project not found" ? 404 : 400);
+      }
+    }
+    if (c.req.method === "POST") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const risk = await createProjectRisk(projectId, body);
+        return c.json({ risk }, 201);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed";
+        return c.json({ error: message }, message === "Project not found" ? 404 : 400);
+      }
+    }
+    return c.json({ error: "Method not allowed" }, 405);
+  });
+
+  app.all("/api/projects/:projectId/risks/:riskId", async (c) => {
+    const projectId = c.req.param("projectId");
+    const riskId = c.req.param("riskId");
+    if (c.req.method === "PATCH" || c.req.method === "PUT") {
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const risk = await updateProjectRisk(projectId, riskId, body);
+        return c.json({ risk });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed";
+        return c.json({ error: message }, message === "Risk not found" ? 404 : 400);
+      }
+    }
+    if (c.req.method === "DELETE") {
+      try {
+        await deleteProjectRisk(projectId, riskId);
+        return c.json({ success: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed";
+        return c.json({ error: message }, message === "Risk not found" ? 404 : 400);
+      }
+    }
+    return c.json({ error: "Method not allowed" }, 405);
+  });
+
+  // Delivery Ops Pack — meeting intelligence extract
+  app.all(
+    "/api/projects/:projectId/meeting-notes/:noteId/extract",
+    async (c) => {
+      if (c.req.method !== "POST") {
+        return c.json({ error: "Method not allowed" }, 405);
+      }
+      try {
+        const result = await extractMeetingIntelligence(
+          c.req.param("projectId"),
+          c.req.param("noteId")
+        );
+        return c.json(result);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed";
+        return c.json({ error: message }, 400);
+      }
+    }
+  );
+
+  // Delivery Ops Pack — Project Copilot + weekly status
+  app.all("/api/projects/:projectId/copilot", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method not allowed" }, 405);
+    }
+    try {
+      const url = new URL(c.req.url);
+      const intentParam = url.searchParams.get("intent");
+      const intent: "summary" | "today" | "risks" =
+        intentParam === "today" || intentParam === "risks" ? intentParam : "summary";
+      const result = await generateProjectCopilot(c.req.param("projectId"), intent);
+      return c.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed";
+      return c.json({ error: message }, message === "Project not found" ? 404 : 400);
+    }
+  });
+
+  app.all("/api/projects/:projectId/weekly-status", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method not allowed" }, 405);
+    }
+    try {
+      const result = await generateWeeklyStatusDraft(c.req.param("projectId"));
+      return c.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed";
+      return c.json({ error: message }, message === "Project not found" ? 404 : 400);
+    }
+  });
+
+  // Delivery Ops Pack — health score (single + batch)
+  app.all("/api/projects/:projectId/health", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method not allowed" }, 405);
+    }
+    try {
+      return c.json({ health: await loadProjectHealthScore(c.req.param("projectId")) });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed";
+      return c.json({ error: message }, message === "Project not found" ? 404 : 400);
+    }
+  });
+
+  app.all("/api/projects/health-batch", async (c) => {
+    if (c.req.method !== "POST") {
+      return c.json({ error: "Method not allowed" }, 405);
+    }
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as { projectIds?: unknown };
+      const ids = Array.isArray(body.projectIds)
+        ? body.projectIds.filter((v): v is string => typeof v === "string").slice(0, 200)
+        : [];
+      return c.json({ health: await loadProjectHealthSummaryBatch(ids) });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed";
+      return c.json({ error: message }, 400);
+    }
+  });
+
+  // Delivery Ops Pack — Capacity feed
+  app.all("/api/capacity", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method not allowed" }, 405);
+    }
+    try {
+      return c.json(await loadCapacityFeed());
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed";
+      return c.json({ error: message }, 400);
+    }
+  });
 
   app.all("/api/discovery-question-library", async (c) => {
     if (c.req.method === "GET") {

@@ -1,8 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarPlus, Trash2 } from "lucide-react";
+import { CalendarPlus, Sparkles, Trash2 } from "lucide-react";
 import AddMeetingNoteModal from "./AddMeetingNoteModal";
+
+type ExtractedAction = { title?: string; owner?: string; dueDate?: string };
+type ExtractedDecision = { title?: string; context?: string };
+type ExtractedRisk = { title?: string; severity?: string; description?: string };
 
 type MeetingNote = {
   id: string;
@@ -17,6 +21,10 @@ type MeetingNote = {
   createdBy: string | null;
   createdAt: string;
   updatedAt: string;
+  extractedActions?: ExtractedAction[] | null;
+  extractedDecisions?: ExtractedDecision[] | null;
+  extractedRisks?: ExtractedRisk[] | null;
+  extractedAt?: string | null;
 };
 
 type WorkstreamOption = { id: string; name: string };
@@ -68,6 +76,27 @@ export default function ProjectMeetingsPanel({
   useEffect(() => {
     void load();
   }, [load]);
+
+  const [extractingId, setExtractingId] = useState<string | null>(null);
+  const [extractError, setExtractError] = useState<string | null>(null);
+
+  async function extract(noteId: string) {
+    setExtractingId(noteId);
+    setExtractError(null);
+    try {
+      const r = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/meeting-notes/${encodeURIComponent(noteId)}/extract`,
+        { method: "POST", credentials: "include" }
+      );
+      const body = await r.json();
+      if (!r.ok) throw new Error(body?.error ?? "Extract failed");
+      await load();
+    } catch (e) {
+      setExtractError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setExtractingId(null);
+    }
+  }
 
   async function deleteNote(noteId: string) {
     if (!confirm("Delete this meeting note?")) return;
@@ -172,10 +201,74 @@ export default function ProjectMeetingsPanel({
                   ))}
                 </div>
               ) : null}
-              <p className="mt-2 text-[11px] uppercase tracking-wide text-text-secondary/70">
-                Extraction → tasks · questions · follow-ups · resources (coming
-                soon)
-              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void extract(note.id)}
+                  disabled={extractingId === note.id}
+                  className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-white hover:bg-white/10 disabled:opacity-60"
+                >
+                  <Sparkles size={12} className="text-amber-300" />
+                  {extractingId === note.id
+                    ? "Extracting…"
+                    : note.extractedAt
+                      ? "Re-extract"
+                      : "Extract actions / decisions / risks"}
+                </button>
+                {note.extractedAt ? (
+                  <span className="text-[11px] text-text-secondary">
+                    Last extracted{" "}
+                    {new Date(note.extractedAt).toLocaleString()}
+                  </span>
+                ) : null}
+              </div>
+              {extractError && extractingId === null ? (
+                <p className="mt-2 text-[11px] text-status-error">{extractError}</p>
+              ) : null}
+              {(note.extractedActions?.length ?? 0) +
+                (note.extractedDecisions?.length ?? 0) +
+                (note.extractedRisks?.length ?? 0) >
+              0 ? (
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-xl border border-white/10 bg-background-elevated p-3">
+                    <p className="text-[10px] uppercase tracking-wide text-text-secondary">
+                      Actions ({note.extractedActions?.length ?? 0})
+                    </p>
+                    <ul className="mt-1 space-y-1 text-xs text-white">
+                      {(note.extractedActions ?? []).map((a, i) => (
+                        <li key={i}>
+                          • {a.title}
+                          {a.owner ? ` — ${a.owner}` : ""}
+                          {a.dueDate ? ` (${a.dueDate})` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-background-elevated p-3">
+                    <p className="text-[10px] uppercase tracking-wide text-text-secondary">
+                      Decisions ({note.extractedDecisions?.length ?? 0})
+                    </p>
+                    <ul className="mt-1 space-y-1 text-xs text-white">
+                      {(note.extractedDecisions ?? []).map((d, i) => (
+                        <li key={i}>• {d.title}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-background-elevated p-3">
+                    <p className="text-[10px] uppercase tracking-wide text-text-secondary">
+                      Risks ({note.extractedRisks?.length ?? 0})
+                    </p>
+                    <ul className="mt-1 space-y-1 text-xs text-white">
+                      {(note.extractedRisks ?? []).map((r, i) => (
+                        <li key={i}>
+                          • {r.title}
+                          {r.severity ? ` [${r.severity}]` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

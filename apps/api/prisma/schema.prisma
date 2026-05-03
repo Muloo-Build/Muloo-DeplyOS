@@ -350,6 +350,8 @@ model Project {
   workflowRuns                  WorkflowRun[]
   reportInstallations           ReportInstallation[]
   workbookPublicSubmissions     WorkbookPublicSubmission[]
+  timeEntries                   TimeEntry[]
+  risks                         ProjectRisk[]
 
   @@index([retainerId])
   @@index([bornFromProjectId])
@@ -694,11 +696,56 @@ model ProjectMeetingNote {
   relatedWorkstreamId String?
   relatedWorkbookId   String?
   createdBy           String?
+  extractedActions    Json?
+  extractedDecisions  Json?
+  extractedRisks      Json?
+  extractedAt         DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, meetingDate])
+}
+
+model TimeEntry {
+  id         String   @id @default(cuid())
+  projectId  String
+  taskId     String?
+  userEmail  String
+  userName   String?
+  hours      Float
+  occurredOn DateTime @db.Date
+  notes      String?
+  billable   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task       Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, occurredOn])
+  @@index([userEmail, occurredOn])
+  @@index([taskId])
+}
+
+model ProjectRisk {
+  id          String    @id @default(cuid())
+  projectId   String
+  kind        String    @default("risk")
+  title       String
+  description String?
+  severity    String    @default("medium")
+  status      String    @default("open")
+  owner       String?
+  dueDate     DateTime?
+  mitigation  String?
+  resolvedAt  DateTime?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@index([projectId, kind])
 }
 
 model DiscoveryQuestionLibraryItem {
@@ -973,6 +1020,7 @@ model Task {
   changeRequest          WorkRequest?          @relation(fields: [changeRequestId], references: [id])
   project                Project               @relation(fields: [projectId], references: [id])
   approvals              TaskApproval[]
+  timeEntries            TimeEntry[]
 }
 
 model Retainer {

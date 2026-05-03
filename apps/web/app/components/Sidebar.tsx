@@ -132,6 +132,13 @@ const navGroups: NavGroup[] = [
         icon: <LineChart size={18} />,
         isActive: (pathname) =>
           pathname === "/financials" || pathname.startsWith("/financials/")
+      },
+      {
+        href: "/capacity",
+        label: "Capacity",
+        icon: <LineChart size={18} />,
+        isActive: (pathname) =>
+          pathname === "/capacity" || pathname.startsWith("/capacity/")
       }
     ]
   },

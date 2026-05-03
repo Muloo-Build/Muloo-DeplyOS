@@ -31,6 +31,9 @@ import UnifiedProjectResourcesPanel from "./project/panels/UnifiedProjectResourc
 import ProjectHubSpotAccessPanel from "./project/panels/ProjectHubSpotAccessPanel";
 import ProjectWorkbookSharingSummary from "./project/panels/ProjectWorkbookSharingSummary";
 import ProjectMeetingsPanel from "./project/panels/ProjectMeetingsPanel";
+import ProjectTimeLogPanel from "./project/panels/ProjectTimeLogPanel";
+import ProjectRaidPanel from "./project/panels/ProjectRaidPanel";
+import ProjectCopilotPanel from "./project/panels/ProjectCopilotPanel";
 import Breadcrumb from "./project/Breadcrumb";
 
 interface Project {
@@ -1138,6 +1141,21 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     switch (activeTab) {
       case "overview":
         return (
+          <>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <section className="brand-surface rounded-3xl border p-6">
+              <h3 className="text-lg font-semibold text-white">Project copilot</h3>
+              <div className="mt-4">
+                <ProjectCopilotPanel projectId={project.id} />
+              </div>
+            </section>
+            <section className="brand-surface rounded-3xl border p-6">
+              <h3 className="text-lg font-semibold text-white">RAID log</h3>
+              <div className="mt-4">
+                <ProjectRaidPanel projectId={project.id} />
+              </div>
+            </section>
+          </div>
           <OverviewTab
             projectId={project.id}
             readinessSummary={
@@ -1636,9 +1654,11 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               </div>
             }
           />
+          </>
         );
       case "plan":
         return (
+          <>
           <PlanTab
             workstreamsHoursPanel={
               <ProjectWorkstreamsHoursPanel projectId={project.id} />
@@ -1749,6 +1769,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               </div>
             }
           />
+          <section className="brand-surface rounded-3xl border p-6">
+            <h3 className="text-lg font-semibold text-white">Time logged</h3>
+            <div className="mt-4">
+              <ProjectTimeLogPanel
+                projectId={project.id}
+                tasks={flattenedTaskCards.map((t) => ({ id: t.id, title: t.title }))}
+              />
+            </div>
+          </section>
+          </>
         );
       case "change":
         return (

@@ -33759,3 +33759,736 @@ export async function retryReportInstallation(
   });
   return enqueueReportInstall(install.id, projectId);
 }
+
+// ============================================================================
+// Delivery Ops Pack — TimeEntry, ProjectRisk (RAID), Meeting Intelligence,
+// Project Copilot, Weekly Status, Health Score, Capacity feed
+// ============================================================================
+
+const RISK_KINDS = new Set(["risk", "issue", "decision", "assumption"]);
+const RISK_STATUSES = new Set(["open", "monitoring", "mitigated", "closed"]);
+const RISK_SEVERITIES = new Set(["low", "medium", "high", "critical"]);
+
+function serializeTimeEntry(entry: {
+  id: string;
+  projectId: string;
+  taskId: string | null;
+  userEmail: string;
+  userName: string | null;
+  hours: number;
+  occurredOn: Date;
+  notes: string | null;
+  billable: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: entry.id,
+    projectId: entry.projectId,
+    taskId: entry.taskId,
+    userEmail: entry.userEmail,
+    userName: entry.userName,
+    hours: entry.hours,
+    occurredOn: entry.occurredOn.toISOString().slice(0, 10),
+    notes: entry.notes,
+    billable: entry.billable,
+    createdAt: entry.createdAt.toISOString(),
+    updatedAt: entry.updatedAt.toISOString()
+  };
+}
+
+export async function loadProjectTimeEntries(projectId: string) {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) throw new Error("Project not found");
+  const since = new Date();
+  since.setDate(since.getDate() - 60);
+  const entries = await prisma.timeEntry.findMany({
+    where: { projectId, occurredOn: { gte: since } },
+    orderBy: [{ occurredOn: "desc" }, { createdAt: "desc" }],
+    take: 250
+  });
+  const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
+  const byUser = new Map<string, { userEmail: string; userName: string | null; hours: number }>();
+  for (const e of entries) {
+    const k = e.userEmail.toLowerCase();
+    const cur = byUser.get(k) ?? { userEmail: e.userEmail, userName: e.userName, hours: 0 };
+    cur.hours += e.hours;
+    byUser.set(k, cur);
+  }
+  return {
+    entries: entries.map(serializeTimeEntry),
+    totals: {
+      totalHours,
+      entryCount: entries.length,
+      byUser: Array.from(byUser.values()).sort((a, b) => b.hours - a.hours)
+    }
+  };
+}
+
+export async function createProjectTimeEntry(
+  projectId: string,
+  body: Record<string, unknown>
+) {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) throw new Error("Project not found");
+  const hours = Number(body.hours);
+  if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
+    throw new Error("hours must be between 0 and 24");
+  }
+  const userEmail = typeof body.userEmail === "string" ? body.userEmail.trim() : "";
+  if (!userEmail || !userEmail.includes("@")) throw new Error("userEmail required");
+  const occurredOnStr = typeof body.occurredOn === "string" ? body.occurredOn : "";
+  const occurredOn = occurredOnStr ? new Date(occurredOnStr) : new Date();
+  if (Number.isNaN(occurredOn.getTime())) throw new Error("occurredOn invalid");
+  const taskId = typeof body.taskId === "string" && body.taskId.trim() ? body.taskId.trim() : null;
+  if (taskId) {
+    const task = await prisma.task.findFirst({ where: { id: taskId, projectId } });
+    if (!task) throw new Error("Task not on this project");
+  }
+  const entry = await prisma.timeEntry.create({
+    data: {
+      projectId,
+      taskId,
+      userEmail,
+      userName: typeof body.userName === "string" ? body.userName.trim() || null : null,
+      hours,
+      occurredOn,
+      notes: typeof body.notes === "string" ? body.notes.trim() || null : null,
+      billable: body.billable === false ? false : true
+    }
+  });
+  if (taskId) {
+    const total = await prisma.timeEntry.aggregate({
+      where: { taskId },
+      _sum: { hours: true }
+    });
+    await prisma.task.update({
+      where: { id: taskId },
+      data: { actualHours: total._sum.hours ?? 0 }
+    });
+  }
+  return serializeTimeEntry(entry);
+}
+
+export async function deleteProjectTimeEntry(projectId: string, entryId: string) {
+  const existing = await prisma.timeEntry.findFirst({
+    where: { id: entryId, projectId }
+  });
+  if (!existing) throw new Error("Time entry not found");
+  await prisma.timeEntry.delete({ where: { id: entryId } });
+  if (existing.taskId) {
+    const total = await prisma.timeEntry.aggregate({
+      where: { taskId: existing.taskId },
+      _sum: { hours: true }
+    });
+    await prisma.task.update({
+      where: { id: existing.taskId },
+      data: { actualHours: total._sum.hours ?? 0 }
+    });
+  }
+  return { ok: true };
+}
+
+// ---------- ProjectRisk (RAID) ----------
+
+function serializeRisk(r: {
+  id: string; projectId: string; kind: string; title: string; description: string | null;
+  severity: string; status: string; owner: string | null; dueDate: Date | null;
+  mitigation: string | null; resolvedAt: Date | null; createdBy: string | null;
+  createdAt: Date; updatedAt: Date;
+}) {
+  return {
+    id: r.id,
+    projectId: r.projectId,
+    kind: r.kind,
+    title: r.title,
+    description: r.description,
+    severity: r.severity,
+    status: r.status,
+    owner: r.owner,
+    dueDate: r.dueDate?.toISOString() ?? null,
+    mitigation: r.mitigation,
+    resolvedAt: r.resolvedAt?.toISOString() ?? null,
+    createdBy: r.createdBy,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString()
+  };
+}
+
+export async function loadProjectRisks(projectId: string) {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) throw new Error("Project not found");
+  const risks = await prisma.projectRisk.findMany({
+    where: { projectId },
+    orderBy: [{ status: "asc" }, { severity: "desc" }, { createdAt: "desc" }]
+  });
+  return risks.map(serializeRisk);
+}
+
+export async function createProjectRisk(
+  projectId: string,
+  body: Record<string, unknown>
+) {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) throw new Error("Project not found");
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  if (!title) throw new Error("title required");
+  const kind = typeof body.kind === "string" && RISK_KINDS.has(body.kind) ? body.kind : "risk";
+  const severity = typeof body.severity === "string" && RISK_SEVERITIES.has(body.severity)
+    ? body.severity
+    : "medium";
+  const status = typeof body.status === "string" && RISK_STATUSES.has(body.status)
+    ? body.status
+    : "open";
+  const dueDate = typeof body.dueDate === "string" && body.dueDate
+    ? new Date(body.dueDate)
+    : null;
+  if (dueDate && Number.isNaN(dueDate.getTime())) throw new Error("dueDate invalid");
+  const created = await prisma.projectRisk.create({
+    data: {
+      projectId,
+      kind,
+      title: title.slice(0, 240),
+      description: typeof body.description === "string" ? body.description.trim() || null : null,
+      severity,
+      status,
+      owner: typeof body.owner === "string" ? body.owner.trim() || null : null,
+      dueDate,
+      mitigation: typeof body.mitigation === "string" ? body.mitigation.trim() || null : null,
+      createdBy: typeof body.createdBy === "string" ? body.createdBy.trim() || null : null
+    }
+  });
+  return serializeRisk(created);
+}
+
+export async function updateProjectRisk(
+  projectId: string,
+  riskId: string,
+  body: Record<string, unknown>
+) {
+  const existing = await prisma.projectRisk.findFirst({
+    where: { id: riskId, projectId }
+  });
+  if (!existing) throw new Error("Risk not found");
+  const data: Record<string, unknown> = {};
+  if (typeof body.title === "string") data.title = body.title.trim().slice(0, 240);
+  if (typeof body.description === "string") data.description = body.description.trim() || null;
+  if (typeof body.kind === "string" && RISK_KINDS.has(body.kind)) data.kind = body.kind;
+  if (typeof body.severity === "string" && RISK_SEVERITIES.has(body.severity))
+    data.severity = body.severity;
+  if (typeof body.status === "string" && RISK_STATUSES.has(body.status)) {
+    data.status = body.status;
+    data.resolvedAt = body.status === "closed" || body.status === "mitigated" ? new Date() : null;
+  }
+  if (typeof body.owner === "string") data.owner = body.owner.trim() || null;
+  if (typeof body.mitigation === "string") data.mitigation = body.mitigation.trim() || null;
+  if (typeof body.dueDate === "string") {
+    if (body.dueDate.trim() === "") data.dueDate = null;
+    else {
+      const d = new Date(body.dueDate);
+      if (Number.isNaN(d.getTime())) throw new Error("dueDate invalid");
+      data.dueDate = d;
+    }
+  }
+  const updated = await prisma.projectRisk.update({ where: { id: riskId }, data });
+  return serializeRisk(updated);
+}
+
+export async function deleteProjectRisk(projectId: string, riskId: string) {
+  const existing = await prisma.projectRisk.findFirst({
+    where: { id: riskId, projectId }
+  });
+  if (!existing) throw new Error("Risk not found");
+  await prisma.projectRisk.delete({ where: { id: riskId } });
+  return { ok: true };
+}
+
+// ---------- Meeting intelligence ----------
+
+async function callAnthropicJson(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens = 1500
+): Promise<unknown> {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }]
+    })
+  });
+  const body = (await response.json().catch(() => null)) as {
+    content?: Array<{ text?: string }>;
+    error?: { message?: string };
+  } | null;
+  if (!response.ok) {
+    throw new Error(body?.error?.message ?? `Anthropic ${response.status}`);
+  }
+  const text = body?.content?.[0]?.text?.trim() ?? "";
+  const stripped = text.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+  try {
+    return JSON.parse(stripped);
+  } catch {
+    const match = stripped.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+    throw new Error("Anthropic response was not valid JSON");
+  }
+}
+
+async function callAnthropicText(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens = 1200
+): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }]
+    })
+  });
+  const body = (await response.json().catch(() => null)) as {
+    content?: Array<{ text?: string }>;
+    error?: { message?: string };
+  } | null;
+  if (!response.ok) {
+    throw new Error(body?.error?.message ?? `Anthropic ${response.status}`);
+  }
+  return body?.content?.[0]?.text?.trim() ?? "";
+}
+
+export async function extractMeetingIntelligence(
+  projectId: string,
+  meetingId: string
+) {
+  const note = await prisma.projectMeetingNote.findFirst({
+    where: { id: meetingId, projectId }
+  });
+  if (!note) throw new Error("Meeting not found");
+  const source = note.transcript?.trim() || note.notes?.trim() || "";
+  if (source.length < 30) {
+    throw new Error("Need at least 30 characters of transcript or notes to extract");
+  }
+  const systemPrompt = `You extract structured outcomes from a delivery / consulting meeting.
+Return ONLY valid JSON of shape:
+{
+  "actions": [{"title": "...", "owner": "...", "dueDate": "YYYY-MM-DD or empty"}],
+  "decisions": [{"title": "...", "context": "..."}],
+  "risks": [{"title": "...", "severity": "low|medium|high", "description": "..."}]
+}
+Be concise. Skip fluff. Empty arrays are fine.`;
+  const result = (await callAnthropicJson(
+    systemPrompt,
+    `Meeting title: ${note.title}\n\nTranscript / notes:\n${source.slice(0, 12000)}`
+  )) as {
+    actions?: Array<{ title?: string; owner?: string; dueDate?: string }>;
+    decisions?: Array<{ title?: string; context?: string }>;
+    risks?: Array<{ title?: string; severity?: string; description?: string }>;
+  };
+
+  const actions = (result.actions ?? []).filter((a) => a.title?.trim()).slice(0, 30);
+  const decisions = (result.decisions ?? []).filter((d) => d.title?.trim()).slice(0, 30);
+  const risks = (result.risks ?? []).filter((r) => r.title?.trim()).slice(0, 30);
+
+  await prisma.projectMeetingNote.update({
+    where: { id: meetingId },
+    data: {
+      extractedActions: actions as unknown as object,
+      extractedDecisions: decisions as unknown as object,
+      extractedRisks: risks as unknown as object,
+      extractedAt: new Date()
+    }
+  });
+
+  for (const r of risks) {
+    if (!r.title) continue;
+    const sev = r.severity && RISK_SEVERITIES.has(r.severity) ? r.severity : "medium";
+    await prisma.projectRisk.create({
+      data: {
+        projectId,
+        kind: "risk",
+        title: r.title.slice(0, 240),
+        description: (r.description ?? "").slice(0, 2000) || null,
+        severity: sev,
+        status: "open",
+        createdBy: `meeting:${meetingId}`
+      }
+    });
+  }
+  for (const d of decisions) {
+    if (!d.title) continue;
+    await prisma.projectRisk.create({
+      data: {
+        projectId,
+        kind: "decision",
+        title: d.title.slice(0, 240),
+        description: (d.context ?? "").slice(0, 2000) || null,
+        severity: "low",
+        status: "closed",
+        resolvedAt: new Date(),
+        createdBy: `meeting:${meetingId}`
+      }
+    });
+  }
+  let tasksCreated = 0;
+  for (const a of actions) {
+    if (!a.title) continue;
+    const due = a.dueDate ? new Date(a.dueDate) : null;
+    await prisma.task.create({
+      data: {
+        projectId,
+        title: a.title.slice(0, 240),
+        description: a.owner ? `Owner: ${a.owner}` : null,
+        priority: "medium",
+        status: "draft",
+        executionType: "manual",
+        taskOrigin: "meeting",
+        ...(due && !Number.isNaN(due.getTime())
+          ? { executionPayload: { dueDate: due.toISOString() } as object }
+          : {})
+      }
+    });
+    tasksCreated++;
+  }
+
+  return {
+    actions,
+    decisions,
+    risks,
+    tasksCreated,
+    risksCreated: risks.length,
+    decisionsLogged: decisions.length
+  };
+}
+
+// ---------- Project Copilot + Status Draft ----------
+
+async function loadProjectCopilotContext(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: { client: true }
+  });
+  if (!project) throw new Error("Project not found");
+
+  const [tasks, risks, recentMessages, recentMeetings, workbookEvidence, timeAgg] =
+    await Promise.all([
+      prisma.task.findMany({
+        where: { projectId },
+        orderBy: { updatedAt: "desc" },
+        take: 60
+      }),
+      prisma.projectRisk.findMany({
+        where: { projectId, status: { in: ["open", "monitoring"] } },
+        orderBy: { severity: "desc" },
+        take: 30
+      }),
+      prisma.projectMessage.findMany({
+        where: { projectId },
+        orderBy: { createdAt: "desc" },
+        take: 15
+      }),
+      prisma.projectMeetingNote.findMany({
+        where: { projectId },
+        orderBy: { meetingDate: "desc" },
+        take: 5
+      }),
+      prisma.discoveryEvidence.findMany({
+        where: { projectId, isArchived: false },
+        select: { id: true, sourceLabel: true, kind: true, status: true, resourceType: true }
+      }),
+      prisma.timeEntry.aggregate({
+        where: { projectId },
+        _sum: { hours: true },
+        _count: true
+      })
+    ]);
+
+  const overdueTasks = tasks.filter(
+    (t) => t.status !== "complete" && t.status !== "completed" && t.status !== "archived"
+  );
+  const completedTasks = tasks.filter(
+    (t) => t.status === "complete" || t.status === "completed"
+  );
+
+  return {
+    project: {
+      id: project.id,
+      name: project.name,
+      status: project.status,
+      currentPhase: project.currentPhase,
+      engagementType: project.engagementType,
+      clientName: project.client?.name ?? null,
+      problemStatement: project.problemStatement,
+      solutionRecommendation: project.solutionRecommendation,
+      updatedAt: project.updatedAt.toISOString()
+    },
+    counts: {
+      openTasks: overdueTasks.length,
+      completedTasks: completedTasks.length,
+      openRisks: risks.length,
+      workbooks: workbookEvidence.length,
+      recentMessages: recentMessages.length,
+      totalHours: timeAgg._sum.hours ?? 0
+    },
+    openTasks: overdueTasks.slice(0, 20).map((t) => ({
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      plannedHours: t.plannedHours,
+      actualHours: t.actualHours
+    })),
+    risks: risks.map((r) => ({
+      kind: r.kind,
+      title: r.title,
+      severity: r.severity,
+      status: r.status,
+      dueDate: r.dueDate?.toISOString() ?? null
+    })),
+    workbooks: workbookEvidence.slice(0, 12).map((w) => ({
+      label: w.sourceLabel,
+      kind: w.kind,
+      status: w.status,
+      resourceType: w.resourceType
+    })),
+    recentMessages: recentMessages.slice(0, 8).map((m) => ({
+      preview: (m.body ?? "").slice(0, 240),
+      at: m.createdAt.toISOString()
+    })),
+    recentMeetings: recentMeetings.map((m) => ({
+      title: m.title,
+      meetingDate: m.meetingDate.toISOString()
+    }))
+  };
+}
+
+export async function generateProjectCopilot(
+  projectId: string,
+  intent: "summary" | "today" | "risks" = "summary"
+) {
+  const ctx = await loadProjectCopilotContext(projectId);
+  const intents: Record<typeof intent, string> = {
+    summary:
+      "Give a 4-6 line plain-English status of where this project stands. Highlight progress, blockers, and what the operator should look at first.",
+    today:
+      "List the 3-5 most important things the operator should do TODAY on this project, in priority order. Be specific.",
+    risks:
+      "Surface the top risks/issues, what's most likely to derail this project, and one mitigation per risk."
+  };
+  const sys = `You are the embedded delivery copilot for Muloo Deploy OS, an internal HubSpot delivery platform. You only answer for the operator team. Be concise, direct, no fluff. Reference real data from the supplied JSON context. Never reveal that AI helps deliver work to clients.`;
+  const user = `${intents[intent]}\n\nProject context (JSON):\n${JSON.stringify(ctx, null, 2)}`;
+  const text = await callAnthropicText(sys, user, 800).catch((e) => {
+    return `Copilot unavailable: ${e instanceof Error ? e.message : String(e)}`;
+  });
+  return { intent, text, context: ctx };
+}
+
+export async function generateWeeklyStatusDraft(projectId: string) {
+  const ctx = await loadProjectCopilotContext(projectId);
+  const sys = `You draft client-ready weekly status updates for HubSpot delivery projects. Tone: clear, professional, no jargon, no AI mentions. Format the output as markdown with sections: "Progress this week", "Decisions / changes", "Open questions", "Next week".`;
+  const user = `Draft this week's client status for the project below. Keep it tight (under 300 words). Be honest about blockers.\n\nContext (JSON):\n${JSON.stringify(ctx, null, 2)}`;
+  const draft = await callAnthropicText(sys, user, 1200).catch((e) => {
+    return `Draft unavailable: ${e instanceof Error ? e.message : String(e)}`;
+  });
+  return { draft, context: ctx };
+}
+
+// ---------- Health Score ----------
+
+export type ProjectHealthScore = {
+  score: number;
+  band: "healthy" | "watch" | "at_risk";
+  signals: Array<{ label: string; severity: "good" | "warn" | "bad" }>;
+};
+
+export async function loadProjectHealthScore(
+  projectId: string
+): Promise<ProjectHealthScore> {
+  const [project, openRisks, openTasks, lastMessage, workbooks] = await Promise.all([
+    prisma.project.findUnique({ where: { id: projectId } }),
+    prisma.projectRisk.count({
+      where: { projectId, status: { in: ["open", "monitoring"] } }
+    }),
+    prisma.task.findMany({
+      where: { projectId, status: { notIn: ["complete", "completed", "archived"] } },
+      select: { id: true, plannedHours: true, actualHours: true }
+    }),
+    prisma.projectMessage.findFirst({
+      where: { projectId },
+      orderBy: { createdAt: "desc" }
+    }),
+    prisma.discoveryEvidence.count({
+      where: { projectId, isArchived: false, status: "in_progress" }
+    })
+  ]);
+  if (!project) throw new Error("Project not found");
+
+  let score = 100;
+  const signals: ProjectHealthScore["signals"] = [];
+
+  if (openRisks > 0) {
+    const penalty = Math.min(30, openRisks * 6);
+    score -= penalty;
+    signals.push({
+      label: `${openRisks} open risk${openRisks === 1 ? "" : "s"}`,
+      severity: openRisks > 3 ? "bad" : "warn"
+    });
+  } else {
+    signals.push({ label: "No open risks", severity: "good" });
+  }
+
+  const overrun = openTasks.filter(
+    (t) =>
+      t.plannedHours != null &&
+      t.actualHours != null &&
+      t.actualHours > t.plannedHours * 1.25
+  ).length;
+  if (overrun > 0) {
+    score -= Math.min(25, overrun * 5);
+    signals.push({
+      label: `${overrun} task${overrun === 1 ? "" : "s"} over budget`,
+      severity: "warn"
+    });
+  }
+
+  const daysSinceMessage = lastMessage
+    ? Math.floor((Date.now() - lastMessage.createdAt.getTime()) / 86_400_000)
+    : 999;
+  if (daysSinceMessage > 7) {
+    score -= Math.min(20, daysSinceMessage);
+    signals.push({
+      label: `${daysSinceMessage} days since last message`,
+      severity: daysSinceMessage > 21 ? "bad" : "warn"
+    });
+  } else if (lastMessage) {
+    signals.push({ label: "Recent client comms", severity: "good" });
+  }
+
+  if (workbooks > 5) {
+    score -= 10;
+    signals.push({ label: `${workbooks} workbooks in progress`, severity: "warn" });
+  }
+
+  score = Math.max(0, Math.min(100, score));
+  const band: ProjectHealthScore["band"] =
+    score >= 75 ? "healthy" : score >= 50 ? "watch" : "at_risk";
+
+  return { score, band, signals };
+}
+
+export async function loadProjectHealthSummaryBatch(projectIds: string[]) {
+  const results: Record<string, ProjectHealthScore> = {};
+  await Promise.all(
+    projectIds.map(async (id) => {
+      try {
+        results[id] = await loadProjectHealthScore(id);
+      } catch {
+        /* skip projects that fail to score */
+      }
+    })
+  );
+  return results;
+}
+
+// ---------- Capacity ----------
+
+export async function loadCapacityFeed() {
+  const horizonStart = new Date();
+  horizonStart.setHours(0, 0, 0, 0);
+  const horizonEnd = new Date(horizonStart);
+  horizonEnd.setDate(horizonEnd.getDate() + 14);
+
+  const [tasks, recentTime] = await Promise.all([
+    prisma.task.findMany({
+      where: {
+        status: { notIn: ["complete", "completed", "archived"] }
+      },
+      include: { project: { select: { id: true, name: true, clientId: true } } },
+      take: 1000
+    }),
+    prisma.timeEntry.groupBy({
+      by: ["userEmail"],
+      _sum: { hours: true },
+      where: {
+        occurredOn: {
+          gte: new Date(Date.now() - 14 * 86_400_000)
+        }
+      }
+    })
+  ]);
+
+  const byOwner = new Map<
+    string,
+    {
+      owner: string;
+      openTaskCount: number;
+      openHours: number;
+      hoursLast14d: number;
+      tasks: Array<{
+        id: string;
+        title: string;
+        priority: string;
+        plannedHours: number | null;
+        projectId: string;
+        projectName: string;
+      }>;
+    }
+  >();
+
+  function getOwner(t: (typeof tasks)[number]) {
+    return (t.assigneeType ?? "unassigned").toLowerCase();
+  }
+
+  for (const t of tasks) {
+    const owner = getOwner(t);
+    const cur = byOwner.get(owner) ?? {
+      owner,
+      openTaskCount: 0,
+      openHours: 0,
+      hoursLast14d: 0,
+      tasks: []
+    };
+    cur.openTaskCount += 1;
+    cur.openHours += t.plannedHours ?? 0;
+    if (cur.tasks.length < 25) {
+      cur.tasks.push({
+        id: t.id,
+        title: t.title,
+        priority: t.priority,
+        plannedHours: t.plannedHours,
+        projectId: t.projectId,
+        projectName: t.project.name
+      });
+    }
+    byOwner.set(owner, cur);
+  }
+
+  for (const r of recentTime) {
+    const owner = (r.userEmail ?? "unassigned").toLowerCase();
+    const cur = byOwner.get(owner);
+    if (cur) cur.hoursLast14d = r._sum.hours ?? 0;
+  }
+
+  return {
+    horizonStart: horizonStart.toISOString(),
+    horizonEnd: horizonEnd.toISOString(),
+    owners: Array.from(byOwner.values()).sort((a, b) => b.openHours - a.openHours)
+  };
+}

@@ -260,3 +260,14 @@ See `apps/api/prisma/migrations/20260502210000_discovery_step_a_absorb_client_in
   - `RetainerDetailWorkspace.tsx` — fetches `/api/retainers/:id/lineage` and shows a "Born from project" badge linking back.
 
 - **Sub-decisions baked in**: NPS 0–10; npsNote optional; born-from keeps both source + target visible; HubSpot ticket = single nullable field on Task; handover content JSONB sections [overview, scope, decisions, workbook outputs, training links]; new endpoints follow existing internal-API auth pattern (no per-route guards — auth lives at the app shell).
+
+## Delivery Ops Pack (May 2026)
+Added 7 of 8 features in one pass:
+- TimeEntry CRUD + ProjectTimeLogPanel (mounted in PlanTab); auto-rolls Task.actualHours.
+- ProjectRisk (RAID) CRUD + ProjectRaidPanel (mounted in OverviewTab); kinds risk/issue/decision/assumption.
+- Meeting transcript intelligence: POST /api/projects/:id/meeting-notes/:noteId/extract uses Anthropic claude-sonnet-4-20250514 to extract actions→Tasks, decisions+risks→ProjectRisk; surfaced inline in ProjectMeetingsPanel via "Extract" button.
+- Project Copilot + weekly status draft endpoints + ProjectCopilotPanel (mounted in OverviewTab).
+- Project health score (single + batch) endpoints; computed: -6/risk, -5/over-budget task, -1/day stale msg, -10 if >5 in-flight workbooks.
+- /api/capacity feed + /capacity page in sidebar showing per-owner workload.
+- Skipped: CR→quote-line button (deferred — needs change-tab refactor), Command Centre health chip (endpoint ready; UI defer).
+- Schema migration: 20260503100000_delivery_ops_pack.
