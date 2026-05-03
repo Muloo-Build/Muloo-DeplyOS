@@ -102,17 +102,62 @@ interface FinancialsSummary {
       mrrZar: number;
     };
   };
+  // T22 — Multi-currency disclosure. `baseCurrency` is the currency every
+  // *Zar suffixed figure has been converted into; `byCurrency` shows the
+  // raw native amounts so operators can sanity-check the conversion.
+  fx: {
+    baseCurrency: string;
+    asOf: string;
+    rates: Record<string, number>;
+    byCurrency: {
+      pipeline: CurrencyBucket[];
+      approved: CurrencyBucket[];
+      wonInRange: CurrencyBucket[];
+    };
+  };
 }
 
-function formatMoney(amount: number) {
+interface CurrencyBucket {
+  currency: string;
+  nativeValue: number;
+  baseZar: number;
+  count: number;
+}
+
+function formatMoney(amount: number, currency: string = "ZAR") {
   if (!Number.isFinite(amount) || amount === 0) {
-    return "ZAR 0";
+    return `${currency} 0`;
   }
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "ZAR",
-    maximumFractionDigits: 0
-  }).format(amount);
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0
+    }).format(amount);
+  } catch {
+    // Fallback for currency codes Intl doesn't recognise.
+    return `${currency} ${Math.round(amount).toLocaleString("en-GB")}`;
+  }
+}
+
+// T22 — Compact pill that shows native-currency totals beneath a converted
+// headline figure. Renders nothing for single-currency mixes (since the
+// headline already says it all).
+function CurrencyMix({ buckets }: { buckets: CurrencyBucket[] }) {
+  if (!buckets || buckets.length <= 1) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {buckets.map((bucket) => (
+        <span
+          key={bucket.currency}
+          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium tabular-nums text-text-secondary"
+          title={`${bucket.count} quote${bucket.count === 1 ? "" : "s"} in ${bucket.currency}`}
+        >
+          {formatMoney(bucket.nativeValue, bucket.currency)}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function formatCount(value: number, singular: string, plural?: string) {
@@ -295,13 +340,22 @@ export default function FinancialsWorkspace() {
             ) : null}
           </div>
           {summary ? (
-            <p className="text-xs text-text-muted">
-              <span className="text-text-secondary">{summary.range.label}</span>{" "}
-              · vs prior{" "}
-              <span className="text-text-secondary">
-                {summary.priorRange.label}
-              </span>
-            </p>
+            <div className="flex flex-col gap-1 lg:items-end">
+              <p className="text-xs text-text-muted">
+                <span className="text-text-secondary">
+                  {summary.range.label}
+                </span>{" "}
+                · vs prior{" "}
+                <span className="text-text-secondary">
+                  {summary.priorRange.label}
+                </span>
+              </p>
+              {/* T22 — FX disclosure so operators know amounts are converted. */}
+              <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
+                Converted to {summary.fx.baseCurrency} · FX as of{" "}
+                {summary.fx.asOf}
+              </p>
+            </div>
           ) : null}
         </section>
 
@@ -316,6 +370,13 @@ export default function FinancialsWorkspace() {
             Loading financials...
           </div>
         ) : (
+          (() => {
+            // T22 — Use the API-supplied base currency for every converted
+            // figure so the UI tracks whatever ZAR/other base the backend
+            // declares. Bound once here to keep the JSX below readable.
+            const base = summary.fx.baseCurrency;
+            const fmt = (amount: number) => formatMoney(amount, base);
+            return (
           <>
             {/* Headline metrics */}
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -324,11 +385,12 @@ export default function FinancialsWorkspace() {
                   Pipeline (sent)
                 </p>
                 <p className="mt-3 text-2xl font-semibold text-white">
-                  {formatMoney(summary.headline.pipelineValue)}
+                  {fmt(summary.headline.pipelineValue)}
                 </p>
                 <p className="mt-1 text-xs text-text-muted">
                   {formatCount(summary.headline.pipelineCount, "open quote")}
                 </p>
+                <CurrencyMix buckets={summary.fx.byCurrency.pipeline} />
               </div>
 
               <div className="rounded-2xl border border-amber-400/30 bg-amber-500/5 p-5">
@@ -336,11 +398,12 @@ export default function FinancialsWorkspace() {
                   Approved (awaiting close)
                 </p>
                 <p className="mt-3 text-2xl font-semibold text-white">
-                  {formatMoney(summary.headline.approvedValue)}
+                  {fmt(summary.headline.approvedValue)}
                 </p>
                 <p className="mt-1 text-xs text-amber-200/70">
                   {formatCount(summary.headline.approvedCount, "quote")}
                 </p>
+                <CurrencyMix buckets={summary.fx.byCurrency.approved} />
               </div>
 
               <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/5 p-5">
@@ -351,12 +414,13 @@ export default function FinancialsWorkspace() {
                   <DeltaBadge delta={summary.prior.deltas.wonValue} />
                 </div>
                 <p className="mt-3 text-2xl font-semibold text-white">
-                  {formatMoney(summary.headline.wonInRangeValue)}
+                  {fmt(summary.headline.wonInRangeValue)}
                 </p>
                 <p className="mt-1 text-xs text-emerald-200/70">
                   {formatCount(summary.headline.wonInRangeCount, "deal")} · prior{" "}
-                  {formatMoney(summary.prior.wonValue)}
+                  {fmt(summary.prior.wonValue)}
                 </p>
+                <CurrencyMix buckets={summary.fx.byCurrency.wonInRange} />
               </div>
 
               <div className="rounded-2xl border border-[#49cde1]/30 bg-[#49cde1]/5 p-5">
@@ -364,14 +428,14 @@ export default function FinancialsWorkspace() {
                   Monthly recurring
                 </p>
                 <p className="mt-3 text-2xl font-semibold text-white">
-                  {formatMoney(summary.headline.mrrZar)}
+                  {fmt(summary.headline.mrrZar)}
                 </p>
                 <p className="mt-1 text-xs text-[#9be4f0]/70">
                   {formatCount(
                     summary.headline.activeRetainers,
                     "active retainer"
                   )}{" "}
-                  · {formatMoney(summary.headline.annualisedRecurringZar)}/yr
+                  · {fmt(summary.headline.annualisedRecurringZar)}/yr
                 </p>
               </div>
             </section>
@@ -395,11 +459,11 @@ export default function FinancialsWorkspace() {
                 </div>
                 <div className="text-right">
                   <p className="text-3xl font-semibold text-white tabular-nums">
-                    {formatMoney(summary.forecast90.combinedZar)}
+                    {fmt(summary.forecast90.combinedZar)}
                   </p>
                   <p className="mt-1 text-xs text-text-muted">
-                    {formatMoney(summary.forecast90.confidenceLowerZar)} –{" "}
-                    {formatMoney(summary.forecast90.confidenceUpperZar)}
+                    {fmt(summary.forecast90.confidenceLowerZar)} –{" "}
+                    {fmt(summary.forecast90.confidenceUpperZar)}
                   </p>
                 </div>
               </div>
@@ -410,12 +474,12 @@ export default function FinancialsWorkspace() {
                   <div
                     className="h-full bg-[#49cde1]"
                     style={{ width: `${100 - forecastPipelineRatio}%` }}
-                    title={`Recurring ${formatMoney(summary.forecast90.recurringZar)}`}
+                    title={`Recurring ${fmt(summary.forecast90.recurringZar)}`}
                   />
                   <div
                     className="h-full bg-[#51d0b0]"
                     style={{ width: `${forecastPipelineRatio}%` }}
-                    title={`Pipeline (weighted) ${formatMoney(summary.forecast90.pipelineWeightedZar)}`}
+                    title={`Pipeline (weighted) ${fmt(summary.forecast90.pipelineWeightedZar)}`}
                   />
                 </div>
               </div>
@@ -426,10 +490,10 @@ export default function FinancialsWorkspace() {
                     Recurring (committed)
                   </p>
                   <p className="mt-1 text-lg font-semibold text-white tabular-nums">
-                    {formatMoney(summary.forecast90.recurringZar)}
+                    {fmt(summary.forecast90.recurringZar)}
                   </p>
                   <p className="text-xs text-text-muted">
-                    MRR {formatMoney(summary.forecast90.breakdown.mrrZar)} × 3 mo
+                    MRR {fmt(summary.forecast90.breakdown.mrrZar)} × 3 mo
                   </p>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-background-primary/40 px-4 py-3">
@@ -437,10 +501,10 @@ export default function FinancialsWorkspace() {
                     Sent · 30%
                   </p>
                   <p className="mt-1 text-lg font-semibold text-white tabular-nums">
-                    {formatMoney(summary.forecast90.breakdown.sentWeightedZar)}
+                    {fmt(summary.forecast90.breakdown.sentWeightedZar)}
                   </p>
                   <p className="text-xs text-text-muted">
-                    {formatMoney(summary.forecast90.breakdown.sentValue)} ·{" "}
+                    {fmt(summary.forecast90.breakdown.sentValue)} ·{" "}
                     {formatCount(
                       summary.forecast90.breakdown.sentCount,
                       "quote"
@@ -452,12 +516,12 @@ export default function FinancialsWorkspace() {
                     Approved · 70%
                   </p>
                   <p className="mt-1 text-lg font-semibold text-white tabular-nums">
-                    {formatMoney(
+                    {fmt(
                       summary.forecast90.breakdown.approvedWeightedZar
                     )}
                   </p>
                   <p className="text-xs text-amber-200/70">
-                    {formatMoney(
+                    {fmt(
                       summary.forecast90.breakdown.approvedValue
                     )}{" "}
                     ·{" "}
@@ -472,7 +536,7 @@ export default function FinancialsWorkspace() {
                     Won · 100%
                   </p>
                   <p className="mt-1 text-lg font-semibold text-white tabular-nums">
-                    {formatMoney(summary.forecast90.breakdown.wonWeightedZar)}
+                    {fmt(summary.forecast90.breakdown.wonWeightedZar)}
                   </p>
                   <p className="text-xs text-emerald-200/70">
                     {formatCount(
@@ -498,7 +562,7 @@ export default function FinancialsWorkspace() {
                   </div>
                   <p className="text-sm text-text-muted">
                     Total{" "}
-                    {formatMoney(
+                    {fmt(
                       summary.monthly.reduce((sum, m) => sum + m.wonValue, 0)
                     )}
                   </p>
@@ -527,13 +591,13 @@ export default function FinancialsWorkspace() {
                       >
                         <span className="text-xs text-white">
                           {bucket.wonValue > 0
-                            ? formatMoney(bucket.wonValue)
+                            ? fmt(bucket.wonValue)
                             : "—"}
                         </span>
                         <div
                           className={`w-full rounded-md ${bucket.wonValue > 0 ? "bg-[linear-gradient(180deg,#51d0b0_0%,#49cde1_100%)]" : "bg-white/5"}`}
                           style={{ height: `${height}px` }}
-                          title={`${bucket.wonCount} deal(s) · ${formatMoney(bucket.wonValue)}`}
+                          title={`${bucket.wonCount} deal(s) · ${fmt(bucket.wonValue)}`}
                         />
                         <span className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
                           {bucket.month}
@@ -637,7 +701,7 @@ export default function FinancialsWorkspace() {
                           </p>
                         </div>
                         <p className="text-sm font-semibold text-white tabular-nums">
-                          {formatMoney(row.monthlyZar)}/mo
+                          {fmt(row.monthlyZar)}/mo
                         </p>
                       </li>
                     ))}
@@ -670,13 +734,13 @@ export default function FinancialsWorkspace() {
                             {row.clientName}
                           </p>
                           <p className="text-sm font-semibold text-white tabular-nums">
-                            {formatMoney(row.totalZar)}
+                            {fmt(row.totalZar)}
                           </p>
                         </div>
                         <div className="mt-1 flex gap-3 text-xs text-text-muted">
-                          <span>Won {formatMoney(row.wonZar)}</span>
+                          <span>Won {fmt(row.wonZar)}</span>
                           <span>·</span>
-                          <span>Recurring {formatMoney(row.recurringZar)}</span>
+                          <span>Recurring {fmt(row.recurringZar)}</span>
                         </div>
                       </li>
                     ))}
@@ -685,6 +749,8 @@ export default function FinancialsWorkspace() {
               </section>
             </div>
           </>
+            );
+          })()
         )}
       </div>
     </AppShell>

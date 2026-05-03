@@ -31424,12 +31424,119 @@ function resolveFinancialsRange(input: {
   return { key, from, to, label, priorFrom, priorTo, priorLabel };
 }
 
+// T22 — Multi-currency support for the financials workspace.
+//
+// Quotes can be priced in any of the supported operator currencies (currently
+// ZAR, GBP, EUR, USD, AUD). Until now `loadFinancialsSummary` summed every
+// quote's `grandTotalZar` regardless of the quote's actual currency, so a
+// USD quote was silently treated as ZAR and the headline numbers misled.
+//
+// We resolve this by:
+//   1. Converting each quote amount from its native currency into the base
+//      currency (ZAR) using a static FX table. The table can be overridden
+//      per-currency via `MULOO_FX_<CCY>` env vars (e.g. `MULOO_FX_USD=18.5`),
+//      so finance can update rates without a code change.
+//   2. Reporting headline + forecast figures in the base currency so the
+//      existing chart/comparison code keeps working.
+//   3. Returning a `byCurrency` breakdown alongside so operators can see the
+//      true mix and verify the conversion is reasonable.
+const FINANCIALS_BASE_CURRENCY = "ZAR";
+
+// ZAR per 1 unit of the source currency. Conservative defaults; finance can
+// override via env vars below.
+const FX_RATES_TO_ZAR_DEFAULT: Record<string, number> = {
+  ZAR: 1,
+  USD: 18.5,
+  EUR: 20.0,
+  GBP: 23.5,
+  AUD: 12.2
+};
+
+let cachedFxTable: { rates: Record<string, number>; asOf: string } | null = null;
+
+function getFxTable(): { rates: Record<string, number>; asOf: string } {
+  if (cachedFxTable) return cachedFxTable;
+  const rates: Record<string, number> = { ...FX_RATES_TO_ZAR_DEFAULT };
+  for (const ccy of Object.keys(rates)) {
+    const envKey = `MULOO_FX_${ccy}`;
+    const raw = process.env[envKey];
+    if (typeof raw === "string" && raw.trim().length > 0) {
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        rates[ccy] = parsed;
+      }
+    }
+  }
+  // `MULOO_FX_AS_OF=2026-04-01` lets finance stamp the snapshot date so the
+  // UI can disclose how stale the conversion is.
+  const asOf =
+    typeof process.env.MULOO_FX_AS_OF === "string" &&
+    process.env.MULOO_FX_AS_OF.trim().length > 0
+      ? process.env.MULOO_FX_AS_OF.trim()
+      : new Date().toISOString().slice(0, 10);
+  cachedFxTable = { rates, asOf };
+  return cachedFxTable;
+}
+
+function normaliseCurrency(value: unknown): string {
+  if (typeof value !== "string") return FINANCIALS_BASE_CURRENCY;
+  const trimmed = value.trim().toUpperCase();
+  return trimmed.length > 0 ? trimmed : FINANCIALS_BASE_CURRENCY;
+}
+
+function convertToBaseZar(amount: number, currency: string): number {
+  if (!Number.isFinite(amount) || amount === 0) return 0;
+  const ccy = normaliseCurrency(currency);
+  const { rates } = getFxTable();
+  const rate = rates[ccy];
+  // Unknown currency: fall back to 1:1 so we don't silently inflate or
+  // deflate the figure beyond recognition. Operators will see the raw
+  // currency in the byCurrency mix and notice the missing rate.
+  if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0) {
+    return amount;
+  }
+  return amount * rate;
+}
+
+interface CurrencyBucket {
+  currency: string;
+  nativeValue: number;
+  baseZar: number;
+  count: number;
+}
+
+function bumpCurrencyBucket(
+  map: Map<string, CurrencyBucket>,
+  currency: string,
+  nativeValue: number
+) {
+  if (!Number.isFinite(nativeValue) || nativeValue === 0) return;
+  const ccy = normaliseCurrency(currency);
+  const existing = map.get(ccy) ?? {
+    currency: ccy,
+    nativeValue: 0,
+    baseZar: 0,
+    count: 0
+  };
+  existing.nativeValue += nativeValue;
+  existing.baseZar += convertToBaseZar(nativeValue, ccy);
+  existing.count += 1;
+  map.set(ccy, existing);
+}
+
+function dumpCurrencyBuckets(map: Map<string, CurrencyBucket>) {
+  return Array.from(map.values())
+    .filter((b) => b.nativeValue !== 0 || b.count > 0)
+    .sort((a, b) => b.baseZar - a.baseZar);
+}
+
 export async function loadFinancialsSummary(input?: {
   range?: string | null;
   from?: string | null;
   to?: string | null;
 }) {
   const range = resolveFinancialsRange(input ?? {});
+  const fxTable = getFxTable();
 
   // Pull all quotes once so we can bucket them by status without N queries.
   const quotes = await prisma.projectQuote.findMany({
@@ -31457,11 +31564,20 @@ export async function loadFinancialsSummary(input?: {
     now.getTime() + 90 * 24 * 60 * 60 * 1000
   );
 
-  function totalsFor(quote: (typeof quotes)[number]) {
+  // The persisted `grandTotalZar` field is misnamed: it's actually the line-
+  // item subtotal in the *quote's* native currency (set in createQuickQuote
+  // and updateQuoteOrCreateRevision). We treat it as a native amount and
+  // convert to the base currency through the FX table for aggregation.
+  function totalsForNative(quote: (typeof quotes)[number]) {
     const totals = (quote.totals ?? {}) as Record<string, unknown>;
     const amount =
       typeof totals.grandTotalZar === "number" ? totals.grandTotalZar : 0;
-    return amount;
+    return { amount, currency: normaliseCurrency(quote.currency) };
+  }
+
+  function totalsFor(quote: (typeof quotes)[number]) {
+    const { amount, currency } = totalsForNative(quote);
+    return convertToBaseZar(amount, currency);
   }
 
   function quoteCloseDate(quote: (typeof quotes)[number]) {
@@ -31488,6 +31604,12 @@ export async function loadFinancialsSummary(input?: {
   let lostInPriorValue = 0;
   let lostInPriorCount = 0;
   const statusCounts: Record<string, number> = {};
+
+  // T22 — Per-currency mix so the UI can show the underlying split alongside
+  // the ZAR-converted headline numbers.
+  const pipelineByCurrency = new Map<string, CurrencyBucket>();
+  const approvedByCurrency = new Map<string, CurrencyBucket>();
+  const wonInRangeByCurrency = new Map<string, CurrencyBucket>();
 
   // Monthly buckets across the selected range (capped at 24 to avoid runaway
   // custom ranges blowing the chart up).
@@ -31517,13 +31639,16 @@ export async function loadFinancialsSummary(input?: {
   for (const quote of quotes) {
     statusCounts[quote.status] = (statusCounts[quote.status] ?? 0) + 1;
     const amount = totalsFor(quote);
+    const native = totalsForNative(quote);
 
     if (quote.status === "shared") {
       pipelineValue += amount;
       pipelineCount += 1;
+      bumpCurrencyBucket(pipelineByCurrency, native.currency, native.amount);
     } else if (quote.status === "approved") {
       approvedValue += amount;
       approvedCount += 1;
+      bumpCurrencyBucket(approvedByCurrency, native.currency, native.amount);
     } else if (quote.status === "won") {
       wonValue += amount;
       wonCount += 1;
@@ -31532,6 +31657,11 @@ export async function loadFinancialsSummary(input?: {
       if (closedDate >= range.from && closedDate <= range.to) {
         wonInRangeValue += amount;
         wonInRangeCount += 1;
+        bumpCurrencyBucket(
+          wonInRangeByCurrency,
+          native.currency,
+          native.amount
+        );
         const key = `${closedDate.getFullYear()}-${String(closedDate.getMonth() + 1).padStart(2, "0")}`;
         const bucket = monthBuckets.get(key);
         if (bucket) {
@@ -31796,7 +31926,21 @@ export async function loadFinancialsSummary(input?: {
       )
     },
     topClients,
-    forecast90
+    forecast90,
+    // T22 — Multi-currency disclosure. `baseCurrency` is what every *Zar
+    // suffixed figure above has been converted into; `byCurrency` shows the
+    // raw native amounts so operators can verify the conversion matches
+    // their intuition.
+    fx: {
+      baseCurrency: FINANCIALS_BASE_CURRENCY,
+      asOf: fxTable.asOf,
+      rates: fxTable.rates,
+      byCurrency: {
+        pipeline: dumpCurrencyBuckets(pipelineByCurrency),
+        approved: dumpCurrencyBuckets(approvedByCurrency),
+        wonInRange: dumpCurrencyBuckets(wonInRangeByCurrency)
+      }
+    }
   };
 }
 

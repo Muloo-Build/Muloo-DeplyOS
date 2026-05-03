@@ -928,7 +928,12 @@ export default function QuickQuoteBuilder({
           </button>
 
           <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4">
-            <p className="text-sm text-text-secondary">Subtotal</p>
+            <p className="text-sm text-text-secondary">
+              Subtotal{" "}
+              <span className="text-xs text-text-muted">
+                (in {currency} — all lines are priced in this currency)
+              </span>
+            </p>
             <p className="text-xl font-semibold text-white">
               {formatCurrency(subtotal, currency)}
             </p>
