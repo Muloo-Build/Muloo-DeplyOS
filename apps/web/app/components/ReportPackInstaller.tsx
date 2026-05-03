@@ -182,8 +182,20 @@ export default function ReportPackInstaller({
         const body = await res.json().catch(() => ({}) as { error?: string });
         throw new Error(body?.error ?? `HTTP ${res.status}`);
       }
-      const body = (await res.json()) as { queued: unknown[] };
-      setFlash(`Queued ${body.queued.length} report install job(s).`);
+      const body = (await res.json()) as {
+        queued: unknown[];
+        skipped?: Array<{ templateSlug: string; reason: string }>;
+      };
+      // Surface skipped templates so operators understand why a selected
+      // template did not start a fresh install (typically: a prior install
+      // is still pending/running, or a concurrent request won the race).
+      const skippedNote =
+        body.skipped && body.skipped.length > 0
+          ? ` Skipped ${body.skipped.length}: ${body.skipped
+              .map((s) => `${s.templateSlug} (${s.reason})`)
+              .join(", ")}.`
+          : "";
+      setFlash(`Queued ${body.queued.length} report install job(s).${skippedNote}`);
       setSelected(new Set());
       await load();
     } catch (err) {

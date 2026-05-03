@@ -33167,47 +33167,75 @@ export async function installReportTemplates(input: {
   const skipped: Array<{ templateSlug: string; reason: string }> = [];
   for (const slug of slugs) {
     const template = bySlug.get(slug)!;
-    const existing = await prisma.reportInstallation.findUnique({
+
+    // Atomic concurrency guard — two requests landing simultaneously for
+    // the same (portalId, templateSlug) must not both enqueue duplicate
+    // jobs against the same installation row. Pattern:
+    //   1. updateMany WHERE status NOT IN ('pending','running') → bumps
+    //      to pending and returns count=1 only for the winner. Loser
+    //      sees count=0 and is treated as a skip.
+    //   2. If updateMany matched 0 rows the row may not exist yet:
+    //      attempt a create. On a race that creates two rows the
+    //      (portalId, templateSlug) unique index rejects the loser with
+    //      P2002, which we catch and re-resolve as "skip — already
+    //      pending/running".
+    let install: { id: string } | null = null;
+    const transition = await prisma.reportInstallation.updateMany({
       where: {
-        portalId_templateSlug: {
-          portalId: portal.id,
-          templateSlug: slug
-        }
-      }
-    });
-    // Concurrency guard — never enqueue a duplicate job while one is still
-    // pending or running. Operators must use retryReportInstallation (which
-    // resets status) to force a re-install. Because installs are keyed per
-    // portal, this also prevents two different projects on the same portal
-    // from racing to create duplicate HubSpot reports.
-    if (existing && (existing.status === "pending" || existing.status === "running")) {
-      skipped.push({
+        portalId: portal.id,
         templateSlug: slug,
-        reason: `already ${existing.status}`
-      });
-      continue;
-    }
-    const install = await prisma.reportInstallation.upsert({
-      where: {
-        portalId_templateSlug: {
-          portalId: portal.id,
-          templateSlug: slug
-        }
+        status: { notIn: ["pending", "running"] }
       },
-      update: {
+      data: {
         templateId: template.id,
         projectId: project.id,
         status: "pending",
         errorMessage: null
-      },
-      create: {
-        projectId: project.id,
-        portalId: portal.id,
-        templateId: template.id,
-        templateSlug: slug,
-        status: "pending"
       }
     });
+    if (transition.count === 1) {
+      install = await prisma.reportInstallation.findUnique({
+        where: { portalId_templateSlug: { portalId: portal.id, templateSlug: slug } },
+        select: { id: true }
+      });
+    } else {
+      // No row matched. Either the row exists but is pending/running
+      // (skip), or no row exists yet (create). Disambiguate by attempting
+      // a create and falling back to skip on P2002.
+      try {
+        install = await prisma.reportInstallation.create({
+          data: {
+            projectId: project.id,
+            portalId: portal.id,
+            templateId: template.id,
+            templateSlug: slug,
+            status: "pending"
+          },
+          select: { id: true }
+        });
+      } catch (err) {
+        const code = (err as { code?: string }).code;
+        if (code === "P2002") {
+          const existing = await prisma.reportInstallation.findUnique({
+            where: {
+              portalId_templateSlug: { portalId: portal.id, templateSlug: slug }
+            },
+            select: { status: true }
+          });
+          skipped.push({
+            templateSlug: slug,
+            reason: `already ${existing?.status ?? "in flight"}`
+          });
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (!install) {
+      skipped.push({ templateSlug: slug, reason: "race-lost; another request is installing this template" });
+      continue;
+    }
 
     const result = await enqueueReportInstall(install.id, project.id);
     enqueued.push({
