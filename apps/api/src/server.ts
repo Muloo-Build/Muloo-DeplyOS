@@ -33240,13 +33240,18 @@ export async function retryReportInstallation(
   // is keyed per portal — its `projectId` is the project that first
   // initiated the install and is audit-only, so it may be missing or stale
   // (e.g. if that project was archived). Prefer an explicit project from
-  // the caller, then any active project on the same portal, then fall back
-  // to the audit project. Throws only if there is genuinely nothing to
-  // attribute the job to.
+  // the caller, then any non-terminal (i.e. not completed/archived)
+  // project on the same portal — most recently updated first, so an
+  // actively-worked project wins over an idle one — then fall back to the
+  // audit project. Throws only if there is genuinely nothing to attribute
+  // the job to.
   let projectId = opts.requestingProjectId ?? null;
   if (!projectId) {
     const sibling = await prisma.project.findFirst({
-      where: { portalId: install.portalId },
+      where: {
+        portalId: install.portalId,
+        status: { notIn: ["completed", "archived"] }
+      },
       orderBy: { updatedAt: "desc" },
       select: { id: true }
     });
