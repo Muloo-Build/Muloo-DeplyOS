@@ -3839,7 +3839,7 @@ export function createApiApp(config: BaseConfig) {
           ? (error as Error & { code?: string }).code
           : undefined;
       const status =
-        code === "HANDOVER_REQUIRED"
+        code === "HANDOVER_REQUIRED" || code === "HANDOVER_NOT_SHARED"
           ? 409
           : message === "Project not found"
             ? 404

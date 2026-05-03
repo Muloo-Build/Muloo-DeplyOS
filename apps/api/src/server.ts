@@ -32645,7 +32645,7 @@ export async function closeProject(
     await tx.project.update({
       where: { id: projectId },
       data: {
-        status: "complete",
+        status: "completed",
         completedAt: now,
         ...(npsScore !== null
           ? { npsScore, npsNote, npsCapturedAt: now }
@@ -32698,16 +32698,59 @@ export async function setProjectBornFromProject(
   if (bornFromProjectId === projectId) {
     throw new Error("A project cannot be born from itself");
   }
+  let parentContext: {
+    clientId: string;
+    deliveryOwner: string | null;
+    serviceFamily: string | null;
+  } | null = null;
   if (bornFromProjectId !== null) {
     const parent = await prisma.project.findUnique({
       where: { id: bornFromProjectId },
-      select: { id: true }
+      select: {
+        id: true,
+        clientId: true,
+        deliveryOwner: true,
+        serviceFamily: true
+      }
     });
     if (!parent) throw new Error("Parent project not found");
+    parentContext = {
+      clientId: parent.clientId,
+      deliveryOwner: parent.deliveryOwner,
+      serviceFamily: parent.serviceFamily
+    };
   }
+
+  // T5.4 — Copy parent context onto the child only where the child has no
+  // existing value, so manual overrides on the spawned project are never
+  // clobbered by setting/changing lineage.
+  const child = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      clientId: true,
+      deliveryOwner: true,
+      serviceFamily: true
+    }
+  });
+  if (!child) throw new Error("Project not found");
+
+  const inherit: Record<string, unknown> = {};
+  if (parentContext) {
+    if (!child.deliveryOwner && parentContext.deliveryOwner) {
+      inherit.deliveryOwner = parentContext.deliveryOwner;
+    }
+    if (!child.serviceFamily && parentContext.serviceFamily) {
+      inherit.serviceFamily = parentContext.serviceFamily;
+    }
+    // clientId is intentionally NOT copied — switching a project's client via
+    // lineage would silently re-parent every downstream record. Operators
+    // must reassign clients explicitly.
+  }
+
   await prisma.project.update({
     where: { id: projectId },
-    data: { bornFromProjectId }
+    data: { bornFromProjectId, ...inherit }
   });
   return loadProjectLineage(projectId);
 }
