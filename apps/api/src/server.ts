@@ -33220,7 +33220,10 @@ export async function installReportTemplates(input: {
   return { projectId: project.id, queued: enqueued, skipped };
 }
 
-export async function retryReportInstallation(installationId: string) {
+export async function retryReportInstallation(
+  installationId: string,
+  opts: { requestingProjectId?: string } = {}
+) {
   const install = await prisma.reportInstallation.findUnique({
     where: { id: installationId }
   });
@@ -33232,9 +33235,32 @@ export async function retryReportInstallation(installationId: string) {
       `Installation already ${install.status}; wait for it to finish before retrying.`
     );
   }
+
+  // Resolve a project context for the ExecutionJob row. ReportInstallation
+  // is keyed per portal — its `projectId` is the project that first
+  // initiated the install and is audit-only, so it may be missing or stale
+  // (e.g. if that project was archived). Prefer an explicit project from
+  // the caller, then any active project on the same portal, then fall back
+  // to the audit project. Throws only if there is genuinely nothing to
+  // attribute the job to.
+  let projectId = opts.requestingProjectId ?? null;
+  if (!projectId) {
+    const sibling = await prisma.project.findFirst({
+      where: { portalId: install.portalId },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true }
+    });
+    projectId = sibling?.id ?? install.projectId ?? null;
+  }
+  if (!projectId) {
+    throw new Error(
+      `Cannot retry installation ${install.id}: no project on portal ${install.portalId} is available to attribute the job to.`
+    );
+  }
+
   await prisma.reportInstallation.update({
     where: { id: install.id },
-    data: { status: "pending", errorMessage: null }
+    data: { status: "pending", errorMessage: null, projectId }
   });
-  return enqueueReportInstall(install.id);
+  return enqueueReportInstall(install.id, projectId);
 }

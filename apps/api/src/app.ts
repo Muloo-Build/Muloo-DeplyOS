@@ -3952,8 +3952,21 @@ export function createApiApp(config: BaseConfig) {
 
   app.post("/api/report-installations/:installationId/retry", async (c) => {
     try {
+      // Operators retrying from a project surface should pass the current
+      // project id in the body so the resulting ExecutionJob is attributed
+      // there. When omitted (e.g. retry from the global /reports page), the
+      // server falls back to any active project on the same portal.
+      const body = (await readJsonBodyOrEmpty(c)) as {
+        requestingProjectId?: unknown;
+      };
+      const requestingProjectId =
+        typeof body.requestingProjectId === "string" &&
+        body.requestingProjectId.trim().length > 0
+          ? body.requestingProjectId.trim()
+          : undefined;
       const result = await retryReportInstallation(
-        c.req.param("installationId")
+        c.req.param("installationId"),
+        requestingProjectId ? { requestingProjectId } : {}
       );
       return c.json(result, 202);
     } catch (error) {

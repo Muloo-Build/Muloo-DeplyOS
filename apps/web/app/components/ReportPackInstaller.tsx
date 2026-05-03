@@ -114,6 +114,29 @@ export default function ReportPackInstaller({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  // Lightweight polling — while any installation on this project is in
+  // `pending` or `running`, refresh every 4s so operators see installs
+  // move to installed/failed without a manual reload. Stops automatically
+  // once the queue drains so we don't poll for nothing.
+  const hasInflight = useMemo(
+    () =>
+      data?.items.some(
+        (i) =>
+          i.installation?.status === "pending" ||
+          i.installation?.status === "running"
+      ) ?? false,
+    [data]
+  );
+
+  useEffect(() => {
+    if (!hasInflight) return;
+    const handle = window.setInterval(() => {
+      load();
+    }, 4000);
+    return () => window.clearInterval(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasInflight, projectId]);
+
   const itemsByHub = useMemo(() => {
     const out: Record<string, ReportPackItem[]> = {};
     if (!data) return out;
@@ -177,7 +200,15 @@ export default function ReportPackInstaller({
     try {
       const res = await fetch(
         `/api/report-installations/${installationId}/retry`,
-        { method: "POST" }
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          // Tag the retry with the current project so the resulting
+          // ExecutionJob is attributed here rather than to whatever
+          // project first installed the report on this portal (which may
+          // since have been archived).
+          body: JSON.stringify({ requestingProjectId: projectId })
+        }
       );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}) as { error?: string });
@@ -238,6 +269,19 @@ export default function ReportPackInstaller({
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => load()}
+            disabled={busy}
+            className="rounded-md border border-white/10 bg-background-primary px-3 py-1.5 text-sm text-text-secondary hover:text-white disabled:opacity-50"
+            title={
+              hasInflight
+                ? "Auto-refreshing while installs are in flight"
+                : "Refresh installation status"
+            }
+          >
+            {hasInflight ? "Refreshing…" : "Refresh"}
+          </button>
           <button
             type="button"
             onClick={installSelected}
