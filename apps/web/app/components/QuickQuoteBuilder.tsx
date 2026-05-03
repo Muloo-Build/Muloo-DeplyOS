@@ -27,6 +27,10 @@ interface ProductOption {
   unitLabel: string;
   defaultQuantity: number;
   isActive: boolean;
+  // T6.1 — Target gross margin % from the catalog. When a line is linked to
+  // this product, the line margin badge flips to "below target" if the
+  // computed margin falls under this threshold.
+  marginTarget?: number | null;
 }
 
 interface SourceQuoteSnapshot {
@@ -71,6 +75,11 @@ interface LineItemDraft {
   cost: string;
   discount: string;
   discountType: DiscountType;
+  // T6.1 — Catalog product this line was pre-filled from (if any). Used to
+  // compare the live margin against the product's marginTarget so we can
+  // flag lines that are priced below the operator's target. Client-only;
+  // not persisted to the backend.
+  productId?: string;
 }
 
 const currencyOptions: Currency[] = ["ZAR", "GBP", "EUR", "USD", "AUD"];
@@ -269,7 +278,8 @@ export default function QuickQuoteBuilder({
                 item.quantity ||
                 (product.defaultQuantity
                   ? String(product.defaultQuantity)
-                  : item.quantity)
+                  : item.quantity),
+              productId: product.id
             }
           : item
       )
@@ -739,6 +749,23 @@ export default function QuickQuoteBuilder({
               const hasDiscount =
                 Number(item.discount) > 0 && grossLineTotal > 0;
               const lineMargin = calcLineMargin(item, lineTotal);
+              // T6.1 — Look up the catalog product this line was pre-filled
+              // from so we can compare the live margin against the product's
+              // marginTarget (if any).
+              const linkedProduct = item.productId
+                ? products.find((p) => p.id === item.productId) ?? null
+                : null;
+              const marginTarget =
+                linkedProduct &&
+                linkedProduct.marginTarget !== null &&
+                linkedProduct.marginTarget !== undefined &&
+                Number.isFinite(linkedProduct.marginTarget)
+                  ? linkedProduct.marginTarget
+                  : null;
+              const belowTarget =
+                lineMargin !== null &&
+                marginTarget !== null &&
+                lineMargin.pct < marginTarget;
               return (
                 <div
                   key={index}
@@ -748,10 +775,19 @@ export default function QuickQuoteBuilder({
                     <label className="mb-3 block text-xs text-text-muted">
                       Pre-fill from catalog (optional)
                       <select
-                        value=""
+                        value={item.productId ?? ""}
                         onChange={(event) => {
                           const value = event.target.value;
-                          if (value) applyProductToLine(index, value);
+                          if (value) {
+                            applyProductToLine(index, value);
+                          } else {
+                            // T6.1 — Picking the empty option unlinks the
+                            // line from the catalog so the marginTarget
+                            // comparison stops applying. We keep the
+                            // operator's edited description / rate / cost
+                            // intact — only the link is cleared.
+                            updateLineItem(index, "productId", undefined);
+                          }
                         }}
                         className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
                         aria-label="Pick product from catalog"
@@ -763,9 +799,22 @@ export default function QuickQuoteBuilder({
                             {product.cost !== null && product.cost !== undefined
                               ? ` · cost ${product.currency} ${product.cost}`
                               : ""}
+                            {product.marginTarget !== null &&
+                            product.marginTarget !== undefined
+                              ? ` · target ${Number(product.marginTarget).toFixed(0)}%`
+                              : ""}
                           </option>
                         ))}
                       </select>
+                      {linkedProduct && marginTarget !== null ? (
+                        <span className="mt-1 block text-[11px] text-text-muted">
+                          Linked to{" "}
+                          <span className="text-text-secondary">
+                            {linkedProduct.name}
+                          </span>{" "}
+                          · target margin {marginTarget.toFixed(0)}%
+                        </span>
+                      ) : null}
                     </label>
                   ) : null}
                   <div className="grid gap-3 md:grid-cols-[1.4fr_0.6fr_0.7fr_0.9fr_auto]">
@@ -875,15 +924,26 @@ export default function QuickQuoteBuilder({
                     {lineMargin ? (
                       <div
                         className={`rounded-lg border px-3 py-2 text-xs ${
-                          lineMargin.pct >= 50
-                            ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
-                            : lineMargin.pct >= 25
+                          // T6.1 — When the line is linked to a catalog
+                          // product with a marginTarget, that target wins
+                          // over the generic 50/25 thresholds: amber means
+                          // "below the target you set in the catalog".
+                          marginTarget !== null
+                            ? belowTarget
                               ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
-                              : "border-rose-400/30 bg-rose-500/10 text-rose-100"
+                              : "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+                            : lineMargin.pct >= 50
+                              ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+                              : lineMargin.pct >= 25
+                                ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
+                                : "border-rose-400/30 bg-rose-500/10 text-rose-100"
                         }`}
                       >
                         <p className="text-[10px] uppercase tracking-[0.18em] opacity-80">
                           Gross margin
+                          {marginTarget !== null
+                            ? ` · target ${marginTarget.toFixed(0)}%`
+                            : ""}
                         </p>
                         <p className="mt-0.5 text-sm font-semibold tabular-nums">
                           {lineMargin.pct.toFixed(1)}%{" "}
@@ -891,6 +951,12 @@ export default function QuickQuoteBuilder({
                             ({formatCurrency(lineMargin.absolute, currency)})
                           </span>
                         </p>
+                        {belowTarget && marginTarget !== null ? (
+                          <p className="mt-1 text-[11px] font-medium">
+                            Below catalog target by{" "}
+                            {(marginTarget - lineMargin.pct).toFixed(1)} pts
+                          </p>
+                        ) : null}
                       </div>
                     ) : (
                       <p className="text-[11px] text-text-muted md:self-end">
