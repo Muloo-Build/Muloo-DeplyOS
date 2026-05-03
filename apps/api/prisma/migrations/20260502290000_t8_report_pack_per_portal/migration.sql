@@ -45,19 +45,38 @@ WITH ranked AS (
     ) AS rn
   FROM "ReportInstallation"
 ),
+-- Pick the single most-recent successful install per group as the source
+-- of truth for `hubspotReportId` / `hubspotReportUrl` rather than a
+-- lexicographic MAX(), which would otherwise return whichever id sorts
+-- highest as a string.
+installed_pick AS (
+  SELECT DISTINCT ON ("portalId", "templateSlug")
+    "portalId",
+    "templateSlug",
+    "hubspotReportId"  AS best_hubspot_report_id,
+    "hubspotReportUrl" AS best_hubspot_report_url
+  FROM "ReportInstallation"
+  WHERE "status" = 'installed'
+  ORDER BY "portalId", "templateSlug",
+           "lastInstalledAt" DESC NULLS LAST,
+           "updatedAt"       DESC,
+           "id"              DESC
+),
 winners AS (
   SELECT
     ri."portalId",
     ri."templateSlug",
-    -- Roll the latest install metadata across the whole group onto the
-    -- surviving row so we don't lose evidence of a successful prior install.
-    MAX(ri."hubspotReportId") FILTER (WHERE ri."status" = 'installed') AS best_hubspot_report_id,
-    MAX(ri."hubspotReportUrl") FILTER (WHERE ri."status" = 'installed') AS best_hubspot_report_url,
+    ip.best_hubspot_report_id,
+    ip.best_hubspot_report_url,
+    -- Numeric/temporal aggregates are still safe with MAX().
     MAX(ri."lastInstalledAt") AS best_last_installed_at,
     MAX(ri."lastAttemptAt")   AS best_last_attempt_at,
     SUM(COALESCE(ri."attemptCount", 0))::int AS total_attempts
   FROM "ReportInstallation" ri
-  GROUP BY ri."portalId", ri."templateSlug"
+  LEFT JOIN installed_pick ip
+    ON ip."portalId" = ri."portalId"
+   AND ip."templateSlug" = ri."templateSlug"
+  GROUP BY ri."portalId", ri."templateSlug", ip.best_hubspot_report_id, ip.best_hubspot_report_url
 )
 UPDATE "ReportInstallation" target
 SET

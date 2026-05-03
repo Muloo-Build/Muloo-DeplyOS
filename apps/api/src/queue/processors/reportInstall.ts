@@ -191,10 +191,18 @@ export async function runReportInstall(data: JobPayload): Promise<JobResult> {
     // if the delete fails: the prior report may have been removed in the
     // portal already, and the row's `lastInstalledAt`/`hubspotReportId`
     // will be overwritten by the create below regardless.
+    // Track whether the prior report has been removed from HubSpot. If so,
+    // the row's `hubspotReportId`/`hubspotReportUrl`/`lastInstalledAt`
+    // values are now stale — they point at a report that no longer exists
+    // — and we must clear them on the failure path below so the operator
+    // UI cannot keep showing a "View" link to a deleted report.
+    let priorReportRemoved = false;
     if (installation.hubspotReportId) {
       const priorReportId = installation.hubspotReportId;
       const deleteResult = await executor.deleteReport(priorReportId);
-      if (!deleteResult.success) {
+      if (deleteResult.success) {
+        priorReportRemoved = true;
+      } else {
         console.warn(
           `[report_install] failed to delete prior report ${priorReportId} for installation ${installation.id}: ${deleteResult.error ?? "unknown"}. Proceeding with fresh create — operator may need to clean up manually.`,
         );
@@ -210,6 +218,17 @@ export async function runReportInstall(data: JobPayload): Promise<JobResult> {
           status: "failed",
           errorMessage:
             createResult.error ?? "createReport returned no error message",
+          // If we successfully removed the prior report from HubSpot but
+          // then failed to create the replacement, blank out the stale
+          // pointers so the UI does not surface a dead "View" link or a
+          // misleading "last installed" timestamp.
+          ...(priorReportRemoved
+            ? {
+                hubspotReportId: null,
+                hubspotReportUrl: null,
+                lastInstalledAt: null,
+              }
+            : {}),
         },
       });
       const output: ReportInstallOutput = {
