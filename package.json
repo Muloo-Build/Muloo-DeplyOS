@@ -6,7 +6,8 @@
   "scripts": {
     "build": "cd apps/api && npx prisma generate && cd ../.. && node node_modules/typescript/lib/tsc.js -b tsconfig.json && cd apps/web && next build",
     "typecheck": "node node_modules/typescript/lib/tsc.js -b tsconfig.json",
-    "test": "node node_modules/typescript/lib/tsc.js -b apps/api && node --test --test-timeout=10000 tests/*.test.mjs",
+    "test": "node node_modules/typescript/lib/tsc.js -b apps/api && pnpm --filter @muloo/report-templates test && node --test --test-timeout=10000 tests/*.test.mjs",
+    "test:templates": "pnpm --filter @muloo/report-templates test",
     "test:coverage": "node node_modules/typescript/lib/tsc.js -b apps/api && node node_modules/c8/bin/c8.js --reporter=text --reporter=json-summary --all --include=apps/api/dist/retainerLedger.js node --test --test-timeout=10000 tests/*.test.mjs",
     "test:smoke": "node node_modules/typescript/lib/tsc.js -b apps/api && node --test --test-timeout=10000 tests/*.test.mjs",
     "clean": "node node_modules/typescript/lib/tsc.js -b tsconfig.json --clean",
