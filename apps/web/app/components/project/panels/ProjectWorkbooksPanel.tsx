@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import QuestionLibraryPicker from "./QuestionLibraryPicker";
 import WorkbookContentEditor, {
   type WorkbookContent,
@@ -158,6 +159,20 @@ export default function ProjectWorkbooksPanel(props: {
   >(null);
   const [briefBusy, setBriefBusy] = useState(false);
   const [briefMessage, setBriefMessage] = useState<string | null>(null);
+  const router = useRouter();
+  // Same 401 → /login pattern used elsewhere in the operator UI:
+  // surface session expiry as an actionable redirect instead of a
+  // misleading "Failed to load workbooks" banner.
+  const handleSessionExpiry = useCallback(
+    (res: Response): boolean => {
+      if (res.status === 401) {
+        router.replace("/login");
+        return true;
+      }
+      return false;
+    },
+    [router]
+  );
   const [draft, setDraft] = useState({
     sourceLabel: "",
     sourceUrl: "",
@@ -175,6 +190,7 @@ export default function ProjectWorkbooksPanel(props: {
       const res = await fetch(`/api/projects/${props.projectId}/workbooks`, {
         credentials: "include"
       });
+      if (handleSessionExpiry(res)) return;
       const data = await res.json();
       if (data.error) {
         setError(data.error);
@@ -184,7 +200,7 @@ export default function ProjectWorkbooksPanel(props: {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load workbooks");
     }
-  }, [props.projectId]);
+  }, [props.projectId, handleSessionExpiry]);
 
   useEffect(() => {
     void load();
@@ -203,6 +219,7 @@ export default function ProjectWorkbooksPanel(props: {
           `/api/projects/${props.projectId}/contributors`,
           { credentials: "include" }
         );
+        if (handleSessionExpiry(res)) return;
         const data = await res.json();
         if (cancelled || data.error) return;
         const list = Array.isArray(data.contributors)
@@ -264,6 +281,7 @@ export default function ProjectWorkbooksPanel(props: {
           body: JSON.stringify({ saveAsResource: true })
         }
       );
+      if (handleSessionExpiry(res)) return;
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
       const count = Number(data.approvedCount ?? 0);
@@ -304,7 +322,7 @@ export default function ProjectWorkbooksPanel(props: {
     setError(null);
     try {
       const isInternal = draft.resourceType === "internal_workbook";
-      const res = await fetch(`/api/projects/${props.projectId}/workbooks`, {
+      const createRes = await fetch(`/api/projects/${props.projectId}/workbooks`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -322,8 +340,9 @@ export default function ProjectWorkbooksPanel(props: {
           sessionNumber: 0
         })
       });
-      const data = await res.json();
-      if (!res.ok || data.error) {
+      if (handleSessionExpiry(createRes)) return;
+      const data = await createRes.json();
+      if (!createRes.ok || data.error) {
         throw new Error(data.error ?? "Failed to create workbook");
       }
       setDraft({
@@ -358,6 +377,7 @@ export default function ProjectWorkbooksPanel(props: {
           body: JSON.stringify({ visibility })
         }
       );
+      if (handleSessionExpiry(res)) return;
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
       await load();
@@ -375,6 +395,7 @@ export default function ProjectWorkbooksPanel(props: {
         `/api/projects/${props.projectId}/workbooks/${id}`,
         { method: "DELETE", credentials: "include" }
       );
+      if (handleSessionExpiry(res)) return;
       const data = await res.json();
       if (!res.ok || data.error) {
         throw new Error(data.error ?? "Failed");
@@ -464,6 +485,7 @@ export default function ProjectWorkbooksPanel(props: {
             void load();
           }}
           onError={setError}
+          onSessionExpired={handleSessionExpiry}
         />
       ) : null}
 
@@ -790,6 +812,10 @@ function FromTemplatePicker(props: {
   workstreams: WorkstreamOption[];
   onCreated: () => void;
   onError: (message: string | null) => void;
+  // Threaded from the parent so a 401 inside the picker uses the same
+  // /login redirect as the rest of the panel rather than surfacing a
+  // misleading "Failed to load templates" banner.
+  onSessionExpired: (res: Response) => boolean;
 }) {
   const [templates, setTemplates] = useState<TemplateChoice[] | null>(null);
   const [search, setSearch] = useState("");
@@ -811,6 +837,7 @@ function FromTemplatePicker(props: {
         `/api/workbook-templates?${params.toString()}`,
         { credentials: "include" }
       );
+      if (props.onSessionExpired(res)) return;
       const data = await res.json();
       if (!res.ok || data.error) {
         throw new Error(data.error ?? "Failed to load templates");
@@ -869,6 +896,7 @@ function FromTemplatePicker(props: {
           })
         }
       );
+      if (props.onSessionExpired(res)) return;
       const data = await res.json();
       if (!res.ok || data.error) {
         throw new Error(data.error ?? "Failed to create workbook");

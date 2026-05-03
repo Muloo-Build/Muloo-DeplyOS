@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface Contributor {
   id: string;
@@ -88,11 +89,26 @@ export default function ProjectContributorsPanel(props: {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const router = useRouter();
   const [draft, setDraft] = useState({
     contactId: "",
     role: "contributor",
     notes: ""
   });
+
+  // Mirror the /reports + ReportPackInstaller pattern: a 401 from any
+  // operator-side fetch means the session cookie has expired, so route
+  // back to /login rather than rendering a misleading "Failed" banner.
+  const handleSessionExpiry = useCallback(
+    (res: Response): boolean => {
+      if (res.status === 401) {
+        router.replace("/login");
+        return true;
+      }
+      return false;
+    },
+    [router]
+  );
 
   const load = useCallback(async () => {
     try {
@@ -104,6 +120,7 @@ export default function ProjectContributorsPanel(props: {
           credentials: "include"
         })
       ]);
+      if (handleSessionExpiry(contribRes) || handleSessionExpiry(wbRes)) return;
       const contribData = await contribRes.json();
       const wbData = await wbRes.json();
       if (contribData.error) {
@@ -120,7 +137,7 @@ export default function ProjectContributorsPanel(props: {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     }
-  }, [props.projectId]);
+  }, [props.projectId, handleSessionExpiry]);
 
   useEffect(() => {
     void load();
@@ -147,6 +164,7 @@ export default function ProjectContributorsPanel(props: {
           })
         }
       );
+      if (handleSessionExpiry(res)) return;
       const data = await res.json();
       if (!res.ok || data.error) {
         throw new Error(data.error ?? "Failed");
@@ -177,6 +195,7 @@ export default function ProjectContributorsPanel(props: {
           body: JSON.stringify(body)
         }
       );
+      if (handleSessionExpiry(res)) return;
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
       await load();
@@ -205,6 +224,7 @@ export default function ProjectContributorsPanel(props: {
         `/api/projects/${props.projectId}/contributors/${id}/promote-champion`,
         { method: "POST", credentials: "include" }
       );
+      if (handleSessionExpiry(res)) return;
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
       await load();
@@ -222,6 +242,7 @@ export default function ProjectContributorsPanel(props: {
         `/api/projects/${props.projectId}/contributors/${id}`,
         { method: "DELETE", credentials: "include" }
       );
+      if (handleSessionExpiry(res)) return;
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
       await load();
@@ -582,7 +603,9 @@ function ContributorAccessLink({
   busy: boolean;
   onPatch: (body: Record<string, unknown>) => Promise<void>;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle"
+  );
 
   const absoluteLink =
     contributor.accessLinkPath && typeof window !== "undefined"
@@ -591,13 +614,36 @@ function ContributorAccessLink({
 
   async function copyLink() {
     if (!absoluteLink) return;
+    // Prefer the async Clipboard API; fall back to a hidden textarea
+    // + execCommand("copy") which still works in non-secure or
+    // permission-restricted contexts. If both fail, surface a clear
+    // hint so the operator knows to select the link text manually.
     try {
-      await navigator.clipboard.writeText(absoluteLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(absoluteLink);
+        setCopyState("copied");
+        setTimeout(() => setCopyState("idle"), 1800);
+        return;
+      }
+      throw new Error("Clipboard API unavailable");
     } catch {
-      // clipboard write may be denied — silently no-op; the user can
-      // still select the link text manually
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = absoluteLink;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (!ok) throw new Error("execCommand copy failed");
+        setCopyState("copied");
+        setTimeout(() => setCopyState("idle"), 1800);
+      } catch {
+        setCopyState("failed");
+        setTimeout(() => setCopyState("idle"), 4000);
+      }
     }
   }
 
@@ -633,7 +679,17 @@ function ContributorAccessLink({
             logging in.
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white">
+            <code
+              onClick={(e) => {
+                // Make the link easy to grab manually if copy is blocked.
+                const range = document.createRange();
+                range.selectNodeContents(e.currentTarget);
+                const sel = window.getSelection();
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+              }}
+              className="min-w-0 flex-1 cursor-text truncate rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white"
+            >
               {absoluteLink}
             </code>
             <button
@@ -641,9 +697,19 @@ function ContributorAccessLink({
               onClick={copyLink}
               className="brand-surface-soft rounded-full border px-3 py-1 text-[11px] text-white"
             >
-              {copied ? "Copied" : "Copy"}
+              {copyState === "copied"
+                ? "Copied"
+                : copyState === "failed"
+                  ? "Select & copy"
+                  : "Copy"}
             </button>
           </div>
+          {copyState === "failed" ? (
+            <p className="text-[10px] text-amber-300">
+              Couldn&apos;t copy automatically — click the link above to
+              highlight it, then press {navigator.platform.includes("Mac") ? "⌘" : "Ctrl"}+C.
+            </p>
+          ) : null}
           {/* Slice 6 + 7: expiry control + audit row. Expiry is sent
               as a YYYY-MM-DD string and parsed server-side. lastUsedAt
               gives the operator a cheap sanity check that the link

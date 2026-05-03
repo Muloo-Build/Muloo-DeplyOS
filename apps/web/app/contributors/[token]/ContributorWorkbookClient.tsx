@@ -78,7 +78,10 @@ export default function ContributorWorkbookClient({
   token: string;
 }) {
   const [data, setData] = useState<Workspace | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{
+    message: string;
+    kind: "expired" | "invalid" | "pending" | "generic";
+  } | null>(null);
   const [activeWorkbookId, setActiveWorkbookId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -87,15 +90,33 @@ export default function ContributorWorkbookClient({
         `/api/contributors/access/${encodeURIComponent(token)}`,
         { credentials: "omit" }
       );
-      const body = await res.json();
-      if (!res.ok || body.error) throw new Error(body.error ?? "Failed");
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || body.error) {
+        const message = body.error ?? `Request failed (${res.status})`;
+        // The server returns 401 with one of three specific messages
+        // when the token resolution itself fails — surface a tailored
+        // hint for each so the contributor knows whether to ask for a
+        // new link, wait for approval, or report a typo.
+        let kind: "expired" | "invalid" | "pending" | "generic" = "generic";
+        if (res.status === 401) {
+          if (message === "This access link has expired") kind = "expired";
+          else if (message === "This access link is not yet approved")
+            kind = "pending";
+          else kind = "invalid";
+        }
+        setError({ message, kind });
+        return;
+      }
       setData(body as Workspace);
       setError(null);
       if (!activeWorkbookId && body.workbooks?.length === 1) {
         setActiveWorkbookId(body.workbooks[0].id);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      setError({
+        message: err instanceof Error ? err.message : "Failed",
+        kind: "generic"
+      });
     }
   }, [token, activeWorkbookId]);
 
@@ -104,18 +125,28 @@ export default function ContributorWorkbookClient({
   }, [load]);
 
   if (error) {
+    const heading =
+      error.kind === "expired"
+        ? "This link has expired"
+        : error.kind === "pending"
+          ? "This link isn't ready yet"
+          : error.kind === "invalid"
+            ? "We couldn't find this link"
+            : "We couldn't open this link";
+    const hint =
+      error.kind === "expired"
+        ? "Ask the person who shared this link to regenerate it for you, then open the new link."
+        : error.kind === "pending"
+          ? "The delivery team still needs to approve your access. Try again later or contact them if it's urgent."
+          : error.kind === "invalid"
+            ? "Double-check that you copied the full link. If it still doesn't work, ask the sender to send a fresh one."
+            : "If you were expecting to fill something in today, please contact the person who shared this link with you.";
     return (
       <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-6 py-12">
         <div className="brand-surface w-full rounded-3xl border border-rose-500/30 bg-rose-500/5 p-8 text-center">
-          <h1 className="text-xl font-semibold text-white">
-            We couldn&apos;t open this link
-          </h1>
-          <p className="mt-2 text-sm text-rose-200">{error}</p>
-          <p className="mt-6 text-xs text-text-secondary">
-            If you were expecting to fill something in today, please contact
-            the person who shared this link with you and ask them to
-            regenerate it.
-          </p>
+          <h1 className="text-xl font-semibold text-white">{heading}</h1>
+          <p className="mt-2 text-sm text-rose-200">{error.message}</p>
+          <p className="mt-6 text-xs text-text-secondary">{hint}</p>
         </div>
       </main>
     );
