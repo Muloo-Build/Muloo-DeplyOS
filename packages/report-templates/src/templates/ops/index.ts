@@ -89,7 +89,9 @@ export const dealsMissingCloseDate: ReportTemplate = tpl(
     description: 'Forecast hygiene gap',
     reportType: 'DEALS',
     filters: [
-      { property: 'dealstage', operator: 'neq', value: 'closedwon' },
+      // "Open" must exclude both terminal stages — closed-lost deals
+      // without a close date are not a forecast hygiene problem.
+      { property: 'dealstage', operator: 'neq', value: 'closedwon,closedlost' },
       { property: 'closedate', operator: 'not_set' },
     ],
     dimensions: [],

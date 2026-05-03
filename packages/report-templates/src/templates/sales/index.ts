@@ -36,7 +36,11 @@ export const dealsByStage: ReportTemplate = tpl(
     name: 'Open Deals by Pipeline Stage',
     description: 'Pipeline distribution across stages',
     reportType: 'DEALS',
-    filters: [{ property: 'dealstage', operator: 'neq', value: 'closedwon' }],
+    filters: [
+      // "Open" must exclude both terminal stages, matching the marketing
+      // pipelineByStage convention (neq + comma-separated value list).
+      { property: 'dealstage', operator: 'neq', value: 'closedwon,closedlost' },
+    ],
     dimensions: [{ property: 'dealstage', type: 'property' }],
     metrics: [{ name: 'count', type: 'COUNT' }],
     visualizationType: 'BAR',
@@ -57,7 +61,9 @@ export const dealAmountByOwner: ReportTemplate = tpl(
     name: 'Open Deal Amount by Owner',
     description: 'Pipeline coverage per rep',
     reportType: 'DEALS',
-    filters: [{ property: 'dealstage', operator: 'neq', value: 'closedwon' }],
+    filters: [
+      { property: 'dealstage', operator: 'neq', value: 'closedwon,closedlost' },
+    ],
     dimensions: [{ property: 'hubspot_owner_id', type: 'property' }],
     metrics: [{ name: 'amount_sum', type: 'SUM', property: 'amount' }],
     visualizationType: 'BAR',

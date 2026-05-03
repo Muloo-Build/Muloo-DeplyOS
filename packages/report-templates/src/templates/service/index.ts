@@ -32,7 +32,11 @@ export const ticketsByStatus: ReportTemplate = tpl(
     name: 'Tickets by Status',
     description: 'Open ticket distribution',
     reportType: 'TICKETS',
-    filters: [],
+    filters: [
+      // "Open ticket" — exclude the terminal `closed` pipeline stage
+      // (matches `service_tickets_by_owner`).
+      { property: 'hs_pipeline_stage', operator: 'neq', value: 'closed' },
+    ],
     dimensions: [{ property: 'hs_pipeline_stage', type: 'property' }],
     metrics: [{ name: 'count', type: 'COUNT' }],
     visualizationType: 'DONUT',
