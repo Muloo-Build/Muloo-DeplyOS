@@ -280,7 +280,12 @@ export default function ProjectMeetingsPanel({
         workstreams={workstreams}
         workbooks={workbooks}
         onClose={() => setOpen(false)}
-        onSaved={() => void load()}
+        onSaved={(noteId, hasTranscript) => {
+          void load();
+          if (noteId && hasTranscript) {
+            void extract(noteId);
+          }
+        }}
       />
     </section>
   );

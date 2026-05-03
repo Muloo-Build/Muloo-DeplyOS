@@ -271,3 +271,16 @@ Added 7 of 8 features in one pass:
 - /api/capacity feed + /capacity page in sidebar showing per-owner workload.
 - Skipped: CR→quote-line button (deferred — needs change-tab refactor), Command Centre health chip (endpoint ready; UI defer).
 - Schema migration: 20260503100000_delivery_ops_pack.
+
+## Delivery Ops Pack — Wave 2 polish (May 2026 follow-up)
+- Health chip on Command Centre active-project rows (batch fetch /api/projects/health-batch).
+- Health chip on project header in ProjectOverview (single fetch /api/projects/:id/health).
+- Auto-extract on meeting save: if transcript >200 chars, ProjectMeetingsPanel auto-fires the extract route after save (no user click required); manual button still available for re-extraction.
+- RAID stale flag: open high/critical risks older than 7 days now show a "⚠ stale Nd" chip in ProjectRaidPanel.
+- "Copy as quote line" button on priced/approved Change Requests in ChangeTab — copies a formatted line to clipboard.
+- Sidebar Capacity entry already added in initial pack.
+- Deferred (need infra decision):
+  * Daily Copilot email digest — needs email transport (Resend vs SendGrid vs Gmail API).
+  * Gmail + HubSpot email unification onto project records — needs Gmail send/list scope confirmation and a new ProjectEmailThread model.
+  * Vector knowledge base — needs embedding provider (Voyage / OpenAI) + pgvector extension; Anthropic doesn't ship embeddings.
+  * Capacity heatmap (per-day grid) — needs backend per-day breakdown in loadCapacityFeed.

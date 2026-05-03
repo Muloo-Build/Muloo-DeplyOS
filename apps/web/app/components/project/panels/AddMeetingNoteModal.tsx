@@ -19,7 +19,7 @@ export default function AddMeetingNoteModal({
   workstreams: WorkstreamOption[];
   workbooks: WorkbookOption[];
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (noteId?: string, hasTranscript?: boolean) => void;
 }) {
   const [title, setTitle] = useState("");
   const [meetingDate, setMeetingDate] = useState(() =>
@@ -85,11 +85,12 @@ export default function AddMeetingNoteModal({
       );
       const body = (await response.json().catch(() => ({}))) as {
         error?: string;
+        note?: { id?: string };
       };
       if (!response.ok) {
         throw new Error(body.error ?? `Save failed (${response.status})`);
       }
-      onSaved();
+      onSaved(body.note?.id, transcript.trim().length > 200);
       onClose();
     } catch (caught) {
       setError(

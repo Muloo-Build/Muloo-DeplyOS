@@ -263,6 +263,26 @@ function InfoGrid(props: { items: Array<{ label: string; value: string | number 
 
 export default function ProjectOverview({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<Project | null>(null);
+  const [health, setHealth] = useState<{ score: number; band: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/projects/${encodeURIComponent(projectId)}/health`, {
+      credentials: "include"
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        if (!cancelled && b?.health) {
+          setHealth({ score: b.health.score, band: b.health.band });
+        }
+      })
+      .catch(() => {
+        /* non-blocking */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [discoverySummary, setDiscoverySummary] =
@@ -2330,7 +2350,27 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         ) : null}
         <ProjectDetailLayout
           backHref="/projects"
-          title={project.name}
+          title={
+            (
+              <span className="inline-flex items-center gap-2">
+                {project.name}
+                {health ? (
+                  <span
+                    title={`Project health: ${health.score}/100`}
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      health.band === "healthy"
+                        ? "bg-emerald-500/25 text-emerald-100"
+                        : health.band === "watch"
+                          ? "bg-amber-500/25 text-amber-100"
+                          : "bg-rose-500/30 text-rose-100"
+                    }`}
+                  >
+                    ● {health.score}
+                  </span>
+                ) : null}
+              </span>
+            ) as unknown as string
+          }
           statusLabel={formatLabel(project.status)}
           clientName={project.client.name}
           projectType={formatLabel(project.engagementType)}

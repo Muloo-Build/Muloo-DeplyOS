@@ -418,7 +418,26 @@ export default function ChangeTab({
           const parts: string[] = [];
           if (hasHours) parts.push(formatSignedHours(hours as number));
           if (hasFee) parts.push(formatSignedZar(fee as number));
-          return <span className="text-xs text-white">{parts.join(" · ")}</span>;
+          const quoteLine = `${request.title} — ${hasHours ? `${hours}h` : ""}${
+            hasHours && hasFee ? " · " : ""
+          }${hasFee ? `R${(fee as number).toLocaleString("en-ZA")}` : ""}`;
+          return (
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-xs text-white">{parts.join(" · ")}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void navigator.clipboard.writeText(quoteLine);
+                }}
+                className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-text-secondary hover:bg-white/10 hover:text-white"
+                title="Copy as quote line"
+              >
+                Copy as quote line
+              </button>
+            </div>
+          );
         }}
         renderFooter={(request) =>
           request.approvedByName || request.approvedAt ? (

@@ -392,6 +392,9 @@ export default function MulooCommandCentre() {
     affectedProjectCount: number;
   } | null>(null);
   const [activeProjects, setActiveProjects] = useState<ProjectListItem[]>([]);
+  const [healthMap, setHealthMap] = useState<
+    Record<string, { score: number; band: string }>
+  >({});
   const [recentRuns, setRecentRuns] = useState<ExecutionRun[]>([]);
   const [clientEmailQueues, setClientEmailQueues] = useState<
     ClientEmailQueue[]
@@ -600,6 +603,33 @@ export default function MulooCommandCentre() {
           }
         }
         setActiveProjects(activeProjectsBody?.projects ?? []);
+        const projectIds = (activeProjectsBody?.projects ?? [])
+          .map((p) => p.id)
+          .filter((id): id is string => typeof id === "string");
+        if (projectIds.length > 0) {
+          fetch("/api/projects/health-batch", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectIds })
+          })
+            .then((r) => r.json())
+            .then((b) => {
+              const map: Record<string, { score: number; band: string }> = {};
+              const list = (b?.health ?? []) as Array<{
+                projectId: string;
+                score: number;
+                band: string;
+              }>;
+              for (const h of list) {
+                map[h.projectId] = { score: h.score, band: h.band };
+              }
+              setHealthMap(map);
+            })
+            .catch(() => {
+              /* non-blocking */
+            });
+        }
         setRecentRuns(recentRunsBody?.runs ?? []);
         setClientEmailQueues(clientEmailQueuesBody?.queues ?? []);
         setDismissedEmailIds([]);
@@ -1608,13 +1638,29 @@ export default function MulooCommandCentre() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${getStatusBadgeClass(
-                            project.status
-                          )}`}
-                        >
-                          {formatStatusLabel(project.status)}
-                        </span>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {healthMap[project.id] ? (
+                            <span
+                              title={`Health ${healthMap[project.id]!.score}`}
+                              className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                healthMap[project.id]!.band === "healthy"
+                                  ? "bg-emerald-500/25 text-emerald-100"
+                                  : healthMap[project.id]!.band === "watch"
+                                    ? "bg-amber-500/25 text-amber-100"
+                                    : "bg-rose-500/30 text-rose-100"
+                              }`}
+                            >
+                              ● {healthMap[project.id]!.score}
+                            </span>
+                          ) : null}
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                              project.status
+                            )}`}
+                          >
+                            {formatStatusLabel(project.status)}
+                          </span>
+                        </div>
                         <p className="mt-2 text-xs text-text-muted">
                           {formatRelativeTime(project.updatedAt)}
                         </p>

@@ -232,6 +232,21 @@ export default function ProjectRaidPanel({ projectId }: { projectId: string }) {
                         due {r.dueDate.slice(0, 10)}
                       </span>
                     ) : null}
+                    {(() => {
+                      const ageDays = Math.floor(
+                        (Date.now() - new Date(r.createdAt).getTime()) /
+                          86_400_000
+                      );
+                      const isStale =
+                        r.status === "open" &&
+                        (r.severity === "high" || r.severity === "critical") &&
+                        ageDays > 7;
+                      return isStale ? (
+                        <span className="rounded bg-rose-500/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-rose-100">
+                          ⚠ stale {ageDays}d
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
                   <p className="mt-1.5 text-sm text-white">
                     {r.kind === "risk" || r.kind === "issue" ? (
