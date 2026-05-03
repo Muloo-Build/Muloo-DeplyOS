@@ -71,8 +71,8 @@ export const overdueInvoiceCount: ReportTemplate = tpl(
     description: 'AR risk indicator',
     reportType: 'INVOICES',
     filters: [
-      { property: 'hs_invoice_status', operator: 'EQ', value: 'open' },
-      { property: 'hs_due_date', operator: 'LT', value: 'TODAY' },
+      { property: 'hs_invoice_status', operator: 'eq', value: 'open' },
+      { property: 'hs_due_date', operator: 'lt', value: 'TODAY' },
     ],
     dimensions: [],
     metrics: [{ name: 'count', type: 'COUNT' }],

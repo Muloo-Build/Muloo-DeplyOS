@@ -111,7 +111,7 @@ export const ticketsByOwner: ReportTemplate = tpl(
     description: 'Queue load per agent',
     reportType: 'TICKETS',
     filters: [
-      { property: 'hs_pipeline_stage', operator: 'NEQ', value: 'closed' },
+      { property: 'hs_pipeline_stage', operator: 'neq', value: 'closed' },
     ],
     dimensions: [{ property: 'hubspot_owner_id', type: 'property' }],
     metrics: [{ name: 'count', type: 'COUNT' }],

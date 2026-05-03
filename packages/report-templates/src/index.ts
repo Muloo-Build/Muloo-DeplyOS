@@ -1,4 +1,11 @@
 export { TemplateEngine } from './TemplateEngine';
+export {
+  validateTemplate,
+  validateTemplateCatalogue,
+  validateReportDefinition,
+  ALLOWED_FILTER_OPERATORS,
+} from './validation';
+export type { TemplateValidationIssue } from './validation';
 export type {
   ReportTemplate,
   TemplateConfig,
