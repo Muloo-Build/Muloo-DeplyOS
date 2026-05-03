@@ -13,6 +13,12 @@ interface ProductCatalogItem {
   billingModel: string;
   description?: string | null;
   unitPrice: number;
+  // T6.1 — cost / currency / marginTarget added so operators can track
+  // gross margin against each catalogue item. cost / marginTarget are
+  // nullable: existing rows with no cost just don't show a margin badge.
+  cost?: number | null;
+  currency?: string;
+  marginTarget?: number | null;
   defaultQuantity: number;
   unitLabel: string;
   isActive: boolean;
@@ -26,11 +32,16 @@ interface ProductDraft {
   billingModel: string;
   description: string;
   unitPrice: string;
+  cost: string;
+  currency: string;
+  marginTarget: string;
   defaultQuantity: string;
   unitLabel: string;
   isActive: boolean;
   sortOrder: string;
 }
+
+const currencyOptions = ["ZAR", "USD", "EUR", "GBP", "AUD"];
 
 const serviceFamilies = [
   { value: "hubspot_architecture", label: "HubSpot Architecture" },
@@ -64,6 +75,9 @@ function emptyDraft(): ProductDraft {
     billingModel: "fixed",
     description: "",
     unitPrice: "",
+    cost: "",
+    currency: "ZAR",
+    marginTarget: "",
     defaultQuantity: "1",
     unitLabel: "item",
     isActive: true,
@@ -79,6 +93,15 @@ function productToDraft(product: ProductCatalogItem): ProductDraft {
     billingModel: product.billingModel,
     description: product.description ?? "",
     unitPrice: String(product.unitPrice),
+    cost:
+      product.cost === null || product.cost === undefined
+        ? ""
+        : String(product.cost),
+    currency: product.currency ?? "ZAR",
+    marginTarget:
+      product.marginTarget === null || product.marginTarget === undefined
+        ? ""
+        : String(product.marginTarget),
     defaultQuantity: String(product.defaultQuantity),
     unitLabel: product.unitLabel,
     isActive: product.isActive,
@@ -86,11 +109,34 @@ function productToDraft(product: ProductCatalogItem): ProductDraft {
   };
 }
 
-function formatMoney(amount: number) {
+// Live margin computation for the catalogue list + drawer preview.
+function computeMargin(
+  unitPrice: number,
+  cost: number | null | undefined
+): { absolute: number; pct: number } | null {
+  if (
+    cost === null ||
+    cost === undefined ||
+    !Number.isFinite(cost) ||
+    !Number.isFinite(unitPrice) ||
+    unitPrice <= 0
+  ) {
+    return null;
+  }
+  const absolute = unitPrice - cost;
+  const pct = (absolute / unitPrice) * 100;
+  return { absolute, pct };
+}
+
+function formatMoney(amount: number, currency: string = "ZAR") {
   if (!Number.isFinite(amount)) return "—";
+  const safe =
+    typeof currency === "string" && currency.trim().length === 3
+      ? currency.toUpperCase()
+      : "ZAR";
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
-    currency: "ZAR",
+    currency: safe,
     maximumFractionDigits: 0
   }).format(amount);
 }
@@ -200,6 +246,14 @@ function ProductsCatalogContent() {
       const payload = {
         ...draft,
         unitPrice: Number(draft.unitPrice) || 0,
+        // Empty cost / marginTarget submit as null so the column clears out
+        // rather than coercing 0 (a legitimate cost) by accident.
+        cost: draft.cost.trim() === "" ? null : Number(draft.cost),
+        currency: draft.currency || "ZAR",
+        marginTarget:
+          draft.marginTarget.trim() === ""
+            ? null
+            : Number(draft.marginTarget),
         defaultQuantity: Number(draft.defaultQuantity) || 1,
         sortOrder: Number(draft.sortOrder) || 999
       };
@@ -411,7 +465,37 @@ function ProductsCatalogContent() {
                   {formatLabel(product.billingModel, billingOptions)}
                 </div>
                 <div className="text-sm text-white tabular-nums">
-                  {formatMoney(product.unitPrice)}
+                  {formatMoney(product.unitPrice, product.currency)}
+                  {(() => {
+                    const margin = computeMargin(
+                      product.unitPrice,
+                      product.cost ?? null
+                    );
+                    if (!margin) {
+                      return (
+                        <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-text-muted">
+                          No cost set
+                        </p>
+                      );
+                    }
+                    const target = product.marginTarget ?? null;
+                    const meetsTarget =
+                      target === null || margin.pct >= target;
+                    return (
+                      <p
+                        className={`mt-0.5 text-[10px] uppercase tracking-[0.18em] ${
+                          meetsTarget
+                            ? "text-emerald-300"
+                            : "text-amber-300"
+                        }`}
+                      >
+                        Margin {margin.pct.toFixed(0)}%
+                        {target !== null
+                          ? ` · target ${target.toFixed(0)}%`
+                          : ""}
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="text-xs text-text-muted">
                   {product.defaultQuantity} {product.unitLabel}
@@ -558,7 +642,7 @@ function ProductsCatalogContent() {
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <label className="block text-sm text-text-secondary">
-                  Unit price (ZAR)
+                  Unit price
                   <input
                     type="number"
                     step="0.01"
@@ -598,6 +682,109 @@ function ProductsCatalogContent() {
                   />
                 </label>
               </div>
+
+              {/* T6.1 — cost / currency / margin target row. Cost is the
+                  internal delivery cost per unit; the drawer shows the live
+                  gross margin so operators see margin slip in real time. */}
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="block text-sm text-text-secondary">
+                  Unit cost
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={draft.cost}
+                    onChange={(event) =>
+                      setDraft((d) => ({ ...d, cost: event.target.value }))
+                    }
+                    placeholder="Leave blank if unknown"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  />
+                </label>
+                <label className="block text-sm text-text-secondary">
+                  Currency
+                  <select
+                    value={draft.currency}
+                    onChange={(event) =>
+                      setDraft((d) => ({ ...d, currency: event.target.value }))
+                    }
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  >
+                    {currencyOptions.map((code) => (
+                      <option key={code} value={code}>
+                        {code}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm text-text-secondary">
+                  Margin target (%)
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="100"
+                    value={draft.marginTarget}
+                    onChange={(event) =>
+                      setDraft((d) => ({
+                        ...d,
+                        marginTarget: event.target.value
+                      }))
+                    }
+                    placeholder="e.g. 60"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  />
+                </label>
+              </div>
+
+              {(() => {
+                const unitPrice = Number(draft.unitPrice);
+                const cost =
+                  draft.cost.trim() === "" ? null : Number(draft.cost);
+                const margin = computeMargin(unitPrice, cost);
+                const target =
+                  draft.marginTarget.trim() === ""
+                    ? null
+                    : Number(draft.marginTarget);
+                if (!margin) {
+                  return (
+                    <p className="text-xs text-text-muted">
+                      Add a unit price and a cost to see live gross margin.
+                    </p>
+                  );
+                }
+                const meetsTarget =
+                  target === null ||
+                  !Number.isFinite(target) ||
+                  margin.pct >= target;
+                return (
+                  <div
+                    className={`rounded-xl border px-4 py-3 text-sm ${
+                      meetsTarget
+                        ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+                        : "border-amber-400/30 bg-amber-500/10 text-amber-100"
+                    }`}
+                  >
+                    <p className="text-[10px] uppercase tracking-[0.32em] opacity-80">
+                      Live gross margin
+                    </p>
+                    <p className="mt-1 text-lg font-semibold">
+                      {margin.pct.toFixed(1)}%{" "}
+                      <span className="text-xs font-normal opacity-80">
+                        ({margin.absolute.toFixed(2)} {draft.currency || "ZAR"}{" "}
+                        / unit)
+                      </span>
+                    </p>
+                    {target !== null && Number.isFinite(target) ? (
+                      <p className="mt-1 text-xs opacity-80">
+                        {meetsTarget
+                          ? `Meets ${target.toFixed(0)}% target`
+                          : `Below ${target.toFixed(0)}% target`}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })()}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block text-sm text-text-secondary">

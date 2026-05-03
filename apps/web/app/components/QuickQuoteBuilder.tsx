@@ -14,6 +14,21 @@ interface ClientOption {
   name: string;
 }
 
+// T6.1 — Product catalog item shape used by the per-line product picker.
+// Picking a catalog item pre-fills description, rate (unitPrice), cost and
+// unitLabel so operators don't re-enter cost data already in the catalog.
+interface ProductOption {
+  id: string;
+  name: string;
+  category: string;
+  unitPrice: number;
+  cost: number | null;
+  currency: string;
+  unitLabel: string;
+  defaultQuantity: number;
+  isActive: boolean;
+}
+
 interface SourceQuoteSnapshot {
   status: string;
   version: number;
@@ -26,7 +41,12 @@ interface SourceQuoteSnapshot {
     quantity: number;
     unitLabel: string;
     unitPrice: number;
-    metadata?: { discount?: number } | null;
+    metadata?: {
+      discount?: number;
+      discountType?: DiscountType;
+      // T6.1 — per-line cost persisted on metadata for live margin display.
+      cost?: number | null;
+    } | null;
     billingModel?: string;
   }>;
   paymentSchedule: string[];
@@ -47,6 +67,8 @@ interface LineItemDraft {
   quantity: string;
   unitLabel: string;
   rate: string;
+  // T6.1 — Optional per-unit cost. Empty string = unknown cost = no margin.
+  cost: string;
   discount: string;
   discountType: DiscountType;
 }
@@ -96,9 +118,25 @@ function blankLineItem(unitLabel: string): LineItemDraft {
     quantity: "",
     unitLabel,
     rate: "",
+    cost: "",
     discount: "",
     discountType: "percent"
   };
+}
+
+// T6.1 — Per-line gross margin: revenue (after discount) minus cost*quantity.
+// Returned as null when cost is unknown so the UI can render a neutral state
+// instead of a misleading "100% margin".
+function calcLineMargin(item: LineItemDraft, lineRevenue: number) {
+  if (item.cost.trim() === "") return null;
+  const cost = Number(item.cost);
+  const qty = Number(item.quantity);
+  if (!Number.isFinite(cost) || cost < 0) return null;
+  if (!Number.isFinite(qty) || qty <= 0) return null;
+  const totalCost = cost * qty;
+  const absolute = lineRevenue - totalCost;
+  if (lineRevenue <= 0) return { absolute, pct: 0 };
+  return { absolute, pct: (absolute / lineRevenue) * 100 };
 }
 
 function calcLineTotal(item: LineItemDraft) {
@@ -134,6 +172,7 @@ export default function QuickQuoteBuilder({
   const router = useRouter();
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
+  const [products, setProducts] = useState<ProductOption[]>([]);
   const [loadingSource, setLoadingSource] = useState(Boolean(sourceId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -174,6 +213,68 @@ export default function QuickQuoteBuilder({
     }
     void loadClients();
   }, []);
+
+  // T6.1 — Load active product catalog items so each quote line can be
+  // pre-filled from a catalog product (rate + cost + unitLabel) instead of
+  // re-entering cost manually. Failures are non-fatal: the picker just
+  // doesn't appear and the manual fields still work.
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const response = await fetch("/api/products", {
+          credentials: "include"
+        });
+        if (!response.ok) return;
+        const body = (await response.json()) as {
+          products?: ProductOption[];
+        };
+        setProducts((body.products ?? []).filter((p) => p.isActive));
+      } catch {
+        // ignore: picker is optional
+      }
+    }
+    void loadProducts();
+  }, []);
+
+  function applyProductToLine(index: number, productId: string) {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+    // T6.1 — Guard against mixed-currency lines. Margin and totals are
+    // computed in the quote currency without any FX, so applying a non-
+    // matching-currency product would silently misstate margin. Block it
+    // and surface the mismatch instead.
+    if (
+      product.currency &&
+      product.currency.toUpperCase() !== currency.toUpperCase()
+    ) {
+      setError(
+        `"${product.name}" is priced in ${product.currency} but this quote is in ${currency}. Change the quote currency or pick a ${currency} product.`
+      );
+      return;
+    }
+    setError(null);
+    setLineItems((current) =>
+      current.map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              description: product.name,
+              rate: String(product.unitPrice ?? ""),
+              cost:
+                product.cost === null || product.cost === undefined
+                  ? ""
+                  : String(product.cost),
+              unitLabel: product.unitLabel || item.unitLabel,
+              quantity:
+                item.quantity ||
+                (product.defaultQuantity
+                  ? String(product.defaultQuantity)
+                  : item.quantity)
+            }
+          : item
+      )
+    );
+  }
 
   useEffect(() => {
     if (!sourceId) return;
@@ -219,12 +320,17 @@ export default function QuickQuoteBuilder({
               const meta = (line.metadata ?? {}) as {
                 discount?: number;
                 discountType?: DiscountType;
+                cost?: number | null;
               };
               return {
                 description: line.description ?? line.name ?? "",
                 quantity: String(line.quantity ?? ""),
                 unitLabel: line.unitLabel ?? "hours",
                 rate: String(line.unitPrice ?? ""),
+                cost:
+                  meta.cost === null || meta.cost === undefined
+                    ? ""
+                    : String(meta.cost),
                 discount: meta.discount ? String(meta.discount) : "",
                 discountType:
                   meta.discountType === "fixed" ? "fixed" : "percent"
@@ -257,6 +363,33 @@ export default function QuickQuoteBuilder({
     () => lineItems.reduce((sum, item) => sum + calcLineTotal(item), 0),
     [lineItems]
   );
+
+  // T6.1 — Quote-total margin. Sums known costs across lines; if any line has
+  // no cost we surface that as "partial coverage" rather than pretending to
+  // know the true margin.
+  const totalMargin = useMemo(() => {
+    let revenueWithCost = 0;
+    let totalCost = 0;
+    let linesWithCost = 0;
+    let linesWithoutCost = 0;
+    for (const item of lineItems) {
+      const lineRevenue = calcLineTotal(item);
+      const qty = Number(item.quantity);
+      if (item.cost.trim() === "" || !Number.isFinite(qty) || qty <= 0) {
+        if (lineRevenue > 0) linesWithoutCost += 1;
+        continue;
+      }
+      const cost = Number(item.cost);
+      if (!Number.isFinite(cost) || cost < 0) continue;
+      revenueWithCost += lineRevenue;
+      totalCost += cost * qty;
+      linesWithCost += 1;
+    }
+    if (linesWithCost === 0) return null;
+    const absolute = revenueWithCost - totalCost;
+    const pct = revenueWithCost > 0 ? (absolute / revenueWithCost) * 100 : 0;
+    return { absolute, pct, linesWithCost, linesWithoutCost };
+  }, [lineItems]);
 
   function updateLineItem<K extends keyof LineItemDraft>(
     index: number,
@@ -312,6 +445,7 @@ export default function QuickQuoteBuilder({
         quantity: Number(item.quantity) || 0,
         unitLabel: item.unitLabel || "hours",
         rate: Number(item.rate) || 0,
+        cost: item.cost.trim() === "" ? null : Number(item.cost),
         discount: Number(item.discount) || 0,
         discountType: item.discountType
       }))
@@ -604,11 +738,36 @@ export default function QuickQuoteBuilder({
                 (Number(item.quantity) || 0) * (Number(item.rate) || 0);
               const hasDiscount =
                 Number(item.discount) > 0 && grossLineTotal > 0;
+              const lineMargin = calcLineMargin(item, lineTotal);
               return (
                 <div
                   key={index}
                   className="rounded-xl border border-white/10 bg-background-primary/40 p-4"
                 >
+                  {products.length > 0 ? (
+                    <label className="mb-3 block text-xs text-text-muted">
+                      Pre-fill from catalog (optional)
+                      <select
+                        value=""
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          if (value) applyProductToLine(index, value);
+                        }}
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                        aria-label="Pick product from catalog"
+                      >
+                        <option value="">— Pick a product —</option>
+                        {products.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name}
+                            {product.cost !== null && product.cost !== undefined
+                              ? ` · cost ${product.currency} ${product.cost}`
+                              : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                   <div className="grid gap-3 md:grid-cols-[1.4fr_0.6fr_0.7fr_0.9fr_auto]">
                     <label className="text-xs text-text-muted">
                       Term / description
@@ -696,6 +855,49 @@ export default function QuickQuoteBuilder({
                       Remove
                     </button>
                   </div>
+                  {/* T6.1 — per-unit cost input. Optional: leave blank if
+                      delivery cost isn't known and we'll skip the margin. */}
+                  <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                    <label className="text-xs text-text-muted">
+                      Cost / unit (optional, for margin)
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={item.cost}
+                        onChange={(event) =>
+                          updateLineItem(index, "cost", event.target.value)
+                        }
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                        placeholder="0.00"
+                      />
+                    </label>
+                    {lineMargin ? (
+                      <div
+                        className={`rounded-lg border px-3 py-2 text-xs ${
+                          lineMargin.pct >= 50
+                            ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+                            : lineMargin.pct >= 25
+                              ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
+                              : "border-rose-400/30 bg-rose-500/10 text-rose-100"
+                        }`}
+                      >
+                        <p className="text-[10px] uppercase tracking-[0.18em] opacity-80">
+                          Gross margin
+                        </p>
+                        <p className="mt-0.5 text-sm font-semibold tabular-nums">
+                          {lineMargin.pct.toFixed(1)}%{" "}
+                          <span className="text-[11px] font-normal opacity-80">
+                            ({formatCurrency(lineMargin.absolute, currency)})
+                          </span>
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-text-muted md:self-end">
+                        Add a cost to see live margin
+                      </p>
+                    )}
+                  </div>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
                     <p className="text-text-muted">
                       {hasDiscount ? (
@@ -731,6 +933,39 @@ export default function QuickQuoteBuilder({
               {formatCurrency(subtotal, currency)}
             </p>
           </div>
+          {/* T6.1 — Quote-total margin readout. Hides when no line has a cost. */}
+          {totalMargin ? (
+            <div
+              className={`mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-3 text-sm ${
+                totalMargin.pct >= 50
+                  ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+                  : totalMargin.pct >= 25
+                    ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
+                    : "border-rose-400/30 bg-rose-500/10 text-rose-100"
+              }`}
+            >
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.32em] opacity-80">
+                  Gross margin (quote)
+                </p>
+                <p className="mt-0.5 text-base font-semibold tabular-nums">
+                  {totalMargin.pct.toFixed(1)}%{" "}
+                  <span className="text-xs font-normal opacity-80">
+                    ({formatCurrency(totalMargin.absolute, currency)} across{" "}
+                    {totalMargin.linesWithCost} line
+                    {totalMargin.linesWithCost === 1 ? "" : "s"})
+                  </span>
+                </p>
+              </div>
+              {totalMargin.linesWithoutCost > 0 ? (
+                <p className="text-[11px] opacity-80">
+                  {totalMargin.linesWithoutCost} line
+                  {totalMargin.linesWithoutCost === 1 ? "" : "s"} missing cost —
+                  margin shown is partial.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <p className="mt-2 text-right text-xs text-text-muted">
             All amounts shown exclude VAT.
           </p>

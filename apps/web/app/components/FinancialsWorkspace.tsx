@@ -1,20 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
 
+// T6.2 / T6.3 — Financials snapshot now scoped to a date range with a
+// prior-period comparison and a forward-looking 90-day forecast block.
+interface FinancialsRange {
+  key: "this_quarter" | "this_year" | "custom";
+  label: string;
+  from: string;
+  to: string;
+}
+
 interface FinancialsSummary {
+  range: FinancialsRange;
+  priorRange: { label: string; from: string; to: string };
   headline: {
     pipelineValue: number;
     pipelineCount: number;
     approvedValue: number;
     approvedCount: number;
-    wonThisMonthValue: number;
-    wonThisMonthCount: number;
+    wonInRangeValue: number;
+    wonInRangeCount: number;
     mrrZar: number;
     activeRetainers: number;
     annualisedRecurringZar: number;
+  };
+  prior: {
+    wonValue: number;
+    wonCount: number;
+    lostValue: number;
+    lostCount: number;
+    winRate: number | null;
+    deltas: {
+      wonValue: number | null;
+      wonCount: number | null;
+      winRate: number | null;
+    };
   };
   quoteFunnel: {
     draft: number;
@@ -28,7 +51,12 @@ interface FinancialsSummary {
     wonCount: number;
     lostValue: number;
     lostCount: number;
+    wonInRangeValue: number;
+    wonInRangeCount: number;
+    lostInRangeValue: number;
+    lostInRangeCount: number;
     winRate: number | null;
+    winRateInRange: number | null;
   };
   monthly: Array<{ month: string; wonValue: number; wonCount: number }>;
   recurring: {
@@ -48,6 +76,32 @@ interface FinancialsSummary {
     recurringZar: number;
     totalZar: number;
   }>;
+  forecast90: {
+    horizonDays: number;
+    horizonEndsAt: string;
+    recurringZar: number;
+    pipelineWeightedZar: number;
+    combinedZar: number;
+    confidenceLowerZar: number;
+    confidenceUpperZar: number;
+    bandPct: number;
+    breakdown: {
+      sentValue: number;
+      sentCount: number;
+      sentWeight: number;
+      sentWeightedZar: number;
+      approvedValue: number;
+      approvedCount: number;
+      approvedWeight: number;
+      approvedWeightedZar: number;
+      wonOpenValue: number;
+      wonOpenCount: number;
+      wonWeight: number;
+      wonWeightedZar: number;
+      wonWindowDays?: number;
+      mrrZar: number;
+    };
+  };
 }
 
 function formatMoney(amount: number) {
@@ -66,19 +120,86 @@ function formatCount(value: number, singular: string, plural?: string) {
   return `${value} ${plural ?? `${singular}s`}`;
 }
 
+// Delta arrow + colour. Higher-is-better metrics use the default polarity;
+// pass invert=true for metrics where lower is better.
+function DeltaBadge({
+  delta,
+  suffix = "%",
+  invert = false
+}: {
+  delta: number | null;
+  suffix?: string;
+  invert?: boolean;
+}) {
+  if (delta === null) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-text-muted">
+        — no prior
+      </span>
+    );
+  }
+  const positive = invert ? delta < 0 : delta > 0;
+  const negative = invert ? delta > 0 : delta < 0;
+  const tone = positive
+    ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+    : negative
+      ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
+      : "border-white/10 bg-white/5 text-text-secondary";
+  const arrow = delta > 0 ? "▲" : delta < 0 ? "▼" : "■";
+  const sign = delta > 0 ? "+" : "";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums ${tone}`}
+    >
+      <span>{arrow}</span>
+      <span>
+        {sign}
+        {delta.toFixed(1)}
+        {suffix}
+      </span>
+    </span>
+  );
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function quarterStartIso() {
+  const now = new Date();
+  const qMonth = Math.floor(now.getMonth() / 3) * 3;
+  return new Date(now.getFullYear(), qMonth, 1).toISOString().slice(0, 10);
+}
+
 export default function FinancialsWorkspace() {
   const [summary, setSummary] = useState<FinancialsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // T6.2 — range picker state. Custom dates only submit when both are set.
+  const [rangeKey, setRangeKey] = useState<
+    "this_quarter" | "this_year" | "custom"
+  >("this_quarter");
+  const [customFrom, setCustomFrom] = useState<string>(quarterStartIso());
+  const [customTo, setCustomTo] = useState<string>(todayIso());
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch("/api/financials/summary", {
-          credentials: "include"
-        });
+        const params = new URLSearchParams({ range: rangeKey });
+        if (rangeKey === "custom") {
+          if (!customFrom || !customTo) {
+            setLoading(false);
+            return;
+          }
+          params.set("from", customFrom);
+          params.set("to", customTo);
+        }
+        const response = await fetch(
+          `/api/financials/summary?${params.toString()}`,
+          { credentials: "include" }
+        );
         if (!response.ok) {
           const body = (await response.json().catch(() => null)) as {
             error?: string;
@@ -98,11 +219,20 @@ export default function FinancialsWorkspace() {
       }
     }
     void load();
-  }, []);
+  }, [rangeKey, customFrom, customTo]);
 
-  const maxMonthlyValue = summary
-    ? Math.max(1, ...summary.monthly.map((m) => m.wonValue))
-    : 1;
+  const maxMonthlyValue = useMemo(
+    () =>
+      summary ? Math.max(1, ...summary.monthly.map((m) => m.wonValue)) : 1,
+    [summary]
+  );
+
+  const forecastPipelineRatio = useMemo(() => {
+    if (!summary) return 0;
+    const combined = summary.forecast90.combinedZar;
+    if (combined <= 0) return 0;
+    return (summary.forecast90.pipelineWeightedZar / combined) * 100;
+  }, [summary]);
 
   return (
     <AppShell>
@@ -115,10 +245,65 @@ export default function FinancialsWorkspace() {
             Financials
           </h1>
           <p className="text-sm text-text-secondary">
-            Pipeline, recurring revenue, win rate, and top clients. Numbers come
-            from your live quote and retainer data.
+            Pipeline, recurring revenue, win rate, top clients, and a 90-day
+            forecast. Numbers come from your live quote and retainer data.
           </p>
         </header>
+
+        {/* T6.2 — Range picker */}
+        <section className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-background-card px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {(
+              [
+                { value: "this_quarter", label: "This quarter" },
+                { value: "this_year", label: "This year" },
+                { value: "custom", label: "Custom" }
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setRangeKey(opt.value)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  rangeKey === opt.value
+                    ? "border-[#51d0b0]/50 bg-[#51d0b0]/10 text-[#9be4d2]"
+                    : "border-white/10 bg-background-primary text-text-secondary hover:border-white/20 hover:text-white"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+            {rangeKey === "custom" ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  value={customFrom}
+                  max={customTo}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="rounded-lg border border-white/10 bg-background-primary px-3 py-1.5 text-xs text-white"
+                />
+                <span className="text-xs text-text-muted">to</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  min={customFrom}
+                  max={todayIso()}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="rounded-lg border border-white/10 bg-background-primary px-3 py-1.5 text-xs text-white"
+                />
+              </div>
+            ) : null}
+          </div>
+          {summary ? (
+            <p className="text-xs text-text-muted">
+              <span className="text-text-secondary">{summary.range.label}</span>{" "}
+              · vs prior{" "}
+              <span className="text-text-secondary">
+                {summary.priorRange.label}
+              </span>
+            </p>
+          ) : null}
+        </section>
 
         {error ? (
           <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
@@ -159,14 +344,18 @@ export default function FinancialsWorkspace() {
               </div>
 
               <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/5 p-5">
-                <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/80">
-                  Won this month
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/80">
+                    Won · {summary.range.label}
+                  </p>
+                  <DeltaBadge delta={summary.prior.deltas.wonValue} />
+                </div>
                 <p className="mt-3 text-2xl font-semibold text-white">
-                  {formatMoney(summary.headline.wonThisMonthValue)}
+                  {formatMoney(summary.headline.wonInRangeValue)}
                 </p>
                 <p className="mt-1 text-xs text-emerald-200/70">
-                  {formatCount(summary.headline.wonThisMonthCount, "deal")}
+                  {formatCount(summary.headline.wonInRangeCount, "deal")} · prior{" "}
+                  {formatMoney(summary.prior.wonValue)}
                 </p>
               </div>
 
@@ -187,6 +376,114 @@ export default function FinancialsWorkspace() {
               </div>
             </section>
 
+            {/* T6.3 — 90-day forecast block */}
+            <section className="rounded-2xl border border-[#51d0b0]/30 bg-[linear-gradient(135deg,rgba(81,208,176,0.08)_0%,rgba(73,205,225,0.08)_100%)] p-6">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.32em] text-[#9be4d2]">
+                    90-day forecast
+                  </p>
+                  <h2 className="mt-2 text-xl font-semibold text-white">
+                    Recurring + weighted pipeline
+                  </h2>
+                  <p className="mt-1 text-xs text-text-muted">
+                    Sent {Math.round(summary.forecast90.breakdown.sentWeight * 100)}% ·
+                    Approved {Math.round(summary.forecast90.breakdown.approvedWeight * 100)}% ·
+                    Won {Math.round(summary.forecast90.breakdown.wonWeight * 100)}% · ±
+                    {Math.round(summary.forecast90.bandPct * 100)}% confidence band
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-semibold text-white tabular-nums">
+                    {formatMoney(summary.forecast90.combinedZar)}
+                  </p>
+                  <p className="mt-1 text-xs text-text-muted">
+                    {formatMoney(summary.forecast90.confidenceLowerZar)} –{" "}
+                    {formatMoney(summary.forecast90.confidenceUpperZar)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Stacked composition bar (recurring vs pipeline). */}
+              <div className="mt-5 h-3 w-full overflow-hidden rounded-full border border-white/10 bg-white/5">
+                <div className="flex h-full">
+                  <div
+                    className="h-full bg-[#49cde1]"
+                    style={{ width: `${100 - forecastPipelineRatio}%` }}
+                    title={`Recurring ${formatMoney(summary.forecast90.recurringZar)}`}
+                  />
+                  <div
+                    className="h-full bg-[#51d0b0]"
+                    style={{ width: `${forecastPipelineRatio}%` }}
+                    title={`Pipeline (weighted) ${formatMoney(summary.forecast90.pipelineWeightedZar)}`}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl border border-white/10 bg-background-primary/40 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-[#9be4f0]/80">
+                    Recurring (committed)
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-white tabular-nums">
+                    {formatMoney(summary.forecast90.recurringZar)}
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    MRR {formatMoney(summary.forecast90.breakdown.mrrZar)} × 3 mo
+                  </p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-background-primary/40 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
+                    Sent · 30%
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-white tabular-nums">
+                    {formatMoney(summary.forecast90.breakdown.sentWeightedZar)}
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    {formatMoney(summary.forecast90.breakdown.sentValue)} ·{" "}
+                    {formatCount(
+                      summary.forecast90.breakdown.sentCount,
+                      "quote"
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-amber-400/30 bg-amber-500/5 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-amber-200/80">
+                    Approved · 70%
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-white tabular-nums">
+                    {formatMoney(
+                      summary.forecast90.breakdown.approvedWeightedZar
+                    )}
+                  </p>
+                  <p className="text-xs text-amber-200/70">
+                    {formatMoney(
+                      summary.forecast90.breakdown.approvedValue
+                    )}{" "}
+                    ·{" "}
+                    {formatCount(
+                      summary.forecast90.breakdown.approvedCount,
+                      "quote"
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/5 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/80">
+                    Won · 100%
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-white tabular-nums">
+                    {formatMoney(summary.forecast90.breakdown.wonWeightedZar)}
+                  </p>
+                  <p className="text-xs text-emerald-200/70">
+                    {formatCount(
+                      summary.forecast90.breakdown.wonOpenCount,
+                      "deal"
+                    )}
+                  </p>
+                </div>
+              </div>
+            </section>
+
             <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
               {/* Won by month chart */}
               <section className="rounded-2xl border border-white/10 bg-background-card p-6">
@@ -196,7 +493,7 @@ export default function FinancialsWorkspace() {
                       Won deals by month
                     </p>
                     <h2 className="mt-2 text-xl font-semibold text-white">
-                      Last 6 months
+                      {summary.range.label}
                     </h2>
                   </div>
                   <p className="text-sm text-text-muted">
@@ -207,13 +504,20 @@ export default function FinancialsWorkspace() {
                   </p>
                 </div>
 
-                <div className="mt-6 grid grid-cols-6 items-end gap-3 px-1">
+                <div
+                  className="mt-6 grid items-end gap-3 px-1"
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.max(1, summary.monthly.length)}, minmax(0, 1fr))`
+                  }}
+                >
                   {summary.monthly.map((bucket) => {
                     const height =
                       bucket.wonValue > 0
                         ? Math.max(
                             6,
-                            Math.round((bucket.wonValue / maxMonthlyValue) * 160)
+                            Math.round(
+                              (bucket.wonValue / maxMonthlyValue) * 160
+                            )
                           )
                         : 4;
                     return (
@@ -279,17 +583,24 @@ export default function FinancialsWorkspace() {
                   ))}
                 </div>
 
-                {summary.quoteFunnel.winRate !== null ? (
+                {summary.quoteFunnel.winRateInRange !== null ? (
                   <div className="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
-                    <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/80">
-                      Win rate
-                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/80">
+                        Win rate · {summary.range.label}
+                      </p>
+                      <DeltaBadge
+                        delta={summary.prior.deltas.winRate}
+                        suffix="pp"
+                      />
+                    </div>
                     <p className="mt-1 text-lg font-semibold text-emerald-100">
-                      {summary.quoteFunnel.winRate}%
+                      {summary.quoteFunnel.winRateInRange}%
                     </p>
                     <p className="mt-1 text-xs text-emerald-200/70">
-                      {summary.quoteFunnel.wonCount} won ·{" "}
-                      {summary.quoteFunnel.lostCount} lost
+                      {summary.quoteFunnel.wonInRangeCount} won ·{" "}
+                      {summary.quoteFunnel.lostInRangeCount} lost · prior{" "}
+                      {summary.prior.winRate ?? "—"}%
                     </p>
                   </div>
                 ) : null}

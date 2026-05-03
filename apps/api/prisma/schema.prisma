@@ -485,6 +485,9 @@ model ProductCatalogItem {
   billingModel    String
   description     String?
   unitPrice       Float
+  cost            Float?
+  currency        String   @default("ZAR")
+  marginTarget    Float?
   defaultQuantity Int      @default(1)
   unitLabel       String   @default("item")
   isActive        Boolean  @default(true)

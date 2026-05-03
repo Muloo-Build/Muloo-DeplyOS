@@ -6156,7 +6156,13 @@ const projectQuoteProductLineSchema = z.object({
     hourlyRate: z.number().finite().nonnegative().nullable().optional(),
     optionGroup: z.string().nullable().optional(),
     paymentTerms: z.string().nullable().optional(),
-    carryOverTerms: z.string().nullable().optional()
+    carryOverTerms: z.string().nullable().optional(),
+    // T6.1 — Per-line cost (for live gross margin) and per-line discount
+    // round-tripped through the quote serialization so revisions / clones
+    // preserve margin inputs entered in the quick-quote builder.
+    cost: z.number().finite().nonnegative().nullable().optional(),
+    discount: z.number().finite().nonnegative().nullable().optional(),
+    discountType: z.enum(["percent", "fixed"]).nullable().optional()
   }).nullable().optional()
 });
 
@@ -13665,6 +13671,9 @@ function serializeProductCatalogItem<
     billingModel: string;
     description: string | null;
     unitPrice: number;
+    cost?: number | null;
+    currency?: string;
+    marginTarget?: number | null;
     defaultQuantity: number;
     unitLabel: string;
     isActive: boolean;
@@ -13682,6 +13691,9 @@ function serializeProductCatalogItem<
     billingModel: product.billingModel,
     description: product.description,
     unitPrice: product.unitPrice,
+    cost: product.cost ?? null,
+    currency: product.currency ?? "ZAR",
+    marginTarget: product.marginTarget ?? null,
     defaultQuantity: product.defaultQuantity,
     unitLabel: product.unitLabel,
     isActive: product.isActive,
@@ -21614,6 +21626,9 @@ export async function createProductCatalogItem(value: {
   billingModel?: unknown;
   description?: unknown;
   unitPrice?: unknown;
+  cost?: unknown;
+  currency?: unknown;
+  marginTarget?: unknown;
   defaultQuantity?: unknown;
   unitLabel?: unknown;
   isActive?: unknown;
@@ -21658,6 +21673,34 @@ export async function createProductCatalogItem(value: {
     );
   }
 
+  const cost =
+    value.cost === null || value.cost === undefined || value.cost === ""
+      ? null
+      : typeof value.cost === "number"
+        ? value.cost
+        : Number(value.cost);
+  if (cost !== null && (!Number.isFinite(cost) || cost < 0)) {
+    throw new Error("cost must be a non-negative number");
+  }
+  const marginTarget =
+    value.marginTarget === null ||
+    value.marginTarget === undefined ||
+    value.marginTarget === ""
+      ? null
+      : typeof value.marginTarget === "number"
+        ? value.marginTarget
+        : Number(value.marginTarget);
+  if (
+    marginTarget !== null &&
+    (!Number.isFinite(marginTarget) || marginTarget < 0 || marginTarget > 100)
+  ) {
+    throw new Error("marginTarget must be a percentage between 0 and 100");
+  }
+  const currency =
+    typeof value.currency === "string" && value.currency.trim().length > 0
+      ? value.currency.trim().toUpperCase()
+      : "ZAR";
+
   const product = await prisma.productCatalogItem.create({
     data: {
       slug: createSlug(name),
@@ -21667,6 +21710,12 @@ export async function createProductCatalogItem(value: {
       billingModel,
       description: description || null,
       unitPrice,
+      cost: cost !== null && Number.isFinite(cost) ? cost : null,
+      currency,
+      marginTarget:
+        marginTarget !== null && Number.isFinite(marginTarget)
+          ? marginTarget
+          : null,
       defaultQuantity:
         Number.isFinite(defaultQuantity) && defaultQuantity > 0
           ? Math.round(defaultQuantity)
@@ -25985,6 +26034,9 @@ export async function updateProductCatalogItem(
     billingModel?: unknown;
     description?: unknown;
     unitPrice?: unknown;
+    cost?: unknown;
+    currency?: unknown;
+    marginTarget?: unknown;
     defaultQuantity?: unknown;
     unitLabel?: unknown;
     isActive?: unknown;
@@ -26056,6 +26108,50 @@ export async function updateProductCatalogItem(
     }
 
     updateData.unitPrice = unitPrice;
+  }
+
+  if (value.cost !== undefined) {
+    if (value.cost === null || value.cost === "") {
+      updateData.cost = null;
+    } else {
+      const cost =
+        typeof value.cost === "number" ? value.cost : Number(value.cost);
+      if (!Number.isFinite(cost) || cost < 0) {
+        throw new Error("cost must be a non-negative number or null");
+      }
+      updateData.cost = cost;
+    }
+  }
+
+  if (value.currency !== undefined) {
+    if (
+      typeof value.currency !== "string" ||
+      value.currency.trim().length === 0
+    ) {
+      throw new Error("currency must be a non-empty string");
+    }
+    updateData.currency = value.currency.trim().toUpperCase();
+  }
+
+  if (value.marginTarget !== undefined) {
+    if (value.marginTarget === null || value.marginTarget === "") {
+      updateData.marginTarget = null;
+    } else {
+      const marginTarget =
+        typeof value.marginTarget === "number"
+          ? value.marginTarget
+          : Number(value.marginTarget);
+      if (
+        !Number.isFinite(marginTarget) ||
+        marginTarget < 0 ||
+        marginTarget > 100
+      ) {
+        throw new Error(
+          "marginTarget must be a percentage between 0 and 100"
+        );
+      }
+      updateData.marginTarget = marginTarget;
+    }
   }
 
   if (value.defaultQuantity !== undefined) {
@@ -30393,6 +30489,9 @@ const quickQuoteLineItemSchema = z.object({
   quantity: z.number().finite().positive().max(10_000),
   unitLabel: z.string().trim().max(40).default("hours"),
   rate: z.number().finite().nonnegative().max(10_000_000),
+  // T6.1 — Optional per-unit cost for live margin display in the Quote builder.
+  // Stored on the line metadata so margin survives reload / revisions.
+  cost: z.number().finite().nonnegative().max(10_000_000).nullable().optional(),
   discount: z.number().finite().min(0).optional(),
   discountType: z.enum(["percent", "fixed"]).optional()
 });
@@ -30579,6 +30678,7 @@ export async function createQuickQuote(payload: unknown) {
         ? Math.max(0, item.rate - discountValue)
         : item.rate * (1 - Math.min(100, Math.max(0, discountValue)) / 100);
     const lineTotal = item.quantity * effectiveRate;
+    const cost = item.cost ?? null;
     return {
       id: `quick-${index}`,
       slug: `quick-line-${index}`,
@@ -30594,7 +30694,8 @@ export async function createQuickQuote(payload: unknown) {
       kind: "manual",
       metadata: {
         discount: discountValue,
-        discountType
+        discountType,
+        cost
       }
     };
   });
@@ -30697,6 +30798,7 @@ function buildQuickQuoteBodyData(
         ? Math.max(0, item.rate - discountValue)
         : item.rate * (1 - Math.min(100, Math.max(0, discountValue)) / 100);
     const lineTotal = item.quantity * effectiveRate;
+    const cost = item.cost ?? null;
     return {
       id: `quick-${index}`,
       slug: `quick-line-${index}`,
@@ -30712,7 +30814,8 @@ function buildQuickQuoteBodyData(
       kind: "manual",
       metadata: {
         discount: discountValue,
-        discountType
+        discountType,
+        cost
       }
     };
   });
@@ -30898,7 +31001,123 @@ async function assertClientAccessToQuoteProject(
   return Boolean(existingAccess);
 }
 
-export async function loadFinancialsSummary() {
+// T6.2 / T6.3 — Date-range parsing for the Financials page. Replaces the
+// hard-coded "Last 6 months" with This Quarter / This Year / Custom plus a
+// prior-period window of equal length used for delta arrows.
+type FinancialsRangeKey = "this_quarter" | "this_year" | "custom";
+
+function resolveFinancialsRange(input: {
+  range?: string | null;
+  from?: string | null;
+  to?: string | null;
+}) {
+  const now = new Date();
+  const requested = (input.range ?? "this_quarter") as FinancialsRangeKey;
+
+  let key: FinancialsRangeKey = "this_quarter";
+  let from: Date;
+  let to: Date;
+  let label: string;
+
+  if (requested === "custom" && input.from && input.to) {
+    const parsedFrom = new Date(input.from);
+    const parsedTo = new Date(input.to);
+    if (
+      Number.isFinite(parsedFrom.getTime()) &&
+      Number.isFinite(parsedTo.getTime()) &&
+      parsedFrom <= parsedTo
+    ) {
+      key = "custom";
+      from = new Date(
+        parsedFrom.getFullYear(),
+        parsedFrom.getMonth(),
+        parsedFrom.getDate()
+      );
+      to = new Date(
+        parsedTo.getFullYear(),
+        parsedTo.getMonth(),
+        parsedTo.getDate(),
+        23,
+        59,
+        59,
+        999
+      );
+      label = `${from.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} – ${parsedTo.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`;
+    } else {
+      key = "this_quarter";
+      const qMonth = Math.floor(now.getMonth() / 3) * 3;
+      from = new Date(now.getFullYear(), qMonth, 1);
+      to = now;
+      label = `Q${Math.floor(qMonth / 3) + 1} ${now.getFullYear()}`;
+    }
+  } else if (requested === "this_year") {
+    key = "this_year";
+    from = new Date(now.getFullYear(), 0, 1);
+    to = now;
+    label = `YTD ${now.getFullYear()}`;
+  } else {
+    key = "this_quarter";
+    const qMonth = Math.floor(now.getMonth() / 3) * 3;
+    from = new Date(now.getFullYear(), qMonth, 1);
+    to = now;
+    label = `Q${Math.floor(qMonth / 3) + 1} ${now.getFullYear()}`;
+  }
+
+  // Prior period. For this_year we use true prior-YTD (Jan 1 of last year
+  // through the same month/day/time as `to`) so deltas compare like-for-like
+  // YTD. For other ranges we use a same-length window immediately before `from`.
+  const lengthMs = to.getTime() - from.getTime();
+  let priorFrom: Date;
+  let priorTo: Date;
+  let priorLabel: string;
+
+  if (key === "this_year") {
+    const lastYear = now.getFullYear() - 1;
+    priorFrom = new Date(lastYear, 0, 1);
+    priorTo = new Date(
+      lastYear,
+      to.getMonth(),
+      to.getDate(),
+      to.getHours(),
+      to.getMinutes(),
+      to.getSeconds(),
+      to.getMilliseconds()
+    );
+    priorLabel = `YTD ${lastYear}`;
+  } else if (key === "this_quarter") {
+    // Prior quarter-to-date: same number of days into the previous quarter
+    // so the comparison is like-for-like (e.g. on May 2 we compare Apr 1–
+    // May 2 against Jan 1 – Feb 1, not against the trailing 32 days).
+    const qMonth = Math.floor(now.getMonth() / 3) * 3;
+    const prevQMonth = (qMonth + 9) % 12;
+    const prevQYear =
+      qMonth === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const prevQuarterStart = new Date(prevQYear, prevQMonth, 1);
+    const daysIntoQuarter = Math.floor(
+      (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    priorFrom = prevQuarterStart;
+    priorTo = new Date(
+      prevQuarterStart.getTime() + daysIntoQuarter * 24 * 60 * 60 * 1000
+    );
+    priorTo.setHours(23, 59, 59, 999);
+    priorLabel = `Q${Math.floor(prevQMonth / 3) + 1} ${prevQYear} (to date)`;
+  } else {
+    priorTo = new Date(from.getTime() - 1);
+    priorFrom = new Date(priorTo.getTime() - lengthMs);
+    priorLabel = `Prior ${Math.max(1, Math.round(lengthMs / (1000 * 60 * 60 * 24)))} days`;
+  }
+
+  return { key, from, to, label, priorFrom, priorTo, priorLabel };
+}
+
+export async function loadFinancialsSummary(input?: {
+  range?: string | null;
+  from?: string | null;
+  to?: string | null;
+}) {
+  const range = resolveFinancialsRange(input ?? {});
+
   // Pull all quotes once so we can bucket them by status without N queries.
   const quotes = await prisma.projectQuote.findMany({
     include: {
@@ -30921,8 +31140,9 @@ export async function loadFinancialsSummary() {
   });
 
   const now = new Date();
-  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const ninetyDaysFromNow = new Date(
+    now.getTime() + 90 * 24 * 60 * 60 * 1000
+  );
 
   function totalsFor(quote: (typeof quotes)[number]) {
     const totals = (quote.totals ?? {}) as Record<string, unknown>;
@@ -30931,30 +31151,54 @@ export async function loadFinancialsSummary() {
     return amount;
   }
 
+  function quoteCloseDate(quote: (typeof quotes)[number]) {
+    return quote.closedAt ?? quote.approvedAt ?? quote.updatedAt;
+  }
+
+  // Open pipeline counts are point-in-time (status as it stands now), not
+  // scoped to the range — those drive forecast. wonInRange / lostInRange
+  // are scoped to the range so the headline reflects the picker.
   let pipelineValue = 0;
   let pipelineCount = 0;
   let approvedValue = 0;
   let approvedCount = 0;
   let wonValue = 0;
   let wonCount = 0;
-  let wonThisMonthValue = 0;
-  let wonThisMonthCount = 0;
+  let wonInRangeValue = 0;
+  let wonInRangeCount = 0;
+  let wonInPriorValue = 0;
+  let wonInPriorCount = 0;
   let lostValue = 0;
   let lostCount = 0;
+  let lostInRangeValue = 0;
+  let lostInRangeCount = 0;
+  let lostInPriorValue = 0;
+  let lostInPriorCount = 0;
   const statusCounts: Record<string, number> = {};
+
+  // Monthly buckets across the selected range (capped at 24 to avoid runaway
+  // custom ranges blowing the chart up).
   const monthBuckets = new Map<
     string,
     { month: string; wonValue: number; wonCount: number }
   >();
-
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    monthBuckets.set(key, {
-      month: d.toLocaleDateString("en-GB", { month: "short", year: "numeric" }),
-      wonValue: 0,
-      wonCount: 0
-    });
+  {
+    const cursor = new Date(range.from.getFullYear(), range.from.getMonth(), 1);
+    const limit = new Date(range.to.getFullYear(), range.to.getMonth(), 1);
+    let safety = 0;
+    while (cursor <= limit && safety < 24) {
+      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
+      monthBuckets.set(key, {
+        month: cursor.toLocaleDateString("en-GB", {
+          month: "short",
+          year: "numeric"
+        }),
+        wonValue: 0,
+        wonCount: 0
+      });
+      cursor.setMonth(cursor.getMonth() + 1);
+      safety++;
+    }
   }
 
   for (const quote of quotes) {
@@ -30971,12 +31215,10 @@ export async function loadFinancialsSummary() {
       wonValue += amount;
       wonCount += 1;
 
-      const closedDate = quote.closedAt ?? quote.approvedAt ?? quote.updatedAt;
-      if (closedDate >= monthStart) {
-        wonThisMonthValue += amount;
-        wonThisMonthCount += 1;
-      }
-      if (closedDate >= sixMonthsAgo) {
+      const closedDate = quoteCloseDate(quote);
+      if (closedDate >= range.from && closedDate <= range.to) {
+        wonInRangeValue += amount;
+        wonInRangeCount += 1;
         const key = `${closedDate.getFullYear()}-${String(closedDate.getMonth() + 1).padStart(2, "0")}`;
         const bucket = monthBuckets.get(key);
         if (bucket) {
@@ -30984,9 +31226,22 @@ export async function loadFinancialsSummary() {
           bucket.wonCount += 1;
         }
       }
+      if (closedDate >= range.priorFrom && closedDate <= range.priorTo) {
+        wonInPriorValue += amount;
+        wonInPriorCount += 1;
+      }
     } else if (quote.status === "lost") {
       lostValue += amount;
       lostCount += 1;
+      const closedDate = quoteCloseDate(quote);
+      if (closedDate >= range.from && closedDate <= range.to) {
+        lostInRangeValue += amount;
+        lostInRangeCount += 1;
+      }
+      if (closedDate >= range.priorFrom && closedDate <= range.priorTo) {
+        lostInPriorValue += amount;
+        lostInPriorCount += 1;
+      }
     }
   }
 
@@ -31074,17 +31329,127 @@ export async function loadFinancialsSummary() {
     .sort((a, b) => b.totalZar - a.totalZar)
     .slice(0, 8);
 
+  // T6.3 — 90-day forecast block (forward-looking, horizon-scoped).
+  //  - Recurring (committed): MRR × 3 months. Locked to the 90-day horizon.
+  //  - Pipeline (weighted) per spec: Sent × 30%, Approved × 70%, Won × 100%.
+  //    All three buckets are scoped to the 90-day horizon:
+  //      • Sent / Approved use *current open* quotes in those statuses
+  //        (i.e. expected to convert within the forecast horizon).
+  //      • Won is restricted to quotes closed in the trailing 90 days,
+  //        treated as recently-booked revenue we still expect to invoice
+  //        inside the forward 90 days. Older wins are assumed already
+  //        recognised and are excluded so the forecast cannot inflate
+  //        indefinitely as historical wins accumulate.
+  //  - Confidence band: ±20% of weighted pipeline (per task spec). Recurring
+  //    is treated as committed and not banded.
+  const PIPELINE_WEIGHT_SENT = 0.3;
+  const PIPELINE_WEIGHT_APPROVED = 0.7;
+  const PIPELINE_WEIGHT_WON = 1.0;
+  const FORECAST_BAND_PCT = 0.2;
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+  let wonHorizonValue = 0;
+  let wonHorizonCount = 0;
+  for (const quote of quotes) {
+    if (quote.status !== "won") continue;
+    const closed = quoteCloseDate(quote);
+    if (closed >= ninetyDaysAgo && closed <= now) {
+      wonHorizonValue += totalsFor(quote);
+      wonHorizonCount += 1;
+    }
+  }
+
+  const recurring90Zar = mrrZar * 3;
+  const pipelineWeightedZar =
+    pipelineValue * PIPELINE_WEIGHT_SENT +
+    approvedValue * PIPELINE_WEIGHT_APPROVED +
+    wonHorizonValue * PIPELINE_WEIGHT_WON;
+  const combinedZar = recurring90Zar + pipelineWeightedZar;
+  const bandWidthZar = pipelineWeightedZar * FORECAST_BAND_PCT;
+
+  const forecast90 = {
+    horizonDays: 90,
+    horizonEndsAt: ninetyDaysFromNow.toISOString(),
+    recurringZar: recurring90Zar,
+    pipelineWeightedZar,
+    combinedZar,
+    confidenceLowerZar: Math.max(0, combinedZar - bandWidthZar),
+    confidenceUpperZar: combinedZar + bandWidthZar,
+    bandPct: FORECAST_BAND_PCT,
+    breakdown: {
+      sentValue: pipelineValue,
+      sentCount: pipelineCount,
+      sentWeight: PIPELINE_WEIGHT_SENT,
+      sentWeightedZar: pipelineValue * PIPELINE_WEIGHT_SENT,
+      approvedValue,
+      approvedCount,
+      approvedWeight: PIPELINE_WEIGHT_APPROVED,
+      approvedWeightedZar: approvedValue * PIPELINE_WEIGHT_APPROVED,
+      wonOpenValue: wonHorizonValue,
+      wonOpenCount: wonHorizonCount,
+      wonWeight: PIPELINE_WEIGHT_WON,
+      wonWeightedZar: wonHorizonValue * PIPELINE_WEIGHT_WON,
+      wonWindowDays: 90,
+      mrrZar
+    }
+  };
+
+  function deltaPct(current: number, prior: number): number | null {
+    if (prior <= 0) return current > 0 ? null : 0;
+    return Math.round(((current - prior) / prior) * 1000) / 10;
+  }
+
+  const winRateInRange =
+    wonInRangeCount + lostInRangeCount > 0
+      ? Math.round(
+          (wonInRangeCount / (wonInRangeCount + lostInRangeCount)) * 1000
+        ) / 10
+      : null;
+  const winRateInPrior =
+    wonInPriorCount + lostInPriorCount > 0
+      ? Math.round(
+          (wonInPriorCount / (wonInPriorCount + lostInPriorCount)) * 1000
+        ) / 10
+      : null;
+
   return {
+    range: {
+      key: range.key,
+      label: range.label,
+      from: range.from.toISOString(),
+      to: range.to.toISOString()
+    },
+    priorRange: {
+      label: range.priorLabel,
+      from: range.priorFrom.toISOString(),
+      to: range.priorTo.toISOString()
+    },
     headline: {
       pipelineValue,
       pipelineCount,
       approvedValue,
       approvedCount,
-      wonThisMonthValue,
-      wonThisMonthCount,
+      // wonInRange replaces "wonThisMonth" and reflects the picker.
+      wonInRangeValue,
+      wonInRangeCount,
       mrrZar,
       activeRetainers: activeRetainers.length,
       annualisedRecurringZar: mrrZar * 12
+    },
+    prior: {
+      wonValue: wonInPriorValue,
+      wonCount: wonInPriorCount,
+      lostValue: lostInPriorValue,
+      lostCount: lostInPriorCount,
+      winRate: winRateInPrior,
+      deltas: {
+        wonValue: deltaPct(wonInRangeValue, wonInPriorValue),
+        wonCount: deltaPct(wonInRangeCount, wonInPriorCount),
+        winRate:
+          winRateInRange !== null && winRateInPrior !== null
+            ? Math.round((winRateInRange - winRateInPrior) * 10) / 10
+            : null
+      }
     },
     quoteFunnel: {
       draft: statusCounts.draft ?? 0,
@@ -31098,10 +31463,16 @@ export async function loadFinancialsSummary() {
       wonCount,
       lostValue,
       lostCount,
+      // Range-scoped values surface alongside the all-time totals.
+      wonInRangeValue,
+      wonInRangeCount,
+      lostInRangeValue,
+      lostInRangeCount,
       winRate:
         wonCount + lostCount > 0
           ? Math.round((wonCount / (wonCount + lostCount)) * 1000) / 10
-          : null
+          : null,
+      winRateInRange
     },
     monthly: Array.from(monthBuckets.values()),
     recurring: {
@@ -31111,7 +31482,8 @@ export async function loadFinancialsSummary() {
         (a, b) => b.monthlyZar - a.monthlyZar
       )
     },
-    topClients
+    topClients,
+    forecast90
   };
 }
 

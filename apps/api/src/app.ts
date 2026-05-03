@@ -5756,7 +5756,13 @@ export function createApiApp(config: BaseConfig) {
 
   app.get("/api/financials/summary", async (c) => {
     try {
-      return c.json(await loadFinancialsSummary());
+      return c.json(
+        await loadFinancialsSummary({
+          range: c.req.query("range") ?? null,
+          from: c.req.query("from") ?? null,
+          to: c.req.query("to") ?? null
+        })
+      );
     } catch (error) {
       return c.json(
         {
@@ -6022,6 +6028,9 @@ export function createApiApp(config: BaseConfig) {
         billingModel?: unknown;
         description?: unknown;
         unitPrice?: unknown;
+        cost?: unknown;
+        currency?: unknown;
+        marginTarget?: unknown;
         defaultQuantity?: unknown;
         unitLabel?: unknown;
         isActive?: unknown;
@@ -6046,6 +6055,9 @@ export function createApiApp(config: BaseConfig) {
         billingModel?: unknown;
         description?: unknown;
         unitPrice?: unknown;
+        cost?: unknown;
+        currency?: unknown;
+        marginTarget?: unknown;
         defaultQuantity?: unknown;
         unitLabel?: unknown;
         isActive?: unknown;
