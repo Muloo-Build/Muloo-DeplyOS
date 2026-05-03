@@ -27733,6 +27733,9 @@ function serializeDiscoveryEvidence<
     dueDate?: Date | null;
     linkedSectionIds?: string[];
     sourceTemplateId?: string | null;
+    publicShareToken?: string | null;
+    publicShareEnabled?: boolean;
+    publicShareExpiresAt?: Date | null;
   }
 >(evidence: T) {
   return {
@@ -27757,7 +27760,12 @@ function serializeDiscoveryEvidence<
     sharedWith: evidence.sharedWith ?? [],
     dueDate: evidence.dueDate ? evidence.dueDate.toISOString() : null,
     linkedSectionIds: evidence.linkedSectionIds ?? [],
-    sourceTemplateId: evidence.sourceTemplateId ?? null
+    sourceTemplateId: evidence.sourceTemplateId ?? null,
+    publicShareToken: evidence.publicShareToken ?? null,
+    publicShareEnabled: evidence.publicShareEnabled ?? false,
+    publicShareExpiresAt: evidence.publicShareExpiresAt
+      ? evidence.publicShareExpiresAt.toISOString()
+      : null
   };
 }
 
@@ -29759,6 +29767,316 @@ export async function saveContributorTokenResponses(
     }
   });
   return { touched, rejected };
+}
+
+// ---------------------------------------------------------------
+// Public workbook share links (Typeform-style).
+// An operator can mint a public token for a workbook. Anyone with
+// the URL can fill in name/email + answers and submit. Submissions
+// land in WorkbookPublicSubmission for operator review — they do
+// NOT auto-mutate workbook responses (operator can promote them).
+// ---------------------------------------------------------------
+
+function generatePublicShareToken() {
+  return crypto.randomBytes(24).toString("hex");
+}
+
+function strToTrim(value: unknown, max = 200): string {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+export async function updateWorkbookPublicShare(
+  projectId: string,
+  workbookId: string,
+  value: { enabled?: unknown; expiresAt?: unknown; regenerate?: unknown }
+) {
+  const workbook = await prisma.discoveryEvidence.findFirst({
+    where: { id: workbookId, projectId, kind: "workbook" }
+  });
+  if (!workbook) throw new Error("Workbook not found");
+
+  const data: Prisma.Prisma.DiscoveryEvidenceUpdateInput = {};
+  if (typeof value.enabled === "boolean") {
+    data.publicShareEnabled = value.enabled;
+    if (value.enabled && !workbook.publicShareToken) {
+      data.publicShareToken = generatePublicShareToken();
+    }
+  }
+  if (value.regenerate === true) {
+    data.publicShareToken = generatePublicShareToken();
+  }
+  if (value.expiresAt === null || value.expiresAt === "") {
+    data.publicShareExpiresAt = null;
+  } else if (typeof value.expiresAt === "string") {
+    const dt = new Date(value.expiresAt);
+    if (Number.isNaN(dt.getTime())) {
+      throw new Error("expiresAt is not a valid date");
+    }
+    data.publicShareExpiresAt = dt;
+  }
+
+  const updated = await prisma.discoveryEvidence.update({
+    where: { id: workbookId },
+    data
+  });
+  return serializeDiscoveryEvidence(updated);
+}
+
+// Sanitised payload for the public-facing fill-in page. We never
+// leak existing responses, internal notes, assignment metadata,
+// or operator-only review state to anonymous link visitors.
+export async function loadWorkbookByPublicToken(token: string) {
+  if (typeof token !== "string" || !token.trim()) {
+    throw new Error("Invalid share link");
+  }
+  const workbook = await prisma.discoveryEvidence.findUnique({
+    where: { publicShareToken: token }
+  });
+  if (!workbook || workbook.kind !== "workbook") {
+    throw new Error("Invalid share link");
+  }
+  if (!workbook.publicShareEnabled) {
+    throw new Error("This share link is no longer active");
+  }
+  if (
+    workbook.publicShareExpiresAt &&
+    workbook.publicShareExpiresAt.getTime() < Date.now()
+  ) {
+    throw new Error("This share link has expired");
+  }
+  if (workbook.isArchived) {
+    throw new Error("This share link is no longer active");
+  }
+  const project = await prisma.project.findUnique({
+    where: { id: workbook.projectId },
+    select: { id: true, name: true }
+  });
+  if (!project) throw new Error("Invalid share link");
+
+  const content = ensureWorkbookContent(workbook.workbookContent);
+  return {
+    project: { id: project.id, name: project.name },
+    workbook: {
+      id: workbook.id,
+      title: workbook.sourceLabel,
+      sections: content.sections.map((s) => ({
+        id: s.id,
+        title: s.title,
+        description: s.description ?? null,
+        questions: s.questions.map((q) => ({
+          id: q.id,
+          questionText: q.questionText,
+          helpText: q.helpText ?? null,
+          answerType: q.answerType ?? "short_text",
+          options: q.options ?? [],
+          required: Boolean(q.required)
+        }))
+      }))
+    }
+  };
+}
+
+export async function createPublicWorkbookSubmission(
+  token: string,
+  value: {
+    firstName?: unknown;
+    lastName?: unknown;
+    email?: unknown;
+    organisation?: unknown;
+    responses?: unknown;
+  }
+) {
+  // Re-validate token (don't trust caller — share might have been
+  // disabled or expired between page load and submit).
+  const ws = await loadWorkbookByPublicToken(token);
+
+  const firstName = strToTrim(value.firstName, 120);
+  const lastName = strToTrim(value.lastName, 120);
+  const email = strToTrim(value.email, 320).toLowerCase();
+  const organisation = strToTrim(value.organisation, 200) || null;
+  if (!firstName) throw new Error("First name is required");
+  if (!lastName) throw new Error("Last name is required");
+  if (!email || !isValidEmail(email)) {
+    throw new Error("A valid email address is required");
+  }
+  if (!Array.isArray(value.responses)) {
+    throw new Error("responses must be an array");
+  }
+
+  // Build a sanitised question lookup so we only persist responses
+  // for questions that actually exist on the workbook today.
+  const questionIndex = new Map<
+    string,
+    { sectionId: string; question: { id: string; required: boolean; questionText: string } }
+  >();
+  for (const section of ws.workbook.sections) {
+    for (const q of section.questions) {
+      questionIndex.set(q.id, {
+        sectionId: section.id,
+        question: { id: q.id, required: q.required, questionText: q.questionText }
+      });
+    }
+  }
+
+  const cleaned: Array<{
+    sectionId: string;
+    questionId: string;
+    questionText: string;
+    response: string | string[] | null;
+  }> = [];
+  for (const entry of value.responses) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    const questionId = typeof e.questionId === "string" ? e.questionId : null;
+    if (!questionId) continue;
+    const meta = questionIndex.get(questionId);
+    if (!meta) continue;
+    let response: string | string[] | null = null;
+    if (Array.isArray(e.response)) {
+      response = e.response
+        .filter((v): v is string => typeof v === "string")
+        .map((v) => v.trim())
+        .filter((v) => v.length > 0)
+        .slice(0, 50);
+      if ((response as string[]).length === 0) response = null;
+    } else if (typeof e.response === "string") {
+      const trimmed = e.response.trim().slice(0, 5000);
+      response = trimmed.length > 0 ? trimmed : null;
+    } else if (typeof e.response === "number") {
+      response = String(e.response);
+    }
+    cleaned.push({
+      sectionId: meta.sectionId,
+      questionId,
+      questionText: meta.question.questionText,
+      response
+    });
+  }
+
+  // Required-question check.
+  const answeredIds = new Set(
+    cleaned
+      .filter((c) =>
+        Array.isArray(c.response)
+          ? c.response.length > 0
+          : typeof c.response === "string" && c.response.length > 0
+      )
+      .map((c) => c.questionId)
+  );
+  for (const [, meta] of questionIndex) {
+    if (meta.question.required && !answeredIds.has(meta.question.id)) {
+      throw new Error(`"${meta.question.questionText}" is required`);
+    }
+  }
+
+  const submission = await prisma.workbookPublicSubmission.create({
+    data: {
+      workbookId: ws.workbook.id,
+      projectId: ws.project.id,
+      firstName,
+      lastName,
+      email,
+      organisation,
+      responses: cleaned as unknown as Prisma.Prisma.InputJsonValue,
+      status: "pending_review"
+    }
+  });
+  return { id: submission.id, createdAt: submission.createdAt.toISOString() };
+}
+
+function serializeWorkbookPublicSubmission(s: {
+  id: string;
+  workbookId: string;
+  projectId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  organisation: string | null;
+  responses: Prisma.Prisma.JsonValue;
+  status: string;
+  reviewerNotes: string | null;
+  reviewedByUserId: string | null;
+  reviewedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: s.id,
+    workbookId: s.workbookId,
+    projectId: s.projectId,
+    firstName: s.firstName,
+    lastName: s.lastName,
+    email: s.email,
+    organisation: s.organisation,
+    responses: s.responses ?? [],
+    status: s.status,
+    reviewerNotes: s.reviewerNotes,
+    reviewedByUserId: s.reviewedByUserId,
+    reviewedAt: s.reviewedAt ? s.reviewedAt.toISOString() : null,
+    createdAt: s.createdAt.toISOString(),
+    updatedAt: s.updatedAt.toISOString()
+  };
+}
+
+export async function loadWorkbookPublicSubmissions(
+  projectId: string,
+  workbookId: string
+) {
+  const workbook = await prisma.discoveryEvidence.findFirst({
+    where: { id: workbookId, projectId, kind: "workbook" },
+    select: { id: true }
+  });
+  if (!workbook) throw new Error("Workbook not found");
+  const rows = await prisma.workbookPublicSubmission.findMany({
+    where: { workbookId },
+    orderBy: { createdAt: "desc" }
+  });
+  return rows.map(serializeWorkbookPublicSubmission);
+}
+
+const PUBLIC_SUBMISSION_STATUSES = new Set([
+  "pending_review",
+  "approved",
+  "archived"
+]);
+
+export async function updateWorkbookPublicSubmission(
+  projectId: string,
+  workbookId: string,
+  submissionId: string,
+  reviewerUserId: string | null,
+  value: { status?: unknown; reviewerNotes?: unknown }
+) {
+  const submission = await prisma.workbookPublicSubmission.findFirst({
+    where: { id: submissionId, workbookId, projectId }
+  });
+  if (!submission) throw new Error("Submission not found");
+  const data: Prisma.Prisma.WorkbookPublicSubmissionUpdateInput = {};
+  if (typeof value.status === "string") {
+    if (!PUBLIC_SUBMISSION_STATUSES.has(value.status)) {
+      throw new Error("Invalid submission status");
+    }
+    data.status = value.status;
+    if (value.status !== "pending_review") {
+      data.reviewedAt = new Date();
+      data.reviewedByUserId = reviewerUserId;
+    }
+  }
+  if (value.reviewerNotes === null || typeof value.reviewerNotes === "string") {
+    data.reviewerNotes =
+      typeof value.reviewerNotes === "string"
+        ? value.reviewerNotes.trim().slice(0, 4000) || null
+        : null;
+  }
+  const updated = await prisma.workbookPublicSubmission.update({
+    where: { id: submissionId },
+    data
+  });
+  return serializeWorkbookPublicSubmission(updated);
 }
 
 // Slice 5 (new plan): per-answer review state. An operator (or

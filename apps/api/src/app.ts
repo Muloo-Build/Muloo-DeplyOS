@@ -200,6 +200,11 @@ import {
   updateClientPortalContributorToken,
   loadContributorWorkspaceByToken,
   saveContributorTokenResponses,
+  updateWorkbookPublicShare,
+  loadWorkbookByPublicToken,
+  createPublicWorkbookSubmission,
+  loadWorkbookPublicSubmissions,
+  updateWorkbookPublicSubmission,
   loadClientPortalWorkbooks,
   addClientPortalContributor,
   saveClientPortalWorkbookResponses,
@@ -2695,6 +2700,78 @@ export function createApiApp(config: BaseConfig) {
               ? 404
               : 400;
         return c.json({ error: message }, status);
+      }
+    }
+  );
+
+  // Public workbook share — operator controls (toggle / regenerate
+  // token / set expiry) and submissions list/review. Lives under the
+  // already-internalAuth-guarded /api/projects/* surface.
+  app.all(
+    "/api/projects/:projectId/workbooks/:workbookId/public-share",
+    async (c) => {
+      if (c.req.method !== "PATCH" && c.req.method !== "PUT") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const workbook = await updateWorkbookPublicShare(
+          c.req.param("projectId"),
+          c.req.param("workbookId"),
+          body
+        );
+        return c.json({ workbook });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed";
+        const code = message === "Workbook not found" ? 404 : 400;
+        return c.json({ error: message }, code);
+      }
+    }
+  );
+
+  app.all(
+    "/api/projects/:projectId/workbooks/:workbookId/public-submissions",
+    async (c) => {
+      if (c.req.method !== "GET") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+      try {
+        const submissions = await loadWorkbookPublicSubmissions(
+          c.req.param("projectId"),
+          c.req.param("workbookId")
+        );
+        return c.json({ submissions });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed";
+        const code = message === "Workbook not found" ? 404 : 400;
+        return c.json({ error: message }, code);
+      }
+    }
+  );
+
+  app.all(
+    "/api/projects/:projectId/workbooks/:workbookId/public-submissions/:subId",
+    async (c) => {
+      if (c.req.method !== "PATCH" && c.req.method !== "PUT") {
+        return c.json({ error: "Method Not Allowed" }, 405);
+      }
+      try {
+        const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+        const submission = await updateWorkbookPublicSubmission(
+          c.req.param("projectId"),
+          c.req.param("workbookId"),
+          c.req.param("subId"),
+          null,
+          body
+        );
+        return c.json({ submission });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed";
+        const code = message === "Submission not found" ? 404 : 400;
+        return c.json({ error: message }, code);
       }
     }
   );
@@ -8258,6 +8335,55 @@ export function createApiApp(config: BaseConfig) {
         message === "This access link has expired" ||
         message === "This access link is not yet approved"
           ? 401
+          : 400;
+      return c.json({ error: message }, code);
+    }
+  });
+
+  // Public workbook share — no auth, the URL token IS the credential.
+  // The server resolver enforces enabled/expiry. This is the
+  // Typeform-style flow: anyone with the link can fill in their
+  // contact details + answers and submit. Submissions land in
+  // WorkbookPublicSubmission for operator review.
+  app.all("/api/workbooks/public/:token", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+    try {
+      const data = await loadWorkbookByPublicToken(c.req.param("token"));
+      return c.json(data);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to load";
+      const code =
+        message === "Invalid share link" ||
+        message === "This share link is no longer active" ||
+        message === "This share link has expired"
+          ? 404
+          : 400;
+      return c.json({ error: message }, code);
+    }
+  });
+
+  app.all("/api/workbooks/public/:token/submissions", async (c) => {
+    if (c.req.method !== "POST") {
+      return c.json({ error: "Method Not Allowed" }, 405);
+    }
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const result = await createPublicWorkbookSubmission(
+        c.req.param("token"),
+        body
+      );
+      return c.json(result, 201);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed";
+      const code =
+        message === "Invalid share link" ||
+        message === "This share link is no longer active" ||
+        message === "This share link has expired"
+          ? 404
           : 400;
       return c.json({ error: message }, code);
     }

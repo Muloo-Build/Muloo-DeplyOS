@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import QuestionLibraryPicker from "./QuestionLibraryPicker";
+import WorkbookPublicSharePanel from "./WorkbookPublicSharePanel";
 import WorkbookContentEditor, {
   type WorkbookContent,
   type EditorContributor
@@ -28,6 +29,9 @@ interface Workbook {
   dueDate: string | null;
   linkedSectionIds: string[];
   sourceTemplateId: string | null;
+  publicShareToken: string | null;
+  publicShareEnabled: boolean;
+  publicShareExpiresAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -781,6 +785,20 @@ export default function ProjectWorkbooksPanel(props: {
                       onClose={() => setPickingForWorkbookId(null)}
                     />
                   </div>
+                ) : null}
+
+                {isInternal ? (
+                  <WorkbookPublicSharePanel
+                    projectId={props.projectId}
+                    workbookId={wb.id}
+                    publicShareToken={wb.publicShareToken}
+                    publicShareEnabled={wb.publicShareEnabled}
+                    publicShareExpiresAt={wb.publicShareExpiresAt}
+                    onUpdated={() => {
+                      void load();
+                    }}
+                    onSessionExpired={handleSessionExpiry}
+                  />
                 ) : null}
 
                 {isInternal && isOpen ? (
