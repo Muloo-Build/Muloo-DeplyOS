@@ -1,5 +1,5 @@
-import ClientsWorkspace from "../components/ClientsWorkspace";
+import ClientsListView from "../components/ClientsListView";
 
 export default function ClientsPage() {
-  return <ClientsWorkspace />;
+  return <ClientsListView />;
 }
