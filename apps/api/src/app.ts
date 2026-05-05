@@ -393,6 +393,13 @@ import {
 } from "./aiUsage";
 import { listAIAgents } from "./aiAgentsRegistry";
 import {
+  bulkSaveAiRouting,
+  loadAiRoutingWithTest,
+  runWorkflowTest,
+  WORKFLOW_RECOMMENDATIONS,
+  getWorkflowPromptTemplate
+} from "./aiRoutingExtras";
+import {
   AI_MODEL_CATALOG,
   listProviders as listAICatalogProviders
 } from "@muloo/shared";
@@ -5622,9 +5629,64 @@ export function createApiApp(config: BaseConfig) {
 
   app.get("/api/ai-routing", async (c) =>
     c.json({
-      routes: await loadAiRouting()
+      routes: await loadAiRoutingWithTest()
     })
   );
+
+  app.get("/api/ai-routing/recommendations", async (c) =>
+    c.json({ recommendations: WORKFLOW_RECOMMENDATIONS })
+  );
+
+  app.get("/api/ai-routing/:workflowKey/prompt", async (c) => {
+    const template = getWorkflowPromptTemplate(c.req.param("workflowKey"));
+    return c.json({ template });
+  });
+
+  const aiRoutingBulkSchema = z.object({
+    items: z.array(
+      z.object({
+        workflowKey: z.string().min(1),
+        providerKey: z.string().min(1).optional().nullable(),
+        modelOverride: z.string().optional().nullable(),
+        notes: z.string().optional().nullable()
+      })
+    )
+  });
+
+  app.patch("/api/ai-routing", async (c) => {
+    try {
+      const body = aiRoutingBulkSchema.parse(await readJsonBodyOrEmpty(c));
+      const routes = await bulkSaveAiRouting(body.items);
+      return c.json({ routes });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to bulk-save AI routing"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/ai-routing/:workflowKey/test", async (c) => {
+    try {
+      const result = await runWorkflowTest(c.req.param("workflowKey"));
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to test AI routing"
+        },
+        400
+      );
+    }
+  });
 
   app.get("/api/email-settings", async (c) =>
     c.json({
