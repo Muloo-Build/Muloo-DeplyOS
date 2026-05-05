@@ -133,7 +133,11 @@ export const aiProviderSchema = z.enum([
   "openai",
   "anthropic",
   "perplexity",
-  "gemini"
+  "gemini",
+  "grok",
+  "deepseek",
+  "mistral",
+  "openrouter"
 ]);
 
 export const clientSchema = z

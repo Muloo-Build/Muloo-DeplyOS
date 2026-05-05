@@ -384,6 +384,18 @@ import {
   searchHubSpotCompanies,
   testHubSpotPrivateApp
 } from "./integrationsHubSpot";
+import { extractUsage, logAIUsageEvent } from "./aiUsage";
+import {
+  deleteBudget,
+  loadBudgetStates,
+  loadSpendSummary,
+  upsertBudget
+} from "./aiUsage";
+import { listAIAgents } from "./aiAgentsRegistry";
+import {
+  AI_MODEL_CATALOG,
+  listProviders as listAICatalogProviders
+} from "@muloo/shared";
 
 type HonoBindings = {
   Bindings: HttpBindings;
@@ -945,6 +957,8 @@ async function generateAssistantAnswer(input: {
     return `${fallbackContext} I can help explain the current context and steer you to the right workspace action.${actionHint}`;
   }
 
+  const workspaceAssistantStartedAt = Date.now();
+  const workspaceAssistantModel = "claude-sonnet-4-20250514";
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -953,7 +967,7 @@ async function generateAssistantAnswer(input: {
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: workspaceAssistantModel,
       max_tokens: 800,
       system: [
         "You are the embedded AI assistant for Muloo Deploy OS — an internal platform for running HubSpot implementation and delivery operations.",
@@ -981,11 +995,31 @@ async function generateAssistantAnswer(input: {
   const body = (await response.json().catch(() => null)) as {
     content?: Array<{ text?: string }>;
     error?: { message?: string };
+    usage?: unknown;
   } | null;
 
   if (!response.ok || !body?.content?.[0]?.text?.trim()) {
+    logAIUsageEvent({
+      providerKey: "anthropic",
+      model: workspaceAssistantModel,
+      tokens: extractUsage(body),
+      latencyMs: Date.now() - workspaceAssistantStartedAt,
+      agentKey: "workspace_assistant",
+      projectId: input.project?.id ?? null,
+      errored: true,
+      errorMessage: body?.error?.message ?? `status ${response.status}`
+    });
     return fallbackContext;
   }
+
+  logAIUsageEvent({
+    providerKey: "anthropic",
+    model: workspaceAssistantModel,
+    tokens: extractUsage(body),
+    latencyMs: Date.now() - workspaceAssistantStartedAt,
+    agentKey: "workspace_assistant",
+    projectId: input.project?.id ?? null
+  });
 
   return body.content[0].text.trim();
 }
@@ -1015,6 +1049,8 @@ async function generatePortalAssistantAnswer(input: {
     );
   }
 
+  const portalAssistantStartedAt = Date.now();
+  const portalAssistantModel = "claude-sonnet-4-20250514";
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -1023,7 +1059,7 @@ async function generatePortalAssistantAnswer(input: {
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: portalAssistantModel,
       max_tokens: 700,
       system: [
         "You are the project assistant inside the Muloo client and partner portal.",
@@ -1051,11 +1087,31 @@ async function generatePortalAssistantAnswer(input: {
   const body = (await response.json().catch(() => null)) as {
     content?: Array<{ text?: string }>;
     error?: { message?: string };
+    usage?: unknown;
   } | null;
 
   if (!response.ok || !body?.content?.[0]?.text?.trim()) {
+    logAIUsageEvent({
+      providerKey: "anthropic",
+      model: portalAssistantModel,
+      tokens: extractUsage(body),
+      latencyMs: Date.now() - portalAssistantStartedAt,
+      agentKey: "portal_assistant",
+      projectId: input.portalContext?.project?.id ?? null,
+      errored: true,
+      errorMessage: body?.error?.message ?? `status ${response.status}`
+    });
     return fallback;
   }
+
+  logAIUsageEvent({
+    providerKey: "anthropic",
+    model: portalAssistantModel,
+    tokens: extractUsage(body),
+    latencyMs: Date.now() - portalAssistantStartedAt,
+    agentKey: "portal_assistant",
+    projectId: input.portalContext?.project?.id ?? null
+  });
 
   return body.content[0].text.trim();
 }
@@ -1172,6 +1228,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/hubspot/*", internalAuth);
   app.use("/api/integrations", internalAuth);
   app.use("/api/integrations/*", internalAuth);
+  app.use("/api/ai-integrations", internalAuth);
+  app.use("/api/ai-integrations/*", internalAuth);
   app.use("/api/portals", internalAuth);
   app.use("/api/portals/*", internalAuth);
   app.use("/api/contacts", internalAuth);
@@ -7335,6 +7393,94 @@ export function createApiApp(config: BaseConfig) {
       }
     }
   );
+
+  app.get("/api/ai-integrations/catalog", async (c) =>
+    c.json({
+      catalog: AI_MODEL_CATALOG,
+      providers: listAICatalogProviders()
+    })
+  );
+
+  app.get("/api/ai-integrations/agents", async (c) =>
+    c.json({ agents: listAIAgents() })
+  );
+
+  app.get("/api/ai-integrations/spend", async (c) => {
+    try {
+      const days = c.req.query("days")
+        ? Math.max(1, Math.min(365, Number.parseInt(c.req.query("days") ?? "30", 10)))
+        : 30;
+      const toDate = new Date();
+      const fromDate = new Date(toDate.getTime() - days * 24 * 60 * 60 * 1000);
+      const summary = await loadSpendSummary({ fromDate, toDate });
+      return c.json({ summary, days });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to load spend"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/ai-integrations/budgets", async (c) => {
+    try {
+      const budgets = await loadBudgetStates();
+      return c.json({ budgets });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to load budgets"
+        },
+        400
+      );
+    }
+  });
+
+  const aiBudgetSchema = z.object({
+    scope: z.string().min(1),
+    monthlyCapUsd: z.number().positive(),
+    alertAt50: z.boolean().optional(),
+    alertAt80: z.boolean().optional(),
+    alertAt100: z.boolean().optional(),
+    notes: z.string().optional().nullable()
+  });
+
+  app.put("/api/ai-integrations/budgets", async (c) => {
+    try {
+      const body = aiBudgetSchema.parse(await readJsonBodyOrEmpty(c));
+      const budget = await upsertBudget(body);
+      return c.json({ budget });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to save budget"
+        },
+        400
+      );
+    }
+  });
+
+  app.delete("/api/ai-integrations/budgets/:scope", async (c) => {
+    try {
+      const budget = await deleteBudget(
+        decodeURIComponent(c.req.param("scope"))
+      );
+      return c.json({ budget });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to delete budget"
+        },
+        400
+      );
+    }
+  });
 
   app.get("/api/portals", async (c) =>
     c.json({

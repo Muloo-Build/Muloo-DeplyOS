@@ -1,13 +1,5 @@
-import SettingsShell from "../../components/SettingsShell";
-import ProviderConnectionsSettings from "../../components/ProviderConnectionsSettings";
+import { redirect } from "next/navigation";
 
-export default function SettingsProvidersPage() {
-  return (
-    <SettingsShell
-      title="Providers"
-      subtitle="Store provider API keys, default models, and integration settings so agents can be tested against different models and tasks."
-    >
-      <ProviderConnectionsSettings />
-    </SettingsShell>
-  );
+export default function SettingsProvidersPage(): never {
+  redirect("/settings/ai-integrations/providers");
 }

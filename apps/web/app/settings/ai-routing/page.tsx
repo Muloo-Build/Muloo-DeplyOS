@@ -1,13 +1,5 @@
-import AiRoutingSettings from "../../components/AiRoutingSettings";
-import SettingsShell from "../../components/SettingsShell";
+import { redirect } from "next/navigation";
 
-export default function SettingsAiRoutingPage() {
-  return (
-    <SettingsShell
-      title="AI Routing"
-      subtitle="Decide which provider and model should handle each workflow so discovery, summaries, and blueprints can be tested across Anthropic, OpenAI, and Gemini."
-    >
-      <AiRoutingSettings />
-    </SettingsShell>
-  );
+export default function SettingsAiRoutingLegacyPage(): never {
+  redirect("/settings/ai-integrations/routing");
 }

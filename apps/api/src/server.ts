@@ -19,6 +19,7 @@ import Prisma from "@prisma/client";
 import { DEFAULT_WORKSPACE_ID, getApiKey, moduleCatalog } from "@muloo/shared";
 import { z, ZodError } from "zod";
 import { prisma } from "./prisma";
+import { extractUsage, logAIUsageEvent } from "./aiUsage";
 import {
   CANONICAL_DISCOVERY_CATEGORIES,
   isCanonicalDiscoveryCategory
@@ -430,6 +431,46 @@ const defaultProviderConnections = [
     endpointUrl: null,
     notes:
       "Meeting-summary workflows and discovery ingestion from call outputs.",
+    isEnabled: false
+  },
+  {
+    providerKey: "grok",
+    label: "xAI / Grok",
+    connectionType: "api_key",
+    defaultModel: "grok-4-fast",
+    endpointUrl: "https://api.x.ai/v1",
+    notes:
+      "Fast frontier reasoning with X data access for current-event research.",
+    isEnabled: false
+  },
+  {
+    providerKey: "deepseek",
+    label: "DeepSeek",
+    connectionType: "api_key",
+    defaultModel: "deepseek-v3.2",
+    endpointUrl: "https://api.deepseek.com",
+    notes:
+      "Cost-efficient reasoning. Good for high-volume background tasks.",
+    isEnabled: false
+  },
+  {
+    providerKey: "mistral",
+    label: "Mistral",
+    connectionType: "api_key",
+    defaultModel: "mistral-large-2",
+    endpointUrl: "https://api.mistral.ai/v1",
+    notes:
+      "EU-hosted models. Use for code generation and structured output.",
+    isEnabled: false
+  },
+  {
+    providerKey: "openrouter",
+    label: "OpenRouter (multi-provider)",
+    connectionType: "api_key",
+    defaultModel: "openai/gpt-5.4",
+    endpointUrl: "https://openrouter.ai/api/v1",
+    notes:
+      "Single key for ~200 models. Use for experimentation and fallback routing.",
     isEnabled: false
   }
 ] as const;
@@ -21249,6 +21290,7 @@ INSTRUCTIONS:
 Be direct. Flag anything urgent. Format as clean markdown with clear sections. Use ## headings for each section. No fluff. No preamble. Start with the most time-sensitive items.`;
 
   let aiResponse = "";
+  const dailySummaryStartedAt = Date.now();
 
   if (provider.providerKey === "anthropic") {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -21270,11 +21312,27 @@ Be direct. Flag anything urgent. Format as clean markdown with clear sections. U
     } | null;
 
     if (!response.ok || !body?.content?.[0]?.text) {
+      logAIUsageEvent({
+        providerKey: "anthropic",
+        model,
+        tokens: extractUsage(body),
+        latencyMs: Date.now() - dailySummaryStartedAt,
+        agentKey: "daily_summary",
+        errored: true,
+        errorMessage: body?.error?.message || "Anthropic daily summary failed"
+      });
       throw new Error(
         body?.error?.message || "Anthropic daily summary generation failed"
       );
     }
 
+    logAIUsageEvent({
+      providerKey: "anthropic",
+      model,
+      tokens: extractUsage(body),
+      latencyMs: Date.now() - dailySummaryStartedAt,
+      agentKey: "daily_summary"
+    });
     aiResponse = body.content[0].text;
   } else if (provider.providerKey === "openai") {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -21294,11 +21352,27 @@ Be direct. Flag anything urgent. Format as clean markdown with clear sections. U
     } | null;
 
     if (!response.ok || !body?.choices?.[0]?.message?.content) {
+      logAIUsageEvent({
+        providerKey: "openai",
+        model,
+        tokens: extractUsage(body),
+        latencyMs: Date.now() - dailySummaryStartedAt,
+        agentKey: "daily_summary",
+        errored: true,
+        errorMessage: body?.error?.message || "OpenAI daily summary failed"
+      });
       throw new Error(
         body?.error?.message || "OpenAI daily summary generation failed"
       );
     }
 
+    logAIUsageEvent({
+      providerKey: "openai",
+      model,
+      tokens: extractUsage(body),
+      latencyMs: Date.now() - dailySummaryStartedAt,
+      agentKey: "daily_summary"
+    });
     aiResponse = body.choices[0].message.content;
   } else {
     throw new Error("Daily summary currently supports OpenAI or Anthropic");
@@ -27439,8 +27513,28 @@ async function callResolvedAiWorkflow(
   options?: { maxTokens?: number }
 ): Promise<string> {
   const maxTokens = options?.maxTokens ?? 2000;
+  const startedAt = Date.now();
+  const modelUsed = resolved.model ?? "";
+
+  function logUsage(
+    payload: unknown,
+    errored: boolean,
+    errorMessage: string | null,
+    actualModel: string
+  ) {
+    logAIUsageEvent({
+      providerKey: resolved.providerKey,
+      model: actualModel,
+      tokens: extractUsage(payload),
+      latencyMs: Date.now() - startedAt,
+      workflowKey: resolved.workflowKey,
+      errored,
+      errorMessage
+    });
+  }
 
   if (resolved.providerKey === "anthropic") {
+    const actualModel = modelUsed || "claude-sonnet-4-20250514";
     const response = await fetch(
       resolved.endpointUrl || "https://api.anthropic.com/v1/messages",
       {
@@ -27451,7 +27545,7 @@ async function callResolvedAiWorkflow(
           "anthropic-version": "2023-06-01"
         },
         body: JSON.stringify({
-          model: resolved.model || "claude-sonnet-4-20250514",
+          model: actualModel,
           max_tokens: maxTokens,
           system,
           messages: [{ role: "user", content: user }]
@@ -27460,6 +27554,7 @@ async function callResolvedAiWorkflow(
     );
 
     if (!response.ok) {
+      logUsage(null, true, `Anthropic ${response.status}`, actualModel);
       throw new Error(
         `Anthropic request failed with status ${response.status}`
       );
@@ -27468,10 +27563,12 @@ async function callResolvedAiWorkflow(
     const payload = (await response.json()) as {
       content?: Array<{ text?: string }>;
     };
+    logUsage(payload, false, null, actualModel);
     return payload?.content?.[0]?.text?.trim() ?? "";
   }
 
   if (resolved.providerKey === "openai") {
+    const actualModel = modelUsed || "gpt-5.4";
     const response = await fetch(
       resolved.endpointUrl || "https://api.openai.com/v1/chat/completions",
       {
@@ -27481,7 +27578,7 @@ async function callResolvedAiWorkflow(
           Authorization: `Bearer ${resolved.apiKey}`
         },
         body: JSON.stringify({
-          model: resolved.model || "gpt-5.4",
+          model: actualModel,
           messages: [
             { role: "system", content: system },
             { role: "user", content: user }
@@ -27493,16 +27590,25 @@ async function callResolvedAiWorkflow(
 
       if (!response.ok) {
       const payload = await response.json().catch(() => null);
+      logUsage(
+        payload,
+        true,
+        extractOpenAiErrorMessage(payload) || `OpenAI ${response.status}`,
+        actualModel
+      );
       throw new Error(
         extractOpenAiErrorMessage(payload) ||
           `OpenAI request failed with status ${response.status}`
       );
     }
 
-    return extractOpenAiText(await response.json());
+    const payload = await response.json();
+    logUsage(payload, false, null, actualModel);
+    return extractOpenAiText(payload);
   }
 
   if (resolved.providerKey === "perplexity") {
+    const actualModel = modelUsed || "sonar-pro";
     const response = await fetch(
       resolved.endpointUrl || "https://api.perplexity.ai/chat/completions",
       {
@@ -27512,7 +27618,7 @@ async function callResolvedAiWorkflow(
           Authorization: `Bearer ${resolved.apiKey}`
         },
         body: JSON.stringify({
-          model: resolved.model || "sonar-pro",
+          model: actualModel,
           messages: [
             { role: "system", content: system },
             { role: "user", content: user }
@@ -27525,20 +27631,28 @@ async function callResolvedAiWorkflow(
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
+      logUsage(
+        payload,
+        true,
+        extractPerplexityErrorMessage(payload) ||
+          `Perplexity ${response.status}`,
+        actualModel
+      );
       throw new Error(
         extractPerplexityErrorMessage(payload) ||
           `Perplexity request failed with status ${response.status}`
       );
     }
 
+    logUsage(payload, false, null, actualModel);
     return extractOpenAiText(payload);
   }
 
   if (resolved.providerKey === "gemini") {
-    const model = resolved.model || "gemini-2.5-pro";
+    const actualModel = modelUsed || "gemini-2.5-pro";
     const endpoint =
       resolved.endpointUrl ||
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${resolved.apiKey}`;
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(actualModel)}:generateContent?key=${resolved.apiKey}`;
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -27562,10 +27676,13 @@ async function callResolvedAiWorkflow(
     });
 
     if (!response.ok) {
+      logUsage(null, true, `Gemini ${response.status}`, actualModel);
       throw new Error(`Gemini request failed with status ${response.status}`);
     }
 
-    return extractGeminiText(await response.json());
+    const payload = await response.json();
+    logUsage(payload, false, null, actualModel);
+    return extractGeminiText(payload);
   }
 
   throw new Error(`Unsupported AI provider: ${resolved.providerKey}`);

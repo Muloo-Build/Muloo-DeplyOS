@@ -11,9 +11,8 @@ const navItems = [
   { href: "/settings/workspace", label: "Workspace" },
   { href: "/settings/team", label: "Team" },
   { href: "/settings/integrations", label: "Integrations" },
-  { href: "/settings/providers", label: "Providers" },
+  { href: "/settings/ai-integrations", label: "AI Integrations" },
   { href: "/settings/email", label: "Email" },
-  { href: "/settings/ai-routing", label: "AI Routing" },
   { href: "/settings/products", label: "Products" }
 ];
 
