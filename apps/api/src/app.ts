@@ -374,6 +374,16 @@ import {
   seedProjectStandardPack,
   verifyPassword
 } from "./server";
+import {
+  deleteHubSpotPrivateApp,
+  getHubSpotCompanyRelated,
+  importHubSpotCompany,
+  loadHubSpotPrivateApp,
+  pushClientToHubSpot,
+  saveHubSpotPrivateApp,
+  searchHubSpotCompanies,
+  testHubSpotPrivateApp
+} from "./integrationsHubSpot";
 
 type HonoBindings = {
   Bindings: HttpBindings;
@@ -1160,6 +1170,8 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/solution-options", internalAuth);
   app.use("/api/hubspot", internalAuth);
   app.use("/api/hubspot/*", internalAuth);
+  app.use("/api/integrations", internalAuth);
+  app.use("/api/integrations/*", internalAuth);
   app.use("/api/portals", internalAuth);
   app.use("/api/portals/*", internalAuth);
   app.use("/api/contacts", internalAuth);
@@ -6006,21 +6018,31 @@ export function createApiApp(config: BaseConfig) {
   );
 
   app.get("/api/workspace/xero/callback", async (c) => {
+    const xeroError = c.req.query("error");
+    const xeroErrorDescription = c.req.query("error_description");
+    if (xeroError) {
+      console.error("[xero-oauth] provider returned error", {
+        error: xeroError,
+        errorDescription: xeroErrorDescription
+      });
+      const message = xeroErrorDescription || xeroError;
+      return c.redirect(
+        `/settings/workspace?xeroError=${encodeURIComponent(message)}`
+      );
+    }
+
     try {
       await completeWorkspaceXeroOAuthCallback({
         code: c.req.query("code"),
         state: c.req.query("state")
       });
-      return c.redirect("/workspace?xeroConnected=true");
+      return c.redirect("/settings/workspace?xeroConnected=true");
     } catch (error) {
-      return c.json(
-        {
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to complete Xero OAuth"
-        },
-        400
+      const message =
+        error instanceof Error ? error.message : "Failed to complete Xero OAuth";
+      console.error("[xero-oauth] callback failed", { message });
+      return c.redirect(
+        `/settings/workspace?xeroError=${encodeURIComponent(message)}`
       );
     }
   });
@@ -7138,6 +7160,181 @@ export function createApiApp(config: BaseConfig) {
       );
     }
   });
+
+  app.get("/api/integrations/hubspot/private-app", async (c) => {
+    try {
+      return c.json({ privateApp: await loadHubSpotPrivateApp() });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load private app"
+        },
+        500
+      );
+    }
+  });
+
+  const hubSpotPrivateAppSaveSchema = z.object({
+    token: z.string().min(0).optional().nullable(),
+    portalId: z.string().optional().nullable(),
+    hubDomain: z.string().optional().nullable(),
+    label: z.string().optional().nullable(),
+    scopes: z.array(z.string()).optional(),
+    isEnabled: z.boolean().optional()
+  });
+
+  app.put("/api/integrations/hubspot/private-app", async (c) => {
+    try {
+      const body = hubSpotPrivateAppSaveSchema.parse(
+        await readJsonBodyOrEmpty(c)
+      );
+      const privateApp = await saveHubSpotPrivateApp(body);
+      return c.json({ privateApp });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to save private app"
+        },
+        400
+      );
+    }
+  });
+
+  app.delete("/api/integrations/hubspot/private-app", async (c) => {
+    try {
+      const privateApp = await deleteHubSpotPrivateApp();
+      return c.json({ privateApp });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to disconnect private app"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/integrations/hubspot/private-app/test", async (c) => {
+    try {
+      const privateApp = await testHubSpotPrivateApp();
+      return c.json({ privateApp });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to test private app"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/integrations/hubspot/companies", async (c) => {
+    try {
+      const result = await searchHubSpotCompanies({
+        query: c.req.query("q") ?? undefined,
+        limit: c.req.query("limit")
+          ? Number.parseInt(c.req.query("limit") ?? "25", 10)
+          : undefined,
+        after: c.req.query("after") ?? undefined
+      });
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to search HubSpot companies"
+        },
+        400
+      );
+    }
+  });
+
+  app.get(
+    "/api/integrations/hubspot/companies/:companyId/related",
+    async (c) => {
+      try {
+        const includeContacts =
+          (c.req.query("includeContacts") ?? "true") !== "false";
+        const includeDeals =
+          (c.req.query("includeDeals") ?? "true") !== "false";
+        const result = await getHubSpotCompanyRelated({
+          companyId: c.req.param("companyId"),
+          includeContacts,
+          includeDeals
+        });
+        return c.json(result);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to load related records"
+          },
+          400
+        );
+      }
+    }
+  );
+
+  const hubSpotImportSchema = z.object({
+    companyId: z.string().min(1),
+    includeContacts: z.boolean().default(true),
+    includeDeals: z.boolean().default(false),
+    linkExistingClientId: z.string().optional().nullable()
+  });
+
+  app.post("/api/integrations/hubspot/import", async (c) => {
+    try {
+      const body = hubSpotImportSchema.parse(await readJsonBodyOrEmpty(c));
+      const result = await importHubSpotCompany(body);
+      return c.json(result);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to import HubSpot company"
+        },
+        400
+      );
+    }
+  });
+
+  app.post(
+    "/api/integrations/hubspot/clients/:clientId/push",
+    async (c) => {
+      try {
+        const result = await pushClientToHubSpot(c.req.param("clientId"));
+        return c.json(result);
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to push client to HubSpot"
+          },
+          400
+        );
+      }
+    }
+  );
 
   app.get("/api/portals", async (c) =>
     c.json({
