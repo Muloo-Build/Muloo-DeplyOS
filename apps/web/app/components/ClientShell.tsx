@@ -73,6 +73,8 @@ export default function ClientShell({
       label: "Inbox",
       badge: inboxCount
     },
+    { href: "/client/governance", label: "Governance" },
+    { href: "/client/security", label: "Security" },
     { href: getPortalSupportPath(resolvedPortalExperience), label: "Support" },
     {
       href: getPortalRequestWorkPath(resolvedPortalExperience),

@@ -400,6 +400,26 @@ import {
   getWorkflowPromptTemplate
 } from "./aiRoutingExtras";
 import {
+  AGREEMENT_TYPES,
+  createClientAgreement,
+  deleteAgreementTemplate,
+  deleteClientAgreement,
+  getClientAgreement,
+  listAgreementTemplates,
+  listClientAgreements,
+  sendClientAgreement,
+  signClientAgreement,
+  updateClientAgreement,
+  upsertAgreementTemplate,
+  withdrawClientAgreement
+} from "./governance";
+import {
+  loadClientSecurityProfile,
+  SECURITY_CATEGORIES,
+  SECURITY_CHECKLIST,
+  updateClientSecurityProfile
+} from "./securityProfile";
+import {
   AI_MODEL_CATALOG,
   listProviders as listAICatalogProviders
 } from "@muloo/shared";
@@ -6862,6 +6882,486 @@ export function createApiApp(config: BaseConfig) {
       return c.json(
         {
           error: error instanceof Error ? error.message : "Failed to load retainers"
+        },
+        400
+      );
+    }
+  });
+
+  // -------- Governance: agreements ---------------------------------------
+
+  app.get("/api/clients/:clientId/agreements", async (c) => {
+    try {
+      const agreements = await listClientAgreements(c.req.param("clientId"));
+      return c.json({ agreements, types: AGREEMENT_TYPES });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to load agreements"
+        },
+        400
+      );
+    }
+  });
+
+  const agreementCreateSchema = z.object({
+    type: z.string().min(1),
+    title: z.string().min(1),
+    documentUrl: z.string().url().optional().nullable(),
+    documentBody: z.string().optional().nullable(),
+    effectiveDate: z.string().optional().nullable(),
+    expiresAt: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
+    acceptanceText: z.string().optional().nullable()
+  });
+
+  app.post("/api/clients/:clientId/agreements", async (c) => {
+    try {
+      const body = agreementCreateSchema.parse(await readJsonBodyOrEmpty(c));
+      const created = await createClientAgreement({
+        clientId: c.req.param("clientId"),
+        type: body.type,
+        title: body.title,
+        documentUrl: body.documentUrl ?? null,
+        documentBody: body.documentBody ?? null,
+        effectiveDate: body.effectiveDate ? new Date(body.effectiveDate) : null,
+        expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+        notes: body.notes ?? null,
+        acceptanceText: body.acceptanceText ?? null
+      });
+      return c.json({ agreement: created }, 201);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to create agreement"
+        },
+        400
+      );
+    }
+  });
+
+  const agreementUpdateSchema = z.object({
+    type: z.string().min(1).optional(),
+    title: z.string().min(1).optional(),
+    status: z.string().min(1).optional(),
+    documentUrl: z.string().optional().nullable(),
+    documentBody: z.string().optional().nullable(),
+    effectiveDate: z.string().optional().nullable(),
+    expiresAt: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
+    acceptanceText: z.string().optional().nullable()
+  });
+
+  app.patch("/api/agreements/:id", async (c) => {
+    try {
+      const body = agreementUpdateSchema.parse(await readJsonBodyOrEmpty(c));
+      const updated = await updateClientAgreement(c.req.param("id"), {
+        ...(body.title !== undefined ? { title: body.title } : {}),
+        ...(body.type !== undefined ? { type: body.type } : {}),
+        ...(body.status !== undefined
+          ? { status: body.status as never }
+          : {}),
+        ...(body.documentUrl !== undefined
+          ? { documentUrl: body.documentUrl ?? null }
+          : {}),
+        ...(body.documentBody !== undefined
+          ? { documentBody: body.documentBody ?? null }
+          : {}),
+        ...(body.effectiveDate !== undefined
+          ? {
+              effectiveDate: body.effectiveDate
+                ? new Date(body.effectiveDate)
+                : null
+            }
+          : {}),
+        ...(body.expiresAt !== undefined
+          ? { expiresAt: body.expiresAt ? new Date(body.expiresAt) : null }
+          : {}),
+        ...(body.notes !== undefined ? { notes: body.notes ?? null } : {}),
+        ...(body.acceptanceText !== undefined
+          ? { acceptanceText: body.acceptanceText ?? null }
+          : {})
+      });
+      return c.json({ agreement: updated });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update agreement"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/agreements/:id/send", async (c) => {
+    try {
+      const updated = await sendClientAgreement(c.req.param("id"));
+      return c.json({ agreement: updated });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to send agreement"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/agreements/:id/withdraw", async (c) => {
+    try {
+      const updated = await withdrawClientAgreement(c.req.param("id"));
+      return c.json({ agreement: updated });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to withdraw agreement"
+        },
+        400
+      );
+    }
+  });
+
+  app.delete("/api/agreements/:id", async (c) => {
+    try {
+      await deleteClientAgreement(c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to delete agreement"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/agreement-templates", async (c) => {
+    try {
+      return c.json({ templates: await listAgreementTemplates() });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to load templates"
+        },
+        400
+      );
+    }
+  });
+
+  const agreementTemplateSchema = z.object({
+    id: z.string().optional().nullable(),
+    type: z.string().min(1),
+    title: z.string().min(1),
+    description: z.string().optional().nullable(),
+    body: z.string().min(1),
+    isDefault: z.boolean().optional(),
+    jurisdiction: z.string().optional().nullable()
+  });
+
+  app.put("/api/agreement-templates", async (c) => {
+    try {
+      const body = agreementTemplateSchema.parse(await readJsonBodyOrEmpty(c));
+      const template = await upsertAgreementTemplate(body);
+      return c.json({ template });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to save template"
+        },
+        400
+      );
+    }
+  });
+
+  app.delete("/api/agreement-templates/:id", async (c) => {
+    try {
+      await deleteAgreementTemplate(c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to delete template"
+        },
+        400
+      );
+    }
+  });
+
+  // -------- Security profile ---------------------------------------------
+
+  app.get("/api/clients/:clientId/security-profile", async (c) => {
+    try {
+      const profile = await loadClientSecurityProfile(c.req.param("clientId"));
+      return c.json({
+        profile,
+        checklist: SECURITY_CHECKLIST,
+        categories: SECURITY_CATEGORIES
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load security profile"
+        },
+        400
+      );
+    }
+  });
+
+  const securityProfileUpdateSchema = z.object({
+    findings: z
+      .record(z.enum(["pass", "fail", "na", "unknown"]))
+      .optional(),
+    notes: z.string().optional().nullable(),
+    riskLevel: z.string().optional().nullable(),
+    markReviewedNow: z.boolean().optional(),
+    nextReviewDue: z.string().optional().nullable()
+  });
+
+  app.patch("/api/clients/:clientId/security-profile", async (c) => {
+    try {
+      const body = securityProfileUpdateSchema.parse(
+        await readJsonBodyOrEmpty(c)
+      );
+      const profile = await updateClientSecurityProfile(
+        c.req.param("clientId"),
+        {
+          ...(body.findings !== undefined ? { findings: body.findings } : {}),
+          ...(body.notes !== undefined ? { notes: body.notes ?? null } : {}),
+          ...(body.riskLevel !== undefined
+            ? { riskLevel: body.riskLevel ?? null }
+            : {}),
+          ...(body.markReviewedNow !== undefined
+            ? { markReviewedNow: body.markReviewedNow }
+            : {}),
+          ...(body.nextReviewDue !== undefined
+            ? {
+                nextReviewDue: body.nextReviewDue
+                  ? new Date(body.nextReviewDue)
+                  : null
+              }
+            : {})
+        }
+      );
+      return c.json({ profile });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to update security profile"
+        },
+        400
+      );
+    }
+  });
+
+  // -------- Portal-side: list visible agreements + sign ------------------
+
+  // Resolve all client IDs accessible to a portal user via their project
+  // access records. Portal users can span multiple clients.
+  async function resolvePortalUserClientIds(
+    portalUserId: string
+  ): Promise<string[]> {
+    const access = await prisma.clientProjectAccess.findMany({
+      where: { userId: portalUserId },
+      select: { project: { select: { clientId: true } } }
+    });
+    const ids = new Set<string>();
+    for (const row of access) {
+      if (row.project?.clientId) ids.add(row.project.clientId);
+    }
+    return Array.from(ids);
+  }
+
+  // Session-based: returns agreements for every client this portal user has
+  // access to, grouped by client.
+  app.get("/api/portal/me/agreements", async (c) => {
+    const clientUserId = getAuthenticatedClientUserId(c.env.incoming);
+    if (!clientUserId) return c.json({ error: "Unauthorized" }, 401);
+    try {
+      const clientIds = await resolvePortalUserClientIds(clientUserId);
+      if (clientIds.length === 0) {
+        return c.json({ agreements: [], clientIds: [] });
+      }
+      const lists = await Promise.all(
+        clientIds.map((clientId) => listClientAgreements(clientId))
+      );
+      const visible = lists
+        .flat()
+        .filter((a) => a.status !== "draft" && a.status !== "withdrawn");
+      return c.json({ agreements: visible, clientIds });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load agreements"
+        },
+        400
+      );
+    }
+  });
+
+  app.get("/api/portal/me/security-profile", async (c) => {
+    const clientUserId = getAuthenticatedClientUserId(c.env.incoming);
+    if (!clientUserId) return c.json({ error: "Unauthorized" }, 401);
+    try {
+      const clientIds = await resolvePortalUserClientIds(clientUserId);
+      if (clientIds.length === 0) {
+        return c.json({
+          profile: null,
+          checklist: SECURITY_CHECKLIST,
+          categories: SECURITY_CATEGORIES,
+          clientIds: []
+        });
+      }
+      // Use the first client's profile. If a portal user spans multiple
+      // clients we render the primary; client-multi UI is a v2 concern.
+      const firstClientId = clientIds[0];
+      if (!firstClientId) {
+        return c.json({
+          profile: null,
+          checklist: SECURITY_CHECKLIST,
+          categories: SECURITY_CATEGORIES,
+          clientIds: []
+        });
+      }
+      const profile = await loadClientSecurityProfile(firstClientId);
+      return c.json({
+        profile,
+        checklist: SECURITY_CHECKLIST,
+        categories: SECURITY_CATEGORIES,
+        clientIds
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load security profile"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/api/portal/agreements/:id/sign-v2", async (c) => {
+    return c.json({ error: "deprecated" }, 410);
+  });
+
+  const agreementSignSchema = z.object({
+    signerName: z.string().min(1),
+    signerEmail: z.string().email(),
+    signerTitle: z.string().optional().nullable()
+  });
+
+  app.post("/api/portal/agreements/:id/sign", async (c) => {
+    const clientUserId = getAuthenticatedClientUserId(c.env.incoming);
+    if (!clientUserId) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    try {
+      const body = agreementSignSchema.parse(await readJsonBodyOrEmpty(c));
+      const agreement = await getClientAgreement(c.req.param("id"));
+      if (!agreement) {
+        return c.json({ error: "Not found" }, 404);
+      }
+      // Verify the portal user has access to a project under this client.
+      const access = await prisma.clientProjectAccess.findFirst({
+        where: {
+          userId: clientUserId,
+          project: { clientId: agreement.clientId }
+        },
+        select: { id: true }
+      });
+      if (!access) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+      const ip =
+        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
+        c.req.header("x-real-ip") ||
+        null;
+      const userAgent = c.req.header("user-agent") || null;
+      const signed = await signClientAgreement({
+        agreementId: c.req.param("id"),
+        signerName: body.signerName,
+        signerEmail: body.signerEmail,
+        signerTitle: body.signerTitle ?? null,
+        signerIp: ip,
+        signerUserAgent: userAgent
+      });
+      return c.json({ agreement: signed });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to sign agreement"
+        },
+        400
+      );
+    }
+  });
+
+  // Per-client portal endpoint (used when a portal user explicitly picks
+  // one of their clients; otherwise the /me endpoint is used).
+  app.get("/api/portal/clients/:clientId/security-profile", async (c) => {
+    const clientUserId = getAuthenticatedClientUserId(c.env.incoming);
+    if (!clientUserId) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    try {
+      const access = await prisma.clientProjectAccess.findFirst({
+        where: {
+          userId: clientUserId,
+          project: { clientId: c.req.param("clientId") }
+        },
+        select: { id: true }
+      });
+      if (!access) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+      const profile = await loadClientSecurityProfile(
+        c.req.param("clientId")
+      );
+      return c.json({
+        profile,
+        checklist: SECURITY_CHECKLIST,
+        categories: SECURITY_CATEGORIES
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load security profile"
         },
         400
       );

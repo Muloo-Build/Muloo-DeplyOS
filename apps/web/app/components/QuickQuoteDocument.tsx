@@ -1228,12 +1228,12 @@ export default function QuickQuoteDocument({
         @media print {
           @page {
             size: A4;
-            margin: 14mm 12mm;
-            background: #040518;
+            margin: 18mm 16mm 22mm 16mm;
           }
 
-          /* Force browsers to print background colors and gradients so the
-             document matches what the client sees in the share view. */
+          /* Print on clean white paper. The dark share view doesn't read
+             well on paper or in PDF viewers — switch to a high-contrast
+             commercial-document style instead. */
           html,
           body,
           *,
@@ -1242,52 +1242,181 @@ export default function QuickQuoteDocument({
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
             color-adjust: exact !important;
+            box-shadow: none !important;
           }
 
           html,
           body {
-            background: #040518 !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            font-family: -apple-system, "Helvetica Neue", Helvetica, Arial,
+              sans-serif;
+            font-size: 10pt;
+            line-height: 1.55;
           }
 
-          /* Hide chrome — sidebars, top nav, toolbars, anything tagged
-             print:hidden, and any approval / save-pdf interaction. */
+          /* Hide every interactive surface so the printed page is a
+             pure document. */
           .document-toolbar,
           .sidebar,
           nav,
           aside,
-          .print\\:hidden {
+          .print\\:hidden,
+          button,
+          .preview-banner,
+          a[href^="/quotes"],
+          a[href^="/projects/"] {
             display: none !important;
           }
 
           main {
-            padding-left: 0 !important;
-            padding-right: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+
+          /* Reset every container background to white so the dark theme
+             of the share view doesn't carry through. */
+          .document-content,
+          .document-content * {
+            background: transparent !important;
+            color: #0f172a !important;
+            border-color: #d4d4d8 !important;
           }
 
           .document-content {
-            font-size: 10.5pt;
-            line-height: 1.55;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
 
+          /* Brand header band — muloo gradient strip at the top of page 1
+             only. Other pages get the running header via @page rules. */
+          .document-content .quote-header,
+          .document-card.quote-header {
+            background: linear-gradient(
+              135deg,
+              #7c5cbf 0%,
+              #e0529c 55%,
+              #f0824a 100%
+            ) !important;
+            color: #ffffff !important;
+            padding: 18pt 16pt !important;
+            border-radius: 0 !important;
+            margin-bottom: 18pt !important;
+          }
+          .document-content .quote-header *,
+          .document-card.quote-header * {
+            color: #ffffff !important;
+            background: transparent !important;
+          }
+
+          /* Card layout for paper. Keep modest borders + airy spacing. */
           .document-card {
             break-inside: avoid;
             page-break-inside: avoid;
-            margin-bottom: 12pt;
+            border: 1px solid #d4d4d8 !important;
+            border-radius: 6px !important;
+            padding: 12pt 14pt !important;
+            margin-bottom: 14pt !important;
           }
 
+          .document-content h1 {
+            font-size: 22pt;
+            font-weight: 700;
+            margin: 0 0 4pt 0;
+            color: #0f172a !important;
+          }
+          .document-content h2 {
+            font-size: 13pt;
+            font-weight: 700;
+            margin: 14pt 0 6pt 0;
+            page-break-after: avoid;
+            color: #0f172a !important;
+          }
+          .document-content h3 {
+            font-size: 11pt;
+            font-weight: 600;
+            margin: 10pt 0 4pt 0;
+            page-break-after: avoid;
+            color: #0f172a !important;
+          }
+          .document-content p {
+            margin: 0 0 6pt 0;
+          }
+
+          /* Section eyebrows like "EXECUTIVE SUMMARY" — keep accent color
+             so they read as section markers rather than body text. */
+          .document-content .text-\\[\\#49cde1\\],
+          .document-content [class*="text-cyan"],
+          .document-content .uppercase.tracking-\\[0\\.25em\\] {
+            color: #1d8fae !important;
+            font-weight: 600;
+            letter-spacing: 0.18em;
+            font-size: 8pt;
+          }
+
+          /* Tables — readable on paper, with banded headers and clear
+             vertical rhythm. */
           .document-content table {
+            width: 100%;
+            border-collapse: collapse;
             page-break-inside: auto;
+            font-size: 9.5pt;
           }
-
+          .document-content thead {
+            display: table-header-group;
+          }
+          .document-content th {
+            background: #f1f5f9 !important;
+            color: #0f172a !important;
+            text-align: left;
+            font-weight: 600;
+            font-size: 8.5pt;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 6pt 8pt;
+            border-bottom: 1px solid #cbd5e1 !important;
+          }
+          .document-content td {
+            padding: 8pt;
+            border-bottom: 1px solid #e2e8f0 !important;
+            vertical-align: top;
+          }
           .document-content tr {
             page-break-inside: avoid;
             page-break-after: auto;
           }
 
-          .document-content h1,
-          .document-content h2,
-          .document-content h3 {
-            page-break-after: avoid;
+          /* Total row — emphasise the bottom-line figure. */
+          .document-content .quote-total-row td,
+          .document-content tfoot td {
+            font-weight: 700;
+            font-size: 10.5pt;
+            border-top: 2px solid #0f172a !important;
+            border-bottom: none !important;
+            padding-top: 10pt;
+          }
+
+          /* Approval signature block — leave clear space for a wet
+             signature when printed. */
+          .document-content .quote-signature-block {
+            border-top: 1px solid #94a3b8 !important;
+            padding-top: 10pt;
+            margin-top: 18pt;
+          }
+
+          /* Page footer with reference + page numbers via CSS counters. */
+          @page {
+            @bottom-left {
+              content: "Muloo Deploy OS";
+              font-size: 8pt;
+              color: #64748b;
+            }
+            @bottom-right {
+              content: "Page " counter(page) " of " counter(pages);
+              font-size: 8pt;
+              color: #64748b;
+            }
           }
         }
       `}</style>
