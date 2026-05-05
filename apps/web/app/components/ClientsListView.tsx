@@ -29,9 +29,10 @@ interface ClientRecord {
   region?: string | null;
   championName?: string | null;
   championEmail?: string | null;
-  activeProjects?: number;
+  // From the API these can come back as arrays of full objects OR as numeric counts
+  activeProjects?: unknown;
   contactsCount?: number;
-  contacts?: number;
+  contacts?: unknown;
   mrr?: number | null;
   currency?: string;
   lastTouch?: string | null;
@@ -41,6 +42,12 @@ interface ClientRecord {
   portal?: { connected?: boolean; hub?: string };
   tags?: string[];
   isPartner?: boolean;
+}
+
+function countOf(value: unknown): number {
+  if (Array.isArray(value)) return value.length;
+  if (typeof value === "number") return value;
+  return 0;
 }
 
 const tabDefs = [
@@ -55,11 +62,11 @@ function isPartner(c: ClientRecord): boolean {
 }
 
 function isLead(c: ClientRecord): boolean {
-  return (c.activeProjects ?? 0) === 0 && !isPartner(c);
+  return countOf(c.activeProjects) === 0 && !isPartner(c);
 }
 
 function isActive(c: ClientRecord): boolean {
-  return (c.activeProjects ?? 0) > 0 && !isPartner(c);
+  return countOf(c.activeProjects) > 0 && !isPartner(c);
 }
 
 function clientPortalConnected(c: ClientRecord): boolean {
@@ -144,11 +151,11 @@ export default function ClientsListView() {
 
   const stats = useMemo(() => {
     const totalProjects = clients.reduce(
-      (sum, c) => sum + (c.activeProjects ?? 0),
+      (sum, c) => sum + countOf(c.activeProjects),
       0
     );
     const totalContacts = clients.reduce(
-      (sum, c) => sum + (c.contactsCount ?? c.contacts ?? 0),
+      (sum, c) => sum + (c.contactsCount ?? countOf(c.contacts)),
       0
     );
     const totalMRR = clients.reduce((sum, c) => sum + (c.mrr ?? 0), 0);
@@ -275,13 +282,11 @@ export default function ClientsListView() {
                     <Td muted>{c.industry ?? "—"}</Td>
                     <Td>{c.championName ?? "—"}</Td>
                     <Td>
-                      <span className="font-mono">
-                        {c.activeProjects ?? 0}
-                      </span>
+                      <span className="font-mono">{countOf(c.activeProjects)}</span>
                     </Td>
                     <Td>
                       <span className="font-mono">
-                        {c.contactsCount ?? c.contacts ?? 0}
+                        {c.contactsCount ?? countOf(c.contacts)}
                       </span>
                     </Td>
                     <Td>

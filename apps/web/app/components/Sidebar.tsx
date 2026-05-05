@@ -295,12 +295,12 @@ export default function Sidebar() {
         } lg:translate-x-0`}
       >
         {/* Brand */}
-        <div className="flex items-center gap-2.5 px-4.5 pt-5 pb-3.5 border-b border-ink-4">
+        <div className="flex items-center gap-2.5 px-5 pt-6 pb-4 border-b border-ink-4">
           <div className="flex flex-col">
             <span className="brand-wordmark text-[22px] font-bold leading-none -tracking-[0.02em]">
               muloo
             </span>
-            <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold mt-0.5">
+            <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold mt-1">
               Deploy OS
             </span>
           </div>

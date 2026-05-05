@@ -49,9 +49,10 @@ interface ClientRecord {
   website?: string | null;
   championName?: string | null;
   championEmail?: string | null;
-  activeProjects?: number;
+  // The /api/clients payload sends arrays of full objects here, not numbers.
+  activeProjects?: unknown;
   contactsCount?: number;
-  contacts?: number;
+  contacts?: unknown;
   mrr?: number | null;
   currency?: string;
   lastTouch?: string | null;
@@ -67,6 +68,12 @@ interface ClientRecord {
   } | null;
   portal?: { connected?: boolean; hub?: string };
   summary?: string | null;
+}
+
+function countOf(value: unknown): number {
+  if (Array.isArray(value)) return value.length;
+  if (typeof value === "number") return value;
+  return 0;
 }
 
 interface ContactRecord {
