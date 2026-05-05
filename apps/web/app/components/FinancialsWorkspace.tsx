@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
+import { PageHead } from "./ui/PageHead";
 
 // T6.2 / T6.3 — Financials snapshot now scoped to a date range with a
 // prior-period comparison and a forward-looking 90-day forecast block.
@@ -281,19 +282,12 @@ export default function FinancialsWorkspace() {
 
   return (
     <AppShell>
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
-        <header className="flex flex-col gap-2">
-          <p className="text-xs uppercase tracking-[0.32em] text-[#49cde1]">
-            Sales
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight text-white">
-            Financials
-          </h1>
-          <p className="text-sm text-text-secondary">
-            Pipeline, recurring revenue, win rate, top clients, and a 90-day
-            forecast. Numbers come from your live quote and retainer data.
-          </p>
-        </header>
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full flex flex-col gap-6">
+        <PageHead
+          eyebrow="Sales"
+          title="Financials"
+          lede="Pipeline, recurring revenue, win rate, top clients, and a 90-day forecast. Numbers come from your live quote and retainer data."
+        />
 
         {/* T6.2 — Range picker */}
         <section className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-background-card px-4 py-3 lg:flex-row lg:items-center lg:justify-between">

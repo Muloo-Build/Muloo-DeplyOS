@@ -56,36 +56,41 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background-primary px-6 text-white">
-      <div className="w-full max-w-md rounded-3xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
-        <p className="text-sm uppercase tracking-[0.3em] text-text-muted">
-          Muloo
-        </p>
-        <h1 className="mt-3 text-3xl font-bold font-heading gradient-text">
-          Deploy OS
+    <div className="flex min-h-screen items-center justify-center bg-ink-0 px-6 text-text-1">
+      <div className="w-full max-w-[420px] bg-ink-1 border border-ink-4 rounded-[14px] p-7">
+        <div className="flex flex-col items-start mb-6">
+          <span className="brand-wordmark text-[26px] font-bold leading-none -tracking-[0.02em]">
+            muloo
+          </span>
+          <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold mt-1">
+            Deploy OS
+          </span>
+        </div>
+        <h1 className="text-[20px] font-semibold m-0 -tracking-[0.01em] text-text-1">
+          Sign in
         </h1>
-        <p className="mt-3 text-text-secondary">
-          Sign in with your workspace email or username and password.
+        <p className="mt-1.5 text-[13px] text-text-3">
+          Workspace email or username + password.
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <label className="block">
-            <span className="mb-2 block text-sm text-text-secondary">
+            <span className="mb-1.5 block text-[11px] tracking-[0.08em] uppercase text-text-3 font-semibold">
               Email or username
             </span>
             <input
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              placeholder="Your workspace email or username"
+              placeholder="you@muloo.co"
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
-              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+              className="w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none transition-colors focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4"
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm text-text-secondary">
+            <span className="mb-1.5 block text-[11px] tracking-[0.08em] uppercase text-text-3 font-semibold">
               Password
             </span>
             <input
@@ -93,33 +98,33 @@ export default function LoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="current-password"
-              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+              className="w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none transition-colors focus:border-[rgba(74,219,192,0.35)]"
             />
           </label>
 
           {error || oauthError ? (
-            <p className="text-sm text-[#ff8f9c]">{error ?? oauthError}</p>
+            <p className="text-[12.5px] text-status-danger">{error ?? oauthError}</p>
           ) : null}
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+            className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-semibold bg-status-ok text-[#042822] hover:bg-[#5fe7cd] border border-transparent transition-colors disabled:opacity-60"
           >
-            {submitting ? "Signing in..." : "Sign in"}
+            {submitting ? "Signing in…" : "Sign in"}
           </button>
 
-          <div className="flex items-center gap-3 pt-2">
-            <div className="h-px flex-1 bg-[rgba(255,255,255,0.08)]" />
-            <span className="text-xs uppercase tracking-[0.24em] text-text-muted">
+          <div className="flex items-center gap-3 pt-1">
+            <div className="h-px flex-1 bg-ink-4" />
+            <span className="text-[10px] uppercase tracking-[0.14em] text-text-4 font-semibold">
               or
             </span>
-            <div className="h-px flex-1 bg-[rgba(255,255,255,0.08)]" />
+            <div className="h-px flex-1 bg-ink-4" />
           </div>
 
           <a
             href="/api/auth/google/start"
-            className="flex w-full items-center justify-center rounded-xl border border-[rgba(255,255,255,0.12)] bg-[#11182f] px-5 py-3 text-sm font-semibold text-white transition hover:border-[rgba(255,255,255,0.22)] hover:bg-[#17203d]"
+            className="flex w-full items-center justify-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-medium text-text-1 border border-ink-4 hover:border-ink-5 hover:bg-ink-2 transition-colors"
           >
             Continue with Google
           </a>
