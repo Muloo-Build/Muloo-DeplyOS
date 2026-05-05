@@ -1,9 +1,9 @@
-import ProjectWorkspaceLanding from "../../components/ProjectWorkspaceLanding";
+import ProjectWorkspaceView from "../../components/ProjectWorkspaceView";
 
 export default function ProjectOverviewPage({
   params
 }: {
   params: { id: string };
 }) {
-  return <ProjectWorkspaceLanding projectId={params.id} />;
+  return <ProjectWorkspaceView projectId={params.id} />;
 }
