@@ -1,5 +1,5 @@
-import MulooCommandCentre from "../components/MulooCommandCentre";
+import { redirect } from "next/navigation";
 
 export default function CommandCentrePage() {
-  return <MulooCommandCentre />;
+  redirect("/today");
 }

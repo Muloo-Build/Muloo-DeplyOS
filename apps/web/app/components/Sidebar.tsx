@@ -8,21 +8,21 @@ import {
   Bot,
   BookOpen,
   Building2,
+  Calendar,
   FileText,
   FolderKanban,
+  HelpCircle,
+  Home,
   Inbox,
-  KeyRound,
-  LayoutDashboard,
-  LayoutTemplate,
-  Library,
+  Layers,
   LineChart,
-  BarChart3,
   LogOut,
   Menu,
-  Package,
   Receipt,
+  RefreshCw,
+  Search,
   Settings,
-  Wallet,
+  Users,
   X
 } from "lucide-react";
 
@@ -30,21 +30,18 @@ type NavItem = {
   href: string;
   label: string;
   icon: ReactNode;
-  compact?: boolean;
   isActive: (pathname: string) => boolean;
   badge?: "inbox";
+  count?: number;
 };
 
 type NavGroup = {
-  label: string;
+  label: string | null;
   items: NavItem[];
 };
 
 function isProjectsRoute(pathname: string): boolean {
-  if (pathname.startsWith("/operations")) {
-    return false;
-  }
-
+  if (pathname.startsWith("/operations")) return false;
   return (
     pathname.startsWith("/blueprint") ||
     pathname === "/projects" ||
@@ -53,163 +50,130 @@ function isProjectsRoute(pathname: string): boolean {
   );
 }
 
+function isTodayRoute(pathname: string): boolean {
+  return (
+    pathname === "/" ||
+    pathname === "/today" ||
+    pathname.startsWith("/today/") ||
+    pathname === "/command-centre" ||
+    pathname.startsWith("/command-centre/") ||
+    pathname === "/workspace" ||
+    pathname.startsWith("/workspace/")
+  );
+}
+
 const navGroups: NavGroup[] = [
   {
-    label: "WORK",
+    label: null,
     items: [
       {
-        href: "/command-centre",
-        label: "Command Centre",
-        icon: <LayoutDashboard size={18} />,
-        isActive: (pathname) =>
-          pathname === "/" ||
-          pathname === "/command-centre" ||
-          pathname.startsWith("/command-centre/") ||
-          pathname === "/workspace" ||
-          pathname.startsWith("/workspace/")
-      },
+        href: "/today",
+        label: "Today",
+        icon: <Home size={15} />,
+        isActive: isTodayRoute
+      }
+    ]
+  },
+  {
+    label: "Work",
+    items: [
       {
         href: "/inbox",
         label: "Inbox",
-        icon: <Inbox size={18} />,
-        isActive: (pathname) =>
-          pathname === "/inbox" || pathname.startsWith("/inbox/"),
+        icon: <Inbox size={15} />,
+        isActive: (p) => p === "/inbox" || p.startsWith("/inbox/"),
         badge: "inbox"
       },
       {
         href: "/projects",
         label: "Projects",
-        icon: <FolderKanban size={18} />,
+        icon: <FolderKanban size={15} />,
         isActive: isProjectsRoute
       },
       {
         href: "/clients",
         label: "Clients",
-        icon: <Building2 size={18} />,
-        // Contacts is a sub-view of Clients; route still works at /contacts.
-        isActive: (pathname) =>
-          pathname === "/clients" ||
-          pathname.startsWith("/clients/") ||
-          pathname === "/contacts" ||
-          pathname.startsWith("/contacts/")
+        icon: <Building2 size={15} />,
+        isActive: (p) => p === "/clients" || p.startsWith("/clients/")
       },
       {
-        href: "/partners",
-        label: "Partners",
-        icon: <Building2 size={18} />,
-        isActive: (pathname) =>
-          pathname === "/partners" || pathname.startsWith("/partners/")
+        href: "/contacts",
+        label: "Contacts",
+        icon: <Users size={15} />,
+        isActive: (p) => p === "/contacts" || p.startsWith("/contacts/")
+      },
+      {
+        href: "/calendar",
+        label: "Calendar",
+        icon: <Calendar size={15} />,
+        isActive: (p) => p === "/calendar" || p.startsWith("/calendar/")
       }
     ]
   },
   {
-    label: "SELL",
+    label: "Commercials",
     items: [
       {
         href: "/quotes",
         label: "Quotes",
-        icon: <FileText size={18} />,
-        isActive: (pathname) =>
-          pathname === "/quotes" || pathname.startsWith("/quotes/")
+        icon: <FileText size={15} />,
+        isActive: (p) => p === "/quotes" || p.startsWith("/quotes/")
       },
       {
         href: "/retainers",
         label: "Retainers",
-        icon: <Wallet size={18} />,
-        isActive: (pathname) =>
-          pathname === "/retainers" || pathname.startsWith("/retainers/")
+        icon: <RefreshCw size={15} />,
+        isActive: (p) => p === "/retainers" || p.startsWith("/retainers/")
       },
       {
         href: "/invoices",
         label: "Invoices",
-        icon: <Receipt size={18} />,
-        isActive: (pathname) =>
-          pathname === "/invoices" || pathname.startsWith("/invoices/")
+        icon: <Receipt size={15} />,
+        isActive: (p) => p === "/invoices" || p.startsWith("/invoices/")
       },
       {
         href: "/financials",
         label: "Financials",
-        icon: <LineChart size={18} />,
-        isActive: (pathname) =>
-          pathname === "/financials" || pathname.startsWith("/financials/")
-      },
-      {
-        href: "/capacity",
-        label: "Capacity",
-        icon: <LineChart size={18} />,
-        isActive: (pathname) =>
-          pathname === "/capacity" || pathname.startsWith("/capacity/")
+        icon: <LineChart size={15} />,
+        isActive: (p) =>
+          p === "/financials" ||
+          p.startsWith("/financials/") ||
+          p === "/capacity" ||
+          p.startsWith("/capacity/")
       }
     ]
   },
   {
-    label: "LIBRARY",
+    label: "Library",
     items: [
       {
         href: "/workbooks",
         label: "Workbooks",
-        icon: <BookOpen size={18} />,
-        isActive: (pathname) =>
-          pathname === "/workbooks" || pathname.startsWith("/workbooks/")
+        icon: <BookOpen size={15} />,
+        isActive: (p) => p === "/workbooks" || p.startsWith("/workbooks/")
       },
       {
         href: "/question-library",
-        label: "Question Library",
-        icon: <Library size={18} />,
-        isActive: (pathname) =>
-          pathname === "/question-library" ||
-          pathname.startsWith("/question-library/")
+        label: "Question library",
+        icon: <HelpCircle size={15} />,
+        isActive: (p) =>
+          p === "/question-library" || p.startsWith("/question-library/")
       },
       {
         href: "/templates",
-        label: "Implementation Templates",
-        icon: <LayoutTemplate size={18} />,
-        isActive: (pathname) =>
-          pathname === "/templates" || pathname.startsWith("/templates/")
-      },
-      {
-        href: "/products",
-        label: "Products",
-        icon: <Package size={18} />,
-        isActive: (pathname) =>
-          pathname === "/products" || pathname.startsWith("/products/")
+        label: "Templates",
+        icon: <Layers size={15} />,
+        isActive: (p) => p === "/templates" || p.startsWith("/templates/")
       },
       {
         href: "/agents",
         label: "Agents",
-        icon: <Bot size={18} />,
-        // Runs is a debug/observability surface; route still works at /runs.
-        isActive: (pathname) =>
-          pathname === "/agents" ||
-          pathname.startsWith("/agents/") ||
-          pathname === "/runs" ||
-          pathname.startsWith("/runs/")
-      },
-      {
-        href: "/reports",
-        label: "Reports",
-        icon: <BarChart3 size={18} />,
-        isActive: (pathname) =>
-          pathname === "/reports" || pathname.startsWith("/reports/")
-      }
-    ]
-  },
-  {
-    label: "ADMIN",
-    items: [
-      {
-        href: "/settings",
-        label: "Settings",
-        icon: <Settings size={18} />,
-        isActive: (pathname) =>
-          pathname === "/settings" || pathname.startsWith("/settings/")
-      },
-      {
-        href: "/skeleton-key",
-        label: "Skeleton Key",
-        icon: <KeyRound size={18} />,
-        isActive: (pathname) =>
-          pathname === "/skeleton-key" || pathname.startsWith("/skeleton-key/")
+        icon: <Bot size={15} />,
+        isActive: (p) =>
+          p === "/agents" ||
+          p.startsWith("/agents/") ||
+          p === "/runs" ||
+          p.startsWith("/runs/")
       }
     ]
   }
@@ -219,41 +183,66 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [inboxCount, setInboxCount] = useState(0);
+  const [userInitials, setUserInitials] = useState("MU");
+  const [userName, setUserName] = useState("Muloo");
+  const [userOrg, setUserOrg] = useState("muloo.co");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   useEffect(() => {
     async function loadSummary() {
       try {
         const response = await fetch("/api/inbox/summary");
-
-        if (!response.ok) {
-          return;
-        }
-
+        if (!response.ok) return;
         const body = await response.json();
         setInboxCount(body.summary?.total ?? 0);
       } catch {
-        // Ignore nav badge failures.
+        // ignore
       }
     }
-
     void loadSummary();
   }, [pathname]);
 
   useEffect(() => {
+    async function loadMe() {
+      try {
+        const response = await fetch("/api/auth/me");
+        if (!response.ok) return;
+        const body = await response.json();
+        const name: string | undefined = body?.user?.name ?? body?.name;
+        const email: string | undefined = body?.user?.email ?? body?.email;
+        if (name) {
+          setUserName(name.split(" ")[0] ?? name);
+          const initials = name
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((p: string) => p[0]?.toUpperCase() ?? "")
+            .join("");
+          if (initials) setUserInitials(initials);
+        }
+        if (email) {
+          const org = email.split("@")[1] ?? "";
+          if (org) setUserOrg(org);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    void loadMe();
+  }, []);
+
+  useEffect(() => {
     setMobileOpen(false);
+    setUserMenuOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    if (!mobileOpen) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
+    if (!mobileOpen) return;
+    const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = previous;
     };
   }, [mobileOpen]);
 
@@ -271,22 +260,23 @@ export default function Sidebar() {
 
   return (
     <>
-      <div className="fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between border-b border-[rgba(255,255,255,0.07)] bg-[#060e2b]/95 px-4 backdrop-blur lg:hidden">
-        <div className="flex min-w-0 items-center gap-3">
-          <img src="/muloo-logo.svg" alt="Muloo" className="h-8 w-auto" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-white">Deploy OS</p>
-            <p className="truncate text-xs text-text-muted">Internal workspace</p>
-          </div>
+      {/* Mobile top bar */}
+      <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-ink-4 bg-ink-0/95 px-4 backdrop-blur lg:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="brand-wordmark text-[20px] font-bold -tracking-[0.02em]">
+            muloo
+          </span>
+          <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+            Deploy OS
+          </span>
         </div>
         <button
           type="button"
           onClick={() => setMobileOpen((open) => !open)}
-          className="flex h-11 w-11 items-center justify-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-white transition-colors hover:bg-background-elevated"
+          className="flex h-10 w-10 items-center justify-center rounded-md border border-ink-4 bg-ink-2 text-text-1 transition-colors hover:bg-ink-3"
           aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-          aria-expanded={mobileOpen}
         >
-          {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+          {mobileOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
       </div>
 
@@ -294,75 +284,104 @@ export default function Sidebar() {
         type="button"
         aria-label="Close navigation menu"
         onClick={() => setMobileOpen(false)}
-        className={`fixed inset-0 z-40 bg-[rgba(2,6,23,0.72)] transition-opacity lg:hidden ${
+        className={`fixed inset-0 z-40 bg-black/72 transition-opacity lg:hidden ${
           mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}
       />
 
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-screen w-[min(18rem,86vw)] flex-col border-r border-[rgba(255,255,255,0.07)] bg-[#060e2b] transition-transform duration-200 lg:z-30 lg:w-sidebar ${
+        className={`fixed left-0 top-0 z-50 flex h-screen w-[min(18rem,86vw)] flex-col bg-ink-1 border-r border-ink-4 transition-transform duration-200 overflow-y-auto lg:z-30 lg:w-nav-w ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0`}
       >
-        <div className="flex items-start justify-between border-b border-[rgba(255,255,255,0.07)] px-6 py-5">
-          <div>
-            <img src="/muloo-logo.svg" alt="Muloo" className="h-10 w-auto" />
-            <p className="mt-3 text-sm font-medium text-text-secondary">
+        {/* Brand */}
+        <div className="flex items-center gap-2.5 px-4.5 pt-5 pb-3.5 border-b border-ink-4">
+          <div className="flex flex-col">
+            <span className="brand-wordmark text-[22px] font-bold leading-none -tracking-[0.02em]">
+              muloo
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold mt-0.5">
               Deploy OS
-            </p>
+            </span>
           </div>
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-white transition-colors hover:bg-background-elevated lg:hidden"
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-md border border-ink-4 bg-ink-2 text-text-1 transition-colors hover:bg-ink-3 lg:hidden"
             aria-label="Close navigation menu"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-6">
-          {navGroups.map((group) => (
-            <div key={group.label} className="mb-6">
-              {group.label ? (
-                <p className="mt-4 px-3 py-2 text-xs uppercase tracking-wider text-text-muted">
+        {/* Search */}
+        <div className="mx-3 mt-3.5 mb-1.5 relative">
+          <Search
+            size={14}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-3 pointer-events-none"
+          />
+          <input
+            type="text"
+            placeholder="Jump to…"
+            aria-label="Jump to"
+            className="w-full bg-ink-2 border border-ink-4 rounded-[10px] pl-8 pr-10 py-2 text-[12.5px] text-text-1 outline-none transition-colors focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4"
+          />
+          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[10px] text-text-4 bg-ink-3 border border-ink-4 rounded px-1.5 py-px">
+            ⌘K
+          </kbd>
+        </div>
+
+        {/* Nav groups */}
+        <nav className="flex-1 px-3 pb-3 pt-1.5 overflow-y-auto">
+          {navGroups.map((group, idx) => (
+            <div key={`${group.label ?? "_"}-${idx}`} className="pt-3.5 pb-1.5">
+              {group.label && (
+                <div className="px-2 pb-1.5 text-[10px] tracking-[0.14em] uppercase text-text-4 font-semibold">
                   {group.label}
-                </p>
-              ) : null}
-              <div className="space-y-1">
+                </div>
+              )}
+              <div className="space-y-px">
                 {group.items.map((item) => {
                   const active = item.isActive(pathname);
+                  const showInboxBadge = item.badge === "inbox" && inboxCount > 0;
 
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`relative flex items-center gap-3 rounded-xl px-3 transition-colors ${
-                        item.compact ? "ml-3 h-10" : "h-12"
-                      } ${
+                      className={`relative flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${
                         active
-                          ? "bg-background-elevated text-white"
-                          : "text-text-secondary hover:bg-background-elevated hover:text-white"
+                          ? "bg-ink-3 text-text-1"
+                          : "text-text-2 hover:bg-ink-2 hover:text-text-1"
                       }`}
                     >
-                      {active ? (
-                        <span className="absolute left-0 top-2 h-6 w-1 rounded-r bg-muloo-gradient" />
-                      ) : null}
-                      <span
-                        className={`flex items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-white ${
-                          item.compact ? "h-6 w-6" : "h-7 w-7"
-                        }`}
-                      >
-                        {item.icon}
-                      </span>
-                      <span className={item.compact ? "text-sm font-medium" : "font-medium"}>
-                        {item.label}
-                      </span>
-                      {item.badge === "inbox" && inboxCount > 0 ? (
-                        <span className="ml-auto flex min-w-6 items-center justify-center rounded-full bg-[rgba(224,80,96,0.9)] px-2 py-1 text-[10px] font-semibold text-white">
+                      {active && (
+                        <span className="absolute -left-3 top-1/2 -translate-y-1/2 w-[3px] h-[18px] bg-status-ok rounded-r" />
+                      )}
+                      <span className="opacity-85 flex-shrink-0">{item.icon}</span>
+                      <span className="truncate">{item.label}</span>
+                      {showInboxBadge && (
+                        <span
+                          className={`ml-auto font-mono text-[11px] px-1.5 py-px rounded-[10px] min-w-5 text-center ${
+                            active
+                              ? "bg-[rgba(74,219,192,0.12)] text-status-ok"
+                              : "bg-ink-3 text-text-3"
+                          }`}
+                        >
                           {inboxCount}
                         </span>
-                      ) : null}
+                      )}
+                      {typeof item.count === "number" && (
+                        <span
+                          className={`ml-auto font-mono text-[11px] px-1.5 py-px rounded-[10px] min-w-5 text-center ${
+                            active
+                              ? "bg-[rgba(74,219,192,0.12)] text-status-ok"
+                              : "bg-ink-3 text-text-3"
+                          }`}
+                        >
+                          {item.count}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
@@ -371,20 +390,62 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        <div className="border-t border-[rgba(255,255,255,0.07)] px-4 py-4">
+        {/* Footer: user + settings */}
+        <div className="mt-auto relative border-t border-ink-4 p-3 flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-from to-brand-to grid place-items-center font-bold text-[11px] text-white">
+            {userInitials}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[12.5px] font-medium text-text-1 truncate">
+              {userName}
+            </div>
+            <div className="text-[11px] text-text-3 truncate">{userOrg}</div>
+          </div>
           <button
             type="button"
-            onClick={() => void handleLogout()}
-            className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-text-secondary transition-colors hover:bg-background-elevated hover:text-white"
+            onClick={() => setUserMenuOpen((v) => !v)}
+            className="text-text-3 p-1 rounded-md hover:bg-ink-2 hover:text-text-1 transition-colors"
+            aria-label="User menu"
+            aria-expanded={userMenuOpen}
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-white">
-              <LogOut size={18} />
-            </span>
-            <span className="font-medium">Sign out</span>
+            <Settings size={15} />
           </button>
-          <p className="mt-4 px-2 text-xs uppercase tracking-[0.2em] text-text-muted">
-            Muloo Deploy OS
-          </p>
+
+          {userMenuOpen && (
+            <>
+              <button
+                type="button"
+                aria-label="Close user menu"
+                onClick={() => setUserMenuOpen(false)}
+                className="fixed inset-0 z-40 cursor-default"
+              />
+              <div className="absolute bottom-14 right-3 z-50 min-w-[180px] bg-ink-2 border border-ink-4 rounded-[10px] shadow-elev-md py-1">
+                <Link
+                  href="/settings"
+                  className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-text-2 hover:bg-ink-3 hover:text-text-1 transition-colors"
+                >
+                  <Settings size={14} />
+                  Settings
+                </Link>
+                <Link
+                  href="/skeleton-key"
+                  className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-text-2 hover:bg-ink-3 hover:text-text-1 transition-colors"
+                >
+                  <Bot size={14} />
+                  Skeleton Key
+                </Link>
+                <div className="border-t border-ink-4 my-1" />
+                <button
+                  type="button"
+                  onClick={() => void handleLogout()}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-[12.5px] text-text-2 hover:bg-ink-3 hover:text-text-1 transition-colors"
+                >
+                  <LogOut size={14} />
+                  Sign out
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </aside>
     </>
