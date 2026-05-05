@@ -1,25 +1,16 @@
 import AppShell from "../components/AppShell";
 import DeliveryTemplatesStudio from "../components/DeliveryTemplatesStudio";
+import { PageHead } from "../components/ui/PageHead";
 
 export default function TemplatesPage() {
   return (
     <AppShell>
-      <div className="p-8">
-        <div className="mb-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
-          <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
-            Implementation Templates
-          </p>
-          <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-            Delivery Template Library
-          </h1>
-          <p className="mt-3 max-w-3xl text-text-secondary">
-            Reusable build & delivery patterns — prefill plans, anticipated
-            hours, and default working patterns for common Muloo job types.
-            Looking for discovery questionnaires? Those live under Workbooks
-            and Question Library.
-          </p>
-        </div>
-
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+        <PageHead
+          eyebrow="Library"
+          title="Templates"
+          lede="Reusable build & delivery patterns — prefill plans, anticipated hours, and default working patterns for common Muloo job types. Discovery questionnaires live under Workbooks + Question library."
+        />
         <DeliveryTemplatesStudio />
       </div>
     </AppShell>

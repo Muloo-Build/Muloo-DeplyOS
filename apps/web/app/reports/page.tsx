@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import ReportPackInstaller from "../components/ReportPackInstaller";
+import { Empty } from "../components/ui/Empty";
+import { PageHead } from "../components/ui/PageHead";
+import { Panel, PanelBody } from "../components/ui/Panel";
 
 interface ProjectSummary {
   id: string;
@@ -59,48 +62,42 @@ export default function ReportsPage() {
 
   return (
     <AppShell>
-      <div className="p-8">
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+        <PageHead
+          eyebrow="Library"
+          title="Reports"
+          lede="Pick a project, choose templates from the catalogue, and push them into the linked HubSpot portal. Status, errors, and last installed timestamps are tracked per portal."
+        />
         <div className="space-y-6">
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
-            <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
-              Reports
-            </p>
-            <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-              HubSpot Standard Report Pack
-            </h1>
-            <p className="mt-3 max-w-3xl text-text-secondary">
-              Pick a project, choose templates from the catalogue, and push
-              them into the linked HubSpot portal. Status, errors, and last
-              installed timestamps are tracked per portal.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/5 bg-background-card p-5">
-            {loading ? (
-              <p className="text-text-secondary">Loading projects…</p>
-            ) : error ? (
-              <p className="text-rose-300">{error}</p>
-            ) : projects.length === 0 ? (
-              <p className="text-text-secondary">
-                No projects with a linked HubSpot portal were found.
-              </p>
-            ) : (
-              <label className="flex flex-wrap items-center gap-3 text-sm">
-                <span className="text-text-muted">Project</span>
-                <select
-                  value={selectedId}
-                  onChange={(e) => setSelectedId(e.target.value)}
-                  className="rounded-md border border-white/10 bg-background-primary px-2 py-1 text-white"
-                >
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.portalId})
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-          </div>
+          <Panel>
+            <PanelBody>
+              {loading ? (
+                <p className="text-text-2 text-[13px]">Loading projects…</p>
+              ) : error ? (
+                <p className="text-status-danger text-[13px]">{error}</p>
+              ) : projects.length === 0 ? (
+                <Empty
+                  title="No portal-linked projects"
+                  sub="Connect a HubSpot portal to a project to install report packs."
+                />
+              ) : (
+                <label className="flex flex-wrap items-center gap-3 text-[13px]">
+                  <span className="text-text-3">Project</span>
+                  <select
+                    value={selectedId}
+                    onChange={(e) => setSelectedId(e.target.value)}
+                    className="bg-ink-2 border border-ink-4 rounded-[10px] px-2.5 py-1.5 text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)]"
+                  >
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.portalId})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </PanelBody>
+          </Panel>
 
           {selectedId && <ReportPackInstaller projectId={selectedId} />}
         </div>
