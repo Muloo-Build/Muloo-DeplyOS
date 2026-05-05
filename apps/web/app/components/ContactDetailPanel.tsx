@@ -236,7 +236,7 @@ export default function ContactDetailPanel({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-[rgba(2,6,23,0.6)] backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
         aria-label="Close panel"
       />
@@ -244,15 +244,15 @@ export default function ContactDetailPanel({
       {/* Panel */}
       <div
         ref={panelRef}
-        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-[rgba(255,255,255,0.08)] bg-[#060e2b] shadow-2xl"
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-ink-4 bg-ink-1 shadow-2xl"
       >
         {/* Top bar */}
-        <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] px-6 py-4">
-          <p className="text-xs uppercase tracking-[0.22em] text-text-muted">Contact</p>
+        <div className="flex items-center justify-between border-b border-ink-4 px-6 py-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">Contact</p>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] text-text-muted hover:text-white"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-ink-4 text-text-3 hover:text-white"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -261,9 +261,9 @@ export default function ContactDetailPanel({
         </div>
 
         {/* Identity */}
-        <div className="border-b border-[rgba(255,255,255,0.07)] px-6 py-5">
+        <div className="border-b border-ink-4 px-6 py-5">
           <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[rgba(255,255,255,0.10)] bg-[rgba(73,205,225,0.10)] text-lg font-bold text-[#49cde1]">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-ink-4 bg-[rgba(74,219,192,0.12)] text-lg font-bold text-status-ok">
               {initials || "?"}
             </div>
             <div className="min-w-0 flex-1">
@@ -271,17 +271,17 @@ export default function ContactDetailPanel({
                 {contact.firstName} {contact.lastName}
               </h2>
               {contact.title && (
-                <p className="mt-0.5 text-sm text-text-secondary">{contact.title}</p>
+                <p className="mt-0.5 text-sm text-text-2">{contact.title}</p>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <Link
                   href={`/clients`}
-                  className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-3 py-1 text-xs text-text-secondary hover:text-white"
+                  className="rounded-full border border-ink-4 bg-ink-2 px-3 py-1 text-xs text-text-2 hover:text-white"
                 >
                   {contact.clientName}
                 </Link>
                 {contact.canApproveQuotes && (
-                  <span className="rounded-full bg-[rgba(81,208,176,0.14)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#51d0b0]">
+                  <span className="rounded-full bg-[rgba(74,219,192,0.12)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-status-ok">
                     Quote approver
                   </span>
                 )}
@@ -291,7 +291,7 @@ export default function ContactDetailPanel({
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[rgba(255,255,255,0.07)] px-6">
+        <div className="flex border-b border-ink-4 px-6">
           {(["overview", "notes", "projects"] as Tab[]).map((t) => (
             <button
               key={t}
@@ -299,8 +299,8 @@ export default function ContactDetailPanel({
               onClick={() => setTab(t)}
               className={`mr-6 py-3 text-sm font-medium capitalize transition ${
                 tab === t
-                  ? "border-b-2 border-[#49cde1] text-white"
-                  : "text-text-secondary hover:text-white"
+                  ? "border-b-2 border-status-ok text-white"
+                  : "text-text-2 hover:text-white"
               }`}
             >
               {t}
@@ -321,48 +321,48 @@ export default function ContactDetailPanel({
             <div>
               {editing ? (
                 <div className="space-y-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Edit contact</p>
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">Edit contact</p>
                   <div className="grid grid-cols-2 gap-4">
                     <label className="block">
-                      <span className="text-xs text-text-muted">First name</span>
+                      <span className="text-xs text-text-3">First name</span>
                       <input
                         value={editDraft.firstName}
                         onChange={(e) => setEditDraft((d) => ({ ...d, firstName: e.target.value }))}
-                        className="mt-1.5 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2.5 text-sm text-white outline-none focus:border-white/20"
+                        className="mt-1.5 w-full rounded-[10px] border border-ink-4 bg-ink-1 px-3 py-2.5 text-sm text-white outline-none focus:border-ink-5"
                       />
                     </label>
                     <label className="block">
-                      <span className="text-xs text-text-muted">Last name</span>
+                      <span className="text-xs text-text-3">Last name</span>
                       <input
                         value={editDraft.lastName}
                         onChange={(e) => setEditDraft((d) => ({ ...d, lastName: e.target.value }))}
-                        className="mt-1.5 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2.5 text-sm text-white outline-none focus:border-white/20"
+                        className="mt-1.5 w-full rounded-[10px] border border-ink-4 bg-ink-1 px-3 py-2.5 text-sm text-white outline-none focus:border-ink-5"
                       />
                     </label>
                   </div>
                   <label className="block">
-                    <span className="text-xs text-text-muted">Email</span>
+                    <span className="text-xs text-text-3">Email</span>
                     <input
                       value={editDraft.email}
                       onChange={(e) => setEditDraft((d) => ({ ...d, email: e.target.value }))}
-                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2.5 text-sm text-white outline-none focus:border-white/20"
+                      className="mt-1.5 w-full rounded-[10px] border border-ink-4 bg-ink-1 px-3 py-2.5 text-sm text-white outline-none focus:border-ink-5"
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs text-text-muted">Phone</span>
+                    <span className="text-xs text-text-3">Phone</span>
                     <input
                       value={editDraft.phone}
                       onChange={(e) => setEditDraft((d) => ({ ...d, phone: e.target.value }))}
                       placeholder="+44 7700 900000"
-                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2.5 text-sm text-white outline-none focus:border-white/20 placeholder:text-text-muted"
+                      className="mt-1.5 w-full rounded-[10px] border border-ink-4 bg-ink-1 px-3 py-2.5 text-sm text-white outline-none focus:border-ink-5 placeholder:text-text-3"
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs text-text-muted">Title / role</span>
+                    <span className="text-xs text-text-3">Title / role</span>
                     <input
                       value={editDraft.title}
                       onChange={(e) => setEditDraft((d) => ({ ...d, title: e.target.value }))}
-                      className="mt-1.5 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2.5 text-sm text-white outline-none focus:border-white/20"
+                      className="mt-1.5 w-full rounded-[10px] border border-ink-4 bg-ink-1 px-3 py-2.5 text-sm text-white outline-none focus:border-ink-5"
                     />
                   </label>
                   <label className="flex items-center gap-3 text-sm text-white">
@@ -378,14 +378,14 @@ export default function ContactDetailPanel({
                       type="button"
                       onClick={() => void handleSave()}
                       disabled={saving}
-                      className="flex-1 rounded-xl bg-[rgba(73,205,225,0.12)] px-4 py-2.5 text-sm font-medium text-[#49cde1] transition hover:bg-[rgba(73,205,225,0.20)] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex-1 rounded-[10px] bg-[rgba(73,205,225,0.12)] px-4 py-2.5 text-sm font-medium text-status-ok transition hover:bg-[rgba(73,205,225,0.20)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {saving ? "Saving…" : "Save changes"}
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditing(false)}
-                      className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-white"
+                      className="rounded-[10px] border border-ink-4 px-4 py-2.5 text-sm font-medium text-text-2 hover:text-white"
                     >
                       Cancel
                     </button>
@@ -397,29 +397,29 @@ export default function ContactDetailPanel({
                     <button
                       type="button"
                       onClick={() => setEditing(true)}
-                      className="rounded-xl border border-white/10 px-4 py-2 text-sm font-medium text-text-secondary hover:text-white"
+                      className="rounded-[10px] border border-ink-4 px-4 py-2 text-sm font-medium text-text-2 hover:text-white"
                     >
                       Edit
                     </button>
                   </div>
 
                   {/* Contact fields */}
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5 space-y-4">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5 space-y-4">
                     <Field label="Email">
-                      <a href={`mailto:${contact.email}`} className="text-[#49cde1] hover:underline">
+                      <a href={`mailto:${contact.email}`} className="text-status-ok hover:underline">
                         {contact.email}
                       </a>
                     </Field>
                     {contact.phone && (
                       <Field label="Phone">
-                        <a href={`tel:${contact.phone}`} className="text-white hover:text-[#49cde1]">
+                        <a href={`tel:${contact.phone}`} className="text-white hover:text-status-ok">
                           {contact.phone}
                         </a>
                       </Field>
                     )}
                     {contact.title && <Field label="Title">{contact.title}</Field>}
                     <Field label="Company">
-                      <Link href="/clients" className="text-white hover:text-[#49cde1]">
+                      <Link href="/clients" className="text-white hover:text-status-ok">
                         {contact.clientName}
                       </Link>
                     </Field>
@@ -430,9 +430,9 @@ export default function ContactDetailPanel({
                   </div>
 
                   {/* Danger zone */}
-                  <div className="rounded-2xl border border-[rgba(255,80,80,0.15)] bg-[rgba(255,80,80,0.04)] p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-rose-400">Danger zone</p>
-                    <p className="mt-2 text-sm text-text-secondary">
+                  <div className="rounded-[14px] border border-[rgba(255,80,80,0.15)] bg-[rgba(255,80,80,0.04)] p-5">
+                    <p className="text-xs uppercase tracking-[0.14em] text-status-danger">Danger zone</p>
+                    <p className="mt-2 text-sm text-text-2">
                       Removing this contact will also revoke any portal access they have.
                     </p>
                     {confirmDelete ? (
@@ -441,14 +441,14 @@ export default function ContactDetailPanel({
                           type="button"
                           onClick={() => void handleDelete()}
                           disabled={deleting}
-                          className="rounded-xl bg-rose-500/20 px-4 py-2 text-sm font-medium text-rose-400 hover:bg-rose-500/30 disabled:cursor-not-allowed"
+                          className="rounded-[10px] bg-[rgba(255,107,122,0.16)] px-4 py-2 text-sm font-medium text-status-danger hover:bg-[rgba(255,107,122,0.24)] disabled:cursor-not-allowed"
                         >
                           {deleting ? "Deleting…" : "Yes, delete"}
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmDelete(false)}
-                          className="rounded-xl border border-white/10 px-4 py-2 text-sm text-text-secondary hover:text-white"
+                          className="rounded-[10px] border border-ink-4 px-4 py-2 text-sm text-text-2 hover:text-white"
                         >
                           Cancel
                         </button>
@@ -457,7 +457,7 @@ export default function ContactDetailPanel({
                       <button
                         type="button"
                         onClick={() => setConfirmDelete(true)}
-                        className="mt-3 rounded-xl border border-rose-500/20 px-4 py-2 text-sm text-rose-400 hover:border-rose-500/40"
+                        className="mt-3 rounded-[10px] border border-[rgba(255,107,122,0.2)] px-4 py-2 text-sm text-status-danger hover:border-[rgba(255,107,122,0.4)]"
                       >
                         Remove contact
                       </button>
@@ -472,21 +472,21 @@ export default function ContactDetailPanel({
           {tab === "notes" && (
             <div className="space-y-4">
               {/* Add note */}
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-                <p className="mb-2 text-xs uppercase tracking-[0.2em] text-text-muted">Add a note</p>
+              <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
+                <p className="mb-2 text-xs uppercase tracking-[0.14em] text-text-3">Add a note</p>
                 <textarea
                   value={noteBody}
                   onChange={(e) => setNoteBody(e.target.value)}
                   placeholder="Log a call, meeting, decision, or anything worth tracking…"
                   rows={3}
-                  className="w-full resize-none rounded-xl border border-white/10 bg-[#0b1126] px-3 py-3 text-sm text-white outline-none focus:border-white/20 placeholder:text-text-muted"
+                  className="w-full resize-none rounded-[10px] border border-ink-4 bg-ink-2 px-3 py-3 text-sm text-white outline-none focus:border-ink-5 placeholder:text-text-3"
                 />
                 <div className="mt-3 flex justify-end">
                   <button
                     type="button"
                     onClick={() => void handleAddNote()}
                     disabled={savingNote || !noteBody.trim()}
-                    className="rounded-xl bg-[rgba(73,205,225,0.12)] px-4 py-2 text-sm font-medium text-[#49cde1] transition hover:bg-[rgba(73,205,225,0.20)] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-[10px] bg-[rgba(73,205,225,0.12)] px-4 py-2 text-sm font-medium text-status-ok transition hover:bg-[rgba(73,205,225,0.20)] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {savingNote ? "Saving…" : "Add note"}
                   </button>
@@ -497,7 +497,7 @@ export default function ContactDetailPanel({
               {loadingDetail ? (
                 <div className="space-y-2">
                   {[0, 1, 2].map((i) => (
-                    <div key={i} className="h-20 animate-pulse rounded-2xl border border-white/5 bg-background-card" />
+                    <div key={i} className="h-20 animate-pulse rounded-[14px] border border-ink-4 bg-ink-1" />
                   ))}
                 </div>
               ) : detail && detail.notes.length > 0 ? (
@@ -505,25 +505,25 @@ export default function ContactDetailPanel({
                   {detail.notes.map((note) => (
                     <div
                       key={note.id}
-                      className="group rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4"
+                      className="group rounded-[14px] border border-ink-4 bg-ink-1 p-4"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <p className="flex-1 text-sm leading-6 text-text-secondary">{note.body}</p>
+                        <p className="flex-1 text-sm leading-6 text-text-2">{note.body}</p>
                         <button
                           type="button"
                           onClick={() => void handleDeleteNote(note.id)}
                           disabled={deletingNoteId === note.id}
-                          className="shrink-0 rounded-lg border border-white/5 px-2 py-1 text-xs text-text-muted opacity-0 transition group-hover:opacity-100 hover:border-rose-500/20 hover:text-rose-400 disabled:cursor-not-allowed"
+                          className="shrink-0 rounded-lg border border-ink-4 px-2 py-1 text-xs text-text-3 opacity-0 transition group-hover:opacity-100 hover:border-[rgba(255,107,122,0.2)] hover:text-status-danger disabled:cursor-not-allowed"
                         >
                           {deletingNoteId === note.id ? "…" : "Delete"}
                         </button>
                       </div>
-                      <p className="mt-2 text-xs text-text-muted">{formatDate(note.createdAt)}</p>
+                      <p className="mt-2 text-xs text-text-3">{formatDate(note.createdAt)}</p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-sm text-text-muted py-8">
+                <p className="text-center text-sm text-text-3 py-8">
                   No notes yet. Log a call, meeting, or anything relevant above.
                 </p>
               )}
@@ -536,7 +536,7 @@ export default function ContactDetailPanel({
               {loadingDetail ? (
                 <div className="space-y-2">
                   {[0, 1].map((i) => (
-                    <div key={i} className="h-20 animate-pulse rounded-2xl border border-white/5 bg-background-card" />
+                    <div key={i} className="h-20 animate-pulse rounded-[14px] border border-ink-4 bg-ink-1" />
                   ))}
                 </div>
               ) : detail && detail.portalProjects.length > 0 ? (
@@ -544,12 +544,12 @@ export default function ContactDetailPanel({
                   <Link
                     key={project.id}
                     href={`/projects/${project.id}`}
-                    className="block rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4 transition hover:border-[rgba(255,255,255,0.14)]"
+                    className="block rounded-[14px] border border-ink-4 bg-ink-1 p-4 transition hover:border-ink-5"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-white">{project.name}</p>
-                        <p className="mt-1 text-xs text-text-secondary">
+                        <p className="mt-1 text-xs text-text-2">
                           {project.scopeType.replace(/_/g, " ")} · {project.status}
                         </p>
                       </div>
@@ -557,25 +557,25 @@ export default function ContactDetailPanel({
                         <span
                           className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
                             project.portalAccess.authStatus === "active"
-                              ? "bg-[rgba(81,208,176,0.14)] text-[#51d0b0]"
-                              : "bg-white/5 text-text-muted"
+                              ? "bg-[rgba(74,219,192,0.12)] text-status-ok"
+                              : "bg-white/5 text-text-3"
                           }`}
                         >
                           {project.portalAccess.authStatus === "active" ? "Portal active" : "Invite pending"}
                         </span>
                       ) : (
-                        <span className="shrink-0 rounded-full border border-white/10 px-2.5 py-1 text-[10px] text-text-muted">
+                        <span className="shrink-0 rounded-full border border-ink-4 px-2.5 py-1 text-[10px] text-text-3">
                           No portal access
                         </span>
                       )}
                     </div>
-                    <p className="mt-1.5 text-xs text-text-muted">
+                    <p className="mt-1.5 text-xs text-text-3">
                       Updated {timeAgo(project.updatedAt)}
                     </p>
                   </Link>
                 ))
               ) : (
-                <p className="text-center text-sm text-text-muted py-8">
+                <p className="text-center text-sm text-text-3 py-8">
                   No projects linked to this client yet.
                 </p>
               )}
@@ -590,7 +590,7 @@ export default function ContactDetailPanel({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">{label}</p>
+      <p className="text-xs uppercase tracking-[0.14em] text-text-3">{label}</p>
       <div className="mt-1 text-sm text-white">{children}</div>
     </div>
   );

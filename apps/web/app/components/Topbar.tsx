@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Bell, ChevronRight, Command } from "lucide-react";
 
@@ -78,6 +79,27 @@ function humanize(seg: string): string {
 
 export default function Topbar({ crumbs, actions }: TopbarProps) {
   const pathname = usePathname();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      try {
+        const r = await fetch("/api/inbox/summary");
+        if (!r.ok) return;
+        const body = await r.json();
+        if (!cancelled) setUnread(Number(body.summary?.total ?? 0));
+      } catch {
+        // ignore
+      }
+    }
+    void poll();
+    const id = setInterval(() => void poll(), 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [pathname]);
 
   // Auto-derive crumbs from pathname when not provided
   const derived: Crumb[] = (() => {
@@ -129,14 +151,19 @@ export default function Topbar({ crumbs, actions }: TopbarProps) {
       </nav>
 
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className="p-1.5 rounded-md text-text-2 hover:text-text-1 hover:bg-ink-2 transition-colors"
-          aria-label="Notifications"
-          title="Notifications"
+        <Link
+          href="/inbox"
+          className="relative p-1.5 rounded-md text-text-2 hover:text-text-1 hover:bg-ink-2 transition-colors"
+          aria-label={unread > 0 ? `Notifications (${unread} unread)` : "Notifications"}
+          title={unread > 0 ? `${unread} unread` : "No new notifications"}
         >
           <Bell size={14} />
-        </button>
+          {unread > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 rounded-full bg-status-warn text-[#2a1a05] font-mono text-[9px] font-semibold leading-[14px] text-center">
+              {unread > 99 ? "99+" : unread}
+            </span>
+          )}
+        </Link>
         <button
           type="button"
           className="px-2 py-1 rounded-md text-text-2 border border-ink-4 hover:text-text-1 hover:bg-ink-2 hover:border-ink-5 transition-colors flex items-center gap-1.5 text-[12px]"
