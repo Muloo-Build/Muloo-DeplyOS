@@ -3473,18 +3473,38 @@ export default function QuoteDocument({
         @media print {
           @page {
             size: A4;
-            margin: 18mm 16mm;
+            margin: 14mm 12mm;
+            background: #040518;
+          }
+
+          /* Print backgrounds + gradients so the PDF mirrors the share view. */
+          html,
+          body,
+          *,
+          *::before,
+          *::after {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            font-feature-settings: "liga", "kern";
+          }
+
+          html,
+          body {
+            background: #040518 !important;
           }
 
           .document-shell {
             padding: 0 !important;
           }
 
+          /* Hide chrome only — keep card colors, gradients, and text intact. */
           .document-toolbar,
           .sidebar,
           nav,
           aside,
           button,
+          .print\\:hidden,
           a[href^="/projects/"],
           a[href^="/client/projects/"],
           a[href^="/partner/projects/"] {
@@ -3493,18 +3513,10 @@ export default function QuoteDocument({
 
           main {
             padding-left: 0 !important;
-          }
-
-          body,
-          html {
-            background: #ffffff !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            font-feature-settings: "liga", "kern";
+            padding-right: 0 !important;
           }
 
           .document-content {
-            color: #0f172a !important;
             font-size: 10.5pt;
             line-height: 1.55;
           }
@@ -3512,23 +3524,7 @@ export default function QuoteDocument({
           .document-card {
             break-inside: avoid;
             page-break-inside: avoid;
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 6px !important;
-            background: #ffffff !important;
-            box-shadow: none !important;
             margin-bottom: 12pt;
-          }
-
-          .document-card *,
-          .document-content h1,
-          .document-content h2,
-          .document-content h3,
-          .document-content p,
-          .document-content li,
-          .document-content span,
-          .document-content td,
-          .document-content th {
-            color: #0f172a !important;
           }
 
           .document-content h1 {
