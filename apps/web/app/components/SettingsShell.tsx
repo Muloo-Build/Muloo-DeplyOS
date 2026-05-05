@@ -10,6 +10,7 @@ const navItems = [
   { href: "/settings", label: "Overview" },
   { href: "/settings/workspace", label: "Workspace" },
   { href: "/settings/team", label: "Team" },
+  { href: "/settings/integrations", label: "Integrations" },
   { href: "/settings/providers", label: "Providers" },
   { href: "/settings/email", label: "Email" },
   { href: "/settings/ai-routing", label: "AI Routing" },

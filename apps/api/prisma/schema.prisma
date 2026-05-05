@@ -241,6 +241,40 @@ model WorkspaceHubSpotSettings {
   createdAt        DateTime @default(now())
 }
 
+// Workspace-level HubSpot private app for Muloo's own portal.
+// Singleton — id always "default". Token encrypted at rest.
+model WorkspaceHubSpotPrivateApp {
+  id              String    @id @default("default")
+  label           String    @default("Muloo HubSpot")
+  portalId        String?
+  hubDomain       String?
+  encryptedToken  String?
+  scopes          String[]  @default([])
+  isEnabled       Boolean   @default(false)
+  connectedEmail  String?
+  connectedName   String?
+  lastTestedAt    DateTime?
+  lastTestStatus  String?
+  lastTestError   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// Tracks HubSpot companies that have been imported as Muloo Clients.
+// Lets selective import know which HubSpot company is already linked.
+model HubSpotImportedCompany {
+  id                String   @id @default(cuid())
+  hubspotCompanyId  String   @unique
+  clientId          String   @unique
+  domain            String?
+  importedAt        DateTime @default(now())
+  lastSyncedAt      DateTime?
+  syncDirection     String?
+  notes             String?
+
+  @@index([clientId])
+}
+
 model HubSpotPortal {
   id             String           @id @default(cuid())
   portalId       String           @unique

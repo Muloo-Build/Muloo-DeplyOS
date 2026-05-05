@@ -20735,6 +20735,30 @@ async function refreshWorkspaceXeroAccessTokenIfNeeded(
   });
 }
 
+const DEFAULT_XERO_SCOPES = [
+  "openid",
+  "profile",
+  "email",
+  "accounting.transactions",
+  "accounting.contacts",
+  "offline_access"
+];
+
+function resolveXeroScopes(): string[] {
+  const override = process.env.XERO_SCOPES?.trim();
+  if (!override) return DEFAULT_XERO_SCOPES;
+  const parsed = override
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parsed.length > 0 ? parsed : DEFAULT_XERO_SCOPES;
+}
+
+function maskClientId(value: string): string {
+  if (value.length <= 4) return "*".repeat(value.length);
+  return `…${value.slice(-4)}`;
+}
+
 export async function createWorkspaceXeroOAuthStart() {
   const clientId = process.env.XERO_CLIENT_ID?.trim() ?? "";
   const clientSecret = process.env.XERO_CLIENT_SECRET?.trim() ?? "";
@@ -20744,14 +20768,7 @@ export async function createWorkspaceXeroOAuthStart() {
   }
 
   const redirectUri = resolveWorkspaceXeroRedirectUri();
-  const scopes = [
-    "openid",
-    "profile",
-    "email",
-    "accounting.transactions",
-    "accounting.contacts",
-    "offline_access"
-  ];
+  const scopes = resolveXeroScopes();
   const state = createSignedStateToken({
     providerKey: "xero",
     redirectUri,
@@ -20763,6 +20780,12 @@ export async function createWorkspaceXeroOAuthStart() {
     response_type: "code",
     scope: scopes.join(" "),
     state
+  });
+
+  console.info("[xero-oauth] start", {
+    clientIdMask: maskClientId(clientId),
+    redirectUri,
+    scopes
   });
 
   return {
@@ -20817,10 +20840,18 @@ export async function completeWorkspaceXeroOAuthCallback(value: {
   } | null;
 
   if (!tokenResponse.ok || !tokenBody?.access_token) {
+    console.error("[xero-oauth] token exchange failed", {
+      status: tokenResponse.status,
+      statusText: tokenResponse.statusText,
+      error: tokenBody?.error,
+      errorDescription: tokenBody?.error_description,
+      redirectUri,
+      clientIdMask: maskClientId(clientId)
+    });
     throw new Error(
       tokenBody?.error_description ||
         tokenBody?.error ||
-        "Xero token exchange failed"
+        `Xero token exchange failed (${tokenResponse.status})`
     );
   }
 
@@ -20865,14 +20896,7 @@ export async function completeWorkspaceXeroOAuthCallback(value: {
     }
   }
 
-  const scopes = [
-    "openid",
-    "profile",
-    "email",
-    "accounting.transactions",
-    "accounting.contacts",
-    "offline_access"
-  ];
+  const scopes = resolveXeroScopes();
   const existingConnection = await prisma.workspaceXeroConnection.findFirst({
     orderBy: [{ createdAt: "asc" }]
   });

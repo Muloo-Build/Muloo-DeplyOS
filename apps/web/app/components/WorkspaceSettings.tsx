@@ -185,7 +185,26 @@ export default function WorkspaceSettings() {
   const [disconnectingCalendar, setDisconnectingCalendar] = useState(false);
   const [disconnectingXero, setDisconnectingXero] = useState(false);
   const [xeroConnectError, setXeroConnectError] = useState(false);
+  const [xeroErrorDetail, setXeroErrorDetail] = useState<string | null>(null);
   const [calendarConnectError, setCalendarConnectError] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const xeroErrorParam = params.get("xeroError");
+    if (xeroErrorParam) {
+      setXeroErrorDetail(xeroErrorParam);
+      setXeroConnectError(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("xeroError");
+      window.history.replaceState({}, "", url.toString());
+    }
+    if (params.get("xeroConnected") === "true") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("xeroConnected");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
 
   const [hubspotSettings, setHubspotSettings] = useState<WorkspaceHubSpotSettings | null>(null);
   const [hubspotPartnerInviteUrl, setHubspotPartnerInviteUrl] = useState("");
@@ -981,7 +1000,13 @@ export default function WorkspaceSettings() {
         </div>
 
         {xeroConnectError ? (
-          <InlineWarning message="Connection not configured. Ask your admin to add the required credentials to the deployment environment." />
+          <InlineWarning
+            message={
+              xeroErrorDetail
+                ? `Xero connection failed: ${xeroErrorDetail}`
+                : "Connection not configured. Ask your admin to add the required credentials to the deployment environment."
+            }
+          />
         ) : null}
       </section>
 
