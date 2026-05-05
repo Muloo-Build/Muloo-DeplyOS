@@ -30,11 +30,11 @@ export default function SettingsShell({
   return (
     <AppShell>
       <div className="flex min-h-screen">
-        <aside className="w-[240px] border-r border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-8">
-          <p className="px-3 text-sm uppercase tracking-[0.25em] text-text-muted">
+        <aside className="w-[220px] border-r border-ink-4 bg-ink-1 px-3 py-6">
+          <p className="px-2 text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
             Settings
           </p>
-          <nav className="mt-6 space-y-2">
+          <nav className="mt-4 space-y-px">
             {navItems.map((item) => {
               const active =
                 item.href === "/settings"
@@ -46,10 +46,10 @@ export default function SettingsShell({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+                  className={`flex items-center rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors ${
                     active
-                      ? "bg-[#141d3d] text-white"
-                      : "text-text-secondary hover:bg-[#141d3d] hover:text-white"
+                      ? "bg-ink-3 text-text-1"
+                      : "text-text-2 hover:bg-ink-2 hover:text-text-1"
                   }`}
                 >
                   {item.label}
@@ -59,18 +59,18 @@ export default function SettingsShell({
           </nav>
         </aside>
 
-        <div className="flex-1 p-8">
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
-            <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
+        <div className="flex-1 px-8 pt-6 pb-16 max-w-[1480px] w-full">
+          <header className="mb-6">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-text-3 font-semibold">
               Settings
             </p>
-            <h1 className="mt-3 text-3xl font-bold font-heading text-white">
+            <h1 className="mt-1.5 text-[26px] font-semibold -tracking-[0.02em] text-text-1">
               {title}
             </h1>
-            <p className="mt-3 max-w-3xl text-text-secondary">{subtitle}</p>
-          </div>
+            <p className="mt-1.5 max-w-[640px] text-[13.5px] text-text-3">{subtitle}</p>
+          </header>
 
-          <div className="mt-6">{children}</div>
+          <div>{children}</div>
         </div>
       </div>
     </AppShell>

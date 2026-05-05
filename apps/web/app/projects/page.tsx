@@ -1,9 +1,9 @@
-import ProjectsDashboard from "../components/ProjectsDashboard";
+import ProjectsListView from "../components/ProjectsListView";
 
 export default function ProjectsPage({
   searchParams
 }: {
   searchParams?: { status?: string };
 }) {
-  return <ProjectsDashboard initialStatus={searchParams?.status ?? null} />;
+  return <ProjectsListView initialStatus={searchParams?.status ?? null} />;
 }
