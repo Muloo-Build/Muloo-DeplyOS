@@ -1,10 +1,5 @@
-import AuthGate from "./components/AuthGate";
-import MulooCommandCentre from "./components/MulooCommandCentre";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return (
-    <AuthGate>
-      <MulooCommandCentre />
-    </AuthGate>
-  );
+  redirect("/today");
 }
