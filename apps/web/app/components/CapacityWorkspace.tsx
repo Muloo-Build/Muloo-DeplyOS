@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Users } from "lucide-react";
+
+import AppShell from "./AppShell";
+import { Empty } from "./ui/Empty";
+import { PageHead } from "./ui/PageHead";
+import { Pill } from "./ui/Pill";
+import { SectionCard } from "./ui/SectionCard";
 
 type Owner = {
   owner: string;
@@ -49,77 +54,75 @@ export default function CapacityWorkspace() {
     };
   }, []);
 
-  return (
-    <div className="space-y-6">
-      <section className="brand-surface rounded-3xl border p-6">
-        <div className="flex items-center gap-3">
-          <Users className="h-6 w-6 text-amber-300" />
-          <div>
-            <h1 className="text-3xl font-semibold text-white">Capacity</h1>
-            <p className="mt-1 text-sm text-text-secondary">
-              Open tasks grouped by owner across all projects.
-              {horizonStart && horizonEnd
-                ? ` 14-day horizon: ${horizonStart.slice(0, 10)} → ${horizonEnd.slice(0, 10)}.`
-                : ""}
-            </p>
-          </div>
-        </div>
-      </section>
+  const horizonText =
+    horizonStart && horizonEnd
+      ? `14-day horizon: ${horizonStart.slice(0, 10)} → ${horizonEnd.slice(0, 10)}`
+      : "Open tasks grouped by owner across all projects.";
 
-      {error ? (
-        <p className="text-sm text-status-error">{error}</p>
-      ) : loading ? (
-        <p className="text-sm text-text-secondary">Loading…</p>
-      ) : owners.length === 0 ? (
-        <p className="text-sm text-text-secondary">No open tasks across the workspace.</p>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {owners.map((o) => {
-            const burn = o.hoursLast14d;
-            const overload = o.openHours > 60;
-            return (
-              <section
-                key={o.owner}
-                className="brand-surface rounded-3xl border p-5"
-              >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="text-lg font-semibold text-white">{o.owner}</h3>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
-                      overload
-                        ? "bg-rose-500/30 text-rose-100"
-                        : "bg-emerald-500/20 text-emerald-100"
-                    }`}
-                  >
-                    {o.openHours.toFixed(0)}h open · {o.openTaskCount} tasks
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-text-secondary">
-                  Logged last 14d: {burn.toFixed(1)}h
-                </p>
-                <ul className="mt-3 divide-y divide-white/5 rounded-2xl border border-white/10">
-                  {o.tasks.slice(0, 8).map((t) => (
-                    <li key={t.id} className="flex items-center justify-between p-3 text-sm">
-                      <div className="min-w-0 flex-1 pr-3">
-                        <Link
-                          href={`/projects/${t.projectId}`}
-                          className="font-medium text-white hover:underline"
-                        >
-                          {t.title}
-                        </Link>
-                        <p className="text-xs text-text-secondary">{t.projectName}</p>
-                      </div>
-                      <span className="text-xs text-text-secondary">
-                        {t.plannedHours ? `${t.plannedHours.toFixed(1)}h` : "—"}
+  return (
+    <AppShell>
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+        <PageHead eyebrow="Delivery" title="Capacity" lede={horizonText} />
+
+        {error ? (
+          <Empty title="Capacity feed error" sub={error} />
+        ) : loading ? (
+          <Empty title="Loading capacity…" sub="One moment." />
+        ) : owners.length === 0 ? (
+          <Empty
+            title="No open tasks"
+            sub="Nothing assigned across the workspace right now."
+          />
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {owners.map((o) => {
+              const overload = o.openHours > 60;
+              return (
+                <SectionCard
+                  key={o.owner}
+                  title={o.owner}
+                  subtitle={`Logged last 14d: ${o.hoursLast14d.toFixed(1)}h`}
+                  right={
+                    <Pill tone={overload ? "danger" : "ok"} dot>
+                      <span className="font-mono">
+                        {o.openHours.toFixed(0)}h
                       </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-        </div>
-      )}
-    </div>
+                      <span>· {o.openTaskCount}</span>
+                    </Pill>
+                  }
+                  flush
+                >
+                  <ul className="divide-y divide-ink-4">
+                    {o.tasks.slice(0, 8).map((t) => (
+                      <li
+                        key={t.id}
+                        className="flex items-center justify-between gap-3 px-[18px] py-3 text-[13px]"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <Link
+                            href={`/projects/${t.projectId}`}
+                            className="font-medium text-text-1 hover:text-status-ok transition-colors truncate block"
+                          >
+                            {t.title}
+                          </Link>
+                          <p className="text-[11.5px] text-text-3 truncate">
+                            {t.projectName}
+                          </p>
+                        </div>
+                        <span className="font-mono text-[12px] text-text-3 whitespace-nowrap">
+                          {t.plannedHours
+                            ? `${t.plannedHours.toFixed(1)}h`
+                            : "—"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </SectionCard>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </AppShell>
   );
 }

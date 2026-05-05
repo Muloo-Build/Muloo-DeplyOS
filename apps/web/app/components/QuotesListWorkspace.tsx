@@ -12,6 +12,8 @@ import {
 import AppShell from "./AppShell";
 import EmptyState from "./EmptyState";
 import { SkeletonRows } from "./LoadingSkeleton";
+import { Btn } from "./ui/Btn";
+import { PageHead } from "./ui/PageHead";
 
 interface QuoteListItem {
   id: string;
@@ -271,27 +273,19 @@ export default function QuotesListWorkspace() {
 
   return (
     <AppShell>
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
-        <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.32em] text-[#49cde1]">
-              Sales
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
-              Quotes
-            </h1>
-            <p className="mt-2 text-sm text-text-secondary">
-              Every quote across the workspace, draft to closed. Filter by
-              status, search by client.
-            </p>
-          </div>
-          <Link
-            href="/quotes/new"
-            className="inline-flex items-center justify-center rounded-xl bg-[#51d0b0] px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-[#6be0c1]"
-          >
-            + New quote
-          </Link>
-        </header>
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full flex flex-col gap-6">
+        <PageHead
+          eyebrow="Sales"
+          title="Quotes"
+          lede="Every quote across the workspace, draft to closed. Filter by status, search by client."
+          actions={
+            <Link href="/quotes/new">
+              <Btn variant="primary" size="md">
+                + New quote
+              </Btn>
+            </Link>
+          }
+        />
 
         {error ? (
           <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">

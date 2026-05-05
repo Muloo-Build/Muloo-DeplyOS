@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
 import EmptyState from "./EmptyState";
+import { PageHead } from "./ui/PageHead";
 
 type RetainerStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED";
 type RetainerServiceLine = "TECHNICAL_DELIVERY" | "CONSULTING";
@@ -227,27 +228,18 @@ export default function RetainersWorkspace() {
 
   return (
     <AppShell>
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
-        <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
-              Retainers
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold text-white">
-              Retainers
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm text-text-secondary">
-              Ongoing commercial agreements — monthly support, managed delivery, or fixed-scope commitments. Create retainers, lock the billing entity, and feed invoices from here.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-text-secondary">
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full flex flex-col gap-6">
+        <PageHead
+          eyebrow="Sales"
+          title="Retainers"
+          lede="Ongoing commercial agreements — monthly support, managed delivery, or fixed-scope commitments. Create retainers, lock the billing entity, and feed invoices from here."
+          actions={
+            <label className="text-[12.5px] text-text-3 inline-flex items-center gap-2">
               Status
               <select
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value)}
-                className="ml-3 rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm text-white"
+                className="bg-ink-2 border border-ink-4 rounded-[10px] px-2.5 py-1.5 text-[12.5px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)]"
               >
                 <option value="ALL">All</option>
                 {statusOptions.map((status) => (
@@ -257,8 +249,8 @@ export default function RetainersWorkspace() {
                 ))}
               </select>
             </label>
-          </div>
-        </header>
+          }
+        />
 
         {error ? (
           <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">

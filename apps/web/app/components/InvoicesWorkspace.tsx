@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import AppShell from "./AppShell";
 import EmptyState from "./EmptyState";
 import { SkeletonRows } from "./LoadingSkeleton";
+import { HealthCell, HealthStrip } from "./ui/HealthStrip";
+import { PageHead } from "./ui/PageHead";
 
 interface InvoiceListItem {
   id: string;
@@ -173,57 +175,33 @@ export default function InvoicesWorkspace() {
 
   return (
     <AppShell>
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
-        <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.32em] text-[#49cde1]">
-              Sales
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
-              Invoices
-            </h1>
-            <p className="mt-2 text-sm text-text-secondary">
-              Every invoice tied to a retainer or top-up. Filter by status,
-              search by client or reference.
-            </p>
-          </div>
-        </header>
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full flex flex-col gap-6">
+        <PageHead
+          eyebrow="Sales"
+          title="Invoices"
+          lede="Every invoice tied to a retainer or top-up. Filter by status, search by client or reference."
+        />
 
-        <section className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-[#49cde1]/30 bg-[#49cde1]/5 p-5">
-            <p className="text-[10px] uppercase tracking-[0.32em] text-[#9be4f0]/80">
-              Outstanding (sent)
-            </p>
-            <p className="mt-3 text-2xl font-semibold text-white">
-              {formatMoney(totals.outstanding, primaryCurrency)}
-            </p>
-            <p className="mt-1 text-xs text-[#9be4f0]/70">
-              {counts.SENT ?? 0} sent invoices
-            </p>
-          </div>
-          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/5 p-5">
-            <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/80">
-              Paid
-            </p>
-            <p className="mt-3 text-2xl font-semibold text-white">
-              {formatMoney(totals.paid, primaryCurrency)}
-            </p>
-            <p className="mt-1 text-xs text-emerald-200/70">
-              {counts.PAID ?? 0} paid invoices
-            </p>
-          </div>
-          <div className="rounded-2xl border border-rose-400/30 bg-rose-500/5 p-5">
-            <p className="text-[10px] uppercase tracking-[0.32em] text-rose-200/80">
-              Overdue
-            </p>
-            <p className="mt-3 text-2xl font-semibold text-white">
-              {formatMoney(totals.overdue, primaryCurrency)}
-            </p>
-            <p className="mt-1 text-xs text-rose-200/70">
-              {counts.OVERDUE ?? 0} overdue invoices
-            </p>
-          </div>
-        </section>
+        <HealthStrip>
+          <HealthCell
+            label="Outstanding (sent)"
+            value={formatMoney(totals.outstanding, primaryCurrency)}
+            sub={`${counts.SENT ?? 0} sent invoices`}
+            tone="warn"
+          />
+          <HealthCell
+            label="Paid"
+            value={formatMoney(totals.paid, primaryCurrency)}
+            sub={`${counts.PAID ?? 0} paid invoices`}
+            tone="ok"
+          />
+          <HealthCell
+            label="Overdue"
+            value={formatMoney(totals.overdue, primaryCurrency)}
+            sub={`${counts.OVERDUE ?? 0} overdue invoices`}
+            tone={(counts.OVERDUE ?? 0) > 0 ? "danger" : "muted"}
+          />
+        </HealthStrip>
 
         {error ? (
           <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
