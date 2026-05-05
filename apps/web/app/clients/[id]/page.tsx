@@ -1,9 +1,9 @@
-import ClientsWorkspace from "../../components/ClientsWorkspace";
+import ClientDetailView from "../../components/ClientDetailView";
 
 export default function ClientDetailPage({
   params
 }: {
   params: { id: string };
 }) {
-  return <ClientsWorkspace focusClientId={params.id} />;
+  return <ClientDetailView clientId={params.id} />;
 }

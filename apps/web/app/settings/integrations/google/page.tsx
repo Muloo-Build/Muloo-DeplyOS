@@ -9,7 +9,7 @@ export default function SettingsIntegrationsGooglePage() {
       subtitle="Sign in with Google, send mailbox-routed email, and pull calendar context into the Command Centre."
     >
       <div className="space-y-5">
-        <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+        <section className="bg-ink-1 border border-ink-4 rounded-[14px] p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
@@ -42,7 +42,7 @@ export default function SettingsIntegrationsGooglePage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+        <section className="bg-ink-1 border border-ink-4 rounded-[14px] p-6">
           <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
             Roadmap
           </p>

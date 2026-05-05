@@ -7,7 +7,7 @@ export default function SettingsTeamPage() {
       title="Team"
       subtitle="Manage workspace users, roles, and the people available for project ownership and delivery."
     >
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="bg-ink-1 border border-ink-4 rounded-[14px] p-6">
         <WorkspaceUsersSettings />
       </section>
     </SettingsShell>

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import AppShell from "../../../components/AppShell";
-import Breadcrumb from "../../../components/Breadcrumb";
 import DeliveryBoard from "../../../components/DeliveryBoard";
-import ProjectWorkflowNav from "../../../components/ProjectWorkflowNav";
+import { Btn } from "../../../components/ui/Btn";
+import { PageHead } from "../../../components/ui/PageHead";
 
 export default function ProjectDeliveryBoardPage({
   params
@@ -11,39 +11,33 @@ export default function ProjectDeliveryBoardPage({
 }) {
   return (
     <AppShell>
-      <div className="p-8">
-        <ProjectWorkflowNav projectId={params.id} />
-        <Breadcrumb
-          items={[
-            { label: "Projects", href: "/projects" },
-            { label: "Delivery Board" }
-          ]}
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+        <PageHead
+          eyebrow={
+            <Link
+              href={`/projects/${params.id}`}
+              className="hover:text-text-1 transition-colors"
+            >
+              ← Project workspace
+            </Link>
+          }
+          title="Delivery"
+          lede="Load the right delivery templates and run the working board for this project."
+          actions={
+            <>
+              <Link href={`/projects/${params.id}/changes`}>
+                <Btn variant="ghost" size="md">
+                  Change log
+                </Btn>
+              </Link>
+              <Link href={`/projects/${params.id}/quote`}>
+                <Btn variant="ghost" size="md">
+                  Open quote
+                </Btn>
+              </Link>
+            </>
+          }
         />
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold font-heading text-white">
-              Delivery Board
-            </h1>
-            <p className="mt-2 text-text-secondary">
-              Load the right delivery templates and run the working board for
-              this project.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href={`/projects/${params.id}/changes`}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
-            >
-              Change log
-            </Link>
-            <Link
-              href={`/projects/${params.id}/quote`}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
-            >
-              Open Quote
-            </Link>
-          </div>
-        </div>
         <DeliveryBoard projectId={params.id} />
       </div>
     </AppShell>
