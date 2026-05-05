@@ -5,9 +5,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import AppShell from "../../../components/AppShell";
-import Breadcrumb from "../../../components/Breadcrumb";
 import { SkeletonBlock } from "../../../components/LoadingSkeleton";
 import PortalAuditWorkspace from "../../../components/PortalAuditWorkspace";
+import { Btn } from "../../../components/ui/Btn";
+import { Empty } from "../../../components/ui/Empty";
+import { PageHead } from "../../../components/ui/PageHead";
 
 interface ProjectAuditState {
   portalId: string | null;
@@ -85,43 +87,39 @@ export default function ProjectAuditPage({
 
   return (
     <AppShell>
-      <div className="p-8">
-        <Breadcrumb
-          items={[
-            { label: "Projects", href: "/projects" },
-            { label: "Project", href: `/projects/${params.id}` },
-            { label: "Portal Audit" }
-          ]}
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+        <PageHead
+          eyebrow={
+            <Link
+              href={`/projects/${params.id}`}
+              className="hover:text-text-1 transition-colors"
+            >
+              ← Project workspace
+            </Link>
+          }
+          title="Portal audit"
+          lede="Compare planned configuration against the live HubSpot portal. Surface drift in properties, pipelines, workflows, and reports."
         />
         {loading ? (
           <SkeletonBlock height="h-64" />
         ) : error ? (
-          <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-8 text-white">
-            {error}
-          </div>
+          <Empty title="Audit error" sub={error} />
         ) : project?.portalId ? (
           <PortalAuditWorkspace projectId={params.id} />
         ) : project?.includesPortalAudit ? (
-          <div className="flex min-h-[60vh] items-center justify-center">
-            <div className="max-w-xl rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-8 py-10 text-center">
-              <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
-                Audit Setup
-              </p>
-              <h1 className="mt-3 text-2xl font-semibold text-white">
-                Connect a HubSpot portal to start auditing this project.
-              </h1>
-              <Link
-                href={`/projects/${params.id}`}
-                className="mt-6 inline-flex rounded-xl border border-[rgba(255,255,255,0.08)] px-5 py-2.5 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.16)]"
-              >
-                Back to project overview
+          <Empty
+            title="Connect a HubSpot portal"
+            sub="The audit needs a linked HubSpot portal before it can compare configuration."
+            action={
+              <Link href={`/projects/${params.id}`}>
+                <Btn variant="ghost" size="sm">
+                  Back to project overview
+                </Btn>
               </Link>
-            </div>
-          </div>
+            }
+          />
         ) : (
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8 text-text-secondary">
-            Redirecting...
-          </div>
+          <Empty title="Redirecting…" sub="Audit is not enabled for this project." />
         )}
       </div>
     </AppShell>

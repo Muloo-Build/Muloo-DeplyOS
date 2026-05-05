@@ -46,13 +46,15 @@ export default function SettingsAIIntegrationsPage() {
           <Link
             key={card.href}
             href={card.href}
-            className="block rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 transition-colors hover:border-[rgba(255,255,255,0.18)]"
+            className="block bg-ink-1 border border-ink-4 rounded-[14px] p-5 transition-colors hover:border-ink-5 hover:bg-ink-2"
           >
-            <h2 className="text-xl font-semibold text-white">{card.title}</h2>
-            <p className="mt-3 text-sm text-text-secondary">
-              {card.description}
+            <h2 className="text-[16px] font-semibold text-text-1 -tracking-[0.01em]">
+              {card.title}
+            </h2>
+            <p className="mt-2 text-[13px] text-text-2">{card.description}</p>
+            <p className="mt-4 text-[11px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+              Open →
             </p>
-            <p className="mt-5 text-xs text-text-muted">Open →</p>
           </Link>
         ))}
       </div>

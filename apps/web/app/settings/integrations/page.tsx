@@ -64,7 +64,7 @@ export default function SettingsIntegrationsPage() {
           <Link
             key={integration.title}
             href={integration.href}
-            className="block rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 transition-colors hover:border-[rgba(255,255,255,0.18)]"
+            className="block bg-ink-1 border border-ink-4 rounded-[14px] p-5 transition-colors hover:border-ink-5 hover:bg-ink-2"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
