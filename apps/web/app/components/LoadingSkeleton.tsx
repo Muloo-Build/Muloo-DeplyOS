@@ -38,7 +38,7 @@ export function SkeletonRow({
 
 export function SkeletonBlock({
   height = "h-32",
-  rounded = "rounded-2xl",
+  rounded = "rounded-[14px]",
   className = ""
 }: RowProps) {
   return (

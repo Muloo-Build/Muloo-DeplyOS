@@ -517,7 +517,7 @@ export default function QuickQuoteBuilder({
         className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10"
       >
         <header className="flex flex-col gap-3">
-          <p className="text-xs uppercase tracking-[0.32em] text-[#49cde1]">
+          <p className="text-xs uppercase tracking-[0.14em] text-[#49cde1]">
             {sourceId
               ? sourceMeta?.status === "draft"
                 ? "Edit quote"
@@ -531,7 +531,7 @@ export default function QuickQuoteBuilder({
                 : `Create v${(sourceMeta?.version ?? 1) + 1}`
               : "Build a quote"}
           </h1>
-          <p className="text-sm text-text-secondary">
+          <p className="text-sm text-text-2">
             {sourceId
               ? sourceMeta?.status === "draft"
                 ? "Updating this draft in place. No new version created."
@@ -541,20 +541,20 @@ export default function QuickQuoteBuilder({
         </header>
 
         {loadingSource ? (
-          <div className="rounded-2xl border border-white/10 bg-background-card px-4 py-3 text-sm text-text-secondary">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-text-2">
             Loading source quote...
           </div>
         ) : null}
 
         {error ? (
-          <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <div className="rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             {error}
           </div>
         ) : null}
 
         {/* Context */}
-        <section className="rounded-2xl border border-white/10 bg-background-card p-5">
-          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
             Context
           </p>
           <h2 className="mt-2 text-xl font-semibold text-white">
@@ -562,25 +562,25 @@ export default function QuickQuoteBuilder({
           </h2>
 
           <div className="mt-5 grid gap-4">
-            <label className="text-sm text-text-secondary">
+            <label className="text-sm text-text-2">
               Quote title
               <input
                 type="text"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="e.g. The Collaborative — CRM clean-up"
-                className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                 required
               />
             </label>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Client
                 <select
                   value={clientId}
                   onChange={(event) => setClientId(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   required
                   disabled={loadingClients}
                 >
@@ -595,14 +595,14 @@ export default function QuickQuoteBuilder({
                 </select>
               </label>
 
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Currency
                 <select
                   value={currency}
                   onChange={(event) =>
                     setCurrency(event.target.value as Currency)
                   }
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                 >
                   {currencyOptions.map((option) => (
                     <option key={option} value={option}>
@@ -616,8 +616,8 @@ export default function QuickQuoteBuilder({
         </section>
 
         {/* Type & template */}
-        <section className="rounded-2xl border border-white/10 bg-background-card p-5">
-          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
             Type and template
           </p>
           <h2 className="mt-2 text-xl font-semibold text-white">
@@ -626,7 +626,7 @@ export default function QuickQuoteBuilder({
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             <div>
-              <p className="text-sm font-medium text-text-secondary">
+              <p className="text-sm font-medium text-text-2">
                 Deal type
               </p>
               <div className="mt-3 grid gap-2">
@@ -636,7 +636,7 @@ export default function QuickQuoteBuilder({
                     className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition ${
                       dealType === option.value
                         ? "border-[#51d0b0]/50 bg-[#51d0b0]/10"
-                        : "border-white/10 bg-background-primary hover:border-white/20"
+                        : "border-ink-4 bg-ink-0 hover:border-ink-5"
                     }`}
                   >
                     <input
@@ -665,7 +665,7 @@ export default function QuickQuoteBuilder({
                       <span className="text-sm font-semibold text-white">
                         {option.label}
                       </span>
-                      <span className="text-xs text-text-muted">
+                      <span className="text-xs text-text-3">
                         {option.hint}
                       </span>
                     </span>
@@ -675,7 +675,7 @@ export default function QuickQuoteBuilder({
             </div>
 
             <div>
-              <p className="text-sm font-medium text-text-secondary">Template</p>
+              <p className="text-sm font-medium text-text-2">Template</p>
               <div className="mt-3 grid gap-2">
                 {templateOptions.map((option) => (
                   <label
@@ -683,7 +683,7 @@ export default function QuickQuoteBuilder({
                     className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition ${
                       template === option.value
                         ? "border-[#49cde1]/50 bg-[#49cde1]/10"
-                        : "border-white/10 bg-background-primary hover:border-white/20"
+                        : "border-ink-4 bg-ink-0 hover:border-ink-5"
                     }`}
                   >
                     <input
@@ -698,7 +698,7 @@ export default function QuickQuoteBuilder({
                       <span className="text-sm font-semibold text-white">
                         {option.label}
                       </span>
-                      <span className="text-xs text-text-muted">
+                      <span className="text-xs text-text-3">
                         {option.hint}
                       </span>
                     </span>
@@ -710,10 +710,10 @@ export default function QuickQuoteBuilder({
         </section>
 
         {/* Line items */}
-        <section className="rounded-2xl border border-white/10 bg-background-card p-5">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Line items
               </p>
               <h2 className="mt-2 text-xl font-semibold text-white">
@@ -728,13 +728,13 @@ export default function QuickQuoteBuilder({
                 value={defaultRate}
                 onChange={(event) => setDefaultRate(event.target.value)}
                 placeholder="Default rate"
-                className="w-32 rounded-xl border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                className="w-32 rounded-xl border border-ink-4 bg-ink-0 px-3 py-2 text-sm text-white"
               />
               <button
                 type="button"
                 onClick={applyDefaultRateToAll}
                 disabled={!defaultRate}
-                className="rounded-xl border border-white/10 bg-background-primary px-3 py-2 text-sm text-white transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl border border-ink-4 bg-ink-0 px-3 py-2 text-sm text-white transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Apply to all
               </button>
@@ -769,10 +769,10 @@ export default function QuickQuoteBuilder({
               return (
                 <div
                   key={index}
-                  className="rounded-xl border border-white/10 bg-background-primary/40 p-4"
+                  className="rounded-xl border border-ink-4 bg-ink-0/40 p-4"
                 >
                   {products.length > 0 ? (
-                    <label className="mb-3 block text-xs text-text-muted">
+                    <label className="mb-3 block text-xs text-text-3">
                       Pre-fill from catalog (optional)
                       <select
                         value={item.productId ?? ""}
@@ -789,7 +789,7 @@ export default function QuickQuoteBuilder({
                             updateLineItem(index, "productId", undefined);
                           }
                         }}
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full rounded-lg border border-ink-4 bg-ink-0 px-3 py-2 text-sm text-white"
                         aria-label="Pick product from catalog"
                       >
                         <option value="">— Pick a product —</option>
@@ -807,9 +807,9 @@ export default function QuickQuoteBuilder({
                         ))}
                       </select>
                       {linkedProduct && marginTarget !== null ? (
-                        <span className="mt-1 block text-[11px] text-text-muted">
+                        <span className="mt-1 block text-[11px] text-text-3">
                           Linked to{" "}
-                          <span className="text-text-secondary">
+                          <span className="text-text-2">
                             {linkedProduct.name}
                           </span>{" "}
                           · target margin {marginTarget.toFixed(0)}%
@@ -818,7 +818,7 @@ export default function QuickQuoteBuilder({
                     </label>
                   ) : null}
                   <div className="grid gap-3 md:grid-cols-[1.4fr_0.6fr_0.7fr_0.9fr_auto]">
-                    <label className="text-xs text-text-muted">
+                    <label className="text-xs text-text-3">
                       Term / description
                       <input
                         type="text"
@@ -830,11 +830,11 @@ export default function QuickQuoteBuilder({
                             event.target.value
                           )
                         }
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full rounded-lg border border-ink-4 bg-ink-0 px-3 py-2 text-sm text-white"
                         placeholder="e.g. CRM workflow audit"
                       />
                     </label>
-                    <label className="text-xs text-text-muted">
+                    <label className="text-xs text-text-3">
                       Hours
                       <input
                         type="number"
@@ -844,10 +844,10 @@ export default function QuickQuoteBuilder({
                         onChange={(event) =>
                           updateLineItem(index, "quantity", event.target.value)
                         }
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full rounded-lg border border-ink-4 bg-ink-0 px-3 py-2 text-sm text-white"
                       />
                     </label>
-                    <label className="text-xs text-text-muted">
+                    <label className="text-xs text-text-3">
                       Rate / hr
                       <input
                         type="number"
@@ -857,10 +857,10 @@ export default function QuickQuoteBuilder({
                         onChange={(event) =>
                           updateLineItem(index, "rate", event.target.value)
                         }
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full rounded-lg border border-ink-4 bg-ink-0 px-3 py-2 text-sm text-white"
                       />
                     </label>
-                    <div className="text-xs text-text-muted">
+                    <div className="text-xs text-text-3">
                       Discount on rate
                       <div className="mt-1 flex gap-2">
                         <input
@@ -874,7 +874,7 @@ export default function QuickQuoteBuilder({
                           onChange={(event) =>
                             updateLineItem(index, "discount", event.target.value)
                           }
-                          className="w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                          className="w-full rounded-lg border border-ink-4 bg-ink-0 px-3 py-2 text-sm text-white"
                           placeholder="0"
                         />
                         <select
@@ -886,7 +886,7 @@ export default function QuickQuoteBuilder({
                               event.target.value as DiscountType
                             )
                           }
-                          className="rounded-lg border border-white/10 bg-background-primary px-2 py-2 text-sm text-white"
+                          className="rounded-lg border border-ink-4 bg-ink-0 px-2 py-2 text-sm text-white"
                           aria-label="Discount type"
                         >
                           <option value="percent">%</option>
@@ -898,7 +898,7 @@ export default function QuickQuoteBuilder({
                       type="button"
                       onClick={() => removeLineItem(index)}
                       disabled={lineItems.length === 1}
-                      className="self-end rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-text-secondary transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="self-end rounded-lg border border-ink-4 bg-white/5 px-3 py-2 text-xs text-text-2 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label="Remove line item"
                     >
                       Remove
@@ -907,7 +907,7 @@ export default function QuickQuoteBuilder({
                   {/* T6.1 — per-unit cost input. Optional: leave blank if
                       delivery cost isn't known and we'll skip the margin. */}
                   <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-                    <label className="text-xs text-text-muted">
+                    <label className="text-xs text-text-3">
                       Cost / unit (optional, for margin)
                       <input
                         type="number"
@@ -917,7 +917,7 @@ export default function QuickQuoteBuilder({
                         onChange={(event) =>
                           updateLineItem(index, "cost", event.target.value)
                         }
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full rounded-lg border border-ink-4 bg-ink-0 px-3 py-2 text-sm text-white"
                         placeholder="0.00"
                       />
                     </label>
@@ -939,7 +939,7 @@ export default function QuickQuoteBuilder({
                                 : "border-rose-400/30 bg-rose-500/10 text-rose-100"
                         }`}
                       >
-                        <p className="text-[10px] uppercase tracking-[0.18em] opacity-80">
+                        <p className="text-[10px] uppercase tracking-[0.14em] opacity-80">
                           Gross margin
                           {marginTarget !== null
                             ? ` · target ${marginTarget.toFixed(0)}%`
@@ -959,13 +959,13 @@ export default function QuickQuoteBuilder({
                         ) : null}
                       </div>
                     ) : (
-                      <p className="text-[11px] text-text-muted md:self-end">
+                      <p className="text-[11px] text-text-3 md:self-end">
                         Add a cost to see live margin
                       </p>
                     )}
                   </div>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-                    <p className="text-text-muted">
+                    <p className="text-text-3">
                       {hasDiscount ? (
                         <>
                           Was{" "}
@@ -975,7 +975,7 @@ export default function QuickQuoteBuilder({
                           ·{" "}
                         </>
                       ) : null}
-                      <span className="text-text-secondary">
+                      <span className="text-text-2">
                         Line total: {formatCurrency(lineTotal, currency)}
                       </span>
                     </p>
@@ -988,15 +988,15 @@ export default function QuickQuoteBuilder({
           <button
             type="button"
             onClick={addLineItem}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl border border-dashed border-white/15 px-4 py-2.5 text-sm font-medium text-text-secondary transition hover:border-white/30 hover:text-white"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl border border-dashed border-white/15 px-4 py-2.5 text-sm font-medium text-text-2 transition hover:border-ink-5 hover:text-white"
           >
             + Add line item
           </button>
 
-          <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4">
-            <p className="text-sm text-text-secondary">
+          <div className="mt-5 flex items-center justify-between border-t border-ink-4 pt-4">
+            <p className="text-sm text-text-2">
               Subtotal{" "}
-              <span className="text-xs text-text-muted">
+              <span className="text-xs text-text-3">
                 (in {currency} — all lines are priced in this currency)
               </span>
             </p>
@@ -1016,7 +1016,7 @@ export default function QuickQuoteBuilder({
               }`}
             >
               <div>
-                <p className="text-[10px] uppercase tracking-[0.32em] opacity-80">
+                <p className="text-[10px] uppercase tracking-[0.14em] opacity-80">
                   Gross margin (quote)
                 </p>
                 <p className="mt-0.5 text-base font-semibold tabular-nums">
@@ -1037,25 +1037,25 @@ export default function QuickQuoteBuilder({
               ) : null}
             </div>
           ) : null}
-          <p className="mt-2 text-right text-xs text-text-muted">
+          <p className="mt-2 text-right text-xs text-text-3">
             All amounts shown exclude VAT.
           </p>
         </section>
 
         {/* Content blocks */}
-        <section className="rounded-2xl border border-white/10 bg-background-card p-5">
-          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
             Content
           </p>
           <h2 className="mt-2 text-xl font-semibold text-white">
             Optional content blocks
           </h2>
-          <p className="mt-1 text-sm text-text-secondary">
+          <p className="mt-1 text-sm text-text-2">
             Toggle in only what's relevant for this quote. Less is usually more.
           </p>
 
           <div className="mt-5 space-y-4">
-            <label className="flex items-start gap-3 rounded-xl border border-white/10 bg-background-primary/40 p-4">
+            <label className="flex items-start gap-3 rounded-xl border border-ink-4 bg-ink-0/40 p-4">
               <input
                 type="checkbox"
                 checked={includeMulooIntro}
@@ -1066,31 +1066,31 @@ export default function QuickQuoteBuilder({
                 <span className="text-sm font-semibold text-white">
                   Include Muloo intro
                 </span>
-                <span className="text-xs text-text-muted">
+                <span className="text-xs text-text-3">
                   Short paragraph about who Muloo is. Useful for new clients.
                 </span>
               </span>
             </label>
 
-            <label className="text-sm text-text-secondary">
+            <label className="text-sm text-text-2">
               Executive summary (optional)
               <textarea
                 value={executiveSummary}
                 onChange={(event) => setExecutiveSummary(event.target.value)}
                 rows={4}
                 placeholder="One paragraph. What problem are we solving and how."
-                className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
               />
             </label>
 
-            <label className="text-sm text-text-secondary">
+            <label className="text-sm text-text-2">
               Terms (optional)
               <textarea
                 value={terms}
                 onChange={(event) => setTerms(event.target.value)}
                 rows={4}
                 placeholder="Payment terms, validity, scope notes."
-                className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
               />
             </label>
           </div>
@@ -1113,7 +1113,7 @@ export default function QuickQuoteBuilder({
           <button
             type="button"
             onClick={() => router.push("/quotes")}
-            className="rounded-xl border border-white/10 bg-background-card px-5 py-3 text-sm font-medium text-text-secondary transition hover:bg-white/5 hover:text-white"
+            className="rounded-xl border border-ink-4 bg-ink-1 px-5 py-3 text-sm font-medium text-text-2 transition hover:bg-white/5 hover:text-white"
           >
             Cancel
           </button>

@@ -186,16 +186,16 @@ export default function ClientWorkbooksPanel({
   }
 
   if (!workbooks) {
-    return <p className="text-sm text-text-secondary">Loading workbooks…</p>;
+    return <p className="text-sm text-text-2">Loading workbooks…</p>;
   }
 
   if (workbooks.length === 0) {
     return (
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-6 text-center">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-center">
         <p className="text-sm font-semibold text-white">
           No workbooks shared with you yet
         </p>
-        <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-text-secondary">
+        <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-text-2">
           Workbooks are shared when we need input, review, or approval from
           your team.
           {viewer.isChampion
@@ -216,13 +216,13 @@ export default function ClientWorkbooksPanel({
   return (
     <div className="space-y-6">
       {error ? (
-        <p className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+        <p className="rounded-[14px] border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
           {error}
         </p>
       ) : null}
 
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card/60 p-4">
-        <p className="text-xs leading-relaxed text-text-secondary">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-1/60 p-4">
+        <p className="text-xs leading-relaxed text-text-2">
           Fill in your answers below. Your changes stay on this page until you
           click <strong className="text-white">Save changes</strong> at the top
           of each workbook — nothing is sent until you save.
@@ -240,7 +240,7 @@ export default function ClientWorkbooksPanel({
             <h3 className="text-sm font-semibold text-white">
               Needs your review
             </h3>
-            <span className="text-[11px] text-text-secondary">
+            <span className="text-[11px] text-text-2">
               {needsReview.length} item{needsReview.length === 1 ? "" : "s"}
             </span>
           </div>
@@ -265,7 +265,7 @@ export default function ClientWorkbooksPanel({
       {everythingElse.length > 0 ? (
         <section className="space-y-3">
           {viewer.isChampion && needsReview.length > 0 ? (
-            <h3 className="text-sm font-semibold text-text-secondary">
+            <h3 className="text-sm font-semibold text-text-2">
               All workbooks
             </h3>
           ) : null}
@@ -331,10 +331,10 @@ function WorkbookCard({
 
   return (
     <div
-      className={`rounded-2xl border p-5 ${
+      className={`rounded-[14px] border p-5 ${
         highlight
           ? "border-blue-500/40 bg-blue-500/5"
-          : "border-[rgba(255,255,255,0.08)] bg-background-card"
+          : "border-ink-4 bg-ink-1"
       }`}
     >
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
@@ -343,7 +343,7 @@ function WorkbookCard({
             {wb.sourceLabel}
           </h3>
           {total > 0 ? (
-            <p className="mt-0.5 text-xs text-text-secondary">
+            <p className="mt-0.5 text-xs text-text-2">
               {answered}/{total} question{total === 1 ? "" : "s"} answered
             </p>
           ) : null}
@@ -361,11 +361,11 @@ function WorkbookCard({
       </div>
 
       {isExternal ? (
-        <p className="text-sm text-text-secondary">
+        <p className="text-sm text-text-2">
           Open the linked resource above to contribute.
         </p>
       ) : sections.length === 0 ? (
-        <p className="text-sm text-text-secondary">
+        <p className="text-sm text-text-2">
           No questions have been added to this workbook yet.
         </p>
       ) : (
@@ -392,7 +392,7 @@ function WorkbookCard({
                 ✓ Saved {savedRecently}
               </span>
             ) : (
-              <span className="text-[11px] text-text-secondary">
+              <span className="text-[11px] text-text-2">
                 Type your answers — nothing is sent until you save.
               </span>
             )}
@@ -449,7 +449,7 @@ function SectionBlock({
             className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
               answeredCount === totalCount
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                : "border-white/10 bg-white/5 text-text-secondary"
+                : "border-ink-4 bg-white/5 text-text-2"
             }`}
           >
             {answeredCount}/{totalCount} answered
@@ -457,12 +457,12 @@ function SectionBlock({
         ) : null}
       </div>
       {section.description ? (
-        <p className="mb-2 text-[11px] leading-relaxed text-text-secondary">
+        <p className="mb-2 text-[11px] leading-relaxed text-text-2">
           {section.description}
         </p>
       ) : null}
       {totalCount === 0 ? (
-        <p className="text-[11px] text-text-secondary">
+        <p className="text-[11px] text-text-2">
           No questions in this section.
         </p>
       ) : (
@@ -486,7 +486,7 @@ function SectionBlock({
                   ) : null}
                 </p>
                 {q.helpText ? (
-                  <p className="text-[11px] text-text-secondary">{q.helpText}</p>
+                  <p className="text-[11px] text-text-2">{q.helpText}</p>
                 ) : null}
                 <textarea
                   value={drafts[key] ?? ""}

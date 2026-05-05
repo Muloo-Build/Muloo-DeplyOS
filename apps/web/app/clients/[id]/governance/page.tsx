@@ -9,13 +9,13 @@ export default function ClientGovernancePage({
   return (
     <AppShell>
       <div className="p-8">
-        <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
+        <p className="text-sm uppercase tracking-[0.14em] text-text-3">
           Client governance
         </p>
         <h1 className="mt-3 text-3xl font-bold font-heading text-white">
           Governance
         </h1>
-        <p className="mt-2 max-w-3xl text-text-secondary">
+        <p className="mt-2 max-w-3xl text-text-2">
           Track NDAs, master agreements, DPAs, and signed quote snapshots for
           this client. Sent agreements appear in the client portal for
           click-wrap signature.

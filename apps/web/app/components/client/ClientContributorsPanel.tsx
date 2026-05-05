@@ -122,7 +122,7 @@ export default function ClientContributorsPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-text-secondary">
+        <p className="text-sm text-text-2">
           Add colleagues who should help complete the workbooks. They will
           appear here for the delivery team to confirm.
         </p>
@@ -136,7 +136,7 @@ export default function ClientContributorsPanel({
       </div>
 
       {error ? (
-        <p className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+        <p className="rounded-[14px] border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
           {error}
         </p>
       ) : null}
@@ -149,7 +149,7 @@ export default function ClientContributorsPanel({
       ) : null}
 
       {showForm ? (
-        <div className="space-y-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
+        <div className="space-y-3 rounded-[14px] border border-ink-4 bg-ink-1 p-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               type="text"
@@ -211,7 +211,7 @@ export default function ClientContributorsPanel({
             rows={2}
             className="brand-input w-full rounded-lg border px-3 py-2 text-sm"
           />
-          <p className="text-[11px] leading-relaxed text-text-secondary">
+          <p className="text-[11px] leading-relaxed text-text-2">
             We&apos;ll generate a private link for this person so they can
             answer their assigned questions without needing a portal account.
             You&apos;ll see the link right after you add them.
@@ -228,9 +228,9 @@ export default function ClientContributorsPanel({
       ) : null}
 
       {!contributors ? (
-        <p className="text-sm text-text-secondary">Loading…</p>
+        <p className="text-sm text-text-2">Loading…</p>
       ) : contributors.length === 0 ? (
-        <p className="text-sm text-text-secondary">
+        <p className="text-sm text-text-2">
           No contributors yet. Add the first one above.
         </p>
       ) : (
@@ -238,23 +238,23 @@ export default function ClientContributorsPanel({
           {contributors.map((contrib) => (
             <li
               key={contrib.id}
-              className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-3"
+              className="rounded-[14px] border border-ink-4 bg-ink-1 p-3"
             >
               <p className="text-sm font-semibold text-white">
                 {contrib.contact?.firstName} {contrib.contact?.lastName}
               </p>
-              <p className="text-xs text-text-secondary">
+              <p className="text-xs text-text-2">
                 {contrib.role.replace(/_/g, " ")}
                 {contrib.contact?.email ? ` · ${contrib.contact.email}` : ""}
                 {contrib.contact?.title ? ` · ${contrib.contact.title}` : ""}
                 {contrib.organisation ? ` · ${contrib.organisation}` : ""}
               </p>
               {contrib.notes ? (
-                <p className="mt-1 text-xs text-text-secondary">
+                <p className="mt-1 text-xs text-text-2">
                   {contrib.notes}
                 </p>
               ) : null}
-              <p className="mt-1 text-[11px] text-text-secondary">
+              <p className="mt-1 text-[11px] text-text-2">
                 {contrib.createdByType === "client_champion"
                   ? "Added by you"
                   : "Added by delivery team"}
@@ -303,7 +303,7 @@ function ChampionExpiryRow({
     new Date(contributor.accessTokenExpiresAt).getTime() < Date.now();
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-[10px] text-text-secondary">
+    <div className="flex flex-wrap items-center gap-2 text-[10px] text-text-2">
       <label className="flex items-center gap-1.5">
         <span className="uppercase tracking-wide">Expires</span>
         <input
@@ -404,10 +404,10 @@ function ContributorLinkRow({
     return (
       <div className="mt-2 space-y-1.5 rounded-lg border border-white/5 bg-black/20 px-2 py-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wide text-text-secondary">
+          <span className="text-[10px] uppercase tracking-wide text-text-2">
             Private link
           </span>
-          <span className="text-[10px] text-text-secondary">Not issued</span>
+          <span className="text-[10px] text-text-2">Not issued</span>
           <button
             type="button"
             disabled={busy}
@@ -425,7 +425,7 @@ function ContributorLinkRow({
   return (
     <div className="mt-2 space-y-1.5 rounded-lg border border-white/5 bg-black/20 px-2 py-1.5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wide text-text-secondary">
+        <span className="text-[10px] uppercase tracking-wide text-text-2">
           Private link
         </span>
         <code className="min-w-0 flex-1 truncate text-[11px] text-white">
@@ -434,7 +434,7 @@ function ContributorLinkRow({
         <button
           type="button"
           onClick={copy}
-          className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-white hover:border-white/30"
+          className="rounded-full border border-ink-4 px-2 py-0.5 text-[10px] text-white hover:border-ink-5"
         >
           {copied ? "Copied" : "Copy"}
         </button>
@@ -461,7 +461,7 @@ function ContributorLinkRow({
             }
             void patch({ regenerateAccessToken: true });
           }}
-          className="text-text-secondary hover:text-white disabled:opacity-50"
+          className="text-text-2 hover:text-white disabled:opacity-50"
         >
           Regenerate
         </button>
@@ -478,7 +478,7 @@ function ContributorLinkRow({
             }
             void patch({ revokeAccessToken: true });
           }}
-          className="text-text-secondary hover:text-rose-400 disabled:opacity-50"
+          className="text-text-2 hover:text-rose-400 disabled:opacity-50"
         >
           Revoke
         </button>
@@ -517,7 +517,7 @@ function JustAddedBanner({
   }
 
   return (
-    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+    <div className="rounded-[14px] border border-emerald-500/30 bg-emerald-500/10 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white">
@@ -528,7 +528,7 @@ function JustAddedBanner({
             assigned questions without needing a portal account.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-[11px] text-white">
+            <code className="min-w-0 flex-1 truncate rounded-lg border border-ink-4 bg-black/30 px-2 py-1.5 text-[11px] text-white">
               {absolute}
             </code>
             <button
@@ -543,7 +543,7 @@ function JustAddedBanner({
         <button
           type="button"
           onClick={onDismiss}
-          className="text-xs text-text-secondary hover:text-white"
+          className="text-xs text-text-2 hover:text-white"
         >
           Dismiss
         </button>

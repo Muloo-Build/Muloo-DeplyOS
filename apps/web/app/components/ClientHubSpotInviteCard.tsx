@@ -45,13 +45,13 @@ export default function ClientHubSpotInviteCard() {
   // If already connected, render success state
   if (data.connected) {
     return (
-      <div className="rounded-2xl border border-[rgba(81,208,176,0.3)] bg-[rgba(81,208,176,0.08)] p-6 mb-6">
+      <div className="rounded-[14px] border border-[rgba(81,208,176,0.3)] bg-[rgba(81,208,176,0.08)] p-6 mb-6">
         <div className="flex items-start gap-3">
           <div className="text-xl leading-6 mt-0.5">✓</div>
           <div>
             <h3 className="text-white font-semibold mb-1">HubSpot Connected</h3>
             {data.portalId && (
-              <p className="text-text-secondary text-sm">Portal ID: {data.portalId}</p>
+              <p className="text-text-2 text-sm">Portal ID: {data.portalId}</p>
             )}
           </div>
         </div>
@@ -66,9 +66,9 @@ export default function ClientHubSpotInviteCard() {
 
   // Render the invite card
   return (
-    <div className="rounded-2xl border border-[rgba(123,226,239,0.3)] bg-[rgba(123,226,239,0.08)] p-6 mb-6">
+    <div className="rounded-[14px] border border-[rgba(123,226,239,0.3)] bg-[rgba(123,226,239,0.08)] p-6 mb-6">
       <h3 className="text-white font-semibold mb-2">Invite Muloo to HubSpot</h3>
-      <p className="text-text-secondary text-sm mb-4">
+      <p className="text-text-2 text-sm mb-4">
         Use this link to invite Muloo as a partner/admin in your HubSpot
         portal. This gives us the access needed to complete the approved
         setup work. A HubSpot Super Admin from your team needs to click the

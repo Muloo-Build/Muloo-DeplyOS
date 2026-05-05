@@ -534,7 +534,7 @@ function formatBillingModel(value: string) {
 
 function SectionEyebrow({ children }: { children: string }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
+    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#49cde1]">
       {children}
     </p>
   );
@@ -1592,12 +1592,12 @@ export default function QuoteDocument({
             {[0, 1, 2].map((row) => (
               <div
                 key={row}
-                className="h-28 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-white/5 animate-pulse"
+                className="h-28 rounded-[14px] border border-ink-4 bg-white/5 animate-pulse"
               />
             ))}
           </div>
         ) : error || !project ? (
-          <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-8 text-white">
+          <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-8 text-white">
             {error ?? "Document unavailable"}
           </div>
         ) : (
@@ -1610,7 +1610,7 @@ export default function QuoteDocument({
                       ? getPortalProjectPath(portalExperience, project.id)
                       : `/projects/${project.id}`
                   }
-                  className="text-sm text-text-muted"
+                  className="text-sm text-text-3"
                 >
                   {isPortalMode ? "Back to project" : "Back to overview"}
                 </Link>
@@ -1619,7 +1619,7 @@ export default function QuoteDocument({
                     ? "Standalone Quote & Approval"
                     : "Implementation Quote & Approval"}
                 </h1>
-                <p className="mt-2 text-text-secondary">
+                <p className="mt-2 text-text-2">
                   {isStandaloneQuote
                     ? "Commercial proposal generated from a scoped standalone brief and selected products."
                     : "Commercial proposal generated from the approved discovery scope and phased implementation estimate."}
@@ -1631,7 +1631,7 @@ export default function QuoteDocument({
                     type="button"
                     onClick={saveDraftQuote}
                     disabled={saveBusy || isApprovedQuote}
-                    className="rounded-xl border border-[rgba(73,205,225,0.18)] bg-[rgba(73,205,225,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                    className="rounded-xl border border-[rgba(73,205,225,0.18)] bg-[rgba(73,205,225,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                   >
                     {saveBusy ? "Saving..." : "Save Draft"}
                   </button>
@@ -1641,7 +1641,7 @@ export default function QuoteDocument({
                     type="button"
                     onClick={openClientQuotePreview}
                     disabled={previewBusy}
-                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                    className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                   >
                     {previewBusy ? "Opening..." : "Preview Client Quote"}
                   </button>
@@ -1651,7 +1651,7 @@ export default function QuoteDocument({
                     type="button"
                     onClick={pushToClientPortal}
                     disabled={pushBusy || isApprovedQuote}
-                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                    className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                   >
                     {pushBusy
                       ? "Pushing..."
@@ -1673,14 +1673,14 @@ export default function QuoteDocument({
                 <button
                   type="button"
                   onClick={copyShareLink}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                  className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white"
                 >
                   {isPortalMode ? "Copy Quote Link" : "Copy Portal Quote Link"}
                 </button>
                 {!isPortalMode && savedQuote ? (
                   <>
                     <span
-                      className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] ${
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${
                         savedQuote.status === "won"
                           ? "bg-emerald-500/15 text-emerald-200 border border-emerald-400/30"
                           : savedQuote.status === "lost"
@@ -1689,7 +1689,7 @@ export default function QuoteDocument({
                               ? "bg-slate-500/15 text-slate-300 border border-slate-400/30"
                               : savedQuote.status === "approved"
                                 ? "bg-[#49cde1]/15 text-[#9be4f0] border border-[#49cde1]/30"
-                                : "bg-white/5 text-text-secondary border border-white/10"
+                                : "bg-white/5 text-text-2 border border-ink-4"
                       }`}
                     >
                       {savedQuote.status}
@@ -1700,7 +1700,7 @@ export default function QuoteDocument({
                         applyQuoteMeta({ template: event.target.value })
                       }
                       disabled={metaBusy}
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-xl border border-ink-4 bg-ink-1 px-3 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                       aria-label="Quote template"
                     >
                       <option value="full">Full template</option>
@@ -1726,7 +1726,7 @@ export default function QuoteDocument({
                       type="button"
                       onClick={() => markQuoteAs("archived")}
                       disabled={metaBusy || savedQuote.status === "archived"}
-                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-text-secondary transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-xl border border-ink-4 bg-white/5 px-4 py-3 text-sm font-medium text-text-2 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Archive
                     </button>
@@ -1740,12 +1740,12 @@ export default function QuoteDocument({
                   Save PDF
                 </button>
                 {shareMessage ? (
-                  <p className="text-sm text-text-secondary">{shareMessage}</p>
+                  <p className="text-sm text-text-2">{shareMessage}</p>
                 ) : null}
               </div>
             </div>
 
-            <section className="document-card overflow-hidden rounded-[32px] border border-[rgba(255,255,255,0.07)] bg-background-card">
+            <section className="document-card overflow-hidden rounded-[32px] border border-ink-4 bg-ink-1">
               <div className="grid gap-0 lg:grid-cols-[0.72fr_0.28fr]">
                 <div className="bg-[#0c1329] p-10">
                   <div className="flex items-center gap-4">
@@ -1754,7 +1754,7 @@ export default function QuoteDocument({
                       alt="Muloo"
                       className="h-8 w-auto"
                     />
-                    <p className="text-xs uppercase tracking-[0.35em] text-text-muted">
+                    <p className="text-xs uppercase tracking-[0.35em] text-text-3">
                       Quote & Approval
                     </p>
                   </div>
@@ -1765,7 +1765,7 @@ export default function QuoteDocument({
                   ) : (
                     <div className="mt-10 max-w-3xl">
                       <label className="block">
-                        <span className="mb-3 block text-xs uppercase tracking-[0.25em] text-text-muted">
+                        <span className="mb-3 block text-xs uppercase tracking-[0.14em] text-text-3">
                           Quote title
                         </span>
                         <input
@@ -1777,7 +1777,7 @@ export default function QuoteDocument({
                       </label>
                     </div>
                   )}
-                  <p className="mt-6 text-lg text-text-secondary">
+                  <p className="mt-6 text-lg text-text-2">
                     {isStandaloneQuote
                       ? "Commercial quote generated from a standalone scoped brief and optional service products."
                       : `${formatEngagementType(
@@ -1787,7 +1787,7 @@ export default function QuoteDocument({
 
                   <div className="mt-10 grid gap-8 md:grid-cols-2">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         Prepared For
                       </p>
                       <div className="mt-4 space-y-2 text-sm text-white">
@@ -1805,7 +1805,7 @@ export default function QuoteDocument({
                     </div>
 
                     <div>
-                      <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         Prepared By
                       </p>
                       <div className="mt-4 space-y-2 text-sm text-white">
@@ -1817,15 +1817,15 @@ export default function QuoteDocument({
                   </div>
                 </div>
 
-                <div className="border-l border-[rgba(255,255,255,0.07)] bg-[#10172f] p-8">
-                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                <div className="border-l border-ink-4 bg-[#10172f] p-8">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     {isPortalMode
                       ? "Commercial Snapshot"
                       : "Commercial Controls"}
                   </p>
 
                   {isPortalMode ? (
-                    <p className="mt-6 text-sm leading-7 text-text-secondary">
+                    <p className="mt-6 text-sm leading-7 text-text-2">
                       This client portal view is read-only. Currency, hours, and
                       commercial shaping are controlled by the Muloo team before
                       the quote is shared here.
@@ -1833,7 +1833,7 @@ export default function QuoteDocument({
                   ) : (
                     <div className="mt-6 grid gap-4">
                       <label className="block">
-                        <span className="mb-2 block text-sm text-text-secondary">
+                        <span className="mb-2 block text-sm text-text-2">
                           Currency
                         </span>
                         <select
@@ -1841,7 +1841,7 @@ export default function QuoteDocument({
                           onChange={(event) =>
                             setCurrency(event.target.value as CurrencyCode)
                           }
-                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                         >
                           {Object.keys(exchangeRatesToZar).map((option) => (
                             <option key={option} value={option}>
@@ -1852,11 +1852,11 @@ export default function QuoteDocument({
                       </label>
 
                       <label className="block">
-                        <span className="mb-2 block text-sm text-text-secondary">
+                        <span className="mb-2 block text-sm text-text-2">
                           Default Hourly Rate
                         </span>
-                        <div className="flex items-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3">
-                          <span className="mr-3 text-sm text-text-secondary">
+                        <div className="flex items-center rounded-xl border border-ink-4 bg-ink-2 px-4 py-3">
+                          <span className="mr-3 text-sm text-text-2">
                             {currencySymbols[currency]}
                           </span>
                           <input
@@ -1872,8 +1872,8 @@ export default function QuoteDocument({
                   )}
 
                   <div className="mt-8 grid gap-4">
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-sm text-text-secondary">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                      <p className="text-sm text-text-2">
                         Quoted Hours
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-white">
@@ -1881,8 +1881,8 @@ export default function QuoteDocument({
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-sm text-text-secondary">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                      <p className="text-sm text-text-2">
                         Estimated Investment
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-white">
@@ -1890,8 +1890,8 @@ export default function QuoteDocument({
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-sm text-text-secondary">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                      <p className="text-sm text-text-2">
                         Commercial Rate
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-white">
@@ -1903,7 +1903,7 @@ export default function QuoteDocument({
               </div>
             </section>
 
-            <section className="document-card rounded-2xl border border-[rgba(73,205,225,0.18)] bg-[linear-gradient(135deg,rgba(73,205,225,0.08)_0%,rgba(224,82,156,0.06)_100%)] p-6">
+            <section className="document-card rounded-[14px] border border-[rgba(73,205,225,0.18)] bg-[linear-gradient(135deg,rgba(73,205,225,0.08)_0%,rgba(224,82,156,0.06)_100%)] p-6">
               <SectionEyebrow>Commercial Purpose</SectionEyebrow>
               <SectionTitle>Quoted scope and approval pack</SectionTitle>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -1918,7 +1918,7 @@ export default function QuoteDocument({
                 ].map((item) => (
                   <div
                     key={item}
-                    className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(11,17,38,0.65)] p-4 text-sm leading-7 text-text-secondary"
+                    className="rounded-[14px] border border-ink-4 bg-[rgba(11,17,38,0.65)] p-4 text-sm leading-7 text-text-2"
                   >
                     {item}
                   </div>
@@ -1927,16 +1927,16 @@ export default function QuoteDocument({
             </section>
 
             {!isPortalMode ? (
-              <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <section className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <SectionEyebrow>Editable Fields</SectionEyebrow>
                 <SectionTitle>Core commercial copy</SectionTitle>
-                <p className="mt-4 max-w-3xl text-sm leading-7 text-text-secondary">
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-text-2">
                   Edit the full quote content here before you push the quote to
                   the client portal.
                 </p>
                 <div className="mt-6 grid gap-4">
                   <label className="block">
-                    <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                    <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                       Quote context summary
                     </span>
                     <textarea
@@ -1944,34 +1944,34 @@ export default function QuoteDocument({
                       onChange={(event) =>
                         setQuoteContextSummaryDraft(event.target.value)
                       }
-                      className="min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      className="min-h-[140px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
                   <div className="grid gap-4 md:grid-cols-2">
                     <label className="block">
-                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                         In scope
                       </span>
                       <textarea
                         value={inScopeDraft}
                         onChange={(event) => setInScopeDraft(event.target.value)}
-                        className="min-h-[180px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        className="min-h-[180px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                         Out of scope
                       </span>
                       <textarea
                         value={outOfScopeDraft}
                         onChange={(event) => setOutOfScopeDraft(event.target.value)}
-                        className="min-h-[180px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        className="min-h-[180px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <label className="block">
-                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                         Primary challenge
                       </span>
                       <textarea
@@ -1982,11 +1982,11 @@ export default function QuoteDocument({
                             primaryChallenge: event.target.value
                           }))
                         }
-                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                         Success outcomes
                       </span>
                       <textarea
@@ -1997,7 +1997,7 @@ export default function QuoteDocument({
                             successOutcomes: event.target.value
                           }))
                         }
-                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                   </div>
@@ -2027,7 +2027,7 @@ export default function QuoteDocument({
                       ["termsAndWorkingScope", "Terms and working scope"]
                     ].map(([field, label]) => (
                       <label key={field} className="block">
-                        <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                           {label}
                         </span>
                         <textarea
@@ -2042,14 +2042,14 @@ export default function QuoteDocument({
                               [field]: event.target.value
                             }))
                           }
-                          className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                         />
                       </label>
                     ))}
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <label className="block">
-                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                         Supporting tools
                       </span>
                       <textarea
@@ -2057,21 +2057,21 @@ export default function QuoteDocument({
                         onChange={(event) =>
                           setSupportingToolsDraft(event.target.value)
                         }
-                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                         Key risks
                       </span>
                       <textarea
                         value={keyRisksDraft}
                         onChange={(event) => setKeyRisksDraft(event.target.value)}
-                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                         Client responsibilities
                       </span>
                       <textarea
@@ -2079,11 +2079,11 @@ export default function QuoteDocument({
                         onChange={(event) =>
                           setClientResponsibilitiesDraft(event.target.value)
                         }
-                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                         Open questions
                       </span>
                       <textarea
@@ -2091,12 +2091,12 @@ export default function QuoteDocument({
                         onChange={(event) =>
                           setNextQuestionsDraft(event.target.value)
                         }
-                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                        className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                   </div>
                   <label className="block">
-                    <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                    <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                       Payment schedule
                     </span>
                     <label className="mb-3 flex items-center gap-3 text-sm text-white">
@@ -2115,7 +2115,7 @@ export default function QuoteDocument({
                         setPaymentScheduleDraft(event.target.value)
                       }
                       disabled={!showPaymentSchedule}
-                      className="min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                      className="min-h-[100px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </label>
                 </div>
@@ -2123,12 +2123,12 @@ export default function QuoteDocument({
             ) : null}
 
             {!isPortalMode && phaseCommercials.length > 0 ? (
-              <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <section className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <SectionEyebrow>Commercial Composition</SectionEyebrow>
                 <SectionTitle>
                   Select the phases to include in this quote
                 </SectionTitle>
-                <p className="mt-4 max-w-3xl text-sm leading-7 text-text-secondary">
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-text-2">
                   Use this to shape the commercial offer from the available
                   implementation phases. This lets you quote the full plan or
                   only the parts the client wants to proceed with now.
@@ -2138,7 +2138,7 @@ export default function QuoteDocument({
                   {phaseCommercials.map((phase) => (
                     <label
                       key={`compose-${phase.phase}`}
-                      className="flex items-start gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      className="flex items-start gap-4 rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                     >
                       <input
                         type="checkbox"
@@ -2162,7 +2162,7 @@ export default function QuoteDocument({
                         <p className="text-sm font-semibold text-white">
                           Phase {phase.phase} - {phase.phaseName}
                         </p>
-                        <p className="mt-2 text-sm text-text-secondary">
+                        <p className="mt-2 text-sm text-text-2">
                           {
                             phase.tasks.filter((task) => task.type !== "Client")
                               .length
@@ -2179,35 +2179,35 @@ export default function QuoteDocument({
 
             <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-6">
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <SectionEyebrow>Quote Context</SectionEyebrow>
                   <SectionTitle>What this quote is based on</SectionTitle>
-                  <p className="mt-4 text-sm leading-7 text-text-secondary">
+                  <p className="mt-4 text-sm leading-7 text-text-2">
                     {displayQuoteContextSummary}
                   </p>
                 </div>
 
                 {!isStandaloneQuote ? (
                   <>
-                    <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                       <SectionEyebrow>Commercial Framing</SectionEyebrow>
                       <SectionTitle>
                         Why this implementation is being quoted
                       </SectionTitle>
                       <div className="mt-5 grid gap-4 md:grid-cols-2">
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Primary challenge
                           </p>
-                          <p className="mt-3 text-sm leading-7 text-text-secondary">
+                          <p className="mt-3 text-sm leading-7 text-text-2">
                             {displayQuoteContent.primaryChallenge}
                           </p>
                         </div>
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Success outcomes
                           </p>
-                          <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                          <div className="mt-3 space-y-2 text-sm text-text-2">
                             {splitIntoLines(
                               displayQuoteContent.successOutcomes ?? ""
                             ).map((line) => (
@@ -2218,7 +2218,7 @@ export default function QuoteDocument({
                       </div>
                     </div>
 
-                    <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                       <SectionEyebrow>Discovery Outcomes</SectionEyebrow>
                       <SectionTitle>
                         Commercial assumptions from discovery
@@ -2241,9 +2241,9 @@ export default function QuoteDocument({
                         ].map(([label, value]) => (
                           <div
                             key={label}
-                            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                            className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                           >
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                               {label}
                             </p>
                             <p className="mt-2 text-sm font-medium text-white">
@@ -2254,7 +2254,7 @@ export default function QuoteDocument({
                       </div>
                     </div>
 
-                    <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                       <SectionEyebrow>Current State</SectionEyebrow>
                       <SectionTitle>
                         Commercially relevant current-state notes
@@ -2268,12 +2268,12 @@ export default function QuoteDocument({
                         ].map(([label, value]) => (
                           <div
                             key={label}
-                            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                            className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                           >
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                               {label}
                             </p>
-                            <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                            <div className="mt-3 space-y-2 text-sm text-text-2">
                               {splitIntoLines(value).map((line) => (
                                 <p key={line}>{line}</p>
                               ))}
@@ -2283,7 +2283,7 @@ export default function QuoteDocument({
                       </div>
                     </div>
 
-                    <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                       <SectionEyebrow>Recommended Future State</SectionEyebrow>
                       <SectionTitle>
                         What this quote is intended to deliver
@@ -2303,12 +2303,12 @@ export default function QuoteDocument({
                         ].map(([label, value]) => (
                           <div
                             key={label}
-                            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                            className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                           >
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                               {label}
                             </p>
-                            <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                            <div className="mt-3 space-y-2 text-sm text-text-2">
                               {splitIntoLines(value).map((line) => (
                                 <p key={line}>{line}</p>
                               ))}
@@ -2318,7 +2318,7 @@ export default function QuoteDocument({
                       </div>
                     </div>
 
-                    <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                    <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                       <SectionEyebrow>Delivery Approach</SectionEyebrow>
                       <SectionTitle>
                         How the quoted work is expected to run
@@ -2340,12 +2340,12 @@ export default function QuoteDocument({
                         ].map(([label, value]) => (
                           <div
                             key={label}
-                            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                            className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                           >
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                               {label}
                             </p>
-                            <p className="mt-3 text-sm leading-7 text-text-secondary">
+                            <p className="mt-3 text-sm leading-7 text-text-2">
                               {value}
                             </p>
                           </div>
@@ -2354,7 +2354,7 @@ export default function QuoteDocument({
                     </div>
                   </>
                 ) : (
-                  <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                     <SectionEyebrow>Commercial Framing</SectionEyebrow>
                     <SectionTitle>
                       How this standalone quote should be used
@@ -2376,12 +2376,12 @@ export default function QuoteDocument({
                       ].map(([label, value]) => (
                         <div
                           key={label}
-                          className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                          className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                         >
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             {label}
                           </p>
-                          <p className="mt-3 text-sm leading-7 text-text-secondary">
+                          <p className="mt-3 text-sm leading-7 text-text-2">
                             {value}
                           </p>
                         </div>
@@ -2392,25 +2392,25 @@ export default function QuoteDocument({
               </div>
 
               <div className="space-y-6">
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <SectionEyebrow>Scope</SectionEyebrow>
                   <SectionTitle>Quoted inclusions and exclusions</SectionTitle>
                   <div className="mt-5 grid gap-4">
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         In Scope
                       </p>
-                      <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                      <ul className="mt-3 space-y-2 text-sm text-text-2">
                         {displayInScopeItems.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
                       </ul>
                     </div>
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         Out of Scope
                       </p>
-                      <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                      <ul className="mt-3 space-y-2 text-sm text-text-2">
                         {displayOutOfScopeItems.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
@@ -2424,32 +2424,32 @@ export default function QuoteDocument({
                   quoteContext.retainerScope.requirements ||
                   (quoteContext.retainerScope.deliverables?.length ?? 0) > 0 ||
                   quoteContext.retainerScope.approvalTerms) ? (
-                  <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                     <SectionEyebrow>Retainer</SectionEyebrow>
                     <SectionTitle>Scope &amp; Terms</SectionTitle>
                     <div className="mt-5 space-y-4">
                       {quoteContext.retainerScope.summary ? (
-                        <p className="text-sm leading-7 text-text-secondary">
+                        <p className="text-sm leading-7 text-text-2">
                           {quoteContext.retainerScope.summary}
                         </p>
                       ) : null}
                       {quoteContext.retainerScope.requirements ? (
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Requirements
                           </p>
-                          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-text-secondary">
+                          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-text-2">
                             {quoteContext.retainerScope.requirements}
                           </p>
                         </div>
                       ) : null}
                       {quoteContext.retainerScope.deliverables &&
                       quoteContext.retainerScope.deliverables.length > 0 ? (
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Deliverables
                           </p>
-                          <ul className="mt-3 space-y-3 text-sm text-text-secondary">
+                          <ul className="mt-3 space-y-3 text-sm text-text-2">
                             {quoteContext.retainerScope.deliverables.map(
                               (deliverable, index) => (
                                 <li
@@ -2460,7 +2460,7 @@ export default function QuoteDocument({
                                     {deliverable.title}
                                   </p>
                                   {deliverable.description ? (
-                                    <p className="mt-1 text-text-muted">
+                                    <p className="mt-1 text-text-3">
                                       {deliverable.description}
                                     </p>
                                   ) : null}
@@ -2471,11 +2471,11 @@ export default function QuoteDocument({
                         </div>
                       ) : null}
                       {quoteContext.retainerScope.approvalTerms ? (
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Approval Terms
                           </p>
-                          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-text-secondary">
+                          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-text-2">
                             {quoteContext.retainerScope.approvalTerms}
                           </p>
                         </div>
@@ -2485,17 +2485,17 @@ export default function QuoteDocument({
                 ) : null}
 
                 {isStandaloneQuote ? (
-                  <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                     <SectionEyebrow>Delivery Watch-Outs</SectionEyebrow>
                     <SectionTitle>
                       Tools, risks, and open questions
                     </SectionTitle>
                     <div className="mt-4 space-y-4">
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           Supporting tools
                         </p>
-                        <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                        <ul className="mt-3 space-y-2 text-sm text-text-2">
                           {(displaySupportingTools.length
                             ? displaySupportingTools
                             : [
@@ -2506,11 +2506,11 @@ export default function QuoteDocument({
                           ))}
                         </ul>
                       </div>
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           Key risks
                         </p>
-                        <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                        <ul className="mt-3 space-y-2 text-sm text-text-2">
                           {(displayKeyRisks.length
                             ? displayKeyRisks
                             : [
@@ -2521,11 +2521,11 @@ export default function QuoteDocument({
                           ))}
                         </ul>
                       </div>
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           Recommended next questions
                         </p>
-                        <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                        <ul className="mt-3 space-y-2 text-sm text-text-2">
                           {(displayNextQuestions.length
                             ? displayNextQuestions
                             : [
@@ -2543,21 +2543,21 @@ export default function QuoteDocument({
                 {isStandaloneQuote &&
                 recommendDocumentationPack &&
                 documentationProduct ? (
-                  <div className="document-card rounded-2xl border border-[rgba(73,205,225,0.16)] bg-[rgba(73,205,225,0.08)] p-6">
+                  <div className="document-card rounded-[14px] border border-[rgba(73,205,225,0.16)] bg-[rgba(73,205,225,0.08)] p-6">
                     <SectionEyebrow>Recommended Add-On</SectionEyebrow>
                     <SectionTitle>Documentation & SOP Pack</SectionTitle>
-                    <p className="mt-4 text-sm leading-7 text-text-secondary">
+                    <p className="mt-4 text-sm leading-7 text-text-2">
                       This scoped job would benefit from a formal SOP and
                       documentation layer so the agreed data model, process
                       flow, handover notes, and operating guidance do not stay
                       trapped in delivery conversations.
                     </p>
-                    <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                    <div className="mt-4 rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                       <p className="text-sm font-medium text-white">
                         {documentationProduct.name}
                       </p>
                       {documentationProduct.description ? (
-                        <p className="mt-2 text-sm text-text-secondary">
+                        <p className="mt-2 text-sm text-text-2">
                           {documentationProduct.description}
                         </p>
                       ) : null}
@@ -2577,14 +2577,14 @@ export default function QuoteDocument({
                 displayQuoteContent.whyPackagingRecommendation ||
                 displayQuoteContent.workaroundPath ||
                 displayQuoteContent.recommendedNextStep ? (
-                  <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                     <SectionEyebrow>Platform Packaging</SectionEyebrow>
                     <SectionTitle>
                       HubSpot package fit for this scope
                     </SectionTitle>
                     <div className="mt-4 space-y-4">
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           Packaging fit
                         </p>
                         <p className="mt-2 text-sm text-white">
@@ -2604,18 +2604,18 @@ export default function QuoteDocument({
                             " "
                           )}
                         </p>
-                        <p className="mt-2 text-sm text-text-secondary">
+                        <p className="mt-2 text-sm text-text-2">
                           {displayQuoteContent.packagingFitSummary}
                         </p>
                       </div>
                       {splitIntoLines(
                         displayQuoteContent.whyPackagingRecommendation ?? ""
                       ).length > 0 ? (
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Why this recommendation was made
                           </p>
-                          <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                          <ul className="mt-3 space-y-2 text-sm text-text-2">
                             {splitIntoLines(
                               displayQuoteContent.whyPackagingRecommendation ??
                                 ""
@@ -2626,11 +2626,11 @@ export default function QuoteDocument({
                         </div>
                       ) : null}
                       {project?.packagingAssessment?.warnings?.length ? (
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Packaging watch-outs
                           </p>
-                          <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                          <ul className="mt-3 space-y-2 text-sm text-text-2">
                             {project.packagingAssessment.warnings.map(
                               (warning) => (
                                 <li key={warning}>{warning}</li>
@@ -2640,8 +2640,8 @@ export default function QuoteDocument({
                         </div>
                       ) : null}
                       {displayQuoteContent.workaroundPath ? (
-                        <div className="rounded-2xl border border-[rgba(73,205,225,0.16)] bg-[rgba(73,205,225,0.08)] p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-[#49cde1]">
+                        <div className="rounded-[14px] border border-[rgba(73,205,225,0.16)] bg-[rgba(73,205,225,0.08)] p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-[#49cde1]">
                             Lower-tier workaround path
                           </p>
                           <p className="mt-2 text-sm text-white">
@@ -2649,11 +2649,11 @@ export default function QuoteDocument({
                           </p>
                         </div>
                       ) : null}
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           Recommended next step
                         </p>
-                        <p className="mt-2 text-sm text-text-secondary">
+                        <p className="mt-2 text-sm text-text-2">
                           {displayQuoteContent.recommendedNextStep}
                         </p>
                       </div>
@@ -2662,7 +2662,7 @@ export default function QuoteDocument({
                 ) : null}
 
                 {!isStandaloneQuote ? (
-                  <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                     <SectionEyebrow>Risks & Dependencies</SectionEyebrow>
                     <SectionTitle>
                       What could affect commercials or timing
@@ -2672,7 +2672,7 @@ export default function QuoteDocument({
                         <p className="text-sm font-medium text-white">
                           Key risks
                         </p>
-                        <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                        <ul className="mt-2 space-y-2 text-sm text-text-2">
                           {displayKeyRisks.map((item) => (
                             <li key={item}>{item}</li>
                           ))}
@@ -2682,7 +2682,7 @@ export default function QuoteDocument({
                         <p className="text-sm font-medium text-white">
                           Client responsibilities
                         </p>
-                        <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                        <ul className="mt-2 space-y-2 text-sm text-text-2">
                           {displayClientResponsibilities.map((item) => (
                             <li key={item}>{item}</li>
                           ))}
@@ -2693,7 +2693,7 @@ export default function QuoteDocument({
                           <p className="text-sm font-medium text-white">
                             Open questions to resolve during approval
                           </p>
-                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                          <ul className="mt-2 space-y-2 text-sm text-text-2">
                             {displayNextQuestions.map((item) => (
                               <li key={item}>{item}</li>
                             ))}
@@ -2707,7 +2707,7 @@ export default function QuoteDocument({
             </section>
 
             {displayPhaseCommercials.length > 0 ? (
-              <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <section className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <div className="flex flex-wrap items-end justify-between gap-4">
                   <div>
                     <SectionEyebrow>Phased Implementation Scope</SectionEyebrow>
@@ -2716,7 +2716,7 @@ export default function QuoteDocument({
                     </SectionTitle>
                   </div>
                   {displayBlueprintGeneratedAt ? (
-                    <p className="text-sm text-text-secondary">
+                    <p className="text-sm text-text-2">
                       Generated {formatDate(displayBlueprintGeneratedAt)}
                     </p>
                   ) : null}
@@ -2726,23 +2726,23 @@ export default function QuoteDocument({
                   {displayPhaseCommercials.map((phase) => (
                     <div
                       key={phase.phase}
-                      className={`rounded-2xl border p-5 ${
+                      className={`rounded-[14px] border p-5 ${
                         phase.included
-                          ? "border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
+                          ? "border-ink-4 bg-ink-2"
                           : "border-[rgba(255,255,255,0.05)] bg-[rgba(11,17,38,0.55)] opacity-60"
                       }`}
                     >
                       <div className="grid gap-4 lg:grid-cols-[1fr_140px_160px_180px]">
                         <div>
                           <div className="flex flex-wrap items-center gap-3">
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                               Phase {phase.phase}
                             </p>
                             <span
-                              className={`rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${
+                              className={`rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${
                                 phase.included
                                   ? "border border-[rgba(73,205,225,0.22)] bg-[rgba(73,205,225,0.12)] text-[#7be2ef]"
-                                  : "border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] text-text-muted"
+                                  : "border border-ink-4 bg-ink-2 text-text-3"
                               }`}
                             >
                               {phase.included
@@ -2753,7 +2753,7 @@ export default function QuoteDocument({
                           <h3 className="mt-2 text-lg font-semibold text-white">
                             {phase.phaseName}
                           </h3>
-                          <ul className="mt-4 space-y-2 text-sm text-text-secondary">
+                          <ul className="mt-4 space-y-2 text-sm text-text-2">
                             {phase.tasks
                               .filter((task) => task.type !== "Client")
                               .map((task) => (
@@ -2763,7 +2763,7 @@ export default function QuoteDocument({
                         </div>
 
                         <label className="block">
-                          <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                          <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                             Human Hours
                           </span>
                           <input
@@ -2786,16 +2786,16 @@ export default function QuoteDocument({
                                 }
                               }))
                             }
-                            className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none focus:border-accent-solid"
+                            className="w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none focus:border-accent-solid"
                           />
                         </label>
 
                         <label className="block">
-                          <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                          <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                             Hourly Rate
                           </span>
-                          <div className="flex items-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2">
-                            <span className="mr-2 text-xs text-text-secondary">
+                          <div className="flex items-center rounded-xl border border-ink-4 bg-ink-1 px-3 py-2">
+                            <span className="mr-2 text-xs text-text-2">
                               {currencySymbols[currency]}
                             </span>
                             <input
@@ -2822,14 +2822,14 @@ export default function QuoteDocument({
                           </div>
                         </label>
 
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Phase Fee
                           </p>
                           <p className="mt-2 text-xl font-semibold text-white">
                             {formatCurrency(phase.feeZar, currency)}
                           </p>
-                          <p className="mt-2 text-xs text-text-secondary">
+                          <p className="mt-2 text-xs text-text-2">
                             Client dependencies:{" "}
                             {
                               phase.tasks.filter(
@@ -2846,10 +2846,10 @@ export default function QuoteDocument({
             ) : null}
 
                 {!isPortalMode ? (
-                  <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <section className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <SectionEyebrow>Additional Products</SectionEyebrow>
                 <SectionTitle>Retainers and add-on services</SectionTitle>
-                <p className="mt-4 max-w-3xl text-sm leading-7 text-text-secondary">
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-text-2">
                   Optional products can be added to the commercial quote without
                   changing the discovery document, which keeps the
                   implementation recommendation separate from the buying
@@ -2857,12 +2857,12 @@ export default function QuoteDocument({
                 </p>
 
                 <div className="mt-6 space-y-4">
-                  <div className="flex items-center justify-between rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <div className="flex items-center justify-between rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                     <div>
                       <p className="text-sm font-semibold text-white">
                         Manual line items
                       </p>
-                      <p className="mt-1 text-sm text-text-secondary">
+                      <p className="mt-1 text-sm text-text-2">
                         Add custom quote items directly here when the standard
                         product list does not match the deal. For retainers, use
                         quantity as months, unit price as the monthly fee, and
@@ -2905,7 +2905,7 @@ export default function QuoteDocument({
                   {manualProductLines.map((line) => (
                     <div
                       key={line.id}
-                      className="grid gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 lg:grid-cols-[1fr_110px_120px_140px_120px_140px_180px]"
+                      className="grid gap-4 rounded-[14px] border border-ink-4 bg-ink-2 p-5 lg:grid-cols-[1fr_110px_120px_140px_120px_140px_180px]"
                     >
                       <div className="space-y-3">
                         <input
@@ -2920,7 +2920,7 @@ export default function QuoteDocument({
                             )
                           }
                           placeholder="Line item name"
-                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                          className="w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                         />
                         <textarea
                           value={line.description}
@@ -2937,10 +2937,10 @@ export default function QuoteDocument({
                             )
                           }
                           placeholder="Description"
-                          className="min-h-[90px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                          className="min-h-[90px] w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                         />
                         {line.monthlyHours && line.hourlyRate ? (
-                          <p className="text-xs text-text-muted">
+                          <p className="text-xs text-text-3">
                             {line.monthlyHours} hrs/month at{" "}
                             {currencySymbols[currency]} {line.hourlyRate}/hr
                           </p>
@@ -2958,7 +2958,7 @@ export default function QuoteDocument({
                           )
                         }
                         placeholder="Qty"
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                        className="rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                       />
                       <input
                         value={line.monthlyHours}
@@ -2975,7 +2975,7 @@ export default function QuoteDocument({
                           )
                         }
                         placeholder="Hours / month"
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                        className="rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                       />
                       <select
                         value={line.category}
@@ -2988,7 +2988,7 @@ export default function QuoteDocument({
                             )
                           )
                         }
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                        className="rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                       >
                         <option value="retainer">Retainer</option>
                         <option value="add_on">Add-on</option>
@@ -3006,7 +3006,7 @@ export default function QuoteDocument({
                           )
                         }
                         placeholder="Unit label"
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                        className="rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                       />
                       <input
                         value={line.hourlyRate}
@@ -3023,7 +3023,7 @@ export default function QuoteDocument({
                           )
                         }
                         placeholder="Hourly rate"
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                        className="rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                       />
                       <input
                         value={line.unitPrice}
@@ -3037,9 +3037,9 @@ export default function QuoteDocument({
                           )
                         }
                         placeholder="Unit price"
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                        className="rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                       />
-                      <div className="flex flex-col justify-between rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+                      <div className="flex flex-col justify-between rounded-[14px] border border-ink-4 bg-ink-1 p-4">
                         <select
                           value={line.billingModel}
                           onChange={(event) =>
@@ -3054,7 +3054,7 @@ export default function QuoteDocument({
                               )
                             )
                           }
-                          className="mb-4 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          className="mb-4 rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                         >
                           <option value="monthly">Monthly recurring</option>
                           <option value="retainer">Retainer</option>
@@ -3089,7 +3089,7 @@ export default function QuoteDocument({
                               )
                             )
                           }
-                          className="mt-4 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-text-muted"
+                          className="mt-4 rounded-full border border-ink-4 px-3 py-2 text-xs uppercase tracking-[0.14em] text-text-3"
                         >
                           Remove
                         </button>
@@ -3097,19 +3097,19 @@ export default function QuoteDocument({
                     </div>
                   ))}
                   {linkedRetainerLine ? (
-                    <div className="rounded-2xl border border-[rgba(73,205,225,0.18)] bg-[rgba(73,205,225,0.08)] p-5">
+                    <div className="rounded-[14px] border border-[rgba(73,205,225,0.18)] bg-[rgba(73,205,225,0.08)] p-5">
                       <div className="flex flex-wrap items-center gap-3">
                         <p className="text-lg font-semibold text-white">
                           {linkedRetainerLine.name}
                         </p>
-                        <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                        <span className="rounded-full border border-ink-4 px-3 py-1 text-xs uppercase tracking-[0.14em] text-text-3">
                           Linked retainer
                         </span>
-                        <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                        <span className="rounded-full border border-ink-4 px-3 py-1 text-xs uppercase tracking-[0.14em] text-text-3">
                           Auto included
                         </span>
                       </div>
-                      <p className="mt-3 text-sm leading-7 text-text-secondary">
+                      <p className="mt-3 text-sm leading-7 text-text-2">
                         {linkedRetainerLine.description}
                       </p>
                       <p className="mt-4 text-sm text-white">
@@ -3129,29 +3129,29 @@ export default function QuoteDocument({
                       return (
                         <div
                           key={product.id}
-                          className="grid gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 lg:grid-cols-[1fr_140px_140px_180px]"
+                          className="grid gap-4 rounded-[14px] border border-ink-4 bg-ink-2 p-5 lg:grid-cols-[1fr_140px_140px_180px]"
                         >
                           <div>
                             <div className="flex flex-wrap items-center gap-3">
                               <p className="text-lg font-semibold text-white">
                                 {product.name}
                               </p>
-                              <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                              <span className="rounded-full border border-ink-4 px-3 py-1 text-xs uppercase tracking-[0.14em] text-text-3">
                                 {formatProductCategory(product.category)}
                               </span>
-                              <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                              <span className="rounded-full border border-ink-4 px-3 py-1 text-xs uppercase tracking-[0.14em] text-text-3">
                                 {formatBillingModel(product.billingModel)}
                               </span>
                             </div>
                             {product.description ? (
-                              <p className="mt-3 text-sm leading-7 text-text-secondary">
+                              <p className="mt-3 text-sm leading-7 text-text-2">
                                 {product.description}
                               </p>
                             ) : null}
                           </div>
 
                           <label className="block">
-                            <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                            <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                               Quantity
                             </span>
                             <input
@@ -3166,12 +3166,12 @@ export default function QuoteDocument({
                                   }
                                 }))
                               }
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                              className="w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                             />
                           </label>
 
                           <label className="block">
-                            <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-text-muted">
+                            <span className="mb-2 block text-xs uppercase tracking-[0.14em] text-text-3">
                               Unit Price
                             </span>
                             <input
@@ -3186,11 +3186,11 @@ export default function QuoteDocument({
                                   }
                                 }))
                               }
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                              className="w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                             />
                           </label>
 
-                          <div className="flex flex-col justify-between rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+                          <div className="flex flex-col justify-between rounded-[14px] border border-ink-4 bg-ink-1 p-4">
                             <label className="flex items-center gap-3 text-sm text-white">
                               <input
                                 type="checkbox"
@@ -3208,7 +3208,7 @@ export default function QuoteDocument({
                               />
                               Include in quote
                             </label>
-                            <p className="mt-4 text-sm text-text-secondary">
+                            <p className="mt-4 text-sm text-text-2">
                               {formatCurrency(
                                 parseNumber(
                                   selection.quantity,
@@ -3230,10 +3230,10 @@ export default function QuoteDocument({
             ) : null}
 
             {isPortalMode && allDisplayProductLines.length > 0 ? (
-              <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <section className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <SectionEyebrow>Commercial Options</SectionEyebrow>
                 <SectionTitle>Retainer options and add-on services</SectionTitle>
-                <p className="mt-4 text-sm leading-7 text-text-secondary">
+                <p className="mt-4 text-sm leading-7 text-text-2">
                   If more than one retainer option is shown below, select the
                   preferred option before approving the quote. The approved
                   total, hours, and rate will follow the selected option.
@@ -3248,10 +3248,10 @@ export default function QuoteDocument({
                     return (
                       <label
                         key={product.id}
-                        className={`block rounded-2xl border p-5 ${
+                        className={`block rounded-[14px] border p-5 ${
                           isSelectedOption
                             ? "border-[rgba(73,205,225,0.22)] bg-[rgba(73,205,225,0.08)]"
-                            : "border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
+                            : "border-ink-4 bg-ink-2"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
@@ -3261,17 +3261,17 @@ export default function QuoteDocument({
                                 {product.name}
                               </p>
                               {optionGroup ? (
-                                <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                                <span className="rounded-full border border-ink-4 px-3 py-1 text-xs uppercase tracking-[0.14em] text-text-3">
                                   Option
                                 </span>
                               ) : null}
                             </div>
                             {product.description ? (
-                              <p className="mt-3 text-sm leading-7 text-text-secondary">
+                              <p className="mt-3 text-sm leading-7 text-text-2">
                                 {product.description}
                               </p>
                             ) : null}
-                            <div className="mt-4 flex flex-wrap gap-3 text-sm text-text-secondary">
+                            <div className="mt-4 flex flex-wrap gap-3 text-sm text-text-2">
                               {product.metadata?.monthlyHours ? (
                                 <span>
                                   {product.metadata.monthlyHours} hrs/month
@@ -3313,11 +3313,11 @@ export default function QuoteDocument({
             ) : null}
 
             <section className="grid gap-6 xl:grid-cols-[0.72fr_0.28fr]">
-              <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <SectionEyebrow>Commercial Summary</SectionEyebrow>
                 <SectionTitle>Phase-by-phase investment</SectionTitle>
-                <div className="mt-5 overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.07)]">
-                  <div className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-b border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
+                <div className="mt-5 overflow-hidden rounded-[14px] border border-ink-4">
+                  <div className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-b border-ink-4 bg-[#10172f] px-5 py-3 text-xs uppercase tracking-[0.14em] text-text-3">
                     <span>Phase</span>
                     <span>Hours</span>
                     <span>Rate</span>
@@ -3350,7 +3350,7 @@ export default function QuoteDocument({
                       <span>
                         {product.name}
                         {product.metadata?.optionGroup ? (
-                          <span className="ml-2 text-xs text-text-muted">
+                          <span className="ml-2 text-xs text-text-3">
                             {activeProductLineIds.has(product.id)
                               ? "(active option)"
                               : "(alternative option)"}
@@ -3372,7 +3372,7 @@ export default function QuoteDocument({
                       </span>
                     </div>
                   ))}
-                  <div className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-t border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-4 text-sm font-semibold text-white">
+                  <div className="grid grid-cols-[1.4fr_120px_140px_160px] gap-4 border-t border-ink-4 bg-[#10172f] px-5 py-4 text-sm font-semibold text-white">
                     <span>Total</span>
                     <span>{displayTotals.totalHumanHours} hrs + extras</span>
                     <span />
@@ -3383,17 +3383,17 @@ export default function QuoteDocument({
                 </div>
               </div>
 
-              <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <SectionEyebrow>Approval</SectionEyebrow>
                 <SectionTitle>Client review and sign-off</SectionTitle>
-                <p className="mt-4 text-sm leading-7 text-text-secondary">
+                <p className="mt-4 text-sm leading-7 text-text-2">
                   {isApprovedQuote
                     ? "This quote has been approved in the client portal. The approved commercial scope is now the delivery baseline and scope-driving changes should move through change management."
                     : quoteApprovalStatus === "shared"
                       ? "This quote has been shared to the client portal and is waiting for client approval."
                       : displayQuoteContent.approvalSummary}
                 </p>
-                <div className="mt-6 space-y-4 text-sm text-text-secondary">
+                <div className="mt-6 space-y-4 text-sm text-text-2">
                   <p>
                     Approval status:{" "}
                     {isApprovedQuote
@@ -3418,11 +3418,11 @@ export default function QuoteDocument({
 
             <section className="grid gap-6 xl:grid-cols-[0.58fr_0.42fr]">
               {displayPaymentSchedule.length > 0 ? (
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <SectionEyebrow>Payment Schedule</SectionEyebrow>
                   <SectionTitle>Suggested payment milestones</SectionTitle>
-                  <div className="mt-5 overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.07)]">
-                    <div className="grid grid-cols-[120px_1fr_160px] gap-4 border-b border-[rgba(255,255,255,0.07)] bg-[#10172f] px-5 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
+                  <div className="mt-5 overflow-hidden rounded-[14px] border border-ink-4">
+                    <div className="grid grid-cols-[120px_1fr_160px] gap-4 border-b border-ink-4 bg-[#10172f] px-5 py-3 text-xs uppercase tracking-[0.14em] text-text-3">
                       <span>Payment</span>
                       <span>Due</span>
                       <span className="text-right">Amount</span>
@@ -3445,19 +3445,19 @@ export default function QuoteDocument({
                   </div>
                 </div>
               ) : (
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <SectionEyebrow>Payment Schedule</SectionEyebrow>
                   <SectionTitle>Optional payment milestones</SectionTitle>
-                  <p className="mt-4 text-sm leading-7 text-text-secondary">
+                  <p className="mt-4 text-sm leading-7 text-text-2">
                     No payment schedule has been included in this quote.
                   </p>
                 </div>
               )}
 
-              <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <SectionEyebrow>Terms & Working Scope</SectionEyebrow>
                 <SectionTitle>How this quote should be used</SectionTitle>
-                <div className="mt-4 space-y-4 text-sm leading-7 text-text-secondary">
+                <div className="mt-4 space-y-4 text-sm leading-7 text-text-2">
                   {splitIntoLines(
                     displayQuoteContent.termsAndWorkingScope ?? ""
                   ).map((line) => (

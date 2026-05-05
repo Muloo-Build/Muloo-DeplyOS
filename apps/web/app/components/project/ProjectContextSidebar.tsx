@@ -7,10 +7,10 @@ import { useEffect, useState } from "react";
 function SidebarSection(props: { label: string; children: ReactNode }) {
   return (
     <section>
-      <p className="mb-1 text-xs uppercase tracking-wider text-text-muted">
+      <p className="mb-1 text-xs uppercase tracking-wider text-text-3">
         {props.label}
       </p>
-      <div className="text-sm text-text-secondary">{props.children}</div>
+      <div className="text-sm text-text-2">{props.children}</div>
     </section>
   );
 }
@@ -122,7 +122,7 @@ function PartnerInviteAction({
             href={inviteUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-background-card px-3 py-2 text-xs font-medium text-white transition hover:bg-white/5"
+            className="inline-flex items-center gap-2 rounded-lg border border-ink-4 bg-ink-1 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/5"
           >
             Open in HubSpot →
           </a>
@@ -139,7 +139,7 @@ function PartnerInviteAction({
           >
             {marking ? "Marking..." : "Mark as connected"}
           </button>
-          <p className="mt-1 text-[11px] text-text-muted">
+          <p className="mt-1 text-[11px] text-text-3">
             Use after the client accepts your partner invite.
           </p>
           {markFeedback ? (
@@ -183,10 +183,10 @@ export default function ProjectContextSidebar(props: {
   refreshingSnapshot?: boolean;
 }) {
   return (
-    <aside className="brand-surface sticky top-0 max-h-screen space-y-4 overflow-y-auto rounded-3xl border p-4">
+    <aside className="brand-surface sticky top-0 max-h-screen space-y-4 overflow-y-auto rounded-[14px] border p-4">
       <SidebarSection label="CLIENT">
         <p className="font-medium text-white">{props.clientName}</p>
-        <p className="mt-1 text-text-secondary">
+        <p className="mt-1 text-text-2">
           {props.clientContactEmail ?? "No contact email linked"}
         </p>
       </SidebarSection>
@@ -201,7 +201,7 @@ export default function ProjectContextSidebar(props: {
             "No portal linked"
           )}
         </p>
-        <p className="mt-1 flex items-center gap-2 text-text-secondary">
+        <p className="mt-1 flex items-center gap-2 text-text-2">
           <span
             className={`inline-block h-2.5 w-2.5 rounded-full ${
               props.connectionReady ? "bg-brand-teal" : "bg-status-error"
@@ -217,7 +217,7 @@ export default function ProjectContextSidebar(props: {
       </SidebarSection>
 
       <SidebarSection label="RECORDS">
-        <div className="grid gap-2 text-text-secondary">
+        <div className="grid gap-2 text-text-2">
           <p>Contacts: {props.contactsCount ?? "—"}</p>
           <p>Companies: {props.companiesCount ?? "—"}</p>
           <p>Deals: {props.dealsCount ?? "—"}</p>
@@ -226,7 +226,7 @@ export default function ProjectContextSidebar(props: {
       </SidebarSection>
 
       <SidebarSection label="SCHEMA BREADTH">
-        <div className="grid gap-2 text-text-secondary">
+        <div className="grid gap-2 text-text-2">
           <p>Contact properties: {props.contactPropertyCount ?? "—"}</p>
           <p>Company properties: {props.companyPropertyCount ?? "—"}</p>
           <p>Deal properties: {props.dealPropertyCount ?? "—"}</p>
@@ -237,7 +237,7 @@ export default function ProjectContextSidebar(props: {
 
       <SidebarSection label="OWNER">
         <p className="font-medium text-white">{props.ownerName}</p>
-        <p className="mt-1 text-text-secondary">{props.ownerEmail}</p>
+        <p className="mt-1 text-text-2">{props.ownerEmail}</p>
       </SidebarSection>
 
       <SidebarSection label="HUBS IN SCOPE">
@@ -246,13 +246,13 @@ export default function ProjectContextSidebar(props: {
             props.hubsInScope.map((hub) => (
               <span
                 key={hub}
-                className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-2.5 py-1 text-xs uppercase tracking-[0.18em] text-white"
+                className="rounded-full border border-ink-4 bg-ink-2 px-2.5 py-1 text-xs uppercase tracking-[0.14em] text-white"
               >
                 {hub}
               </span>
             ))
           ) : (
-            <p className="text-text-secondary">No hubs selected</p>
+            <p className="text-text-2">No hubs selected</p>
           )}
         </div>
       </SidebarSection>
@@ -262,12 +262,12 @@ export default function ProjectContextSidebar(props: {
           {props.platformName ?? "No platform selected"}
         </p>
         {props.platformDescription ? (
-          <p className="mt-1 text-text-secondary">{props.platformDescription}</p>
+          <p className="mt-1 text-text-2">{props.platformDescription}</p>
         ) : null}
       </SidebarSection>
 
       <SidebarSection label="QUICK WINS">
-        <p className="text-text-secondary">
+        <p className="text-text-2">
           {props.quickWins.total} total · {props.quickWins.open} open ·{" "}
           {props.quickWins.resolved} resolved
         </p>
@@ -277,7 +277,7 @@ export default function ProjectContextSidebar(props: {
         type="button"
         onClick={props.onRefreshSnapshot}
         disabled={props.refreshingSnapshot}
-        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm font-medium text-white transition hover:border-[rgba(0,196,204,0.45)] disabled:cursor-not-allowed disabled:text-text-muted"
+        className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-white transition hover:border-[rgba(0,196,204,0.45)] disabled:cursor-not-allowed disabled:text-text-3"
       >
         {props.refreshingSnapshot ? "Refreshing..." : "Refresh Snapshot"}
       </button>

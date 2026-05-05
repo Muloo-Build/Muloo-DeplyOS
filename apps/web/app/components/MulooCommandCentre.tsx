@@ -342,11 +342,11 @@ function StatCard(props: {
   return (
     <Link
       href={props.href}
-      className={`rounded-2xl border p-5 transition hover:border-brand-teal/60 ${toneClass}`}
+      className={`rounded-[14px] border p-5 transition hover:border-brand-teal/60 ${toneClass}`}
     >
-      <p className="text-sm text-text-secondary">{props.label}</p>
+      <p className="text-sm text-text-2">{props.label}</p>
       <p className="mt-3 text-4xl font-semibold">{props.value ?? "..."}</p>
-      <p className="mt-2 text-xs text-text-secondary">{props.helper}</p>
+      <p className="mt-2 text-xs text-text-2">{props.helper}</p>
     </Link>
   );
 }
@@ -354,12 +354,12 @@ function StatCard(props: {
 function SectionLabel(props: { label: string; title: string; body?: string }) {
   return (
     <div>
-      <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+      <p className="text-sm uppercase tracking-[0.14em] text-text-3">
         {props.label}
       </p>
       <h2 className="mt-2 text-2xl font-semibold text-white">{props.title}</h2>
       {props.body ? (
-        <p className="mt-2 text-sm text-text-secondary">{props.body}</p>
+        <p className="mt-2 text-sm text-text-2">{props.body}</p>
       ) : null}
     </div>
   );
@@ -1047,21 +1047,21 @@ export default function MulooCommandCentre() {
     <AppShell>
       <div className="brand-page min-h-screen overflow-x-hidden p-4 text-white sm:p-6 lg:p-8">
         <div className="space-y-8">
-          <header className="brand-surface rounded-3xl border p-6 sm:p-8">
+          <header className="brand-surface rounded-[14px] border p-6 sm:p-8">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
               <div>
-                <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
+                <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                   Command Centre
                 </p>
                 <h1 className="mt-3 text-3xl font-semibold">
                   {heading.greeting}
                 </h1>
-                <p className="mt-2 text-text-secondary">{heading.dateLabel}</p>
+                <p className="mt-2 text-text-2">{heading.dateLabel}</p>
                 <p className="mt-5 max-w-4xl text-lg font-medium leading-8 text-white/95 sm:text-xl">
                   {leadQuote}
                 </p>
                 {summaryUpdatedAt ? (
-                  <p className="mt-3 text-sm text-text-muted">
+                  <p className="mt-3 text-sm text-text-3">
                     Morning brief updated {formatRelativeTime(summaryUpdatedAt)}
                   </p>
                 ) : null}
@@ -1071,7 +1071,7 @@ export default function MulooCommandCentre() {
                 type="button"
                 onClick={() => void refreshMorningBrief()}
                 disabled={refreshingBrief}
-                className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
+                className="rounded-[14px] border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
               >
                 {refreshingBrief ? "Refreshing..." : "Refresh morning brief"}
               </button>
@@ -1095,7 +1095,7 @@ export default function MulooCommandCentre() {
 
             return (
               <>
-                <section className="brand-surface rounded-3xl border p-6">
+                <section className="brand-surface rounded-[14px] border p-6">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <SectionLabel
                       label="What needs you"
@@ -1135,15 +1135,15 @@ export default function MulooCommandCentre() {
                       {overdueDiscoveryAttention ? (
                         <Link
                           href="/projects"
-                          className="rounded-2xl border border-status-error/30 bg-status-error/10 p-5 text-white transition hover:border-status-error/60"
+                          className="rounded-[14px] border border-status-error/30 bg-status-error/10 p-5 text-white transition hover:border-status-error/60"
                         >
-                          <p className="text-sm text-text-secondary">
+                          <p className="text-sm text-text-2">
                             Overdue discovery workbooks
                           </p>
                           <p className="mt-3 text-4xl font-semibold">
                             {discoveryOverdue?.overdueWorkbookCount ?? 0}
                           </p>
-                          <p className="mt-2 text-xs text-text-secondary">
+                          <p className="mt-2 text-xs text-text-2">
                             Across{" "}
                             {discoveryOverdue?.affectedProjectCount ?? 0}{" "}
                             project
@@ -1159,15 +1159,15 @@ export default function MulooCommandCentre() {
                       {overdueInvoicesAttention ? (
                         <Link
                           href="/invoices?status=OVERDUE"
-                          className="rounded-2xl border border-status-error/30 bg-status-error/10 p-5 text-white transition hover:border-status-error/60"
+                          className="rounded-[14px] border border-status-error/30 bg-status-error/10 p-5 text-white transition hover:border-status-error/60"
                         >
-                          <p className="text-sm text-text-secondary">
+                          <p className="text-sm text-text-2">
                             Overdue invoices
                           </p>
                           <p className="mt-3 text-4xl font-semibold">
                             {invoiceSummary?.overdueCount ?? 0}
                           </p>
-                          <p className="mt-2 text-xs text-text-secondary">
+                          <p className="mt-2 text-xs text-text-2">
                             Draft {invoiceSummary?.draftCount ?? 0} · Sent{" "}
                             {invoiceSummary?.sentCount ?? 0} · Paid this month{" "}
                             {invoiceSummary
@@ -1183,7 +1183,7 @@ export default function MulooCommandCentre() {
                       ) : null}
                     </div>
                   ) : (
-                    <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-text-secondary">
+                    <div className="mt-5 rounded-[14px] border border-ink-4 bg-white/5 px-4 py-4 text-sm text-text-2">
                       Last activity will surface here as soon as a quote needs
                       sign-off, a project blocks on client input, or an invoice
                       slips overdue.
@@ -1191,7 +1191,7 @@ export default function MulooCommandCentre() {
                   )}
                 </section>
 
-                <section className="brand-surface rounded-3xl border p-6">
+                <section className="brand-surface rounded-[14px] border p-6">
                   <SectionLabel
                     label="Workspace at a glance"
                     title="Where the workspace stands today."
@@ -1219,14 +1219,14 @@ export default function MulooCommandCentre() {
           })()}
 
           <section className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr_0.8fr]">
-            <div className="brand-surface rounded-3xl border p-6">
+            <div className="brand-surface rounded-[14px] border p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <SectionLabel
                   label="Email"
                   title="Client Gmail watchlists"
                   body="Important labeled client mail, ready for quick triage or task creation."
                 />
-                <div className="text-right text-sm text-text-secondary">
+                <div className="text-right text-sm text-text-2">
                   <p>{gmailConnectedEmail ?? "Not connected"}</p>
                   <a
                     href={googleSetupHref}
@@ -1239,25 +1239,25 @@ export default function MulooCommandCentre() {
                 </div>
               </div>
 
-              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text-secondary">
+              <div className="mt-5 rounded-[14px] border border-ink-4 bg-white/5 px-4 py-3 text-sm text-text-2">
                 {gmailConnected
                   ? "Add the exact Gmail label on the client record and keep your inbox filters feeding it. DeployOS shows unread first, then recent labeled mail."
                   : "Connect Google once and the Command Centre will use the same workspace auth for Gmail, Calendar, and Google Tasks."}
               </div>
 
               {emailFeedback ? (
-                <div className="mt-4 rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-3 text-sm text-white">
+                <div className="mt-4 rounded-[14px] border border-brand-teal/30 bg-brand-teal/10 px-4 py-3 text-sm text-white">
                   {emailFeedback}
                 </div>
               ) : null}
 
               <div className="mt-5 space-y-3">
                 {loading ? (
-                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-5 text-text-2">
                     Loading client email watchlists...
                   </div>
                 ) : clientEmailQueues.length === 0 ? (
-                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-5 text-text-2">
                     No client label queues are visible yet. Connect Gmail, add
                     the label to the client, and let your mailbox rules keep
                     feeding it.
@@ -1271,7 +1271,7 @@ export default function MulooCommandCentre() {
                     return (
                       <div
                         key={queue.clientId}
-                        className="brand-surface-soft rounded-2xl border p-4"
+                        className="brand-surface-soft rounded-[14px] border p-4"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
@@ -1279,10 +1279,10 @@ export default function MulooCommandCentre() {
                               <p className="text-base font-semibold text-white">
                                 {queue.clientName}
                               </p>
-                              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
+                              <span className="rounded-full border border-ink-4 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-text-2">
                                 {queue.gmailLabel}
                               </span>
-                              <span className="rounded-full border border-status-warning/35 bg-status-warning/10 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
+                              <span className="rounded-full border border-status-warning/35 bg-status-warning/10 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-white">
                                 {queue.unreadCount > 0
                                   ? `${queue.unreadCount} unread in label`
                                   : "last 5 emails"}
@@ -1291,7 +1291,7 @@ export default function MulooCommandCentre() {
                           </div>
                           <Link
                             href="/clients"
-                            className="text-sm text-text-secondary hover:text-brand-teal"
+                            className="text-sm text-text-2 hover:text-brand-teal"
                           >
                             Manage labels →
                           </Link>
@@ -1299,7 +1299,7 @@ export default function MulooCommandCentre() {
 
                         <div className="mt-4 space-y-3">
                           {visibleEmails.length === 0 ? (
-                            <div className="rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+                            <div className="rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-text-2">
                               {queue.emails.length === 0
                                 ? "The label is live, but Gmail is not returning any messages for it yet."
                                 : "No more recent emails are showing in this label right now."}
@@ -1308,22 +1308,22 @@ export default function MulooCommandCentre() {
                             visibleEmails.map((email) => (
                               <div
                                 key={email.id}
-                                className="rounded-2xl border border-white/10 bg-[#0b1126] p-4"
+                                className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                               >
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-medium text-white">
                                       {email.subject}
                                     </p>
-                                    <p className="mt-1 text-sm text-text-secondary">
+                                    <p className="mt-1 text-sm text-text-2">
                                       {email.from}
                                     </p>
                                   </div>
-                                  <p className="text-xs text-text-muted">
+                                  <p className="text-xs text-text-3">
                                     {formatRelativeTime(email.date)}
                                   </p>
                                 </div>
-                                <p className="mt-3 text-sm leading-6 text-text-secondary">
+                                <p className="mt-3 text-sm leading-6 text-text-2">
                                   {email.snippet || "No preview available yet."}
                                 </p>
                                 <div className="mt-4 flex flex-wrap gap-3">
@@ -1333,7 +1333,7 @@ export default function MulooCommandCentre() {
                                       void createTaskFromEmail(queue, email)
                                     }
                                     disabled={creatingTodoEmailId === email.id}
-                                    className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
+                                    className="rounded-[14px] border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
                                   >
                                     {creatingTodoEmailId === email.id
                                       ? "Creating..."
@@ -1342,7 +1342,7 @@ export default function MulooCommandCentre() {
                                   <button
                                     type="button"
                                     onClick={() => dismissClientEmail(email.id)}
-                                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20"
+                                    className="rounded-[14px] border border-ink-4 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-ink-5"
                                   >
                                     Remove
                                   </button>
@@ -1350,7 +1350,7 @@ export default function MulooCommandCentre() {
                                     href={email.gmailUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20"
+                                    className="rounded-[14px] border border-ink-4 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-ink-5"
                                   >
                                     Open in Gmail
                                   </a>
@@ -1366,19 +1366,19 @@ export default function MulooCommandCentre() {
               </div>
             </div>
 
-            <div className="brand-surface rounded-3xl border p-6">
+            <div className="brand-surface rounded-[14px] border p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <SectionLabel
                   label="Calendar"
                   title="Today in Google Calendar"
                   body="Your current-day view so the Command Centre opens around time, not just tasks."
                 />
-                <div className="text-right text-sm text-text-secondary">
+                <div className="text-right text-sm text-text-2">
                   <p>{calendarConnectedEmail ?? "Not connected"}</p>
                 </div>
               </div>
 
-              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text-secondary">
+              <div className="mt-5 rounded-[14px] border border-ink-4 bg-white/5 px-4 py-3 text-sm text-text-2">
                 {calendarRequiresReconnect
                   ? "Reconnect Google once to keep calendar and Google Tasks in the same flow."
                   : calendarConnected
@@ -1388,31 +1388,31 @@ export default function MulooCommandCentre() {
 
               <div className="mt-5 space-y-3">
                 {loading ? (
-                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-5 text-text-2">
                     Loading calendar...
                   </div>
                 ) : !calendarConnected ? (
-                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-5 text-text-2">
                     No calendar connection is active yet.
                   </div>
                 ) : todayCalendarEvents.length === 0 ? (
-                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-5 text-text-2">
                     No events are scheduled for today.
                   </div>
                 ) : (
                   todayCalendarEvents.slice(0, 4).map((event) => (
                     <div
                       key={event.id}
-                      className="brand-surface-soft rounded-2xl border p-4"
+                      className="brand-surface-soft rounded-[14px] border p-4"
                     >
                       <p className="text-sm font-semibold text-white">
                         {event.summary}
                       </p>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         {formatCalendarRange(event)}
                       </p>
                       {event.location ? (
-                        <p className="mt-2 text-xs text-text-muted">
+                        <p className="mt-2 text-xs text-text-3">
                           {event.location}
                         </p>
                       ) : null}
@@ -1422,7 +1422,7 @@ export default function MulooCommandCentre() {
               </div>
             </div>
 
-            <div className="brand-surface rounded-3xl border p-6">
+            <div className="brand-surface rounded-[14px] border p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <SectionLabel
                   label="Tasks"
@@ -1431,13 +1431,13 @@ export default function MulooCommandCentre() {
                 />
                 <a
                   href={googleSetupHref}
-                  className="text-sm text-text-secondary hover:text-brand-teal"
+                  className="text-sm text-text-2 hover:text-brand-teal"
                 >
                   Google setup →
                 </a>
               </div>
 
-              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text-secondary">
+              <div className="mt-5 rounded-[14px] border border-ink-4 bg-white/5 px-4 py-3 text-sm text-text-2">
                 {privateTasksRequiresReconnect
                   ? "Reconnect Google once to grant Google Tasks access."
                   : privateTasksConnected
@@ -1448,7 +1448,7 @@ export default function MulooCommandCentre() {
               </div>
 
               {privateTaskFeedback ? (
-                <div className="mt-4 rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-3 text-sm text-white">
+                <div className="mt-4 rounded-[14px] border border-brand-teal/30 bg-brand-teal/10 px-4 py-3 text-sm text-white">
                   {privateTaskFeedback}
                 </div>
               ) : null}
@@ -1459,7 +1459,7 @@ export default function MulooCommandCentre() {
                   value={privateTaskTitle}
                   onChange={(event) => setPrivateTaskTitle(event.target.value)}
                   placeholder="Add a private task"
-                  className="block min-w-0 flex-1 rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+                  className="block min-w-0 flex-1 rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none placeholder:text-text-3"
                 />
                 <button
                   type="button"
@@ -1469,7 +1469,7 @@ export default function MulooCommandCentre() {
                     !privateTasksConnected ||
                     privateTasksRequiresReconnect
                   }
-                  className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
+                  className="rounded-[14px] border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
                 >
                   {savingPrivateTask ? "Adding..." : "Add"}
                 </button>
@@ -1477,11 +1477,11 @@ export default function MulooCommandCentre() {
 
               <div className="mt-5 space-y-3">
                 {loading ? (
-                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-5 text-text-2">
                     Loading private tasks...
                   </div>
                 ) : privateTasks.length === 0 ? (
-                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-5 text-text-2">
                     No private tasks yet. Add one here and it stays off the PMO
                     board.
                   </div>
@@ -1489,7 +1489,7 @@ export default function MulooCommandCentre() {
                   privateTasks.slice(0, 5).map((task) => (
                     <div
                       key={task.id}
-                      className="brand-surface-soft rounded-2xl border p-4"
+                      className="brand-surface-soft rounded-[14px] border p-4"
                     >
                       <div className="flex items-start gap-3">
                         <button
@@ -1499,7 +1499,7 @@ export default function MulooCommandCentre() {
                           className={`mt-0.5 h-5 w-5 rounded-full border transition ${
                             task.completed
                               ? "border-brand-teal bg-brand-teal"
-                              : "border-white/20 bg-transparent"
+                              : "border-ink-5 bg-transparent"
                           }`}
                           aria-label={
                             task.completed
@@ -1511,13 +1511,13 @@ export default function MulooCommandCentre() {
                           <p
                             className={`text-sm font-medium ${
                               task.completed
-                                ? "text-text-muted line-through"
+                                ? "text-text-3 line-through"
                                 : "text-white"
                             }`}
                           >
                             {task.title}
                           </p>
-                          <p className="mt-2 text-xs text-text-muted">
+                          <p className="mt-2 text-xs text-text-3">
                             {task.completed
                               ? `Completed ${formatRelativeTime(
                                   task.completedAt ??
@@ -1533,7 +1533,7 @@ export default function MulooCommandCentre() {
                           type="button"
                           onClick={() => void removePrivateTask(task.id)}
                           disabled={deletingPrivateTaskId === task.id}
-                          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-text-secondary transition hover:border-white/20 hover:text-white disabled:opacity-60"
+                          className="rounded-xl border border-ink-4 bg-white/5 px-3 py-2 text-xs font-medium text-text-2 transition hover:border-ink-5 hover:text-white disabled:opacity-60"
                         >
                           {deletingPrivateTaskId === task.id ? "..." : "Delete"}
                         </button>
@@ -1546,7 +1546,7 @@ export default function MulooCommandCentre() {
           </section>
 
           <section className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr_0.8fr]">
-            <div className="brand-surface rounded-3xl border p-6">
+            <div className="brand-surface rounded-[14px] border p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <SectionLabel
                   label="Compose"
@@ -1556,7 +1556,7 @@ export default function MulooCommandCentre() {
               </div>
 
               {composerFeedback ? (
-                <div className="mt-5 rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-3 text-sm text-white">
+                <div className="mt-5 rounded-[14px] border border-brand-teal/30 bg-brand-teal/10 px-4 py-3 text-sm text-white">
                   {composerFeedback}
                 </div>
               ) : null}
@@ -1567,14 +1567,14 @@ export default function MulooCommandCentre() {
                   onChange={(event) => setEmailNotes(event.target.value)}
                   placeholder="Add context for the message you want to draft."
                   rows={9}
-                  className="block w-full rounded-2xl border border-white/10 bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+                  className="block w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none placeholder:text-text-3"
                 />
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
                     onClick={() => void draftWorkspaceEmail()}
                     disabled={draftingComposer}
-                    className="rounded-2xl border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
+                    className="rounded-[14px] border border-brand-teal/30 bg-brand-teal/10 px-4 py-2 text-sm font-medium text-white transition hover:border-brand-teal/55 disabled:opacity-60"
                   >
                     {draftingComposer ? "Drafting..." : "Draft with AI"}
                   </button>
@@ -1582,25 +1582,25 @@ export default function MulooCommandCentre() {
                     type="button"
                     onClick={toggleVoiceTyping}
                     disabled={!voiceSupported}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20 disabled:opacity-60"
+                    className="rounded-[14px] border border-ink-4 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-ink-5 disabled:opacity-60"
                   >
                     {isListening ? "Stop voice typing" : "Voice typing"}
                   </button>
                   <button
                     type="button"
                     onClick={() => void copyDraft()}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/20 disabled:opacity-60"
+                    className="rounded-[14px] border border-ink-4 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-ink-5 disabled:opacity-60"
                   >
                     Copy draft
                   </button>
                 </div>
-                <pre className="min-h-[220px] whitespace-pre-wrap rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-text-secondary">
+                <pre className="min-h-[220px] whitespace-pre-wrap rounded-[14px] border border-ink-4 bg-white/5 p-4 text-sm text-text-2">
                   {emailDraft || "Generate a draft to see it here."}
                 </pre>
               </div>
             </div>
 
-            <div className="brand-surface rounded-3xl border p-6">
+            <div className="brand-surface rounded-[14px] border p-6">
               <div className="flex items-center justify-between gap-4">
                 <SectionLabel
                   label="Projects"
@@ -1609,7 +1609,7 @@ export default function MulooCommandCentre() {
                 />
                 <Link
                   href="/projects?status=in_delivery"
-                  className="text-sm text-text-secondary hover:text-brand-teal"
+                  className="text-sm text-text-2 hover:text-brand-teal"
                 >
                   View all →
                 </Link>
@@ -1617,11 +1617,11 @@ export default function MulooCommandCentre() {
 
               <div className="mt-5 space-y-3">
                 {loading ? (
-                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-5 text-text-2">
                     Loading projects...
                   </div>
                 ) : activeProjects.length === 0 ? (
-                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-5 text-text-2">
                     No projects are currently in delivery.
                   </div>
                 ) : (
@@ -1629,11 +1629,11 @@ export default function MulooCommandCentre() {
                     <Link
                       key={project.id}
                       href={`/projects/${project.id}`}
-                      className="brand-surface-soft flex items-center justify-between gap-4 rounded-2xl border p-4 transition hover:border-brand-teal/55"
+                      className="brand-surface-soft flex items-center justify-between gap-4 rounded-[14px] border p-4 transition hover:border-brand-teal/55"
                     >
                       <div>
                         <p className="font-medium text-white">{project.name}</p>
-                        <p className="mt-1 text-sm text-text-secondary">
+                        <p className="mt-1 text-sm text-text-2">
                           {project.clientName}
                         </p>
                       </div>
@@ -1654,14 +1654,14 @@ export default function MulooCommandCentre() {
                             </span>
                           ) : null}
                           <span
-                            className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.14em] ${getStatusBadgeClass(
                               project.status
                             )}`}
                           >
                             {formatStatusLabel(project.status)}
                           </span>
                         </div>
-                        <p className="mt-2 text-xs text-text-muted">
+                        <p className="mt-2 text-xs text-text-3">
                           {formatRelativeTime(project.updatedAt)}
                         </p>
                       </div>
@@ -1671,7 +1671,7 @@ export default function MulooCommandCentre() {
               </div>
             </div>
 
-            <div className="brand-surface rounded-3xl border p-6">
+            <div className="brand-surface rounded-[14px] border p-6">
               <div className="flex items-center justify-between gap-4">
                 <SectionLabel
                   label="Runs"
@@ -1680,7 +1680,7 @@ export default function MulooCommandCentre() {
                 />
                 <Link
                   href="/runs"
-                  className="text-sm text-text-secondary hover:text-brand-teal"
+                  className="text-sm text-text-2 hover:text-brand-teal"
                 >
                   View all →
                 </Link>
@@ -1688,11 +1688,11 @@ export default function MulooCommandCentre() {
 
               <div className="mt-5 space-y-3">
                 {loading ? (
-                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-5 text-text-2">
                     Loading runs...
                   </div>
                 ) : recentRuns.length === 0 ? (
-                  <div className="brand-surface-soft rounded-2xl border p-5 text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-5 text-text-2">
                     No automation runs are visible yet.
                   </div>
                 ) : (
@@ -1700,26 +1700,26 @@ export default function MulooCommandCentre() {
                     <Link
                       key={run.id}
                       href="/runs"
-                      className="brand-surface-soft block rounded-2xl border p-4 transition hover:border-brand-teal/55"
+                      className="brand-surface-soft block rounded-[14px] border p-4 transition hover:border-brand-teal/55"
                     >
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-white">{run.name}</p>
-                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
+                        <span className="rounded-full border border-ink-4 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-text-2">
                           {run.type}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         {run.projectName ?? "Workspace run"}
                       </p>
                       <div className="mt-3 flex items-center justify-between gap-3">
                         <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.14em] ${getStatusBadgeClass(
                             run.resultStatus ?? run.status
                           )}`}
                         >
                           {formatStatusLabel(run.resultStatus ?? run.status)}
                         </span>
-                        <p className="text-xs text-text-muted">
+                        <p className="text-xs text-text-3">
                           {formatRelativeTime(run.createdAt)}
                         </p>
                       </div>
@@ -1730,14 +1730,14 @@ export default function MulooCommandCentre() {
             </div>
           </section>
 
-          <section className="brand-surface rounded-3xl border p-6">
+          <section className="brand-surface rounded-[14px] border p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <SectionLabel
                 label="Daily Signal"
                 title="Industry movement worth knowing"
                 body="Fresh reading across AI improvements, marketing automation, SEO, HubSpot, and CRM platforms."
               />
-              <p className="text-sm text-text-secondary">
+              <p className="text-sm text-text-2">
                 Updated from live external feeds
               </p>
             </div>
@@ -1745,10 +1745,10 @@ export default function MulooCommandCentre() {
             <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {loading ? (
                 <div className="md:col-span-2 xl:col-span-4">
-                  <SkeletonRows count={2} height="h-32" gap="gap-4" rounded="rounded-2xl" />
+                  <SkeletonRows count={2} height="h-32" gap="gap-4" rounded="rounded-[14px]" />
                 </div>
               ) : industrySignals.length === 0 ? (
-                <div className="brand-surface-soft rounded-2xl border p-5 text-sm text-text-secondary md:col-span-2 xl:col-span-4">
+                <div className="brand-surface-soft rounded-[14px] border p-5 text-sm text-text-2 md:col-span-2 xl:col-span-4">
                   No industry feed items available right now. Signal sources will populate once external feeds are active.
                 </div>
               ) : (
@@ -1758,24 +1758,24 @@ export default function MulooCommandCentre() {
                     href={item.link}
                     target="_blank"
                     rel="noreferrer"
-                    className="brand-surface-soft rounded-2xl border p-4 transition hover:border-brand-teal/55"
+                    className="brand-surface-soft rounded-[14px] border p-4 transition hover:border-brand-teal/55"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
+                      <span className="rounded-full border border-ink-4 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-text-2">
                         {item.source}
                       </span>
-                      <span className="rounded-full border border-brand-teal/30 bg-brand-teal/10 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
+                      <span className="rounded-full border border-brand-teal/30 bg-brand-teal/10 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-white">
                         {item.category}
                       </span>
                     </div>
                     <p className="mt-3 text-sm font-semibold leading-6 text-white">
                       {item.title}
                     </p>
-                    <p className="mt-3 text-sm leading-6 text-text-secondary">
+                    <p className="mt-3 text-sm leading-6 text-text-2">
                       {item.summary ||
                         "Open the article to read the full update."}
                     </p>
-                    <p className="mt-4 text-xs text-text-muted">
+                    <p className="mt-4 text-xs text-text-3">
                       {item.publishedAt
                         ? formatRelativeTime(item.publishedAt)
                         : "Recently published"}

@@ -1215,13 +1215,13 @@ export default function NewProjectPage() {
     <AppShell>
       <div className="p-8">
         <div className="mb-8 max-w-4xl">
-          <p className="text-xs uppercase tracking-[0.32em] text-[#49cde1]">
+          <p className="text-xs uppercase tracking-[0.14em] text-[#49cde1]">
             Project setup
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
             Create a new project
           </h1>
-          <p className="mt-2 text-sm text-text-secondary">
+          <p className="mt-2 text-sm text-text-2">
             Three steps. Set up the engagement, capture the brief, review and
             create. Required fields are marked with{" "}
             <span className="text-[#ff8f9f]">*</span>.
@@ -1239,13 +1239,13 @@ export default function NewProjectPage() {
                 className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition ${
                   step <= currentStep
                     ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] text-white"
-                    : "border border-[rgba(255,255,255,0.08)] bg-background-card text-text-muted"
+                    : "border border-ink-4 bg-ink-1 text-text-3"
                 }`}
               >
                 {step}
               </div>
               <span
-                className={`text-sm font-medium ${step <= currentStep ? "text-white" : "text-text-muted"}`}
+                className={`text-sm font-medium ${step <= currentStep ? "text-white" : "text-text-3"}`}
               >
                 {label}
               </span>
@@ -1264,7 +1264,7 @@ export default function NewProjectPage() {
 
         <div
           onKeyDown={handleWizardKeyDown}
-          className="max-w-3xl rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8"
+          className="max-w-3xl rounded-[14px] border border-ink-4 bg-ink-1 p-8"
         >
           {currentStep === 1 ? (
             <div className="space-y-6">
@@ -1306,7 +1306,7 @@ export default function NewProjectPage() {
 
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <p className="mb-3 text-sm text-text-secondary">
+                  <p className="mb-3 text-sm text-text-2">
                     Engagement container
                   </p>
                   <div className="grid gap-4 md:grid-cols-3">
@@ -1316,14 +1316,14 @@ export default function NewProjectPage() {
                           key={value}
                           type="button"
                           onClick={() => selectProjectContainer(value)}
-                          className={`rounded-2xl border p-4 text-left transition-colors ${
+                          className={`rounded-[14px] border p-4 text-left transition-colors ${
                             formData.scopeType === value
-                              ? "border-accent-solid bg-background-elevated"
-                              : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                              ? "border-accent-solid bg-ink-2"
+                              : "border-ink-4 bg-ink-2"
                           }`}
                         >
                           <p className="font-semibold text-white">{label}</p>
-                          <p className="mt-1 text-sm text-text-secondary">
+                          <p className="mt-1 text-sm text-text-2">
                             {description}
                           </p>
                         </button>
@@ -1335,7 +1335,7 @@ export default function NewProjectPage() {
                 <label className="block md:col-span-2">
                   <span
                     aria-required="true"
-                    className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+                    className="mb-2 flex items-center gap-1 text-sm text-text-2"
                   >
                     Project name <span className="text-[#ff8f9f]">*</span>
                   </span>
@@ -1350,10 +1350,10 @@ export default function NewProjectPage() {
                     aria-describedby={
                       fieldErrors.projectName ? "project-name-error" : undefined
                     }
-                    className={`w-full rounded-xl border bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid ${
+                    className={`w-full rounded-xl border bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid ${
                       fieldErrors.projectName
                         ? "border-[rgba(224,80,96,0.6)]"
-                        : "border-[rgba(255,255,255,0.08)]"
+                        : "border-ink-4"
                     }`}
                   />
                   {fieldErrors.projectName ? (
@@ -1369,7 +1369,7 @@ export default function NewProjectPage() {
                 <label className="block md:col-span-2">
                   <span
                     aria-required="true"
-                    className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+                    className="mb-2 flex items-center gap-1 text-sm text-text-2"
                   >
                     Client name <span className="text-[#ff8f9f]">*</span>
                   </span>
@@ -1398,10 +1398,10 @@ export default function NewProjectPage() {
                     aria-describedby={
                       fieldErrors.clientName ? "client-name-error" : undefined
                     }
-                    className={`w-full rounded-xl border bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid ${
+                    className={`w-full rounded-xl border bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid ${
                       fieldErrors.clientName
                         ? "border-[rgba(224,80,96,0.6)]"
-                        : "border-[rgba(255,255,255,0.08)]"
+                        : "border-ink-4"
                     }`}
                   />
                   {fieldErrors.clientName ? (
@@ -1413,7 +1413,7 @@ export default function NewProjectPage() {
                     </p>
                   ) : null}
                   {clients.length > 0 ? (
-                    <p className="mt-2 text-xs text-text-muted">
+                    <p className="mt-2 text-xs text-text-3">
                       Start typing to match an existing client and avoid
                       duplicates.
                     </p>
@@ -1426,12 +1426,12 @@ export default function NewProjectPage() {
                   {existingClientMatch && !useExistingClient ? (
                     <div
                       role="alert"
-                      className="mt-3 rounded-xl border border-[rgba(73,205,225,0.4)] bg-[rgba(11,26,52,0.7)] p-4 text-sm text-text-secondary"
+                      className="mt-3 rounded-xl border border-[rgba(73,205,225,0.4)] bg-[rgba(11,26,52,0.7)] p-4 text-sm text-text-2"
                     >
                       <p className="font-semibold text-white">
                         {existingClientMatch.name} already exists.
                       </p>
-                      <p className="mt-1 text-text-muted">
+                      <p className="mt-1 text-text-3">
                         Use the existing client and add a new project under it?
                         We&apos;ll keep the saved industry, website and socials
                         as-is.
@@ -1457,7 +1457,7 @@ export default function NewProjectPage() {
                             setUseExistingClient(false);
                             updateField("clientName", "");
                           }}
-                          className="rounded-lg border border-[rgba(255,255,255,0.16)] px-3 py-1.5 text-xs text-text-secondary hover:bg-[rgba(255,255,255,0.05)]"
+                          className="rounded-lg border border-ink-5 px-3 py-1.5 text-xs text-text-2 hover:bg-ink-2"
                         >
                           No, this is a different client
                         </button>
@@ -1465,7 +1465,7 @@ export default function NewProjectPage() {
                     </div>
                   ) : null}
                   {useExistingClient && existingClientMatch ? (
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[rgba(73,205,225,0.3)] bg-[rgba(11,26,52,0.5)] px-4 py-3 text-sm text-text-secondary">
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[rgba(73,205,225,0.3)] bg-[rgba(11,26,52,0.5)] px-4 py-3 text-sm text-text-2">
                       <span>
                         Using existing client{" "}
                         <span className="font-semibold text-white">
@@ -1477,7 +1477,7 @@ export default function NewProjectPage() {
                       <button
                         type="button"
                         onClick={() => setUseExistingClient(false)}
-                        className="rounded-lg border border-[rgba(255,255,255,0.16)] px-2.5 py-1 text-xs text-text-muted hover:bg-[rgba(255,255,255,0.05)]"
+                        className="rounded-lg border border-ink-5 px-2.5 py-1 text-xs text-text-3 hover:bg-ink-2"
                       >
                         Change
                       </button>
@@ -1486,7 +1486,7 @@ export default function NewProjectPage() {
                 </label>
 
                 <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm text-text-secondary">
+                  <span className="mb-2 block text-sm text-text-2">
                     Service family
                   </span>
                   <select
@@ -1494,7 +1494,7 @@ export default function NewProjectPage() {
                     onChange={(event) =>
                       updateField("serviceFamily", event.target.value)
                     }
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                    className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                   >
                     {serviceFamilies.map((family) => (
                       <option key={family.id} value={family.id}>
@@ -1502,7 +1502,7 @@ export default function NewProjectPage() {
                       </option>
                     ))}
                   </select>
-                  <p className="mt-2 text-xs text-text-muted">
+                  <p className="mt-2 text-xs text-text-3">
                     {
                       serviceFamilies.find(
                         (family) => family.id === formData.serviceFamily
@@ -1514,7 +1514,7 @@ export default function NewProjectPage() {
                 {formData.scopeType === "standalone_quote" ? (
                   <>
                     <label className="block md:col-span-2">
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         Delivery template
                       </span>
                       <select
@@ -1522,7 +1522,7 @@ export default function NewProjectPage() {
                         onChange={(event) =>
                           updateField("deliveryTemplateId", event.target.value)
                         }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                       >
                         <option value="">No template yet</option>
                         {deliveryTemplates
@@ -1543,7 +1543,7 @@ export default function NewProjectPage() {
                     </label>
 
                     <label className="block md:col-span-2">
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         Job / scope brief
                       </span>
                       <textarea
@@ -1553,20 +1553,20 @@ export default function NewProjectPage() {
                           updateField("commercialBrief", event.target.value)
                         }
                         placeholder="Describe the standalone job, deliverables, desired outcomes, and any pricing context."
-                        className="min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        className="min-h-[140px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                       />
                     </label>
                   </>
                 ) : null}
 
                 <label className="block">
-                  <span className="mb-2 block text-sm text-text-secondary">
+                  <span className="mb-2 block text-sm text-text-2">
                     Project owner
                   </span>
                   <select
                     value={formData.owner}
                     onChange={(event) => selectOwner(event.target.value)}
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                    className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                   >
                     {teamUsers.map((user) => (
                       <option key={user.id} value={user.name}>
@@ -1577,13 +1577,13 @@ export default function NewProjectPage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm text-text-secondary">
+                  <span className="mb-2 block text-sm text-text-2">
                     Owner email
                   </span>
                   <input
                     value={formData.ownerEmail}
                     readOnly
-                    className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-3 text-white outline-none"
+                    className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                   />
                 </label>
 
@@ -1593,7 +1593,7 @@ export default function NewProjectPage() {
                 {!useExistingClient ? (
                   <>
                     <label className="block md:col-span-2">
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         Industry
                       </span>
                       <select
@@ -1601,7 +1601,7 @@ export default function NewProjectPage() {
                         onChange={(event) =>
                           updateField("industry", event.target.value)
                         }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                       >
                         <option value="">Select industry</option>
                         {industryOptions.map((industry) => (
@@ -1613,7 +1613,7 @@ export default function NewProjectPage() {
                     </label>
 
                     <label className="block md:col-span-2">
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         Primary website
                       </span>
                       <input
@@ -1625,10 +1625,10 @@ export default function NewProjectPage() {
                           void handleWebsiteBlur(event.target.value)
                         }
                         placeholder="https://example.com"
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                       />
                       {websiteEnrichmentLoading ? (
-                        <p className="mt-2 text-xs text-text-muted">
+                        <p className="mt-2 text-xs text-text-3">
                           Enriching website…
                         </p>
                       ) : null}
@@ -1640,7 +1640,7 @@ export default function NewProjectPage() {
                       {websiteEnrichmentResult &&
                       !websiteEnrichmentLoading &&
                       !websiteEnrichmentError ? (
-                        <div className="mt-2 flex items-center gap-2 text-xs text-text-muted">
+                        <div className="mt-2 flex items-center gap-2 text-xs text-text-3">
                           {websiteEnrichmentResult.logoUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -1662,7 +1662,7 @@ export default function NewProjectPage() {
                     </label>
 
                     <label className="block md:col-span-2">
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         Additional websites
                       </span>
                       <textarea
@@ -1674,12 +1674,12 @@ export default function NewProjectPage() {
                           )
                         }
                         placeholder={"One URL per line"}
-                        className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                       />
                     </label>
 
                     <label className="block">
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         LinkedIn
                       </span>
                       <input
@@ -1687,12 +1687,12 @@ export default function NewProjectPage() {
                         onChange={(event) =>
                           updateField("linkedinUrl", event.target.value)
                         }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                       />
                     </label>
 
                     <label className="block">
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         Facebook
                       </span>
                       <input
@@ -1700,12 +1700,12 @@ export default function NewProjectPage() {
                         onChange={(event) =>
                           updateField("facebookUrl", event.target.value)
                         }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                       />
                     </label>
 
                     <label className="block">
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         Instagram
                       </span>
                       <input
@@ -1713,12 +1713,12 @@ export default function NewProjectPage() {
                         onChange={(event) =>
                           updateField("instagramUrl", event.target.value)
                         }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                       />
                     </label>
 
                     <label className="block">
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         X / Twitter
                       </span>
                       <input
@@ -1726,12 +1726,12 @@ export default function NewProjectPage() {
                         onChange={(event) =>
                           updateField("xUrl", event.target.value)
                         }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                       />
                     </label>
 
                     <label className="block md:col-span-2">
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         YouTube
                       </span>
                       <input
@@ -1739,7 +1739,7 @@ export default function NewProjectPage() {
                         onChange={(event) =>
                           updateField("youtubeUrl", event.target.value)
                         }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                       />
                     </label>
                   </>
@@ -1748,7 +1748,7 @@ export default function NewProjectPage() {
                 <label className="block">
                   <span
                     aria-required="true"
-                    className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+                    className="mb-2 flex items-center gap-1 text-sm text-text-2"
                   >
                     Client champion first name{" "}
                     <span className="text-[#ff8f9f]">*</span>
@@ -1766,10 +1766,10 @@ export default function NewProjectPage() {
                         ? "champion-first-name-error"
                         : undefined
                     }
-                    className={`w-full rounded-xl border bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid ${
+                    className={`w-full rounded-xl border bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid ${
                       fieldErrors.clientChampionFirstName
                         ? "border-[rgba(224,80,96,0.6)]"
-                        : "border-[rgba(255,255,255,0.08)]"
+                        : "border-ink-4"
                     }`}
                   />
                   {fieldErrors.clientChampionFirstName ? (
@@ -1785,7 +1785,7 @@ export default function NewProjectPage() {
                 <label className="block">
                   <span
                     aria-required="true"
-                    className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+                    className="mb-2 flex items-center gap-1 text-sm text-text-2"
                   >
                     Client champion last name{" "}
                     <span className="text-[#ff8f9f]">*</span>
@@ -1803,10 +1803,10 @@ export default function NewProjectPage() {
                         ? "champion-last-name-error"
                         : undefined
                     }
-                    className={`w-full rounded-xl border bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid ${
+                    className={`w-full rounded-xl border bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid ${
                       fieldErrors.clientChampionLastName
                         ? "border-[rgba(224,80,96,0.6)]"
-                        : "border-[rgba(255,255,255,0.08)]"
+                        : "border-ink-4"
                     }`}
                   />
                   {fieldErrors.clientChampionLastName ? (
@@ -1822,7 +1822,7 @@ export default function NewProjectPage() {
                 <label className="block md:col-span-2">
                   <span
                     aria-required="true"
-                    className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+                    className="mb-2 flex items-center gap-1 text-sm text-text-2"
                   >
                     Client champion email{" "}
                     <span className="text-[#ff8f9f]">*</span>
@@ -1841,10 +1841,10 @@ export default function NewProjectPage() {
                         ? "champion-email-error"
                         : undefined
                     }
-                    className={`w-full rounded-xl border bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid ${
+                    className={`w-full rounded-xl border bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid ${
                       fieldErrors.clientChampionEmail
                         ? "border-[rgba(224,80,96,0.6)]"
-                        : "border-[rgba(255,255,255,0.08)]"
+                        : "border-ink-4"
                     }`}
                   />
                   {fieldErrors.clientChampionEmail ? (
@@ -1872,11 +1872,11 @@ export default function NewProjectPage() {
                 </div>
               ) : null}
 
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5">
+              <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
                 <p className="text-sm font-semibold text-white">
                   Problem / pain point
                 </p>
-                <p className="mt-2 text-sm text-text-secondary">
+                <p className="mt-2 text-sm text-text-2">
                   Capture the challenge in plain language first. Deploy can
                   suggest three possible approaches, then push the selected path
                   into the job spec, executive summary, hubs, and platform
@@ -1889,7 +1889,7 @@ export default function NewProjectPage() {
                     updateField("problemStatement", event.target.value)
                   }
                   placeholder="Example: We need a better way to consolidate event audience data across multiple brands into HubSpot without over-engineering the first phase."
-                  className="mt-4 min-h-[160px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  className="mt-4 min-h-[160px] w-full rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-white outline-none focus:border-accent-solid"
                 />
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <button
@@ -1913,7 +1913,7 @@ export default function NewProjectPage() {
 
               {solutionOptions.length > 0 ? (
                 <div>
-                  <p className="mb-3 text-sm text-text-secondary">
+                  <p className="mb-3 text-sm text-text-2">
                     Suggested approaches
                   </p>
                   <div className="grid gap-4 xl:grid-cols-3">
@@ -1922,19 +1922,19 @@ export default function NewProjectPage() {
                         key={option.title}
                         type="button"
                         onClick={() => applySolutionOption(option)}
-                        className={`rounded-2xl border p-5 text-left transition-colors ${
+                        className={`rounded-[14px] border p-5 text-left transition-colors ${
                           selectedSolutionTitle === option.title
-                            ? "border-accent-solid bg-background-elevated"
-                            : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                            ? "border-accent-solid bg-ink-2"
+                            : "border-ink-4 bg-ink-2"
                         }`}
                       >
                         <p className="text-base font-semibold text-white">
                           {option.title}
                         </p>
-                        <p className="mt-2 text-sm text-text-secondary">
+                        <p className="mt-2 text-sm text-text-2">
                           {option.summary}
                         </p>
-                        <div className="mt-4 space-y-2 text-xs text-text-muted">
+                        <div className="mt-4 space-y-2 text-xs text-text-3">
                           <p>
                             <span className="text-white">Why:</span>{" "}
                             {option.rationale}
@@ -1958,7 +1958,7 @@ export default function NewProjectPage() {
               ) : null}
 
               <div>
-                <p className="mb-3 text-sm text-text-secondary">
+                <p className="mb-3 text-sm text-text-2">
                   Engagement type
                 </p>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -1975,14 +1975,14 @@ export default function NewProjectPage() {
                             : {})
                         }))
                       }
-                      className={`rounded-2xl border p-4 text-left transition-colors ${
+                      className={`rounded-[14px] border p-4 text-left transition-colors ${
                         formData.engagementType === type.id
-                          ? "border-accent-solid bg-background-elevated"
-                          : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                          ? "border-accent-solid bg-ink-2"
+                          : "border-ink-4 bg-ink-2"
                       }`}
                     >
                       <p className="font-semibold text-white">{type.label}</p>
-                      <p className="mt-1 text-sm text-text-secondary">
+                      <p className="mt-1 text-sm text-text-2">
                         {type.description}
                       </p>
                     </button>
@@ -1990,7 +1990,7 @@ export default function NewProjectPage() {
                 </div>
               </div>
 
-              <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-4 text-sm text-white">
+              <label className="flex items-center gap-3 rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-4 text-sm text-white">
                 <input
                   type="checkbox"
                   checked={formData.includesPortalAudit}
@@ -2004,7 +2004,7 @@ export default function NewProjectPage() {
               <div className="grid gap-6 lg:grid-cols-[0.42fr_0.58fr]">
                 <div className="space-y-4">
                   <label className="block">
-                    <span className="mb-2 block text-sm text-text-secondary">
+                    <span className="mb-2 block text-sm text-text-2">
                       Delivery approach
                     </span>
                     <div className="grid gap-3">
@@ -2015,16 +2015,16 @@ export default function NewProjectPage() {
                           onClick={() =>
                             updateField("implementationApproach", option.value)
                           }
-                          className={`rounded-2xl border p-4 text-left transition-colors ${
+                          className={`rounded-[14px] border p-4 text-left transition-colors ${
                             formData.implementationApproach === option.value
-                              ? "border-accent-solid bg-background-elevated"
-                              : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                              ? "border-accent-solid bg-ink-2"
+                              : "border-ink-4 bg-ink-2"
                           }`}
                         >
                           <p className="font-semibold text-white">
                             {option.label}
                           </p>
-                          <p className="mt-1 text-sm text-text-secondary">
+                          <p className="mt-1 text-sm text-text-2">
                             {option.description}
                           </p>
                         </button>
@@ -2033,7 +2033,7 @@ export default function NewProjectPage() {
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 flex items-center gap-2 text-sm text-text-secondary">
+                    <span className="mb-2 flex items-center gap-2 text-sm text-text-2">
                       <span>Overall HubSpot plan tier</span>
                       {detectedPortalTier ? (
                         <span className="rounded-full bg-[rgba(73,205,225,0.12)] px-2 py-0.5 text-[11px] font-medium text-[#49cde1]">
@@ -2046,7 +2046,7 @@ export default function NewProjectPage() {
                       onChange={(event) =>
                         updateField("customerPlatformTier", event.target.value)
                       }
-                      className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                     >
                       {customerPlatformTierOptions.map((option) => (
                         <option
@@ -2057,7 +2057,7 @@ export default function NewProjectPage() {
                         </option>
                       ))}
                     </select>
-                    <p className="mt-2 text-xs text-text-muted">
+                    <p className="mt-2 text-xs text-text-3">
                       Smart CRM is included with all HubSpot plans.
                       {detectedPortalTier && detectedPortalName
                         ? ` Detected ${formatTierLabel(detectedPortalTier)} from ${detectedPortalName}. You can override it here.`
@@ -2067,7 +2067,7 @@ export default function NewProjectPage() {
                 </div>
 
                 <div>
-                  <div className="mb-2 flex items-center gap-2 text-sm text-text-secondary">
+                  <div className="mb-2 flex items-center gap-2 text-sm text-text-2">
                     <span>Hubs in scope</span>
                     {detectedPortalHubs.length > 0 ? (
                       <span className="rounded-full bg-[rgba(73,205,225,0.12)] px-2 py-0.5 text-[11px] font-medium text-[#49cde1]">
@@ -2075,12 +2075,12 @@ export default function NewProjectPage() {
                       </span>
                     ) : null}
                   </div>
-                  <p className="mb-3 text-sm text-text-muted">
+                  <p className="mb-3 text-sm text-text-3">
                     {detectedPortalHubs.length > 0 && detectedPortalName
                       ? `Pulled from ${detectedPortalName}. Adjust the hub selection if this job only covers part of the detected portal footprint.`
                       : "Select the core hubs this project covers, then add any purchased add-ons in scope."}
                   </p>
-                  <p className="mb-3 text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <p className="mb-3 text-xs uppercase tracking-[0.14em] text-text-3">
                     Core hubs
                   </p>
                   <div className="grid gap-3 md:grid-cols-2">
@@ -2090,20 +2090,20 @@ export default function NewProjectPage() {
                         ref={index === 0 ? firstHubButtonRef : undefined}
                         type="button"
                         onClick={() => toggleHub(hub.id)}
-                        className={`rounded-2xl border p-4 text-left transition-colors ${
+                        className={`rounded-[14px] border p-4 text-left transition-colors ${
                           formData.hubsInScope.includes(hub.id)
-                            ? "border-accent-solid bg-background-elevated"
-                            : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                            ? "border-accent-solid bg-ink-2"
+                            : "border-ink-4 bg-ink-2"
                         }`}
                       >
                         <p className="font-semibold text-white">{hub.label}</p>
-                        <p className="mt-1 text-sm text-text-secondary">
+                        <p className="mt-1 text-sm text-text-2">
                           Included in the overall HubSpot plan selection.
                         </p>
                       </button>
                     ))}
                   </div>
-                  <p className="mb-3 mt-5 text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <p className="mb-3 mt-5 text-xs uppercase tracking-[0.14em] text-text-3">
                     Add-ons in scope
                   </p>
                   <div className="grid gap-4 md:grid-cols-3">
@@ -2112,21 +2112,21 @@ export default function NewProjectPage() {
                         key={hub.id}
                         type="button"
                         onClick={() => toggleHub(hub.id)}
-                        className={`rounded-2xl border p-4 text-left transition-colors ${
+                        className={`rounded-[14px] border p-4 text-left transition-colors ${
                           formData.hubsInScope.includes(hub.id)
-                            ? "border-accent-solid bg-background-elevated"
-                            : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                            ? "border-accent-solid bg-ink-2"
+                            : "border-ink-4 bg-ink-2"
                         }`}
                       >
                         <p className="font-semibold text-white">{hub.label}</p>
-                        <p className="mt-1 text-sm text-text-secondary">
+                        <p className="mt-1 text-sm text-text-2">
                           Mark this when the add-on itself is part of the scoped
                           delivery.
                         </p>
                       </button>
                     ))}
                   </div>
-                  <p className="mt-3 text-sm text-text-muted">
+                  <p className="mt-3 text-sm text-text-3">
                     {formData.scopeType === "standalone_quote"
                       ? "Optional for standalone quotes. Use plan and hub scope only when it helps frame the quoted work."
                       : "Select the hubs or add-ons expected in scope for this delivery."}
@@ -2135,7 +2135,7 @@ export default function NewProjectPage() {
               </div>
 
               <label className="block">
-                <span className="mb-2 block text-sm text-text-secondary">
+                <span className="mb-2 block text-sm text-text-2">
                   Recommended way forward
                 </span>
                 <textarea
@@ -2144,12 +2144,12 @@ export default function NewProjectPage() {
                     updateField("solutionRecommendation", event.target.value)
                   }
                   placeholder="Capture the recommended approach, architecture, or rollout path chosen for this job."
-                  className="min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  className="min-h-[140px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm text-text-secondary">
+                <span className="mb-2 block text-sm text-text-2">
                   Executive summary
                 </span>
                 <textarea
@@ -2158,7 +2158,7 @@ export default function NewProjectPage() {
                     updateField("scopeExecutiveSummary", event.target.value)
                   }
                   placeholder="Short executive summary used on the project and in the quote context instead of dumping the raw spec."
-                  className="min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  className="min-h-[140px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                 />
               </label>
 
@@ -2172,7 +2172,7 @@ export default function NewProjectPage() {
               */}
               {formData.scopeType !== "standalone_quote" ? (
                 <>
-                  <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+                  <label className="flex items-center gap-3 rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                     <input
                       type="checkbox"
                       checked={formData.useTemplate}
@@ -2187,7 +2187,7 @@ export default function NewProjectPage() {
 
                   {formData.useTemplate ? (
                     <label className="block">
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         Template
                       </span>
                       <select
@@ -2195,7 +2195,7 @@ export default function NewProjectPage() {
                         onChange={(event) =>
                           updateField("templateId", event.target.value)
                         }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                       >
                         <option value="">Select template</option>
                         {templates.map((template) => (
@@ -2262,9 +2262,9 @@ export default function NewProjectPage() {
                 ].map(([label, value]) => (
                   <div
                     key={label}
-                    className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4"
+                    className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                   >
-                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       {label}
                     </p>
                     <p className="mt-2 text-white">{value || "Not set"}</p>
@@ -2273,8 +2273,8 @@ export default function NewProjectPage() {
               </div>
 
               {formData.problemStatement ? (
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Problem / pain point
                   </p>
                   <p className="mt-3 whitespace-pre-wrap text-white">
@@ -2284,8 +2284,8 @@ export default function NewProjectPage() {
               ) : null}
 
               {formData.solutionRecommendation ? (
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Recommended way forward
                   </p>
                   <p className="mt-3 whitespace-pre-wrap text-white">
@@ -2295,8 +2295,8 @@ export default function NewProjectPage() {
               ) : null}
 
               {formData.scopeExecutiveSummary ? (
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Executive summary
                   </p>
                   <p className="mt-3 whitespace-pre-wrap text-white">
@@ -2306,8 +2306,8 @@ export default function NewProjectPage() {
               ) : null}
 
               {formData.commercialBrief ? (
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Job / scope brief
                   </p>
                   <p className="mt-3 whitespace-pre-wrap text-white">
@@ -2317,8 +2317,8 @@ export default function NewProjectPage() {
               ) : null}
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Overall HubSpot plan tier
                   </p>
                   <p className="mt-3 text-white">
@@ -2331,8 +2331,8 @@ export default function NewProjectPage() {
                     </p>
                   ) : null}
                 </div>
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Platform note
                   </p>
                   <p className="mt-3 text-white">
@@ -2341,8 +2341,8 @@ export default function NewProjectPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+              <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   Hubs in scope
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -2357,7 +2357,7 @@ export default function NewProjectPage() {
                       </span>
                     ))
                   ) : (
-                    <span className="text-text-secondary">
+                    <span className="text-text-2">
                       No hubs selected
                     </span>
                   )}
@@ -2377,7 +2377,7 @@ export default function NewProjectPage() {
           <button
             type="button"
             onClick={() => setCurrentStep((step) => Math.max(1, step - 1))}
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-3 text-sm font-medium text-white"
+            className="rounded-xl border border-ink-4 bg-ink-1 px-5 py-3 text-sm font-medium text-white"
           >
             Previous
           </button>

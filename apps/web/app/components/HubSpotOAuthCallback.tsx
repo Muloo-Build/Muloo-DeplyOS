@@ -90,17 +90,17 @@ export default function HubSpotOAuthCallback({
   }, [code, error, router, state]);
 
   return (
-    <div className="min-h-screen bg-background-primary px-6 text-white">
+    <div className="min-h-screen bg-ink-0 px-6 text-white">
       <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center py-10">
-        <div className="w-full rounded-[32px] border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
+        <div className="w-full rounded-[32px] border border-ink-4 bg-ink-1 p-8">
           <img src="/muloo-logo.svg" alt="Muloo" className="h-10 w-auto" />
-          <p className="mt-6 text-sm uppercase tracking-[0.3em] text-text-muted">
+          <p className="mt-6 text-sm uppercase tracking-[0.3em] text-text-3">
             HubSpot portal connect
           </p>
           <h1 className="mt-3 text-3xl font-bold font-heading text-white">
             {failed ? "Connection failed" : "Finishing connection"}
           </h1>
-          <p className="mt-4 text-text-secondary">{message}</p>
+          <p className="mt-4 text-text-2">{message}</p>
           <div className="mt-8">
             <Link href="/settings/providers" className="text-white underline">
               Back to Provider settings

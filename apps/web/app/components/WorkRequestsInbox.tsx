@@ -166,16 +166,16 @@ export default function WorkRequestsInbox() {
         requests.map((request) => (
           <div
             key={request.id}
-            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+            className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   {serviceFamilies.find(
                     (family) => family.value === request.serviceFamily
                   )?.label ?? request.serviceFamily}
                 </p>
-                <p className="mt-2 text-xs uppercase tracking-[0.2em] text-text-muted">
+                <p className="mt-2 text-xs uppercase tracking-[0.14em] text-text-3">
                   {request.requestType.replace(/_/g, " ")}
                 </p>
                 <h3 className="mt-2 text-lg font-semibold text-white">
@@ -202,7 +202,7 @@ export default function WorkRequestsInbox() {
                     )}&serviceFamily=${encodeURIComponent(
                       request.serviceFamily
                     )}&requestType=${encodeURIComponent(request.requestType)}`}
-                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm font-medium text-white"
+                    className="rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm font-medium text-white"
                   >
                     Prefill project
                   </Link>
@@ -210,7 +210,7 @@ export default function WorkRequestsInbox() {
                 {request.requestType === "change_request" && request.project ? (
                   <Link
                     href={`/projects/${request.project.id}/changes`}
-                    className="rounded-xl border border-[rgba(123,226,239,0.25)] bg-background-card px-3 py-2 text-sm font-medium text-[#7be2ef]"
+                    className="rounded-xl border border-[rgba(123,226,239,0.25)] bg-ink-1 px-3 py-2 text-sm font-medium text-[#7be2ef]"
                   >
                     Open change mgmt
                   </Link>
@@ -220,7 +220,7 @@ export default function WorkRequestsInbox() {
                     type="button"
                     onClick={() => void convertToProject(request.id)}
                     disabled={savingId === request.id}
-                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm font-medium text-white"
+                    className="rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm font-medium text-white"
                   >
                     {savingId === request.id ? "Converting..." : "Convert now"}
                   </button>
@@ -231,7 +231,7 @@ export default function WorkRequestsInbox() {
                     void updateStatus(request.id, event.target.value)
                   }
                   disabled={savingId === request.id}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                  className="rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                 >
                   {(request.requestType === "change_request"
                     ? changeRequestStatuses
@@ -244,10 +244,10 @@ export default function WorkRequestsInbox() {
                 </select>
               </div>
             </div>
-            <p className="mt-3 text-sm text-text-secondary">
+            <p className="mt-3 text-sm text-text-2">
               {request.summary}
             </p>
-            <div className="mt-3 flex flex-wrap gap-3 text-xs text-text-muted">
+            <div className="mt-3 flex flex-wrap gap-3 text-xs text-text-3">
               <span>{request.contactName}</span>
               <span>{request.contactEmail}</span>
               {request.companyName ? <span>{request.companyName}</span> : null}

@@ -59,16 +59,16 @@ export default function ClientPortalHandoverCard({
   const sections = doc.content?.sections ?? [];
 
   return (
-    <div className="rounded-2xl border border-[rgba(81,208,176,0.4)] bg-[rgba(81,208,176,0.08)] p-5">
+    <div className="rounded-[14px] border border-[rgba(81,208,176,0.4)] bg-[rgba(81,208,176,0.08)] p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-[#7be2ef]">
+          <p className="text-xs uppercase tracking-[0.14em] text-[#7be2ef]">
             Project handover
           </p>
           <p className="mt-1 text-lg font-semibold text-white">
             {doc.content?.title ?? "Project Handover"}
           </p>
-          <p className="mt-1 text-xs text-text-secondary">
+          <p className="mt-1 text-xs text-text-2">
             Shared {new Date(doc.sharedToPortalAt).toLocaleDateString()}
           </p>
         </div>
@@ -88,7 +88,7 @@ export default function ClientPortalHandoverCard({
                 {section.title}
               </p>
               {section.body ? (
-                <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">
+                <p className="mt-1 whitespace-pre-wrap text-sm text-text-2">
                   {section.body}
                 </p>
               ) : null}
@@ -102,7 +102,7 @@ export default function ClientPortalHandoverCard({
                       <div className="font-medium text-white">
                         {item.label}
                       </div>
-                      <div className="mt-0.5 whitespace-pre-line text-text-secondary">
+                      <div className="mt-0.5 whitespace-pre-line text-text-2">
                         {item.value}
                       </div>
                       {item.url ? (
@@ -144,7 +144,7 @@ export default function ClientPortalHandoverCard({
             </div>
           ) : null}
           {sections.length === 0 ? (
-            <p className="text-sm text-text-secondary">
+            <p className="text-sm text-text-2">
               Handover content is empty.
             </p>
           ) : null}

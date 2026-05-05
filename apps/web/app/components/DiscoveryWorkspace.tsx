@@ -915,9 +915,9 @@ export default function DiscoveryWorkspace({
     <AppShell>
       <div className="p-8">
         {loading ? (
-          <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-2xl" />
+          <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-[14px]" />
         ) : error || !project ? (
-          <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-8 text-white">
+          <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-8 text-white">
             {error ?? "Project not found"}
           </div>
         ) : (
@@ -927,21 +927,21 @@ export default function DiscoveryWorkspace({
               <div>
                 <Link
                   href={`/projects/${projectId}`}
-                  className="text-sm text-text-muted"
+                  className="text-sm text-text-3"
                 >
                   Back to overview
                 </Link>
                 <h1 className="mt-3 text-3xl font-bold font-heading text-white">
                   Discovery - {project.name}
                 </h1>
-                <p className="mt-2 text-text-secondary">
+                <p className="mt-2 text-text-2">
                   {project.client.name} - {project.selectedHubs.join(", ")}
                 </p>
               </div>
 
               <div className="flex flex-col items-end gap-3">
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-5 py-4 text-right">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-4 text-right">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Sessions complete
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-white">
@@ -953,7 +953,7 @@ export default function DiscoveryWorkspace({
                   type="button"
                   onClick={generateDiscoverySummary}
                   disabled={summaryLoading}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                  className="rounded-xl border border-ink-4 bg-ink-1 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:text-text-3"
                 >
                   {summaryLoading
                     ? "Generating AI Summary..."
@@ -966,7 +966,7 @@ export default function DiscoveryWorkspace({
                   className={`rounded-xl px-5 py-3 text-sm font-semibold text-white ${
                     canGenerateBlueprint && !generatingBlueprint
                       ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]"
-                      : "cursor-not-allowed border border-[rgba(255,255,255,0.08)] bg-background-card text-text-muted"
+                      : "cursor-not-allowed border border-ink-4 bg-ink-1 text-text-3"
                   }`}
                 >
                   {generatingBlueprint ? "Generating..." : "Generate Blueprint"}
@@ -985,10 +985,10 @@ export default function DiscoveryWorkspace({
             </div>
 
             {discoverySummary ? (
-              <div className="mb-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <div className="mb-6 rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                    <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                       Discovery Structuring Agent
                     </p>
                     <h2 className="mt-2 text-xl font-semibold text-white">
@@ -997,7 +997,7 @@ export default function DiscoveryWorkspace({
                   </div>
                 </div>
 
-                <p className="mt-4 max-w-4xl text-sm text-text-secondary">
+                <p className="mt-4 max-w-4xl text-sm text-text-2">
                   {discoverySummary.executiveSummary}
                 </p>
 
@@ -1014,9 +1014,9 @@ export default function DiscoveryWorkspace({
                   ].map(([label, value]) => (
                     <div
                       key={label}
-                      className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      className="rounded-xl border border-ink-4 bg-ink-2 p-4"
                     >
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         {label}
                       </p>
                       <p className="mt-2 text-sm font-medium text-white">
@@ -1027,11 +1027,11 @@ export default function DiscoveryWorkspace({
                 </div>
 
                 <div className="mt-5 grid gap-5 lg:grid-cols-3">
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Missing information
                     </p>
-                    <ul className="mt-4 space-y-3 text-sm text-text-secondary">
+                    <ul className="mt-4 space-y-3 text-sm text-text-2">
                       {discoverySummary.missingInformation.length > 0 ? (
                         discoverySummary.missingInformation.map((item) => (
                           <li key={item}>{item}</li>
@@ -1042,11 +1042,11 @@ export default function DiscoveryWorkspace({
                     </ul>
                   </div>
 
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Key risks
                     </p>
-                    <ul className="mt-4 space-y-3 text-sm text-text-secondary">
+                    <ul className="mt-4 space-y-3 text-sm text-text-2">
                       {discoverySummary.keyRisks.length > 0 ? (
                         discoverySummary.keyRisks.map((item) => (
                           <li key={item}>{item}</li>
@@ -1057,11 +1057,11 @@ export default function DiscoveryWorkspace({
                     </ul>
                   </div>
 
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Recommended next questions
                     </p>
-                    <ul className="mt-4 space-y-3 text-sm text-text-secondary">
+                    <ul className="mt-4 space-y-3 text-sm text-text-2">
                       {discoverySummary.recommendedNextQuestions.length > 0 ? (
                         discoverySummary.recommendedNextQuestions.map(
                           (item) => <li key={item}>{item}</li>
@@ -1075,17 +1075,17 @@ export default function DiscoveryWorkspace({
               </div>
             ) : null}
 
-            <div className="mb-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+            <div className="mb-6 rounded-[14px] border border-ink-4 bg-ink-1 p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                     Phase 2 readiness
                   </p>
                   <h2 className="mt-2 text-xl font-semibold text-white">
                     Blueprint generation unlocks when Session 1 and Session 3
                     are complete
                   </h2>
-                  <p className="mt-2 max-w-3xl text-text-secondary">
+                  <p className="mt-2 max-w-3xl text-text-2">
                     Session 1 validates the business case and success criteria.
                     Session 3 defines the future-state HubSpot design. Both are
                     required before DeplyOS can create a reliable delivery
@@ -1093,8 +1093,8 @@ export default function DiscoveryWorkspace({
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-5 py-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-2 px-5 py-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Required sessions
                   </p>
                   <div className="mt-3 space-y-2 text-sm">
@@ -1158,11 +1158,11 @@ export default function DiscoveryWorkspace({
                 return (
                   <section
                     key={session.session}
-                    className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+                    className="rounded-[14px] border border-ink-4 bg-ink-1 p-6"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           Session {session.session}
                         </p>
                         <h2 className="mt-2 text-xl font-semibold text-white">
@@ -1185,13 +1185,13 @@ export default function DiscoveryWorkspace({
                       </span>
                     </div>
 
-                    <p className="mt-3 text-sm text-text-secondary">
+                    <p className="mt-3 text-sm text-text-2">
                       {sessionDefinition?.description}
                     </p>
 
                     <div className="mt-5 grid gap-4 md:grid-cols-2">
-                      <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <div className="rounded-xl border border-ink-4 bg-ink-2 p-4">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           Fields completed
                         </p>
                         <p className="mt-2 text-2xl font-semibold text-white">
@@ -1199,8 +1199,8 @@ export default function DiscoveryWorkspace({
                         </p>
                       </div>
 
-                      <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <div className="rounded-xl border border-ink-4 bg-ink-2 p-4">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           Blueprint dependency
                         </p>
                         <p className="mt-2 text-sm text-white">
@@ -1211,24 +1211,24 @@ export default function DiscoveryWorkspace({
                       </div>
                     </div>
 
-                    <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                    <div className="mt-6 rounded-[14px] border border-ink-4 bg-ink-2 p-5">
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Session Evidence
                           </p>
                           <h3 className="mt-2 text-lg font-semibold text-white">
                             Add multiple notes, transcripts, docs, or client
                             inputs
                           </h3>
-                          <p className="mt-2 max-w-3xl text-sm text-text-secondary">
+                          <p className="mt-2 max-w-3xl text-sm text-text-2">
                             Keep the four discovery sessions, but support as
                             many meetings and supporting artifacts as needed
                             under each one.
                           </p>
                         </div>
-                        <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <div className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Evidence items
                           </p>
                           <p className="mt-2 text-lg font-semibold text-white">
@@ -1251,7 +1251,7 @@ export default function DiscoveryWorkspace({
                                 event.target.value
                               )
                             }
-                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                           >
                             <option value="summary">Summary</option>
                             <option value="transcript">Transcript</option>
@@ -1276,7 +1276,7 @@ export default function DiscoveryWorkspace({
                               )
                             }
                             placeholder="Call 2 Gemini summary"
-                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                           />
                         </label>
 
@@ -1294,7 +1294,7 @@ export default function DiscoveryWorkspace({
                               )
                             }
                             placeholder="Optional Google Doc, Drive, or Miro link"
-                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                           />
                         </label>
 
@@ -1312,7 +1312,7 @@ export default function DiscoveryWorkspace({
                               )
                             }
                             placeholder="Paste notes, transcript excerpts, or a summary here"
-                            className="mt-3 min-h-[140px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                            className="mt-3 min-h-[140px] w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                           />
                         </label>
                       </div>
@@ -1325,7 +1325,7 @@ export default function DiscoveryWorkspace({
                           type="button"
                           onClick={() => void addEvidenceItem(session.session)}
                           disabled={savingEvidence[session.session]}
-                          className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                          className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                         >
                           {savingEvidence[session.session]
                             ? "Adding evidence..."
@@ -1338,14 +1338,14 @@ export default function DiscoveryWorkspace({
                           sessionEvidenceItems.map((item) => (
                             <article
                               key={item.id}
-                              className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4"
+                              className="rounded-[14px] border border-ink-4 bg-ink-1 p-4"
                             >
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div>
                                   <p className="text-sm font-semibold text-white">
                                     {item.sourceLabel}
                                   </p>
-                                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-text-muted">
+                                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-text-3">
                                     {formatEvidenceTypeLabel(item.evidenceType)}{" "}
                                     · {formatDateTime(item.createdAt)}
                                   </p>
@@ -1362,14 +1362,14 @@ export default function DiscoveryWorkspace({
                                 ) : null}
                               </div>
                               {item.content ? (
-                                <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
+                                <p className="mt-3 whitespace-pre-wrap text-sm text-text-2">
                                   {item.content}
                                 </p>
                               ) : null}
                             </article>
                           ))
                         ) : (
-                          <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-background-card p-4 text-sm text-text-muted">
+                          <div className="rounded-[14px] border border-dashed border-[rgba(255,255,255,0.1)] bg-ink-1 p-4 text-sm text-text-3">
                             No evidence added yet for this session.
                           </div>
                         )}
@@ -1377,17 +1377,17 @@ export default function DiscoveryWorkspace({
                     </div>
 
                     <div className="mt-6 grid gap-5 lg:grid-cols-2">
-                      <div className="lg:col-span-2 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+                      <div className="lg:col-span-2 rounded-[14px] border border-ink-4 bg-ink-2 p-5">
                         <div className="flex flex-wrap items-start justify-between gap-4">
                           <div>
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                               AI Assist
                             </p>
                             <h3 className="mt-2 text-lg font-semibold text-white">
                               Draft this session from notes or a public Google
                               Doc
                             </h3>
-                            <p className="mt-2 max-w-3xl text-sm text-text-secondary">
+                            <p className="mt-2 max-w-3xl text-sm text-text-2">
                               Paste your Gemini summary or meeting notes, or
                               point DeployOS at a public Google Doc, and it will
                               prefill the fields below for review.
@@ -1408,7 +1408,7 @@ export default function DiscoveryWorkspace({
                                   event.target.value
                                 )
                               }
-                              className="mt-3 min-h-[150px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                              className="mt-3 min-h-[150px] w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                             />
                             <button
                               type="button"
@@ -1416,7 +1416,7 @@ export default function DiscoveryWorkspace({
                                 void extractSessionFromNotes(session.session)
                               }
                               disabled={extractingSessions[session.session]}
-                              className="mt-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                              className="mt-3 rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                             >
                               {extractingSessions[session.session]
                                 ? "Extracting..."
@@ -1436,9 +1436,9 @@ export default function DiscoveryWorkspace({
                                   event.target.value
                                 )
                               }
-                              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                             />
-                            <p className="mt-2 text-xs text-text-muted">
+                            <p className="mt-2 text-xs text-text-3">
                               The document must be accessible for export to
                               work.
                             </p>
@@ -1448,7 +1448,7 @@ export default function DiscoveryWorkspace({
                                 void extractSessionFromDoc(session.session)
                               }
                               disabled={fetchingDocs[session.session]}
-                              className="mt-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                              className="mt-3 rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                             >
                               {fetchingDocs[session.session]
                                 ? "Fetching..."
@@ -1458,7 +1458,7 @@ export default function DiscoveryWorkspace({
                         </div>
 
                         {assistantMessages[session.session] ? (
-                          <p className="mt-4 text-sm text-text-secondary">
+                          <p className="mt-4 text-sm text-text-2">
                             {assistantMessages[session.session]}
                           </p>
                         ) : null}
@@ -1469,7 +1469,7 @@ export default function DiscoveryWorkspace({
                           <span className="text-sm font-medium text-white">
                             {field.label}
                           </span>
-                          <span className="mt-1 block text-xs text-text-muted">
+                          <span className="mt-1 block text-xs text-text-3">
                             {field.hint}
                           </span>
                           {field.input === "select" ? (
@@ -1482,7 +1482,7 @@ export default function DiscoveryWorkspace({
                                   event.target.value
                                 )
                               }
-                              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                             >
                               {(field.options ?? []).map((option) => (
                                 <option
@@ -1503,7 +1503,7 @@ export default function DiscoveryWorkspace({
                                   event.target.value
                                 )
                               }
-                              className="mt-3 min-h-[150px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
+                              className="mt-3 min-h-[150px] w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none transition focus:border-[rgba(240,130,74,0.55)]"
                             />
                           )}
                         </label>
@@ -1518,7 +1518,7 @@ export default function DiscoveryWorkspace({
                         type="button"
                         onClick={() => saveSession(session.session)}
                         disabled={savingSessions[session.session]}
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                        className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                       >
                         {savingSessions[session.session]
                           ? "Saving..."

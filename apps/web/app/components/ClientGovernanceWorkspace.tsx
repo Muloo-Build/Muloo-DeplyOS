@@ -49,7 +49,7 @@ function statusBadgeClass(status: string) {
       return "bg-[rgba(224,80,96,0.18)] text-[#ff9aa6]";
     case "draft":
     default:
-      return "bg-[rgba(255,255,255,0.06)] text-text-muted";
+      return "bg-ink-3 text-text-3";
   }
 }
 
@@ -187,7 +187,7 @@ export default function ClientGovernanceWorkspace({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-white">Agreements</h2>
-          <p className="text-sm text-text-secondary">
+          <p className="text-sm text-text-2">
             NDAs, MSAs, DPAs, and signed quote snapshots tied to this client.
             Click-wrap signature is captured (name, email, IP, timestamp).
           </p>
@@ -202,7 +202,7 @@ export default function ClientGovernanceWorkspace({
       </div>
 
       {showNew ? (
-        <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
           <h3 className="text-lg font-semibold text-white">New agreement</h3>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="block">
@@ -210,7 +210,7 @@ export default function ClientGovernanceWorkspace({
               <select
                 value={newType}
                 onChange={(e) => setNewType(e.target.value)}
-                className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
               >
                 {AGREEMENT_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -225,7 +225,7 @@ export default function ClientGovernanceWorkspace({
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="e.g. Mutual NDA — Acme x Muloo"
-                className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
               />
             </label>
             <label className="block">
@@ -236,7 +236,7 @@ export default function ClientGovernanceWorkspace({
                 type="date"
                 value={newEffectiveDate}
                 onChange={(e) => setNewEffectiveDate(e.target.value)}
-                className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
               />
             </label>
             <label className="block">
@@ -245,7 +245,7 @@ export default function ClientGovernanceWorkspace({
                 type="date"
                 value={newExpiresAt}
                 onChange={(e) => setNewExpiresAt(e.target.value)}
-                className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
               />
             </label>
             <label className="block md:col-span-2">
@@ -256,9 +256,9 @@ export default function ClientGovernanceWorkspace({
                 value={newDocumentUrl}
                 onChange={(e) => setNewDocumentUrl(e.target.value)}
                 placeholder="https://..."
-                className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
               />
-              <p className="mt-2 text-xs text-text-muted">
+              <p className="mt-2 text-xs text-text-3">
                 Optional. Either upload to your storage and paste the URL, or
                 fill the body below for click-wrap text.
               </p>
@@ -272,7 +272,7 @@ export default function ClientGovernanceWorkspace({
                 onChange={(e) => setNewDocumentBody(e.target.value)}
                 rows={8}
                 placeholder="Full text of the agreement. Plain text or markdown."
-                className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 font-mono text-xs text-white outline-none"
+                className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 font-mono text-xs text-white outline-none"
               />
             </label>
             <label className="block md:col-span-2">
@@ -283,7 +283,7 @@ export default function ClientGovernanceWorkspace({
                 value={newNotes}
                 onChange={(e) => setNewNotes(e.target.value)}
                 rows={3}
-                className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
               />
             </label>
           </div>
@@ -299,11 +299,11 @@ export default function ClientGovernanceWorkspace({
       ) : null}
 
       {loading ? (
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+        <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
           Loading agreements...
         </div>
       ) : agreements.length === 0 ? (
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+        <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
           No agreements yet. Create one above to get started.
         </div>
       ) : (
@@ -313,24 +313,24 @@ export default function ClientGovernanceWorkspace({
             if (items.length === 0) return null;
             return (
               <section key={status} className="space-y-3">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-text-muted">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-3">
                   {status} ({items.length})
                 </h3>
                 {items.map((agreement) => (
                   <article
                     key={agreement.id}
-                    className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+                    className="rounded-[14px] border border-ink-4 bg-ink-1 p-6"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="flex-1 min-w-[260px]">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             {AGREEMENT_TYPES.find(
                               (t) => t.value === agreement.type
                             )?.label ?? agreement.type}
                           </p>
                           <span
-                            className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${statusBadgeClass(agreement.status)}`}
+                            className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${statusBadgeClass(agreement.status)}`}
                           >
                             {agreement.status}
                           </span>
@@ -338,7 +338,7 @@ export default function ClientGovernanceWorkspace({
                         <h2 className="mt-2 text-xl font-semibold text-white">
                           {agreement.title}
                         </h2>
-                        <p className="mt-2 text-xs text-text-muted">
+                        <p className="mt-2 text-xs text-text-3">
                           Effective {formatDate(agreement.effectiveDate)} ·
                           Expires {formatDate(agreement.expiresAt)} · Created{" "}
                           {formatDate(agreement.createdAt)}
@@ -395,7 +395,7 @@ export default function ClientGovernanceWorkspace({
                     {agreement.signedAt ? (
                       <div className="mt-4 grid gap-2 rounded-xl border border-[rgba(73,255,143,0.18)] bg-[rgba(20,46,32,0.4)] p-4 text-xs md:grid-cols-2">
                         <div>
-                          <p className="uppercase tracking-[0.18em] text-[#9ef0bd]">
+                          <p className="uppercase tracking-[0.14em] text-[#9ef0bd]">
                             Signed by
                           </p>
                           <p className="mt-1 text-sm text-white">
@@ -404,26 +404,26 @@ export default function ClientGovernanceWorkspace({
                               ? ` · ${agreement.signerTitle}`
                               : ""}
                           </p>
-                          <p className="text-xs text-text-muted">
+                          <p className="text-xs text-text-3">
                             {agreement.signerEmail}
                           </p>
                         </div>
                         <div>
-                          <p className="uppercase tracking-[0.18em] text-[#9ef0bd]">
+                          <p className="uppercase tracking-[0.14em] text-[#9ef0bd]">
                             Captured
                           </p>
                           <p className="mt-1 text-sm text-white">
                             {formatDate(agreement.signedAt)}{" "}
                             {new Date(agreement.signedAt).toLocaleTimeString()}
                           </p>
-                          <p className="text-xs text-text-muted">
+                          <p className="text-xs text-text-3">
                             IP {agreement.signerIp ?? "unknown"}
                           </p>
                         </div>
                       </div>
                     ) : null}
                     {agreement.notes ? (
-                      <p className="mt-3 text-xs text-text-muted">
+                      <p className="mt-3 text-xs text-text-3">
                         Notes: {agreement.notes}
                       </p>
                     ) : null}

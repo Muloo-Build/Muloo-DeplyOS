@@ -154,14 +154,14 @@ export default function ClientInbox({
       subtitle="Project-linked messages, updates, and work requests in one place."
     >
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-          <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+          <p className="text-sm uppercase tracking-[0.14em] text-text-3">
             Messages
           </p>
           <h2 className="mt-2 text-xl font-semibold text-white">
             Project conversations
           </h2>
-          <p className="mt-2 text-text-secondary">
+          <p className="mt-2 text-text-2">
             Use quick project messages for clarifications, progress updates, and
             approval prompts without needing email.
           </p>
@@ -177,7 +177,7 @@ export default function ClientInbox({
               <select
                 value={selectedProjectId}
                 onChange={(event) => setSelectedProjectId(event.target.value)}
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
               >
                 <option value="">Choose project</option>
                 {projects.map(({ project }) => (
@@ -200,35 +200,35 @@ export default function ClientInbox({
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="Send Muloo a quick message about this project..."
-              className="min-h-[120px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="min-h-[120px] w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </div>
 
           <div className="mt-6 space-y-4">
             {filteredMessages.length === 0 ? (
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4 text-sm text-text-secondary">
+              <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4 text-sm text-text-2">
                 No project messages yet.
               </div>
             ) : (
               filteredMessages.map((message) => (
                 <div
                   key={message.id}
-                  className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4"
+                  className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         {message.project.name}
                       </p>
                       <p className="mt-2 text-sm font-semibold text-white">
                         {message.senderName}
                       </p>
                     </div>
-                    <span className="text-xs text-text-muted">
+                    <span className="text-xs text-text-3">
                       {new Date(message.createdAt).toLocaleString("en-ZA")}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm text-text-secondary">
+                  <p className="mt-3 text-sm text-text-2">
                     {message.body}
                   </p>
                 </div>
@@ -237,43 +237,43 @@ export default function ClientInbox({
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-          <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+          <p className="text-sm uppercase tracking-[0.14em] text-text-3">
             Requests
           </p>
           <h2 className="mt-2 text-xl font-semibold text-white">
             Submitted work requests
           </h2>
-          <p className="mt-2 text-text-secondary">
+          <p className="mt-2 text-text-2">
             Track quote requests, job specs, and change requests submitted to
             Muloo from this workspace.
           </p>
 
           <div className="mt-6 space-y-4">
             {requests.length === 0 ? (
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4 text-sm text-text-secondary">
+              <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4 text-sm text-text-2">
                 No work requests yet.
               </div>
             ) : (
               requests.map((request) => (
                 <div
                   key={request.id}
-                  className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4"
+                  className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         {request.requestType.replace(/_/g, " ")}
                       </p>
                       <h4 className="mt-2 text-lg font-semibold text-white">
                         {request.title}
                       </h4>
                     </div>
-                    <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs font-medium text-text-secondary">
+                    <span className="rounded-full border border-ink-4 px-3 py-1 text-xs font-medium text-text-2">
                       {request.status}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm text-text-secondary">
+                  <p className="mt-3 text-sm text-text-2">
                     {request.summary}
                   </p>
                 </div>

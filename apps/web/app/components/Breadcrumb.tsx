@@ -34,17 +34,17 @@ export default function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
         return (
           <Fragment key={item.label}>
             {index > 0 ? (
-              <span className="select-none text-text-muted opacity-50">›</span>
+              <span className="select-none text-text-3 opacity-50">›</span>
             ) : null}
             {item.href && !isLast ? (
               <Link
                 href={item.href}
-                className="text-text-muted transition-colors hover:text-white"
+                className="text-text-3 transition-colors hover:text-white"
               >
                 {item.label}
               </Link>
             ) : (
-              <span className={isLast ? "text-white" : "text-text-muted"}>
+              <span className={isLast ? "text-white" : "text-text-3"}>
                 {item.label}
               </span>
             )}

@@ -87,7 +87,7 @@ export default function HandoverPanel({ projectId }: { projectId: string }) {
   }
 
   if (loading) {
-    return <p className="text-sm text-text-secondary">Loading handover…</p>;
+    return <p className="text-sm text-text-2">Loading handover…</p>;
   }
   if (error) {
     return (
@@ -97,7 +97,7 @@ export default function HandoverPanel({ projectId }: { projectId: string }) {
     );
   }
   if (!doc) {
-    return <p className="text-sm text-text-secondary">No handover doc.</p>;
+    return <p className="text-sm text-text-2">No handover doc.</p>;
   }
 
   const content = doc.content;
@@ -105,7 +105,7 @@ export default function HandoverPanel({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs text-text-secondary">
+        <div className="text-xs text-text-2">
           Generated {new Date(doc.generatedAt).toLocaleString()}
           {doc.sharedToPortalAt ? (
             <span className="ml-2 inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-200">
@@ -118,7 +118,7 @@ export default function HandoverPanel({ projectId }: { projectId: string }) {
             type="button"
             onClick={regenerate}
             disabled={busy !== null}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:opacity-50"
+            className="rounded-lg border border-ink-4 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:opacity-50"
           >
             {busy === "regen" ? "Regenerating…" : "Regenerate"}
           </button>
@@ -141,14 +141,14 @@ export default function HandoverPanel({ projectId }: { projectId: string }) {
         {(content?.sections ?? []).map((section) => (
           <details
             key={section.key}
-            className="rounded-xl border border-white/10 bg-[#0b1126] px-3 py-2"
+            className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2"
             open
           >
             <summary className="cursor-pointer text-sm font-semibold text-white">
               {section.title}
             </summary>
             {section.body ? (
-              <p className="mt-2 whitespace-pre-line text-xs text-text-secondary">
+              <p className="mt-2 whitespace-pre-line text-xs text-text-2">
                 {section.body}
               </p>
             ) : null}
@@ -160,7 +160,7 @@ export default function HandoverPanel({ projectId }: { projectId: string }) {
                     className="rounded-lg bg-white/5 px-2 py-1.5 text-xs"
                   >
                     <div className="font-medium text-white">{item.label}</div>
-                    <div className="mt-0.5 whitespace-pre-line text-text-secondary">
+                    <div className="mt-0.5 whitespace-pre-line text-text-2">
                       {item.value}
                     </div>
                     {item.url ? (

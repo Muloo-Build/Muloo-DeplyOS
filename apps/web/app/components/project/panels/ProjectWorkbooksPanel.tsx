@@ -122,7 +122,7 @@ const VISIBILITY_BADGE: Record<
 > = {
   internal: {
     label: "Internal only",
-    className: "border-white/10 bg-white/5 text-text-secondary",
+    className: "border-ink-4 bg-white/5 text-text-2",
     tooltip: "Muloo team only. Not shared with the client portal."
   },
   contributor_link: {
@@ -413,20 +413,20 @@ export default function ProjectWorkbooksPanel(props: {
 
   return (
     <div className="space-y-4">
-      <div className="brand-surface-soft rounded-2xl border border-white/10 p-4">
+      <div className="brand-surface-soft rounded-[14px] border border-ink-4 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-white">
               Workbooks — discovery & contribution tools
             </p>
-            <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+            <p className="mt-1 text-xs leading-relaxed text-text-2">
               Workbooks collect structured input from contributors who often do
               not have client portal access. They are{" "}
               <strong className="text-white">internal by default</strong> — use
               the visibility control on each workbook to share it with
               contributors, the project champion, or the full client portal.
             </p>
-            <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+            <p className="mt-1 text-xs leading-relaxed text-text-2">
               <strong className="text-white">Recommended:</strong> start from a
               reusable template managed in{" "}
               <a
@@ -456,7 +456,7 @@ export default function ProjectWorkbooksPanel(props: {
                 setShowForm((value) => !value);
                 if (!showForm) setShowTemplatePicker(false);
               }}
-              className="brand-surface rounded-full border border-white/10 px-3 py-1.5 text-xs uppercase tracking-wide text-text-secondary hover:border-white/30 hover:text-white"
+              className="brand-surface rounded-full border border-ink-4 px-3 py-1.5 text-xs uppercase tracking-wide text-text-2 hover:border-ink-5 hover:text-white"
             >
               {showForm ? "Cancel" : "Add blank"}
             </button>
@@ -494,7 +494,7 @@ export default function ProjectWorkbooksPanel(props: {
       ) : null}
 
       {showForm ? (
-        <div className="brand-surface-soft space-y-3 rounded-2xl border p-4">
+        <div className="brand-surface-soft space-y-3 rounded-[14px] border p-4">
           <input
             type="text"
             value={draft.sourceLabel}
@@ -531,7 +531,7 @@ export default function ProjectWorkbooksPanel(props: {
             </select>
           </div>
           <div>
-            <p className="mb-1 text-xs font-medium text-text-secondary">
+            <p className="mb-1 text-xs font-medium text-text-2">
               Visibility — who can see this workbook?
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -541,7 +541,7 @@ export default function ProjectWorkbooksPanel(props: {
                   className={`flex cursor-pointer items-start gap-2 rounded-xl border p-2.5 text-xs transition ${
                     draft.visibility === opt.value
                       ? "border-brand-teal/50 bg-brand-teal/10"
-                      : "border-white/10 hover:border-white/20"
+                      : "border-ink-4 hover:border-ink-5"
                   }`}
                 >
                   <input
@@ -556,7 +556,7 @@ export default function ProjectWorkbooksPanel(props: {
                     <span className="block font-semibold text-white">
                       {opt.label}
                     </span>
-                    <span className="text-text-secondary">{opt.description}</span>
+                    <span className="text-text-2">{opt.description}</span>
                   </span>
                 </label>
               ))}
@@ -615,11 +615,11 @@ export default function ProjectWorkbooksPanel(props: {
       ) : null}
 
       {!workbooks ? (
-        <p className="text-sm text-text-secondary">Loading…</p>
+        <p className="text-sm text-text-2">Loading…</p>
       ) : workbooks.length === 0 ? (
-        <div className="brand-surface rounded-2xl border border-dashed border-white/10 p-6 text-center">
+        <div className="brand-surface rounded-[14px] border border-dashed border-ink-4 p-6 text-center">
           <p className="text-sm font-medium text-white">No workbooks yet</p>
-          <p className="mt-1 text-xs text-text-secondary">
+          <p className="mt-1 text-xs text-text-2">
             Create a workbook to collect discovery input. New workbooks default
             to <strong className="text-white">Internal only</strong> — nothing
             is shown to clients until you deliberately share it.
@@ -654,7 +654,7 @@ export default function ProjectWorkbooksPanel(props: {
             return (
               <li
                 key={wb.id}
-                className="brand-surface-soft rounded-2xl border p-3"
+                className="brand-surface-soft rounded-[14px] border p-3"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -669,7 +669,7 @@ export default function ProjectWorkbooksPanel(props: {
                         {badge.label}
                       </span>
                       {wb.status ? (
-                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-text-secondary">
+                        <span className="rounded-full border border-ink-4 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-text-2">
                           {wb.status}
                         </span>
                       ) : null}
@@ -682,7 +682,7 @@ export default function ProjectWorkbooksPanel(props: {
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-0.5 text-xs text-text-secondary">
+                    <p className="mt-0.5 text-xs text-text-2">
                       {wb.resourceType
                         ? RESOURCE_TYPE_LABEL[wb.resourceType] ?? wb.resourceType
                         : EVIDENCE_TYPE_OPTIONS.find(
@@ -697,7 +697,7 @@ export default function ProjectWorkbooksPanel(props: {
                           : ""}
                     </p>
                     {wb.content ? (
-                      <p className="mt-1 text-xs text-text-secondary">
+                      <p className="mt-1 text-xs text-text-2">
                         {wb.content}
                       </p>
                     ) : null}
@@ -742,7 +742,7 @@ export default function ProjectWorkbooksPanel(props: {
                     <button
                       type="button"
                       onClick={() => deleteWorkbook(wb.id)}
-                      className="text-xs text-text-secondary hover:text-rose-400"
+                      className="text-xs text-text-2 hover:text-rose-400"
                     >
                       Remove
                     </button>
@@ -750,7 +750,7 @@ export default function ProjectWorkbooksPanel(props: {
                 </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] text-text-secondary">
+                  <span className="text-[11px] text-text-2">
                     Visibility:
                   </span>
                   {VISIBILITY_OPTIONS.map((opt) => (
@@ -763,7 +763,7 @@ export default function ProjectWorkbooksPanel(props: {
                       className={`rounded-full border px-2 py-0.5 text-[10px] transition disabled:opacity-50 ${
                         (wb.visibility ?? "internal") === opt.value
                           ? "border-brand-teal/50 bg-brand-teal/10 text-brand-teal"
-                          : "border-white/10 text-text-secondary hover:border-white/30 hover:text-white"
+                          : "border-ink-4 text-text-2 hover:border-ink-5 hover:text-white"
                       }`}
                     >
                       {opt.label}
@@ -930,13 +930,13 @@ function FromTemplatePicker(props: {
   }
 
   return (
-    <div className="brand-surface-soft space-y-3 rounded-2xl border border-brand-teal/30 p-4">
+    <div className="brand-surface-soft space-y-3 rounded-[14px] border border-brand-teal/30 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-white">
             Add workbook from template
           </p>
-          <p className="mt-0.5 text-xs text-text-secondary">
+          <p className="mt-0.5 text-xs text-text-2">
             Pick a template — a copy will be added to this project. Editing
             the project copy does not change the template, and changes to the
             template later do not retroactively change this copy.
@@ -955,17 +955,17 @@ function FromTemplatePicker(props: {
                 type="button"
                 onClick={() => setSelectedId(null)}
                 disabled={busy}
-                className="text-xs text-text-secondary hover:text-white disabled:opacity-50"
+                className="text-xs text-text-2 hover:text-white disabled:opacity-50"
               >
                 Pick a different template
               </button>
             </div>
             {selected.description ? (
-              <p className="mt-1 text-xs text-text-secondary">
+              <p className="mt-1 text-xs text-text-2">
                 {selected.description}
               </p>
             ) : null}
-            <p className="mt-1 text-[11px] text-text-muted">
+            <p className="mt-1 text-[11px] text-text-3">
               {selected.sectionCount} section
               {selected.sectionCount === 1 ? "" : "s"} ·{" "}
               {selected.questionCount} question
@@ -1008,7 +1008,7 @@ function FromTemplatePicker(props: {
             />
           </div>
           <div>
-            <p className="mb-1 text-xs font-medium text-text-secondary">
+            <p className="mb-1 text-xs font-medium text-text-2">
               Visibility — who can see this workbook?
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -1018,7 +1018,7 @@ function FromTemplatePicker(props: {
                   className={`flex cursor-pointer items-start gap-2 rounded-xl border p-2.5 text-xs transition ${
                     draft.visibility === opt.value
                       ? "border-brand-teal/50 bg-brand-teal/10"
-                      : "border-white/10 hover:border-white/20"
+                      : "border-ink-4 hover:border-ink-5"
                   }`}
                 >
                   <input
@@ -1035,7 +1035,7 @@ function FromTemplatePicker(props: {
                     <span className="block font-semibold text-white">
                       {opt.label}
                     </span>
-                    <span className="text-text-secondary">
+                    <span className="text-text-2">
                       {opt.description}
                     </span>
                   </span>
@@ -1062,9 +1062,9 @@ function FromTemplatePicker(props: {
             className="brand-input w-full rounded-lg border px-3 py-2 text-sm"
           />
           {!templates ? (
-            <p className="text-xs text-text-secondary">Loading…</p>
+            <p className="text-xs text-text-2">Loading…</p>
           ) : templates.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-white/10 p-4 text-xs text-text-secondary">
+            <p className="rounded-xl border border-dashed border-ink-4 p-4 text-xs text-text-2">
               No active templates yet. Build one in the{" "}
               <a
                 href="/workbooks"
@@ -1083,28 +1083,28 @@ function FromTemplatePicker(props: {
                   <button
                     type="button"
                     onClick={() => pickTemplate(t)}
-                    className="block w-full rounded-xl border border-white/10 bg-background-elevated p-3 text-left transition hover:border-brand-teal/40"
+                    className="block w-full rounded-xl border border-ink-4 bg-ink-2 p-3 text-left transition hover:border-brand-teal/40"
                   >
                     <p className="text-sm font-semibold text-white">
                       {t.title}
                     </p>
                     {t.description ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-text-secondary">
+                      <p className="mt-1 line-clamp-2 text-xs text-text-2">
                         {t.description}
                       </p>
                     ) : null}
-                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-text-secondary">
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-text-2">
                       {t.category ? (
-                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                        <span className="rounded-full border border-ink-4 bg-white/5 px-2 py-0.5">
                           {t.category}
                         </span>
                       ) : null}
                       {t.suggestedProjectType ? (
-                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                        <span className="rounded-full border border-ink-4 bg-white/5 px-2 py-0.5">
                           {t.suggestedProjectType}
                         </span>
                       ) : null}
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                      <span className="rounded-full border border-ink-4 bg-white/5 px-2 py-0.5">
                         {t.sectionCount}s · {t.questionCount}q
                       </span>
                     </div>

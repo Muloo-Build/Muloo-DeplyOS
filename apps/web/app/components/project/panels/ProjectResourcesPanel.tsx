@@ -56,7 +56,7 @@ const VISIBILITY_OPTIONS: Array<{
 const VISIBILITY_BADGE: Record<string, { label: string; className: string; tooltip: string }> = {
   internal: {
     label: "Internal only",
-    className: "border-white/10 bg-white/5 text-text-secondary",
+    className: "border-ink-4 bg-white/5 text-text-2",
     tooltip: "Muloo team only. Not shared with the client portal."
   },
   contributor_link: {
@@ -233,7 +233,7 @@ export default function ProjectResourcesPanel({
       {error ? <p className="text-sm text-rose-400">{error}</p> : null}
 
       {showForm ? (
-        <div className="brand-surface-soft space-y-3 rounded-2xl border p-4">
+        <div className="brand-surface-soft space-y-3 rounded-[14px] border p-4">
           <input
             type="text"
             value={draft.sourceLabel}
@@ -275,7 +275,7 @@ export default function ProjectResourcesPanel({
             className="brand-input w-full rounded-lg border px-3 py-2 text-sm"
           />
           <div>
-            <p className="mb-1 text-xs font-medium text-text-secondary">
+            <p className="mb-1 text-xs font-medium text-text-2">
               Visibility — who can see this resource?
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -285,7 +285,7 @@ export default function ProjectResourcesPanel({
                   className={`flex cursor-pointer items-start gap-2 rounded-xl border p-2.5 text-xs transition ${
                     draft.visibility === opt.value
                       ? "border-brand-teal/50 bg-brand-teal/10"
-                      : "border-white/10 hover:border-white/20"
+                      : "border-ink-4 hover:border-ink-5"
                   }`}
                 >
                   <input
@@ -302,7 +302,7 @@ export default function ProjectResourcesPanel({
                     <span className="block font-semibold text-white">
                       {opt.label}
                     </span>
-                    <span className="text-text-secondary">
+                    <span className="text-text-2">
                       {opt.description}
                     </span>
                   </span>
@@ -329,11 +329,11 @@ export default function ProjectResourcesPanel({
       ) : null}
 
       {!resources ? (
-        <p className="text-sm text-text-secondary">Loading…</p>
+        <p className="text-sm text-text-2">Loading…</p>
       ) : resources.length === 0 ? (
-        <div className="brand-surface rounded-2xl border border-dashed border-white/10 p-6 text-center">
+        <div className="brand-surface rounded-[14px] border border-dashed border-ink-4 p-6 text-center">
           <p className="text-sm font-medium text-white">No resources yet</p>
-          <p className="mt-1 text-xs text-text-secondary">
+          <p className="mt-1 text-xs text-text-2">
             Add Miro boards, Google Docs, PDFs and other links here. Set
             visibility to control who can see each one.
           </p>
@@ -347,7 +347,7 @@ export default function ProjectResourcesPanel({
             return (
               <li
                 key={r.id}
-                className="brand-surface-soft rounded-2xl border p-3"
+                className="brand-surface-soft rounded-[14px] border p-3"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -362,14 +362,14 @@ export default function ProjectResourcesPanel({
                         {badge.label}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-xs text-text-secondary">
+                    <p className="mt-0.5 text-xs text-text-2">
                       {r.resourceType
                         ? RESOURCE_TYPE_LABEL[r.resourceType] ?? r.resourceType
                         : "Link"}
                       {r.ownerName ? ` · owner: ${r.ownerName}` : ""}
                     </p>
                     {r.content ? (
-                      <p className="mt-1 text-xs text-text-secondary">
+                      <p className="mt-1 text-xs text-text-2">
                         {r.content}
                       </p>
                     ) : null}
@@ -388,7 +388,7 @@ export default function ProjectResourcesPanel({
                     <button
                       type="button"
                       onClick={() => deleteResource(r.id)}
-                      className="text-xs text-text-secondary hover:text-rose-400"
+                      className="text-xs text-text-2 hover:text-rose-400"
                     >
                       Remove
                     </button>
@@ -396,7 +396,7 @@ export default function ProjectResourcesPanel({
                 </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] text-text-secondary">
+                  <span className="text-[11px] text-text-2">
                     Visibility:
                   </span>
                   {VISIBILITY_OPTIONS.map((opt) => (
@@ -409,7 +409,7 @@ export default function ProjectResourcesPanel({
                       className={`rounded-full border px-2 py-0.5 text-[10px] transition disabled:opacity-50 ${
                         (r.visibility ?? "internal") === opt.value
                           ? "border-brand-teal/50 bg-brand-teal/10 text-brand-teal"
-                          : "border-white/10 text-text-secondary hover:border-white/30 hover:text-white"
+                          : "border-ink-4 text-text-2 hover:border-ink-5 hover:text-white"
                       }`}
                     >
                       {opt.label}

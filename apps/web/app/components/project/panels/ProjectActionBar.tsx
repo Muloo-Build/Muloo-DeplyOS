@@ -75,10 +75,10 @@ export default function ProjectActionBar(props: ActionBarProps) {
   return (
     <section
       aria-label="Project quick actions"
-      className="brand-surface rounded-2xl border border-white/10 px-4 py-3"
+      className="brand-surface rounded-[14px] border border-ink-4 px-4 py-3"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <p className="mr-2 text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">
+        <p className="mr-2 text-xs font-semibold uppercase tracking-[0.14em] text-text-2">
           Next actions
         </p>
         {actions.map((action) => (
@@ -93,7 +93,7 @@ export default function ProjectActionBar(props: ActionBarProps) {
             className={
               action.primary
                 ? "inline-flex items-center gap-2 rounded-xl bg-brand-teal px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-                : "inline-flex items-center gap-2 rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm font-medium text-white transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+                : "inline-flex items-center gap-2 rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
             }
           >
             {action.icon}

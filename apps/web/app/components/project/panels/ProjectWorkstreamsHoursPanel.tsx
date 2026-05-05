@@ -70,12 +70,12 @@ export default function ProjectWorkstreamsHoursPanel(props: {
   }
 
   if (!rows) {
-    return <p className="text-sm text-text-secondary">Loading…</p>;
+    return <p className="text-sm text-text-2">Loading…</p>;
   }
 
   if (rows.length === 0) {
     return (
-      <p className="text-sm text-text-secondary">
+      <p className="text-sm text-text-2">
         No workstreams defined yet. Add them in project edit.
       </p>
     );
@@ -89,12 +89,12 @@ export default function ProjectWorkstreamsHoursPanel(props: {
         return (
           <div
             key={row.workstreamId}
-            className="brand-surface-soft rounded-2xl border p-4"
+            className="brand-surface-soft rounded-[14px] border p-4"
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <h4 className="text-sm font-semibold text-white">{row.name}</h4>
-                <p className="text-xs text-text-secondary">
+                <p className="text-xs text-text-2">
                   {row.category} · {row.status} · owner {row.owner}
                   {row.billingOwner ? ` · billing ${row.billingOwner}` : ""}
                   {row.deliveryOwner ? ` · delivery ${row.deliveryOwner}` : ""}
@@ -113,23 +113,23 @@ export default function ProjectWorkstreamsHoursPanel(props: {
 
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
               <div>
-                <div className="text-text-secondary">Estimated</div>
+                <div className="text-text-2">Estimated</div>
                 <div className="text-white">
                   {formatHours(row.estimatedHours)}
                 </div>
               </div>
               <div>
-                <div className="text-text-secondary">Cap</div>
+                <div className="text-text-2">Cap</div>
                 <div className="text-white">{formatHours(row.hourCap)}</div>
               </div>
               <div>
-                <div className="text-text-secondary">Used</div>
+                <div className="text-text-2">Used</div>
                 <div className={overCap ? "text-rose-400" : "text-white"}>
                   {formatHours(row.actualHours)}
                 </div>
               </div>
               <div>
-                <div className="text-text-secondary">Remaining</div>
+                <div className="text-text-2">Remaining</div>
                 <div className={overCap ? "text-rose-400" : "text-white"}>
                   {formatHours(row.remainingHours)}
                 </div>
@@ -147,7 +147,7 @@ export default function ProjectWorkstreamsHoursPanel(props: {
               </div>
             ) : null}
 
-            <p className="mt-2 text-xs text-text-secondary">
+            <p className="mt-2 text-xs text-text-2">
               {row.taskCount} task{row.taskCount === 1 ? "" : "s"} linked ·{" "}
               {formatPct(row.percentOfCap)} of cap
             </p>

@@ -14,7 +14,7 @@ interface SummaryWorkbook {
 const VISIBILITY_BADGE: Record<string, { label: string; className: string }> = {
   internal: {
     label: "Internal only",
-    className: "border-white/10 bg-white/5 text-text-secondary"
+    className: "border-ink-4 bg-white/5 text-text-2"
   },
   contributor_link: {
     label: "Contributor access",
@@ -59,7 +59,7 @@ export default function ProjectWorkbookSharingSummary({
   }, [load]);
 
   if (!workbooks) {
-    return <p className="text-sm text-text-secondary">Loading…</p>;
+    return <p className="text-sm text-text-2">Loading…</p>;
   }
 
   const counts = workbooks.reduce(
@@ -86,7 +86,7 @@ export default function ProjectWorkbookSharingSummary({
             key={key}
             className="brand-surface-soft rounded-xl border p-3"
           >
-            <p className="text-[10px] uppercase tracking-wide text-text-secondary">
+            <p className="text-[10px] uppercase tracking-wide text-text-2">
               {badge.label}
             </p>
             <p className="mt-1 text-2xl font-semibold text-white">
@@ -97,7 +97,7 @@ export default function ProjectWorkbookSharingSummary({
       </div>
 
       {workbooks.length === 0 ? (
-        <p className="text-xs text-text-secondary">
+        <p className="text-xs text-text-2">
           No workbooks yet. Create one on the Discovery tab.
         </p>
       ) : (
@@ -121,7 +121,7 @@ export default function ProjectWorkbookSharingSummary({
                     {badge.label}
                   </span>
                   {wb.assignedContributorIds.length > 0 ? (
-                    <span className="text-[10px] text-text-secondary">
+                    <span className="text-[10px] text-text-2">
                       · {wb.assignedContributorIds.length} assigned
                     </span>
                   ) : null}

@@ -360,13 +360,13 @@ export default function AIAssistantPanel() {
           <section className="mb-4 w-[min(92vw,28rem)] rounded-[28px] border border-[rgba(255,255,255,0.1)] bg-[#071127] p-5 shadow-[0_24px_80px_rgba(3,8,20,0.55)]">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   AI Assistant
                 </p>
                 <h3 className="mt-2 text-lg font-semibold text-white">
                   Ask Muloo
                 </h3>
-                <p className="mt-2 text-sm leading-6 text-text-secondary">
+                <p className="mt-2 text-sm leading-6 text-text-2">
                   {projectContext
                     ? `You’re working inside ${projectContext.name} for ${projectContext.clientName}. I can explain the project, answer workspace questions, and trigger safe actions.`
                     : `You’re on ${pageLabel}. I can help with workspace navigation, page questions, and safe operational actions.`}
@@ -375,7 +375,7 @@ export default function AIAssistantPanel() {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-sm text-text-secondary transition hover:border-[rgba(255,255,255,0.14)] hover:text-white"
+                className="rounded-full border border-ink-4 px-3 py-1 text-sm text-text-2 transition hover:border-ink-5 hover:text-white"
                 aria-label="Close AI assistant"
               >
                 Close
@@ -394,7 +394,7 @@ export default function AIAssistantPanel() {
                       })
                     }
                     disabled={busy}
-                    className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white transition hover:border-[rgba(255,255,255,0.14)] disabled:opacity-60"
+                    className="rounded-full border border-ink-4 px-3 py-2 text-sm text-white transition hover:border-ink-5 disabled:opacity-60"
                   >
                     Run portal audit
                   </button>
@@ -407,7 +407,7 @@ export default function AIAssistantPanel() {
                       })
                     }
                     disabled={busy}
-                    className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white transition hover:border-[rgba(255,255,255,0.14)] disabled:opacity-60"
+                    className="rounded-full border border-ink-4 px-3 py-2 text-sm text-white transition hover:border-ink-5 disabled:opacity-60"
                   >
                     Draft project email
                   </button>
@@ -422,7 +422,7 @@ export default function AIAssistantPanel() {
                       path: "/projects"
                     })
                   }
-                  className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white transition hover:border-[rgba(255,255,255,0.14)]"
+                  className="rounded-full border border-ink-4 px-3 py-2 text-sm text-white transition hover:border-ink-5"
                 >
                   Open projects
                 </button>
@@ -433,13 +433,13 @@ export default function AIAssistantPanel() {
               {messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`rounded-2xl px-4 py-3 text-sm ${
+                  className={`rounded-[14px] px-4 py-3 text-sm ${
                     message.role === "assistant"
                       ? "border border-[rgba(123,226,239,0.18)] bg-[#0b1733] text-white"
-                      : "border border-[rgba(255,255,255,0.07)] bg-[#0b1126] text-text-secondary"
+                      : "border border-ink-4 bg-ink-2 text-text-2"
                   }`}
                 >
-                  <p className="mb-1 text-[11px] uppercase tracking-[0.16em] text-text-muted">
+                  <p className="mb-1 text-[11px] uppercase tracking-[0.16em] text-text-3">
                     {message.role === "assistant" ? "Assistant" : "You"}
                   </p>
                   <p className="whitespace-pre-wrap">{message.text}</p>
@@ -450,7 +450,7 @@ export default function AIAssistantPanel() {
                           key={`${message.id}-${action.label}-${index}`}
                           type="button"
                           onClick={() => void handleAction(action)}
-                          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white transition hover:border-brand-teal/50"
+                          className="rounded-xl border border-ink-4 bg-white/5 px-3 py-2 text-xs font-medium text-white transition hover:border-brand-teal/50"
                         >
                           {action.label}
                         </button>
@@ -473,10 +473,10 @@ export default function AIAssistantPanel() {
                 onChange={(event) => setInput(event.target.value)}
                 rows={3}
                 placeholder="Ask about this page or request a safe action..."
-                className="w-full resize-none rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+                className="w-full resize-none rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none placeholder:text-text-3"
               />
               <div className="flex items-center justify-between gap-3">
-                <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-text-muted">
+                <span className="rounded-full border border-ink-4 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-text-3">
                   {projectContext ? "Project context attached" : "Page context attached"}
                 </span>
                 <button

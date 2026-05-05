@@ -31,7 +31,7 @@ const STATUS_TONE: Record<Risk["status"], string> = {
   open: "bg-rose-500/20 text-rose-100",
   monitoring: "bg-amber-500/20 text-amber-100",
   mitigated: "bg-emerald-500/20 text-emerald-100",
-  closed: "bg-white/10 text-text-secondary"
+  closed: "bg-white/10 text-text-2"
 };
 
 export default function ProjectRaidPanel({ projectId }: { projectId: string }) {
@@ -121,14 +121,14 @@ export default function ProjectRaidPanel({ projectId }: { projectId: string }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-xs uppercase tracking-wide text-text-secondary">RAID log</p>
+          <p className="text-xs uppercase tracking-wide text-text-2">RAID log</p>
           <p className="text-sm text-white">
             {open.length} open · {closed.length} resolved
           </p>
         </div>
         <button
           onClick={() => setAdding((v) => !v)}
-          className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white hover:bg-white/10"
+          className="inline-flex items-center gap-1 rounded-md border border-ink-4 bg-white/5 px-3 py-1.5 text-xs text-white hover:bg-white/10"
         >
           <Plus className="h-3.5 w-3.5" /> Add item
         </button>
@@ -137,10 +137,10 @@ export default function ProjectRaidPanel({ projectId }: { projectId: string }) {
       {adding ? (
         <form
           onSubmit={submit}
-          className="grid gap-2 rounded-2xl border border-white/10 bg-background-elevated p-4 md:grid-cols-6"
+          className="grid gap-2 rounded-[14px] border border-ink-4 bg-ink-2 p-4 md:grid-cols-6"
         >
           <select
-            className="rounded-md border border-white/10 bg-background-card px-2 py-1.5 text-sm text-white"
+            className="rounded-md border border-ink-4 bg-ink-1 px-2 py-1.5 text-sm text-white"
             value={form.kind}
             onChange={(e) =>
               setForm({ ...form, kind: e.target.value as Risk["kind"] })
@@ -155,12 +155,12 @@ export default function ProjectRaidPanel({ projectId }: { projectId: string }) {
           <input
             required
             placeholder="Title"
-            className="rounded-md border border-white/10 bg-background-card px-2 py-1.5 text-sm text-white md:col-span-3"
+            className="rounded-md border border-ink-4 bg-ink-1 px-2 py-1.5 text-sm text-white md:col-span-3"
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
           />
           <select
-            className="rounded-md border border-white/10 bg-background-card px-2 py-1.5 text-sm text-white"
+            className="rounded-md border border-ink-4 bg-ink-1 px-2 py-1.5 text-sm text-white"
             value={form.severity}
             onChange={(e) =>
               setForm({ ...form, severity: e.target.value as Risk["severity"] })
@@ -174,19 +174,19 @@ export default function ProjectRaidPanel({ projectId }: { projectId: string }) {
           </select>
           <input
             type="date"
-            className="rounded-md border border-white/10 bg-background-card px-2 py-1.5 text-sm text-white"
+            className="rounded-md border border-ink-4 bg-ink-1 px-2 py-1.5 text-sm text-white"
             value={form.dueDate}
             onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
           />
           <input
             placeholder="Owner"
-            className="rounded-md border border-white/10 bg-background-card px-2 py-1.5 text-sm text-white md:col-span-2"
+            className="rounded-md border border-ink-4 bg-ink-1 px-2 py-1.5 text-sm text-white md:col-span-2"
             value={form.owner}
             onChange={(e) => setForm({ ...form, owner: e.target.value })}
           />
           <textarea
             placeholder="Description (optional)"
-            className="rounded-md border border-white/10 bg-background-card px-2 py-1.5 text-sm text-white md:col-span-4"
+            className="rounded-md border border-ink-4 bg-ink-1 px-2 py-1.5 text-sm text-white md:col-span-4"
             rows={2}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -202,19 +202,19 @@ export default function ProjectRaidPanel({ projectId }: { projectId: string }) {
 
       {error ? <p className="text-xs text-status-error">{error}</p> : null}
       {loading ? (
-        <p className="text-xs text-text-secondary">Loading…</p>
+        <p className="text-xs text-text-2">Loading…</p>
       ) : risks.length === 0 ? (
-        <p className="text-xs text-text-secondary">
+        <p className="text-xs text-text-2">
           No risks, issues, decisions, or assumptions logged yet.
         </p>
       ) : (
-        <ul className="divide-y divide-white/5 rounded-2xl border border-white/10">
+        <ul className="divide-y divide-white/5 rounded-[14px] border border-ink-4">
           {risks.map((r) => (
             <li key={r.id} className="p-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-secondary">
+                    <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-2">
                       {r.kind}
                     </span>
                     <span
@@ -228,7 +228,7 @@ export default function ProjectRaidPanel({ projectId }: { projectId: string }) {
                       {r.status}
                     </span>
                     {r.dueDate ? (
-                      <span className="text-[10px] text-text-secondary">
+                      <span className="text-[10px] text-text-2">
                         due {r.dueDate.slice(0, 10)}
                       </span>
                     ) : null}
@@ -255,10 +255,10 @@ export default function ProjectRaidPanel({ projectId }: { projectId: string }) {
                     {r.title}
                   </p>
                   {r.description ? (
-                    <p className="mt-1 text-xs text-text-secondary">{r.description}</p>
+                    <p className="mt-1 text-xs text-text-2">{r.description}</p>
                   ) : null}
                   {r.owner ? (
-                    <p className="mt-1 text-[11px] text-text-secondary">
+                    <p className="mt-1 text-[11px] text-text-2">
                       Owner: {r.owner}
                     </p>
                   ) : null}
@@ -269,7 +269,7 @@ export default function ProjectRaidPanel({ projectId }: { projectId: string }) {
                     onChange={(e) =>
                       void updateStatus(r.id, e.target.value as Risk["status"])
                     }
-                    className="rounded-md border border-white/10 bg-background-card px-2 py-1 text-xs text-white"
+                    className="rounded-md border border-ink-4 bg-ink-1 px-2 py-1 text-xs text-white"
                   >
                     {STATUSES.map((s) => (
                       <option key={s} value={s}>
@@ -279,7 +279,7 @@ export default function ProjectRaidPanel({ projectId }: { projectId: string }) {
                   </select>
                   <button
                     onClick={() => void remove(r.id)}
-                    className="text-text-secondary hover:text-status-error"
+                    className="text-text-2 hover:text-status-error"
                     title="Delete"
                   >
                     <Trash2 className="h-3.5 w-3.5" />

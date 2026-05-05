@@ -152,7 +152,7 @@ export default function HubSpotSupportForm() {
     <form
       noValidate
       onSubmit={(event) => void handleSubmit(event)}
-      className="rounded-lg border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-6"
+      className="rounded-lg border border-ink-4 bg-ink-2 p-6"
     >
       {success ? (
         <div className="mb-5 rounded-lg border border-[rgba(81,208,176,0.3)] bg-[rgba(81,208,176,0.1)] px-4 py-3 text-sm text-white">
@@ -170,7 +170,7 @@ export default function HubSpotSupportForm() {
         <label className="block">
           <span
             aria-required="true"
-            className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+            className="mb-2 flex items-center gap-1 text-sm text-text-2"
           >
             Subject <RequiredMark />
           </span>
@@ -182,10 +182,10 @@ export default function HubSpotSupportForm() {
             aria-describedby={
               errors.subject ? "support-subject-error" : undefined
             }
-            className={`w-full rounded-lg border bg-background-card px-4 py-3 text-white outline-none focus:border-accent-solid ${
+            className={`w-full rounded-lg border bg-ink-1 px-4 py-3 text-white outline-none focus:border-accent-solid ${
               errors.subject
                 ? "border-[rgba(224,80,96,0.6)]"
-                : "border-[rgba(255,255,255,0.08)]"
+                : "border-ink-4"
             }`}
           />
           {errors.subject ? (
@@ -199,14 +199,14 @@ export default function HubSpotSupportForm() {
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm text-text-secondary">
+          <span className="mb-2 block text-sm text-text-2">
             Related project
           </span>
           <select
             value={draft.projectId}
             onChange={(event) => updateField("projectId", event.target.value)}
             disabled={projectsLoading}
-            className="w-full rounded-lg border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-white outline-none focus:border-accent-solid disabled:opacity-60"
+            className="w-full rounded-lg border border-ink-4 bg-ink-1 px-4 py-3 text-white outline-none focus:border-accent-solid disabled:opacity-60"
           >
             <option value="">
               {projectsLoading ? "Loading projects..." : "No related project"}
@@ -222,7 +222,7 @@ export default function HubSpotSupportForm() {
         <label className="block">
           <span
             aria-required="true"
-            className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+            className="mb-2 flex items-center gap-1 text-sm text-text-2"
           >
             Urgency <RequiredMark />
           </span>
@@ -234,10 +234,10 @@ export default function HubSpotSupportForm() {
             aria-describedby={
               errors.urgency ? "support-urgency-error" : undefined
             }
-            className={`w-full rounded-lg border bg-background-card px-4 py-3 text-white outline-none focus:border-accent-solid ${
+            className={`w-full rounded-lg border bg-ink-1 px-4 py-3 text-white outline-none focus:border-accent-solid ${
               errors.urgency
                 ? "border-[rgba(224,80,96,0.6)]"
-                : "border-[rgba(255,255,255,0.08)]"
+                : "border-ink-4"
             }`}
           >
             {urgencyOptions.map((urgency) => (
@@ -259,7 +259,7 @@ export default function HubSpotSupportForm() {
         <label className="block">
           <span
             aria-required="true"
-            className="mb-2 flex items-center gap-1 text-sm text-text-secondary"
+            className="mb-2 flex items-center gap-1 text-sm text-text-2"
           >
             Description <RequiredMark />
           </span>
@@ -272,10 +272,10 @@ export default function HubSpotSupportForm() {
             aria-describedby={
               errors.description ? "support-description-error" : undefined
             }
-            className={`min-h-[160px] w-full rounded-lg border bg-background-card px-4 py-3 text-white outline-none focus:border-accent-solid ${
+            className={`min-h-[160px] w-full rounded-lg border bg-ink-1 px-4 py-3 text-white outline-none focus:border-accent-solid ${
               errors.description
                 ? "border-[rgba(224,80,96,0.6)]"
-                : "border-[rgba(255,255,255,0.08)]"
+                : "border-ink-4"
             }`}
           />
           {errors.description ? (

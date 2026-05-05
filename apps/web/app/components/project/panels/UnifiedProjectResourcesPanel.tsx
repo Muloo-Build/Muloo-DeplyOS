@@ -79,7 +79,7 @@ export default function UnifiedProjectResourcesPanel({
 
   return (
     <div className="space-y-3">
-      <div className="brand-surface-soft rounded-2xl border border-white/10 p-3">
+      <div className="brand-surface-soft rounded-[14px] border border-ink-4 p-3">
         <div className="flex flex-wrap items-center gap-2">
           {SECTION_TABS.map((tab) => {
             const active = tab.id === activeTab;
@@ -93,7 +93,7 @@ export default function UnifiedProjectResourcesPanel({
                 className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs uppercase tracking-wide transition ${
                   active
                     ? "border-brand-teal/50 bg-brand-teal/10 text-brand-teal"
-                    : "border-white/10 text-text-secondary hover:border-white/30 hover:text-white"
+                    : "border-ink-4 text-text-2 hover:border-ink-5 hover:text-white"
                 }`}
               >
                 {tab.label}
@@ -106,7 +106,7 @@ export default function UnifiedProjectResourcesPanel({
             );
           })}
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-text-secondary">
+        <p className="mt-2 text-[11px] leading-relaxed text-text-2">
           Everything attached to this project — workbook sharing status,
           external resources, and discovery briefs synthesized from
           approved answers.
@@ -133,13 +133,13 @@ export default function UnifiedProjectResourcesPanel({
       {activeTab === "briefs" ? (
         <div className="space-y-2">
           {!briefs ? (
-            <p className="text-sm text-text-secondary">Loading briefs…</p>
+            <p className="text-sm text-text-2">Loading briefs…</p>
           ) : briefs.length === 0 ? (
-            <div className="brand-surface rounded-2xl border border-dashed border-white/10 p-6 text-center">
+            <div className="brand-surface rounded-[14px] border border-dashed border-ink-4 p-6 text-center">
               <p className="text-sm font-medium text-white">
                 No discovery briefs yet
               </p>
-              <p className="mt-1 text-xs text-text-secondary">
+              <p className="mt-1 text-xs text-text-2">
                 Approve some workbook answers, then click{" "}
                 <strong className="text-white">Generate brief</strong> on
                 the Discovery tab to synthesize a draft from the approved
@@ -153,14 +153,14 @@ export default function UnifiedProjectResourcesPanel({
                 return (
                   <li
                     key={brief.id}
-                    className="brand-surface-soft rounded-2xl border p-3"
+                    className="brand-surface-soft rounded-[14px] border p-3"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold text-white">
                           {brief.sourceLabel}
                         </p>
-                        <p className="text-[11px] text-text-secondary">
+                        <p className="text-[11px] text-text-2">
                           Created{" "}
                           {brief.createdAt
                             ? new Date(brief.createdAt).toLocaleString()
@@ -172,7 +172,7 @@ export default function UnifiedProjectResourcesPanel({
                         onClick={() =>
                           setOpenBriefId(open ? null : brief.id)
                         }
-                        className="brand-surface rounded-full border border-white/10 px-3 py-1 text-[11px] text-text-secondary hover:border-white/30 hover:text-white"
+                        className="brand-surface rounded-full border border-ink-4 px-3 py-1 text-[11px] text-text-2 hover:border-ink-5 hover:text-white"
                       >
                         {open ? "Hide" : "Read"}
                       </button>

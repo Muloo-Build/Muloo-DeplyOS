@@ -47,7 +47,7 @@ export default function SlideOver({
       />
 
       <div
-        className={`absolute right-0 top-0 h-full w-full max-w-lg transform overflow-hidden border-l border-[rgba(255,255,255,0.08)] bg-[#111933] shadow-2xl transition duration-300 ${
+        className={`absolute right-0 top-0 h-full w-full max-w-lg transform overflow-hidden border-l border-ink-4 bg-[#111933] shadow-2xl transition duration-300 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
         role="dialog"
@@ -55,9 +55,9 @@ export default function SlideOver({
         aria-label={title}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] px-6 py-5">
+          <div className="flex items-center justify-between border-b border-ink-4 px-6 py-5">
             <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Client Workspace
               </p>
               <h2 className="mt-2 text-xl font-semibold text-white">{title}</h2>
@@ -65,7 +65,7 @@ export default function SlideOver({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
+              className="rounded-xl border border-ink-4 px-3 py-2 text-sm text-white"
             >
               ×
             </button>

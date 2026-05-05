@@ -745,7 +745,7 @@ export default function WorkspaceSettings() {
   }
   if (loading) {
     return (
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
         Loading workspace settings...
       </div>
     );
@@ -754,22 +754,22 @@ export default function WorkspaceSettings() {
   return (
     <div className="space-y-5">
       {error ? (
-        <div className="rounded-2xl border border-[rgba(224,80,96,0.35)] bg-[rgba(58,21,32,0.72)] px-5 py-4 text-sm text-white">
+        <div className="rounded-[14px] border border-[rgba(224,80,96,0.35)] bg-[rgba(58,21,32,0.72)] px-5 py-4 text-sm text-white">
           {error}
         </div>
       ) : null}
 
       {feedback ? (
-        <div className="rounded-2xl border border-[rgba(45,212,160,0.28)] bg-[rgba(13,48,40,0.65)] px-5 py-4 text-sm text-white">
+        <div className="rounded-[14px] border border-[rgba(45,212,160,0.28)] bg-[rgba(13,48,40,0.65)] px-5 py-4 text-sm text-white">
           {feedback}
         </div>
       ) : null}
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-white">Gmail</h2>
-            <p className="mt-2 text-sm text-text-secondary">
+            <p className="mt-2 text-sm text-text-2">
               Connect the mailbox used for client email watchlists and
               action-required triage.
             </p>
@@ -781,7 +781,7 @@ export default function WorkspaceSettings() {
           ) : null}
         </div>
 
-        <p className="mt-5 text-sm text-text-secondary">
+        <p className="mt-5 text-sm text-text-2">
           {gmail?.connected
             ? `Connected as ${gmail.connectedEmail ?? "your Google account"}.`
             : "No Gmail connection configured yet."}
@@ -793,7 +793,7 @@ export default function WorkspaceSettings() {
               type="button"
               onClick={() => void disconnectGmail()}
               disabled={disconnectingGmail}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+              className="rounded-xl border border-ink-4 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
             >
               {disconnectingGmail ? "Disconnecting..." : "Disconnect"}
             </button>
@@ -823,16 +823,16 @@ export default function WorkspaceSettings() {
             onChange={(event) => setGmailFilterLabel(event.target.value)}
             onBlur={() => void saveGmailFilter()}
             placeholder="e.g. action-required"
-            className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            className="mt-3 block w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
           />
-          <p className="mt-2 text-xs text-text-secondary">
+          <p className="mt-2 text-xs text-text-2">
             Create a label in Gmail, let your mailbox filters move client emails
             there, then save the same label on the client record. DeployOS will
             only show unread emails from those client labels here. Leave blank
             to show unread Primary emails from the last 14 days.
           </p>
           {savingGmailFilter ? (
-            <p className="mt-2 text-xs text-text-secondary">Saving filter...</p>
+            <p className="mt-2 text-xs text-text-2">Saving filter...</p>
           ) : null}
           {gmailFilterError ? (
             <p className="mt-2 text-xs text-[#ff9aa7]">{gmailFilterError}</p>
@@ -840,13 +840,13 @@ export default function WorkspaceSettings() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-white">
               Google Calendar
             </h2>
-            <p className="mt-2 text-sm text-text-secondary">
+            <p className="mt-2 text-sm text-text-2">
               Connect the shared calendar feed used by the Command Centre and
               the private Google Tasks list used for your personal to-dos.
             </p>
@@ -858,7 +858,7 @@ export default function WorkspaceSettings() {
           ) : null}
         </div>
 
-        <p className="mt-5 text-sm text-text-secondary">
+        <p className="mt-5 text-sm text-text-2">
           {calendarStatus?.connected
             ? `Connected as ${calendarStatus.connectedEmail ?? "your Google account"}.`
             : "No Google Calendar connection configured yet."}
@@ -877,7 +877,7 @@ export default function WorkspaceSettings() {
               type="text"
               value={calendarClientId}
               onChange={(event) => setCalendarClientId(event.target.value)}
-              className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 block w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -893,7 +893,7 @@ export default function WorkspaceSettings() {
                   ? "Saved in workspace settings"
                   : "Paste client secret"
               }
-              className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 block w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
         </div>
@@ -903,12 +903,12 @@ export default function WorkspaceSettings() {
             type="button"
             onClick={() => void saveCalendarCredentials()}
             disabled={savingCalendarCredentials}
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl border border-ink-4 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {savingCalendarCredentials ? "Saving..." : "Save credentials"}
           </button>
           {calendarConnection?.redirectUri ? (
-            <span className="text-xs text-text-secondary">
+            <span className="text-xs text-text-2">
               Redirect URI: {calendarConnection.redirectUri}
             </span>
           ) : null}
@@ -924,13 +924,13 @@ export default function WorkspaceSettings() {
 
         <div className="mt-5 flex flex-wrap gap-3">
           {!calendarStatus?.configured ? (
-            <span className="text-sm text-text-secondary">Not set up</span>
+            <span className="text-sm text-text-2">Not set up</span>
           ) : calendarStatus.connected ? (
             <button
               type="button"
               onClick={() => void disconnectCalendar()}
               disabled={disconnectingCalendar}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+              className="rounded-xl border border-ink-4 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
             >
               {disconnectingCalendar ? "Disconnecting..." : "Disconnect"}
             </button>
@@ -953,11 +953,11 @@ export default function WorkspaceSettings() {
         ) : null}
       </section>
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-white">Xero</h2>
-            <p className="mt-2 text-sm text-text-secondary">
+            <p className="mt-2 text-sm text-text-2">
               Manage the tenant used for invoice visibility in the Command
               Centre.
             </p>
@@ -969,7 +969,7 @@ export default function WorkspaceSettings() {
           ) : null}
         </div>
 
-        <p className="mt-5 text-sm text-text-secondary">
+        <p className="mt-5 text-sm text-text-2">
           {xeroStatus?.connected
             ? `Connected to ${xeroStatus.tenantName ?? "your Xero tenant"}.`
             : "No Xero connection configured yet."}
@@ -977,13 +977,13 @@ export default function WorkspaceSettings() {
 
         <div className="mt-5 flex flex-wrap gap-3">
           {!xeroStatus?.configured ? (
-            <span className="text-sm text-text-secondary">Not set up</span>
+            <span className="text-sm text-text-2">Not set up</span>
           ) : xeroStatus.connected ? (
             <button
               type="button"
               onClick={() => void disconnectXero()}
               disabled={disconnectingXero}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+              className="rounded-xl border border-ink-4 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
             >
               {disconnectingXero ? "Disconnecting..." : "Disconnect"}
             </button>
@@ -1010,11 +1010,11 @@ export default function WorkspaceSettings() {
         ) : null}
       </section>
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-white">API Keys</h2>
-            <p className="mt-2 text-sm text-text-secondary">
+            <p className="mt-2 text-sm text-text-2">
               Store operator-level provider keys in Deploy OS without touching
               Railway. Saved values stay hidden after entry.
             </p>
@@ -1030,14 +1030,14 @@ export default function WorkspaceSettings() {
             return (
               <div
                 key={knownKey.keyName}
-                className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
+                className="rounded-[14px] border border-ink-4 bg-ink-2 p-5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-base font-semibold text-white">
                       {knownKey.label}
                     </h3>
-                    <p className="mt-1 text-xs text-text-secondary">
+                    <p className="mt-1 text-xs text-text-2">
                       {record?.isSet
                         ? `Configured${record.updatedAt ? ` · updated ${new Date(record.updatedAt).toLocaleString()}` : ""}`
                         : "Not set yet"}
@@ -1069,7 +1069,7 @@ export default function WorkspaceSettings() {
                         }))
                       }
                       placeholder={knownKey.placeholder}
-                      className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 block w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
 
@@ -1089,7 +1089,7 @@ export default function WorkspaceSettings() {
                         type="button"
                         onClick={() => void removeApiKey(knownKey.keyName)}
                         disabled={isRemoving}
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                        className="rounded-xl border border-ink-4 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                       >
                         {isRemoving ? "Removing..." : "Remove"}
                       </button>
@@ -1111,11 +1111,11 @@ export default function WorkspaceSettings() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <h2 className="text-xl font-semibold text-white">
           Daily Summary AI routing
         </h2>
-        <p className="mt-2 text-sm text-text-secondary">
+        <p className="mt-2 text-sm text-text-2">
           Choose which provider and model generate the Command Centre briefing.
         </p>
 
@@ -1133,7 +1133,7 @@ export default function WorkspaceSettings() {
                   model: provider?.defaultModel ?? route.model ?? ""
                 });
               }}
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             >
               <option value="">Select a provider</option>
               {providers.map((provider) => (
@@ -1155,7 +1155,7 @@ export default function WorkspaceSettings() {
                 }))
               }
               placeholder="e.g. gpt-5.4 or claude-sonnet-4-20250514"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
         </div>
@@ -1178,13 +1178,13 @@ export default function WorkspaceSettings() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-white">
               HubSpot Partner Invite
             </h2>
-            <p className="mt-2 text-sm text-text-secondary">
+            <p className="mt-2 text-sm text-text-2">
               Configure the partner invite URL and account information for HubSpot integration.
             </p>
           </div>
@@ -1200,7 +1200,7 @@ export default function WorkspaceSettings() {
               value={hubspotPartnerInviteUrl}
               onChange={(event) => setHubspotPartnerInviteUrl(event.target.value)}
               placeholder="https://app.hubspot.com/l/settings/users/partnerInviteLink/..."
-              className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 block w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
 
@@ -1213,7 +1213,7 @@ export default function WorkspaceSettings() {
               value={hubspotPartnerAccountId}
               onChange={(event) => setHubspotPartnerAccountId(event.target.value)}
               placeholder="e.g. 12345"
-              className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 block w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
 
@@ -1225,7 +1225,7 @@ export default function WorkspaceSettings() {
               value={hubspotNotes}
               onChange={(event) => setHubspotNotes(event.target.value)}
               placeholder="Any additional notes about this HubSpot configuration"
-              className="mt-3 block w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 block w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
               rows={4}
             />
           </label>

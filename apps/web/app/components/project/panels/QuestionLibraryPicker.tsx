@@ -140,13 +140,13 @@ export default function QuestionLibraryPicker(props: {
   }
 
   return (
-    <div className="brand-surface space-y-4 rounded-2xl border p-4">
+    <div className="brand-surface space-y-4 rounded-[14px] border p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h4 className="text-sm font-semibold text-white">
             Discovery question library
           </h4>
-          <p className="mt-0.5 text-[11px] text-text-secondary">
+          <p className="mt-0.5 text-[11px] text-text-2">
             Pick reusable questions to import into this workbook. Manage the
             global library under{" "}
             <a
@@ -163,7 +163,7 @@ export default function QuestionLibraryPicker(props: {
         <button
           type="button"
           onClick={props.onClose}
-          className="text-xs text-text-secondary hover:text-white"
+          className="text-xs text-text-2 hover:text-white"
         >
           Close
         </button>
@@ -217,11 +217,11 @@ export default function QuestionLibraryPicker(props: {
 
       {error ? <p className="text-sm text-rose-400">{error}</p> : null}
 
-      <div className="brand-surface-soft max-h-72 overflow-y-auto rounded-2xl border">
+      <div className="brand-surface-soft max-h-72 overflow-y-auto rounded-[14px] border">
         {!items ? (
-          <p className="p-3 text-sm text-text-secondary">Loading…</p>
+          <p className="p-3 text-sm text-text-2">Loading…</p>
         ) : items.length === 0 ? (
-          <p className="p-3 text-sm text-text-secondary">
+          <p className="p-3 text-sm text-text-2">
             No questions match. Seed the library or adjust filters.
           </p>
         ) : (
@@ -239,7 +239,7 @@ export default function QuestionLibraryPicker(props: {
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm">{item.questionText}</p>
-                  <p className="text-[11px] text-text-secondary">
+                  <p className="text-[11px] text-text-2">
                     {item.category}
                     {item.subcategory ? ` · ${item.subcategory}` : ""}
                     {` · ${item.answerType}`}
@@ -282,7 +282,7 @@ export default function QuestionLibraryPicker(props: {
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-text-secondary">
+        <p className="text-xs text-text-2">
           {selected.size} selected
         </p>
         <button

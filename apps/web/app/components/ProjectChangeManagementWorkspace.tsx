@@ -571,77 +571,77 @@ export default function ProjectChangeManagementWorkspace({
           <div>
             <Link
               href={`/projects/${projectId}`}
-              className="text-sm text-text-muted"
+              className="text-sm text-text-3"
             >
               Back to project overview
             </Link>
             <h1 className="mt-3 text-3xl font-bold font-heading text-white">
               Change Management
             </h1>
-            <p className="mt-2 max-w-3xl text-text-secondary">
+            <p className="mt-2 max-w-3xl text-text-2">
               Keep the approved baseline intact, price scope changes cleanly,
               and only push approved additions into delivery when they are
               ready.
             </p>
           </div>
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-4 text-sm text-text-secondary">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-4 text-sm text-text-2">
             {project?.client?.name ?? "Client"} · {project?.name ?? "Project"}
           </div>
         </div>
 
         {error ? (
-          <div className="mb-4 rounded-2xl border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-white">
+          <div className="mb-4 rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-white">
             {error}
           </div>
         ) : null}
 
         {feedback ? (
-          <div className="mb-4 rounded-2xl border border-[rgba(73,205,225,0.28)] bg-[rgba(73,205,225,0.12)] px-4 py-3 text-sm text-white">
+          <div className="mb-4 rounded-[14px] border border-[rgba(73,205,225,0.28)] bg-[rgba(73,205,225,0.12)] px-4 py-3 text-sm text-white">
             {feedback}
           </div>
         ) : null}
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Change Requests
             </p>
             <p className="mt-2 text-2xl font-semibold text-white">
               {requests.length}
             </p>
           </div>
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Approved
             </p>
             <p className="mt-2 text-2xl font-semibold text-white">
               {metrics.approvedCount}
             </p>
           </div>
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Added Hours
             </p>
             <p className="mt-2 text-2xl font-semibold text-white">
               {metrics.pricedHours}h
             </p>
           </div>
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Added Fee
             </p>
             <p className="mt-2 text-2xl font-semibold text-white">
               R {metrics.pricedFee.toLocaleString("en-ZA")}
             </p>
-            <p className="mt-1 text-xs text-text-secondary">
+            <p className="mt-1 text-xs text-text-2">
               {metrics.appendedCount} appended to delivery
             </p>
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5 text-sm">
+        <div className="mt-4 rounded-[14px] border border-ink-4 bg-ink-1 p-5 text-sm">
           <p className="font-medium text-white">How this works</p>
-          <p className="mt-2 text-text-secondary">
+          <p className="mt-2 text-text-2">
             {isScopeLocked
               ? "The approved baseline is locked. Any extra work should be captured here, reviewed commercially, then appended into delivery only when approved."
               : "You can prepare change requests here early, but they become operational once the quote is approved and the baseline is locked."}
@@ -654,10 +654,10 @@ export default function ProjectChangeManagementWorkspace({
           )}
         </div>
 
-        <div className="mt-6 rounded-3xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+        <div className="mt-6 rounded-[14px] border border-ink-4 bg-ink-1 p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 New Change Request
               </p>
               <h2 className="mt-2 text-xl font-semibold text-white">
@@ -673,7 +673,7 @@ export default function ProjectChangeManagementWorkspace({
                 onChange={(event) =>
                   updateNewDraft("title", event.target.value)
                 }
-                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
               />
             </label>
             <label className="block">
@@ -686,7 +686,7 @@ export default function ProjectChangeManagementWorkspace({
                     event.target.value as ChangeRequestStatus
                   )
                 }
-                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
               >
                 {changeStatuses.map((statusOption) => (
                   <option key={statusOption.value} value={statusOption.value}>
@@ -702,7 +702,7 @@ export default function ProjectChangeManagementWorkspace({
                 onChange={(event) =>
                   updateNewDraft("summary", event.target.value)
                 }
-                className="mt-2 min-h-[96px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                className="mt-2 min-h-[96px] w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
               />
             </label>
             <label className="block md:col-span-2">
@@ -712,7 +712,7 @@ export default function ProjectChangeManagementWorkspace({
                 onChange={(event) =>
                   updateNewDraft("details", event.target.value)
                 }
-                className="mt-2 min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                className="mt-2 min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
               />
             </label>
             <label className="block md:col-span-2">
@@ -723,7 +723,7 @@ export default function ProjectChangeManagementWorkspace({
                   updateNewDraft("reason", event.target.value)
                 }
                 placeholder="Why is this change being made?"
-                className="mt-2 min-h-[80px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                className="mt-2 min-h-[80px] w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
               />
             </label>
             {project?.deliveryWorkstreams &&
@@ -741,7 +741,7 @@ export default function ProjectChangeManagementWorkspace({
                         className={`cursor-pointer rounded-full border px-3 py-1 text-xs ${
                           checked
                             ? "border-brand-teal bg-[rgba(123,226,239,0.12)] text-[#7be2ef]"
-                            : "border-[rgba(255,255,255,0.12)] text-text-secondary"
+                            : "border-ink-4 text-text-2"
                         }`}
                       >
                         <input
@@ -771,7 +771,7 @@ export default function ProjectChangeManagementWorkspace({
                 onChange={(event) =>
                   updateNewDraft("internalNotes", event.target.value)
                 }
-                className="mt-2 min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                className="mt-2 min-h-[100px] w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
               />
             </label>
             <label className="block">
@@ -782,7 +782,7 @@ export default function ProjectChangeManagementWorkspace({
                 onChange={(event) =>
                   updateNewDraft("commercialImpactHours", event.target.value)
                 }
-                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
               />
             </label>
             <label className="block">
@@ -793,7 +793,7 @@ export default function ProjectChangeManagementWorkspace({
                 onChange={(event) =>
                   updateNewDraft("commercialImpactFeeZar", event.target.value)
                 }
-                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
               />
             </label>
             <label className="block md:col-span-2">
@@ -803,18 +803,18 @@ export default function ProjectChangeManagementWorkspace({
                 onChange={(event) =>
                   updateNewDraft("approvedByName", event.target.value)
                 }
-                className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
               />
             </label>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+          <div className="mt-6 rounded-[14px] border border-ink-4 bg-ink-2 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-white">
                   Delivery additions
                 </p>
-                <p className="mt-1 text-sm text-text-secondary">
+                <p className="mt-1 text-sm text-text-2">
                   Define the extra delivery tasks this change would add once
                   approved.
                 </p>
@@ -822,7 +822,7 @@ export default function ProjectChangeManagementWorkspace({
               <button
                 type="button"
                 onClick={addNewDraftTask}
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm font-medium text-white"
+                className="rounded-xl border border-ink-4 px-3 py-2 text-sm font-medium text-white"
               >
                 Add delivery task
               </button>
@@ -831,7 +831,7 @@ export default function ProjectChangeManagementWorkspace({
               {newDraft.deliveryTasks.map((task, index) => (
                 <div
                   key={`new-task-${index}`}
-                  className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4"
+                  className="rounded-[14px] border border-ink-4 bg-ink-1 p-4"
                 >
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <input
@@ -840,7 +840,7 @@ export default function ProjectChangeManagementWorkspace({
                         updateNewDraftTask(index, "title", event.target.value)
                       }
                       placeholder="Task title"
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none xl:col-span-2"
+                      className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none xl:col-span-2"
                     />
                     <input
                       value={task.category}
@@ -852,7 +852,7 @@ export default function ProjectChangeManagementWorkspace({
                         )
                       }
                       placeholder="Category"
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                      className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                     />
                     <input
                       type="number"
@@ -865,7 +865,7 @@ export default function ProjectChangeManagementWorkspace({
                         )
                       }
                       placeholder="Hours"
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                      className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                     />
                     <textarea
                       value={task.description}
@@ -877,7 +877,7 @@ export default function ProjectChangeManagementWorkspace({
                         )
                       }
                       placeholder="Task description"
-                      className="min-h-[90px] rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none md:col-span-2"
+                      className="min-h-[90px] rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none md:col-span-2"
                     />
                     <input
                       value={task.executionType}
@@ -889,7 +889,7 @@ export default function ProjectChangeManagementWorkspace({
                         )
                       }
                       placeholder="Execution type"
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                      className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                     />
                     <select
                       value={task.assigneeType}
@@ -900,7 +900,7 @@ export default function ProjectChangeManagementWorkspace({
                           event.target.value
                         )
                       }
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                      className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                     >
                       <option value="Human">Human</option>
                       <option value="Agent">Agent</option>
@@ -915,7 +915,7 @@ export default function ProjectChangeManagementWorkspace({
                           event.target.value
                         )
                       }
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                      className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                     >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
@@ -978,7 +978,7 @@ export default function ProjectChangeManagementWorkspace({
             <button
               type="button"
               onClick={() => setNewDraft(createNewRequestDraft(project))}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
+              className="rounded-xl border border-ink-4 px-4 py-3 text-sm font-medium text-white"
             >
               Reset draft
             </button>
@@ -987,11 +987,11 @@ export default function ProjectChangeManagementWorkspace({
 
         <div className="mt-6 space-y-4">
           {loading ? (
-            <div className="rounded-3xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
               Loading change requests...
             </div>
           ) : requests.length === 0 ? (
-            <div className="rounded-3xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
               No change requests yet. Capture any post-approval additions here
               instead of editing the approved baseline.
             </div>
@@ -1006,7 +1006,7 @@ export default function ProjectChangeManagementWorkspace({
               return (
                 <div
                   key={request.id}
-                  className="rounded-3xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+                  className="rounded-[14px] border border-ink-4 bg-ink-1 p-6"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
@@ -1019,7 +1019,7 @@ export default function ProjectChangeManagementWorkspace({
                           {formatStatusLabel(request.status)}
                         </span>
                         {request.deliveryAppendedAt ? (
-                          <span className="text-xs text-text-muted">
+                          <span className="text-xs text-text-3">
                             Added to delivery{" "}
                             {new Date(
                               request.deliveryAppendedAt
@@ -1030,11 +1030,11 @@ export default function ProjectChangeManagementWorkspace({
                       <p className="mt-3 text-xl font-semibold text-white">
                         {request.title}
                       </p>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         {request.summary}
                       </p>
                     </div>
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-text-2">
                       <p>{request.contactName}</p>
                       <p className="mt-1">{request.contactEmail}</p>
                     </div>
@@ -1048,7 +1048,7 @@ export default function ProjectChangeManagementWorkspace({
                         onChange={(event) =>
                           updateDraft(request.id, "title", event.target.value)
                         }
-                        className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                        className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block">
@@ -1062,7 +1062,7 @@ export default function ProjectChangeManagementWorkspace({
                             event.target.value as ChangeRequestStatus
                           )
                         }
-                        className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                        className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                       >
                         {changeStatuses.map((statusOption) => (
                           <option
@@ -1083,7 +1083,7 @@ export default function ProjectChangeManagementWorkspace({
                         onChange={(event) =>
                           updateDraft(request.id, "summary", event.target.value)
                         }
-                        className="mt-2 min-h-[90px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                        className="mt-2 min-h-[90px] w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block md:col-span-2">
@@ -1095,7 +1095,7 @@ export default function ProjectChangeManagementWorkspace({
                         onChange={(event) =>
                           updateDraft(request.id, "details", event.target.value)
                         }
-                        className="mt-2 min-h-[110px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                        className="mt-2 min-h-[110px] w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block md:col-span-2">
@@ -1109,7 +1109,7 @@ export default function ProjectChangeManagementWorkspace({
                             event.target.value
                           )
                         }
-                        className="mt-2 min-h-[90px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                        className="mt-2 min-h-[90px] w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block">
@@ -1124,7 +1124,7 @@ export default function ProjectChangeManagementWorkspace({
                             event.target.value
                           )
                         }
-                        className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                        className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block">
@@ -1141,7 +1141,7 @@ export default function ProjectChangeManagementWorkspace({
                             event.target.value
                           )
                         }
-                        className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                        className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block md:col-span-2">
@@ -1155,18 +1155,18 @@ export default function ProjectChangeManagementWorkspace({
                             event.target.value
                           )
                         }
-                        className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                        className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                       />
                     </label>
                   </div>
 
-                  <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <div className="mt-5 rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-white">
                           Delivery additions
                         </p>
-                        <p className="mt-1 text-sm text-text-secondary">
+                        <p className="mt-1 text-sm text-text-2">
                           These tasks only land on the delivery board once the
                           change is approved and pushed through.
                         </p>
@@ -1174,7 +1174,7 @@ export default function ProjectChangeManagementWorkspace({
                       <button
                         type="button"
                         onClick={() => addDraftTask(request.id)}
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm font-medium text-white"
+                        className="rounded-xl border border-ink-4 px-3 py-2 text-sm font-medium text-white"
                       >
                         Add delivery task
                       </button>
@@ -1183,7 +1183,7 @@ export default function ProjectChangeManagementWorkspace({
                       {draft.deliveryTasks.map((task, index) => (
                         <div
                           key={`${request.id}-task-${index}`}
-                          className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4"
+                          className="rounded-[14px] border border-ink-4 bg-ink-1 p-4"
                         >
                           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                             <input
@@ -1197,7 +1197,7 @@ export default function ProjectChangeManagementWorkspace({
                                 )
                               }
                               placeholder="Task title"
-                              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none xl:col-span-2"
+                              className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none xl:col-span-2"
                             />
                             <input
                               value={task.category}
@@ -1210,7 +1210,7 @@ export default function ProjectChangeManagementWorkspace({
                                 )
                               }
                               placeholder="Category"
-                              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                              className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                             />
                             <input
                               type="number"
@@ -1224,7 +1224,7 @@ export default function ProjectChangeManagementWorkspace({
                                 )
                               }
                               placeholder="Hours"
-                              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                              className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                             />
                             <textarea
                               value={task.description}
@@ -1237,7 +1237,7 @@ export default function ProjectChangeManagementWorkspace({
                                 )
                               }
                               placeholder="Task description"
-                              className="min-h-[90px] rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none md:col-span-2"
+                              className="min-h-[90px] rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none md:col-span-2"
                             />
                             <input
                               value={task.executionType}
@@ -1250,7 +1250,7 @@ export default function ProjectChangeManagementWorkspace({
                                 )
                               }
                               placeholder="Execution type"
-                              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                              className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                             />
                             <select
                               value={task.assigneeType}
@@ -1262,7 +1262,7 @@ export default function ProjectChangeManagementWorkspace({
                                   event.target.value
                                 )
                               }
-                              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                              className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                             >
                               <option value="Human">Human</option>
                               <option value="Agent">Agent</option>
@@ -1278,7 +1278,7 @@ export default function ProjectChangeManagementWorkspace({
                                   event.target.value
                                 )
                               }
-                              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                              className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                             >
                               <option value="low">Low</option>
                               <option value="medium">Medium</option>

@@ -82,19 +82,19 @@ export default function CloseProjectWizard({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-      <div className="brand-surface w-full max-w-lg rounded-3xl border p-6">
+      <div className="brand-surface w-full max-w-lg rounded-[14px] border p-6">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Close project</h3>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="text-sm text-text-secondary hover:text-white"
+            className="text-sm text-text-2 hover:text-white"
           >
             Cancel
           </button>
         </div>
-        <p className="mt-1 text-xs text-text-muted">Step {step} of 3</p>
+        <p className="mt-1 text-xs text-text-3">Step {step} of 3</p>
 
         {error ? (
           <div className="mt-3 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
@@ -103,7 +103,7 @@ export default function CloseProjectWizard({
         ) : null}
 
         {step === 1 ? (
-          <div className="mt-4 space-y-3 text-sm text-text-secondary">
+          <div className="mt-4 space-y-3 text-sm text-text-2">
             <p>
               Confirm the handover doc has been generated and shared with the
               client (under the Portal tab).
@@ -131,7 +131,7 @@ export default function CloseProjectWizard({
 
         {step === 2 ? (
           <div className="mt-4 space-y-3 text-sm">
-            <p className="text-text-secondary">
+            <p className="text-text-2">
               Capture client NPS (0–10). Required to close the project.
             </p>
             <div className="grid grid-cols-11 gap-1">
@@ -143,7 +143,7 @@ export default function CloseProjectWizard({
                   className={`rounded-lg border px-2 py-1 text-xs font-semibold ${
                     npsScore === n
                       ? "border-[#51d0b0] bg-[#51d0b0]/20 text-white"
-                      : "border-white/10 bg-white/5 text-text-secondary hover:bg-white/10"
+                      : "border-ink-4 bg-white/5 text-text-2 hover:bg-white/10"
                   }`}
                 >
                   {n}
@@ -161,7 +161,7 @@ export default function CloseProjectWizard({
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="text-sm text-text-secondary hover:text-white"
+                className="text-sm text-text-2 hover:text-white"
               >
                 ← Back
               </button>
@@ -179,7 +179,7 @@ export default function CloseProjectWizard({
 
         {step === 3 ? (
           <div className="mt-4 space-y-3 text-sm">
-            <p className="text-text-secondary">
+            <p className="text-text-2">
               Closing will archive workbooks and mark this project complete.
               Optionally convert into an ongoing retainer.
             </p>
@@ -192,7 +192,7 @@ export default function CloseProjectWizard({
               Convert into a retainer
             </label>
             {convertToRetainer ? (
-              <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="space-y-2 rounded-xl border border-ink-4 bg-white/5 p-3">
                 <div className="grid grid-cols-2 gap-2">
                   <select
                     value={retainerServiceLine}
@@ -246,7 +246,7 @@ export default function CloseProjectWizard({
                 type="button"
                 onClick={() => setStep(2)}
                 disabled={busy}
-                className="text-sm text-text-secondary hover:text-white"
+                className="text-sm text-text-2 hover:text-white"
               >
                 ← Back
               </button>

@@ -125,16 +125,16 @@ export default function WelcomeCard(props: WelcomeCardProps) {
   ];
 
   return (
-    <div className="rounded-2xl border border-[rgba(81,208,176,0.25)] bg-[rgba(81,208,176,0.07)] p-6">
+    <div className="rounded-[14px] border border-[rgba(81,208,176,0.25)] bg-[rgba(81,208,176,0.07)] p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[#9be4d2]">
+          <p className="text-xs uppercase tracking-[0.14em] text-[#9be4d2]">
             Welcome
           </p>
           <h2 className="mt-2 text-lg font-semibold text-white">
             Hi {user.firstName}, here's how to get started
           </h2>
-          <p className="mt-1 text-sm text-text-secondary">
+          <p className="mt-1 text-sm text-text-2">
             Three quick wins to make your Muloo portal useful from day one.
           </p>
         </div>
@@ -142,7 +142,7 @@ export default function WelcomeCard(props: WelcomeCardProps) {
           type="button"
           onClick={handleDismiss}
           disabled={dismissing}
-          className="text-xs text-text-muted hover:text-white disabled:opacity-50"
+          className="text-xs text-text-3 hover:text-white disabled:opacity-50"
           aria-label="Dismiss welcome"
         >
           ×
@@ -166,13 +166,13 @@ export default function WelcomeCard(props: WelcomeCardProps) {
               </span>
               <div className="flex-1">
                 <p className="text-sm font-medium text-white">{step.label}</p>
-                <p className="text-xs text-text-muted">{step.description}</p>
+                <p className="text-xs text-text-3">{step.description}</p>
               </div>
             </div>
             {step.href && !step.done ? (
               <Link
                 href={step.href}
-                className="rounded-xl border border-white/10 px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:bg-white/5 hover:text-white"
+                className="rounded-xl border border-ink-4 px-3 py-1.5 text-xs font-medium text-text-2 transition hover:bg-white/5 hover:text-white"
               >
                 Open
               </Link>

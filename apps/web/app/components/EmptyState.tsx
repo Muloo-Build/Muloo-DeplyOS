@@ -44,13 +44,13 @@ export default function EmptyState({
     <div
       className={
         className ??
-        "flex flex-col items-center justify-center rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-8 py-14 text-center"
+        "flex flex-col items-center justify-center rounded-[14px] border border-ink-4 bg-ink-1 px-8 py-14 text-center"
       }
     >
       {icon ? <div className="mb-3 opacity-50">{icon}</div> : null}
       <h3 className="text-base font-semibold text-white">{title}</h3>
       {description ? (
-        <p className="mt-1 max-w-md text-sm text-text-secondary">{description}</p>
+        <p className="mt-1 max-w-md text-sm text-text-2">{description}</p>
       ) : null}
       {(primaryCta || secondaryCta) && (
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
@@ -65,7 +65,7 @@ export default function EmptyState({
           {secondaryCta ? (
             <Link
               href={secondaryCta.href}
-              className="rounded-xl border border-[rgba(255,255,255,0.12)] bg-white/5 px-4 py-2 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.2)]"
+              className="rounded-xl border border-ink-4 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.2)]"
             >
               {secondaryCta.label}
             </Link>

@@ -135,7 +135,7 @@ export default function DeliveryTemplatesStudio() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-sm text-text-secondary">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-sm text-text-2">
         Loading delivery templates...
       </div>
     );
@@ -152,22 +152,22 @@ export default function DeliveryTemplatesStudio() {
       {templates.map((template) => (
         <section
           key={template.id}
-          className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+          className="rounded-[14px] border border-ink-4 bg-ink-1 p-6"
         >
           <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block md:col-span-2">
-                <span className="text-sm text-text-secondary">Name</span>
+                <span className="text-sm text-text-2">Name</span>
                 <input
                   value={template.name}
                   onChange={(event) =>
                     updateTemplate(template.id, "name", event.target.value)
                   }
-                  className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                  className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                 />
               </label>
               <label className="block md:col-span-2">
-                <span className="text-sm text-text-secondary">Description</span>
+                <span className="text-sm text-text-2">Description</span>
                 <textarea
                   value={template.description ?? ""}
                   onChange={(event) =>
@@ -177,11 +177,11 @@ export default function DeliveryTemplatesStudio() {
                       event.target.value
                     )
                   }
-                  className="mt-3 min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                  className="mt-3 min-h-[100px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                 />
               </label>
               <label className="block">
-                <span className="text-sm text-text-secondary">
+                <span className="text-sm text-text-2">
                   Service family
                 </span>
                 <select
@@ -193,7 +193,7 @@ export default function DeliveryTemplatesStudio() {
                       event.target.value
                     )
                   }
-                  className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                  className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                 >
                   {serviceFamilies.map((family) => (
                     <option key={family.value} value={family.value}>
@@ -203,27 +203,27 @@ export default function DeliveryTemplatesStudio() {
                 </select>
               </label>
               <label className="block">
-                <span className="text-sm text-text-secondary">Category</span>
+                <span className="text-sm text-text-2">Category</span>
                 <input
                   value={template.category}
                   onChange={(event) =>
                     updateTemplate(template.id, "category", event.target.value)
                   }
-                  className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                  className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                 />
               </label>
               <label className="block">
-                <span className="text-sm text-text-secondary">Scope type</span>
+                <span className="text-sm text-text-2">Scope type</span>
                 <input
                   value={template.scopeType}
                   onChange={(event) =>
                     updateTemplate(template.id, "scopeType", event.target.value)
                   }
-                  className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                  className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                 />
               </label>
               <label className="block">
-                <span className="text-sm text-text-secondary">
+                <span className="text-sm text-text-2">
                   Default planned hours
                 </span>
                 <input
@@ -236,11 +236,11 @@ export default function DeliveryTemplatesStudio() {
                       Number(event.target.value)
                     )
                   }
-                  className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                  className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                 />
               </label>
               <label className="block">
-                <span className="text-sm text-text-secondary">Sort order</span>
+                <span className="text-sm text-text-2">Sort order</span>
                 <input
                   type="number"
                   value={template.sortOrder}
@@ -251,18 +251,18 @@ export default function DeliveryTemplatesStudio() {
                       Number(event.target.value)
                     )
                   }
-                  className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                  className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                 />
               </label>
             </div>
 
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-white">
                     Template tasks
                   </p>
-                  <p className="mt-1 text-sm text-text-secondary">
+                  <p className="mt-1 text-sm text-text-2">
                     {template.tasks.length} tasks ·{" "}
                     {template.tasks.reduce(
                       (total, task) => total + (task.plannedHours ?? 0),
@@ -275,7 +275,7 @@ export default function DeliveryTemplatesStudio() {
                   type="button"
                   onClick={() => void saveTemplate(template.id)}
                   disabled={savingId === template.id}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-2 text-sm font-medium text-white"
+                  className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-2 text-sm font-medium text-white"
                 >
                   {savingId === template.id ? "Saving..." : "Save"}
                 </button>
@@ -284,18 +284,18 @@ export default function DeliveryTemplatesStudio() {
                 {template.tasks.map((task) => (
                   <div
                     key={task.id}
-                    className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card px-4 py-3"
+                    className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-white">
                           {task.title}
                         </p>
-                        <p className="mt-1 text-xs text-text-muted">
+                        <p className="mt-1 text-xs text-text-3">
                           {task.category ?? "Uncategorized"}
                         </p>
                       </div>
-                      <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-2 py-1 text-xs font-medium text-text-secondary">
+                      <span className="rounded-full bg-ink-3 px-2 py-1 text-xs font-medium text-text-2">
                         {task.plannedHours ?? 0}h
                       </span>
                     </div>

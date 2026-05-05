@@ -255,14 +255,14 @@ export default function ReportPackInstaller({
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-white/5 bg-background-card p-6 text-text-secondary">
+      <div className="rounded-[14px] border border-white/5 bg-ink-1 p-6 text-text-2">
         Loading report pack…
       </div>
     );
   }
   if (error) {
     return (
-      <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-rose-200">
+      <div className="rounded-[14px] border border-rose-500/30 bg-rose-500/10 p-6 text-rose-200">
         {error}
       </div>
     );
@@ -271,12 +271,12 @@ export default function ReportPackInstaller({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-white/5 bg-background-card p-5">
+      <div className="flex flex-wrap items-end justify-between gap-3 rounded-[14px] border border-white/5 bg-ink-1 p-5">
         <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
             Report Pack — {data.project.name}
           </p>
-          <p className="mt-1 text-sm text-text-secondary">
+          <p className="mt-1 text-sm text-text-2">
             Push standard reports into HubSpot portal{" "}
             <span className="font-mono text-white">
               {data.project.hubspotPortalId ?? data.project.portalId}
@@ -286,11 +286,11 @@ export default function ReportPackInstaller({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs text-text-muted">Hub</label>
+          <label className="text-xs text-text-3">Hub</label>
           <select
             value={hubFilter}
             onChange={(e) => setHubFilter(e.target.value)}
-            className="rounded-md border border-white/10 bg-background-primary px-2 py-1 text-sm text-white"
+            className="rounded-md border border-ink-4 bg-ink-0 px-2 py-1 text-sm text-white"
           >
             <option value="all">All hubs</option>
             {HUB_ORDER.filter((h) => itemsByHub[h]?.length).map((h) => (
@@ -303,7 +303,7 @@ export default function ReportPackInstaller({
             type="button"
             onClick={() => load()}
             disabled={busy}
-            className="rounded-md border border-white/10 bg-background-primary px-3 py-1.5 text-sm text-text-secondary hover:text-white disabled:opacity-50"
+            className="rounded-md border border-ink-4 bg-ink-0 px-3 py-1.5 text-sm text-text-2 hover:text-white disabled:opacity-50"
             title={
               hasInflight
                 ? "Auto-refreshing while installs are in flight"
@@ -332,18 +332,18 @@ export default function ReportPackInstaller({
       {visibleHubs.map((hub) => (
         <section
           key={hub}
-          className="rounded-2xl border border-white/5 bg-background-card p-5"
+          className="rounded-[14px] border border-white/5 bg-ink-1 p-5"
         >
           <h3 className="mb-3 text-base font-semibold text-white">
             {HUB_LABEL[hub] ?? hub}{" "}
-            <span className="text-sm font-normal text-text-muted">
+            <span className="text-sm font-normal text-text-3">
               ({itemsByHub[hub].length})
             </span>
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-text-muted">
+                <tr className="text-left text-xs uppercase tracking-wide text-text-3">
                   <th className="w-8 px-2 py-2"></th>
                   <th className="px-2 py-2">Template</th>
                   <th className="px-2 py-2">Chart</th>
@@ -374,7 +374,7 @@ export default function ReportPackInstaller({
                         <div className="font-medium text-white">
                           {item.template.name}
                         </div>
-                        <div className="text-xs text-text-muted">
+                        <div className="text-xs text-text-3">
                           {item.template.description}
                         </div>
                         {inst?.errorMessage && (
@@ -383,16 +383,16 @@ export default function ReportPackInstaller({
                           </div>
                         )}
                       </td>
-                      <td className="px-2 py-3 text-text-secondary">
+                      <td className="px-2 py-3 text-text-2">
                         {item.template.chartType}
                       </td>
                       <td className="px-2 py-3">
                         <StatusPill status={status} />
                       </td>
-                      <td className="px-2 py-3 text-text-secondary">
+                      <td className="px-2 py-3 text-text-2">
                         {formatTimestamp(inst?.lastInstalledAt ?? null)}
                       </td>
-                      <td className="px-2 py-3 text-text-secondary">
+                      <td className="px-2 py-3 text-text-2">
                         {inst?.attemptCount ?? 0}
                       </td>
                       <td className="px-2 py-3 text-right">

@@ -12,19 +12,19 @@ export default function SettingsIntegrationsXeroPage() {
         <section className="bg-ink-1 border border-ink-4 rounded-[14px] p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Connection
               </p>
               <h2 className="mt-2 text-xl font-semibold text-white">
                 Xero is configured under Workspace settings
               </h2>
-              <p className="mt-2 max-w-2xl text-sm text-text-secondary">
+              <p className="mt-2 max-w-2xl text-sm text-text-2">
                 The OAuth connect, status, and disconnect controls live in
                 Workspace settings (alongside Gmail and Google Calendar).
                 That page is the source of truth — opening it from here keeps
                 the existing flow intact.
               </p>
-              <p className="mt-2 text-xs text-text-muted">
+              <p className="mt-2 text-xs text-text-3">
                 If you hit an OAuth error, check the
                 <span className="text-white"> [xero-oauth] </span>
                 lines in the Railway logs. The XERO_SCOPES env var lets you
@@ -41,10 +41,10 @@ export default function SettingsIntegrationsXeroPage() {
         </section>
 
         <section className="bg-ink-1 border border-ink-4 rounded-[14px] p-6">
-          <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
             Roadmap
           </p>
-          <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+          <ul className="mt-3 space-y-2 text-sm text-text-2">
             <li>
               ✓ OAuth 2.0 connect, refresh, disconnect (live under Workspace
               settings)

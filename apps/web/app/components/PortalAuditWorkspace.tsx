@@ -131,7 +131,7 @@ const auditAreas = [
 ] as const;
 
 const severityClassName: Record<FindingRecord["severity"], string> = {
-  low: "bg-[rgba(255,255,255,0.08)] text-text-secondary",
+  low: "bg-[rgba(255,255,255,0.08)] text-text-2",
   medium: "bg-[rgba(255,214,102,0.16)] text-[#ffd666]",
   high: "bg-[rgba(240,160,80,0.18)] text-[#f0a050]",
   critical: "bg-[rgba(255,154,165,0.18)] text-[#ff9aa5]"
@@ -267,10 +267,10 @@ function FindingModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(3,6,18,0.84)] px-4">
-      <div className="w-full max-w-2xl rounded-[28px] border border-[rgba(255,255,255,0.08)] bg-[#111933] p-6 shadow-2xl">
+      <div className="w-full max-w-2xl rounded-[28px] border border-ink-4 bg-[#111933] p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               New finding
             </p>
             <h3 className="mt-2 text-xl font-semibold text-white">
@@ -280,7 +280,7 @@ function FindingModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-text-secondary"
+            className="rounded-xl border border-ink-4 px-3 py-2 text-sm text-text-2"
           >
             Close
           </button>
@@ -297,7 +297,7 @@ function FindingModal({
                   severity: event.target.value as FindingRecord["severity"]
                 }))
               }
-              className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -305,7 +305,7 @@ function FindingModal({
               <option value="critical">Critical</option>
             </select>
           </label>
-          <label className="flex items-end gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white">
+          <label className="flex items-end gap-2 rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white">
             <input
               type="checkbox"
               checked={draft.quickWin}
@@ -328,7 +328,7 @@ function FindingModal({
                   title: event.target.value
                 }))
               }
-              className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
             />
           </label>
           <label className="block md:col-span-2">
@@ -341,7 +341,7 @@ function FindingModal({
                   description: event.target.value
                 }))
               }
-              className="mt-2 min-h-[140px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              className="mt-2 min-h-[140px] w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
             />
           </label>
           <label className="block md:col-span-2">
@@ -354,7 +354,7 @@ function FindingModal({
                   evidence: event.target.value
                 }))
               }
-              className="mt-2 min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+              className="mt-2 min-h-[100px] w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
             />
           </label>
         </div>
@@ -373,7 +373,7 @@ function FindingModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
+            className="rounded-xl border border-ink-4 px-4 py-3 text-sm font-medium text-white"
           >
             Cancel
           </button>
@@ -803,23 +803,23 @@ export default function PortalAuditWorkspace({
           engagementType={project?.engagementType}
         />
 
-        <section className="rounded-[28px] border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+        <section className="rounded-[28px] border border-ink-4 bg-ink-1 p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 HubSpot optimisation audit
               </p>
               <h1 className="mt-3 text-3xl font-bold font-heading text-white">
                 Portal Audit Workspace
               </h1>
-              <p className="mt-2 text-sm text-text-secondary">
+              <p className="mt-2 text-sm text-text-2">
                 Capture portal context, document findings, and pull quick wins
                 into delivery without leaving the project workflow.
               </p>
-              <p className="mt-3 text-sm text-text-secondary">
+              <p className="mt-3 text-sm text-text-2">
                 Audit engine: OpenAI · gpt-4o
               </p>
-              <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+              <div className="mt-4 rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-text-2">
                 {activeContextLabels.length > 0 ? (
                   <span>
                     This audit will include your notes from:{" "}
@@ -841,7 +841,7 @@ export default function PortalAuditWorkspace({
                   value={auditProviderKey}
                   onChange={(e) => setAuditProviderKey(e.target.value)}
                   disabled={aiAuditBusy}
-                  className="rounded-xl border border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-3 py-3 text-sm text-text-secondary focus:outline-none disabled:opacity-60"
+                  className="rounded-xl border border-[rgba(255,255,255,0.1)] bg-ink-2 px-3 py-3 text-sm text-text-2 focus:outline-none disabled:opacity-60"
                 >
                   {availableProviders.map((p) => (
                     <option key={p.providerKey} value={p.providerKey}>
@@ -879,7 +879,7 @@ export default function PortalAuditWorkspace({
 
           {loading ? (
             <div className="mt-6">
-              <SkeletonRows count={3} height="h-24" gap="gap-3" rounded="rounded-2xl" />
+              <SkeletonRows count={3} height="h-24" gap="gap-3" rounded="rounded-[14px]" />
             </div>
           ) : (
             <>
@@ -901,9 +901,9 @@ export default function PortalAuditWorkspace({
                   (severity) => (
                     <div
                       key={severity}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
+                      className="rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3"
                     >
-                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         {severity}
                       </p>
                       <p className="mt-2 text-lg font-semibold text-white">
@@ -913,21 +913,21 @@ export default function PortalAuditWorkspace({
                   )
                 )}
                 {auditJob ? (
-                  <div className="min-w-[260px] rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <div className="min-w-[260px] rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Audit job
                     </p>
                     <p className="mt-2 text-sm font-semibold text-white">
                       {auditJob.outputSummary || formatLabel(auditJob.status)}
                     </p>
-                    <p className="mt-2 text-xs text-text-secondary">
+                    <p className="mt-2 text-xs text-text-2">
                       Status: {formatLabel(auditJob.status)}
                     </p>
                   </div>
                 ) : null}
               </div>
               {!project?.portal ? (
-                <div className="mt-6 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary">
+                <div className="mt-6 rounded-[14px] border border-dashed border-[rgba(255,255,255,0.1)] bg-ink-2 px-5 py-5 text-sm text-text-2">
                   Connect the client’s HubSpot portal first, then this audit
                   workspace can capture a snapshot and track findings.
                 </div>
@@ -936,9 +936,9 @@ export default function PortalAuditWorkspace({
                   {snapshotStats.map((stat) => (
                     <div
                       key={stat.label}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                     >
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         {stat.label}
                       </p>
                       <p className="mt-2 text-sm text-white">{stat.value}</p>
@@ -950,17 +950,17 @@ export default function PortalAuditWorkspace({
           )}
         </section>
 
-        <section className="rounded-[28px] border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+        <section className="rounded-[28px] border border-ink-4 bg-ink-1 p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 AI Recommendations
               </p>
               <h2 className="mt-3 text-2xl font-semibold text-white">
                 Prioritised next actions
               </h2>
             </div>
-            <div className="rounded-xl bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+            <div className="rounded-xl bg-ink-2 px-4 py-3 text-sm text-text-2">
               {recommendations.length} recommendation
               {recommendations.length === 1 ? "" : "s"}
             </div>
@@ -971,10 +971,10 @@ export default function PortalAuditWorkspace({
               recommendations.map((recommendation) => (
                 <div
                   key={recommendation.id}
-                  className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                  className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                 >
                   <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+                    <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] font-medium text-text-2">
                       {formatLabel(recommendation.type)}
                     </span>
                     <span className="rounded-full bg-[rgba(81,208,176,0.12)] px-2 py-0.5 text-[11px] font-medium text-[#51d0b0]">
@@ -990,16 +990,16 @@ export default function PortalAuditWorkspace({
                   <p className="mt-3 text-base font-semibold text-white">
                     {recommendation.title}
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-text-secondary">
+                  <p className="mt-2 text-sm leading-6 text-text-2">
                     {formatRecommendationRationale(recommendation.rationale)}
                   </p>
-                  <p className="mt-3 text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <p className="mt-3 text-xs uppercase tracking-[0.14em] text-text-3">
                     {recommendation.phase}
                   </p>
                 </div>
               ))
             ) : (
-              <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary lg:col-span-2">
+              <div className="rounded-[14px] border border-dashed border-[rgba(255,255,255,0.1)] bg-ink-2 px-5 py-5 text-sm text-text-2 lg:col-span-2">
                 Run the AI audit to generate detailed recommendations for this
                 portal.
               </div>
@@ -1007,24 +1007,24 @@ export default function PortalAuditWorkspace({
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+        <section className="rounded-[28px] border border-ink-4 bg-ink-1 p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Module audit
               </p>
               <h2 className="mt-3 text-2xl font-semibold text-white">
                 Structured area review
               </h2>
             </div>
-            <div className="rounded-xl bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+            <div className="rounded-xl bg-ink-2 px-4 py-3 text-sm text-text-2">
               {findings.length} findings logged
             </div>
           </div>
 
           <div className="mt-6 space-y-4">
             {findings.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary">
+              <div className="rounded-[14px] border border-dashed border-[rgba(255,255,255,0.1)] bg-ink-2 px-5 py-5 text-sm text-text-2">
                 <p>No findings yet. Run a portal audit to get started.</p>
                 <button
                   type="button"
@@ -1043,7 +1043,7 @@ export default function PortalAuditWorkspace({
               return (
                 <div
                   key={area.key}
-                  className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                  className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -1060,7 +1060,7 @@ export default function PortalAuditWorkspace({
                         <p className="text-lg font-semibold text-white">
                           {area.label}
                         </p>
-                        <p className="mt-1 text-sm text-text-secondary">
+                        <p className="mt-1 text-sm text-text-2">
                           {areaFindings.length} finding
                           {areaFindings.length === 1 ? "" : "s"} logged
                         </p>
@@ -1069,7 +1069,7 @@ export default function PortalAuditWorkspace({
                     <button
                       type="button"
                       onClick={() => setActiveFindingArea(area)}
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-2 text-sm font-medium text-white"
+                      className="rounded-xl border border-ink-4 px-4 py-2 text-sm font-medium text-white"
                     >
                       Add Finding
                     </button>
@@ -1082,7 +1082,7 @@ export default function PortalAuditWorkspace({
                           areaFindings.map((finding) => (
                             <div
                               key={finding.id}
-                              className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4"
+                              className="rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-4"
                             >
                               <div className="flex flex-wrap items-center gap-2">
                                 <span
@@ -1100,36 +1100,36 @@ export default function PortalAuditWorkspace({
                                     Quick Win
                                   </span>
                                 ) : null}
-                                <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+                                <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] font-medium text-text-2">
                                   {formatLabel(finding.status)}
                                 </span>
                               </div>
                               <p className="mt-3 text-sm font-medium text-white">
                                 {finding.title}
                               </p>
-                              <p className="mt-2 text-sm leading-6 text-text-secondary">
+                              <p className="mt-2 text-sm leading-6 text-text-2">
                                 {finding.description}
                               </p>
                               {finding.recommendations[0] ? (
                                 <div className="mt-3 rounded-xl border border-[rgba(81,208,176,0.12)] bg-[rgba(81,208,176,0.08)] px-3 py-3">
-                                  <p className="text-xs uppercase tracking-[0.18em] text-[#51d0b0]">
+                                  <p className="text-xs uppercase tracking-[0.14em] text-[#51d0b0]">
                                     Recommendation
                                   </p>
                                   <p className="mt-2 text-sm font-medium text-white">
                                     {finding.recommendations[0].title}
                                   </p>
-                                  <p className="mt-2 text-sm leading-6 text-text-secondary">
+                                  <p className="mt-2 text-sm leading-6 text-text-2">
                                     {formatRecommendationRationale(
                                       finding.recommendations[0].rationale
                                     )}
                                   </p>
                                 </div>
                               ) : null}
-                              <details className="mt-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0f1730] px-3 py-3">
+                              <details className="mt-3 rounded-xl border border-ink-4 bg-[#0f1730] px-3 py-3">
                                 <summary className="cursor-pointer text-sm font-medium text-white">
                                   Evidence
                                 </summary>
-                                <pre className="mt-3 whitespace-pre-wrap break-words text-xs leading-6 text-text-secondary">
+                                <pre className="mt-3 whitespace-pre-wrap break-words text-xs leading-6 text-text-2">
                                   {formatEvidenceValue(finding.evidence)}
                                 </pre>
                               </details>
@@ -1138,7 +1138,7 @@ export default function PortalAuditWorkspace({
                                   type="button"
                                   onClick={() => void createTaskFromFinding(finding)}
                                   disabled={creatingTaskFindingId === finding.id}
-                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="rounded-xl border border-ink-4 px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {creatingTaskFindingId === finding.id
                                     ? "Creating task..."
@@ -1148,7 +1148,7 @@ export default function PortalAuditWorkspace({
                             </div>
                           ))
                         ) : (
-                          <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-4 text-sm text-text-secondary">
+                          <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-4 text-sm text-text-2">
                             No findings yet. Run a portal audit to get started.
                           </div>
                         )}

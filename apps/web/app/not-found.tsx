@@ -49,20 +49,20 @@ export default function NotFound() {
   }, []);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background-primary px-6 py-12 text-white">
+    <main className="flex min-h-screen items-center justify-center bg-ink-0 px-6 py-12 text-white">
       <section className="w-full max-w-2xl text-center">
         <img
           src="/muloo-logo.svg"
           alt="Muloo"
           className="mx-auto h-10 w-auto"
         />
-        <p className="mt-10 text-sm uppercase tracking-[0.22em] text-text-muted">
+        <p className="mt-10 text-sm uppercase tracking-[0.14em] text-text-3">
           404
         </p>
         <h1 className="mt-3 font-heading text-4xl font-bold text-white">
           Page not found
         </h1>
-        <p className="mx-auto mt-4 max-w-md text-text-secondary">
+        <p className="mx-auto mt-4 max-w-md text-text-2">
           The page you&apos;re looking for doesn&apos;t exist or has moved.
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
@@ -74,7 +74,7 @@ export default function NotFound() {
           </Link>
           <Link
             href={target.supportHref}
-            className="rounded-lg border border-[rgba(255,255,255,0.12)] bg-background-card px-5 py-3 text-sm font-semibold text-white transition hover:border-accent-solid"
+            className="rounded-lg border border-ink-4 bg-ink-1 px-5 py-3 text-sm font-semibold text-white transition hover:border-accent-solid"
           >
             Contact support
           </Link>

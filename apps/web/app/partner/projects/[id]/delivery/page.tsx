@@ -14,7 +14,7 @@ export default function PartnerProjectDeliveryBoardPage({
       <div className="mb-6">
         <Link
           href={getPortalProjectPath("partner", params.id)}
-          className="text-sm text-text-muted"
+          className="text-sm text-text-3"
         >
           Back to project
         </Link>

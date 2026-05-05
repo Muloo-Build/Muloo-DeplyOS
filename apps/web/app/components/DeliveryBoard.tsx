@@ -110,7 +110,7 @@ const LANE_BADGE: Record<string, { label: string; className: string }> = {
 };
 
 const QUICK_WIN_SEVERITY_CLASS: Record<FindingRecord["severity"], string> = {
-  low: "bg-[rgba(255,255,255,0.08)] text-text-secondary",
+  low: "bg-[rgba(255,255,255,0.08)] text-text-2",
   medium: "bg-[rgba(255,214,102,0.16)] text-[#ffd666]",
   high: "bg-[rgba(240,160,80,0.18)] text-[#f0a050]",
   critical: "bg-[rgba(255,154,165,0.18)] text-[#ff9aa5]"
@@ -166,7 +166,7 @@ function executionLaneClass(value: string) {
     case "client_input":
       return "bg-[rgba(45,212,160,0.18)] text-[#2dd4a0]";
     default:
-      return "bg-[rgba(255,255,255,0.08)] text-text-secondary";
+      return "bg-[rgba(255,255,255,0.08)] text-text-2";
   }
 }
 
@@ -179,7 +179,7 @@ function taskLaneBadge(value: string) {
 
   return {
     label: formatLabel(value),
-    className: "bg-[rgba(255,255,255,0.08)] text-text-secondary"
+    className: "bg-[rgba(255,255,255,0.08)] text-text-2"
   };
 }
 
@@ -1062,18 +1062,18 @@ export default function DeliveryBoard({
   );
 
   return (
-    <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+    <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-white">Delivery Board</h2>
-          <p className="mt-2 text-sm text-text-secondary">
+          <p className="mt-2 text-sm text-text-2">
             {isPortalMode
               ? "Track the delivery plan and current progress for this project."
               : "Load prescribed delivery templates or use the board as your repeatable working workspace for this project."}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+          <div className="rounded-xl bg-ink-2 px-4 py-3 text-sm text-text-2">
             {totalCount > 0
               ? `${totalCount} planned items${
                   boardMetrics.changeTasks > 0
@@ -1086,7 +1086,7 @@ export default function DeliveryBoard({
             <>
               <Link
                 href="/templates"
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-text-secondary transition hover:border-[rgba(123,226,239,0.4)] hover:text-white"
+                className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-text-2 transition hover:border-[rgba(123,226,239,0.4)] hover:text-white"
               >
                 Edit Templates
               </Link>
@@ -1097,7 +1097,7 @@ export default function DeliveryBoard({
                   resetTaskDraft();
                 }}
                 disabled={scopeLocked}
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white"
+                className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-white"
               >
                 Add Task
               </button>
@@ -1107,7 +1107,7 @@ export default function DeliveryBoard({
                 disabled={
                   generating || (scopeLocked && !canGenerateLockedApprovedPlan)
                 }
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
               >
                 {showTemplatePicker ? "Hide Templates" : "Load Templates"}
               </button>
@@ -1118,12 +1118,12 @@ export default function DeliveryBoard({
 
       {mode === "internal" && projectWorkstreams.length > 0 ? (
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <label className="text-sm text-text-secondary">
+          <label className="text-sm text-text-2">
             <span className="mr-2">Filter workstream</span>
             <select
               value={selectedWorkstreamFilter}
               onChange={(event) => setSelectedWorkstreamFilter(event.target.value)}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+              className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
             >
               <option value="all">All workstreams</option>
               {projectWorkstreams.map((workstream) => (
@@ -1133,7 +1133,7 @@ export default function DeliveryBoard({
               ))}
             </select>
           </label>
-          <p className="text-sm text-text-secondary">
+          <p className="text-sm text-text-2">
             Showing {visibleTasks.length} of {tasks.length} tasks
           </p>
         </div>
@@ -1142,17 +1142,17 @@ export default function DeliveryBoard({
       {error ? <p className="mt-4 text-sm text-[#ff8f9c]">{error}</p> : null}
 
       {mode === "internal" && showTemplatePicker ? (
-        <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+        <div className="mt-4 rounded-[14px] border border-ink-4 bg-ink-2 p-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm font-semibold text-white">
                 Load prescribed delivery templates
               </p>
-              <p className="mt-1 text-sm text-text-secondary">
+              <p className="mt-1 text-sm text-text-2">
                 Build the delivery board from checked scope tracks instead of
                 generating a generic plan.
               </p>
-              <p className="mt-2 text-xs uppercase tracking-[0.16em] text-text-muted">
+              <p className="mt-2 text-xs uppercase tracking-[0.16em] text-text-3">
                 Scope type: {formatLabel(projectScopeType ?? "not_set")} · Hubs:{" "}
                 {projectSelectedHubs.length > 0
                   ? projectSelectedHubs.join(", ")
@@ -1208,7 +1208,7 @@ export default function DeliveryBoard({
                   selectedTemplateIds.length === 0 ||
                   (scopeLocked && !canGenerateLockedApprovedPlan)
                 }
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-white px-4 py-3 text-sm font-medium text-[#081120] disabled:cursor-not-allowed disabled:bg-[rgba(255,255,255,0.08)] disabled:text-text-muted"
+                className="rounded-xl border border-ink-4 bg-white px-4 py-3 text-sm font-medium text-[#081120] disabled:cursor-not-allowed disabled:bg-[rgba(255,255,255,0.08)] disabled:text-text-3"
               >
                 {generating
                   ? "Loading Templates..."
@@ -1226,10 +1226,10 @@ export default function DeliveryBoard({
               return (
                 <label
                   key={template.id}
-                  className={`flex cursor-pointer gap-3 rounded-2xl border p-4 transition-colors ${
+                  className={`flex cursor-pointer gap-3 rounded-[14px] border p-4 transition-colors ${
                     active
                       ? "border-[rgba(81,208,176,0.55)] bg-[rgba(81,208,176,0.08)]"
-                      : "border-[rgba(255,255,255,0.07)] bg-background-card"
+                      : "border-ink-4 bg-ink-1"
                   }`}
                 >
                   <input
@@ -1242,14 +1242,14 @@ export default function DeliveryBoard({
                           : currentIds.filter((templateId) => templateId !== template.id)
                       );
                     }}
-                    className="mt-1 h-4 w-4 rounded border-[rgba(255,255,255,0.18)] bg-[#081120] text-[#51d0b0]"
+                    className="mt-1 h-4 w-4 rounded border-ink-5 bg-[#081120] text-[#51d0b0]"
                   />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-semibold text-white">
                         {template.name}
                       </p>
-                      <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+                      <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] font-medium text-text-2">
                         {formatLabel(template.scopeType)}
                       </span>
                       {template.recommendedHubs.map((hub) => (
@@ -1261,10 +1261,10 @@ export default function DeliveryBoard({
                         </span>
                       ))}
                     </div>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       {template.description ?? "No template description yet."}
                     </p>
-                    <p className="mt-3 text-xs uppercase tracking-[0.16em] text-text-muted">
+                    <p className="mt-3 text-xs uppercase tracking-[0.16em] text-text-3">
                       {template.tasks.length} tasks
                       {template.defaultPlannedHours
                         ? ` · ${template.defaultPlannedHours}h default`
@@ -1277,14 +1277,14 @@ export default function DeliveryBoard({
           </div>
 
           {selectedTemplateSummaries.length > 0 ? (
-            <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+            <div className="mt-4 rounded-[14px] border border-ink-4 bg-ink-1 p-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-text-3">
                 Selected template stack
               </p>
               <p className="mt-2 text-sm text-white">
                 {selectedTemplateSummaries.map((template) => template.name).join(" + ")}
               </p>
-              <p className="mt-1 text-sm text-text-secondary">
+              <p className="mt-1 text-sm text-text-2">
                 {selectedTemplateSummaries.reduce(
                   (sum, template) => sum + template.tasks.length,
                   0
@@ -1304,7 +1304,7 @@ export default function DeliveryBoard({
             className={`rounded-xl px-4 py-2 text-sm font-medium ${
               activePanel === "board"
                 ? "bg-white text-[#081120]"
-                : "border border-[rgba(255,255,255,0.08)] bg-[#0b1126] text-white"
+                : "border border-ink-4 bg-ink-2 text-white"
             }`}
           >
             Delivery Board
@@ -1315,7 +1315,7 @@ export default function DeliveryBoard({
             className={`rounded-xl px-4 py-2 text-sm font-medium ${
               activePanel === "quick_wins"
                 ? "bg-white text-[#081120]"
-                : "border border-[rgba(255,255,255,0.08)] bg-[#0b1126] text-white"
+                : "border border-ink-4 bg-ink-2 text-white"
             }`}
           >
             Quick Wins ({quickWins.length})
@@ -1330,14 +1330,14 @@ export default function DeliveryBoard({
           {Object.entries(quickWinsByArea).map(([area, areaFindings]) => (
             <div
               key={area}
-              className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+              className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-white">
                     {formatLabel(area)}
                   </p>
-                  <p className="mt-1 text-xs text-text-secondary">
+                  <p className="mt-1 text-xs text-text-2">
                     {areaFindings.length} quick win
                     {areaFindings.length === 1 ? "" : "s"}
                   </p>
@@ -1352,7 +1352,7 @@ export default function DeliveryBoard({
                   return (
                     <div
                       key={finding.id}
-                      className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4"
+                      className="rounded-xl border border-ink-4 bg-ink-1 p-4"
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <span
@@ -1364,7 +1364,7 @@ export default function DeliveryBoard({
                           {formatLabel(finding.phaseRecommendation)}
                         </span>
                         {linkedTask ? (
-                          <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+                          <span className="rounded-full bg-[rgba(255,255,255,0.08)] px-2 py-0.5 text-[11px] font-medium text-text-2">
                             Task linked
                           </span>
                         ) : null}
@@ -1372,11 +1372,11 @@ export default function DeliveryBoard({
                       <p className="mt-3 text-sm font-medium text-white">
                         {finding.title}
                       </p>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         {finding.description}
                       </p>
                       <div className="mt-4 flex items-center justify-between gap-3">
-                        <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                        <span className="text-xs uppercase tracking-[0.16em] text-text-3">
                           {formatLabel(finding.area)}
                         </span>
                         <button
@@ -1386,7 +1386,7 @@ export default function DeliveryBoard({
                             creatingQuickWinTaskId === finding.id ||
                             Boolean(linkedTask)
                           }
-                          className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                          className="rounded-xl border border-ink-4 px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                         >
                           {linkedTask
                             ? "Task created"
@@ -1405,24 +1405,24 @@ export default function DeliveryBoard({
       ) : (
         <>
           <div className={`mt-4 grid gap-3 md:grid-cols-2 ${isPortalMode ? "xl:grid-cols-3" : "xl:grid-cols-4"}`}>
-            <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 {isPortalMode ? "Planned Time" : "Planned Human Hours"}
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
                 {boardMetrics.plannedHours}h
               </p>
             </div>
-            <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 {isPortalMode ? "Time Logged" : "Actual Human Hours"}
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
                 {boardMetrics.actualHours}h
               </p>
             </div>
-            <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Variance
               </p>
               <p
@@ -1433,14 +1433,14 @@ export default function DeliveryBoard({
               </p>
             </div>
             {mode === "internal" ? (
-              <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              <div className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   Ready Agent Tasks
                 </p>
                 <p className="mt-2 text-xl font-semibold text-white">
                   {boardMetrics.readyAgentTasks}
                 </p>
-                <p className="mt-1 text-xs text-text-secondary">
+                <p className="mt-1 text-xs text-text-2">
                   {boardMetrics.apiEligibleTasks} API-ready ·{" "}
                   {boardMetrics.reviewFirstTasks} review-first
                 </p>
@@ -1453,20 +1453,20 @@ export default function DeliveryBoard({
               {workstreamMetrics.map((workstream) => (
                 <div
                   key={workstream.id}
-                  className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
+                  className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-white">
                       {workstream.name}
                     </p>
-                    <span className="text-xs text-text-muted">
+                    <span className="text-xs text-text-3">
                       {workstream.taskCount} tasks
                     </span>
                   </div>
-                  <p className="mt-2 text-sm text-text-secondary">
+                  <p className="mt-2 text-sm text-text-2">
                     Planned {workstream.plannedHours}h · Actual {workstream.actualHours}h
                   </p>
-                  <p className="mt-1 text-xs text-text-muted">
+                  <p className="mt-1 text-xs text-text-3">
                     {workstream.completedTasks} complete
                   </p>
                 </div>
@@ -1475,7 +1475,7 @@ export default function DeliveryBoard({
           ) : null}
 
           {mode === "internal" && projectServiceFamily ? (
-            <p className="mt-3 text-sm text-text-secondary">
+            <p className="mt-3 text-sm text-text-2">
               Agent suggestions are filtered to the project service family:{" "}
               {formatLabel(projectServiceFamily)}.
             </p>
@@ -1490,7 +1490,7 @@ export default function DeliveryBoard({
           ) : null}
 
           {mode === "internal" && editingTaskId === "new" ? (
-            <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
+            <div className="mt-6 rounded-[14px] border border-ink-4 bg-ink-2 p-5">
               <p className="text-sm font-semibold text-white">Add task</p>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <label className="block">
@@ -1503,7 +1503,7 @@ export default function DeliveryBoard({
                         title: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                   />
                 </label>
                 <label className="block">
@@ -1516,7 +1516,7 @@ export default function DeliveryBoard({
                         category: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                   />
                 </label>
                 <label className="block">
@@ -1526,7 +1526,7 @@ export default function DeliveryBoard({
                     onChange={(event) =>
                       updateTaskDraft("workstreamId", event.target.value)
                     }
-                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                   >
                     <option value="">No workstream</option>
                     {projectWorkstreams.map((workstream) => (
@@ -1546,7 +1546,7 @@ export default function DeliveryBoard({
                         description: event.target.value
                       }))
                     }
-                    className="mt-2 min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                    className="mt-2 min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                   />
                 </label>
                 <label className="block">
@@ -1556,7 +1556,7 @@ export default function DeliveryBoard({
                     onChange={(event) =>
                       updateTaskDraft("assigneeType", event.target.value)
                     }
-                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                   >
                     <option value="Human">Human</option>
                     <option value="Agent">Agent</option>
@@ -1572,7 +1572,7 @@ export default function DeliveryBoard({
                       onChange={(event) =>
                         updateTaskDraft("assignedAgentId", event.target.value)
                       }
-                      className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                      className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                     >
                       <option value="">Select agent</option>
                       {agents.map((agent) => (
@@ -1593,7 +1593,7 @@ export default function DeliveryBoard({
                         status: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                   >
                     {boardColumns.map((statusOption) => (
                       <option key={statusOption.key} value={statusOption.key}>
@@ -1614,7 +1614,7 @@ export default function DeliveryBoard({
                         executionReadiness: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                   >
                     <option value="not_ready">Not ready</option>
                     <option value="assisted">Agent assisted</option>
@@ -1632,7 +1632,7 @@ export default function DeliveryBoard({
                         executionType: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                   />
                 </label>
                 <label className="block">
@@ -1645,7 +1645,7 @@ export default function DeliveryBoard({
                         priority: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -1659,7 +1659,7 @@ export default function DeliveryBoard({
                     onChange={(event) =>
                       updateTaskDraft("taskOrigin", event.target.value)
                     }
-                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                   >
                     <option value="manual">Manual</option>
                     <option value="audit">Audit</option>
@@ -1681,7 +1681,7 @@ export default function DeliveryBoard({
                         plannedHours: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                   />
                 </label>
                 <label className="block">
@@ -1695,7 +1695,7 @@ export default function DeliveryBoard({
                         actualHours: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-2 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                   />
                 </label>
               </div>
@@ -1739,7 +1739,7 @@ export default function DeliveryBoard({
                 <button
                   type="button"
                   onClick={cancelEditingTask}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
+                  className="rounded-xl border border-ink-4 px-4 py-3 text-sm font-medium text-white"
                 >
                   Cancel
                 </button>
@@ -1753,7 +1753,7 @@ export default function DeliveryBoard({
                 {boardColumns.map((column) => (
                   <div
                     key={column.key}
-                    className="h-40 animate-pulse rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
+                    className="h-40 animate-pulse rounded-[14px] border border-ink-4 bg-ink-2"
                   />
                 ))}
               </div>
@@ -1769,13 +1769,13 @@ export default function DeliveryBoard({
                   return (
                     <div
                       key={column.key}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-semibold text-white">
                           {column.label}
                         </p>
-                        <span className="rounded bg-[rgba(255,255,255,0.06)] px-2 py-1 text-xs font-medium text-text-secondary">
+                        <span className="rounded bg-ink-3 px-2 py-1 text-xs font-medium text-text-2">
                           {columnTasks.length}
                         </span>
                       </div>
@@ -1785,7 +1785,7 @@ export default function DeliveryBoard({
                           columnTasks.map((task) => (
                             <div
                               key={task.id}
-                              className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4"
+                              className="rounded-xl border border-ink-4 bg-ink-1 p-4"
                             >
                               {(() => {
                                 const badge = taskLaneBadge(task.executionType);
@@ -1820,7 +1820,7 @@ export default function DeliveryBoard({
                                         task.scopeOrigin?.toLowerCase() ===
                                         "change_request"
                                           ? "bg-[rgba(123,226,239,0.14)] text-[#7be2ef]"
-                                          : "bg-[rgba(255,255,255,0.08)] text-text-secondary"
+                                          : "bg-[rgba(255,255,255,0.08)] text-text-2"
                                       }`}
                                     >
                                       {task.scopeOrigin?.toLowerCase() ===
@@ -1829,7 +1829,7 @@ export default function DeliveryBoard({
                                         : "Baseline"}
                                     </span>
                                     {task.category ? (
-                                      <span className="text-xs text-text-muted">
+                                      <span className="text-xs text-text-3">
                                         {task.category}
                                       </span>
                                     ) : null}
@@ -1848,20 +1848,20 @@ export default function DeliveryBoard({
                                 {task.title}
                               </p>
                               {task.description ? (
-                                <p className="mt-2 text-sm text-text-secondary">
+                                <p className="mt-2 text-sm text-text-2">
                                   {task.description}
                                 </p>
                               ) : null}
                               {mode === "internal" ? (
-                                <div className="mt-3 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#0b1126] px-3 py-3">
-                                  <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                                <div className="mt-3 rounded-lg border border-[rgba(255,255,255,0.06)] bg-ink-2 px-3 py-3">
+                                  <p className="text-xs uppercase tracking-[0.16em] text-text-3">
                                     Best execution path
                                   </p>
                                   <p className="mt-2 text-sm text-white">
                                     {task.executionPath.summary}
                                   </p>
                                   {task.executionPath.directActions.length > 0 ? (
-                                    <p className="mt-2 text-xs text-text-secondary">
+                                    <p className="mt-2 text-xs text-text-2">
                                       API actions:{" "}
                                       {task.executionPath.directActions.join(
                                         ", "
@@ -1870,7 +1870,7 @@ export default function DeliveryBoard({
                                   ) : null}
                                 </div>
                               ) : null}
-                              <div className="mt-3 flex flex-wrap gap-2 text-xs text-text-muted">
+                              <div className="mt-3 flex flex-wrap gap-2 text-xs text-text-3">
                                 {mode === "internal" ? (
                                   <span>
                                     Execution: {formatLabel(task.executionType)}
@@ -1936,22 +1936,22 @@ export default function DeliveryBoard({
                                 ) : null}
                               </div>
                               {mode === "internal" && task.executionLaneRationale ? (
-                                <p className="mt-3 text-xs text-text-secondary">
+                                <p className="mt-3 text-xs text-text-2">
                                   Lane rationale: {task.executionLaneRationale}
                                 </p>
                               ) : null}
                               {mode === "internal" && task.coworkBrief ? (
-                                <p className="mt-2 text-xs text-text-secondary">
+                                <p className="mt-2 text-xs text-text-2">
                                   Cowork brief: {task.coworkBrief}
                                 </p>
                               ) : null}
                               {mode === "internal" && task.manualInstructions ? (
-                                <p className="mt-2 text-xs text-text-secondary">
+                                <p className="mt-2 text-xs text-text-2">
                                   Manual instructions: {task.manualInstructions}
                                 </p>
                               ) : null}
                               {mode === "internal" && task.validationEvidence ? (
-                                <p className="mt-2 text-xs text-text-secondary">
+                                <p className="mt-2 text-xs text-text-2">
                                   Validation evidence: {task.validationEvidence}
                                 </p>
                               ) : null}
@@ -1959,9 +1959,9 @@ export default function DeliveryBoard({
                               task.qaRequired &&
                               task.status !== "done" &&
                               (task.latestExecutionJob?.status === "complete" || task.latestExecutionJob?.status === "completed") ? (
-                                <div className="mt-4 rounded-2xl border border-[rgba(123,226,239,0.25)] bg-[#0b1733] p-4 space-y-3">
+                                <div className="mt-4 rounded-[14px] border border-[rgba(123,226,239,0.25)] bg-[#0b1733] p-4 space-y-3">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7be2ef]">
+                                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#7be2ef]">
                                       QA Review Required
                                     </span>
                                     <span className="rounded-full bg-[rgba(123,226,239,0.15)] px-2 py-0.5 text-xs text-[#7be2ef]">
@@ -1969,12 +1969,12 @@ export default function DeliveryBoard({
                                     </span>
                                   </div>
                                   {task.latestExecutionJob.outputSummary ? (
-                                    <div className="rounded-xl bg-[#0b1126] px-4 py-3">
-                                      <p className="text-xs uppercase tracking-[0.15em] text-text-muted mb-2">Agent output summary</p>
-                                      <p className="text-sm text-text-secondary whitespace-pre-wrap">{task.latestExecutionJob.outputSummary}</p>
+                                    <div className="rounded-xl bg-ink-2 px-4 py-3">
+                                      <p className="text-xs uppercase tracking-[0.15em] text-text-3 mb-2">Agent output summary</p>
+                                      <p className="text-sm text-text-2 whitespace-pre-wrap">{task.latestExecutionJob.outputSummary}</p>
                                     </div>
                                   ) : (
-                                    <p className="text-xs text-text-muted">No output summary available. Check the Runs log for full details.</p>
+                                    <p className="text-xs text-text-3">No output summary available. Check the Runs log for full details.</p>
                                   )}
                                   <div className="flex flex-wrap gap-2 pt-1">
                                     <button
@@ -2016,7 +2016,7 @@ export default function DeliveryBoard({
                                           }))
                                         }
                                         disabled={scopeLocked}
-                                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                       />
                                       <textarea
                                         value={taskDraft.description}
@@ -2027,7 +2027,7 @@ export default function DeliveryBoard({
                                           }))
                                         }
                                         disabled={scopeLocked}
-                                        className="min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="min-h-[100px] w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                       />
                                       <div className="grid gap-3 md:grid-cols-2">
                                         <input
@@ -2040,7 +2040,7 @@ export default function DeliveryBoard({
                                           }
                                           placeholder="Category"
                                           disabled={scopeLocked}
-                                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                         />
                                         <select
                                           value={taskDraft.workstreamId}
@@ -2051,7 +2051,7 @@ export default function DeliveryBoard({
                                             )
                                           }
                                           disabled={scopeLocked}
-                                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                         >
                                           <option value="">No workstream</option>
                                           {projectWorkstreams.map((workstream) => (
@@ -2073,7 +2073,7 @@ export default function DeliveryBoard({
                                           }
                                           placeholder="Execution type"
                                           disabled={scopeLocked}
-                                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                         />
                                         <select
                                           value={taskDraft.assigneeType}
@@ -2083,7 +2083,7 @@ export default function DeliveryBoard({
                                               event.target.value
                                             )
                                           }
-                                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                                         >
                                           <option value="Human">Human</option>
                                           <option value="Agent">Agent</option>
@@ -2099,7 +2099,7 @@ export default function DeliveryBoard({
                                                 event.target.value
                                               )
                                             }
-                                            className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                            className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                                           >
                                             <option value="">
                                               Select agent
@@ -2123,7 +2123,7 @@ export default function DeliveryBoard({
                                             }))
                                           }
                                           disabled={scopeLocked}
-                                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                         >
                                           <option value="low">Low</option>
                                           <option value="medium">Medium</option>
@@ -2137,7 +2137,7 @@ export default function DeliveryBoard({
                                               status: event.target.value
                                             }))
                                           }
-                                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                                         >
                                           {boardColumns.map((statusOption) => (
                                             <option
@@ -2157,7 +2157,7 @@ export default function DeliveryBoard({
                                                 event.target.value
                                             }))
                                           }
-                                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                                         >
                                           <option value="not_ready">
                                             Not ready
@@ -2179,7 +2179,7 @@ export default function DeliveryBoard({
                                             )
                                           }
                                           disabled={scopeLocked}
-                                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                         >
                                           <option value="manual">Manual</option>
                                           <option value="audit">Audit</option>
@@ -2200,7 +2200,7 @@ export default function DeliveryBoard({
                                           }
                                           placeholder="Planned hours"
                                           disabled={scopeLocked}
-                                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                                         />
                                         <input
                                           type="number"
@@ -2212,11 +2212,11 @@ export default function DeliveryBoard({
                                             }))
                                           }
                                           placeholder="Actual hours"
-                                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                                         />
                                       </div>
                                       <div>
-                                        <label className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                                        <label className="text-xs uppercase tracking-[0.16em] text-text-3">
                                           HubSpot ticket ID
                                         </label>
                                         <input
@@ -2230,7 +2230,7 @@ export default function DeliveryBoard({
                                             }))
                                           }
                                           placeholder="e.g. 12345"
-                                          className="mt-1 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                                          className="mt-1 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                                         />
                                       </div>
                                       <div className="flex flex-wrap gap-4">
@@ -2276,7 +2276,7 @@ export default function DeliveryBoard({
                                         <button
                                           type="button"
                                           onClick={cancelEditingTask}
-                                          className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm font-medium text-white"
+                                          className="rounded-xl border border-ink-4 px-3 py-2 text-sm font-medium text-white"
                                         >
                                           Cancel
                                         </button>
@@ -2288,7 +2288,7 @@ export default function DeliveryBoard({
                                         <button
                                           type="button"
                                           onClick={() => startEditingTask(task)}
-                                          className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                          className="rounded-xl border border-ink-4 px-3 py-2 text-xs font-medium text-white"
                                         >
                                           Edit
                                         </button>
@@ -2376,7 +2376,7 @@ export default function DeliveryBoard({
                                         </button>
                                       </div>
                                       <label className="mt-4 block">
-                                        <span className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                        <span className="text-xs uppercase tracking-[0.14em] text-text-3">
                                           Move task
                                         </span>
                                         <select
@@ -2388,7 +2388,7 @@ export default function DeliveryBoard({
                                             )
                                           }
                                           disabled={updatingTaskId === task.id}
-                                          className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed"
+                                          className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed"
                                         >
                                           {boardColumns.map((statusOption) => (
                                             <option
@@ -2408,7 +2408,7 @@ export default function DeliveryBoard({
                                           "ready_with_review",
                                           "ready"
                                         ].includes(task.executionReadiness)) ? (
-                                        <p className="mt-3 text-xs text-text-secondary">
+                                        <p className="mt-3 text-xs text-text-2">
                                           {task.approvalRequired
                                             ? "Approval is still required before this agent task can be queued."
                                             : !task.assignedAgentId
@@ -2422,7 +2422,7 @@ export default function DeliveryBoard({
                                       !["ready", "ready_with_review"].includes(
                                         task.executionReadiness
                                       ) ? (
-                                        <p className="mt-3 text-xs text-text-secondary">
+                                        <p className="mt-3 text-xs text-text-2">
                                           API and cowork runs unlock when readiness is set
                                           to Ready or Ready with review.
                                         </p>
@@ -2431,14 +2431,14 @@ export default function DeliveryBoard({
                                   )}
                                 </>
                               ) : (
-                                <div className="mt-4 rounded-lg bg-[#0b1126] px-3 py-2 text-xs text-text-secondary">
+                                <div className="mt-4 rounded-lg bg-ink-2 px-3 py-2 text-xs text-text-2">
                                   Current status: {column.label}
                                 </div>
                               )}
                             </div>
                           ))
                         ) : (
-                          <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-4 text-sm text-text-secondary">
+                          <div className="rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] px-4 py-4 text-sm text-text-2">
                             No tasks in this column yet.
                           </div>
                         )}
@@ -2449,7 +2449,7 @@ export default function DeliveryBoard({
               </div>
             </div>
           ) : (
-            <div className="mt-6 rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] bg-[#0b1126] px-5 py-5 text-sm text-text-secondary">
+            <div className="mt-6 rounded-[14px] border border-dashed border-[rgba(255,255,255,0.1)] bg-ink-2 px-5 py-5 text-sm text-text-2">
               {mode === "internal" ? (
                 <div className="space-y-3">
                   <p>

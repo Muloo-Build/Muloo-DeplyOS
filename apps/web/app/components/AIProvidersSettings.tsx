@@ -150,7 +150,7 @@ export default function AIProvidersSettings() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
         Loading providers + catalog...
       </div>
     );
@@ -173,18 +173,18 @@ export default function AIProvidersSettings() {
         return (
           <div
             key={provider.id}
-            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+            className="rounded-[14px] border border-ink-4 bg-ink-1 p-6"
           >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   AI provider
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-white">
                   {provider.label}
                 </h2>
                 {catalogEntry ? (
-                  <p className="mt-2 text-sm text-text-secondary">
+                  <p className="mt-2 text-sm text-text-2">
                     {catalogEntry.description}
                   </p>
                 ) : null}
@@ -219,7 +219,7 @@ export default function AIProvidersSettings() {
                       e.target.value
                     )
                   }
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                  className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                 >
                   <option value="">Select a model…</option>
                   {models.map((model) => (
@@ -234,11 +234,11 @@ export default function AIProvidersSettings() {
                   ))}
                 </select>
                 {selectedModel ? (
-                  <p className="mt-2 text-xs text-text-muted">
+                  <p className="mt-2 text-xs text-text-3">
                     {selectedModel.contextK.toLocaleString()}k context · {selectedModel.tier} tier · released {selectedModel.releasedAt}
                   </p>
                 ) : models.length === 0 ? (
-                  <p className="mt-2 text-xs text-text-muted">
+                  <p className="mt-2 text-xs text-text-3">
                     No catalog entry for this provider yet.
                   </p>
                 ) : null}
@@ -258,7 +258,7 @@ export default function AIProvidersSettings() {
                     )
                   }
                   placeholder={catalogEntry?.apiBase ?? "Optional custom endpoint"}
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                  className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                 />
               </label>
 
@@ -280,7 +280,7 @@ export default function AIProvidersSettings() {
                       : "Paste provider API key"
                   }
                   autoComplete="off"
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                  className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                 />
               </label>
 
@@ -295,7 +295,7 @@ export default function AIProvidersSettings() {
                       e.target.value
                     )
                   }
-                  className="mt-3 min-h-[100px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                  className="mt-3 min-h-[100px] w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                 />
               </label>
             </div>

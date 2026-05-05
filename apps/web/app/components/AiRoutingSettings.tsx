@@ -282,7 +282,7 @@ export default function AiRoutingSettings() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
         Loading AI routing...
       </div>
     );
@@ -291,7 +291,7 @@ export default function AiRoutingSettings() {
   return (
     <div className="space-y-5">
       {/* Sticky save bar */}
-      <div className="sticky top-0 z-10 -mx-1 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126]/95 px-5 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 -mx-1 rounded-[14px] border border-ink-4 bg-ink-2/95 px-5 py-3 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-white">
@@ -299,7 +299,7 @@ export default function AiRoutingSettings() {
                 ? "No unsaved changes"
                 : `${dirtyKeys.size} unsaved change${dirtyKeys.size === 1 ? "" : "s"}`}
             </p>
-            <p className="text-xs text-text-muted">
+            <p className="text-xs text-text-3">
               Edits stay local until you save. Tests, prompt previews, and
               recommendations can be used at any time.
             </p>
@@ -330,8 +330,8 @@ export default function AiRoutingSettings() {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-        <p className="text-sm text-text-secondary">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+        <p className="text-sm text-text-2">
           Each workflow can run on a different provider and model. Use the
           recommendation panel for sensible defaults, click <span className="text-white">Test</span> to verify the model is reachable, and use <span className="text-white">Show prompt</span> to inspect what gets sent.
         </p>
@@ -353,16 +353,16 @@ export default function AiRoutingSettings() {
         return (
           <section
             key={route.id}
-            className={`rounded-2xl border bg-background-card p-6 ${
+            className={`rounded-[14px] border bg-ink-1 p-6 ${
               isDirty
                 ? "border-[rgba(255,200,80,0.45)]"
-                : "border-[rgba(255,255,255,0.07)]"
+                : "border-ink-4"
             }`}
           >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex-1 min-w-[260px]">
                 <div className="flex items-center gap-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Workflow
                   </p>
                   {isDirty ? (
@@ -374,12 +374,12 @@ export default function AiRoutingSettings() {
                 <h2 className="mt-2 text-xl font-semibold text-white">
                   {route.label}
                 </h2>
-                <p className="mt-1 font-mono text-xs text-text-muted">
+                <p className="mt-1 font-mono text-xs text-text-3">
                   {route.workflowKey}
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2">
-                <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary">
+                <div className="rounded-full border border-ink-4 px-3 py-1 text-xs text-text-2">
                   {provider
                     ? `${provider.label}${
                         route.modelOverride
@@ -392,7 +392,7 @@ export default function AiRoutingSettings() {
                 </div>
                 {status ? (
                   <span
-                    className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                    className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${
                       status === "ok"
                         ? "bg-[rgba(73,255,143,0.12)] text-[#7af0a8]"
                         : "bg-[rgba(224,80,96,0.18)] text-[#ff9aa6]"
@@ -401,12 +401,12 @@ export default function AiRoutingSettings() {
                     {status === "ok" ? "Tested OK" : "Test failed"}
                   </span>
                 ) : (
-                  <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+                  <span className="rounded-full bg-ink-3 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-3">
                     Untested
                   </span>
                 )}
                 {route.lastTestedAt ? (
-                  <span className="text-[10px] text-text-muted">
+                  <span className="text-[10px] text-text-3">
                     {new Date(route.lastTestedAt).toLocaleString()} ·{" "}
                     {route.lastTestLatencyMs ? `${route.lastTestLatencyMs}ms · ` : ""}
                     {formatUsd(route.lastTestCostUsd)}
@@ -416,17 +416,17 @@ export default function AiRoutingSettings() {
             </div>
 
             {recommendation ? (
-              <div className="mt-5 rounded-2xl border border-[rgba(124,92,191,0.28)] bg-[rgba(124,92,191,0.08)] p-4">
+              <div className="mt-5 rounded-[14px] border border-[rgba(124,92,191,0.28)] bg-[rgba(124,92,191,0.08)] p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-[#cdb6f5]">
+                    <p className="text-xs uppercase tracking-[0.14em] text-[#cdb6f5]">
                       Recommended for this workflow
                     </p>
                     <p className="mt-2 text-sm font-semibold text-white">
                       {recommendation.primary.providerKey} ·{" "}
                       {recommendation.primary.model}
                     </p>
-                    <p className="mt-1 text-xs text-text-secondary">
+                    <p className="mt-1 text-xs text-text-2">
                       {recommendation.primary.reason}
                     </p>
                   </div>
@@ -443,26 +443,26 @@ export default function AiRoutingSettings() {
                         recommendation.primary.providerKey &&
                       route.modelOverride === recommendation.primary.model
                     }
-                    className="rounded-xl border border-[rgba(255,255,255,0.18)] bg-[rgba(124,92,191,0.18)] px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl border border-ink-5 bg-[rgba(124,92,191,0.18)] px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Use this
                   </button>
                 </div>
                 {recommendation.alternates.length > 0 ? (
-                  <div className="mt-3 space-y-2 border-t border-[rgba(255,255,255,0.07)] pt-3">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                  <div className="mt-3 space-y-2 border-t border-ink-4 pt-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
                       Alternates
                     </p>
                     {recommendation.alternates.map((alt) => (
                       <div
                         key={`${alt.providerKey}-${alt.model}`}
-                        className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#0b1126] px-3 py-2"
+                        className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-[rgba(255,255,255,0.05)] bg-ink-2 px-3 py-2"
                       >
                         <div>
                           <p className="text-xs font-semibold text-white">
                             {alt.providerKey} · {alt.model}
                           </p>
-                          <p className="text-[11px] text-text-secondary">
+                          <p className="text-[11px] text-text-2">
                             {alt.reason}
                           </p>
                         </div>
@@ -471,7 +471,7 @@ export default function AiRoutingSettings() {
                           onClick={() =>
                             applyRecommendation(route.workflowKey, alt)
                           }
-                          className="rounded-lg border border-[rgba(255,255,255,0.12)] px-2 py-1 text-[10px] font-medium text-white"
+                          className="rounded-lg border border-ink-4 px-2 py-1 text-[10px] font-medium text-white"
                         >
                           Use
                         </button>
@@ -494,7 +494,7 @@ export default function AiRoutingSettings() {
                       event.target.value
                     )
                   }
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                  className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                 >
                   {provider &&
                   !aiProviders.some(
@@ -534,7 +534,7 @@ export default function AiRoutingSettings() {
                       event.target.value
                     )
                   }
-                  className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                  className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                 >
                   <option value="">
                     Use provider default
@@ -568,7 +568,7 @@ export default function AiRoutingSettings() {
                   onChange={(event) =>
                     updateRoute(route.workflowKey, "notes", event.target.value)
                   }
-                  className="mt-3 min-h-[96px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                  className="mt-3 min-h-[96px] w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                   placeholder="Why this workflow uses this provider/model, testing notes, or known strengths."
                 />
               </label>
@@ -588,7 +588,7 @@ export default function AiRoutingSettings() {
               <button
                 type="button"
                 onClick={() => togglePromptPanel(route.workflowKey)}
-                className="rounded-xl border border-[rgba(255,255,255,0.18)] px-4 py-3 text-sm font-medium text-white"
+                className="rounded-xl border border-ink-5 px-4 py-3 text-sm font-medium text-white"
               >
                 {openPromptKey === route.workflowKey
                   ? "Hide prompt"
@@ -597,11 +597,11 @@ export default function AiRoutingSettings() {
             </div>
 
             {openPromptKey === route.workflowKey ? (
-              <div className="mt-4 space-y-3 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+              <div className="mt-4 space-y-3 rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                 {promptTemplates[route.workflowKey] ? (
                   <>
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
                         System prompt (sample)
                       </p>
                       <pre className="mt-2 whitespace-pre-wrap rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#040518] p-3 font-mono text-xs text-white">
@@ -609,21 +609,21 @@ export default function AiRoutingSettings() {
                       </pre>
                     </div>
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
                         Sample user prompt
                       </p>
                       <pre className="mt-2 whitespace-pre-wrap rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#040518] p-3 font-mono text-xs text-white">
                         {promptTemplates[route.workflowKey].samplePrompt}
                       </pre>
                     </div>
-                    <p className="text-[11px] text-text-muted">
+                    <p className="text-[11px] text-text-3">
                       These are the prompts used by the Test button. Real
                       production prompts are richer and live in the workflow
                       handler.
                     </p>
                   </>
                 ) : (
-                  <p className="text-sm text-text-muted">Loading prompt...</p>
+                  <p className="text-sm text-text-3">Loading prompt...</p>
                 )}
               </div>
             ) : null}
@@ -635,10 +635,10 @@ export default function AiRoutingSettings() {
             ) : null}
             {route.lastTestSampleOutput ? (
               <div className="mt-4">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
                   Last test output
                 </p>
-                <pre className="mt-2 whitespace-pre-wrap rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-3 font-mono text-xs text-white">
+                <pre className="mt-2 whitespace-pre-wrap rounded-xl border border-ink-4 bg-ink-2 p-3 font-mono text-xs text-white">
                   {route.lastTestSampleOutput}
                 </pre>
               </div>

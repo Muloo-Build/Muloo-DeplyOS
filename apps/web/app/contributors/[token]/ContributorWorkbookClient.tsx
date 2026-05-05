@@ -143,10 +143,10 @@ export default function ContributorWorkbookClient({
             : "If you were expecting to fill something in today, please contact the person who shared this link with you.";
     return (
       <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-6 py-12">
-        <div className="brand-surface w-full rounded-3xl border border-rose-500/30 bg-rose-500/5 p-8 text-center">
+        <div className="brand-surface w-full rounded-[14px] border border-rose-500/30 bg-rose-500/5 p-8 text-center">
           <h1 className="text-xl font-semibold text-white">{heading}</h1>
           <p className="mt-2 text-sm text-rose-200">{error.message}</p>
-          <p className="mt-6 text-xs text-text-secondary">{hint}</p>
+          <p className="mt-6 text-xs text-text-2">{hint}</p>
         </div>
       </main>
     );
@@ -155,7 +155,7 @@ export default function ContributorWorkbookClient({
   if (!data) {
     return (
       <main className="mx-auto flex min-h-screen max-w-2xl items-center justify-center px-6 py-12">
-        <p className="text-sm text-text-secondary">Loading your workbook…</p>
+        <p className="text-sm text-text-2">Loading your workbook…</p>
       </main>
     );
   }
@@ -165,14 +165,14 @@ export default function ContributorWorkbookClient({
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
       <header className="mb-6 space-y-1">
-        <p className="text-[11px] uppercase tracking-wide text-text-secondary">
+        <p className="text-[11px] uppercase tracking-wide text-text-2">
           {data.project.name}
         </p>
         <h1 className="text-2xl font-semibold text-white">
           Hi {data.contributor.contact.firstName} — here&apos;s what we need
           your help with
         </h1>
-        <p className="text-sm text-text-secondary">
+        <p className="text-sm text-text-2">
           You&apos;re only seeing the questions that have been assigned to
           you. Your answers save when you click <em>Save</em> on each
           workbook.
@@ -183,11 +183,11 @@ export default function ContributorWorkbookClient({
       </header>
 
       {data.workbooks.length === 0 ? (
-        <div className="brand-surface rounded-2xl border border-dashed border-white/10 p-6 text-center">
+        <div className="brand-surface rounded-[14px] border border-dashed border-ink-4 p-6 text-center">
           <p className="text-sm font-medium text-white">
             Nothing to fill in right now
           </p>
-          <p className="mt-1 text-xs text-text-secondary">
+          <p className="mt-1 text-xs text-text-2">
             The delivery team hasn&apos;t assigned you any workbook
             questions yet. You can come back to this link later.
           </p>
@@ -203,11 +203,11 @@ export default function ContributorWorkbookClient({
                 className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition ${
                   wb.id === activeWorkbookId
                     ? "border border-brand-teal/40 bg-brand-teal/10 text-white"
-                    : "border border-transparent text-text-secondary hover:border-white/10 hover:text-white"
+                    : "border border-transparent text-text-2 hover:border-ink-4 hover:text-white"
                 }`}
               >
                 <p className="font-medium">{wb.title}</p>
-                <p className="text-[10px] uppercase tracking-wide text-text-secondary">
+                <p className="text-[10px] uppercase tracking-wide text-text-2">
                   {wb.status}
                 </p>
               </button>
@@ -217,7 +217,7 @@ export default function ContributorWorkbookClient({
             {active ? (
               <WorkbookView token={token} workbook={active} onSaved={load} />
             ) : (
-              <p className="text-sm text-text-secondary">
+              <p className="text-sm text-text-2">
                 Select a workbook on the left to start.
               </p>
             )}
@@ -307,13 +307,13 @@ function WorkbookView({
   }
 
   return (
-    <div className="brand-surface space-y-4 rounded-2xl border border-white/10 p-5">
+    <div className="brand-surface space-y-4 rounded-[14px] border border-ink-4 p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-white">
             {workbook.title}
           </h2>
-          <p className="text-xs text-text-secondary">
+          <p className="text-xs text-text-2">
             Status: {workbook.status}
           </p>
         </div>
@@ -341,7 +341,7 @@ function WorkbookView({
       ) : null}
 
       {workbook.workbookContent.sections.length === 0 ? (
-        <p className="text-sm text-text-secondary">
+        <p className="text-sm text-text-2">
           No questions assigned to you in this workbook yet.
         </p>
       ) : (
@@ -355,7 +355,7 @@ function WorkbookView({
                 {section.title}
               </h3>
               {section.description ? (
-                <p className="text-xs text-text-secondary">
+                <p className="text-xs text-text-2">
                   {section.description}
                 </p>
               ) : null}
@@ -383,7 +383,7 @@ function WorkbookView({
                       ) : null}
                     </div>
                     {question.helpText ? (
-                      <p className="text-[11px] text-text-secondary">
+                      <p className="text-[11px] text-text-2">
                         {question.helpText}
                       </p>
                     ) : null}

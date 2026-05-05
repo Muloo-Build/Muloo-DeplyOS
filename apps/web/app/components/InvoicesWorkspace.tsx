@@ -36,7 +36,7 @@ const statusFilters: Array<{ value: string; label: string }> = [
 ];
 
 const statusStyles: Record<string, string> = {
-  DRAFT: "bg-white/5 text-text-secondary border border-white/10",
+  DRAFT: "bg-white/5 text-text-2 border border-ink-4",
   SENT: "bg-[#49cde1]/15 text-[#9be4f0] border border-[#49cde1]/30",
   PAID: "bg-emerald-500/15 text-emerald-200 border border-emerald-400/30",
   OVERDUE: "bg-rose-500/15 text-rose-200 border border-rose-400/30",
@@ -204,7 +204,7 @@ export default function InvoicesWorkspace() {
         </HealthStrip>
 
         {error ? (
-          <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <div className="rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             {error}
           </div>
         ) : null}
@@ -222,11 +222,11 @@ export default function InvoicesWorkspace() {
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                     active
                       ? "border-[#51d0b0]/50 bg-[#51d0b0]/10 text-[#9be4d2]"
-                      : "border-white/10 bg-background-card text-text-secondary hover:border-white/20 hover:text-white"
+                      : "border-ink-4 bg-ink-1 text-text-2 hover:border-ink-5 hover:text-white"
                   }`}
                 >
                   {filter.label}
-                  <span className="text-[10px] text-text-muted">{count}</span>
+                  <span className="text-[10px] text-text-3">{count}</span>
                 </button>
               );
             })}
@@ -236,11 +236,11 @@ export default function InvoicesWorkspace() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by reference or client..."
-            className="w-full max-w-xs rounded-xl border border-white/10 bg-background-card px-3 py-2.5 text-sm text-white placeholder:text-text-muted"
+            className="w-full max-w-xs rounded-xl border border-ink-4 bg-ink-1 px-3 py-2.5 text-sm text-white placeholder:text-text-3"
           />
         </div>
 
-        <section className="rounded-2xl border border-white/10 bg-background-card">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1">
           {loading ? (
             <SkeletonRows count={6} className="p-5" />
           ) : filtered.length === 0 ? (
@@ -276,11 +276,11 @@ export default function InvoicesWorkspace() {
                       <p className="truncate text-base font-semibold text-white">
                         {invoice.reference}
                       </p>
-                      <p className="mt-1 truncate text-xs text-text-muted">
+                      <p className="mt-1 truncate text-xs text-text-3">
                         {formatType(invoice.invoiceType)}
                       </p>
                     </div>
-                    <div className="text-sm text-text-secondary">
+                    <div className="text-sm text-text-2">
                       {invoice.retainer?.client?.name ??
                         invoice.billToEntity?.name ??
                         "—"}
@@ -288,15 +288,15 @@ export default function InvoicesWorkspace() {
                     <div className="text-sm text-white tabular-nums">
                       {formatMoney(invoice.amount, invoice.currency)}
                     </div>
-                    <div className="text-xs text-text-muted">
+                    <div className="text-xs text-text-3">
                       Issued {formatDate(invoice.issueDate)}
                     </div>
-                    <div className="text-xs text-text-muted">
+                    <div className="text-xs text-text-3">
                       Due {formatDate(invoice.dueDate)}
                     </div>
                     <div>
                       <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
                           statusStyles[invoice.status] ?? statusStyles.DRAFT
                         }`}
                       >

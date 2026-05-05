@@ -111,8 +111,8 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   if (!checked || !authenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background-primary text-white">
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-5 text-sm text-text-secondary">
+      <div className="flex min-h-screen items-center justify-center bg-ink-0 text-white">
+        <div className="rounded-[14px] border border-ink-4 bg-ink-1 px-6 py-5 text-sm text-text-2">
           Checking workspace access...
         </div>
       </div>

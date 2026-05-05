@@ -39,18 +39,18 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background-primary p-6 text-white">
-      <div className="w-full max-w-md rounded-3xl border border-status-error/30 bg-status-error/10 p-6 text-center">
-        <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-ink-0 p-6 text-white">
+      <div className="w-full max-w-md rounded-[14px] border border-status-error/30 bg-status-error/10 p-6 text-center">
+        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
           Unexpected error
         </p>
         <h1 className="mt-3 text-2xl font-semibold">Something went wrong.</h1>
-        <p className="mt-3 text-sm text-text-secondary">
+        <p className="mt-3 text-sm text-text-2">
           {error.message ||
             "We've logged the issue. Try again, or head back to your Command Centre."}
         </p>
         {error.digest ? (
-          <p className="mt-3 font-mono text-xs text-text-muted">
+          <p className="mt-3 font-mono text-xs text-text-3">
             Reference: {error.digest}
           </p>
         ) : null}
@@ -64,7 +64,7 @@ export default function GlobalError({
           </button>
           <Link
             href="/command-centre"
-            className="rounded-xl border border-[rgba(255,255,255,0.12)] bg-white/5 px-4 py-3 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.2)]"
+            className="rounded-xl border border-ink-4 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.2)]"
           >
             Back to Command Centre
           </Link>

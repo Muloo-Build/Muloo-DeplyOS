@@ -113,7 +113,7 @@ export default function ProviderConnectionsSettings() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
         Loading provider connections...
       </div>
     );
@@ -130,7 +130,7 @@ export default function ProviderConnectionsSettings() {
       {providers.map((provider) => (
         <div
           key={provider.id}
-          className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+          className="rounded-[14px] border border-ink-4 bg-ink-1 p-6"
         >
           {(() => {
             const isHubSpotOAuth = provider.providerKey === "hubspot_oauth";
@@ -158,7 +158,7 @@ export default function ProviderConnectionsSettings() {
               <>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                    <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                       {provider.connectionType === "oauth"
                         ? "OAuth"
                         : "API Key"}
@@ -198,15 +198,15 @@ export default function ProviderConnectionsSettings() {
                         )
                       }
                       placeholder={defaultModelPlaceholder}
-                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                     />
                     {isHubSpotOAuth ? (
-                      <p className="mt-2 text-xs text-text-muted">
+                      <p className="mt-2 text-xs text-text-3">
                         Use the client ID from your single HubSpot public app.
                         Each client portal will install that app separately.
                       </p>
                     ) : isPerplexity ? (
-                      <p className="mt-2 text-xs text-text-muted">
+                      <p className="mt-2 text-xs text-text-3">
                         Use a Perplexity API key here. Perplexity Pro helps on
                         the product side, but API usage is still billed
                         separately.
@@ -228,10 +228,10 @@ export default function ProviderConnectionsSettings() {
                         )
                       }
                       placeholder="Optional custom endpoint"
-                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                     />
                     {provider.providerKey === "hubspot_oauth" ? (
-                      <p className="mt-2 text-xs text-text-muted">
+                      <p className="mt-2 text-xs text-text-3">
                         Leave blank for HubSpot&apos;s default API base URL.
                         Only set this when routing through a specific
                         HubSpot-compatible gateway.
@@ -254,22 +254,22 @@ export default function ProviderConnectionsSettings() {
                         )
                       }
                       placeholder={apiKeyPlaceholder}
-                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                     />
                     {provider.hasApiKey ? (
-                      <p className="mt-2 text-xs text-text-muted">
+                      <p className="mt-2 text-xs text-text-3">
                         A value is already stored for this provider.
                       </p>
                     ) : null}
                     {provider.providerKey === "hubspot_oauth" ? (
-                      <p className="mt-2 text-xs text-text-muted">
+                      <p className="mt-2 text-xs text-text-3">
                         Best first path for agent execution: use a HubSpot token
                         for direct CRM schema and record APIs. Keep workflow,
                         dashboard, and CMS work on the reviewed paths surfaced
                         in Agent Studio.
                       </p>
                     ) : isPerplexity ? (
-                      <p className="mt-2 text-xs text-text-muted">
+                      <p className="mt-2 text-xs text-text-3">
                         Best fit: current-state research, web-grounded answers,
                         and source-backed drafting where citations matter.
                       </p>
@@ -289,7 +289,7 @@ export default function ProviderConnectionsSettings() {
                           event.target.value
                         )
                       }
-                      className="mt-3 min-h-[100px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 min-h-[100px] w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
                 </div>

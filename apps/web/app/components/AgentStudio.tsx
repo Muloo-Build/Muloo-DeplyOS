@@ -293,13 +293,13 @@ export default function AgentStudio() {
   return (
     <div className="space-y-6">
       {error ? (
-        <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-4 text-sm text-white">
+        <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-4 text-sm text-white">
           {error}
         </div>
       ) : null}
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+        <p className="text-sm uppercase tracking-[0.14em] text-text-3">
           Create Agent
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -308,7 +308,7 @@ export default function AgentStudio() {
               key={preset.label}
               type="button"
               onClick={() => applyPreset(index)}
-              className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-xs font-medium text-white"
+              className="rounded-full border border-ink-4 bg-ink-2 px-3 py-2 text-xs font-medium text-white"
             >
               {preset.label}
             </button>
@@ -333,7 +333,7 @@ export default function AgentStudio() {
                     [key]: event.target.value
                   }))
                 }
-                className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
               />
             </label>
           ))}
@@ -350,7 +350,7 @@ export default function AgentStudio() {
                   model: nextProvider.defaultModel || currentDraft.model
                 }));
               }}
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             >
               {providers.map((provider) => (
                 <option key={provider.providerKey} value={provider.providerKey}>
@@ -372,7 +372,7 @@ export default function AgentStudio() {
                   serviceFamily: event.target.value
                 }))
               }
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             >
               <option value="hubspot_architecture">HubSpot Architecture</option>
               <option value="custom_engineering">Custom Engineering</option>
@@ -390,7 +390,7 @@ export default function AgentStudio() {
                   triggerType: event.target.value
                 }))
               }
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             >
               <option value="manual">Manual</option>
               <option value="assisted">Assisted</option>
@@ -408,7 +408,7 @@ export default function AgentStudio() {
                   approvalMode: event.target.value
                 }))
               }
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             >
               <option value="review_required">Review required</option>
               <option value="client_approval">Client approval</option>
@@ -418,7 +418,7 @@ export default function AgentStudio() {
         </div>
 
         <div className="mt-4 flex items-center justify-between">
-          <label className="flex items-center gap-2 text-sm text-text-secondary">
+          <label className="flex items-center gap-2 text-sm text-text-2">
             <input
               type="checkbox"
               checked={newDraft.isActive}
@@ -442,26 +442,26 @@ export default function AgentStudio() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+        <p className="text-sm uppercase tracking-[0.14em] text-text-3">
           Agent Catalog
         </p>
         <h2 className="mt-2 text-xl font-semibold text-white">
           Operational agents
         </h2>
-        <p className="mt-2 text-text-secondary">
+        <p className="mt-2 text-text-2">
           Define which agents exist, which model each one uses, and what it is
           allowed to do inside DeployOS.
         </p>
 
         <div className="mt-6 space-y-4">
           {loading ? (
-            <div className="text-sm text-text-secondary">Loading agents...</div>
+            <div className="text-sm text-text-2">Loading agents...</div>
           ) : (
             agents.map((agent) => (
               <div
                 key={agent.id}
-                className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
+                className="rounded-[14px] border border-ink-4 bg-ink-2 p-5"
               >
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <label className="block">
@@ -471,7 +471,7 @@ export default function AgentStudio() {
                       onChange={(event) =>
                         updateAgent(agent.id, "name", event.target.value)
                       }
-                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-[14px] border border-ink-4 bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
 
@@ -484,7 +484,7 @@ export default function AgentStudio() {
                       onChange={(event) =>
                         updateAgent(agent.id, "purpose", event.target.value)
                       }
-                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-[14px] border border-ink-4 bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
 
@@ -501,7 +501,7 @@ export default function AgentStudio() {
                           event.target.value
                         )
                       }
-                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                     >
                       <option value="hubspot_architecture">
                         HubSpot Architecture
@@ -522,7 +522,7 @@ export default function AgentStudio() {
                       onChange={(event) =>
                         updateAgent(agent.id, "provider", event.target.value)
                       }
-                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-[14px] border border-ink-4 bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
                     >
                       {providers.map((provider) => (
                         <option
@@ -549,7 +549,7 @@ export default function AgentStudio() {
                           (provider) => provider.providerKey === agent.provider
                         )?.defaultModel ?? "Use provider default model"
                       }
-                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-[14px] border border-ink-4 bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
 
@@ -562,7 +562,7 @@ export default function AgentStudio() {
                       onChange={(event) =>
                         updateAgent(agent.id, "triggerType", event.target.value)
                       }
-                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-[14px] border border-ink-4 bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
 
@@ -579,7 +579,7 @@ export default function AgentStudio() {
                           event.target.value
                         )
                       }
-                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-[14px] border border-ink-4 bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
 
@@ -599,7 +599,7 @@ export default function AgentStudio() {
                             .filter(Boolean)
                         )
                       }
-                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-[14px] border border-ink-4 bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
 
@@ -617,13 +617,13 @@ export default function AgentStudio() {
                         )
                       }
                       rows={3}
-                      className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-[14px] border border-ink-4 bg-[#121a36] px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm text-text-secondary">
+                  <label className="flex items-center gap-2 text-sm text-text-2">
                     <input
                       type="checkbox"
                       checked={agent.isActive}
@@ -638,7 +638,7 @@ export default function AgentStudio() {
                     type="button"
                     onClick={() => void saveAgent(agent.id)}
                     disabled={saving === agent.id}
-                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
+                    className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
                   >
                     {saving === agent.id ? "Saving..." : "Save Agent"}
                   </button>

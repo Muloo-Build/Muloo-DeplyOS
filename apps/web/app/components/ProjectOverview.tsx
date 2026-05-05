@@ -250,8 +250,8 @@ function InfoGrid(props: { items: Array<{ label: string; value: string | number 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {props.items.map((item) => (
-        <div key={item.label} className="brand-surface-soft rounded-2xl border p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+        <div key={item.label} className="brand-surface-soft rounded-[14px] border p-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
             {item.label}
           </p>
           <p className="mt-2 text-sm text-white">{item.value}</p>
@@ -1139,7 +1139,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     return (
       <AppShell>
         <div className="p-8">
-          <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-2xl" />
+          <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-[14px]" />
         </div>
       </AppShell>
     );
@@ -1149,7 +1149,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     return (
       <AppShell>
         <div className="p-8">
-          <div className="rounded-2xl border border-status-error/30 bg-status-error/10 p-8 text-white">
+          <div className="rounded-[14px] border border-status-error/30 bg-status-error/10 p-8 text-white">
             {error ?? "Project not found"}
           </div>
         </div>
@@ -1163,13 +1163,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
         return (
           <>
           <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-            <section className="brand-surface rounded-3xl border p-6">
+            <section className="brand-surface rounded-[14px] border p-6">
               <h3 className="text-lg font-semibold text-white">Project copilot</h3>
               <div className="mt-4">
                 <ProjectCopilotPanel projectId={project.id} />
               </div>
             </section>
-            <section className="brand-surface rounded-3xl border p-6">
+            <section className="brand-surface rounded-[14px] border p-6">
               <h3 className="text-lg font-semibold text-white">RAID log</h3>
               <div className="mt-4">
                 <ProjectRaidPanel projectId={project.id} />
@@ -1206,7 +1206,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   ]}
                 />
                 <div className="flex flex-wrap items-center gap-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Set status:</p>
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">Set status:</p>
                   {(["draft", "active", "complete", "archived"] as const).map((s) => (
                     <button
                       key={s}
@@ -1249,7 +1249,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       }`}
                     />
                   </button>
-                  <span className="text-sm text-text-secondary">
+                  <span className="text-sm text-text-2">
                     {portalQuoteEnabled ? "Quote visible in client portal" : "Quote hidden from client portal"}
                   </span>
                 </div>
@@ -1274,7 +1274,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     type="button"
                     onClick={() => void resetSummary()}
                     disabled={summaryBusy}
-                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
                   >
                     Reset summary
                   </button>
@@ -1297,40 +1297,40 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   {workstreamSummary.map((workstream) => (
                     <div
                       key={workstream.id}
-                      className="brand-surface-soft rounded-2xl border p-4"
+                      className="brand-surface-soft rounded-[14px] border p-4"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-semibold text-white">
                           {workstream.name}
                         </p>
-                        <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                        <span className="text-xs uppercase tracking-[0.16em] text-text-3">
                           {formatLabel(workstream.status)}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         {workstream.taskCount} tasks
                       </p>
-                      <p className="mt-1 text-xs text-text-muted">
+                      <p className="mt-1 text-xs text-text-3">
                         Planned {workstream.plannedHours}h · Actual {workstream.actualHours}h
                       </p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-text-secondary">
+                <p className="text-sm text-text-2">
                   No workstreams configured yet.
                 </p>
               )
             }
             inputsSummary={
               <div className="space-y-3">
-                <div className="brand-surface-soft rounded-2xl border p-4">
+                <div className="brand-surface-soft rounded-[14px] border p-4">
                   <p className="text-2xl font-semibold text-white">
                     {answeredQuestions}/{Math.max(totalQuestions, 1)}
                   </p>
-                  <p className="mt-1 text-sm text-text-secondary">Answered discovery fields</p>
+                  <p className="mt-1 text-sm text-text-2">Answered discovery fields</p>
                 </div>
-                <p className="text-sm text-text-secondary">
+                <p className="text-sm text-text-2">
                   {completedSessions} of {sessions.length || 4} discovery sessions have
                   meaningful input captured.
                 </p>
@@ -1338,7 +1338,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             }
             blueprintStatus={
               <div className="space-y-3">
-                <p className="text-sm text-text-secondary">
+                <p className="text-sm text-text-2">
                   {blueprint
                     ? `Blueprint generated ${formatDate(blueprint.generatedAt)} with ${blueprint.tasks.length} tasks.`
                     : "No blueprint generated yet."}
@@ -1352,7 +1352,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </Link>
                   <Link
                     href={`/projects/${project.id}/proposal`}
-                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
                   >
                     Open Proposal →
                   </Link>
@@ -1360,7 +1360,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     type="button"
                     onClick={() => void generateBlueprint()}
                     disabled={blueprintBusy}
-                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
                   >
                     {blueprintBusy
                       ? "Generating..."
@@ -1374,29 +1374,29 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             }
             agentSummary={
               <div className="space-y-4">
-                <p className="text-sm text-text-secondary">
+                <p className="text-sm text-text-2">
                   {discoverySummary?.executiveSummary ?? "No executive summary saved yet."}
                 </p>
                 <div className="grid gap-4 md:grid-cols-3">
-                  <div className="brand-surface-soft rounded-2xl border p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Risks</p>
-                    <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">Risks</p>
+                    <ul className="mt-2 space-y-2 text-sm text-text-2">
                       {(discoverySummary?.keyRisks ?? ["No risks captured yet."]).slice(0, 3).map((item) => (
                         <li key={item}>{item}</li>
                       ))}
                     </ul>
                   </div>
-                  <div className="brand-surface-soft rounded-2xl border p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Tools</p>
-                    <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">Tools</p>
+                    <ul className="mt-2 space-y-2 text-sm text-text-2">
                       {(discoverySummary?.supportingTools ?? ["No tools recommended yet."]).slice(0, 3).map((item) => (
                         <li key={item}>{item}</li>
                       ))}
                     </ul>
                   </div>
-                  <div className="brand-surface-soft rounded-2xl border p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Next questions</p>
-                    <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                  <div className="brand-surface-soft rounded-[14px] border p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">Next questions</p>
+                    <ul className="mt-2 space-y-2 text-sm text-text-2">
                       {(discoverySummary?.recommendedNextQuestions ?? [
                         "No follow-up questions suggested yet."
                       ]).slice(0, 3).map((item) => (
@@ -1409,7 +1409,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             }
             clientAccess={
               <div className="space-y-3">
-                <p className="text-sm text-text-secondary">
+                <p className="text-sm text-text-2">
                   {clientUsers.length > 0
                     ? `${clientUsers.length} client user${clientUsers.length === 1 ? "" : "s"} invited — ${clientUsers.map((u) => u.firstName + " " + u.lastName).join(", ")}`
                     : "No client users have been invited yet."}
@@ -1453,7 +1453,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             }
             partnerAccess={
               <div className="space-y-3">
-                <p className="text-sm text-text-secondary">
+                <p className="text-sm text-text-2">
                   {partnerUsers.length > 0
                     ? `${partnerUsers.length} partner user${partnerUsers.length === 1 ? "" : "s"} — ${partnerUsers.map((u) => u.firstName + " " + u.lastName).join(", ")}`
                     : "No partner users have been invited yet."}
@@ -1488,18 +1488,18 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   {quickWins.map((quickWin) => (
                     <div
                       key={quickWin.id}
-                      className="brand-surface-soft rounded-2xl border p-4"
+                      className="brand-surface-soft rounded-[14px] border p-4"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="font-medium text-white">{quickWin.title}</p>
-                          <p className="mt-2 text-sm text-text-secondary">
+                          <p className="mt-2 text-sm text-text-2">
                             {quickWin.description}
                           </p>
                         </div>
                         <div className="space-y-2 text-right">
                           <span
-                            className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.14em] ${getStatusBadgeClass(
                               quickWin.status
                             )}`}
                           >
@@ -1515,7 +1515,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                                 )
                               }
                               disabled={quickWinBusyId === quickWin.id}
-                              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-text-secondary"
+                              className="rounded-lg border border-ink-4 bg-white/5 px-3 py-1 text-xs text-text-2"
                             >
                               {quickWinBusyId === quickWin.id
                                 ? "Saving..."
@@ -1530,7 +1530,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-text-secondary">No quick wins captured yet.</p>
+                <p className="text-sm text-text-2">No quick wins captured yet.</p>
               )
             }
           />
@@ -1600,20 +1600,20 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   <Link
                     key={session.session}
                     href={`/projects/${project.id}/discovery?session=${session.session}`}
-                    className="flex items-center justify-between brand-surface-soft rounded-2xl border p-4 transition hover:border-white/20 hover:bg-white/[0.04]"
+                    className="flex items-center justify-between brand-surface-soft rounded-[14px] border p-4 transition hover:border-ink-5 hover:bg-white/[0.04]"
                   >
                     <div>
                       <p className="font-medium text-white">
                         Session {session.session} — {session.title}
                       </p>
-                      <p className="mt-1 text-sm text-text-secondary">
+                      <p className="mt-1 text-sm text-text-2">
                         {Object.values(session.fields).filter((value) => value.trim().length > 0)
                           .length}
                         /{Object.keys(session.fields).length} fields answered
                       </p>
                     </div>
                     <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${getStatusBadgeClass(
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.14em] ${getStatusBadgeClass(
                         isSessionComplete(session) ? "completed" : session.status
                       )}`}
                     >
@@ -1633,7 +1633,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     }}
                   />
                 </div>
-                <p className="text-sm text-text-secondary">
+                <p className="text-sm text-text-2">
                   {completedSessions}/{sessions.length || 4} sessions complete.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -1645,7 +1645,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </Link>
                   <Link
                     href={`/projects/${project.id}/prepare`}
-                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
                   >
                     Open Prepare →
                   </Link>
@@ -1658,16 +1658,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   supportingContext.slice(0, 3).map((item) => (
                     <div
                       key={item.id}
-                      className="brand-surface-soft rounded-2xl border p-4"
+                      className="brand-surface-soft rounded-[14px] border p-4"
                     >
                       <p className="text-sm font-medium text-white">{item.sourceLabel}</p>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         {(item.content ?? "No preview available").slice(0, 220)}
                       </p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-text-secondary">
+                  <p className="text-sm text-text-2">
                     No prepare notes or supporting context saved yet.
                   </p>
                 )}
@@ -1685,7 +1685,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             }
             blueprintPanel={
               <div className="space-y-3">
-                <p className="text-sm text-text-secondary">
+                <p className="text-sm text-text-2">
                   {blueprint
                     ? `${blueprint.tasks.length} blueprint tasks generated on ${formatDate(
                         blueprint.generatedAt
@@ -1703,7 +1703,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </button>
                   <Link
                     href={`/projects/${project.id}/proposal`}
-                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
                   >
                     View Proposal →
                   </Link>
@@ -1711,7 +1711,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               </div>
             }
             scopePanel={
-              <div className="space-y-3 text-sm text-text-secondary">
+              <div className="space-y-3 text-sm text-text-2">
                 <p>Project status: {formatLabel(project.status)}</p>
                 <p>Quote approval: {formatLabel(project.quoteApprovalStatus ?? "draft")}</p>
                 <p>
@@ -1729,7 +1729,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </Link>
                   <Link
                     href={`/projects/${project.id}/proposal`}
-                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
                   >
                     Open Proposal →
                   </Link>
@@ -1737,7 +1737,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               </div>
             }
             workingDocPanel={
-              <div className="space-y-3 text-sm text-text-secondary">
+              <div className="space-y-3 text-sm text-text-2">
                 <p>Use the prepare workspace as the living working doc for discovery context and prep notes.</p>
                 <Link
                   href={`/projects/${project.id}/prepare`}
@@ -1775,7 +1775,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               </div>
             }
             changeManagement={
-              <div className="space-y-3 text-sm text-text-secondary">
+              <div className="space-y-3 text-sm text-text-2">
                 <p>
                   Scope changes now live on the dedicated <strong className="text-white">Change</strong> tab. Open it to triage requests, price them, and approve or reject.
                 </p>
@@ -1789,7 +1789,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               </div>
             }
           />
-          <section className="brand-surface rounded-3xl border p-6">
+          <section className="brand-surface rounded-[14px] border p-6">
             <h3 className="text-lg font-semibold text-white">Time logged</h3>
             <div className="mt-4">
               <ProjectTimeLogPanel
@@ -1820,7 +1820,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 <textarea
                   value={emailNotes}
                   onChange={(event) => setEmailNotes(event.target.value)}
-                  className="brand-input min-h-[220px] w-full rounded-2xl px-4 py-3 text-sm text-white outline-none"
+                  className="brand-input min-h-[220px] w-full rounded-[14px] px-4 py-3 text-sm text-white outline-none"
                   placeholder="Add context for the message you want to draft."
                 />
                 <div className="flex flex-wrap gap-2">
@@ -1837,14 +1837,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     onClick={() =>
                       void copyText(emailDraft, (value) => setEmailFeedback(value))
                     }
-                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
                   >
                     Copy draft
                   </button>
                 </div>
                 {emailError ? <p className="text-sm text-status-error">{emailError}</p> : null}
                 {emailFeedback ? <p className="text-sm text-status-success">{emailFeedback}</p> : null}
-                <pre className="min-h-[220px] whitespace-pre-wrap brand-surface-soft rounded-2xl border p-4 text-sm text-text-secondary">
+                <pre className="min-h-[220px] whitespace-pre-wrap brand-surface-soft rounded-[14px] border p-4 text-sm text-text-2">
                   {emailDraft || "Generate a draft to see it here."}
                 </pre>
               </div>
@@ -1852,7 +1852,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             agendaBuilder={
               <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <label className="space-y-2 text-sm text-text-secondary">
+                  <label className="space-y-2 text-sm text-text-2">
                     <span>Session type</span>
                     <select
                       value={agendaSessionType}
@@ -1870,7 +1870,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       ))}
                     </select>
                   </label>
-                  <label className="space-y-2 text-sm text-text-secondary">
+                  <label className="space-y-2 text-sm text-text-2">
                     <span>Date</span>
                     <input
                       type="date"
@@ -1879,7 +1879,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       className="brand-input w-full rounded-xl px-3 py-2 text-white"
                     />
                   </label>
-                  <label className="space-y-2 text-sm text-text-secondary">
+                  <label className="space-y-2 text-sm text-text-2">
                     <span>Duration</span>
                     <input
                       value={agendaDuration}
@@ -1887,12 +1887,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                       className="brand-input w-full rounded-xl px-3 py-2 text-white"
                     />
                   </label>
-                  <label className="space-y-2 text-sm text-text-secondary md:col-span-2">
+                  <label className="space-y-2 text-sm text-text-2 md:col-span-2">
                     <span>Notes</span>
                     <textarea
                       value={agendaNotes}
                       onChange={(event) => setAgendaNotes(event.target.value)}
-                      className="brand-input min-h-[120px] w-full rounded-2xl px-4 py-3 text-white"
+                      className="brand-input min-h-[120px] w-full rounded-[14px] px-4 py-3 text-white"
                     />
                   </label>
                 </div>
@@ -1912,7 +1912,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                         setAgendaFeedback(value)
                       )
                     }
-                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
                   >
                     Copy agenda
                   </button>
@@ -1920,7 +1920,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     type="button"
                     onClick={() => void createCalendarEvent()}
                     disabled={!agendaDate || calendarBusy}
-                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary disabled:cursor-not-allowed disabled:text-text-muted"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2 disabled:cursor-not-allowed disabled:text-text-3"
                   >
                     {calendarBusy ? "Creating..." : "+ Add to Google Calendar"}
                   </button>
@@ -1929,7 +1929,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                 {agendaFeedback ? <p className="text-sm text-status-success">{agendaFeedback}</p> : null}
                 {calendarError ? <p className="text-sm text-status-error">{calendarError}</p> : null}
                 {calendarFeedback ? <p className="text-sm text-status-success">{calendarFeedback}</p> : null}
-                <pre className="min-h-[220px] whitespace-pre-wrap brand-surface-soft rounded-2xl border p-4 text-sm text-text-secondary">
+                <pre className="min-h-[220px] whitespace-pre-wrap brand-surface-soft rounded-[14px] border p-4 text-sm text-text-2">
                   {agendaResult?.content || "Generate an agenda to see it here."}
                 </pre>
                 {agendaHistory.length > 0 ? (
@@ -1937,12 +1937,12 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     {agendaHistory.map((historyItem, index) => (
                       <details
                         key={`${historyItem.generatedAt}-${index}`}
-                        className="brand-surface-soft rounded-2xl border p-4"
+                        className="brand-surface-soft rounded-[14px] border p-4"
                       >
-                        <summary className="cursor-pointer text-sm text-text-secondary">
+                        <summary className="cursor-pointer text-sm text-text-2">
                           {historyItem.sessionType} · {formatDate(historyItem.generatedAt)}
                         </summary>
-                        <pre className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
+                        <pre className="mt-3 whitespace-pre-wrap text-sm text-text-2">
                           {historyItem.content}
                         </pre>
                       </details>
@@ -2020,7 +2020,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     <option value="approver">Approver</option>
                     <option value="viewer">Viewer</option>
                   </select>
-                  <label className="flex items-center gap-2 brand-input rounded-xl px-3 py-2 text-sm text-text-secondary">
+                  <label className="flex items-center gap-2 brand-input rounded-xl px-3 py-2 text-sm text-text-2">
                     <input
                       type="checkbox"
                       checked={clientUserDraft.questionnaireAccess}
@@ -2048,15 +2048,15 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   {clientUsers.map((user) => (
                     <div
                       key={user.id}
-                      className="brand-surface-soft rounded-2xl border p-4"
+                      className="brand-surface-soft rounded-[14px] border p-4"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="font-medium text-white">
                             {user.firstName} {user.lastName}
                           </p>
-                          <p className="mt-1 text-sm text-text-secondary">{user.email}</p>
-                          <p className="mt-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                          <p className="mt-1 text-sm text-text-2">{user.email}</p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.14em] text-text-3">
                             {user.role} · {user.authStatus ?? "invite_pending"}
                           </p>
                         </div>
@@ -2065,7 +2065,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             type="button"
                             onClick={() => void copyClientAccessLink(user.id, "invite-link")}
                             disabled={linkBusyId === user.id}
-                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-text-secondary"
+                            className="rounded-lg border border-ink-4 bg-white/5 px-3 py-1 text-xs text-text-2"
                           >
                             Invite link
                           </button>
@@ -2073,7 +2073,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             type="button"
                             onClick={() => void copyClientAccessLink(user.id, "reset-link")}
                             disabled={linkBusyId === user.id}
-                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-text-secondary"
+                            className="rounded-lg border border-ink-4 bg-white/5 px-3 py-1 text-xs text-text-2"
                           >
                             Reset link
                           </button>
@@ -2164,16 +2164,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     {partnerUserFeedback ? <p className="text-sm text-status-success">{partnerUserFeedback}</p> : null}
                   </div>
                 ) : (
-                  <p className="text-sm text-text-secondary">No partner clients found. Add a client with a "Partner" role from the Clients section first.</p>
+                  <p className="text-sm text-text-2">No partner clients found. Add a client with a "Partner" role from the Clients section first.</p>
                 )}
                 <div className="space-y-3">
                   {partnerUsers.map((user) => (
-                    <div key={user.id} className="brand-surface-soft rounded-2xl border p-4">
+                    <div key={user.id} className="brand-surface-soft rounded-[14px] border p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="font-medium text-white">{user.firstName} {user.lastName}</p>
-                          <p className="mt-1 text-sm text-text-secondary">{user.email}</p>
-                          <p className="mt-1 text-xs uppercase tracking-[0.18em] text-text-muted">
+                          <p className="mt-1 text-sm text-text-2">{user.email}</p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.14em] text-text-3">
                             {user.partnerClientName ?? "Partner"} · {user.authStatus}
                           </p>
                         </div>
@@ -2182,7 +2182,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             type="button"
                             onClick={() => void copyPartnerAccessLink(user.id, "invite-link")}
                             disabled={partnerLinkBusyId === user.id}
-                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-text-secondary"
+                            className="rounded-lg border border-ink-4 bg-white/5 px-3 py-1 text-xs text-text-2"
                           >
                             Invite link
                           </button>
@@ -2190,7 +2190,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                             type="button"
                             onClick={() => void copyPartnerAccessLink(user.id, "reset-link")}
                             disabled={partnerLinkBusyId === user.id}
-                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-text-secondary"
+                            className="rounded-lg border border-ink-4 bg-white/5 px-3 py-1 text-xs text-text-2"
                           >
                             Reset link
                           </button>
@@ -2202,10 +2202,10 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
               </div>
             }
             portalActions={
-              <div className="space-y-4 text-sm text-text-secondary">
-                <div className="brand-surface-soft rounded-2xl border p-4">
+              <div className="space-y-4 text-sm text-text-2">
+                <div className="brand-surface-soft rounded-[14px] border p-4">
                   <p className="font-medium text-white">Preview client portal</p>
-                  <p className="mt-1 text-xs text-text-muted">Opens the portal as your client sees it (requires at least one invited client user).</p>
+                  <p className="mt-1 text-xs text-text-3">Opens the portal as your client sees it (requires at least one invited client user).</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -2220,9 +2220,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     <p className="mt-2 text-xs text-status-error">{portalPreviewError}</p>
                   ) : null}
                 </div>
-                <div className="brand-surface-soft rounded-2xl border p-4">
+                <div className="brand-surface-soft rounded-[14px] border p-4">
                   <p className="font-medium text-white">Preview partner portal</p>
-                  <p className="mt-1 text-xs text-text-muted">Opens the portal as your partner sees it (requires a portal user whose email is linked to a partner client).</p>
+                  <p className="mt-1 text-xs text-text-3">Opens the portal as your partner sees it (requires a portal user whose email is linked to a partner client).</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -2237,16 +2237,16 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     <p className="mt-2 text-xs text-status-error">{partnerPreviewError}</p>
                   ) : null}
                 </div>
-                <div className="brand-surface-soft rounded-2xl border border-dashed p-4 opacity-80">
+                <div className="brand-surface-soft rounded-[14px] border border-dashed p-4 opacity-80">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-medium text-white">Marketing Hub Delivery</p>
-                      <p className="mt-1 text-xs text-text-muted">
+                      <p className="mt-1 text-xs text-text-3">
                         Subscription-locked partner workspace for SEO tools, content creation,
                         blogs, and recurring marketing execution inside approved portals.
                       </p>
                     </div>
-                    <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                    <span className="rounded-full border border-ink-4 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-3">
                       Locked
                     </span>
                   </div>
@@ -2254,17 +2254,17 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     <button
                       type="button"
                       disabled
-                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-text-muted opacity-80"
+                      className="rounded-xl border border-ink-4 bg-white/5 px-4 py-2 text-sm font-medium text-text-3 opacity-80"
                     >
                       Monthly subscription required
                     </button>
                   </div>
                 </div>
-                <div className="brand-surface-soft rounded-2xl border p-4">
+                <div className="brand-surface-soft rounded-[14px] border p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-medium text-white">Show quote to client</p>
-                      <p className="mt-1 text-xs text-text-muted">When enabled, the quote section is visible in the client portal for this project.</p>
+                      <p className="mt-1 text-xs text-text-3">When enabled, the quote section is visible in the client portal for this project.</p>
                     </div>
                     <button
                       type="button"
@@ -2278,7 +2278,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                     </button>
                   </div>
                 </div>
-                <div className="brand-surface-soft rounded-2xl border p-4">
+                <div className="brand-surface-soft rounded-[14px] border p-4">
                   <p className="font-medium text-white">HubSpot portal connection</p>
                   <p className="mt-2">
                     {project.portal?.connected
@@ -2295,7 +2295,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
                   </Link>
                   <Link
                     href={`/projects/${project.id}/quote`}
-                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
+                    className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
                   >
                     Open client quote →
                   </Link>
@@ -2403,7 +2403,7 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
             <>
               <Link
                 href={`/projects/${project.id}/edit`}
-                className="rounded-xl border border-white/10 bg-background-card px-4 py-2 text-sm font-medium text-text-secondary transition hover:bg-white/5 hover:text-white"
+                className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-2 text-sm font-medium text-text-2 transition hover:bg-white/5 hover:text-white"
               >
                 Edit project
               </Link>

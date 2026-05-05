@@ -78,7 +78,7 @@ interface ProjectInfo {
 }
 
 const statusStyles: Record<string, string> = {
-  draft: "bg-white/5 text-text-secondary border border-white/10",
+  draft: "bg-white/5 text-text-2 border border-ink-4",
   shared: "bg-[#49cde1]/15 text-[#9be4f0] border border-[#49cde1]/30",
   approved: "bg-amber-500/15 text-amber-200 border border-amber-400/30",
   won: "bg-emerald-500/15 text-emerald-200 border border-emerald-400/30",
@@ -495,7 +495,7 @@ export default function QuickQuoteDocument({
   if (loading) {
     return (
       <Shell>
-        <div className="mx-auto max-w-4xl px-6 py-12 text-sm text-text-secondary">
+        <div className="mx-auto max-w-4xl px-6 py-12 text-sm text-text-2">
           Loading quote...
         </div>
       </Shell>
@@ -521,7 +521,7 @@ export default function QuickQuoteDocument({
               ← Back to internal view
             </Link>
           ) : null}
-          <p className="mt-6 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <p className="mt-6 rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             {error ?? "Quote not found"}
           </p>
         </div>
@@ -560,9 +560,9 @@ export default function QuickQuoteDocument({
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10">
         {/* Preview banner */}
         {isPreview ? (
-          <div className="document-toolbar flex flex-col gap-2 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 sm:flex-row sm:items-center sm:justify-between print:hidden">
+          <div className="document-toolbar flex flex-col gap-2 rounded-[14px] border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 sm:flex-row sm:items-center sm:justify-between print:hidden">
             <p>
-              <span className="font-semibold uppercase tracking-[0.2em] text-amber-200">
+              <span className="font-semibold uppercase tracking-[0.14em] text-amber-200">
                 Preview
               </span>{" "}
               <span className="ml-2">
@@ -589,13 +589,13 @@ export default function QuickQuoteDocument({
               ← Back to quotes
             </Link>
           ) : (
-            <p className="text-sm text-text-secondary">
+            <p className="text-sm text-text-2">
               Quote from {project.owner ?? "Muloo"}
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] ${
+              className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${
                 statusStyles[quote.status] ?? statusStyles.draft
               }`}
             >
@@ -649,7 +649,7 @@ export default function QuickQuoteDocument({
               <>
                 <Link
                   href={`/quotes/${encodeURIComponent(quote.id)}/preview`}
-                  className="rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm font-medium text-white transition hover:bg-white/5"
+                  className="rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/5"
                 >
                   Preview as client
                 </Link>
@@ -669,7 +669,7 @@ export default function QuickQuoteDocument({
                       }
                     );
                   }}
-                  className="rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm font-medium text-white transition hover:bg-white/5"
+                  className="rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/5"
                 >
                   Copy client link
                 </button>
@@ -698,7 +698,7 @@ export default function QuickQuoteDocument({
                   type="button"
                   onClick={() => markAs("archived")}
                   disabled={busy || quote.status === "archived"}
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-text-secondary transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl border border-ink-4 bg-white/5 px-3 py-2 text-sm font-medium text-text-2 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Archive
                 </button>
@@ -739,7 +739,7 @@ export default function QuickQuoteDocument({
         {!showClientLayout &&
         quote.lastSentAt &&
         (quote.lastSentTo?.length ?? 0) > 0 ? (
-          <p className="text-xs text-text-muted print:hidden">
+          <p className="text-xs text-text-3 print:hidden">
             Sent to {(quote.lastSentTo ?? []).join(", ")} ·{" "}
             {formatRelativeTime(quote.lastSentAt)}
             {(quote.sendCount ?? 0) > 1
@@ -749,19 +749,19 @@ export default function QuickQuoteDocument({
         ) : null}
 
         {feedback ? (
-          <p className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-100 print:hidden">
+          <p className="rounded-[14px] border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-100 print:hidden">
             {feedback}
           </p>
         ) : null}
 
         {!showClientLayout ? (
-          <div className="document-toolbar flex flex-col gap-3 rounded-2xl border border-white/10 bg-background-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
+          <div className="document-toolbar flex flex-col gap-3 rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
             <div className="flex items-center gap-3">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/15 text-xs font-bold text-orange-300">
                 HS
               </span>
               <div>
-                <p className="text-[11px] uppercase tracking-[0.32em] text-text-muted">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
                   HubSpot deal sync
                 </p>
                 <p className="mt-0.5 text-sm text-white">
@@ -783,7 +783,7 @@ export default function QuickQuoteDocument({
                   if (next === (quote.hubspotDealId ?? "")) return;
                   void handleHubspotLink(next || null);
                 }}
-                className="w-44 rounded-xl border border-white/10 bg-background-primary px-3 py-2 text-sm text-white"
+                className="w-44 rounded-xl border border-ink-4 bg-ink-0 px-3 py-2 text-sm text-white"
               />
               <button
                 type="button"
@@ -803,11 +803,11 @@ export default function QuickQuoteDocument({
         >
           {/* Hero header */}
           <header
-            className={`document-card overflow-hidden rounded-2xl border border-white/10 bg-background-card ${isOnePager ? "" : ""}`}
+            className={`document-card overflow-hidden rounded-[14px] border border-ink-4 bg-ink-1 ${isOnePager ? "" : ""}`}
           >
             {!isOnePager ? (
               // Full theme: dramatic gradient strip with brand colour wash
-              <div className="border-b border-white/10 bg-[linear-gradient(135deg,rgba(124,92,191,0.16)_0%,rgba(224,82,156,0.12)_55%,rgba(240,130,74,0.14)_100%)] px-8 py-7 print:bg-white">
+              <div className="border-b border-ink-4 bg-[linear-gradient(135deg,rgba(124,92,191,0.16)_0%,rgba(224,82,156,0.12)_55%,rgba(240,130,74,0.14)_100%)] px-8 py-7 print:bg-white">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <img
@@ -819,7 +819,7 @@ export default function QuickQuoteDocument({
                       Commercial proposal
                     </span>
                   </div>
-                  <span className="rounded-full border border-white/20 bg-background-primary/70 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-text-muted print:border-slate-300 print:text-slate-500">
+                  <span className="rounded-full border border-ink-5 bg-ink-0/70 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-text-3 print:border-slate-300 print:text-slate-500">
                     {quoteRef}
                   </span>
                 </div>
@@ -834,11 +834,11 @@ export default function QuickQuoteDocument({
                       alt="Muloo"
                       className="h-7 w-auto"
                     />
-                    <span className="text-[10px] uppercase tracking-[0.28em] text-text-muted">
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-text-3">
                       Quote
                     </span>
                   </div>
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-text-muted">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-text-3">
                     {quoteRef}
                   </span>
                 </div>
@@ -852,7 +852,7 @@ export default function QuickQuoteDocument({
                 {quote.context?.quoteTitle ?? project.name}
               </h1>
               {!isOnePager ? (
-                <p className="mt-3 max-w-2xl text-sm leading-7 text-text-secondary">
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-text-2">
                   Prepared by Muloo for {project.client?.name ?? "your team"}.
                   This proposal sets out the scope, pricing and terms for the
                   engagement.
@@ -861,10 +861,10 @@ export default function QuickQuoteDocument({
 
               <div className="mt-6 grid gap-5 md:grid-cols-[2fr_1fr]">
                 <dl className="grid grid-cols-2 gap-y-3 text-sm">
-                  <dt className="text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                  <dt className="text-[11px] uppercase tracking-[0.14em] text-text-3">
                     Prepared for
                   </dt>
-                  <dt className="text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                  <dt className="text-[11px] uppercase tracking-[0.14em] text-text-3">
                     Prepared by
                   </dt>
                   <dd className="text-white">
@@ -873,34 +873,34 @@ export default function QuickQuoteDocument({
                   <dd className="text-white">
                     {project.owner ?? "Muloo"}
                     {project.ownerEmail ? (
-                      <span className="block text-xs text-text-muted">
+                      <span className="block text-xs text-text-3">
                         {project.ownerEmail}
                       </span>
                     ) : null}
                   </dd>
 
-                  <dt className="mt-2 text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                  <dt className="mt-2 text-[11px] uppercase tracking-[0.14em] text-text-3">
                     Issued
                   </dt>
-                  <dt className="mt-2 text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                  <dt className="mt-2 text-[11px] uppercase tracking-[0.14em] text-text-3">
                     Valid until
                   </dt>
-                  <dd className="text-text-secondary">
+                  <dd className="text-text-2">
                     {formatDate(quote.sharedAt)}
                   </dd>
-                  <dd className="text-text-secondary">
+                  <dd className="text-text-2">
                     {formatDate(validUntil)}
                   </dd>
                 </dl>
 
-                <div className="self-start rounded-2xl border border-[#51d0b0]/30 bg-[linear-gradient(135deg,rgba(81,208,176,0.12)_0%,rgba(73,205,225,0.08)_100%)] px-5 py-4 print:border-slate-300 print:bg-white">
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted print:text-slate-500">
+                <div className="self-start rounded-[14px] border border-[#51d0b0]/30 bg-[linear-gradient(135deg,rgba(81,208,176,0.12)_0%,rgba(73,205,225,0.08)_100%)] px-5 py-4 print:border-slate-300 print:bg-white">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-text-3 print:text-slate-500">
                     Total
                   </p>
                   <p className="mt-2 text-[1.75rem] font-semibold leading-tight text-white print:text-slate-900">
                     {formatMoney(subtotal, quote.currency)}
                   </p>
-                  <p className="mt-1 text-xs text-text-muted print:text-slate-500">
+                  <p className="mt-1 text-xs text-text-3 print:text-slate-500">
                     {quote.currency} · v{quote.version}
                   </p>
                 </div>
@@ -910,11 +910,11 @@ export default function QuickQuoteDocument({
 
           {/* Muloo intro — full theme only */}
           {showMulooIntro ? (
-            <section className="document-card rounded-2xl border border-white/10 bg-background-card p-7">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
+            <section className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-7">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#49cde1]">
                 Who is Muloo
               </p>
-              <p className="mt-4 text-[15px] leading-8 text-text-secondary">
+              <p className="mt-4 text-[15px] leading-8 text-text-2">
                 {quote.context?.contentOverrides?.approvalSummary}
               </p>
             </section>
@@ -923,9 +923,9 @@ export default function QuickQuoteDocument({
           {/* Executive summary */}
           {execSummary ? (
             <section
-              className={`document-card rounded-2xl border border-white/10 bg-background-card ${isOnePager ? "p-6" : "p-7"}`}
+              className={`document-card rounded-[14px] border border-ink-4 bg-ink-1 ${isOnePager ? "p-6" : "p-7"}`}
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#49cde1]">
                 Executive summary
               </p>
               {!isOnePager ? (
@@ -934,7 +934,7 @@ export default function QuickQuoteDocument({
                 </h2>
               ) : null}
               <p
-                className={`whitespace-pre-line leading-7 text-text-secondary ${isOnePager ? "mt-3 text-sm" : "mt-4 text-[15px] leading-8"}`}
+                className={`whitespace-pre-line leading-7 text-text-2 ${isOnePager ? "mt-3 text-sm" : "mt-4 text-[15px] leading-8"}`}
               >
                 {execSummary}
               </p>
@@ -943,18 +943,18 @@ export default function QuickQuoteDocument({
 
           {/* Line items */}
           <section
-            className={`document-card rounded-2xl border border-white/10 bg-background-card ${isOnePager ? "p-6" : "p-7"}`}
+            className={`document-card rounded-[14px] border border-ink-4 bg-ink-1 ${isOnePager ? "p-6" : "p-7"}`}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#49cde1]">
               Scope and pricing
             </p>
             <h2 className="mt-3 text-[1.5rem] font-semibold leading-tight tracking-tight text-white print:text-slate-900">
               Investment
             </h2>
 
-            <div className="mt-5 overflow-hidden rounded-xl border border-white/10">
+            <div className="mt-5 overflow-hidden rounded-xl border border-ink-4">
               <table className="w-full text-sm">
-                <thead className="bg-white/[0.03] text-left text-[10px] uppercase tracking-[0.22em] text-text-muted print:bg-slate-50">
+                <thead className="bg-white/[0.03] text-left text-[10px] uppercase tracking-[0.14em] text-text-3 print:bg-slate-50">
                   <tr>
                     <th className="px-4 py-3 font-semibold">Term</th>
                     <th className="px-4 py-3 text-right font-semibold">Hours</th>
@@ -970,7 +970,7 @@ export default function QuickQuoteDocument({
                     return (
                       <tr
                         key={line.id}
-                        className="text-text-secondary transition hover:bg-white/[0.02] print:hover:bg-transparent"
+                        className="text-text-2 transition hover:bg-white/[0.02] print:hover:bg-transparent"
                       >
                         <td className="px-4 py-4 align-top text-white">
                           <p className="font-medium leading-snug">
@@ -986,7 +986,7 @@ export default function QuickQuoteDocument({
                         <td className="px-4 py-4 text-right align-top tabular-nums">
                           {hasDiscount ? (
                             <div className="space-y-1">
-                              <p className="text-text-muted line-through">
+                              <p className="text-text-3 line-through">
                                 {formatMoney(gross, quote.currency)}
                               </p>
                               <p className="text-emerald-300 print:text-emerald-700">
@@ -1012,21 +1012,21 @@ export default function QuickQuoteDocument({
                 <tfoot>
                   {showDiscountSummary ? (
                     <>
-                      <tr className="border-t border-white/10">
+                      <tr className="border-t border-ink-4">
                         <td
                           colSpan={3}
-                          className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted print:text-slate-500"
+                          className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-text-3 print:text-slate-500"
                         >
                           Subtotal
                         </td>
-                        <td className="px-4 py-2 text-right text-sm tabular-nums text-text-secondary print:text-slate-700">
+                        <td className="px-4 py-2 text-right text-sm tabular-nums text-text-2 print:text-slate-700">
                           {formatMoney(subtotalGross, quote.currency)}
                         </td>
                       </tr>
                       <tr>
                         <td
                           colSpan={3}
-                          className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted print:text-slate-500"
+                          className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-text-3 print:text-slate-500"
                         >
                           Discount
                         </td>
@@ -1036,10 +1036,10 @@ export default function QuickQuoteDocument({
                       </tr>
                     </>
                   ) : null}
-                  <tr className="border-t-2 border-white/10 bg-[linear-gradient(135deg,rgba(81,208,176,0.06)_0%,rgba(73,205,225,0.04)_100%)] print:bg-slate-50">
+                  <tr className="border-t-2 border-ink-4 bg-[linear-gradient(135deg,rgba(81,208,176,0.06)_0%,rgba(73,205,225,0.04)_100%)] print:bg-slate-50">
                     <td
                       colSpan={3}
-                      className="px-4 py-4 text-right text-[11px] font-semibold uppercase tracking-[0.2em] text-text-muted print:text-slate-500"
+                      className="px-4 py-4 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-text-3 print:text-slate-500"
                     >
                       Total (excl. VAT)
                     </td>
@@ -1051,7 +1051,7 @@ export default function QuickQuoteDocument({
               </table>
             </div>
 
-            <p className="mt-3 text-right text-xs text-text-muted">
+            <p className="mt-3 text-right text-xs text-text-3">
               All amounts shown exclude VAT.
             </p>
           </section>
@@ -1059,15 +1059,15 @@ export default function QuickQuoteDocument({
           {/* Payment schedule */}
           {quote.paymentSchedule.length > 0 ? (
             <section
-              className={`document-card rounded-2xl border border-white/10 bg-background-card ${isOnePager ? "p-6" : "p-7"}`}
+              className={`document-card rounded-[14px] border border-ink-4 bg-ink-1 ${isOnePager ? "p-6" : "p-7"}`}
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#49cde1]">
                 Payment schedule
               </p>
-              <ul className="mt-4 space-y-2 text-sm leading-7 text-text-secondary">
+              <ul className="mt-4 space-y-2 text-sm leading-7 text-text-2">
                 {quote.paymentSchedule.map((line, idx) => (
                   <li key={idx} className="flex gap-3">
-                    <span className="text-text-muted">{idx + 1}.</span>
+                    <span className="text-text-3">{idx + 1}.</span>
                     <span>{line}</span>
                   </li>
                 ))}
@@ -1078,13 +1078,13 @@ export default function QuickQuoteDocument({
           {/* Terms */}
           {terms ? (
             <section
-              className={`document-card rounded-2xl border border-white/10 bg-background-card ${isOnePager ? "p-6" : "p-7"}`}
+              className={`document-card rounded-[14px] border border-ink-4 bg-ink-1 ${isOnePager ? "p-6" : "p-7"}`}
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#49cde1]">
                 Terms
               </p>
               <p
-                className={`whitespace-pre-line leading-7 text-text-secondary ${isOnePager ? "mt-3 text-sm" : "mt-4 text-[15px] leading-8"}`}
+                className={`whitespace-pre-line leading-7 text-text-2 ${isOnePager ? "mt-3 text-sm" : "mt-4 text-[15px] leading-8"}`}
               >
                 {terms}
               </p>
@@ -1093,9 +1093,9 @@ export default function QuickQuoteDocument({
 
           {/* Sign-off */}
           <section
-            className={`document-card rounded-2xl border border-white/10 bg-background-card ${isOnePager ? "p-6" : "p-7"}`}
+            className={`document-card rounded-[14px] border border-ink-4 bg-ink-1 ${isOnePager ? "p-6" : "p-7"}`}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#49cde1]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#49cde1]">
               Approval
             </p>
             <h2 className="mt-3 text-[1.5rem] font-semibold leading-tight tracking-tight text-white print:text-slate-900">
@@ -1115,7 +1115,7 @@ export default function QuickQuoteDocument({
               </div>
             ) : showClientLayout ? (
               <>
-                <p className="mt-3 text-sm leading-7 text-text-secondary">
+                <p className="mt-3 text-sm leading-7 text-text-2">
                   By approving, you confirm the scope, pricing and terms above.
                   Your name, email and timestamp will be captured on the
                   record.
@@ -1134,7 +1134,7 @@ export default function QuickQuoteDocument({
                         ? "Approve this quote (disabled in preview)"
                         : "Approve this quote"}
                   </button>
-                  <p className="text-xs text-text-muted">
+                  <p className="text-xs text-text-3">
                     Questions before approving?{" "}
                     <a
                       href={`mailto:${project.ownerEmail ?? "hello@muloo.co"}`}
@@ -1147,31 +1147,31 @@ export default function QuickQuoteDocument({
               </>
             ) : (
               <>
-                <p className="mt-3 text-sm leading-7 text-text-secondary">
+                <p className="mt-3 text-sm leading-7 text-text-2">
                   Reply to this quote, or sign below. Approval is captured by
                   name, email and timestamp.
                 </p>
                 <div className="mt-6 grid gap-6 md:grid-cols-2">
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-text-3">
                       Signed
                     </p>
                     <div className="mt-3 h-12 border-b border-white/15 print:border-slate-300" />
-                    <p className="mt-2 text-xs text-text-muted">Name</p>
+                    <p className="mt-2 text-xs text-text-3">Name</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-text-3">
                       Date
                     </p>
                     <div className="mt-3 h-12 border-b border-white/15 print:border-slate-300" />
-                    <p className="mt-2 text-xs text-text-muted">DD MMM YYYY</p>
+                    <p className="mt-2 text-xs text-text-3">DD MMM YYYY</p>
                   </div>
                 </div>
               </>
             )}
 
             {quote.closedAt ? (
-              <p className="mt-4 text-xs text-text-muted">
+              <p className="mt-4 text-xs text-text-3">
                 Closed on {formatDate(quote.closedAt)}
                 {quote.closedReason ? ` · ${quote.closedReason}` : ""}
               </p>
@@ -1179,7 +1179,7 @@ export default function QuickQuoteDocument({
           </section>
 
           {/* Footer */}
-          <footer className="document-card mt-2 flex flex-col gap-2 rounded-2xl border border-white/5 bg-transparent px-4 py-3 text-[11px] text-text-muted md:flex-row md:items-center md:justify-between print:border-transparent">
+          <footer className="document-card mt-2 flex flex-col gap-2 rounded-[14px] border border-white/5 bg-transparent px-4 py-3 text-[11px] text-text-3 md:flex-row md:items-center md:justify-between print:border-transparent">
             <span>
               {quoteRef} · Issued {formatDate(quote.sharedAt)} · Valid until{" "}
               {formatDate(validUntil)}
@@ -1188,7 +1188,7 @@ export default function QuickQuoteDocument({
               Questions about this quote?{" "}
               <a
                 href={`mailto:${project.ownerEmail ?? "hello@muloo.co"}`}
-                className="text-text-secondary hover:underline"
+                className="text-text-2 hover:underline"
               >
                 {project.ownerEmail ?? "hello@muloo.co"}
               </a>
@@ -1520,16 +1520,16 @@ function SendQuoteEmailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(3,6,18,0.84)] px-4">
-      <div className="flex w-full max-w-2xl flex-col rounded-[28px] border border-white/10 bg-[#111933] shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+      <div className="flex w-full max-w-2xl flex-col rounded-[28px] border border-ink-4 bg-[#111933] shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-ink-4 px-6 py-5">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Send via email
             </p>
             <h3 className="mt-2 text-lg font-semibold text-white">
               {quoteRef}
               {clientName ? (
-                <span className="text-text-muted"> · {clientName}</span>
+                <span className="text-text-3"> · {clientName}</span>
               ) : null}
             </h3>
           </div>
@@ -1537,7 +1537,7 @@ function SendQuoteEmailModal({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="rounded-xl border border-white/10 px-3 py-2 text-sm text-text-secondary disabled:opacity-50"
+            className="rounded-xl border border-ink-4 px-3 py-2 text-sm text-text-2 disabled:opacity-50"
           >
             Close
           </button>
@@ -1545,11 +1545,11 @@ function SendQuoteEmailModal({
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-6 py-5">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Client contacts
             </p>
             {contacts.length === 0 ? (
-              <p className="mt-2 rounded-xl border border-white/10 bg-background-card px-3 py-3 text-sm text-text-secondary">
+              <p className="mt-2 rounded-xl border border-ink-4 bg-ink-1 px-3 py-3 text-sm text-text-2">
                 No contacts on file for this client. Use the override field
                 below to send to a specific email.
               </p>
@@ -1560,11 +1560,11 @@ function SendQuoteEmailModal({
                   value={filter}
                   onChange={(event) => setFilter(event.target.value)}
                   placeholder="Filter contacts"
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm text-white outline-none"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
                 />
-                <ul className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-background-card">
+                <ul className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-ink-4 bg-ink-1">
                   {filteredContacts.length === 0 ? (
-                    <li className="px-3 py-3 text-sm text-text-secondary">
+                    <li className="px-3 py-3 text-sm text-text-2">
                       No contacts match that filter.
                     </li>
                   ) : (
@@ -1586,12 +1586,12 @@ function SendQuoteEmailModal({
                                   {contact.lastName ? ` ${contact.lastName}` : ""}
                                 </span>
                                 {contact.canApproveQuotes ? (
-                                  <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-emerald-200">
+                                  <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-emerald-200">
                                     Approver
                                   </span>
                                 ) : null}
                               </div>
-                              <div className="text-xs text-text-muted">
+                              <div className="text-xs text-text-3">
                                 {contact.email}
                                 {contact.title ? ` · ${contact.title}` : ""}
                               </div>
@@ -1607,7 +1607,7 @@ function SendQuoteEmailModal({
           </div>
 
           <label className="block">
-            <span className="text-xs uppercase tracking-[0.22em] text-text-muted">
+            <span className="text-xs uppercase tracking-[0.14em] text-text-3">
               Additional recipients (To)
             </span>
             <input
@@ -1615,12 +1615,12 @@ function SendQuoteEmailModal({
               value={extraTo}
               onChange={(event) => setExtraTo(event.target.value)}
               placeholder="comma-separated emails"
-              className="mt-2 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm text-white outline-none"
+              className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
             />
           </label>
 
           <label className="block">
-            <span className="text-xs uppercase tracking-[0.22em] text-text-muted">
+            <span className="text-xs uppercase tracking-[0.14em] text-text-3">
               Cc
             </span>
             <input
@@ -1628,12 +1628,12 @@ function SendQuoteEmailModal({
               value={cc}
               onChange={(event) => setCc(event.target.value)}
               placeholder="comma-separated emails"
-              className="mt-2 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm text-white outline-none"
+              className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
             />
           </label>
 
           <label className="block">
-            <span className="text-xs uppercase tracking-[0.22em] text-text-muted">
+            <span className="text-xs uppercase tracking-[0.14em] text-text-3">
               Custom message (optional)
             </span>
             <textarea
@@ -1641,7 +1641,7 @@ function SendQuoteEmailModal({
               onChange={(event) => setMessage(event.target.value)}
               rows={4}
               placeholder="Defaults will be appended automatically — quote total, validity, and a portal link."
-              className="mt-2 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm text-white outline-none"
+              className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
             />
           </label>
 
@@ -1651,12 +1651,12 @@ function SendQuoteEmailModal({
             </p>
           ) : null}
 
-          <div className="flex items-center justify-end gap-2 border-t border-white/10 pt-4">
+          <div className="flex items-center justify-end gap-2 border-t border-ink-4 pt-4">
             <button
               type="button"
               onClick={onClose}
               disabled={busy}
-              className="rounded-xl border border-white/10 px-4 py-2 text-sm text-text-secondary disabled:opacity-50"
+              className="rounded-xl border border-ink-4 px-4 py-2 text-sm text-text-2 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -1707,16 +1707,16 @@ function PushToPortalModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(3,6,18,0.84)] px-4">
-      <div className="flex w-full max-w-xl flex-col rounded-[28px] border border-white/10 bg-[#111933] shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+      <div className="flex w-full max-w-xl flex-col rounded-[28px] border border-ink-4 bg-[#111933] shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-ink-4 px-6 py-5">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Push to portal
             </p>
             <h3 className="mt-2 text-lg font-semibold text-white">
               {quoteRef}
               {clientName ? (
-                <span className="text-text-muted"> · {clientName}</span>
+                <span className="text-text-3"> · {clientName}</span>
               ) : null}
             </h3>
           </div>
@@ -1724,21 +1724,21 @@ function PushToPortalModal({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="rounded-xl border border-white/10 px-3 py-2 text-sm text-text-secondary disabled:opacity-50"
+            className="rounded-xl border border-ink-4 px-3 py-2 text-sm text-text-2 disabled:opacity-50"
           >
             Close
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-6 py-5">
-          <p className="text-sm text-text-secondary">
+          <p className="text-sm text-text-2">
             {portalUserCount > 0
               ? `Notifies ${portalUserCount} portal user${portalUserCount === 1 ? "" : "s"} on this project. Quote flips to Sent.`
               : "No portal users on this project yet. We'll fall back to email."}
           </p>
 
           <label className="block">
-            <span className="text-xs uppercase tracking-[0.22em] text-text-muted">
+            <span className="text-xs uppercase tracking-[0.14em] text-text-3">
               Message to client (optional)
             </span>
             <textarea
@@ -1746,11 +1746,11 @@ function PushToPortalModal({
               onChange={(event) => setMessage(event.target.value)}
               rows={4}
               placeholder="Adds a short note above the portal link."
-              className="mt-2 w-full rounded-xl border border-white/10 bg-background-card px-3 py-2 text-sm text-white outline-none"
+              className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-2 text-sm text-white outline-none"
             />
           </label>
 
-          <label className="flex items-start gap-3 rounded-xl border border-white/10 bg-background-card px-3 py-3">
+          <label className="flex items-start gap-3 rounded-xl border border-ink-4 bg-ink-1 px-3 py-3">
             <input
               type="checkbox"
               checked={alsoEmail && !emailDisabled}
@@ -1762,7 +1762,7 @@ function PushToPortalModal({
               <div className="font-medium text-white">
                 Also send email
               </div>
-              <div className="mt-1 text-xs text-text-muted">
+              <div className="mt-1 text-xs text-text-3">
                 {emailDisabled
                   ? "No approver contacts on file — add an approver to enable email."
                   : `Sends to ${approverContactCount} approver contact${approverContactCount === 1 ? "" : "s"}.`}
@@ -1770,12 +1770,12 @@ function PushToPortalModal({
             </div>
           </label>
 
-          <div className="flex items-center justify-end gap-2 border-t border-white/10 pt-4">
+          <div className="flex items-center justify-end gap-2 border-t border-ink-4 pt-4">
             <button
               type="button"
               onClick={onClose}
               disabled={busy}
-              className="rounded-xl border border-white/10 px-4 py-2 text-sm text-text-secondary disabled:opacity-50"
+              className="rounded-xl border border-ink-4 px-4 py-2 text-sm text-text-2 disabled:opacity-50"
             >
               Cancel
             </button>

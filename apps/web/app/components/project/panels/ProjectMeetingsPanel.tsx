@@ -114,7 +114,7 @@ export default function ProjectMeetingsPanel({
       <header className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-white">Meeting notes</h2>
-          <p className="text-xs text-text-secondary">
+          <p className="text-xs text-text-2">
             Capture meeting notes and turn them into tasks, questions, or
             follow-ups from this tab.
           </p>
@@ -136,11 +136,11 @@ export default function ProjectMeetingsPanel({
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-text-secondary">Loading meetings…</p>
+        <p className="text-sm text-text-2">Loading meetings…</p>
       ) : notes.length === 0 ? (
-        <div className="brand-surface rounded-2xl border border-dashed border-white/10 p-8 text-center">
+        <div className="brand-surface rounded-[14px] border border-dashed border-ink-4 p-8 text-center">
           <p className="text-sm text-white">No meetings yet</p>
-          <p className="mt-1 text-xs text-text-secondary">
+          <p className="mt-1 text-xs text-text-2">
             Add your latest client meeting notes and Deploy OS will help turn
             them into tasks, risks, questions, and scope updates.
           </p>
@@ -158,14 +158,14 @@ export default function ProjectMeetingsPanel({
           {notes.map((note) => (
             <li
               key={note.id}
-              className="brand-surface rounded-2xl border border-white/10 p-4"
+              className="brand-surface rounded-[14px] border border-ink-4 p-4"
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-semibold text-white">
                     {note.title}
                   </h3>
-                  <p className="mt-1 text-xs text-text-secondary">
+                  <p className="mt-1 text-xs text-text-2">
                     {new Date(note.meetingDate).toLocaleDateString()} ·{" "}
                     {note.attendees.length > 0
                       ? note.attendees.join(", ")
@@ -175,7 +175,7 @@ export default function ProjectMeetingsPanel({
                 <button
                   type="button"
                   onClick={() => deleteNote(note.id)}
-                  className="rounded-md p-1 text-text-secondary hover:bg-white/5 hover:text-red-300"
+                  className="rounded-md p-1 text-text-2 hover:bg-white/5 hover:text-red-300"
                   aria-label="Delete meeting"
                 >
                   <Trash2 size={14} />
@@ -194,7 +194,7 @@ export default function ProjectMeetingsPanel({
                       href={link}
                       target="_blank"
                       rel="noopener"
-                      className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-brand-teal hover:underline"
+                      className="rounded-full border border-ink-4 bg-white/5 px-2 py-1 text-[11px] text-brand-teal hover:underline"
                     >
                       {link}
                     </a>
@@ -206,7 +206,7 @@ export default function ProjectMeetingsPanel({
                   type="button"
                   onClick={() => void extract(note.id)}
                   disabled={extractingId === note.id}
-                  className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-white hover:bg-white/10 disabled:opacity-60"
+                  className="inline-flex items-center gap-1 rounded-md border border-ink-4 bg-white/5 px-2 py-1 text-xs text-white hover:bg-white/10 disabled:opacity-60"
                 >
                   <Sparkles size={12} className="text-amber-300" />
                   {extractingId === note.id
@@ -216,7 +216,7 @@ export default function ProjectMeetingsPanel({
                       : "Extract actions / decisions / risks"}
                 </button>
                 {note.extractedAt ? (
-                  <span className="text-[11px] text-text-secondary">
+                  <span className="text-[11px] text-text-2">
                     Last extracted{" "}
                     {new Date(note.extractedAt).toLocaleString()}
                   </span>
@@ -230,8 +230,8 @@ export default function ProjectMeetingsPanel({
                 (note.extractedRisks?.length ?? 0) >
               0 ? (
                 <div className="mt-3 grid gap-3 md:grid-cols-3">
-                  <div className="rounded-xl border border-white/10 bg-background-elevated p-3">
-                    <p className="text-[10px] uppercase tracking-wide text-text-secondary">
+                  <div className="rounded-xl border border-ink-4 bg-ink-2 p-3">
+                    <p className="text-[10px] uppercase tracking-wide text-text-2">
                       Actions ({note.extractedActions?.length ?? 0})
                     </p>
                     <ul className="mt-1 space-y-1 text-xs text-white">
@@ -244,8 +244,8 @@ export default function ProjectMeetingsPanel({
                       ))}
                     </ul>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-background-elevated p-3">
-                    <p className="text-[10px] uppercase tracking-wide text-text-secondary">
+                  <div className="rounded-xl border border-ink-4 bg-ink-2 p-3">
+                    <p className="text-[10px] uppercase tracking-wide text-text-2">
                       Decisions ({note.extractedDecisions?.length ?? 0})
                     </p>
                     <ul className="mt-1 space-y-1 text-xs text-white">
@@ -254,8 +254,8 @@ export default function ProjectMeetingsPanel({
                       ))}
                     </ul>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-background-elevated p-3">
-                    <p className="text-[10px] uppercase tracking-wide text-text-secondary">
+                  <div className="rounded-xl border border-ink-4 bg-ink-2 p-3">
+                    <p className="text-[10px] uppercase tracking-wide text-text-2">
                       Risks ({note.extractedRisks?.length ?? 0})
                     </p>
                     <ul className="mt-1 space-y-1 text-xs text-white">

@@ -47,7 +47,7 @@ const statusFilters: Array<{ value: string; label: string }> = [
 ];
 
 const statusStyles: Record<string, string> = {
-  draft: "bg-white/5 text-text-secondary border border-white/10",
+  draft: "bg-white/5 text-text-2 border border-ink-4",
   shared: "bg-[#49cde1]/15 text-[#9be4f0] border border-[#49cde1]/30",
   approved: "bg-amber-500/15 text-amber-200 border border-amber-400/30",
   won: "bg-emerald-500/15 text-emerald-200 border border-emerald-400/30",
@@ -288,13 +288,13 @@ export default function QuotesListWorkspace() {
         />
 
         {error ? (
-          <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <div className="rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             {error}
           </div>
         ) : null}
 
         {feedback ? (
-          <div className="rounded-2xl border border-[#51d0b0]/30 bg-[#51d0b0]/10 px-4 py-3 text-sm text-[#9be4d2]">
+          <div className="rounded-[14px] border border-[#51d0b0]/30 bg-[#51d0b0]/10 px-4 py-3 text-sm text-[#9be4d2]">
             {feedback}
           </div>
         ) : null}
@@ -312,11 +312,11 @@ export default function QuotesListWorkspace() {
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                     active
                       ? "border-[#51d0b0]/50 bg-[#51d0b0]/10 text-[#9be4d2]"
-                      : "border-white/10 bg-background-card text-text-secondary hover:border-white/20 hover:text-white"
+                      : "border-ink-4 bg-ink-1 text-text-2 hover:border-ink-5 hover:text-white"
                   }`}
                 >
                   {filter.label}
-                  <span className="text-[10px] text-text-muted">{count}</span>
+                  <span className="text-[10px] text-text-3">{count}</span>
                 </button>
               );
             })}
@@ -326,7 +326,7 @@ export default function QuotesListWorkspace() {
                 onClick={() => setGlossaryOpen((open) => !open)}
                 aria-expanded={glossaryOpen}
                 title="What do these statuses mean?"
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-background-card px-3 py-1.5 text-xs font-medium text-text-secondary transition hover:border-white/20 hover:text-white"
+                className="inline-flex items-center gap-1.5 rounded-full border border-ink-4 bg-ink-1 px-3 py-1.5 text-xs font-medium text-text-2 transition hover:border-ink-5 hover:text-white"
               >
                 <span aria-hidden="true" className="font-semibold">?</span>
                 <span>What do these mean?</span>
@@ -335,17 +335,17 @@ export default function QuotesListWorkspace() {
                 <div
                   role="dialog"
                   aria-label="Quote status glossary"
-                  className="absolute left-0 top-9 z-30 w-80 rounded-2xl border border-white/10 bg-[#111933] p-4 shadow-2xl"
+                  className="absolute left-0 top-9 z-30 w-80 rounded-[14px] border border-ink-4 bg-[#111933] p-4 shadow-2xl"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Status glossary
                     </p>
                     <button
                       type="button"
                       onClick={() => setGlossaryOpen(false)}
                       aria-label="Close glossary"
-                      className="text-xs text-text-muted hover:text-white"
+                      className="text-xs text-text-3 hover:text-white"
                     >
                       ×
                     </button>
@@ -356,7 +356,7 @@ export default function QuotesListWorkspace() {
                         <dt className="font-semibold text-white">
                           {entry.status}
                         </dt>
-                        <dd className="text-text-secondary">
+                        <dd className="text-text-2">
                           {entry.description}
                         </dd>
                       </div>
@@ -368,7 +368,7 @@ export default function QuotesListWorkspace() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <label className="inline-flex items-center gap-2 text-xs text-text-secondary">
+            <label className="inline-flex items-center gap-2 text-xs text-text-2">
               <input
                 type="checkbox"
                 checked={showArchivedSuperseded}
@@ -383,13 +383,13 @@ export default function QuotesListWorkspace() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search by client or title..."
-              className="w-full max-w-xs rounded-xl border border-white/10 bg-background-card px-3 py-2.5 text-sm text-white placeholder:text-text-muted"
+              className="w-full max-w-xs rounded-xl border border-ink-4 bg-ink-1 px-3 py-2.5 text-sm text-white placeholder:text-text-3"
             />
           </div>
         </div>
 
         {selected.size > 0 ? (
-          <div className="flex flex-col gap-3 rounded-2xl border border-[#49cde1]/30 bg-[#49cde1]/10 px-4 py-3 text-sm text-[#9be4f0] sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-[14px] border border-[#49cde1]/30 bg-[#49cde1]/10 px-4 py-3 text-sm text-[#9be4f0] sm:flex-row sm:items-center sm:justify-between">
             <span>
               {selected.size} selected
               {!allSelectedArchivable
@@ -400,7 +400,7 @@ export default function QuotesListWorkspace() {
               <button
                 type="button"
                 onClick={clearSelection}
-                className="rounded-xl border border-white/10 px-3 py-1.5 text-xs text-text-secondary transition hover:bg-white/5"
+                className="rounded-xl border border-ink-4 px-3 py-1.5 text-xs text-text-2 transition hover:bg-white/5"
               >
                 Clear
               </button>
@@ -419,7 +419,7 @@ export default function QuotesListWorkspace() {
           </div>
         ) : null}
 
-        <section className="rounded-2xl border border-white/10 bg-background-card">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1">
           {loading ? (
             <SkeletonRows count={6} className="p-5" />
           ) : filtered.length === 0 ? (
@@ -451,7 +451,7 @@ export default function QuotesListWorkspace() {
                     className="grid items-center gap-3 px-5 py-2 transition hover:bg-white/[0.03] sm:grid-cols-[auto_1fr]"
                   >
                     <label
-                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-background-card hover:border-white/20"
+                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-ink-4 bg-ink-1 hover:border-ink-5"
                       onClick={(event: MouseEvent) => event.stopPropagation()}
                     >
                       <input
@@ -469,14 +469,14 @@ export default function QuotesListWorkspace() {
                         <p className="truncate text-base font-semibold text-white">
                           {quote.projectName}
                         </p>
-                        <p className="mt-1 truncate text-xs text-text-muted">
+                        <p className="mt-1 truncate text-xs text-text-3">
                           v{quote.version}
                           {quote.scopeType === "standalone_quote"
                             ? " · standalone"
                             : ""}
                         </p>
                       </div>
-                      <div className="text-sm text-text-secondary">
+                      <div className="text-sm text-text-2">
                         {quote.clientName || "—"}
                       </div>
                       <div className="text-sm text-white">
@@ -487,14 +487,14 @@ export default function QuotesListWorkspace() {
                       </div>
                       <div>
                         <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
                             statusStyles[quote.status] ?? statusStyles.draft
                           }`}
                         >
                           {quote.status}
                         </span>
                       </div>
-                      <div className="text-xs text-text-muted">
+                      <div className="text-xs text-text-3">
                         {formatDate(quote.updatedAt)}
                       </div>
                     </Link>
@@ -508,15 +508,15 @@ export default function QuotesListWorkspace() {
 
       {confirmArchiveOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(3,6,18,0.84)] px-4">
-          <div className="flex w-full max-w-md flex-col gap-4 rounded-[24px] border border-white/10 bg-[#111933] p-6 shadow-2xl">
+          <div className="flex w-full max-w-md flex-col gap-4 rounded-[24px] border border-ink-4 bg-[#111933] p-6 shadow-2xl">
             <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Confirm archive
               </p>
               <h3 className="mt-2 text-lg font-semibold text-white">
                 Archive {selected.size} quote{selected.size === 1 ? "" : "s"}?
               </h3>
-              <p className="mt-2 text-sm text-text-secondary">
+              <p className="mt-2 text-sm text-text-2">
                 Archived quotes are removed from the active pipeline but the
                 history stays. You can re-include them with the{" "}
                 <span className="text-white">Show archived &amp; superseded</span>{" "}
@@ -528,12 +528,12 @@ export default function QuotesListWorkspace() {
                 {bulkError}
               </p>
             ) : null}
-            <div className="flex items-center justify-end gap-2 border-t border-white/10 pt-4">
+            <div className="flex items-center justify-end gap-2 border-t border-ink-4 pt-4">
               <button
                 type="button"
                 onClick={() => setConfirmArchiveOpen(false)}
                 disabled={bulkBusy}
-                className="rounded-xl border border-white/10 px-4 py-2 text-sm text-text-secondary disabled:opacity-50"
+                className="rounded-xl border border-ink-4 px-4 py-2 text-sm text-text-2 disabled:opacity-50"
               >
                 Cancel
               </button>

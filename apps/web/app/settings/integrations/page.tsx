@@ -44,7 +44,7 @@ const integrations: IntegrationCard[] = [
 const statusStyles: Record<IntegrationCard["status"], string> = {
   live: "bg-[rgba(73,255,143,0.12)] text-[#7af0a8]",
   preview: "bg-[rgba(255,200,80,0.14)] text-[#ffd28a]",
-  "coming-soon": "bg-[rgba(255,255,255,0.06)] text-text-muted"
+  "coming-soon": "bg-ink-3 text-text-3"
 };
 
 const statusLabels: Record<IntegrationCard["status"], string> = {
@@ -68,7 +68,7 @@ export default function SettingsIntegrationsPage() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   {integration.badge}
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-white">
@@ -81,10 +81,10 @@ export default function SettingsIntegrationsPage() {
                 {statusLabels[integration.status]}
               </span>
             </div>
-            <p className="mt-3 text-sm text-text-secondary">
+            <p className="mt-3 text-sm text-text-2">
               {integration.description}
             </p>
-            <p className="mt-5 text-xs text-text-muted">{integration.cta}</p>
+            <p className="mt-5 text-xs text-text-3">{integration.cta}</p>
           </Link>
         ))}
       </div>

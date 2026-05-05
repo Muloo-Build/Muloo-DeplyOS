@@ -184,7 +184,7 @@ export default function PublicWorkbookClient({ token }: { token: string }) {
       <div className="min-h-screen bg-bg-primary text-text-primary">
         <div className="mx-auto max-w-xl px-6 py-24 text-center">
           <h1 className="text-2xl font-semibold">{headline}</h1>
-          <p className="mt-3 text-sm text-text-secondary">{hint}</p>
+          <p className="mt-3 text-sm text-text-2">{hint}</p>
         </div>
       </div>
     );
@@ -193,7 +193,7 @@ export default function PublicWorkbookClient({ token }: { token: string }) {
   if (!data) {
     return (
       <div className="min-h-screen bg-bg-primary text-text-primary">
-        <div className="mx-auto max-w-xl px-6 py-24 text-center text-sm text-text-secondary">
+        <div className="mx-auto max-w-xl px-6 py-24 text-center text-sm text-text-2">
           Loading…
         </div>
       </div>
@@ -205,7 +205,7 @@ export default function PublicWorkbookClient({ token }: { token: string }) {
       <div className="min-h-screen bg-bg-primary text-text-primary">
         <div className="mx-auto max-w-xl px-6 py-24 text-center">
           <h1 className="text-2xl font-semibold">Thanks, {contact.firstName}!</h1>
-          <p className="mt-3 text-sm text-text-secondary">
+          <p className="mt-3 text-sm text-text-2">
             Your responses to <strong>{data.workbook.title}</strong> have been
             sent to the {data.project.name} team. They'll be in touch if they
             need anything else.
@@ -219,26 +219,26 @@ export default function PublicWorkbookClient({ token }: { token: string }) {
     <div className="min-h-screen bg-bg-primary text-text-primary">
       <div className="mx-auto max-w-2xl px-6 py-12">
         <div className="mb-8">
-          <p className="text-xs uppercase tracking-wider text-text-secondary">
+          <p className="text-xs uppercase tracking-wider text-text-2">
             {data.project.name}
           </p>
           <h1 className="mt-2 text-3xl font-semibold">{data.workbook.title}</h1>
           {totalRequired > 0 ? (
-            <p className="mt-3 text-xs text-text-secondary">
+            <p className="mt-3 text-xs text-text-2">
               {answeredRequired} of {totalRequired} required questions answered
             </p>
           ) : null}
         </div>
 
         <form onSubmit={submit} className="space-y-10">
-          <section className="rounded-xl border border-white/10 bg-bg-elevated p-6">
+          <section className="rounded-xl border border-ink-4 bg-bg-elevated p-6">
             <h2 className="text-base font-semibold">About you</h2>
-            <p className="mt-1 text-xs text-text-secondary">
+            <p className="mt-1 text-xs text-text-2">
               We'll use these details so the team knows who responded.
             </p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block text-xs">
-                <span className="text-text-secondary">First name *</span>
+                <span className="text-text-2">First name *</span>
                 <input
                   type="text"
                   required
@@ -246,11 +246,11 @@ export default function PublicWorkbookClient({ token }: { token: string }) {
                   onChange={(e) =>
                     setContact((c) => ({ ...c, firstName: e.target.value }))
                   }
-                  className="mt-1 w-full rounded-md border border-white/10 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-brand-teal/60 focus:outline-none"
+                  className="mt-1 w-full rounded-md border border-ink-4 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-brand-teal/60 focus:outline-none"
                 />
               </label>
               <label className="block text-xs">
-                <span className="text-text-secondary">Last name *</span>
+                <span className="text-text-2">Last name *</span>
                 <input
                   type="text"
                   required
@@ -258,11 +258,11 @@ export default function PublicWorkbookClient({ token }: { token: string }) {
                   onChange={(e) =>
                     setContact((c) => ({ ...c, lastName: e.target.value }))
                   }
-                  className="mt-1 w-full rounded-md border border-white/10 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-brand-teal/60 focus:outline-none"
+                  className="mt-1 w-full rounded-md border border-ink-4 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-brand-teal/60 focus:outline-none"
                 />
               </label>
               <label className="block text-xs sm:col-span-2">
-                <span className="text-text-secondary">Email *</span>
+                <span className="text-text-2">Email *</span>
                 <input
                   type="email"
                   required
@@ -270,18 +270,18 @@ export default function PublicWorkbookClient({ token }: { token: string }) {
                   onChange={(e) =>
                     setContact((c) => ({ ...c, email: e.target.value }))
                   }
-                  className="mt-1 w-full rounded-md border border-white/10 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-brand-teal/60 focus:outline-none"
+                  className="mt-1 w-full rounded-md border border-ink-4 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-brand-teal/60 focus:outline-none"
                 />
               </label>
               <label className="block text-xs sm:col-span-2">
-                <span className="text-text-secondary">Organisation</span>
+                <span className="text-text-2">Organisation</span>
                 <input
                   type="text"
                   value={contact.organisation}
                   onChange={(e) =>
                     setContact((c) => ({ ...c, organisation: e.target.value }))
                   }
-                  className="mt-1 w-full rounded-md border border-white/10 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-brand-teal/60 focus:outline-none"
+                  className="mt-1 w-full rounded-md border border-ink-4 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-brand-teal/60 focus:outline-none"
                 />
               </label>
             </div>
@@ -290,11 +290,11 @@ export default function PublicWorkbookClient({ token }: { token: string }) {
           {data.workbook.sections.map((section) => (
             <section
               key={section.id}
-              className="rounded-xl border border-white/10 bg-bg-elevated p-6"
+              className="rounded-xl border border-ink-4 bg-bg-elevated p-6"
             >
               <h2 className="text-base font-semibold">{section.title}</h2>
               {section.description ? (
-                <p className="mt-1 text-xs text-text-secondary">
+                <p className="mt-1 text-xs text-text-2">
                   {section.description}
                 </p>
               ) : null}
@@ -309,7 +309,7 @@ export default function PublicWorkbookClient({ token }: { token: string }) {
                   />
                 ))}
                 {section.questions.length === 0 ? (
-                  <p className="text-xs text-text-secondary">
+                  <p className="text-xs text-text-2">
                     No questions in this section yet.
                   </p>
                 ) : null}
@@ -358,13 +358,13 @@ function QuestionField({
         ) : null}
       </p>
       {question.helpText ? (
-        <p className="mt-1 text-xs text-text-secondary">{question.helpText}</p>
+        <p className="mt-1 text-xs text-text-2">{question.helpText}</p>
       ) : null}
     </div>
   );
 
   const inputBase =
-    "mt-2 w-full rounded-md border border-white/10 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-brand-teal/60 focus:outline-none";
+    "mt-2 w-full rounded-md border border-ink-4 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-brand-teal/60 focus:outline-none";
 
   if (question.answerType === "long_text") {
     return (

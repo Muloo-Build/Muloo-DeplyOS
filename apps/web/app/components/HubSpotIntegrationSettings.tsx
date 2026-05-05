@@ -178,7 +178,7 @@ export default function HubSpotIntegrationSettings() {
       );
     }
     return (
-      <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-1 text-xs font-medium text-text-muted">
+      <span className="rounded-full bg-ink-3 px-3 py-1 text-xs font-medium text-text-3">
         Not connected
       </span>
     );
@@ -186,7 +186,7 @@ export default function HubSpotIntegrationSettings() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
         Loading HubSpot integration...
       </div>
     );
@@ -200,16 +200,16 @@ export default function HubSpotIntegrationSettings() {
         </div>
       ) : null}
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Internal portal
             </p>
             <h2 className="mt-2 text-xl font-semibold text-white">
               Muloo HubSpot — Private App
             </h2>
-            <p className="mt-2 text-sm text-text-secondary">
+            <p className="mt-2 text-sm text-text-2">
               Use this to connect to your own HubSpot portal. The token is
               AES-256-GCM encrypted at rest and only ever decrypted in memory
               for HubSpot API calls.
@@ -235,7 +235,7 @@ export default function HubSpotIntegrationSettings() {
               value={labelInput}
               onChange={(e) => setLabelInput(e.target.value)}
               placeholder="Muloo HubSpot"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
 
@@ -245,9 +245,9 @@ export default function HubSpotIntegrationSettings() {
               value={portalIdInput}
               onChange={(e) => setPortalIdInput(e.target.value)}
               placeholder="e.g. 12345678"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
-            <p className="mt-2 text-xs text-text-muted">
+            <p className="mt-2 text-xs text-text-3">
               Find under your HubSpot account name. Auto-fills after a
               successful test.
             </p>
@@ -267,9 +267,9 @@ export default function HubSpotIntegrationSettings() {
                   : "Paste pat-na1-…"
               }
               autoComplete="off"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
-            <p className="mt-2 text-xs text-text-muted">
+            <p className="mt-2 text-xs text-text-3">
               Generate in HubSpot → Settings → Integrations → Private apps.
               Required scopes are listed below.
             </p>
@@ -282,7 +282,7 @@ export default function HubSpotIntegrationSettings() {
             <textarea
               value={scopesInput}
               onChange={(e) => setScopesInput(e.target.value)}
-              className="mt-3 min-h-[140px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 font-mono text-xs text-white outline-none"
+              className="mt-3 min-h-[140px] w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 font-mono text-xs text-white outline-none"
             />
           </label>
 
@@ -309,7 +309,7 @@ export default function HubSpotIntegrationSettings() {
             type="button"
             onClick={() => void handleTest()}
             disabled={testing || !(state?.hasToken || state?.envFallbackAvailable)}
-            className="rounded-xl border border-[rgba(255,255,255,0.18)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-ink-5 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             {testing ? "Testing..." : "Test connection"}
           </button>
@@ -326,9 +326,9 @@ export default function HubSpotIntegrationSettings() {
         </div>
 
         {state?.lastTestedAt ? (
-          <div className="mt-5 grid gap-2 text-xs text-text-muted md:grid-cols-3">
+          <div className="mt-5 grid gap-2 text-xs text-text-3 md:grid-cols-3">
             <div>
-              <span className="block uppercase tracking-[0.18em]">
+              <span className="block uppercase tracking-[0.14em]">
                 Last tested
               </span>
               <span className="text-white">
@@ -336,13 +336,13 @@ export default function HubSpotIntegrationSettings() {
               </span>
             </div>
             <div>
-              <span className="block uppercase tracking-[0.18em]">Status</span>
+              <span className="block uppercase tracking-[0.14em]">Status</span>
               <span className="text-white">
                 {state.lastTestStatus ?? "unknown"}
               </span>
             </div>
             <div>
-              <span className="block uppercase tracking-[0.18em]">Hub</span>
+              <span className="block uppercase tracking-[0.14em]">Hub</span>
               <span className="text-white">
                 {state.hubDomain ?? state.portalId ?? "—"}
               </span>
@@ -356,16 +356,16 @@ export default function HubSpotIntegrationSettings() {
         ) : null}
       </section>
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Selective import
             </p>
             <h2 className="mt-2 text-xl font-semibold text-white">
               Browse + cherry-pick HubSpot companies
             </h2>
-            <p className="mt-2 text-sm text-text-secondary">
+            <p className="mt-2 text-sm text-text-2">
               Search your portal, preview related contacts and deals, and
               import only the companies you want as Clients in DeployOS.
             </p>
@@ -375,7 +375,7 @@ export default function HubSpotIntegrationSettings() {
             className={`rounded-xl px-4 py-3 text-sm font-medium ${
               state?.hasToken || state?.envFallbackAvailable
                 ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] text-white"
-                : "pointer-events-none border border-[rgba(255,255,255,0.18)] text-text-muted"
+                : "pointer-events-none border border-ink-5 text-text-3"
             }`}
           >
             Open import →
@@ -383,14 +383,14 @@ export default function HubSpotIntegrationSettings() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-        <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
           Client portals (Public OAuth)
         </p>
         <h2 className="mt-2 text-xl font-semibold text-white">
           Connect your clients&apos; HubSpot portals
         </h2>
-        <p className="mt-2 text-sm text-text-secondary">
+        <p className="mt-2 text-sm text-text-2">
           Used when delivering work inside a client portal. Each client
           installs your public HubSpot app from their own account; tokens are
           stored per portal in HubSpotPortal.
@@ -398,7 +398,7 @@ export default function HubSpotIntegrationSettings() {
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href="/settings/providers"
-            className="rounded-xl border border-[rgba(255,255,255,0.18)] px-4 py-3 text-sm font-medium text-white"
+            className="rounded-xl border border-ink-5 px-4 py-3 text-sm font-medium text-white"
           >
             Public app credentials →
           </Link>

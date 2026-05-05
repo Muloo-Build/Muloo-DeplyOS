@@ -296,13 +296,13 @@ export default function ClientInvoicesPanel({
   );
 
   return (
-    <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5">
+    <div className="mt-5 rounded-[14px] border border-ink-4 bg-ink-2 p-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
             Invoices
           </p>
-          <p className="mt-2 text-sm text-text-secondary">
+          <p className="mt-2 text-sm text-text-2">
             Manage invoices for {clientName}'s retainers.
           </p>
         </div>
@@ -310,7 +310,7 @@ export default function ClientInvoicesPanel({
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
-            className="rounded-2xl border border-[rgba(81,208,176,0.22)] bg-[rgba(81,208,176,0.08)] px-4 py-3 text-sm font-medium text-[#8de7d1] disabled:cursor-not-allowed disabled:text-text-muted"
+            className="rounded-[14px] border border-[rgba(81,208,176,0.22)] bg-[rgba(81,208,176,0.08)] px-4 py-3 text-sm font-medium text-[#8de7d1] disabled:cursor-not-allowed disabled:text-text-3"
           >
             + Add invoice
           </button>
@@ -318,21 +318,21 @@ export default function ClientInvoicesPanel({
       </div>
 
       {error ? (
-        <div className="mt-4 rounded-2xl bg-[rgba(239,68,68,0.14)] px-4 py-3 text-sm text-red-400">
+        <div className="mt-4 rounded-[14px] bg-[rgba(239,68,68,0.14)] px-4 py-3 text-sm text-red-400">
           {error}
         </div>
       ) : null}
 
       {feedback ? (
-        <div className="mt-4 rounded-2xl bg-[rgba(81,208,176,0.14)] px-4 py-3 text-sm text-[#51d0b0]">
+        <div className="mt-4 rounded-[14px] bg-[rgba(81,208,176,0.14)] px-4 py-3 text-sm text-[#51d0b0]">
           {feedback}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="mt-5 text-sm text-text-secondary">Loading invoices...</div>
+        <div className="mt-5 text-sm text-text-2">Loading invoices...</div>
       ) : showAddForm ? (
-        <div className="mt-5 space-y-4 rounded-2xl bg-[rgba(255,255,255,0.02)] p-5">
+        <div className="mt-5 space-y-4 rounded-[14px] bg-ink-2 p-5">
           <h3 className="text-sm font-semibold text-white">
             {editingInvoiceId ? "Edit invoice" : "Add new invoice"}
           </h3>
@@ -347,7 +347,7 @@ export default function ClientInvoicesPanel({
                   setFormData({ ...formData, reference: e.target.value })
                 }
                 placeholder="INV-001"
-                className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               />
             </label>
 
@@ -362,7 +362,7 @@ export default function ClientInvoicesPanel({
                     billToEntityId: ""
                   })
                 }
-                className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               >
                 <option value="">Select retainer</option>
                 {retainers.map((retainer) => (
@@ -380,7 +380,7 @@ export default function ClientInvoicesPanel({
                 onChange={(e) =>
                   setFormData({ ...formData, billToEntityId: e.target.value })
                 }
-                className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               >
                 <option value="">Select entity</option>
                 {relevantBillToEntities.map((entity) => (
@@ -398,7 +398,7 @@ export default function ClientInvoicesPanel({
                 onChange={(e) =>
                   setFormData({ ...formData, invoiceType: e.target.value })
                 }
-                className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               >
                 {invoiceTypeOptions.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -418,7 +418,7 @@ export default function ClientInvoicesPanel({
                   setFormData({ ...formData, amount: e.target.value })
                 }
                 placeholder="0.00"
-                className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               />
             </label>
 
@@ -429,7 +429,7 @@ export default function ClientInvoicesPanel({
                 onChange={(e) =>
                   setFormData({ ...formData, currency: e.target.value })
                 }
-                className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               >
                 <option value="ZAR">ZAR</option>
                 <option value="USD">USD</option>
@@ -446,7 +446,7 @@ export default function ClientInvoicesPanel({
                 onChange={(e) =>
                   setFormData({ ...formData, issueDate: e.target.value })
                 }
-                className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               />
             </label>
 
@@ -458,7 +458,7 @@ export default function ClientInvoicesPanel({
                 onChange={(e) =>
                   setFormData({ ...formData, dueDate: e.target.value })
                 }
-                className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               />
             </label>
 
@@ -471,7 +471,7 @@ export default function ClientInvoicesPanel({
                   setFormData({ ...formData, xeroUrl: e.target.value })
                 }
                 placeholder="https://..."
-                className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               />
             </label>
 
@@ -482,7 +482,7 @@ export default function ClientInvoicesPanel({
                 onChange={(e) =>
                   setFormData({ ...formData, status: e.target.value })
                 }
-                className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               >
                 {invoiceStatuses.map((status) => (
                   <option key={status.value} value={status.value}>
@@ -500,7 +500,7 @@ export default function ClientInvoicesPanel({
                   setFormData({ ...formData, notes: e.target.value })
                 }
                 placeholder="Optional"
-                className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
                 rows={3}
               />
             </label>
@@ -511,7 +511,7 @@ export default function ClientInvoicesPanel({
               type="button"
               onClick={saveInvoice}
               disabled={saving}
-              className="rounded-2xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-[14px] bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Saving..." : editingInvoiceId ? "Update" : "Create"}
             </button>
@@ -519,43 +519,43 @@ export default function ClientInvoicesPanel({
               type="button"
               onClick={cancelEdit}
               disabled={saving}
-              className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-[14px] border border-ink-4 bg-ink-2 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel
             </button>
           </div>
         </div>
       ) : sortedInvoices.length === 0 ? (
-        <div className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-5 py-5 text-sm text-text-secondary">
+        <div className="mt-5 rounded-[14px] border border-dashed border-ink-4 px-5 py-5 text-sm text-text-2">
           No invoices yet. Click "Add invoice" to create one.
         </div>
       ) : (
         <div className="mt-5 overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-[rgba(255,255,255,0.08)]">
+            <thead className="border-b border-ink-4">
               <tr>
-                <th className="text-left px-4 py-3 text-text-muted font-medium">
+                <th className="text-left px-4 py-3 text-text-3 font-medium">
                   Reference
                 </th>
-                <th className="text-left px-4 py-3 text-text-muted font-medium">
+                <th className="text-left px-4 py-3 text-text-3 font-medium">
                   Type
                 </th>
-                <th className="text-left px-4 py-3 text-text-muted font-medium">
+                <th className="text-left px-4 py-3 text-text-3 font-medium">
                   Amount
                 </th>
-                <th className="text-left px-4 py-3 text-text-muted font-medium">
+                <th className="text-left px-4 py-3 text-text-3 font-medium">
                   Issue Date
                 </th>
-                <th className="text-left px-4 py-3 text-text-muted font-medium">
+                <th className="text-left px-4 py-3 text-text-3 font-medium">
                   Due Date
                 </th>
-                <th className="text-left px-4 py-3 text-text-muted font-medium">
+                <th className="text-left px-4 py-3 text-text-3 font-medium">
                   Status
                 </th>
-                <th className="text-left px-4 py-3 text-text-muted font-medium">
+                <th className="text-left px-4 py-3 text-text-3 font-medium">
                   Xero
                 </th>
-                <th className="text-left px-4 py-3 text-text-muted font-medium">
+                <th className="text-left px-4 py-3 text-text-3 font-medium">
                   Action
                 </th>
               </tr>
@@ -570,18 +570,18 @@ export default function ClientInvoicesPanel({
                 return (
                   <tr
                     key={invoice.id}
-                    className="border-b border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.02)] cursor-pointer"
+                    className="border-b border-ink-4 hover:bg-ink-2 cursor-pointer"
                     onClick={() => startEditingInvoice(invoice)}
                   >
                     <td className="px-4 py-3 text-white">{invoice.reference}</td>
-                    <td className="px-4 py-3 text-text-secondary">{typeLabel}</td>
+                    <td className="px-4 py-3 text-text-2">{typeLabel}</td>
                     <td className="px-4 py-3 text-white">
                       {formatCurrency(invoice.amount, invoice.currency)}
                     </td>
-                    <td className="px-4 py-3 text-text-secondary">
+                    <td className="px-4 py-3 text-text-2">
                       {formatDate(invoice.issueDate)}
                     </td>
-                    <td className="px-4 py-3 text-text-secondary">
+                    <td className="px-4 py-3 text-text-2">
                       {formatDate(invoice.dueDate)}
                     </td>
                     <td className="px-4 py-3">
@@ -604,7 +604,7 @@ export default function ClientInvoicesPanel({
                           Open
                         </a>
                       ) : (
-                        <span className="text-text-muted">—</span>
+                        <span className="text-text-3">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3">

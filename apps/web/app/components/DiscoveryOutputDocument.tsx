@@ -145,7 +145,7 @@ function formatDiscoveryOutcome(
 
 function SectionEyebrow({ children }: { children: string }) {
   return (
-    <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#49cde1]">
+    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#49cde1]">
       {children}
     </p>
   );
@@ -295,12 +295,12 @@ export default function DiscoveryOutputDocument({
             {[0, 1, 2].map((row) => (
               <div
                 key={row}
-                className="h-28 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-white/5 animate-pulse"
+                className="h-28 rounded-[14px] border border-ink-4 bg-white/5 animate-pulse"
               />
             ))}
           </div>
         ) : error || !project || !blueprint ? (
-          <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-8 text-white">
+          <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-8 text-white">
             {error ?? "Document unavailable"}
           </div>
         ) : (
@@ -313,14 +313,14 @@ export default function DiscoveryOutputDocument({
               <div>
                 <Link
                   href={`/projects/${project.id}`}
-                  className="text-sm text-text-muted"
+                  className="text-sm text-text-3"
                 >
                   Back to overview
                 </Link>
                 <h1 className="mt-3 text-3xl font-bold font-heading text-white">
                   Discovery Document & Implementation Plan
                 </h1>
-                <p className="mt-2 text-text-secondary">
+                <p className="mt-2 text-text-2">
                   Client-facing discovery document that explains the
                   recommendation, scope, and phased implementation approach in a
                   portable format the client can deliver with Muloo or another
@@ -330,14 +330,14 @@ export default function DiscoveryOutputDocument({
               <div className="document-toolbar flex flex-wrap items-center gap-3">
                 <Link
                   href={`/projects/${project.id}/quote`}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                  className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white"
                 >
                   Open Quote
                 </Link>
                 <button
                   type="button"
                   onClick={copyShareLink}
-                  className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                  className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white"
                 >
                   Copy Share Link
                 </button>
@@ -349,12 +349,12 @@ export default function DiscoveryOutputDocument({
                   Save PDF
                 </button>
                 {shareMessage ? (
-                  <p className="text-sm text-text-secondary">{shareMessage}</p>
+                  <p className="text-sm text-text-2">{shareMessage}</p>
                 ) : null}
               </div>
             </div>
 
-            <section className="document-card overflow-hidden rounded-[32px] border border-[rgba(255,255,255,0.07)] bg-background-card">
+            <section className="document-card overflow-hidden rounded-[32px] border border-ink-4 bg-ink-1">
               <div className="bg-[#0c1329] p-10">
                 <div className="flex items-center gap-4">
                   <img
@@ -362,7 +362,7 @@ export default function DiscoveryOutputDocument({
                     alt="Muloo"
                     className="h-8 w-auto"
                   />
-                  <p className="text-xs uppercase tracking-[0.35em] text-text-muted">
+                  <p className="text-xs uppercase tracking-[0.35em] text-text-3">
                     Discovery Document
                   </p>
                 </div>
@@ -370,14 +370,14 @@ export default function DiscoveryOutputDocument({
                   {project.client.name.toUpperCase()} - Discovery Document &
                   Implementation Plan
                 </h2>
-                <p className="mt-6 text-lg text-text-secondary">
+                <p className="mt-6 text-lg text-text-2">
                   {formatEngagementType(project.engagementType)} discovery-led
                   implementation plan generated from structured discovery.
                 </p>
 
                 <div className="mt-10 grid gap-8 md:grid-cols-2">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Prepared For
                     </p>
                     <div className="mt-4 space-y-2 text-sm text-white">
@@ -393,7 +393,7 @@ export default function DiscoveryOutputDocument({
                   </div>
 
                   <div>
-                    <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Prepared By
                     </p>
                     <div className="mt-4 space-y-2 text-sm text-white">
@@ -406,7 +406,7 @@ export default function DiscoveryOutputDocument({
               </div>
             </section>
 
-            <section className="document-card rounded-2xl border border-[rgba(73,205,225,0.18)] bg-[linear-gradient(135deg,rgba(73,205,225,0.08)_0%,rgba(224,82,156,0.06)_100%)] p-6">
+            <section className="document-card rounded-[14px] border border-[rgba(73,205,225,0.18)] bg-[linear-gradient(135deg,rgba(73,205,225,0.08)_0%,rgba(224,82,156,0.06)_100%)] p-6">
               <SectionEyebrow>Document Purpose</SectionEyebrow>
               <SectionTitle>Portable implementation plan</SectionTitle>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -417,7 +417,7 @@ export default function DiscoveryOutputDocument({
                 ].map((item) => (
                   <div
                     key={item}
-                    className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(11,17,38,0.65)] p-4 text-sm leading-7 text-text-secondary"
+                    className="rounded-[14px] border border-ink-4 bg-[rgba(11,17,38,0.65)] p-4 text-sm leading-7 text-text-2"
                   >
                     {item}
                   </div>
@@ -427,33 +427,33 @@ export default function DiscoveryOutputDocument({
 
             <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-6">
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <SectionEyebrow>Executive Summary</SectionEyebrow>
                   <SectionTitle>What discovery confirmed</SectionTitle>
-                  <p className="mt-4 text-sm leading-7 text-text-secondary">
+                  <p className="mt-4 text-sm leading-7 text-text-2">
                     {summary?.executiveSummary ??
                       session1.business_overview ??
                       "No executive summary generated yet."}
                   </p>
                 </div>
 
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <SectionEyebrow>Why This Project Matters</SectionEyebrow>
                   <SectionTitle>Why action is needed now</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         Primary challenge
                       </p>
-                      <p className="mt-3 text-sm leading-7 text-text-secondary">
+                      <p className="mt-3 text-sm leading-7 text-text-2">
                         {session1.primary_pain_challenge || "To be confirmed"}
                       </p>
                     </div>
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         Success outcomes
                       </p>
-                      <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                      <div className="mt-3 space-y-2 text-sm text-text-2">
                         {splitIntoLines(session1.goals_and_success_metrics).map(
                           (line) => (
                             <p key={line}>{line}</p>
@@ -464,7 +464,7 @@ export default function DiscoveryOutputDocument({
                   </div>
                 </div>
 
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <SectionEyebrow>Recommended Path</SectionEyebrow>
                   <SectionTitle>What Muloo recommends</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -488,9 +488,9 @@ export default function DiscoveryOutputDocument({
                     ].map(([label, value]) => (
                       <div
                         key={label}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                       >
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           {label}
                         </p>
                         <p className="mt-2 text-sm font-medium text-white">
@@ -510,7 +510,7 @@ export default function DiscoveryOutputDocument({
                   </div>
                 </div>
 
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <SectionEyebrow>Current State</SectionEyebrow>
                   <SectionTitle>How the business operates today</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -522,12 +522,12 @@ export default function DiscoveryOutputDocument({
                     ].map(([label, value]) => (
                       <div
                         key={label}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                       >
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           {label}
                         </p>
-                        <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                        <div className="mt-3 space-y-2 text-sm text-text-2">
                           {splitIntoLines(value).map((line) => (
                             <p key={line}>{line}</p>
                           ))}
@@ -537,7 +537,7 @@ export default function DiscoveryOutputDocument({
                   </div>
                 </div>
 
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <SectionEyebrow>Recommended Future State</SectionEyebrow>
                   <SectionTitle>
                     What the target solution should look like
@@ -554,12 +554,12 @@ export default function DiscoveryOutputDocument({
                     ].map(([label, value]) => (
                       <div
                         key={label}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                       >
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           {label}
                         </p>
-                        <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                        <div className="mt-3 space-y-2 text-sm text-text-2">
                           {splitIntoLines(value).map((line) => (
                             <p key={line}>{line}</p>
                           ))}
@@ -569,7 +569,7 @@ export default function DiscoveryOutputDocument({
                   </div>
                 </div>
 
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <SectionEyebrow>Delivery Approach</SectionEyebrow>
                   <SectionTitle>How this should be delivered</SectionTitle>
                   <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -589,12 +589,12 @@ export default function DiscoveryOutputDocument({
                     ].map(([label, value]) => (
                       <div
                         key={label}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                       >
-                        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           {label}
                         </p>
-                        <p className="mt-3 text-sm leading-7 text-text-secondary">
+                        <p className="mt-3 text-sm leading-7 text-text-2">
                           {value}
                         </p>
                       </div>
@@ -604,25 +604,25 @@ export default function DiscoveryOutputDocument({
               </div>
 
               <div className="space-y-6">
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <SectionEyebrow>Scope</SectionEyebrow>
                   <SectionTitle>What is included and excluded</SectionTitle>
                   <div className="mt-5 grid gap-4">
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         In Scope
                       </p>
-                      <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                      <ul className="mt-3 space-y-2 text-sm text-text-2">
                         {inScopeItems.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
                       </ul>
                     </div>
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         Out of Scope
                       </p>
-                      <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                      <ul className="mt-3 space-y-2 text-sm text-text-2">
                         {outOfScopeItems.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
@@ -631,7 +631,7 @@ export default function DiscoveryOutputDocument({
                   </div>
                 </div>
 
-                <div className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <SectionEyebrow>Risks & Dependencies</SectionEyebrow>
                   <SectionTitle>What could affect delivery</SectionTitle>
                   <div className="mt-4 space-y-4">
@@ -639,7 +639,7 @@ export default function DiscoveryOutputDocument({
                       <p className="text-sm font-medium text-white">
                         Key risks
                       </p>
-                      <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                      <ul className="mt-2 space-y-2 text-sm text-text-2">
                         {keyRisks.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
@@ -649,7 +649,7 @@ export default function DiscoveryOutputDocument({
                       <p className="text-sm font-medium text-white">
                         Client responsibilities
                       </p>
-                      <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                      <ul className="mt-2 space-y-2 text-sm text-text-2">
                         {clientResponsibilities.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
@@ -660,7 +660,7 @@ export default function DiscoveryOutputDocument({
                         <p className="text-sm font-medium text-white">
                           Open questions to resolve during approval
                         </p>
-                        <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                        <ul className="mt-2 space-y-2 text-sm text-text-2">
                           {nextQuestions.map((item) => (
                             <li key={item}>{item}</li>
                           ))}
@@ -672,7 +672,7 @@ export default function DiscoveryOutputDocument({
               </div>
             </section>
 
-            <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+            <section className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <SectionEyebrow>Phased Implementation Scope</SectionEyebrow>
@@ -680,7 +680,7 @@ export default function DiscoveryOutputDocument({
                     Proposed onboarding phases and delivery plan
                   </SectionTitle>
                 </div>
-                <p className="text-sm text-text-secondary">
+                <p className="text-sm text-text-2">
                   Generated {formatDate(blueprint.generatedAt)}
                 </p>
               </div>
@@ -694,17 +694,17 @@ export default function DiscoveryOutputDocument({
                   return (
                     <div
                       key={phase.phase}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5"
+                      className="rounded-[14px] border border-ink-4 bg-ink-2 p-5"
                     >
                       <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
                         <div>
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Phase {phase.phase}
                           </p>
                           <h3 className="mt-2 text-lg font-semibold text-white">
                             {phase.phaseName}
                           </h3>
-                          <ul className="mt-4 space-y-2 text-sm text-text-secondary">
+                          <ul className="mt-4 space-y-2 text-sm text-text-2">
                             {phase.tasks
                               .filter((task) => task.type !== "Client")
                               .map((task) => (
@@ -712,10 +712,10 @@ export default function DiscoveryOutputDocument({
                               ))}
                           </ul>
                         </div>
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
+                        <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
                           <div className="grid gap-3 text-sm">
                             <div>
-                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                                 Phase purpose
                               </p>
                               <p className="mt-2 text-sm text-white">
@@ -723,7 +723,7 @@ export default function DiscoveryOutputDocument({
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                                 Client inputs needed
                               </p>
                               {clientDependencies.length > 0 ? (
@@ -748,10 +748,10 @@ export default function DiscoveryOutputDocument({
               </div>
             </section>
 
-            <section className="document-card rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+            <section className="document-card rounded-[14px] border border-ink-4 bg-ink-1 p-6">
               <SectionEyebrow>How To Use This Document</SectionEyebrow>
               <SectionTitle>Working implementation reference</SectionTitle>
-              <div className="mt-4 space-y-4 text-sm leading-7 text-text-secondary">
+              <div className="mt-4 space-y-4 text-sm leading-7 text-text-2">
                 <p>
                   This document is intended to act as the working discovery
                   recommendation and implementation plan for client review.
