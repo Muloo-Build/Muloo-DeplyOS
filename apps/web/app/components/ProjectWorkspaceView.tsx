@@ -21,6 +21,7 @@ import {
   KanbanSquare,
   MessageSquare,
   Plus,
+  Receipt,
   Search,
   Settings as SettingsIcon,
   Trash2,
@@ -124,6 +125,19 @@ interface ActivityEntry {
   target: string;
   when: string;
   icon?: React.ReactNode;
+}
+
+interface QuoteRecord {
+  id: string;
+  reference?: string;
+  version?: number;
+  status?: string;
+  projectId?: string;
+  totals?: { grandTotalZar?: number };
+  currency?: string;
+  sharedAt?: string | null;
+  approvedAt?: string | null;
+  updatedAt?: string;
 }
 
 const projectTabs: Array<{
@@ -277,6 +291,7 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [workstreamHours, setWorkstreamHours] = useState<WorkstreamHoursEntry[]>([]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -312,13 +327,16 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
     async function run() {
       setLoading(true);
       try {
-        const [projRes, hoursRes] = await Promise.all([
+        const [projRes, hoursRes, quotesRes] = await Promise.all([
           fetch(`/api/projects/${encodeURIComponent(projectId)}`)
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null),
           fetch(
             `/api/projects/${encodeURIComponent(projectId)}/workstream-hours`
           )
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null),
+          fetch("/api/quotes")
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null)
         ]);
@@ -332,6 +350,11 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
           ? (hoursRes.workstreamHours as WorkstreamHoursEntry[])
           : [];
         setWorkstreamHours(hrs);
+
+        const allQuotes: QuoteRecord[] = Array.isArray(quotesRes?.quotes)
+          ? (quotesRes.quotes as QuoteRecord[])
+          : [];
+        setQuotes(allQuotes.filter((q) => q.projectId === projectId));
 
         // Synthesise activity from project record
         const acts: ActivityEntry[] = [];
@@ -1022,6 +1045,76 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
                     </Btn>
                   </div>
                 </div>
+              </PanelBody>
+            </Panel>
+
+            <Panel>
+              <PanelHead
+                title="Quotes"
+                right={
+                  <Link href={`/quotes/new?projectId=${projectId}`}>
+                    <Btn variant="ghost" size="sm" aria-label="New quote">
+                      <Plus size={12} />
+                    </Btn>
+                  </Link>
+                }
+              />
+              <PanelBody flush>
+                {quotes.length === 0 ? (
+                  <div className="px-4 py-4 text-text-3 text-[12.5px]">
+                    No quotes for this project yet.
+                  </div>
+                ) : (
+                  quotes.map((q, i) => {
+                    const tone =
+                      q.status === "approved" || q.status === "won"
+                        ? "ok"
+                        : q.status === "lost" || q.status === "archived"
+                          ? "danger"
+                          : q.status === "shared"
+                            ? "info"
+                            : "neutral";
+                    const total = q.totals?.grandTotalZar;
+                    return (
+                      <Link
+                        key={q.id}
+                        href={`/quotes/${q.id}`}
+                        className={`grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-center px-4 py-2.5 hover:bg-ink-2 transition-colors ${
+                          i < quotes.length - 1 ? "border-b border-ink-4" : ""
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 text-[12.5px] font-medium truncate">
+                            <Receipt size={11} className="text-text-3 flex-shrink-0" />
+                            <span className="font-mono">
+                              {q.reference ?? q.id.slice(0, 8)}
+                            </span>
+                            {q.version && (
+                              <span className="text-text-4 font-mono text-[10.5px]">
+                                v{q.version}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-text-3 mt-0.5 flex items-center gap-1.5">
+                            <Pill tone={tone} dot>
+                              {q.status ?? "draft"}
+                            </Pill>
+                            {typeof total === "number" && (
+                              <span className="font-mono">
+                                {new Intl.NumberFormat("en-ZA", {
+                                  style: "currency",
+                                  currency: q.currency ?? "ZAR",
+                                  maximumFractionDigits: 0
+                                }).format(total)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronRight size={13} className="text-text-3" />
+                      </Link>
+                    );
+                  })
+                )}
               </PanelBody>
             </Panel>
 
