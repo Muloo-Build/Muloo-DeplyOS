@@ -174,7 +174,7 @@ export default function TodayView() {
   async function loadAll() {
     setRefreshing(true);
     try {
-      const [me, attn, projRes, inboxRes, calRes, capRes] = await Promise.all([
+      const [me, attn, projRes, inboxRes, calRes, capRes, gmailRes] = await Promise.all([
         fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch("/api/projects/needs-attention")
           .then((r) => (r.ok ? r.json() : null))
@@ -187,6 +187,9 @@ export default function TodayView() {
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null),
         fetch("/api/capacity")
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
+        fetch("/api/workspace/emails/client-queues")
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null)
       ]);
@@ -205,34 +208,110 @@ export default function TodayView() {
             : [];
       setProjects(projItems.slice(0, 4));
 
-      const inboxRows: InboxItem[] = (() => {
+      // Build the recent inbox stream from project messages + submissions
+      // (internal) + Gmail unread (external) so it matches what the design
+      // brief calls "recent inbox": one row per real signal with sender,
+      // subject, project/client and a kind pill.
+      const internalRows: InboxItem[] = (() => {
         if (!inboxRes) return [];
-        const raw = Array.isArray(inboxRes?.items)
-          ? inboxRes.items
-          : Array.isArray(inboxRes?.messages)
-            ? inboxRes.messages
-            : Array.isArray(inboxRes)
-              ? inboxRes
-              : [];
-        return raw.slice(0, 4).map((row: Record<string, unknown>) => ({
-          id: String(row.id ?? row.messageId ?? Math.random()),
-          kind: String(row.kind ?? row.type ?? "Message"),
-          subject: String(row.subject ?? row.title ?? row.summary ?? "Untitled"),
-          from: String(row.from ?? row.senderName ?? row.author ?? "—"),
-          project: row.projectName ? String(row.projectName) : null,
-          when: relativeTime(
-            (row.createdAt as string | undefined) ??
-              (row.timestamp as string | undefined) ??
-              (row.when as string | undefined)
-          ),
-          href: row.href ? String(row.href) : undefined,
-          priority:
-            row.priority === "danger" || row.priority === "warn" || row.priority === "info"
-              ? (row.priority as "danger" | "warn" | "info")
-              : undefined
-        }));
+        const messages = Array.isArray(inboxRes?.messages)
+          ? (inboxRes.messages as Array<Record<string, unknown>>)
+          : [];
+        const submissions = Array.isArray(inboxRes?.submissionAlerts)
+          ? (inboxRes.submissionAlerts as Array<Record<string, unknown>>)
+          : [];
+
+        const messageRows: InboxItem[] = messages.map((row) => {
+          const body = String(row.body ?? "").trim();
+          const subjectFromBody =
+            body.length > 0
+              ? body.length > 80
+                ? `${body.slice(0, 80)}…`
+                : body
+              : "Project message";
+          const project =
+            row.project && typeof row.project === "object"
+              ? String((row.project as Record<string, unknown>).name ?? "")
+              : "";
+          const senderType = String(row.senderType ?? "");
+          return {
+            id: `msg_${String(row.id ?? Math.random())}`,
+            kind: senderType === "client" ? "Client message" : "Internal note",
+            subject: subjectFromBody,
+            from: String(row.senderName ?? "—"),
+            project: project || null,
+            when: relativeTime((row.createdAt as string | undefined) ?? undefined),
+            href: project ? `/projects/${row.projectId}` : "/inbox",
+            priority:
+              senderType === "client" ? ("warn" as const) : ("info" as const)
+          };
+        });
+
+        const submissionRows: InboxItem[] = submissions.map((row) => {
+          const proj = (row.project ?? {}) as Record<string, unknown>;
+          const session = row.sessionNumber ? `section ${row.sessionNumber}` : "their inputs";
+          return {
+            id: `sub_${String(proj.id ?? Math.random())}`,
+            kind: "Submission",
+            subject: `${row.submittedByName ?? "Client"} updated ${session}`,
+            from: String(row.submittedByName ?? "Client"),
+            project: proj.name ? String(proj.name) : null,
+            when: relativeTime((row.updatedAt as string | undefined) ?? undefined),
+            href: proj.id ? `/projects/${String(proj.id)}/inputs` : "/inbox",
+            priority: "info" as const
+          };
+        });
+
+        return [...messageRows, ...submissionRows];
       })();
-      setInbox(inboxRows);
+
+      const gmailRows: InboxItem[] = (() => {
+        if (!gmailRes?.connected) return [];
+        const queues = Array.isArray(gmailRes.queues)
+          ? (gmailRes.queues as Array<Record<string, unknown>>)
+          : [];
+        const flat: InboxItem[] = [];
+        for (const queue of queues) {
+          const clientName = String(queue.clientName ?? "—");
+          const emails = Array.isArray(queue.emails)
+            ? (queue.emails as Array<Record<string, unknown>>)
+            : [];
+          for (const email of emails.slice(0, 3)) {
+            const subject = String(email.subject ?? "(no subject)").trim();
+            const from = String(email.from ?? "—");
+            const isUnread = email.unread === true;
+            flat.push({
+              id: `gmail_${String(email.id ?? Math.random())}`,
+              kind: isUnread ? "Email · unread" : "Email",
+              subject: subject.length > 80 ? `${subject.slice(0, 80)}…` : subject,
+              from: from.replace(/<[^>]+>/, "").trim() || from,
+              project: clientName,
+              when: relativeTime((email.date as string | undefined) ?? undefined),
+              href:
+                typeof email.gmailUrl === "string"
+                  ? (email.gmailUrl as string)
+                  : "/inbox",
+              priority: isUnread ? ("warn" as const) : ("info" as const)
+            });
+          }
+        }
+        return flat;
+      })();
+
+      const merged = [...internalRows, ...gmailRows]
+        .sort((a, b) => {
+          // Recency rank using the relative-time ordering
+          const order = ["just now", "m ago", "h ago", "d ago"];
+          const rankOf = (t: string) =>
+            order.findIndex((suffix) => t.endsWith(suffix) || t === suffix);
+          const rA = rankOf(a.when);
+          const rB = rankOf(b.when);
+          if (rA !== rB) return rA - rB;
+          return 0;
+        })
+        .slice(0, 5);
+
+      setInbox(merged);
 
       if (calRes?.connected && Array.isArray(calRes.events)) {
         const todayEvents = (calRes.events as CalendarEvent[]).filter((e) =>
