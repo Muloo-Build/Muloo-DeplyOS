@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -22,7 +23,9 @@ import {
   Plus,
   Search,
   Settings as SettingsIcon,
-  User
+  Trash2,
+  User,
+  X
 } from "lucide-react";
 
 import AppShell from "./AppShell";
@@ -270,10 +273,39 @@ interface ProjectWorkspaceViewProps {
 }
 
 export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceViewProps) {
+  const router = useRouter();
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [workstreamHours, setWorkstreamHours] = useState<WorkstreamHoursEntry[]>([]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleDelete() {
+    if (!project || deleteConfirm.trim() !== project.name) {
+      setDeleteError("Type the project name exactly to confirm");
+      return;
+    }
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const r = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}`,
+        { method: "DELETE", credentials: "include" }
+      );
+      if (!r.ok) {
+        const body = await r.json().catch(() => null);
+        throw new Error(body?.error ?? `Delete failed (${r.status})`);
+      }
+      router.replace("/projects");
+      router.refresh();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Delete failed");
+      setDeleting(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -476,8 +508,102 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
               <Plus size={13} />
               Log time
             </Btn>
+            <Btn
+              variant="danger"
+              size="md"
+              onClick={() => {
+                setDeleteOpen(true);
+                setDeleteConfirm("");
+                setDeleteError(null);
+              }}
+              aria-label="Delete project"
+              title="Delete project"
+            >
+              <Trash2 size={13} />
+              Delete
+            </Btn>
           </div>
         </header>
+
+        {/* DELETE CONFIRM */}
+        {deleteOpen && project && (
+          <>
+            <button
+              type="button"
+              aria-label="Close delete dialog"
+              onClick={() => !deleting && setDeleteOpen(false)}
+              className="fixed inset-0 z-40 bg-black/70"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(440px,92vw)] bg-ink-1 border border-ink-4 rounded-[14px] p-6 shadow-elev-pop"
+            >
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div>
+                  <p className="text-[10px] tracking-[0.14em] uppercase text-status-danger font-semibold">
+                    Danger zone
+                  </p>
+                  <h3 className="text-[16px] font-semibold mt-1 -tracking-[0.01em]">
+                    Delete this project?
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !deleting && setDeleteOpen(false)}
+                  className="text-text-3 hover:text-text-1 p-1 rounded-md transition-colors"
+                  aria-label="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <p className="text-[13px] text-text-2 m-0 mb-3">
+                Permanent. Workstreams, tasks, workbooks, contributors, quotes,
+                portal access, and discovery data tied to this project are
+                removed. Type the project name to confirm.
+              </p>
+              <div className="text-[11.5px] text-text-3 mb-1.5">Project name</div>
+              <div className="font-mono text-[12.5px] bg-ink-2 border border-ink-4 rounded-[10px] px-2.5 py-1.5 mb-3 select-all">
+                {project.name}
+              </div>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder="Type to confirm"
+                disabled={deleting}
+                autoFocus
+                className="w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none transition-colors focus:border-status-danger placeholder:text-text-4"
+              />
+              {deleteError && (
+                <p className="mt-2 text-[12px] text-status-danger">
+                  {deleteError}
+                </p>
+              )}
+              <div className="flex justify-end gap-2 mt-4">
+                <Btn
+                  variant="ghost"
+                  size="md"
+                  onClick={() => setDeleteOpen(false)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </Btn>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete()}
+                  disabled={
+                    deleting || deleteConfirm.trim() !== project.name
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12.5px] font-semibold bg-status-danger text-[#2a0810] hover:bg-[#ff8090] border border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Trash2 size={13} />
+                  {deleting ? "Deleting…" : "Delete project"}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* HEALTH STRIP */}
         {project && (
