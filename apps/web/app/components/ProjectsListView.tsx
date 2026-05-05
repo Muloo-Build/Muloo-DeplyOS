@@ -42,11 +42,15 @@ interface ProjectRecord {
 }
 
 const tabDefs = [
-  { id: "active", label: "Active", statuses: ["in_delivery", "in-flight", "active"] },
+  {
+    id: "active",
+    label: "Active",
+    statuses: ["draft", "scoping", "designed", "ready-for-execution", "in-flight"]
+  },
   {
     id: "awaiting",
     label: "Awaiting client",
-    statuses: ["awaiting_approval", "blocked_external", "shared"]
+    statuses: ["awaiting_approval", "blocked_external", "shared", "designed"]
   },
   { id: "completed", label: "Completed", statuses: ["completed", "live"] },
   { id: "archived", label: "Archived", statuses: ["archived"] }
@@ -97,9 +101,7 @@ export default function ProjectsListView({ initialStatus }: ProjectsListViewProp
   const counts = useMemo(() => {
     const out: Record<string, number> = {};
     for (const tab of tabDefs) {
-      out[tab.id] = projects.filter((p) =>
-        p.status ? tab.statuses.includes(p.status) : tab.id === "active"
-      ).length;
+      out[tab.id] = projects.filter((p) => projectInTab(p, tab)).length;
     }
     return out;
   }, [projects]);
@@ -107,9 +109,7 @@ export default function ProjectsListView({ initialStatus }: ProjectsListViewProp
   const filtered = useMemo(() => {
     const tab = tabDefs.find((t) => t.id === active);
     if (!tab) return projects;
-    return projects.filter((p) =>
-      p.status ? tab.statuses.includes(p.status) : tab.id === "active"
-    );
+    return projects.filter((p) => projectInTab(p, tab));
   }, [projects, active]);
 
   const stats = useMemo(() => {
@@ -319,11 +319,31 @@ export default function ProjectsListView({ initialStatus }: ProjectsListViewProp
   );
 }
 
+function projectInTab(
+  project: ProjectRecord,
+  tab: { id: string; statuses: string[] }
+): boolean {
+  const status = project.status;
+  if (status && tab.statuses.includes(status)) return true;
+  // Fallback: derive bucket from quoteApprovalStatus / scopeLockedAt when
+  // raw status sits in the active set but the operator is really "awaiting client"
+  if (tab.id === "active") {
+    return Boolean(
+      status && ["draft", "scoping", "designed", "ready-for-execution", "in-flight"].includes(status)
+    );
+  }
+  return false;
+}
+
 function statusLabel(status?: string): string {
   if (!status) return "Active";
   const map: Record<string, string> = {
-    in_delivery: "In delivery",
+    draft: "Draft",
+    scoping: "Scoping",
+    designed: "Designed",
+    "ready-for-execution": "Ready for execution",
     "in-flight": "In flight",
+    in_delivery: "In delivery",
     awaiting_approval: "Awaiting approval",
     blocked_external: "Blocked",
     shared: "Shared",
@@ -331,5 +351,5 @@ function statusLabel(status?: string): string {
     completed: "Completed",
     archived: "Archived"
   };
-  return map[status] ?? status.replace(/_/g, " ");
+  return map[status] ?? status.replace(/_/g, " ").replace(/-/g, " ");
 }
