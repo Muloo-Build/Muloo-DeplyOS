@@ -179,7 +179,7 @@ export default function TodayView() {
         fetch("/api/projects/needs-attention")
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null),
-        fetch("/api/projects?status=in_delivery&limit=4")
+        fetch("/api/projects")
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null),
         fetch("/api/inbox").then((r) => (r.ok ? r.json() : null)).catch(() => null),
@@ -206,7 +206,20 @@ export default function TodayView() {
           : Array.isArray(projRes)
             ? projRes
             : [];
-      setProjects(projItems.slice(0, 4));
+      // Real Project enum: draft / scoping / designed / ready-for-execution
+      // / in-flight / completed / archived. "In flight" = anything still
+      // active (not completed / archived) — that's what Today should show.
+      const activeStatuses = new Set([
+        "draft",
+        "scoping",
+        "designed",
+        "ready-for-execution",
+        "in-flight"
+      ]);
+      const inFlight = projItems
+        .filter((p) => !p.status || activeStatuses.has(p.status))
+        .slice(0, 4);
+      setProjects(inFlight);
 
       // Build the recent inbox stream from project messages + submissions
       // (internal) + Gmail unread (external) so it matches what the design
@@ -743,6 +756,11 @@ function ProjectRow({ project }: { project: ProjectListItem }) {
 function statusLabel(status?: string): string {
   if (!status) return "Active";
   const map: Record<string, string> = {
+    draft: "Draft",
+    scoping: "Scoping",
+    designed: "Designed",
+    "ready-for-execution": "Ready for execution",
+    "in-flight": "In flight",
     in_delivery: "In delivery",
     awaiting_approval: "Awaiting approval",
     blocked_external: "Blocked",
@@ -750,7 +768,7 @@ function statusLabel(status?: string): string {
     completed: "Completed",
     archived: "Archived"
   };
-  return map[status] ?? status.replace(/_/g, " ");
+  return map[status] ?? status.replace(/_/g, " ").replace(/-/g, " ");
 }
 
 function RailStat({
