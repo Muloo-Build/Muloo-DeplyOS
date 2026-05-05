@@ -32298,18 +32298,58 @@ export async function syncQuoteToHubSpotDeal(quoteId: string) {
     );
   }
 
-  const realPortalId = quote.project.portal?.portalId ?? null;
-  if (!realPortalId || realPortalId.startsWith("pending-portal-")) {
+  // Resolve portal + token. Order of resolution:
+  //   1. Project's connected OAuth portal (existing path — for client portals).
+  //   2. Workspace-level HubSpot private app (Muloo's own portal).
+  //   3. Env var fallback (HUBSPOT_ACCESS_TOKEN / HUBSPOT_PRIVATE_APP_TOKEN).
+  let realPortalId: string | null = quote.project.portal?.portalId ?? null;
+  let token: string | null = null;
+  let portalSource: "project_oauth" | "workspace_private_app" | "env" = "project_oauth";
+
+  if (
+    realPortalId &&
+    !realPortalId.startsWith("pending-portal-") &&
+    quote.project.portal
+  ) {
+    token = await resolveHubSpotWriteToken(quote.project.portal.id);
+  }
+
+  if (!token) {
+    // Try workspace private app
+    try {
+      const privateApp = await prisma.workspaceHubSpotPrivateApp.findUnique({
+        where: { id: "default" }
+      });
+      if (privateApp?.encryptedToken) {
+        const { decryptSecret } = await import("./integrationsCrypto");
+        token = decryptSecret(privateApp.encryptedToken);
+        realPortalId = privateApp.portalId ?? realPortalId;
+        portalSource = "workspace_private_app";
+      }
+    } catch (err) {
+      console.warn("[quote-sync] workspace private app lookup failed", err);
+    }
+  }
+
+  if (!token) {
+    const envToken =
+      process.env.HUBSPOT_ACCESS_TOKEN?.trim() ||
+      process.env.HUBSPOT_PRIVATE_APP_TOKEN?.trim();
+    if (envToken) {
+      token = envToken;
+      realPortalId = realPortalId ?? process.env.HUBSPOT_PORTAL_ID?.trim() ?? null;
+      portalSource = "env";
+    }
+  }
+
+  if (!token) {
     throw new Error(
-      "Project doesn't have a real HubSpot portal connected. Connect HubSpot first."
+      "No HubSpot token available. Connect a private app under Settings → Integrations → HubSpot, or connect the project to a HubSpot portal."
     );
   }
 
-  const token = await resolveHubSpotWriteToken(quote.project.portal!.id);
-  if (!token) {
-    throw new Error(
-      "No HubSpot write token available. Configure a private-app token in Portal Ops first."
-    );
+  if (!realPortalId) {
+    realPortalId = "muloo-private-app";
   }
 
   const { HubSpotWriteClient } = await import("@muloo/hubspot-client");
@@ -32361,6 +32401,7 @@ export async function syncQuoteToHubSpotDeal(quoteId: string) {
       metadata: {
         dealId,
         portalId: realPortalId,
+        portalSource,
         status: quote.status,
         amount: totalsZar
       }
@@ -32369,7 +32410,8 @@ export async function syncQuoteToHubSpotDeal(quoteId: string) {
 
   return {
     quote: serializeProjectQuote(quote),
-    pushed: properties
+    pushed: properties,
+    portalSource
   };
 }
 

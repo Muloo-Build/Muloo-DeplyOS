@@ -40,6 +40,8 @@ model Client {
   projects           Project[]
   retainers          Retainer[]
   workflowRuns       WorkflowRun[]
+  agreements         ClientAgreement[]
+  securityProfile    ClientSecurityProfile?
 
   @@index([hubSpotPortalId])
 }
@@ -118,14 +120,21 @@ model WorkspaceProviderConnection {
 }
 
 model WorkspaceAiRouting {
-  id            String   @id @default(cuid())
-  workflowKey   String   @unique
-  label         String
-  providerKey   String
-  modelOverride String?
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                   String    @id @default(cuid())
+  workflowKey          String    @unique
+  label                String
+  providerKey          String
+  modelOverride        String?
+  notes                String?
+  lastTestedAt         DateTime?
+  lastTestStatus       String?
+  lastTestError        String?
+  lastTestSampleOutput String?
+  lastTestLatencyMs    Int?
+  lastTestCostUsd      Float?
+  lastTestModel        String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
 
 // One row per AI model call. Cost is computed at write time from the catalog
@@ -304,6 +313,75 @@ model WorkspaceHubSpotPrivateApp {
   lastTestError   String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+}
+
+// Governance: agreements (NDA, MSA, DPA, signed quote snapshots) attached
+// to a Client. Operator initiates, client signs in their portal. Signature
+// is click-wrap (typed name + email + IP + timestamp) — sufficient for
+// most B2B engagement records but not a qualified e-signature.
+model ClientAgreement {
+  id                String    @id @default(cuid())
+  clientId          String
+  type              String    // "nda" | "msa" | "dpa" | "quote_signed" | "other"
+  title             String
+  status            String    @default("draft") // "draft" | "sent" | "signed" | "withdrawn" | "expired"
+  documentUrl       String?
+  documentBody      String?
+  effectiveDate     DateTime?
+  expiresAt         DateTime?
+  notes             String?
+  sentAt            DateTime?
+  signedAt          DateTime?
+  signerName        String?
+  signerEmail       String?
+  signerTitle       String?
+  signerIp          String?
+  signerUserAgent   String?
+  acceptanceText    String?
+  withdrawnAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  client            Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, createdAt])
+  @@index([clientId, type])
+  @@index([clientId, status])
+}
+
+// Workspace-wide library of agreement templates so operators can ship a
+// standard NDA / MSA without rewriting it for every client.
+model AgreementTemplate {
+  id            String   @id @default(cuid())
+  type          String   // "nda" | "msa" | "dpa" | "other"
+  title         String
+  description   String?
+  body          String   // template body — supports simple {{field}} substitution
+  isDefault     Boolean  @default(false)
+  jurisdiction  String?  // e.g. "ZA", "EU", "US"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([type])
+}
+
+// Security / InfoSec profile per client. Findings stored as JSON keyed by
+// check id so the checklist itself can evolve without schema migrations.
+// Operator-led review: Muloo audits the client's HubSpot + GSuite stack
+// and records pass / fail / not-applicable per check.
+model ClientSecurityProfile {
+  id            String    @id @default(cuid())
+  clientId      String    @unique
+  findings      Json      // { "hubspot_2fa": "pass"|"fail"|"na", ... }
+  notes         String?
+  riskLevel     String?   // "low" | "medium" | "high" | "critical"
+  reviewedAt    DateTime?
+  reviewedById  String?
+  nextReviewDue DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
 
 // Tracks HubSpot companies that have been imported as Muloo Clients.
