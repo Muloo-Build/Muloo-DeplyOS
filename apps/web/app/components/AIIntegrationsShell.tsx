@@ -28,31 +28,29 @@ export default function AIIntegrationsShell({
 
   return (
     <SettingsShell title={title} subtitle={subtitle}>
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-2">
-        <nav className="flex flex-wrap gap-1">
-          {subNav.map((item) => {
-            const active =
-              item.href === "/settings/ai-integrations"
-                ? pathname === item.href
-                : pathname === item.href ||
-                  pathname.startsWith(`${item.href}/`);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-[#141d3d] text-white"
-                    : "text-text-secondary hover:bg-[#141d3d] hover:text-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+      <div className="flex gap-0.5 border-b border-ink-4 mb-5 overflow-x-auto">
+        {subNav.map((item) => {
+          const active =
+            item.href === "/settings/ai-integrations"
+              ? pathname === item.href
+              : pathname === item.href ||
+                pathname.startsWith(`${item.href}/`);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`px-3.5 py-2.5 text-[13px] cursor-pointer border-b-2 -mb-px transition-colors whitespace-nowrap ${
+                active
+                  ? "text-text-1 border-status-ok"
+                  : "text-text-3 border-transparent hover:text-text-2"
+              }`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
       </div>
-      <div className="mt-5">{children}</div>
+      <div>{children}</div>
     </SettingsShell>
   );
 }
