@@ -1,5 +1,5 @@
-import MulooCommandCentre from "../components/MulooCommandCentre";
+import TodayView from "../components/TodayView";
 
 export default function TodayPage() {
-  return <MulooCommandCentre />;
+  return <TodayView />;
 }
