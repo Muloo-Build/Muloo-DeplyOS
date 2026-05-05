@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { HubSpotWriteClient } from "@muloo/hubspot-client";
 import type { CoworkInstruction } from "@muloo/shared";
+import { extractUsage, logAIUsageEvent } from "../../aiUsage";
 import { prisma } from "../../prisma";
 import { JobPayload, JobResult } from "../jobRouter";
 import { resolveHubSpotWriteToken } from "./resolveHubSpotWriteToken";
@@ -84,8 +85,29 @@ async function callAuditModel(
   system: string,
   user: string,
   providerKey: string,
-  modelId?: string
+  modelId?: string,
+  auditContext?: { projectId?: string | null; portalId?: string | null }
 ): Promise<string> {
+  const startedAt = Date.now();
+
+  function logUsageInternal(
+    model: string,
+    payload: unknown,
+    errored: boolean,
+    errorMessage: string | null
+  ) {
+    logAIUsageEvent({
+      providerKey,
+      model,
+      tokens: extractUsage(payload),
+      latencyMs: Date.now() - startedAt,
+      agentKey: "portal_audit",
+      projectId: auditContext?.projectId ?? null,
+      errored,
+      errorMessage
+    });
+  }
+
   if (providerKey === "openai") {
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
@@ -103,11 +125,13 @@ async function callAuditModel(
       })
     });
     const body = (await response.json().catch(() => null)) as
-      | { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } }
+      | { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string }; usage?: unknown }
       | null;
     if (!response.ok || !body?.choices?.[0]?.message?.content) {
+      logUsageInternal(model, body, true, body?.error?.message ?? `OpenAI ${response.status}`);
       throw new Error(body?.error?.message ?? "OpenAI portal audit request failed");
     }
+    logUsageInternal(model, body, false, null);
     return body.choices[0].message.content;
   }
 
@@ -128,11 +152,13 @@ async function callAuditModel(
       }
     );
     const body = (await response.json().catch(() => null)) as
-      | { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>; error?: { message?: string } }
+      | { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>; error?: { message?: string }; usageMetadata?: unknown }
       | null;
     if (!response.ok || !body?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      logUsageInternal(model, body, true, body?.error?.message ?? `Gemini ${response.status}`);
       throw new Error(body?.error?.message ?? "Gemini portal audit request failed");
     }
+    logUsageInternal(model, body, false, null);
     return body.candidates[0].content!.parts![0].text!;
   }
 
@@ -150,11 +176,13 @@ async function callAuditModel(
     body: JSON.stringify({ model, max_tokens: 1800, system, messages: [{ role: "user", content: user }] })
   });
   const body = (await response.json().catch(() => null)) as
-    | { content?: Array<{ text?: string }>; error?: { message?: string } }
+    | { content?: Array<{ text?: string }>; error?: { message?: string }; usage?: unknown }
     | null;
   if (!response.ok || !body?.content?.[0]?.text) {
+    logUsageInternal(model, body, true, body?.error?.message ?? `Anthropic ${response.status}`);
     throw new Error(body?.error?.message ?? "Anthropic portal audit request failed");
   }
+  logUsageInternal(model, body, false, null);
   return body.content[0].text;
 }
 
@@ -219,7 +247,10 @@ export async function runPortalAudit(data: JobPayload): Promise<JobResult> {
 
   const providerKey = typeof data.providerKey === "string" ? data.providerKey : "anthropic";
   const modelId = typeof data.modelId === "string" ? data.modelId : undefined;
-  const rawResponse = await callAuditModel(system, user, providerKey, modelId);
+  const rawResponse = await callAuditModel(system, user, providerKey, modelId, {
+    projectId: data.projectId ?? null,
+    portalId: data.portalId ?? null
+  });
   const parsed = extractJsonObject<{
     healthScore?: number;
     summary?: string;

@@ -1,3 +1,4 @@
+import { extractUsage, logAIUsageEvent } from "../../aiUsage";
 import { JobPayload, JobResult } from "../jobRouter";
 
 export async function runResearchAgent(data: JobPayload): Promise<JobResult> {
@@ -17,6 +18,8 @@ export async function runResearchAgent(data: JobPayload): Promise<JobResult> {
     throw new Error("PERPLEXITY_API_KEY not set");
   }
 
+  const model = "llama-3.1-sonar-large-128k-online";
+  const startedAt = Date.now();
   const response = await fetch("https://api.perplexity.ai/chat/completions", {
     method: "POST",
     headers: {
@@ -24,7 +27,7 @@ export async function runResearchAgent(data: JobPayload): Promise<JobResult> {
       Authorization: `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: "llama-3.1-sonar-large-128k-online",
+      model,
       messages: [
         {
           role: "system",
@@ -43,6 +46,15 @@ export async function runResearchAgent(data: JobPayload): Promise<JobResult> {
 
   if (!response.ok) {
     const body = await response.text();
+    logAIUsageEvent({
+      providerKey: "perplexity",
+      model,
+      tokens: {},
+      latencyMs: Date.now() - startedAt,
+      agentKey: "research_agent",
+      errored: true,
+      errorMessage: `Perplexity ${response.status} ${response.statusText}`
+    });
     throw new Error(
       `Perplexity API error: ${response.status} ${response.statusText} ${body}`
     );
@@ -51,7 +63,16 @@ export async function runResearchAgent(data: JobPayload): Promise<JobResult> {
   const result = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
     citations?: unknown[];
+    usage?: unknown;
   };
+
+  logAIUsageEvent({
+    providerKey: "perplexity",
+    model,
+    tokens: extractUsage(result),
+    latencyMs: Date.now() - startedAt,
+    agentKey: "research_agent"
+  });
 
   return {
     success: true,
