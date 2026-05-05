@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
 import { SkeletonRows } from "./LoadingSkeleton";
+import { PageHead } from "./ui/PageHead";
+import { Pill } from "./ui/Pill";
 
 type RetainerServiceLine = "TECHNICAL_DELIVERY" | "CONSULTING";
 type RetainerStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED";
@@ -887,41 +889,33 @@ export default function ProjectEditWorkspace({
 
   return (
     <AppShell>
-      <div className="brand-page p-4 sm:p-6 xl:p-8">
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
         <div className="space-y-6">
-          <section className="brand-surface rounded-[14px] border p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <Link
-                  href={`/projects/${project.id}`}
-                  className="text-sm text-text-2 hover:text-white"
-                >
-                  ← Back to project
-                </Link>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <h1 className="text-3xl font-semibold text-white">
-                    Edit project
-                  </h1>
-                  <span className="brand-surface-soft rounded-full border px-3 py-1.5 text-xs uppercase tracking-[0.14em] text-white">
-                    {formatTokenLabel(project.status)}
-                  </span>
-                </div>
-                <p className="mt-3 max-w-3xl text-sm text-text-2">
-                  Update this project in place when the work changes shape. No
-                  more cloning the whole thing just to move Magnisol or Collaborative
-                  into the right project type.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
+          <PageHead
+            eyebrow={
+              <Link
+                href={`/projects/${project.id}`}
+                className="hover:text-text-1 transition-colors"
+              >
+                ← Project workspace
+              </Link>
+            }
+            title="Edit project"
+            lede="Update this project in place when the work changes shape. No more cloning the whole thing just to move it into the right project type."
+            actions={
+              <>
+                <Pill tone="info" dot>
+                  {formatTokenLabel(project.status)}
+                </Pill>
                 <Link
                   href={`/projects/${project.id}`}
                   className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
                 >
                   Cancel
                 </Link>
-              </div>
-            </div>
-          </section>
+              </>
+            }
+          />
 
           <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
             <div className="space-y-6">

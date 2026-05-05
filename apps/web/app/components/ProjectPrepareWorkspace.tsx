@@ -6,6 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 import AppShell from "./AppShell";
 import { SkeletonRows } from "./LoadingSkeleton";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
+import { Empty } from "./ui/Empty";
+import { PageHead } from "./ui/PageHead";
+import { Pill } from "./ui/Pill";
 import { resolveProjectWorkspaceMode } from "./projectWorkspaceConfig";
 
 interface ProjectRecord {
@@ -669,41 +672,35 @@ export default function ProjectPrepareWorkspace({
 
   return (
     <AppShell>
-      <div className="p-8">
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
         {loading ? (
           <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-[14px]" />
         ) : error || !project ? (
-          <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-8 text-white">
-            {error ?? "Project not found"}
-          </div>
+          <Empty title="Prepare error" sub={error ?? "Project not found"} />
         ) : (
           <>
+            <PageHead
+              eyebrow={
+                <Link
+                  href={`/projects/${project.id}`}
+                  className="hover:text-text-1 transition-colors"
+                >
+                  ← Project workspace
+                </Link>
+              }
+              title={`Prepare — ${project.name}`}
+              lede="Pull the portal into view, load prior work, capture new context, and decide what needs to be unpacked onsite before scoping further."
+              actions={
+                <Pill tone="info" dot>
+                  {workspaceMode.label}
+                </Pill>
+              }
+            />
             <ProjectWorkflowNav
               projectId={project.id}
               showDiscovery
               engagementType={project.engagementType}
             />
-
-            <div className="mb-6 rounded-[14px] border border-ink-4 bg-ink-1 p-8">
-              <p className="text-sm uppercase tracking-[0.14em] text-text-3">
-                Prepare
-              </p>
-              <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-3xl font-bold font-heading text-white">
-                    {project.name}
-                  </h1>
-                  <p className="mt-3 max-w-3xl text-text-2">
-                    Move ahead of the meeting. Pull the portal into view, load
-                    prior work, capture new context, and decide what needs to
-                    be unpacked onsite before you scope anything further.
-                  </p>
-                </div>
-                <div className="rounded-[14px] border border-[rgba(123,226,239,0.2)] bg-[rgba(123,226,239,0.08)] px-4 py-3 text-sm text-[#b7f5ff]">
-                  {workspaceMode.label}
-                </div>
-              </div>
-            </div>
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.7fr)]">
               <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">

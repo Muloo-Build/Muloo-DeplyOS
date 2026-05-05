@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { SkeletonRows } from "./LoadingSkeleton";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
+import { Empty } from "./ui/Empty";
+import { PageHead } from "./ui/PageHead";
 
 interface Project {
   id: string;
@@ -289,44 +291,37 @@ export default function DiscoveryOutputDocument({
 
   return (
     <AppShell>
-      <div className="document-shell p-8">
+      <div className="document-shell px-8 pt-6 pb-16 max-w-[1480px] w-full">
         {loading ? (
           <div className="grid gap-4">
             {[0, 1, 2].map((row) => (
               <div
                 key={row}
-                className="h-28 rounded-[14px] border border-ink-4 bg-white/5 animate-pulse"
+                className="h-28 rounded-[14px] border border-ink-4 bg-ink-2 animate-pulse"
               />
             ))}
           </div>
         ) : error || !project || !blueprint ? (
-          <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-8 text-white">
-            {error ?? "Document unavailable"}
-          </div>
+          <Empty title="Document error" sub={error ?? "Document unavailable"} />
         ) : (
           <div className="document-content space-y-8">
+            <PageHead
+              eyebrow={
+                <Link
+                  href={`/projects/${project.id}`}
+                  className="hover:text-text-1 transition-colors"
+                >
+                  ← Project workspace
+                </Link>
+              }
+              title="Discovery document & implementation plan"
+              lede="Client-facing discovery document explaining the recommendation, scope, and phased implementation approach in a portable format the client can deliver with Muloo or another partner."
+            />
             <ProjectWorkflowNav
               projectId={project.id}
               showDiscovery={project.scopeType !== "standalone_quote"}
             />
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <Link
-                  href={`/projects/${project.id}`}
-                  className="text-sm text-text-3"
-                >
-                  Back to overview
-                </Link>
-                <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-                  Discovery Document & Implementation Plan
-                </h1>
-                <p className="mt-2 text-text-2">
-                  Client-facing discovery document that explains the
-                  recommendation, scope, and phased implementation approach in a
-                  portable format the client can deliver with Muloo or another
-                  partner.
-                </p>
-              </div>
+            <div className="flex flex-wrap items-start justify-end gap-4">
               <div className="document-toolbar flex flex-wrap items-center gap-3">
                 <Link
                   href={`/projects/${project.id}/quote`}

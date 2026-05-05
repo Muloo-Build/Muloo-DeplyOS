@@ -7,6 +7,9 @@ import { useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { SkeletonRows } from "./LoadingSkeleton";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
+import { Btn } from "./ui/Btn";
+import { Empty } from "./ui/Empty";
+import { PageHead } from "./ui/PageHead";
 
 interface Project {
   id: string;
@@ -913,76 +916,64 @@ export default function DiscoveryWorkspace({
 
   return (
     <AppShell>
-      <div className="p-8">
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
         {loading ? (
           <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-[14px]" />
         ) : error || !project ? (
-          <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-8 text-white">
-            {error ?? "Project not found"}
-          </div>
+          <Empty title="Discovery error" sub={error ?? "Project not found"} />
         ) : (
           <>
-            <ProjectWorkflowNav projectId={projectId} />
-            <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-              <div>
+            <PageHead
+              eyebrow={
                 <Link
                   href={`/projects/${projectId}`}
-                  className="text-sm text-text-3"
+                  className="hover:text-text-1 transition-colors"
                 >
-                  Back to overview
+                  ← Project workspace
                 </Link>
-                <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-                  Discovery - {project.name}
-                </h1>
-                <p className="mt-2 text-text-2">
-                  {project.client.name} - {project.selectedHubs.join(", ")}
-                </p>
-              </div>
-
-              <div className="flex flex-col items-end gap-3">
-                <div className="rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-4 text-right">
-                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
-                    Sessions complete
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold text-white">
-                    {completedSessions}/4
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={generateDiscoverySummary}
-                  disabled={summaryLoading}
-                  className="rounded-xl border border-ink-4 bg-ink-1 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:text-text-3"
-                >
-                  {summaryLoading
-                    ? "Generating AI Summary..."
-                    : "Generate AI Summary"}
-                </button>
-                <button
-                  type="button"
-                  onClick={generateBlueprint}
-                  disabled={!canGenerateBlueprint || generatingBlueprint}
-                  className={`rounded-xl px-5 py-3 text-sm font-semibold text-white ${
-                    canGenerateBlueprint && !generatingBlueprint
-                      ? "bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)]"
-                      : "cursor-not-allowed border border-ink-4 bg-ink-1 text-text-3"
-                  }`}
-                >
-                  {generatingBlueprint ? "Generating..." : "Generate Blueprint"}
-                </button>
-                {blueprintError ? (
-                  <p className="max-w-sm text-right text-sm text-[#ff8f9c]">
-                    {blueprintError}
-                  </p>
-                ) : null}
-                {summaryError ? (
-                  <p className="max-w-sm text-right text-sm text-[#ff8f9c]">
-                    {summaryError}
-                  </p>
-                ) : null}
-              </div>
-            </div>
+              }
+              title={`Discovery — ${project.name}`}
+              lede={`${project.client.name} · ${project.selectedHubs.join(", ")}`}
+              actions={
+                <>
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[10px] border border-ink-4 bg-ink-1 text-[12.5px]">
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                      Sessions
+                    </span>
+                    <span className="font-mono text-text-1">
+                      {completedSessions}/4
+                    </span>
+                  </span>
+                  <Btn
+                    variant="ghost"
+                    size="md"
+                    onClick={generateDiscoverySummary}
+                    disabled={summaryLoading}
+                  >
+                    {summaryLoading ? "Generating…" : "AI summary"}
+                  </Btn>
+                  <Btn
+                    variant="primary"
+                    size="md"
+                    onClick={generateBlueprint}
+                    disabled={!canGenerateBlueprint || generatingBlueprint}
+                  >
+                    {generatingBlueprint ? "Generating…" : "Generate Blueprint"}
+                  </Btn>
+                </>
+              }
+            />
+            <ProjectWorkflowNav projectId={projectId} />
+            {blueprintError && (
+              <p className="mb-2 text-[12px] text-status-danger">
+                {blueprintError}
+              </p>
+            )}
+            {summaryError && (
+              <p className="mb-2 text-[12px] text-status-danger">
+                {summaryError}
+              </p>
+            )}
 
             {discoverySummary ? (
               <div className="mb-6 rounded-[14px] border border-ink-4 bg-ink-1 p-6">

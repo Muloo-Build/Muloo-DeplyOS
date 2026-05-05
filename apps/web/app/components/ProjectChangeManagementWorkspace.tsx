@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
+import { PageHead } from "./ui/PageHead";
+import { Pill } from "./ui/Pill";
 
 type ChangeRequestStatus =
   | "new"
@@ -565,29 +567,25 @@ export default function ProjectChangeManagementWorkspace({
 
   return (
     <AppShell>
-      <div className="p-8">
-        <ProjectWorkflowNav projectId={projectId} />
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+        <PageHead
+          eyebrow={
             <Link
               href={`/projects/${projectId}`}
-              className="text-sm text-text-3"
+              className="hover:text-text-1 transition-colors"
             >
-              Back to project overview
+              ← Project workspace
             </Link>
-            <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-              Change Management
-            </h1>
-            <p className="mt-2 max-w-3xl text-text-2">
-              Keep the approved baseline intact, price scope changes cleanly,
-              and only push approved additions into delivery when they are
-              ready.
-            </p>
-          </div>
-          <div className="rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-4 text-sm text-text-2">
-            {project?.client?.name ?? "Client"} · {project?.name ?? "Project"}
-          </div>
-        </div>
+          }
+          title="Change management"
+          lede="Keep the approved baseline intact, price scope changes cleanly, and only push approved additions into delivery when they're ready."
+          actions={
+            <Pill tone="info" dot>
+              {project?.client?.name ?? "Client"} · {project?.name ?? "Project"}
+            </Pill>
+          }
+        />
+        <ProjectWorkflowNav projectId={projectId} />
 
         {error ? (
           <div className="mb-4 rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-white">

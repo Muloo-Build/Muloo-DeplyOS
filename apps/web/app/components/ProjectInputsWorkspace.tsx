@@ -5,6 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
+import { Btn } from "./ui/Btn";
+import { Empty } from "./ui/Empty";
+import { PageHead } from "./ui/PageHead";
 import {
   createDefaultClientQuestionnaireDefinitionMap,
   type ClientQuestionnaireDefinitionMap
@@ -424,44 +427,37 @@ export default function ProjectInputsWorkspace({
 
   return (
     <AppShell>
-      <div className="px-8 py-8">
-        <div className="mx-auto max-w-7xl space-y-6">
-          <ProjectWorkflowNav projectId={projectId} showDiscovery />
-
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+        <div className="space-y-6">
           {loading ? (
-            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-8 text-text-2">
-              Loading project inputs...
-            </div>
+            <Empty title="Loading project inputs…" sub="One moment." />
           ) : error && !project ? (
-            <div className="rounded-[14px] border border-[rgba(224,80,96,0.35)] bg-ink-1 p-8 text-white">
-              {error}
-            </div>
+            <Empty title="Inputs error" sub={error} />
           ) : project ? (
             <>
-              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-8">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
-                      Project Inputs
-                    </p>
-                    <h1 className="mt-3 text-3xl font-semibold text-white">
-                      {project.name}
-                    </h1>
-                    <p className="mt-3 max-w-3xl text-sm leading-6 text-text-2">
-                      Build the exact client input pack for this project, then
-                      assign sections to the people who should answer them. This
-                      is where we make the discovery or requirements flow fit
-                      the real job, not a generic template.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    <Link
-                      href={`/projects/${project.id}`}
-                      className="rounded-[14px] border border-ink-4 bg-ink-2 px-5 py-3 text-sm font-medium text-white"
-                    >
-                      Back to project summary
-                    </Link>
-                  </div>
+              <PageHead
+                eyebrow={
+                  <Link
+                    href={`/projects/${project.id}`}
+                    className="hover:text-text-1 transition-colors"
+                  >
+                    ← Project workspace
+                  </Link>
+                }
+                title={`Inputs — ${project.name}`}
+                lede="Build the exact client input pack for this project. Assign sections to the people who should answer them. This is where we make the discovery flow fit the real job, not a generic template."
+                actions={
+                  <Link href={`/projects/${project.id}`}>
+                    <Btn variant="ghost" size="md">
+                      Back to summary
+                    </Btn>
+                  </Link>
+                }
+              />
+              <ProjectWorkflowNav projectId={projectId} showDiscovery />
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <div className="hidden">
+                  <p>removed-legacy-header</p>
                 </div>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-4">
