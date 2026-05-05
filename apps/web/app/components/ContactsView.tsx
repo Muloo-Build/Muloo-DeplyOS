@@ -1,10 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Plus } from "lucide-react";
 
 import AppShell from "./AppShell";
-import ContactDetailPanel from "./ContactDetailPanel";
 import { Avatar } from "./ui/Avatar";
 import { Btn } from "./ui/Btn";
 import { Empty } from "./ui/Empty";
@@ -53,11 +53,11 @@ function timeAgo(iso: string | null): string {
 }
 
 export default function ContactsView() {
+  const router = useRouter();
   const [contacts, setContacts] = useState<ContactListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterClient, setFilterClient] = useState("all");
-  const [selected, setSelected] = useState<ContactListItem | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -73,16 +73,6 @@ export default function ContactsView() {
     }
     void load();
   }, []);
-
-  function refreshContact(updated: ContactListItem) {
-    setContacts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-    setSelected(updated);
-  }
-
-  function removeContact(id: string) {
-    setContacts((prev) => prev.filter((c) => c.id !== id));
-    setSelected(null);
-  }
 
   const clientOptions = useMemo(() => {
     const seen = new Map<string, string>();
@@ -218,7 +208,7 @@ export default function ContactsView() {
                 const initials = `${c.firstName[0] ?? ""}${c.lastName[0] ?? ""}`.toUpperCase() || "?";
                 const fullName = `${c.firstName} ${c.lastName}`.trim();
                 return (
-                  <Tr key={c.id} onClick={() => setSelected(c)}>
+                  <Tr key={c.id} onClick={() => router.push(`/contacts/${c.id}`)}>
                     <Td>
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Avatar size="sm" initials={initials} />
@@ -260,14 +250,6 @@ export default function ContactsView() {
         )}
       </div>
 
-      {selected && (
-        <ContactDetailPanel
-          contact={selected}
-          onClose={() => setSelected(null)}
-          onUpdated={refreshContact}
-          onDeleted={() => removeContact(selected.id)}
-        />
-      )}
     </AppShell>
   );
 }
