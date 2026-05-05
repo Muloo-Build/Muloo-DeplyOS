@@ -7,6 +7,8 @@ import { useEffect, useRef, useState } from "react";
 import AppShell from "./AppShell";
 import { SkeletonRows } from "./LoadingSkeleton";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
+import { Btn } from "./ui/Btn";
+import { PageHead } from "./ui/PageHead";
 import {
   getDisplayKeyRisks,
   getDisplayNextQuestions,
@@ -327,31 +329,30 @@ export default function BlueprintWorkspace({
           </div>
         ) : (
           <>
+            <PageHead
+              eyebrow={
+                <Link
+                  href={`/projects/${projectId}`}
+                  className="hover:text-text-1 transition-colors"
+                >
+                  ← Project workspace
+                </Link>
+              }
+              title={`${isStandaloneQuote ? "Technical blueprint" : "Blueprint"} — ${project?.name ?? ""}`}
+              lede={
+                blueprint
+                  ? `Generated ${formatDate(blueprint.generatedAt)}`
+                  : isStandaloneQuote
+                    ? "No technical blueprint generated yet."
+                    : "No blueprint generated yet."
+              }
+              actions={null}
+            />
             <ProjectWorkflowNav
               projectId={projectId}
               showDiscovery={!isStandaloneQuote}
             />
-            <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <Link
-                  href={`/projects/${projectId}`}
-                  className="text-sm text-text-3"
-                >
-                  Back to overview
-                </Link>
-                <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-                  {isStandaloneQuote ? "Technical Blueprint" : "Blueprint"} -{" "}
-                  {project?.name}
-                </h1>
-                <p className="mt-2 text-text-2">
-                  {blueprint
-                    ? `Generated ${formatDate(blueprint.generatedAt)}`
-                    : isStandaloneQuote
-                      ? "No technical blueprint generated yet"
-                      : "No blueprint generated yet"}
-                </p>
-              </div>
-
+            <div className="mb-6 flex flex-wrap items-start justify-end gap-4">
               <div className="flex gap-3">
                 <button
                   type="button"

@@ -803,16 +803,16 @@ export default function PortalAuditWorkspace({
           engagementType={project?.engagementType}
         />
 
-        <section className="rounded-[28px] border border-ink-4 bg-ink-1 p-6">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
                 HubSpot optimisation audit
               </p>
-              <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-                Portal Audit Workspace
-              </h1>
-              <p className="mt-2 text-sm text-text-2">
+              <h2 className="mt-2 text-[16px] font-semibold -tracking-[0.01em] text-text-1">
+                Portal audit workspace
+              </h2>
+              <p className="mt-1.5 text-[13px] text-text-2">
                 Capture portal context, document findings, and pull quick wins
                 into delivery without leaving the project workflow.
               </p>

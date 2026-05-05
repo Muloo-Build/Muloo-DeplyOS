@@ -5,6 +5,7 @@ import type { KeyboardEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import AppShell from "../../components/AppShell";
+import { PageHead } from "../../components/ui/PageHead";
 
 interface FormData {
   projectName: string;
@@ -1213,20 +1214,18 @@ export default function NewProjectPage() {
 
   return (
     <AppShell>
-      <div className="p-8">
-        <div className="mb-8 max-w-4xl">
-          <p className="text-xs uppercase tracking-[0.14em] text-[#49cde1]">
-            Project setup
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
-            Create a new project
-          </h1>
-          <p className="mt-2 text-sm text-text-2">
-            Three steps. Set up the engagement, capture the brief, review and
-            create. Required fields are marked with{" "}
-            <span className="text-[#ff8f9f]">*</span>.
-          </p>
-        </div>
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+        <PageHead
+          eyebrow="Project setup"
+          title="Create a new project"
+          lede={
+            <>
+              Three steps. Set up the engagement, capture the brief, review and
+              create. Required fields are marked with{" "}
+              <span className="text-status-danger">*</span>.
+            </>
+          }
+        />
 
         <div className="mb-8 flex max-w-3xl flex-wrap items-center gap-3">
           {[

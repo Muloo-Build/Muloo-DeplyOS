@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import AppShell from "../../../components/AppShell";
-import Breadcrumb from "../../../components/Breadcrumb";
+import { PageHead } from "../../../components/ui/PageHead";
 import { SkeletonBlock } from "../../../components/LoadingSkeleton";
 
 // T4.3 — landing page shown immediately after the wizard. Five-item
@@ -230,30 +230,21 @@ export default function ProjectOnboardingPage({
 
   return (
     <AppShell>
-      <div className="p-8">
-        <Breadcrumb
-          items={[
-            { label: "Projects", href: "/projects" },
-            {
-              label: project?.name ?? "Project",
-              href: `/projects/${projectId}`
-            },
-            { label: "Onboarding" }
-          ]}
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+        <PageHead
+          eyebrow={
+            <Link
+              href={`/projects/${projectId}`}
+              className="hover:text-text-1 transition-colors"
+            >
+              ← {project?.name ?? "Project"}
+            </Link>
+          }
+          title="Onboarding checklist"
+          lede="Five things to do now to get this project moving. Tick them off as you complete them — your progress is saved automatically."
         />
 
-        <div className="mt-6 max-w-4xl">
-          <p className="text-xs uppercase tracking-[0.14em] text-[#49cde1]">
-            Project setup · Step 4
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
-            Onboarding checklist
-          </h1>
-          <p className="mt-3 text-sm text-text-2">
-            Five things to do now to get this project moving. Tick them off as
-            you complete them — your progress is saved automatically.
-          </p>
-
+        <div className="max-w-4xl">
           {incomingWarning ? (
             <div
               className="mt-6 rounded-[14px] border border-[rgba(245,158,11,0.4)] bg-[rgba(245,158,11,0.08)] p-4 text-sm text-amber-100"
