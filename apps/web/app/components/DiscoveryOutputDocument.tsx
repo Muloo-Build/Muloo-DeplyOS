@@ -779,6 +779,27 @@ export default function DiscoveryOutputDocument({
       </div>
       <style jsx global>{`
         @media print {
+          @page {
+            size: A4;
+            margin: 14mm 12mm;
+            background: #040518;
+          }
+
+          html,
+          body,
+          *,
+          *::before,
+          *::after {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+
+          html,
+          body {
+            background: #040518 !important;
+          }
+
           .document-shell {
             padding: 0 !important;
           }
@@ -788,38 +809,31 @@ export default function DiscoveryOutputDocument({
           nav,
           aside,
           button,
+          .print\\:hidden,
           a[href^="/projects/"] {
             display: none !important;
           }
 
           main {
             padding-left: 0 !important;
-          }
-
-          body,
-          html {
-            background: #ffffff !important;
+            padding-right: 0 !important;
           }
 
           .document-content {
-            color: #111827 !important;
+            font-size: 10.5pt;
+            line-height: 1.55;
           }
 
           .document-card {
             break-inside: avoid;
-            border-color: #d1d5db !important;
-            background: #ffffff !important;
-            box-shadow: none !important;
+            page-break-inside: avoid;
+            margin-bottom: 12pt;
           }
 
-          .document-card *,
           .document-content h1,
           .document-content h2,
-          .document-content h3,
-          .document-content p,
-          .document-content li,
-          .document-content span {
-            color: #111827 !important;
+          .document-content h3 {
+            page-break-after: avoid;
           }
         }
       `}</style>

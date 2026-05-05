@@ -1228,29 +1228,43 @@ export default function QuickQuoteDocument({
         @media print {
           @page {
             size: A4;
-            margin: 18mm 16mm;
+            margin: 14mm 12mm;
+            background: #040518;
           }
 
+          /* Force browsers to print background colors and gradients so the
+             document matches what the client sees in the share view. */
+          html,
+          body,
+          *,
+          *::before,
+          *::after {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+
+          html,
+          body {
+            background: #040518 !important;
+          }
+
+          /* Hide chrome — sidebars, top nav, toolbars, anything tagged
+             print:hidden, and any approval / save-pdf interaction. */
           .document-toolbar,
           .sidebar,
           nav,
-          aside {
+          aside,
+          .print\\:hidden {
             display: none !important;
           }
 
           main {
             padding-left: 0 !important;
-          }
-
-          body,
-          html {
-            background: #ffffff !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            padding-right: 0 !important;
           }
 
           .document-content {
-            color: #0f172a !important;
             font-size: 10.5pt;
             line-height: 1.55;
           }
@@ -1258,22 +1272,7 @@ export default function QuickQuoteDocument({
           .document-card {
             break-inside: avoid;
             page-break-inside: avoid;
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 6px !important;
-            background: #ffffff !important;
-            box-shadow: none !important;
             margin-bottom: 12pt;
-          }
-
-          .document-card *,
-          .document-content h1,
-          .document-content h2,
-          .document-content p,
-          .document-content li,
-          .document-content span,
-          .document-content td,
-          .document-content th {
-            color: #0f172a !important;
           }
 
           .document-content table {
@@ -1282,11 +1281,13 @@ export default function QuickQuoteDocument({
 
           .document-content tr {
             page-break-inside: avoid;
+            page-break-after: auto;
           }
 
-          .document-content th {
-            font-size: 9pt;
-            color: #64748b !important;
+          .document-content h1,
+          .document-content h2,
+          .document-content h3 {
+            page-break-after: avoid;
           }
         }
       `}</style>
