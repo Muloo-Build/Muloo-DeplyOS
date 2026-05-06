@@ -315,6 +315,69 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [wsModalOpen, setWsModalOpen] = useState(false);
+  const [wsDraft, setWsDraft] = useState({
+    name: "",
+    category: "hubspot_implementation",
+    summary: "",
+    estimatedHours: "",
+    owner: "muloo"
+  });
+  const [wsSaving, setWsSaving] = useState(false);
+  const [wsError, setWsError] = useState<string | null>(null);
+
+  async function handleAddWorkstream() {
+    if (!project) return;
+    if (!wsDraft.name.trim()) {
+      setWsError("Workstream name required");
+      return;
+    }
+    setWsSaving(true);
+    setWsError(null);
+    try {
+      const next: Workstream = {
+        id: `workstream_${Date.now()}_${wsDraft.name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
+        name: wsDraft.name.trim(),
+        category: wsDraft.category,
+        status: "planned",
+        owner: wsDraft.owner,
+        summary: wsDraft.summary.trim() || undefined,
+        estimatedHours: wsDraft.estimatedHours
+          ? Number(wsDraft.estimatedHours)
+          : null
+      };
+      const r = await fetch(
+        `/api/projects/${encodeURIComponent(project.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            deliveryWorkstreams: [...(project.deliveryWorkstreams ?? []), next]
+          })
+        }
+      );
+      if (!r.ok) {
+        const body = await r.json().catch(() => null);
+        throw new Error(body?.error ?? "Add workstream failed");
+      }
+      const body = await r.json();
+      const updated = (body?.project ?? body) as ProjectRecord;
+      setProject(updated);
+      setWsModalOpen(false);
+      setWsDraft({
+        name: "",
+        category: "hubspot_implementation",
+        summary: "",
+        estimatedHours: "",
+        owner: "muloo"
+      });
+    } catch (err) {
+      setWsError(err instanceof Error ? err.message : "Add workstream failed");
+    } finally {
+      setWsSaving(false);
+    }
+  }
 
   async function handleConnectPortal() {
     if (!project) return;
@@ -603,6 +666,154 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
           </div>
         </header>
 
+        {/* ADD WORKSTREAM MODAL */}
+        {wsModalOpen && project && (
+          <>
+            <button
+              type="button"
+              aria-label="Close add workstream"
+              onClick={() => !wsSaving && setWsModalOpen(false)}
+              className="fixed inset-0 z-40 bg-black/70"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(520px,92vw)] bg-ink-1 border border-ink-4 rounded-[14px] p-6 shadow-elev-pop"
+            >
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div>
+                  <p className="text-[10px] tracking-[0.14em] uppercase text-text-3 font-semibold">
+                    New workstream
+                  </p>
+                  <h3 className="text-[16px] font-semibold mt-1 -tracking-[0.01em]">
+                    Add workstream to {project.name}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !wsSaving && setWsModalOpen(false)}
+                  className="text-text-3 hover:text-text-1 p-1 rounded-md transition-colors"
+                  aria-label="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="grid gap-3">
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                    Name <span className="text-status-danger">*</span>
+                  </span>
+                  <input
+                    autoFocus
+                    value={wsDraft.name}
+                    onChange={(e) =>
+                      setWsDraft((d) => ({ ...d, name: e.target.value }))
+                    }
+                    placeholder="e.g. HubSpot CRM setup"
+                    className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)]"
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                      Category
+                    </span>
+                    <select
+                      value={wsDraft.category}
+                      onChange={(e) =>
+                        setWsDraft((d) => ({ ...d, category: e.target.value }))
+                      }
+                      className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)]"
+                    >
+                      <option value="discovery">Discovery</option>
+                      <option value="hubspot_implementation">
+                        HubSpot implementation
+                      </option>
+                      <option value="website">Website</option>
+                      <option value="marketing">Marketing</option>
+                      <option value="service">Service</option>
+                      <option value="integration">Integration</option>
+                      <option value="partner_delivery">Partner delivery</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                      Owner
+                    </span>
+                    <select
+                      value={wsDraft.owner}
+                      onChange={(e) =>
+                        setWsDraft((d) => ({ ...d, owner: e.target.value }))
+                      }
+                      className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)]"
+                    >
+                      <option value="muloo">Muloo</option>
+                      <option value="partner">Partner</option>
+                      <option value="shared">Shared</option>
+                    </select>
+                  </label>
+                </div>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                    Estimated hours
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={wsDraft.estimatedHours}
+                    onChange={(e) =>
+                      setWsDraft((d) => ({
+                        ...d,
+                        estimatedHours: e.target.value
+                      }))
+                    }
+                    placeholder="e.g. 16"
+                    className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                    Summary
+                  </span>
+                  <textarea
+                    value={wsDraft.summary}
+                    onChange={(e) =>
+                      setWsDraft((d) => ({ ...d, summary: e.target.value }))
+                    }
+                    placeholder="What this workstream covers, why it exists, key deliverables…"
+                    className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] min-h-[80px] resize-y"
+                  />
+                </label>
+                {wsError && (
+                  <p className="text-[12px] text-status-danger m-0">
+                    {wsError}
+                  </p>
+                )}
+              </div>
+              <div className="flex justify-end gap-2 mt-5">
+                <Btn
+                  variant="ghost"
+                  size="md"
+                  onClick={() => setWsModalOpen(false)}
+                  disabled={wsSaving}
+                >
+                  Cancel
+                </Btn>
+                <Btn
+                  variant="primary"
+                  size="md"
+                  onClick={() => void handleAddWorkstream()}
+                  disabled={wsSaving || !wsDraft.name.trim()}
+                >
+                  <Plus size={12} />
+                  {wsSaving ? "Adding…" : "Add workstream"}
+                </Btn>
+              </div>
+            </div>
+          </>
+        )}
+
         {/* DELETE CONFIRM */}
         {deleteOpen && project && (
           <>
@@ -886,7 +1097,14 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
               <SectionHead
                 title="Workstreams"
                 right={
-                  <Btn variant="ghost" size="sm">
+                  <Btn
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setWsError(null);
+                      setWsModalOpen(true);
+                    }}
+                  >
                     <Plus size={12} />
                     Add workstream
                   </Btn>
