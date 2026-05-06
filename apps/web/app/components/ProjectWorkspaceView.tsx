@@ -1119,6 +1119,45 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
                       </Btn>
                     )}
                   </div>
+                  {portalConnected && (
+                    <div className="mt-2 grid gap-1.5 text-[11.5px]">
+                      {project?.portal?.portalId && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-text-3 uppercase tracking-[0.12em] text-[10px] font-semibold">
+                            Portal ID
+                          </span>
+                          <a
+                            href={`https://app.hubspot.com/contacts/${project.portal.portalId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-mono text-text-1 hover:text-status-ok transition-colors break-all text-right"
+                          >
+                            {project.portal.portalId}
+                          </a>
+                        </div>
+                      )}
+                      {project?.portal?.displayName && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-text-3 uppercase tracking-[0.12em] text-[10px] font-semibold">
+                            Name
+                          </span>
+                          <span className="text-text-1 text-right truncate">
+                            {project.portal.displayName}
+                          </span>
+                        </div>
+                      )}
+                      {project?.portal?.hubDomain && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-text-3 uppercase tracking-[0.12em] text-[10px] font-semibold">
+                            Hub domain
+                          </span>
+                          <span className="text-text-1 font-mono text-right truncate">
+                            {project.portal.hubDomain}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {portalError && (
                     <p className="mt-1.5 text-[11.5px] text-status-danger">
                       {portalError}
