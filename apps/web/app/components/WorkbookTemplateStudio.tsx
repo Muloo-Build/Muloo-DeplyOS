@@ -76,6 +76,32 @@ function answerTypeLabel(value: string) {
   return ANSWER_TYPES.find((t) => t.value === value)?.label ?? value;
 }
 
+// Mini-workbook guidance: keep workbooks digestible so contributors
+// don't bounce. Estimate how long a contributor will spend, and flag
+// sections that are too long for a single sitting.
+const SECONDS_PER_TYPE: Record<string, number> = {
+  long_text: 75,
+  short_text: 35,
+  number: 20,
+  single_select: 15,
+  multi_select: 25
+};
+const MAX_QUESTIONS_PER_SECTION = 7;
+const MAX_QUESTIONS_TOTAL = 20;
+const TARGET_MINUTES = 10;
+
+function estimateMinutes(template: TemplateDetail): number {
+  let seconds = 0;
+  for (const section of template.sections) {
+    for (const q of section.questions) {
+      seconds += SECONDS_PER_TYPE[q.answerType] ?? 30;
+    }
+  }
+  // Add 30s overhead per section for context-switching
+  seconds += template.sections.length * 30;
+  return Math.max(1, Math.round(seconds / 60));
+}
+
 function visibilityLabel(value: string) {
   return VISIBILITY_OPTIONS.find((v) => v.value === value)?.label ?? value;
 }
@@ -620,6 +646,8 @@ function TemplateDetailView(props: {
         onSave={(patch) => void patchTemplate(patch)}
       />
 
+      <SizeAdvisor template={template} />
+
       <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
@@ -630,7 +658,8 @@ function TemplateDetailView(props: {
               {template.sections.length} section
               {template.sections.length === 1 ? "" : "s"} ·{" "}
               {template.questionCount} question
-              {template.questionCount === 1 ? "" : "s"}
+              {template.questionCount === 1 ? "" : "s"} · ~
+              {estimateMinutes(template)} min to fill in
             </p>
           </div>
           <button
@@ -1624,5 +1653,119 @@ function TabButton(props: {
     >
       {props.children}
     </button>
+  );
+}
+
+function SizeAdvisor({ template }: { template: TemplateDetail }) {
+  const minutes = estimateMinutes(template);
+  const overSizedSections = template.sections.filter(
+    (s) => s.questions.length > MAX_QUESTIONS_PER_SECTION
+  );
+  const tooLongTotal = template.questionCount > MAX_QUESTIONS_TOTAL;
+  const tooLongTime = minutes > TARGET_MINUTES;
+  const hasIssues =
+    overSizedSections.length > 0 || tooLongTotal || tooLongTime;
+  const empty = template.questionCount === 0;
+
+  return (
+    <section
+      className={`rounded-[14px] border p-5 ${
+        empty
+          ? "border-ink-4 bg-ink-1"
+          : hasIssues
+            ? "border-[rgba(255,180,84,0.35)] bg-[rgba(255,180,84,0.06)]"
+            : "border-[rgba(74,219,192,0.3)] bg-[rgba(74,219,192,0.05)]"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <p
+            className={`text-[10px] uppercase tracking-[0.14em] font-semibold ${
+              empty
+                ? "text-text-3"
+                : hasIssues
+                  ? "text-status-warn"
+                  : "text-status-ok"
+            }`}
+          >
+            {empty
+              ? "Mini-workbook guidance"
+              : hasIssues
+                ? "Workbook is getting heavy"
+                : "Workbook size looks good"}
+          </p>
+          <h3 className="mt-1 text-[15px] font-semibold text-text-1">
+            {empty
+              ? "Aim for small, focused workbooks"
+              : hasIssues
+                ? "Consider splitting this into smaller workbooks"
+                : `~${minutes} min · ${template.questionCount} question${template.questionCount === 1 ? "" : "s"} for the contributor`}
+          </h3>
+          <p className="mt-2 text-[12.5px] text-text-2 max-w-[640px] leading-[1.6]">
+            {empty
+              ? "Workbooks completed in 5–10 minutes get higher response rates. Target ≤7 questions per section, ≤20 total. Big topic? Split into multiple themed workbooks (e.g. Sales discovery + Marketing discovery instead of one giant Discovery)."
+              : hasIssues
+                ? "Long workbooks lose contributors halfway. Each scoped workbook can be assigned to a different role and runs through the page-by-page completion flow on its own."
+                : "Contributors will see one question per page in a Typeform-style flow. Press Save & share to invite them."}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-2 text-right">
+          <div className="flex items-baseline gap-1.5">
+            <span
+              className={`font-mono text-[26px] font-semibold tnum ${
+                tooLongTime
+                  ? "text-status-warn"
+                  : empty
+                    ? "text-text-3"
+                    : "text-status-ok"
+              }`}
+            >
+              {empty ? "—" : `${minutes}m`}
+            </span>
+            <span className="text-[11px] text-text-3">est. fill time</span>
+          </div>
+          <div className="font-mono text-[11px] text-text-3">
+            {template.questionCount} question
+            {template.questionCount === 1 ? "" : "s"} ·{" "}
+            {template.sections.length} section
+            {template.sections.length === 1 ? "" : "s"}
+          </div>
+        </div>
+      </div>
+      {hasIssues && (
+        <ul className="mt-4 space-y-1.5 text-[12.5px] text-text-2">
+          {tooLongTime && (
+            <li className="flex items-start gap-2">
+              <span className="text-status-warn font-mono mt-0.5">!</span>
+              <span>
+                Estimated <span className="font-mono">{minutes}m</span> fill
+                time exceeds the {TARGET_MINUTES}-minute target. Drop optional
+                questions or split sections out.
+              </span>
+            </li>
+          )}
+          {tooLongTotal && (
+            <li className="flex items-start gap-2">
+              <span className="text-status-warn font-mono mt-0.5">!</span>
+              <span>
+                {template.questionCount} questions across the workbook — over
+                the {MAX_QUESTIONS_TOTAL}-question recommended ceiling.
+              </span>
+            </li>
+          )}
+          {overSizedSections.map((s) => (
+            <li key={s.id} className="flex items-start gap-2">
+              <span className="text-status-warn font-mono mt-0.5">!</span>
+              <span>
+                <span className="text-text-1 font-medium">{s.title}</span> has{" "}
+                <span className="font-mono">{s.questions.length}</span>{" "}
+                questions — keep sections at ≤{MAX_QUESTIONS_PER_SECTION} so
+                each one feels like a self-contained ask.
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
