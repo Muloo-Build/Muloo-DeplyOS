@@ -10,13 +10,16 @@ import {
   Image as ImageIcon,
   Layers,
   Loader2,
+  Mic,
+  NotebookPen,
   Plus,
   RefreshCw,
   Search,
   Send,
   Sparkles,
   Upload,
-  UserPlus
+  UserPlus,
+  X
 } from "lucide-react";
 
 import AppShell from "./AppShell";
@@ -64,6 +67,17 @@ interface DiscoverySummary {
   sections?: DiscoverySection[];
   totalQuestions?: number;
   answeredQuestions?: number;
+}
+
+interface MeetingNote {
+  id: string;
+  title: string;
+  meetingDate: string;
+  attendees: string[];
+  notes: string | null;
+  links: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 const resourceIcon: Record<string, React.ReactNode> = {
@@ -158,30 +172,88 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
   const [workbooks, setWorkbooks] = useState<WorkbookRecord[]>([]);
   const [contextItems, setContextItems] = useState<WorkbookRecord[]>([]);
   const [summary, setSummary] = useState<DiscoverySummary | null>(null);
+  const [sessions, setSessions] = useState<MeetingNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [sessionOpen, setSessionOpen] = useState(false);
+  const [sessionDraft, setSessionDraft] = useState({
+    title: "",
+    notes: "",
+    attendees: ""
+  });
+  const [sessionSaving, setSessionSaving] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+
+  async function handleAddSession() {
+    if (!sessionDraft.title.trim() && !sessionDraft.notes.trim()) {
+      setSessionError("Add a title or notes to capture this session");
+      return;
+    }
+    setSessionSaving(true);
+    setSessionError(null);
+    try {
+      const r = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/meeting-notes`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            title: sessionDraft.title.trim() || "Mini discovery session",
+            notes: sessionDraft.notes.trim(),
+            meetingDate: new Date().toISOString(),
+            attendees: sessionDraft.attendees
+              .split(",")
+              .map((a) => a.trim())
+              .filter(Boolean)
+          })
+        }
+      );
+      if (!r.ok) {
+        const body = await r.json().catch(() => null);
+        throw new Error(body?.error ?? "Capture failed");
+      }
+      const body = await r.json();
+      const note: MeetingNote = body.note;
+      setSessions((prev) => [note, ...prev]);
+      setSessionOpen(false);
+      setSessionDraft({ title: "", notes: "", attendees: "" });
+    } catch (err) {
+      setSessionError(err instanceof Error ? err.message : "Capture failed");
+    } finally {
+      setSessionSaving(false);
+    }
+  }
 
   async function loadAll() {
     setRefreshing(true);
     try {
-      const [projRes, wbRes, evidenceRes, summaryRes] = await Promise.all([
-        fetch(`/api/projects/${encodeURIComponent(projectId)}`)
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null),
-        fetch(`/api/projects/${encodeURIComponent(projectId)}/workbooks`)
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null),
-        // Pull all evidence (not just workbooks) to populate Context items
-        fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery`)
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null),
-        fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery-summary`)
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null)
-      ]);
+      const [projRes, wbRes, evidenceRes, summaryRes, sessionsRes] =
+        await Promise.all([
+          fetch(`/api/projects/${encodeURIComponent(projectId)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null),
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/workbooks`)
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null),
+          // Pull all evidence (not just workbooks) to populate Context items
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery`)
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null),
+          fetch(
+            `/api/projects/${encodeURIComponent(projectId)}/discovery-summary`
+          )
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null),
+          fetch(
+            `/api/projects/${encodeURIComponent(projectId)}/meeting-notes`
+          )
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null)
+        ]);
 
       const proj: ProjectSummary | null = projRes?.project ?? projRes ?? null;
       setProject(proj);
@@ -206,6 +278,11 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
       setSummary(
         (summaryRes?.summary ?? summaryRes ?? null) as DiscoverySummary | null
       );
+
+      const notes = Array.isArray(sessionsRes?.notes)
+        ? (sessionsRes.notes as MeetingNote[])
+        : [];
+      setSessions(notes);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -518,6 +595,109 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
               )}
             </section>
 
+            {/* MINI DISCOVERY SESSIONS */}
+            <section>
+              <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
+                <div>
+                  <h2 className="text-[16px] font-semibold m-0 -tracking-[0.01em]">
+                    Discovery sessions
+                  </h2>
+                  <p className="text-[12.5px] text-text-3 m-0 mt-0.5">
+                    Mini sessions, ad-hoc calls, hallway findings — capture
+                    context as you go without needing a full workbook.
+                  </p>
+                </div>
+                <Btn
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setSessionError(null);
+                    setSessionOpen(true);
+                  }}
+                >
+                  <NotebookPen size={11} />
+                  Capture session
+                </Btn>
+              </div>
+              {sessions.length === 0 ? (
+                <Empty
+                  icon={<Mic size={20} />}
+                  title="No sessions captured yet"
+                  sub="Quick-capture findings from a call, workshop, or unstructured chat. Title + notes is enough."
+                  action={
+                    <Btn
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setSessionOpen(true)}
+                    >
+                      <NotebookPen size={11} />
+                      Capture first session
+                    </Btn>
+                  }
+                />
+              ) : (
+                <Panel>
+                  <PanelBody flush>
+                    {sessions.slice(0, 6).map((s, i, arr) => {
+                      const body = (s.notes ?? "").trim();
+                      const preview =
+                        body.length > 0
+                          ? body.length > 280
+                            ? `${body.slice(0, 280)}…`
+                            : body
+                          : "(no notes)";
+                      return (
+                        <div
+                          key={s.id}
+                          className={`px-[18px] py-3.5 ${
+                            i < Math.min(sessions.length, 6) - 1
+                              ? "border-b border-ink-4"
+                              : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Mic
+                                size={12}
+                                className="text-text-3 flex-shrink-0"
+                              />
+                              <span className="text-[13px] font-medium text-text-1 truncate">
+                                {s.title || "Mini discovery session"}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-text-3 font-mono whitespace-nowrap">
+                              {new Date(s.meetingDate).toLocaleDateString()}
+                            </span>
+                          </div>
+                          {s.attendees && s.attendees.length > 0 && (
+                            <div className="text-[11.5px] text-text-3 mb-1.5">
+                              {s.attendees.slice(0, 4).join(", ")}
+                              {s.attendees.length > 4
+                                ? ` +${s.attendees.length - 4}`
+                                : ""}
+                            </div>
+                          )}
+                          <p className="text-[12.5px] text-text-2 m-0 leading-[1.5] whitespace-pre-wrap">
+                            {preview}
+                          </p>
+                        </div>
+                      );
+                    })}
+                    {sessions.length > 6 && (
+                      <div className="px-[18px] py-2.5 border-t border-ink-4 text-center">
+                        <Link
+                          href={`/projects/${projectId}/meetings`}
+                          className="text-[12px] text-text-3 hover:text-text-1 transition-colors"
+                        >
+                          View all {sessions.length} sessions →
+                        </Link>
+                      </div>
+                    )}
+                  </PanelBody>
+                </Panel>
+              )}
+            </section>
+
             {/* CONTEXT ITEMS */}
             <section>
               <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
@@ -696,6 +876,115 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
           </aside>
         </div>
       </div>
+
+      {sessionOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close capture"
+            onClick={() => !sessionSaving && setSessionOpen(false)}
+            className="fixed inset-0 z-40 bg-black/70"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(560px,92vw)] bg-ink-1 border border-ink-4 rounded-[14px] p-6 shadow-elev-pop"
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <p className="text-[10px] tracking-[0.14em] uppercase text-text-3 font-semibold">
+                  Discovery
+                </p>
+                <h3 className="text-[16px] font-semibold mt-1 -tracking-[0.01em]">
+                  Capture mini discovery session
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !sessionSaving && setSessionOpen(false)}
+                className="text-text-3 hover:text-text-1 p-1 rounded-md transition-colors"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-[12.5px] text-text-2 m-0 mb-3">
+              No structured questions, no workbook. Just title + raw notes
+              from a call, workshop, hallway chat, Slack thread — anything
+              worth capturing.
+            </p>
+            <div className="grid gap-3">
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                  Title
+                </span>
+                <input
+                  autoFocus
+                  value={sessionDraft.title}
+                  onChange={(e) =>
+                    setSessionDraft((d) => ({ ...d, title: e.target.value }))
+                  }
+                  placeholder="e.g. Quick chat with sales lead — pipeline pain points"
+                  className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                  Attendees (comma-separated)
+                </span>
+                <input
+                  value={sessionDraft.attendees}
+                  onChange={(e) =>
+                    setSessionDraft((d) => ({
+                      ...d,
+                      attendees: e.target.value
+                    }))
+                  }
+                  placeholder="e.g. Richard King, Jarrud"
+                  className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                  Findings & context
+                </span>
+                <textarea
+                  value={sessionDraft.notes}
+                  onChange={(e) =>
+                    setSessionDraft((d) => ({ ...d, notes: e.target.value }))
+                  }
+                  placeholder="Bullet points, raw quotes, follow-ups, anything that helps shape the build…"
+                  className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4 min-h-[160px] resize-y"
+                />
+              </label>
+              {sessionError && (
+                <p className="text-[12px] text-status-danger m-0">
+                  {sessionError}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <Btn
+                variant="ghost"
+                size="md"
+                onClick={() => setSessionOpen(false)}
+                disabled={sessionSaving}
+              >
+                Cancel
+              </Btn>
+              <Btn
+                variant="primary"
+                size="md"
+                onClick={() => void handleAddSession()}
+                disabled={sessionSaving}
+              >
+                <NotebookPen size={12} />
+                {sessionSaving ? "Capturing…" : "Capture session"}
+              </Btn>
+            </div>
+          </div>
+        </>
+      )}
     </AppShell>
   );
 }
