@@ -269,7 +269,7 @@ export default function EmailSettings() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
         Loading email settings...
       </div>
     );
@@ -277,7 +277,7 @@ export default function EmailSettings() {
 
   if (!settings || !googleConnection) {
     return (
-      <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] p-6 text-white">
+      <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] p-6 text-white">
         Email settings could not be loaded.
       </div>
     );
@@ -285,9 +285,9 @@ export default function EmailSettings() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <h2 className="text-xl font-semibold text-white">SMTP connection</h2>
-        <p className="mt-2 text-sm text-text-secondary">
+        <p className="mt-2 text-sm text-text-2">
           This stays the clean path for system notifications and workflow mail
           from your domain through Google Workspace relay.
         </p>
@@ -296,11 +296,11 @@ export default function EmailSettings() {
           <button
             type="button"
             onClick={applyGoogleRelayPreset}
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white"
+            className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-white"
           >
             Use Google Workspace relay preset
           </button>
-          <div className="rounded-xl border border-[rgba(255,255,255,0.07)] px-4 py-3 text-xs leading-5 text-text-secondary">
+          <div className="rounded-xl border border-ink-4 px-4 py-3 text-xs leading-5 text-text-2">
             Recommended values: `smtp-relay.gmail.com`, port `587`, secure off.
           </div>
         </div>
@@ -315,7 +315,7 @@ export default function EmailSettings() {
               onChange={(event) =>
                 updateField("providerLabel", event.target.value)
               }
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -324,7 +324,7 @@ export default function EmailSettings() {
               value={settings.host ?? ""}
               onChange={(event) => updateField("host", event.target.value)}
               placeholder="smtp-relay.gmail.com"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -338,10 +338,10 @@ export default function EmailSettings() {
                 )
               }
               placeholder="587"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
-          <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-4 text-sm text-white">
+          <label className="flex items-center gap-3 rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-4 text-sm text-white">
             <input
               type="checkbox"
               checked={settings.secure}
@@ -355,7 +355,7 @@ export default function EmailSettings() {
               value={settings.username ?? ""}
               onChange={(event) => updateField("username", event.target.value)}
               placeholder="Optional if relay auth is required"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -369,13 +369,13 @@ export default function EmailSettings() {
                   ? "Leave blank to keep stored password"
                   : "Optional if your relay requires SMTP auth"
               }
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <h2 className="text-xl font-semibold text-white">Sender identity</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <label className="block">
@@ -384,7 +384,7 @@ export default function EmailSettings() {
               value={settings.fromName ?? ""}
               onChange={(event) => updateField("fromName", event.target.value)}
               placeholder="Muloo"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -393,7 +393,7 @@ export default function EmailSettings() {
               value={settings.fromEmail ?? ""}
               onChange={(event) => updateField("fromEmail", event.target.value)}
               placeholder="hello@yourdomain.com"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block md:col-span-2">
@@ -406,7 +406,7 @@ export default function EmailSettings() {
                 updateField("replyToEmail", event.target.value)
               }
               placeholder="Optional reply-to mailbox"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
         </div>
@@ -430,11 +430,11 @@ export default function EmailSettings() {
         </button>
       </section>
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <h2 className="text-xl font-semibold text-white">
           Google mailbox connect
         </h2>
-        <p className="mt-2 text-sm text-text-secondary">
+        <p className="mt-2 text-sm text-text-2">
           This is the OAuth setup for connecting a real Google Workspace
           mailbox. It is separate from SMTP relay, so we can support
           mailbox-level sending and future inbox history without disturbing the
@@ -451,7 +451,7 @@ export default function EmailSettings() {
               onChange={(event) =>
                 updateGoogleField("clientId", event.target.value)
               }
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -469,7 +469,7 @@ export default function EmailSettings() {
                   ? "Leave blank to keep stored secret"
                   : "Paste the client secret"
               }
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block md:col-span-2">
@@ -479,7 +479,7 @@ export default function EmailSettings() {
               onChange={(event) =>
                 updateGoogleField("redirectUri", event.target.value)
               }
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block md:col-span-2">
@@ -495,10 +495,10 @@ export default function EmailSettings() {
                     .filter(Boolean)
                 )
               }
-              className="mt-3 min-h-[120px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 min-h-[120px] w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
-          <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-4 text-sm text-white md:col-span-2">
+          <label className="flex items-center gap-3 rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-4 text-sm text-white md:col-span-2">
             <input
               type="checkbox"
               checked={googleConnection.enabled}
@@ -510,19 +510,19 @@ export default function EmailSettings() {
           </label>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-4">
+        <div className="mt-5 rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-4">
           <p className="text-sm font-medium text-white">Connection status</p>
-          <p className="mt-2 text-sm text-text-secondary">
+          <p className="mt-2 text-sm text-text-2">
             {googleConnection.isConnected
               ? `Connected as ${googleConnection.connectedName || googleConnection.connectedEmail || "your Google account"}.`
               : "No Google mailbox connected yet."}
           </p>
-          <p className="mt-2 text-xs text-text-muted">
+          <p className="mt-2 text-xs text-text-3">
             Add this redirect URI in Google Cloud:{" "}
             {googleConnection.redirectUri}
           </p>
           {googleConnection.tokenExpiresAt ? (
-            <p className="mt-2 text-xs text-text-muted">
+            <p className="mt-2 text-xs text-text-3">
               Current token expiry:{" "}
               {new Date(googleConnection.tokenExpiresAt).toLocaleString(
                 "en-ZA",
@@ -540,7 +540,7 @@ export default function EmailSettings() {
         ) : feedback ? (
           <p className="mt-4 text-sm text-status-success">{feedback}</p>
         ) : (
-          <p className="mt-4 text-sm text-text-secondary">
+          <p className="mt-4 text-sm text-text-2">
             Save the Google client values first, then connect the mailbox when
             the Google Cloud OAuth app is ready.
           </p>
@@ -551,7 +551,7 @@ export default function EmailSettings() {
             type="button"
             onClick={() => void saveGoogleSettings()}
             disabled={savingGoogle}
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+            className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
           >
             {savingGoogle ? "Saving..." : "Save Google settings"}
           </button>
@@ -578,7 +578,7 @@ export default function EmailSettings() {
             type="button"
             onClick={() => void disconnectGoogleMailbox()}
             disabled={disconnectingGoogle || !googleConnection.isConnected}
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+            className="rounded-xl border border-ink-4 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
           >
             {disconnectingGoogle ? "Disconnecting..." : "Disconnect"}
           </button>

@@ -43,7 +43,7 @@ function findingClass(value: FindingValue) {
     case "fail":
       return "bg-[rgba(224,80,96,0.18)] text-[#ff9aa6] border-[rgba(224,80,96,0.4)]";
     case "na":
-      return "bg-[rgba(255,255,255,0.06)] text-text-muted border-[rgba(255,255,255,0.12)]";
+      return "bg-ink-3 text-text-3 border-ink-4";
     default:
       return "bg-[rgba(255,200,80,0.14)] text-[#ffd28a] border-[rgba(255,200,80,0.35)]";
   }
@@ -61,7 +61,7 @@ function riskBadgeClass(risk: string | null) {
       return "bg-[rgba(73,255,143,0.12)] text-[#7af0a8]";
     case "unknown":
     default:
-      return "bg-[rgba(255,255,255,0.06)] text-text-muted";
+      return "bg-ink-3 text-text-3";
   }
 }
 
@@ -164,7 +164,7 @@ export default function ClientSecurityWorkspace({
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
         Loading security profile...
       </div>
     );
@@ -173,22 +173,22 @@ export default function ClientSecurityWorkspace({
   return (
     <div className="space-y-5">
       {/* Sticky save bar */}
-      <div className="sticky top-0 z-10 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126]/95 px-5 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 rounded-[14px] border border-ink-4 bg-ink-2/95 px-5 py-3 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <span
-              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${riskBadgeClass(profile?.riskLevel ?? null)}`}
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${riskBadgeClass(profile?.riskLevel ?? null)}`}
             >
               Risk: {profile?.riskLevel ?? "unknown"}
             </span>
-            <span className="text-xs text-text-muted">
+            <span className="text-xs text-text-3">
               Pass {profile?.counts.pass ?? 0} · Fail{" "}
               {profile?.counts.fail ?? 0} · N/A{" "}
               {profile?.counts.na ?? 0} · Unknown{" "}
               {profile?.counts.unknown ?? 0} of {profile?.counts.total ?? 0}
             </span>
             {profile?.reviewedAt ? (
-              <span className="text-xs text-text-muted">
+              <span className="text-xs text-text-3">
                 Last reviewed {new Date(profile.reviewedAt).toLocaleDateString()}
               </span>
             ) : (
@@ -200,7 +200,7 @@ export default function ClientSecurityWorkspace({
               type="button"
               onClick={() => void saveAll({ markReviewed: false })}
               disabled={saving || dirtyCount === 0}
-              className="rounded-xl border border-[rgba(255,255,255,0.18)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl border border-ink-5 px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving
                 ? "Saving..."
@@ -236,9 +236,9 @@ export default function ClientSecurityWorkspace({
         return (
           <section
             key={category}
-            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+            className="rounded-[14px] border border-ink-4 bg-ink-1 p-6"
           >
-            <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-text-muted">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-3">
               {category}
             </h3>
             <div className="mt-4 space-y-3">
@@ -248,7 +248,7 @@ export default function ClientSecurityWorkspace({
                 return (
                   <div
                     key={check.id}
-                    className={`rounded-xl border bg-[#0b1126] p-4 ${
+                    className={`rounded-xl border bg-ink-2 p-4 ${
                       isDirty
                         ? "border-[rgba(255,200,80,0.45)]"
                         : "border-[rgba(255,255,255,0.05)]"
@@ -268,13 +268,13 @@ export default function ClientSecurityWorkspace({
                                   ? "bg-[rgba(255,140,80,0.18)] text-[#ffb98a]"
                                   : check.weight === "medium"
                                     ? "bg-[rgba(255,200,80,0.14)] text-[#ffd28a]"
-                                    : "bg-[rgba(255,255,255,0.06)] text-text-muted"
+                                    : "bg-ink-3 text-text-3"
                             }`}
                           >
                             {check.weight}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-text-secondary">
+                        <p className="mt-1 text-xs text-text-2">
                           {check.guidance}
                         </p>
                       </div>
@@ -287,7 +287,7 @@ export default function ClientSecurityWorkspace({
                             className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
                               value === opt.value
                                 ? findingClass(opt.value)
-                                : "border-[rgba(255,255,255,0.07)] text-text-muted"
+                                : "border-ink-4 text-text-3"
                             }`}
                           >
                             {opt.label}
@@ -303,8 +303,8 @@ export default function ClientSecurityWorkspace({
         );
       })}
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-text-muted">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-3">
           Reviewer notes
         </h3>
         <textarea
@@ -315,7 +315,7 @@ export default function ClientSecurityWorkspace({
           }}
           rows={5}
           placeholder="Context for failed checks, follow-up actions, scope, exceptions, etc."
-          className="mt-4 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+          className="mt-4 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
         />
       </section>
     </div>

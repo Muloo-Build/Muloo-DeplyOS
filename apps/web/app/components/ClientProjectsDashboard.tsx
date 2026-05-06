@@ -53,8 +53,8 @@ function statusColor(status: string) {
   if (status === "active" || status === "in_progress") return "text-[#51d0b0] bg-[rgba(81,208,176,0.12)] border-[rgba(81,208,176,0.2)]";
   if (status === "complete") return "text-[#7be2ef] bg-[rgba(123,226,239,0.1)] border-[rgba(123,226,239,0.18)]";
   if (status === "on_hold") return "text-[#f0c060] bg-[rgba(240,192,96,0.1)] border-[rgba(240,192,96,0.18)]";
-  if (status === "cancelled") return "text-text-muted bg-white/5 border-white/10";
-  return "text-text-secondary bg-white/5 border-white/10";
+  if (status === "cancelled") return "text-text-3 bg-white/5 border-ink-4";
+  return "text-text-2 bg-white/5 border-ink-4";
 }
 
 function formatDate(dateString: string) {
@@ -138,23 +138,23 @@ export default function ClientProjectsDashboard({
       />
       <ClientHubSpotInviteCard />
       {loading ? (
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8 text-text-secondary">
+        <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-8 text-text-2">
           Loading your projects...
         </div>
       ) : error ? (
-        <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-6 text-white">
+        <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-6 text-white">
           {error}
         </div>
       ) : projects.length === 0 ? (
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-10 text-center">
-          <p className="text-text-secondary">No projects assigned yet.</p>
-          <p className="mt-2 text-sm text-text-muted">Your projects will appear here once Muloo sets them up for you.</p>
+        <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-10 text-center">
+          <p className="text-text-2">No projects assigned yet.</p>
+          <p className="mt-2 text-sm text-text-3">Your projects will appear here once Muloo sets them up for you.</p>
         </div>
       ) : (
         <div className="space-y-8">
           {activeProjects.length > 0 ? (
             <div>
-              <h2 className="mb-4 text-xs uppercase tracking-[0.2em] text-text-muted">
+              <h2 className="mb-4 text-xs uppercase tracking-[0.14em] text-text-3">
                 Active projects
               </h2>
               <div className="grid gap-3">
@@ -162,13 +162,13 @@ export default function ClientProjectsDashboard({
                   <Link
                     key={project.id}
                     href={getPortalProjectPath(portalExperience, project.id)}
-                    className="flex flex-col items-start gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-5 py-5 transition hover:border-[rgba(255,255,255,0.13)] hover:bg-[rgba(255,255,255,0.02)] sm:flex-row sm:items-center sm:justify-between sm:px-6"
+                    className="flex flex-col items-start gap-4 rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-5 transition hover:border-[rgba(255,255,255,0.13)] hover:bg-ink-2 sm:flex-row sm:items-center sm:justify-between sm:px-6"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-base font-semibold text-white">
                         {project.name}
                       </p>
-                      <p className="mt-1 text-sm text-text-secondary">
+                      <p className="mt-1 text-sm text-text-2">
                         {project.client.name}
                         {project.selectedHubs.length > 0
                           ? ` · ${project.selectedHubs.join(", ")}`
@@ -184,10 +184,10 @@ export default function ClientProjectsDashboard({
                       <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusColor(project.status)}`}>
                         {statusLabel(project.status)}
                       </span>
-                      <span className="text-xs text-text-muted">
+                      <span className="text-xs text-text-3">
                         Updated {formatDate(project.updatedAt)}
                       </span>
-                      <span className="ml-auto text-text-muted sm:ml-0">→</span>
+                      <span className="ml-auto text-text-3 sm:ml-0">→</span>
                     </div>
                   </Link>
                 ))}
@@ -197,7 +197,7 @@ export default function ClientProjectsDashboard({
 
           {otherProjects.length > 0 ? (
             <div>
-              <h2 className="mb-4 text-xs uppercase tracking-[0.2em] text-text-muted">
+              <h2 className="mb-4 text-xs uppercase tracking-[0.14em] text-text-3">
                 Other projects
               </h2>
               <div className="grid gap-3">
@@ -205,13 +205,13 @@ export default function ClientProjectsDashboard({
                   <Link
                     key={project.id}
                     href={getPortalProjectPath(portalExperience, project.id)}
-                    className="flex flex-col items-start gap-4 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-5 py-5 opacity-70 transition hover:border-[rgba(255,255,255,0.1)] hover:opacity-100 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+                    className="flex flex-col items-start gap-4 rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-5 opacity-70 transition hover:border-[rgba(255,255,255,0.1)] hover:opacity-100 sm:flex-row sm:items-center sm:justify-between sm:px-6"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-base font-semibold text-white">
                         {project.name}
                       </p>
-                      <p className="mt-1 text-sm text-text-secondary">
+                      <p className="mt-1 text-sm text-text-2">
                         {project.client.name}
                       </p>
                     </div>
@@ -219,7 +219,7 @@ export default function ClientProjectsDashboard({
                       <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusColor(project.status)}`}>
                         {statusLabel(project.status)}
                       </span>
-                      <span className="ml-auto text-text-muted sm:ml-0">→</span>
+                      <span className="ml-auto text-text-3 sm:ml-0">→</span>
                     </div>
                   </Link>
                 ))}

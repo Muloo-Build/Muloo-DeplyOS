@@ -113,13 +113,13 @@ export default function PortalGovernanceWorkspace() {
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-10">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Governance
             </p>
             <h1 className="mt-2 text-3xl font-bold font-heading text-white">
               Agreements &amp; signed documents
             </h1>
-            <p className="mt-2 max-w-2xl text-text-secondary">
+            <p className="mt-2 max-w-2xl text-text-2">
               View and sign documents Muloo has shared with you. Once signed,
               a copy is stored here permanently and can be saved as PDF for
               your records.
@@ -136,9 +136,9 @@ export default function PortalGovernanceWorkspace() {
         <div className="mt-6 grid gap-5 lg:grid-cols-[0.4fr_0.6fr]">
           <aside className="space-y-3">
             {loading ? (
-              <p className="text-sm text-text-muted">Loading...</p>
+              <p className="text-sm text-text-3">Loading...</p>
             ) : agreements.length === 0 ? (
-              <p className="text-sm text-text-muted">
+              <p className="text-sm text-text-3">
                 No agreements have been shared with you yet.
               </p>
             ) : (
@@ -154,14 +154,14 @@ export default function PortalGovernanceWorkspace() {
                       setAgreed(false);
                       setError(null);
                     }}
-                    className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                    className={`w-full rounded-[14px] border px-4 py-3 text-left transition ${
                       active
-                        ? "border-[rgba(255,255,255,0.25)] bg-[#141d3d]"
-                        : "border-[rgba(255,255,255,0.07)] bg-background-card hover:bg-[#141d3d]"
+                        ? "border-[rgba(255,255,255,0.25)] bg-ink-3"
+                        : "border-ink-4 bg-ink-1 hover:bg-ink-3"
                     }`}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         {TYPE_LABELS[agreement.type] ?? agreement.type}
                       </p>
                       <span
@@ -177,7 +177,7 @@ export default function PortalGovernanceWorkspace() {
                     <p className="mt-2 text-sm font-medium text-white">
                       {agreement.title}
                     </p>
-                    <p className="mt-1 text-xs text-text-muted">
+                    <p className="mt-1 text-xs text-text-3">
                       {signed
                         ? `Signed ${formatDate(agreement.signedAt)}`
                         : `Sent ${formatDate(agreement.sentAt)}`}
@@ -188,21 +188,21 @@ export default function PortalGovernanceWorkspace() {
             )}
           </aside>
 
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
             {!activeAgreement ? (
-              <p className="text-sm text-text-muted">
+              <p className="text-sm text-text-3">
                 Select an agreement on the left to read or sign.
               </p>
             ) : (
               <article>
                 <header>
-                  <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     {TYPE_LABELS[activeAgreement.type] ?? activeAgreement.type}
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold text-white">
                     {activeAgreement.title}
                   </h2>
-                  <p className="mt-1 text-xs text-text-muted">
+                  <p className="mt-1 text-xs text-text-3">
                     Effective {formatDate(activeAgreement.effectiveDate)} ·
                     Expires {formatDate(activeAgreement.expiresAt)}
                   </p>
@@ -220,8 +220,8 @@ export default function PortalGovernanceWorkspace() {
                 ) : null}
 
                 {activeAgreement.documentBody ? (
-                  <div className="mt-4 max-h-[500px] overflow-y-auto rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-text-secondary">
+                  <div className="mt-4 max-h-[500px] overflow-y-auto rounded-xl border border-ink-4 bg-ink-2 p-4">
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-text-2">
                       {activeAgreement.documentBody}
                     </pre>
                   </div>
@@ -232,7 +232,7 @@ export default function PortalGovernanceWorkspace() {
                     <p className="font-semibold">
                       Signed on {formatDate(activeAgreement.signedAt)}
                     </p>
-                    <p className="mt-1 text-xs text-text-muted">
+                    <p className="mt-1 text-xs text-text-3">
                       By {activeAgreement.signerName}
                       {activeAgreement.signerTitle
                         ? ` (${activeAgreement.signerTitle})`
@@ -243,18 +243,18 @@ export default function PortalGovernanceWorkspace() {
                     <button
                       type="button"
                       onClick={() => window.print()}
-                      className="mt-4 rounded-xl border border-[rgba(255,255,255,0.18)] px-4 py-2 text-xs font-medium text-white"
+                      className="mt-4 rounded-xl border border-ink-5 px-4 py-2 text-xs font-medium text-white"
                     >
                       Save as PDF
                     </button>
                   </div>
                 ) : (
-                  <section className="mt-6 rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <section className="mt-6 rounded-xl border border-ink-4 bg-ink-2 p-4">
                     <h3 className="text-sm font-semibold text-white">
                       Sign this agreement
                     </h3>
                     {activeAgreement.acceptanceText ? (
-                      <p className="mt-2 text-xs text-text-secondary">
+                      <p className="mt-2 text-xs text-text-2">
                         {activeAgreement.acceptanceText}
                       </p>
                     ) : null}
@@ -266,7 +266,7 @@ export default function PortalGovernanceWorkspace() {
                         <input
                           value={signerName}
                           onChange={(e) => setSignerName(e.target.value)}
-                          className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                         />
                       </label>
                       <label className="block">
@@ -277,7 +277,7 @@ export default function PortalGovernanceWorkspace() {
                           type="email"
                           value={signerEmail}
                           onChange={(e) => setSignerEmail(e.target.value)}
-                          className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                         />
                       </label>
                       <label className="block md:col-span-2">
@@ -288,7 +288,7 @@ export default function PortalGovernanceWorkspace() {
                           value={signerTitle}
                           onChange={(e) => setSignerTitle(e.target.value)}
                           placeholder="e.g. Director, Head of Marketing"
-                          className="mt-2 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+                          className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-white outline-none"
                         />
                       </label>
                     </div>

@@ -91,7 +91,7 @@ export default function ProjectHubSpotAccessPanel(
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {/* Client-facing action */}
-      <div className="brand-surface-soft flex flex-col rounded-2xl border p-4">
+      <div className="brand-surface-soft flex flex-col rounded-[14px] border p-4">
         <div className="mb-2 flex items-center gap-2">
           <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-300">
             Client action
@@ -100,14 +100,14 @@ export default function ProjectHubSpotAccessPanel(
         <h4 className="text-sm font-semibold text-white">
           Invite Muloo to HubSpot
         </h4>
-        <p className="mt-1 flex-1 text-xs leading-relaxed text-text-secondary">
+        <p className="mt-1 flex-1 text-xs leading-relaxed text-text-2">
           The client uses this link to invite Muloo as a partner/admin in their
           HubSpot portal. This gives us the access needed to complete the
           approved setup work.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {!loaded ? (
-            <p className="text-xs text-text-secondary">Loading…</p>
+            <p className="text-xs text-text-2">Loading…</p>
           ) : !inviteUrl ? (
             <Link
               href="/settings#hubspot"
@@ -128,7 +128,7 @@ export default function ProjectHubSpotAccessPanel(
                 href={inviteUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-background-card px-3 py-2 text-xs font-medium text-white transition hover:bg-white/5"
+                className="inline-flex items-center gap-2 rounded-lg border border-ink-4 bg-ink-1 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/5"
               >
                 Open in HubSpot ↗
               </a>
@@ -145,7 +145,7 @@ export default function ProjectHubSpotAccessPanel(
             >
               {marking ? "Marking…" : "Mark partner invite as accepted"}
             </button>
-            <p className="mt-1 text-[11px] text-text-muted">
+            <p className="mt-1 text-[11px] text-text-3">
               Use after the client has accepted your partner/admin invite.
             </p>
             {markFeedback ? (
@@ -158,16 +158,16 @@ export default function ProjectHubSpotAccessPanel(
       </div>
 
       {/* Operator/internal action */}
-      <div className="brand-surface-soft flex flex-col rounded-2xl border p-4">
+      <div className="brand-surface-soft flex flex-col rounded-[14px] border p-4">
         <div className="mb-2 flex items-center gap-2">
-          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-secondary">
+          <span className="rounded-full border border-ink-4 bg-white/5 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-2">
             Internal Muloo action
           </span>
         </div>
         <h4 className="text-sm font-semibold text-white">
           Connect HubSpot portal to Deploy OS
         </h4>
-        <p className="mt-1 flex-1 text-xs leading-relaxed text-text-secondary">
+        <p className="mt-1 flex-1 text-xs leading-relaxed text-text-2">
           Internal Muloo action. Connects this client portal to Deploy OS for
           audits, setup tracking, validation and future automation. The client
           does not see this option.
@@ -178,7 +178,7 @@ export default function ProjectHubSpotAccessPanel(
               props.connectionReady ? "bg-brand-teal" : "bg-status-error"
             }`}
           />
-          <span className="text-xs text-text-secondary">
+          <span className="text-xs text-text-2">
             {props.connectionReady ? "Connected" : "Not connected"}
             {props.hubDomain ? ` · ${props.hubDomain}` : ""}
             {props.hubTier ? ` · ${props.hubTier}` : ""}
@@ -188,14 +188,14 @@ export default function ProjectHubSpotAccessPanel(
           {props.portalRecordId ? (
             <Link
               href={`/portals/${encodeURIComponent(props.portalRecordId)}`}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-background-card px-3 py-2 text-xs font-medium text-white transition hover:bg-white/5"
+              className="inline-flex items-center gap-2 rounded-lg border border-ink-4 bg-ink-1 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/5"
             >
               Open portal record →
             </Link>
           ) : null}
           <Link
             href="/settings#hubspot"
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-background-card px-3 py-2 text-xs font-medium text-text-secondary transition hover:text-white"
+            className="inline-flex items-center gap-2 rounded-lg border border-ink-4 bg-ink-1 px-3 py-2 text-xs font-medium text-text-2 transition hover:text-white"
           >
             HubSpot integration settings →
           </Link>

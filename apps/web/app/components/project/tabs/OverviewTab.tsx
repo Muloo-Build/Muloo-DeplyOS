@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 function OverviewCard(props: { title: string; children: ReactNode }) {
   return (
-    <section className="brand-surface rounded-3xl border p-6">
+    <section className="brand-surface rounded-[14px] border p-6">
       <h3 className="text-lg font-semibold text-white">{props.title}</h3>
       <div className="mt-4">{props.children}</div>
     </section>
@@ -46,7 +46,7 @@ function ProjectDiscoveryOverdueAlert({ projectId }: { projectId: string }) {
 
   if (!overdue || overdue.overdueCount === 0) return null;
   return (
-    <section className="rounded-3xl border border-status-error/40 bg-status-error/10 p-5">
+    <section className="rounded-[14px] border border-status-error/40 bg-status-error/10 p-5">
       <p className="text-sm font-semibold text-rose-100">
         {overdue.overdueCount} discovery workbook
         {overdue.overdueCount === 1 ? "" : "s"} overdue

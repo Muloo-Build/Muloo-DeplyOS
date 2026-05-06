@@ -133,14 +133,14 @@ export default function InternalInbox() {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+        <p className="text-sm uppercase tracking-[0.14em] text-text-3">
           Requests
         </p>
         <h2 className="mt-2 text-xl font-semibold text-white">
           Work request triage
         </h2>
-        <p className="mt-2 text-text-secondary">
+        <p className="mt-2 text-text-2">
           Client-submitted quote requests, job briefs, and change requests land
           here for review and conversion.
         </p>
@@ -149,14 +149,14 @@ export default function InternalInbox() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+        <p className="text-sm uppercase tracking-[0.14em] text-text-3">
           Messages
         </p>
         <h2 className="mt-2 text-xl font-semibold text-white">
           Project-linked messaging
         </h2>
-        <p className="mt-2 text-text-secondary">
+        <p className="mt-2 text-text-2">
           Use quick project messages for clarifications, next steps, and
           lightweight coordination without leaving DeployOS.
         </p>
@@ -169,8 +169,8 @@ export default function InternalInbox() {
 
         <div className="mt-6 space-y-4">
           {submissionAlerts.length > 0 ? (
-            <div className="rounded-2xl border border-[rgba(123,226,239,0.18)] bg-[rgba(123,226,239,0.07)] p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-[14px] border border-[rgba(123,226,239,0.18)] bg-[rgba(123,226,239,0.07)] p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 New client inputs
               </p>
               <div className="mt-3 space-y-3">
@@ -178,14 +178,14 @@ export default function InternalInbox() {
                   <a
                     key={`${alert.project.id}-${alert.sessionNumber ?? "session"}`}
                     href={`/projects/${alert.project.id}/inputs`}
-                    className="block rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4 transition hover:border-[rgba(255,255,255,0.16)]"
+                    className="block rounded-[14px] border border-ink-4 bg-ink-2 p-4 transition hover:border-ink-5"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-white">
                           {alert.project.name}
                         </p>
-                        <p className="mt-1 text-sm text-text-secondary">
+                        <p className="mt-1 text-sm text-text-2">
                           {alert.submittedByName ?? "Client contact"} updated{" "}
                           {alert.sessionNumber
                             ? `section ${alert.sessionNumber}`
@@ -193,7 +193,7 @@ export default function InternalInbox() {
                           .
                         </p>
                       </div>
-                      <span className="text-xs text-text-muted">
+                      <span className="text-xs text-text-3">
                         {alert.updatedAt
                           ? new Date(alert.updatedAt).toLocaleString("en-ZA")
                           : ""}
@@ -209,7 +209,7 @@ export default function InternalInbox() {
             <select
               value={selectedProjectId}
               onChange={(event) => setSelectedProjectId(event.target.value)}
-              className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+              className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
             >
               <option value="">Choose project</option>
               {projects.map((project) => (
@@ -232,14 +232,14 @@ export default function InternalInbox() {
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Write a quick project update or request..."
-            className="min-h-[120px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            className="min-h-[120px] w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
           />
         </div>
 
         <div className="mt-6 space-y-4">
           {filteredMessages.length === 0 ? (
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5">
-              <p className="text-sm text-text-secondary">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
+              <p className="text-sm text-text-2">
                 {selectedProjectId
                   ? "No messages for this project yet. Send the first one above."
                   : "No project messages yet. Choose a project and send a message above."}
@@ -249,22 +249,22 @@ export default function InternalInbox() {
             filteredMessages.map((message) => (
               <div
                 key={message.id}
-                className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4"
+                className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       {message.project.name}
                     </p>
                     <p className="mt-2 text-sm font-semibold text-white">
                       {message.senderName}
                     </p>
                   </div>
-                  <span className="text-xs text-text-muted">
+                  <span className="text-xs text-text-3">
                     {new Date(message.createdAt).toLocaleString("en-ZA")}
                   </span>
                 </div>
-                <p className="mt-3 text-sm text-text-secondary">
+                <p className="mt-3 text-sm text-text-2">
                   {message.body}
                 </p>
               </div>

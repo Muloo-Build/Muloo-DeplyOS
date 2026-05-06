@@ -151,7 +151,7 @@ export default function InvoiceDetailWorkspace({
           >
             ← Back
           </Link>
-          <p className="mt-4 text-xs uppercase tracking-[0.18em] text-text-muted">
+          <p className="mt-4 text-xs uppercase tracking-[0.14em] text-text-3">
             Invoice detail
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-white">
@@ -160,57 +160,57 @@ export default function InvoiceDetailWorkspace({
         </header>
 
         {error ? (
-          <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <div className="rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             {error}
           </div>
         ) : null}
         {feedback ? (
-          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          <div className="rounded-[14px] border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
             {feedback}
           </div>
         ) : null}
 
         <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <section className="rounded-2xl border border-white/10 bg-background-card p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+          <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Invoice record
             </p>
-            <div className="mt-4 space-y-3 text-sm text-text-secondary">
+            <div className="mt-4 space-y-3 text-sm text-text-2">
               <p>
-                <span className="text-text-muted">Type:</span>{" "}
+                <span className="text-text-3">Type:</span>{" "}
                 {invoice?.invoiceType.replace(/_/g, " ") ?? "—"}
               </p>
               <p>
-                <span className="text-text-muted">Bill to:</span>{" "}
+                <span className="text-text-3">Bill to:</span>{" "}
                 {invoice?.billToEntity?.name ?? "—"}
               </p>
               <p>
-                <span className="text-text-muted">Retainer client:</span>{" "}
+                <span className="text-text-3">Retainer client:</span>{" "}
                 {invoice?.retainer?.client?.name ?? "—"}
               </p>
               <p>
-                <span className="text-text-muted">Issue date:</span>{" "}
+                <span className="text-text-3">Issue date:</span>{" "}
                 {invoice ? formatDate(invoice.issueDate) : "—"}
               </p>
               <p>
-                <span className="text-text-muted">Due date:</span>{" "}
+                <span className="text-text-3">Due date:</span>{" "}
                 {invoice ? formatDate(invoice.dueDate) : "—"}
               </p>
               <p>
-                <span className="text-text-muted">Amount:</span>{" "}
+                <span className="text-text-3">Amount:</span>{" "}
                 {invoice ? formatMoney(invoice.amount, invoice.currency) : "—"}
               </p>
               <p>
-                <span className="text-text-muted">Sent at:</span>{" "}
+                <span className="text-text-3">Sent at:</span>{" "}
                 {formatDateTime(invoice?.sentAt ?? null)}
               </p>
               <p>
-                <span className="text-text-muted">Paid at:</span>{" "}
+                <span className="text-text-3">Paid at:</span>{" "}
                 {formatDateTime(invoice?.paidAt ?? null)}
               </p>
               {invoice?.retainerPeriod ? (
                 <p>
-                  <span className="text-text-muted">Linked period:</span>{" "}
+                  <span className="text-text-3">Linked period:</span>{" "}
                   {formatDate(invoice.retainerPeriod.periodMonth)} · {invoice.retainerPeriod.blockHours}h
                 </p>
               ) : null}
@@ -228,9 +228,9 @@ export default function InvoiceDetailWorkspace({
 
           <form
             onSubmit={handleSave}
-            className="rounded-2xl border border-white/10 bg-background-card p-5"
+            className="rounded-[14px] border border-ink-4 bg-ink-1 p-5"
           >
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Update record
             </p>
             <h2 className="mt-2 text-xl font-semibold text-white">
@@ -238,7 +238,7 @@ export default function InvoiceDetailWorkspace({
             </h2>
 
             <div className="mt-5 grid gap-4">
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Status
                 <select
                   value={form.status}
@@ -248,7 +248,7 @@ export default function InvoiceDetailWorkspace({
                       status: event.target.value as InvoiceDetail["status"]
                     }))
                   }
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                 >
                   <option value="DRAFT">DRAFT</option>
                   <option value="SENT">SENT</option>
@@ -258,7 +258,7 @@ export default function InvoiceDetailWorkspace({
                 </select>
               </label>
 
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Xero URL
                 <input
                   type="url"
@@ -266,12 +266,12 @@ export default function InvoiceDetailWorkspace({
                   onChange={(event) =>
                     setForm((current) => ({ ...current, xeroUrl: event.target.value }))
                   }
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   placeholder="https://go.xero.com/..."
                 />
               </label>
 
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Notes
                 <textarea
                   value={form.notes}
@@ -279,7 +279,7 @@ export default function InvoiceDetailWorkspace({
                     setForm((current) => ({ ...current, notes: event.target.value }))
                   }
                   rows={6}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                 />
               </label>
             </div>

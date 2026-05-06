@@ -208,7 +208,7 @@ function projectStatusColor(status: string) {
   if (status === "active" || status === "in_progress") return "text-[#51d0b0]";
   if (status === "complete") return "text-[#7be2ef]";
   if (status === "on_hold") return "text-[#f0c060]";
-  return "text-text-secondary";
+  return "text-text-2";
 }
 
 function formatTokenLabel(value: string | null | undefined) {
@@ -471,18 +471,18 @@ export default function ClientProjectWorkspace({
   return (
     <ClientShell portalExperience={portalExperience}>
       {loading ? (
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8 text-text-secondary">
+        <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-8 text-text-2">
           Loading project...
         </div>
       ) : pageError || !detail ? (
-        <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-6 text-white">
+        <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-6 text-white">
           {pageError ?? "Project unavailable"}
         </div>
       ) : (
         <div className="space-y-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 {detail.project.client.name}
               </p>
               <h1 className="mt-2 text-2xl font-bold text-white">
@@ -494,17 +494,17 @@ export default function ClientProjectWorkspace({
             </span>
           </div>
 
-          <div className="border-b border-[rgba(255,255,255,0.07)]">
+          <div className="border-b border-ink-4">
             <nav className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`whitespace-nowrap rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${
+                  className={`whitespace-nowrap rounded-[14px] border px-4 py-2.5 text-sm font-medium transition-colors ${
                     activeTab === tab.key
-                      ? "border-white/20 bg-white/12 text-white"
-                      : "border-transparent text-text-secondary hover:border-white/10 hover:bg-white/5 hover:text-white"
+                      ? "border-ink-5 bg-white/12 text-white"
+                      : "border-transparent text-text-2 hover:border-ink-4 hover:bg-white/5 hover:text-white"
                   }`}
                 >
                   {tab.label}
@@ -523,7 +523,7 @@ export default function ClientProjectWorkspace({
                 client portal. Clients only see the partner invite above.
               */}
               {detail.project.portal?.connected ? (
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/5 px-5 py-3 text-sm text-emerald-100">
+                <div className="rounded-[14px] border border-emerald-400/20 bg-emerald-500/5 px-5 py-3 text-sm text-emerald-100">
                   HubSpot connected ·{" "}
                   <span className="text-emerald-50">
                     {detail.project.portal.hubDomain ??
@@ -532,22 +532,22 @@ export default function ClientProjectWorkspace({
                 </div>
               ) : null}
               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Status</p>
+                <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">Status</p>
                   <p className={`mt-3 text-lg font-semibold ${projectStatusColor(detail.project.status)}`}>
                     {projectStatusLabel(detail.project.status)}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     {isStandaloneQuote ? "Project type" : "Input progress"}
                   </p>
                   <p className="mt-3 text-lg font-semibold text-white">
                     {isStandaloneQuote ? "Scoped project" : `${completedCount} of ${sessionNumbers.length} complete`}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Hubs in scope</p>
+                <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">Hubs in scope</p>
                   <p className="mt-3 text-lg font-semibold text-white">
                     {detail.project.selectedHubs.length > 0 ? detail.project.selectedHubs.join(", ") : "—"}
                   </p>
@@ -556,21 +556,21 @@ export default function ClientProjectWorkspace({
 
               {detail.project.platformConfiguration &&
               detail.project.platformConfiguration.length > 0 ? (
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         Platform package
                       </p>
                       <h3 className="mt-2 text-lg font-semibold text-white">
                         Hub-by-hub setup
                       </h3>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         This project is being delivered against the package
                         currently in scope, not a single blanket HubSpot tier.
                       </p>
                     </div>
-                    <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.16em] text-text-muted">
+                    <div className="rounded-full border border-ink-4 px-3 py-1 text-xs uppercase tracking-[0.16em] text-text-3">
                       Delivery path: {formatTokenLabel(detail.project.implementationApproach)}
                     </div>
                   </div>
@@ -579,19 +579,19 @@ export default function ClientProjectWorkspace({
                     {detail.project.platformConfiguration.map((item) => (
                       <div
                         key={item.productKey}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                       >
                         <p className="text-sm font-semibold text-white">
                           {item.label}
                         </p>
-                        <p className="mt-2 text-sm text-text-secondary">
+                        <p className="mt-2 text-sm text-text-2">
                           {formatTokenLabel(item.tier)}
                           {item.quantity && item.quantity > 0
                             ? ` · ${item.quantity}${item.unitLabel ? ` ${item.unitLabel}` : ""}`
                             : ""}
                         </p>
                         {item.notes ? (
-                          <p className="mt-2 text-sm leading-6 text-text-secondary">
+                          <p className="mt-2 text-sm leading-6 text-text-2">
                             {item.notes}
                           </p>
                         ) : null}
@@ -602,9 +602,9 @@ export default function ClientProjectWorkspace({
               ) : null}
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
                   <p className="text-sm font-medium text-white">Need to get in touch?</p>
-                  <p className="mt-2 text-sm text-text-secondary">
+                  <p className="mt-2 text-sm text-text-2">
                     Use the Messages tab to send a note or question to the Muloo team.
                   </p>
                   <button
@@ -615,9 +615,9 @@ export default function ClientProjectWorkspace({
                     Go to messages →
                   </button>
                 </div>
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
                   <p className="text-sm font-medium text-white">Delivery progress</p>
-                  <p className="mt-2 text-sm text-text-secondary">
+                  <p className="mt-2 text-sm text-text-2">
                     Track what's being built and the current status of each item.
                   </p>
                   <button
@@ -631,10 +631,10 @@ export default function ClientProjectWorkspace({
                 {detail.retainer ? (
                   <Link
                     href={`/client/retainers/${detail.retainer.id}`}
-                    className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5 transition hover:border-[rgba(255,255,255,0.16)] hover:bg-[rgba(255,255,255,0.05)]"
+                    className="rounded-[14px] border border-ink-4 bg-ink-1 p-5 transition hover:border-ink-5 hover:bg-ink-2"
                   >
                     <p className="text-sm font-medium text-white">Retainer balance</p>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       {detail.retainer.name}
                     </p>
                     {detail.retainer.currentPeriod ? (
@@ -659,12 +659,12 @@ export default function ClientProjectWorkspace({
                           {detail.retainer.currentPeriod.consumedHours} hours used ·{" "}
                           {detail.retainer.currentPeriod.remainingHours} hours remaining
                         </p>
-                        <p className="mt-1 text-sm text-text-secondary">
+                        <p className="mt-1 text-sm text-text-2">
                           {detail.retainer.currentPeriod.daysUntilRefresh} days until refresh
                         </p>
                         {detail.retainer.currentPeriod.rolledInHours > 0 &&
                         detail.retainer.rolloverBuckets.length > 0 ? (
-                          <p className="mt-1 text-sm text-text-secondary">
+                          <p className="mt-1 text-sm text-text-2">
                             Includes {detail.retainer.currentPeriod.rolledInHours}h rolled forward, expiring{" "}
                             {formatTs(detail.retainer.rolloverBuckets[0].expiresAt)}
                           </p>
@@ -676,7 +676,7 @@ export default function ClientProjectWorkspace({
                         ) : null}
                       </>
                     ) : (
-                      <p className="mt-3 text-sm text-text-secondary">
+                      <p className="mt-3 text-sm text-text-2">
                         No active retainer period is available yet.
                       </p>
                     )}
@@ -691,21 +691,21 @@ export default function ClientProjectWorkspace({
                       portalExperience,
                       detail.project.id
                     )}
-                    className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] p-5 opacity-80 transition hover:border-[rgba(255,255,255,0.18)] hover:bg-[rgba(255,255,255,0.05)] sm:col-span-2"
+                    className="rounded-[14px] border border-dashed border-ink-4 bg-ink-2 p-5 opacity-80 transition hover:border-ink-5 hover:bg-ink-2 sm:col-span-2"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-medium text-white">
                         Marketing Hub Delivery
                       </p>
-                      <span className="rounded-full border border-[rgba(255,255,255,0.12)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                      <span className="rounded-full border border-ink-4 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-3">
                         Locked
                       </span>
                     </div>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       SEO tools, blogs, content creation, and partner-led marketing
                       execution will live here once your monthly subscription is active.
                     </p>
-                    <span className="mt-3 inline-flex text-sm font-medium text-text-muted">
+                    <span className="mt-3 inline-flex text-sm font-medium text-text-3">
                       Open marketing hub →
                     </span>
                   </Link>
@@ -713,79 +713,79 @@ export default function ClientProjectWorkspace({
               </div>
 
               <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         Project summary
                       </p>
                       <h2 className="mt-2 text-xl font-semibold text-white">
                         {detail.portalSummary.headline}
                       </h2>
                     </div>
-                    <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-text-muted">
+                    <span className="rounded-full border border-ink-4 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-text-3">
                       Updated {formatTs(detail.portalSummary.lastUpdatedAt)}
                     </span>
                   </div>
-                  <p className="mt-4 text-sm leading-7 text-text-secondary">
+                  <p className="mt-4 text-sm leading-7 text-text-2">
                     {detail.portalSummary.summary}
                   </p>
                   <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                      <p className="text-xs uppercase tracking-[0.16em] text-text-3">
                         Current phase
                       </p>
                       <p className="mt-2 text-sm font-semibold text-white">
                         {detail.portalSummary.currentPhaseLabel}
                       </p>
-                      <p className="mt-2 text-xs leading-6 text-text-secondary">
+                      <p className="mt-2 text-xs leading-6 text-text-2">
                         {detail.portalSummary.currentPhaseDetail}
                       </p>
                     </div>
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                      <p className="text-xs uppercase tracking-[0.16em] text-text-3">
                         Progress
                       </p>
                       <p className="mt-2 text-sm font-semibold text-white">
                         {detail.portalSummary.progressLabel}
                       </p>
-                      <p className="mt-2 text-xs leading-6 text-text-secondary">
+                      <p className="mt-2 text-xs leading-6 text-text-2">
                         {detail.portalSummary.progressDetail}
                       </p>
                     </div>
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                      <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                      <p className="text-xs uppercase tracking-[0.16em] text-text-3">
                         Waiting on
                       </p>
                       <p className="mt-2 text-sm font-semibold text-white">
                         {detail.portalSummary.waitingOnLabel}
                       </p>
-                      <p className="mt-2 text-xs leading-6 text-text-secondary">
+                      <p className="mt-2 text-xs leading-6 text-text-2">
                         This highlights where the next visible move sits right now.
                       </p>
                     </div>
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     What happens next
                   </p>
                   <div className="mt-4 space-y-3">
                     {detail.portalSummary.nextSteps.map((step, index) => (
                       <div
                         key={`${step.title}-${index}`}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                       >
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <p className="text-sm font-semibold text-white">
                             {step.title}
                           </p>
-                          <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                          <span className="rounded-full border border-ink-4 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-3">
                             {step.owner}
                           </span>
                         </div>
-                        <p className="mt-2 text-sm leading-6 text-text-secondary">
+                        <p className="mt-2 text-sm leading-6 text-text-2">
                           {step.detail}
                         </p>
                       </div>
@@ -796,10 +796,10 @@ export default function ClientProjectWorkspace({
 
               {detail.project.deliveryWorkstreams &&
               detail.project.deliveryWorkstreams.length > 0 ? (
-                <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         Workstreams
                       </p>
                       <h3 className="mt-2 text-lg font-semibold text-white">
@@ -811,20 +811,20 @@ export default function ClientProjectWorkspace({
                     {detail.project.deliveryWorkstreams.map((workstream) => (
                       <div
                         key={workstream.id}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-white">
                             {workstream.name}
                           </p>
-                          <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                          <span className="rounded-full border border-ink-4 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-3">
                             {formatTokenLabel(workstream.status)}
                           </span>
                         </div>
-                        <p className="mt-2 text-xs uppercase tracking-[0.14em] text-text-muted">
+                        <p className="mt-2 text-xs uppercase tracking-[0.14em] text-text-3">
                           {formatTokenLabel(workstream.category)} · {formatTokenLabel(workstream.owner)}
                         </p>
-                        <p className="mt-3 text-sm leading-6 text-text-secondary">
+                        <p className="mt-3 text-sm leading-6 text-text-2">
                           {workstream.portalSummary || workstream.summary}
                         </p>
                       </div>
@@ -841,10 +841,10 @@ export default function ClientProjectWorkspace({
               />
 
               {portalQuoteEnabled ? (
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Quote & approval</p>
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">Quote & approval</p>
                       <h3 className="mt-2 text-lg font-semibold text-white">
                         {quoteApprovalStatus === "approved"
                           ? "Quote approved"
@@ -852,7 +852,7 @@ export default function ClientProjectWorkspace({
                             ? "Quote ready for your review"
                             : "Quote in preparation"}
                       </h3>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         {quoteApprovalStatus === "approved"
                           ? `Approved by ${quoteApprover}${quoteApprovedAt ? ` on ${quoteApprovedAt}` : ""}.`
                           : quoteApprovalStatus === "shared"
@@ -884,15 +884,15 @@ export default function ClientProjectWorkspace({
           {activeTab === "tasks" ? (
             <div className="space-y-5">
               {saveError ? (
-                <div className="rounded-2xl border border-[rgba(224,80,96,0.35)] bg-background-card px-5 py-4 text-sm text-[#ffb1ba]">
+                <div className="rounded-[14px] border border-[rgba(224,80,96,0.35)] bg-ink-1 px-5 py-4 text-sm text-[#ffb1ba]">
                   {saveError}
                 </div>
               ) : null}
 
               {isStandaloneQuote || !questionnaireAssigned ? (
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                   <h3 className="text-lg font-semibold text-white">No input forms assigned</h3>
-                  <p className="mt-2 text-sm text-text-secondary">
+                  <p className="mt-2 text-sm text-text-2">
                     Muloo will surface specific input forms here when they need information from you. Nothing is required right now.
                   </p>
                 </div>
@@ -907,23 +907,23 @@ export default function ClientProjectWorkspace({
                   return (
                     <section
                       key={sessionNumber}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+                      className="rounded-[14px] border border-ink-4 bg-ink-1 p-6"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
-                          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Input {sessionNumber}
                           </p>
                           <h3 className="mt-2 text-lg font-semibold text-white">{definition.title}</h3>
-                          <p className="mt-2 text-sm text-text-secondary">{definition.description}</p>
-                          <p className="mt-2 text-xs text-text-muted">Your progress saves automatically.</p>
+                          <p className="mt-2 text-sm text-text-2">{definition.description}</p>
+                          <p className="mt-2 text-xs text-text-3">Your progress saves automatically.</p>
                         </div>
                         <span className={`rounded-full px-3 py-1 text-xs font-medium border ${
                           status === "Complete"
                             ? "text-[#51d0b0] border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.08)]"
                             : status === "In progress"
                               ? "text-[#7be2ef] border-[rgba(123,226,239,0.18)] bg-[rgba(123,226,239,0.07)]"
-                              : "text-text-muted border-white/10 bg-white/5"
+                              : "text-text-3 border-ink-4 bg-white/5"
                         }`}>
                           {status}
                         </span>
@@ -933,12 +933,12 @@ export default function ClientProjectWorkspace({
                         {definition.questions.map((question) => (
                           <label key={question.key} className="block">
                             <span className="text-sm font-medium text-white">{question.label}</span>
-                            <span className="mt-1 block text-xs text-text-muted">{question.hint}</span>
+                            <span className="mt-1 block text-xs text-text-3">{question.hint}</span>
                             <textarea
                               value={answers[question.key] ?? ""}
                               onChange={(e) => updateDraft(sessionNumber, question.key, e.target.value)}
                               onBlur={() => void saveSession(sessionNumber, { mode: "autosave" })}
-                              className="mt-3 min-h-[140px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none resize-none"
+                              className="mt-3 min-h-[140px] w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none resize-none"
                             />
                           </label>
                         ))}
@@ -948,7 +948,7 @@ export default function ClientProjectWorkspace({
                         <p className={`text-sm ${
                           saveState?.status === "error" ? "text-[#ff8f9c]"
                             : saveState?.status === "saved" ? "text-[#51d0b0]"
-                              : "text-text-secondary"
+                              : "text-text-2"
                         }`}>
                           {saveState?.message ?? "Progress saves automatically."}
                         </p>
@@ -972,7 +972,7 @@ export default function ClientProjectWorkspace({
             <div className="space-y-4">
               <div className="max-h-[480px] min-h-[200px] overflow-y-auto space-y-3 pr-1">
                 {messages.length === 0 ? (
-                  <div className="rounded-2xl bg-[#0b1126] border border-[rgba(255,255,255,0.07)] px-5 py-6 text-sm text-text-muted text-center">
+                  <div className="rounded-[14px] bg-ink-2 border border-ink-4 px-5 py-6 text-sm text-text-3 text-center">
                     No messages yet. Use the box below to send a note to the Muloo team.
                   </div>
                 ) : (
@@ -982,31 +982,31 @@ export default function ClientProjectWorkspace({
                     return (
                       <div
                         key={msg.id}
-                        className={`group rounded-2xl p-4 ${
+                        className={`group rounded-[14px] p-4 ${
                           isFromMuloo
                             ? "border border-[rgba(123,226,239,0.2)] bg-[#0b1733]"
-                            : "border border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
+                            : "border border-ink-4 bg-ink-2"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <span className={`text-xs font-semibold ${isFromMuloo ? "text-[#7be2ef]" : "text-text-muted"}`}>
+                            <span className={`text-xs font-semibold ${isFromMuloo ? "text-[#7be2ef]" : "text-text-3"}`}>
                               {isFromMuloo ? "Muloo" : msg.senderName}
                             </span>
-                            <span className="ml-2 text-xs text-text-muted">{formatTs(msg.createdAt)}</span>
+                            <span className="ml-2 text-xs text-text-3">{formatTs(msg.createdAt)}</span>
                           </div>
                           {isOwnMessage ? (
                             <button
                               type="button"
                               onClick={() => void deleteMessage(msg.id)}
                               disabled={deletingMessageId === msg.id}
-                              className="opacity-0 group-hover:opacity-100 text-xs text-text-muted hover:text-[#ff8f9c] transition-opacity disabled:opacity-40"
+                              className="opacity-0 group-hover:opacity-100 text-xs text-text-3 hover:text-[#ff8f9c] transition-opacity disabled:opacity-40"
                             >
                               {deletingMessageId === msg.id ? "Deleting..." : "Delete"}
                             </button>
                           ) : null}
                         </div>
-                        <p className="mt-2 text-sm text-text-secondary whitespace-pre-wrap">{msg.body}</p>
+                        <p className="mt-2 text-sm text-text-2 whitespace-pre-wrap">{msg.body}</p>
                       </div>
                     );
                   })
@@ -1023,7 +1023,7 @@ export default function ClientProjectWorkspace({
                   onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void sendMessage(); }}
                   placeholder="Write a message or question for the Muloo team..."
                   rows={3}
-                  className="flex-1 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none resize-none"
+                  className="flex-1 rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none resize-none"
                 />
                 <button
                   type="button"
@@ -1034,7 +1034,7 @@ export default function ClientProjectWorkspace({
                   {messageSending ? "Sending..." : "Send"}
                 </button>
               </div>
-              <p className="text-xs text-text-muted">
+              <p className="text-xs text-text-3">
                 On desktop you can still use Ctrl+Enter or Cmd+Enter to send quickly.
               </p>
             </div>
@@ -1050,47 +1050,47 @@ export default function ClientProjectWorkspace({
 
           {activeTab === "delivery" ? (
             <div className="space-y-5">
-              <p className="text-sm text-text-secondary">
+              <p className="text-sm text-text-2">
                 Track the delivery plan and current progress for this project.
                 Each item represents a piece of work that's been planned or
                 completed.
               </p>
 
               <div className="grid gap-4 lg:grid-cols-3">
-                <div className="rounded-2xl border border-[rgba(73,205,225,0.25)] bg-[rgba(73,205,225,0.06)] px-5 py-4">
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-[#9be4f0]/80">
+                <div className="rounded-[14px] border border-[rgba(73,205,225,0.25)] bg-[rgba(73,205,225,0.06)] px-5 py-4">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-[#9be4f0]/80">
                     Currently working on
                   </p>
                   <p className="mt-3 text-base font-semibold text-white">
                     {detail.portalSummary.currentPhaseLabel || "Setup"}
                   </p>
-                  <p className="mt-1 text-sm text-text-secondary">
+                  <p className="mt-1 text-sm text-text-2">
                     {detail.portalSummary.currentPhaseDetail ||
                       "We'll share more detail as the project progresses."}
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-[rgba(81,208,176,0.25)] bg-[rgba(81,208,176,0.06)] px-5 py-4">
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-[#9be4d2]/80">
+                <div className="rounded-[14px] border border-[rgba(81,208,176,0.25)] bg-[rgba(81,208,176,0.06)] px-5 py-4">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-[#9be4d2]/80">
                     Progress
                   </p>
                   <p className="mt-3 text-base font-semibold text-white">
                     {detail.portalSummary.progressLabel || "On track"}
                   </p>
-                  <p className="mt-1 text-sm text-text-secondary">
+                  <p className="mt-1 text-sm text-text-2">
                     {detail.portalSummary.progressDetail ||
                       "Updates land here as work moves through the board."}
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-4">
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-4">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-text-3">
                     Waiting on
                   </p>
                   <p className="mt-3 text-base font-semibold text-white">
                     {detail.portalSummary.waitingOnLabel || "Nothing right now"}
                   </p>
-                  <p className="mt-1 text-sm text-text-secondary">
+                  <p className="mt-1 text-sm text-text-2">
                     Last updated {formatTs(detail.portalSummary.lastUpdatedAt)}
                   </p>
                 </div>
@@ -1101,17 +1101,17 @@ export default function ClientProjectWorkspace({
                   {detail.project.deliveryWorkstreams.map((workstream) => (
                     <div
                       key={workstream.id}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-4"
+                      className="rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-4"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-medium text-white">
                           {workstream.name}
                         </p>
-                        <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                        <span className="rounded-full border border-ink-4 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-3">
                           {formatTokenLabel(workstream.status)}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         {workstream.portalSummary?.trim() ||
                           workstream.summary ||
                           "No summary yet."}
@@ -1121,17 +1121,17 @@ export default function ClientProjectWorkspace({
                 </div>
               ) : null}
               {detail.portalSummary.nextSteps.length > 0 ? (
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-4">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-4">
                   <p className="text-sm font-medium text-white">Next up</p>
                   <div className="mt-3 grid gap-3 lg:grid-cols-3">
                     {detail.portalSummary.nextSteps.map((step) => (
                       <div
                         key={`${step.title}-${step.owner}`}
-                        className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3"
+                        className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3"
                       >
                         <p className="text-sm font-medium text-white">{step.title}</p>
-                        <p className="mt-1 text-sm text-text-secondary">{step.detail}</p>
-                        <p className="mt-2 text-xs uppercase tracking-[0.16em] text-text-muted">
+                        <p className="mt-1 text-sm text-text-2">{step.detail}</p>
+                        <p className="mt-2 text-xs uppercase tracking-[0.16em] text-text-3">
                           Owner: {step.owner}
                         </p>
                       </div>
@@ -1145,11 +1145,11 @@ export default function ClientProjectWorkspace({
                     portalExperience,
                     detail.project.id
                   )}
-                  className="inline-flex items-center justify-between gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-4 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.14)]"
+                  className="inline-flex items-center justify-between gap-3 rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-4 text-sm font-medium text-white hover:border-ink-5"
                 >
                   <div>
                     <p className="font-medium text-white">Technical delivery board</p>
-                    <p className="mt-1 text-sm text-text-secondary">
+                    <p className="mt-1 text-sm text-text-2">
                       Track scoped implementation work and current progress.
                     </p>
                   </div>
@@ -1161,20 +1161,20 @@ export default function ClientProjectWorkspace({
                       portalExperience,
                       detail.project.id
                     )}
-                    className="inline-flex items-center justify-between gap-3 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)] px-5 py-4 text-sm font-medium text-white opacity-80 hover:border-[rgba(255,255,255,0.18)]"
+                    className="inline-flex items-center justify-between gap-3 rounded-[14px] border border-dashed border-ink-4 bg-ink-2 px-5 py-4 text-sm font-medium text-white opacity-80 hover:border-ink-5"
                   >
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-white">Marketing Hub delivery</p>
-                        <span className="rounded-full border border-[rgba(255,255,255,0.12)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                        <span className="rounded-full border border-ink-4 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-3">
                           Subscription
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-text-secondary">
+                      <p className="mt-1 text-sm text-text-2">
                         Partner SEO, content, and campaign execution will run here once enabled.
                       </p>
                     </div>
-                    <span className="text-text-muted">→</span>
+                    <span className="text-text-3">→</span>
                   </Link>
                 ) : null}
               </div>

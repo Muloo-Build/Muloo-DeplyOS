@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
 import { SkeletonRows } from "./LoadingSkeleton";
+import { PageHead } from "./ui/PageHead";
+import { Pill } from "./ui/Pill";
 
 type RetainerServiceLine = "TECHNICAL_DELIVERY" | "CONSULTING";
 type RetainerStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED";
@@ -867,7 +869,7 @@ export default function ProjectEditWorkspace({
     return (
       <AppShell>
         <div className="brand-page p-4 sm:p-6 xl:p-8">
-          <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-2xl" />
+          <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-[14px]" />
         </div>
       </AppShell>
     );
@@ -877,7 +879,7 @@ export default function ProjectEditWorkspace({
     return (
       <AppShell>
         <div className="brand-page p-4 sm:p-6 xl:p-8">
-          <div className="rounded-2xl border border-status-error/30 bg-status-error/10 p-8 text-white">
+          <div className="rounded-[14px] border border-status-error/30 bg-status-error/10 p-8 text-white">
             {error ?? "Project not found"}
           </div>
         </div>
@@ -887,62 +889,54 @@ export default function ProjectEditWorkspace({
 
   return (
     <AppShell>
-      <div className="brand-page p-4 sm:p-6 xl:p-8">
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
         <div className="space-y-6">
-          <section className="brand-surface rounded-3xl border p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
+          <PageHead
+            eyebrow={
+              <Link
+                href={`/projects/${project.id}`}
+                className="hover:text-text-1 transition-colors"
+              >
+                ← Project workspace
+              </Link>
+            }
+            title="Edit project"
+            lede="Update this project in place when the work changes shape. No more cloning the whole thing just to move it into the right project type."
+            actions={
+              <>
+                <Pill tone="info" dot>
+                  {formatTokenLabel(project.status)}
+                </Pill>
                 <Link
                   href={`/projects/${project.id}`}
-                  className="text-sm text-text-secondary hover:text-white"
-                >
-                  ← Back to project
-                </Link>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <h1 className="text-3xl font-semibold text-white">
-                    Edit project
-                  </h1>
-                  <span className="brand-surface-soft rounded-full border px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-white">
-                    {formatTokenLabel(project.status)}
-                  </span>
-                </div>
-                <p className="mt-3 max-w-3xl text-sm text-text-secondary">
-                  Update this project in place when the work changes shape. No
-                  more cloning the whole thing just to move Magnisol or Collaborative
-                  into the right project type.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href={`/projects/${project.id}`}
-                  className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-secondary"
+                  className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
                 >
                   Cancel
                 </Link>
-              </div>
-            </div>
-          </section>
+              </>
+            }
+          />
 
           <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
             <div className="space-y-6">
-              <section className="brand-surface rounded-3xl border p-6">
+              <section className="brand-surface rounded-[14px] border p-6">
                 <h2 className="text-xl font-semibold text-white">
                   Core details
                 </h2>
                 <div className="mt-6 grid gap-5 md:grid-cols-2">
                   <label className="block">
-                    <span className="mb-2 block text-sm text-text-secondary">
+                    <span className="mb-2 block text-sm text-text-2">
                       Project name
                     </span>
                     <input
                       value={form.name}
                       onChange={(event) => updateField("name", event.target.value)}
-                      className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                     />
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm text-text-secondary">
+                    <span className="mb-2 block text-sm text-text-2">
                       Client name
                     </span>
                     <input
@@ -950,12 +944,12 @@ export default function ProjectEditWorkspace({
                       onChange={(event) =>
                         updateField("clientName", event.target.value)
                       }
-                      className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                     />
                   </label>
 
                   <label className="block md:col-span-2">
-                    <span className="mb-2 block text-sm text-text-secondary">
+                    <span className="mb-2 block text-sm text-text-2">
                       Service family
                     </span>
                     <select
@@ -963,7 +957,7 @@ export default function ProjectEditWorkspace({
                       onChange={(event) =>
                         updateField("serviceFamily", event.target.value)
                       }
-                      className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                     >
                       {serviceFamilies.map((family) => (
                         <option key={family.id} value={family.id}>
@@ -971,7 +965,7 @@ export default function ProjectEditWorkspace({
                         </option>
                       ))}
                     </select>
-                    <p className="mt-2 text-xs text-text-muted">
+                    <p className="mt-2 text-xs text-text-3">
                       {
                         serviceFamilies.find(
                           (family) => family.id === form.serviceFamily
@@ -982,13 +976,13 @@ export default function ProjectEditWorkspace({
                 </div>
               </section>
 
-              <section className="brand-surface rounded-3xl border p-6">
+              <section className="brand-surface rounded-[14px] border p-6">
                 <h2 className="text-xl font-semibold text-white">
                   Engagement shape
                 </h2>
                 <div className="mt-6 space-y-6">
                   <div>
-                    <p className="mb-3 text-sm text-text-secondary">
+                    <p className="mb-3 text-sm text-text-2">
                       Project type
                     </p>
                     <div className="grid gap-4 md:grid-cols-2">
@@ -1011,14 +1005,14 @@ export default function ProjectEditWorkspace({
                                 : current
                             )
                           }
-                          className={`rounded-2xl border p-4 text-left transition-colors ${
+                          className={`rounded-[14px] border p-4 text-left transition-colors ${
                             form.engagementType === type.id
-                              ? "border-accent-solid bg-background-elevated"
-                              : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                              ? "border-accent-solid bg-ink-2"
+                              : "border-ink-4 bg-ink-2"
                           }`}
                         >
                           <p className="font-semibold text-white">{type.label}</p>
-                          <p className="mt-1 text-sm text-text-secondary">
+                          <p className="mt-1 text-sm text-text-2">
                             {type.description}
                           </p>
                         </button>
@@ -1027,7 +1021,7 @@ export default function ProjectEditWorkspace({
                   </div>
 
                   <div>
-                    <p className="mb-3 text-sm text-text-secondary">
+                    <p className="mb-3 text-sm text-text-2">
                       Project container
                     </p>
                     <div className="grid gap-4 md:grid-cols-3">
@@ -1049,14 +1043,14 @@ export default function ProjectEditWorkspace({
                                 : current
                             )
                           }
-                          className={`rounded-2xl border p-4 text-left transition-colors ${
+                          className={`rounded-[14px] border p-4 text-left transition-colors ${
                             form.scopeType === type.id
-                              ? "border-accent-solid bg-background-elevated"
-                              : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                              ? "border-accent-solid bg-ink-2"
+                              : "border-ink-4 bg-ink-2"
                           }`}
                         >
                           <p className="font-semibold text-white">{type.label}</p>
-                          <p className="mt-1 text-sm text-text-secondary">
+                          <p className="mt-1 text-sm text-text-2">
                             {type.description}
                           </p>
                         </button>
@@ -1064,7 +1058,7 @@ export default function ProjectEditWorkspace({
                     </div>
                   </div>
 
-                  <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-4 text-sm text-white">
+                  <label className="flex items-center gap-3 rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-4 text-sm text-white">
                     <input
                       type="checkbox"
                       checked={form.includesPortalAudit}
@@ -1077,16 +1071,16 @@ export default function ProjectEditWorkspace({
                 </div>
               </section>
 
-              <section className="brand-surface rounded-3xl border p-6">
+              <section className="brand-surface rounded-[14px] border p-6">
                 <h2 className="text-xl font-semibold text-white">
                   Linked retainer
                 </h2>
-                <p className="mt-2 text-sm text-text-secondary">
+                <p className="mt-2 text-sm text-text-2">
                   Link this project to an existing retainer for the client, or leave unlinked.
                 </p>
                 <div className="mt-6 space-y-6">
                   <label className="block">
-                    <span className="mb-2 block text-sm text-text-secondary">
+                    <span className="mb-2 block text-sm text-text-2">
                       Select retainer
                     </span>
                     <select
@@ -1098,7 +1092,7 @@ export default function ProjectEditWorkspace({
                         )
                       }
                       disabled={loadingRetainers}
-                      className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid disabled:opacity-60"
+                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid disabled:opacity-60"
                     >
                       <option value="">No retainer linked</option>
                       {retainers.map((retainer) => {
@@ -1124,10 +1118,10 @@ export default function ProjectEditWorkspace({
                       if (!selectedRetainer) return null;
 
                       return (
-                        <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-elevated p-4">
+                        <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                           <div className="grid gap-3 sm:grid-cols-2">
                             <div>
-                              <p className="text-xs text-text-muted">Service line</p>
+                              <p className="text-xs text-text-3">Service line</p>
                               <p className="mt-1 text-sm text-white">
                                 {selectedRetainer.serviceLine === "TECHNICAL_DELIVERY"
                                   ? "Technical Delivery"
@@ -1135,25 +1129,25 @@ export default function ProjectEditWorkspace({
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-text-muted">Block size</p>
+                              <p className="text-xs text-text-3">Block size</p>
                               <p className="mt-1 text-sm text-white">
                                 {selectedRetainer.blockSize}h/month
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-text-muted">Rate</p>
+                              <p className="text-xs text-text-3">Rate</p>
                               <p className="mt-1 text-sm text-white">
                                 {selectedRetainer.currency} {selectedRetainer.rate}/hr
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-text-muted">Currency</p>
+                              <p className="text-xs text-text-3">Currency</p>
                               <p className="mt-1 text-sm text-white">
                                 {selectedRetainer.currency}
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-text-muted">Start date</p>
+                              <p className="text-xs text-text-3">Start date</p>
                               <p className="mt-1 text-sm text-white">
                                 {new Date(selectedRetainer.startDate).toLocaleDateString(
                                   "en-ZA",
@@ -1167,7 +1161,7 @@ export default function ProjectEditWorkspace({
                             </div>
                             {selectedRetainer.endDate ? (
                               <div>
-                                <p className="text-xs text-text-muted">End date</p>
+                                <p className="text-xs text-text-3">End date</p>
                                 <p className="mt-1 text-sm text-white">
                                   {new Date(selectedRetainer.endDate).toLocaleDateString(
                                     "en-ZA",
@@ -1181,7 +1175,7 @@ export default function ProjectEditWorkspace({
                               </div>
                             ) : null}
                             <div>
-                              <p className="text-xs text-text-muted">Status</p>
+                              <p className="text-xs text-text-3">Status</p>
                               <p className="mt-1 text-sm text-white">
                                 {selectedRetainer.status}
                               </p>
@@ -1203,14 +1197,14 @@ export default function ProjectEditWorkspace({
                 </div>
               </section>
 
-              <section className="brand-surface rounded-3xl border p-6">
+              <section className="brand-surface rounded-[14px] border p-6">
                 <h2 className="text-xl font-semibold text-white">
                   Delivery settings
                 </h2>
                 <div className="mt-6 grid gap-6 lg:grid-cols-[0.42fr_0.58fr]">
                   <div className="space-y-5">
                     <div>
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         Delivery approach
                       </span>
                       <div className="grid gap-3">
@@ -1221,16 +1215,16 @@ export default function ProjectEditWorkspace({
                             onClick={() =>
                               updateField("implementationApproach", option.value)
                             }
-                            className={`rounded-2xl border p-4 text-left transition-colors ${
+                            className={`rounded-[14px] border p-4 text-left transition-colors ${
                               form.implementationApproach === option.value
-                                ? "border-accent-solid bg-background-elevated"
-                                : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                                ? "border-accent-solid bg-ink-2"
+                                : "border-ink-4 bg-ink-2"
                             }`}
                           >
                             <p className="font-semibold text-white">
                               {option.label}
                             </p>
-                            <p className="mt-1 text-sm text-text-secondary">
+                            <p className="mt-1 text-sm text-text-2">
                               {option.description}
                             </p>
                           </button>
@@ -1239,7 +1233,7 @@ export default function ProjectEditWorkspace({
                     </div>
 
                     <label className="block">
-                      <span className="mb-2 block text-sm text-text-secondary">
+                      <span className="mb-2 block text-sm text-text-2">
                         Overall HubSpot plan tier
                       </span>
                       <select
@@ -1247,7 +1241,7 @@ export default function ProjectEditWorkspace({
                         onChange={(event) =>
                           updateField("customerPlatformTier", event.target.value)
                         }
-                        className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                        className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                       >
                         {customerPlatformTierOptions.map((option) => (
                           <option key={option.value || "blank"} value={option.value}>
@@ -1259,15 +1253,15 @@ export default function ProjectEditWorkspace({
                   </div>
 
                   <div>
-                    <div className="mb-2 flex items-center gap-2 text-sm text-text-secondary">
+                    <div className="mb-2 flex items-center gap-2 text-sm text-text-2">
                       <span>Hubs in scope</span>
                     </div>
-                    <p className="mb-3 text-sm text-text-muted">
+                    <p className="mb-3 text-sm text-text-3">
                       {form.scopeType === "standalone_quote"
                         ? "Optional for standalone quotes."
                         : "Pick the hubs this project actually covers now."}
                     </p>
-                    <p className="mb-3 text-xs uppercase tracking-[0.18em] text-text-muted">
+                    <p className="mb-3 text-xs uppercase tracking-[0.14em] text-text-3">
                       Core hubs
                     </p>
                     <div className="grid gap-3 md:grid-cols-2">
@@ -1276,17 +1270,17 @@ export default function ProjectEditWorkspace({
                           key={hub.id}
                           type="button"
                           onClick={() => toggleHub(hub.id)}
-                          className={`rounded-2xl border p-4 text-left transition-colors ${
+                          className={`rounded-[14px] border p-4 text-left transition-colors ${
                             form.selectedHubs.includes(hub.id)
-                              ? "border-accent-solid bg-background-elevated"
-                              : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                              ? "border-accent-solid bg-ink-2"
+                              : "border-ink-4 bg-ink-2"
                           }`}
                         >
                           <p className="font-semibold text-white">{hub.label}</p>
                         </button>
                       ))}
                     </div>
-                    <p className="mb-3 mt-5 text-xs uppercase tracking-[0.18em] text-text-muted">
+                    <p className="mb-3 mt-5 text-xs uppercase tracking-[0.14em] text-text-3">
                       Add-ons in scope
                     </p>
                     <div className="grid gap-3 md:grid-cols-3">
@@ -1295,10 +1289,10 @@ export default function ProjectEditWorkspace({
                           key={hub.id}
                           type="button"
                           onClick={() => toggleHub(hub.id)}
-                          className={`rounded-2xl border p-4 text-left transition-colors ${
+                          className={`rounded-[14px] border p-4 text-left transition-colors ${
                             form.selectedHubs.includes(hub.id)
-                              ? "border-accent-solid bg-background-elevated"
-                              : "border-[rgba(255,255,255,0.08)] bg-[#0b1126]"
+                              ? "border-accent-solid bg-ink-2"
+                              : "border-ink-4 bg-ink-2"
                           }`}
                         >
                           <p className="font-semibold text-white">{hub.label}</p>
@@ -1309,19 +1303,19 @@ export default function ProjectEditWorkspace({
                 </div>
 
                 {form.platformConfiguration.length > 0 ? (
-                  <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5">
+                  <div className="mt-6 rounded-[14px] border border-ink-4 bg-ink-2 p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="text-sm font-medium text-white">
                           Hub package detail
                         </p>
-                        <p className="mt-1 text-sm text-text-secondary">
+                        <p className="mt-1 text-sm text-text-2">
                           Set the actual package per product. This is where a
                           build like Magnisol can mix Content Pro, Marketing
                           Starter, and Sales Pro with license counts.
                         </p>
                       </div>
-                      <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                      <span className="rounded-full border border-ink-4 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-text-3">
                         Operator only
                       </span>
                     </div>
@@ -1329,11 +1323,11 @@ export default function ProjectEditWorkspace({
                       {form.platformConfiguration.map((item) => (
                         <div
                           key={item.productKey}
-                          className="grid gap-4 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-elevated p-4 lg:grid-cols-[minmax(0,1.1fr)_repeat(3,minmax(0,0.6fr))]"
+                          className="grid gap-4 rounded-[14px] border border-ink-4 bg-ink-2 p-4 lg:grid-cols-[minmax(0,1.1fr)_repeat(3,minmax(0,0.6fr))]"
                         >
                           <div>
                             <p className="font-medium text-white">{item.label}</p>
-                            <p className="mt-1 text-xs text-text-muted">
+                            <p className="mt-1 text-xs text-text-3">
                               {formatTokenLabel(item.productKey)}
                             </p>
                             <textarea
@@ -1346,11 +1340,11 @@ export default function ProjectEditWorkspace({
                                 )
                               }
                               placeholder="Notes, constraints, or packaging context"
-                              className="mt-3 min-h-[90px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2.5 text-sm text-white outline-none"
+                              className="mt-3 min-h-[90px] w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2.5 text-sm text-white outline-none"
                             />
                           </div>
                           <label className="block">
-                            <span className="mb-2 block text-sm text-text-secondary">
+                            <span className="mb-2 block text-sm text-text-2">
                               Tier
                             </span>
                             <select
@@ -1362,7 +1356,7 @@ export default function ProjectEditWorkspace({
                                   event.target.value
                                 )
                               }
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2.5 text-white outline-none"
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2.5 text-white outline-none"
                             >
                               {hubTierOptions.map((option) => (
                                 <option
@@ -1375,7 +1369,7 @@ export default function ProjectEditWorkspace({
                             </select>
                           </label>
                           <label className="block">
-                            <span className="mb-2 block text-sm text-text-secondary">
+                            <span className="mb-2 block text-sm text-text-2">
                               Quantity
                             </span>
                             <input
@@ -1388,11 +1382,11 @@ export default function ProjectEditWorkspace({
                                 )
                               }
                               placeholder="1"
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2.5 text-white outline-none"
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2.5 text-white outline-none"
                             />
                           </label>
                           <label className="block">
-                            <span className="mb-2 block text-sm text-text-secondary">
+                            <span className="mb-2 block text-sm text-text-2">
                               Unit label
                             </span>
                             <input
@@ -1405,7 +1399,7 @@ export default function ProjectEditWorkspace({
                                 )
                               }
                               placeholder="licenses"
-                              className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2.5 text-white outline-none"
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2.5 text-white outline-none"
                             />
                           </label>
                         </div>
@@ -1415,13 +1409,13 @@ export default function ProjectEditWorkspace({
                 ) : null}
               </section>
 
-              <section className="brand-surface rounded-3xl border p-6">
+              <section className="brand-surface rounded-[14px] border p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-semibold text-white">
                       Delivery workstreams
                     </h2>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       Model one project as multiple overlapping streams so
                       discovery, website, and HubSpot implementation can stay
                       together without flattening the delivery shape.
@@ -1430,14 +1424,14 @@ export default function ProjectEditWorkspace({
                   <button
                     type="button"
                     onClick={addWorkstream}
-                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-2 text-sm font-medium text-white"
+                    className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-2 text-sm font-medium text-white"
                   >
                     Add workstream
                   </button>
                 </div>
                 <div className="mt-6 space-y-4">
                   {form.deliveryWorkstreams.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[#0b1126] p-5 text-sm text-text-secondary">
+                    <div className="rounded-[14px] border border-dashed border-ink-4 bg-ink-2 p-5 text-sm text-text-2">
                       No workstreams yet. For Magnisol you’d typically break
                       this into Discovery, Website, and HubSpot implementation.
                     </div>
@@ -1445,12 +1439,12 @@ export default function ProjectEditWorkspace({
                     form.deliveryWorkstreams.map((workstream) => (
                       <div
                         key={workstream.id}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5"
+                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-5"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="grid flex-1 gap-4 lg:grid-cols-2">
                             <label className="block">
-                              <span className="mb-2 block text-sm text-text-secondary">
+                              <span className="mb-2 block text-sm text-text-2">
                                 Workstream name
                               </span>
                               <input
@@ -1463,11 +1457,11 @@ export default function ProjectEditWorkspace({
                                   )
                                 }
                                 placeholder="Discovery"
-                                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                               />
                             </label>
                             <label className="block">
-                              <span className="mb-2 block text-sm text-text-secondary">
+                              <span className="mb-2 block text-sm text-text-2">
                                 Category
                               </span>
                               <select
@@ -1479,7 +1473,7 @@ export default function ProjectEditWorkspace({
                                     event.target.value
                                   )
                                 }
-                                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                               >
                                 {workstreamCategoryOptions.map((option) => (
                                   <option key={option.value} value={option.value}>
@@ -1489,7 +1483,7 @@ export default function ProjectEditWorkspace({
                               </select>
                             </label>
                             <label className="block">
-                              <span className="mb-2 block text-sm text-text-secondary">
+                              <span className="mb-2 block text-sm text-text-2">
                                 Status
                               </span>
                               <select
@@ -1501,7 +1495,7 @@ export default function ProjectEditWorkspace({
                                     event.target.value
                                   )
                                 }
-                                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                               >
                                 {workstreamStatusOptions.map((option) => (
                                   <option key={option.value} value={option.value}>
@@ -1511,7 +1505,7 @@ export default function ProjectEditWorkspace({
                               </select>
                             </label>
                             <label className="block">
-                              <span className="mb-2 block text-sm text-text-secondary">
+                              <span className="mb-2 block text-sm text-text-2">
                                 Delivery owner
                               </span>
                               <select
@@ -1523,7 +1517,7 @@ export default function ProjectEditWorkspace({
                                     event.target.value
                                   )
                                 }
-                                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                               >
                                 {workstreamOwnerOptions.map((option) => (
                                   <option key={option.value} value={option.value}>
@@ -1536,14 +1530,14 @@ export default function ProjectEditWorkspace({
                           <button
                             type="button"
                             onClick={() => removeWorkstream(workstream.id)}
-                            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-text-secondary hover:text-white"
+                            className="rounded-xl border border-ink-4 px-3 py-2 text-sm text-text-2 hover:text-white"
                           >
                             Remove
                           </button>
                         </div>
                         <div className="mt-4 grid gap-4 lg:grid-cols-2">
                           <label className="block">
-                            <span className="mb-2 block text-sm text-text-secondary">
+                            <span className="mb-2 block text-sm text-text-2">
                               Internal summary
                             </span>
                             <textarea
@@ -1556,11 +1550,11 @@ export default function ProjectEditWorkspace({
                                 )
                               }
                               placeholder="What this stream covers internally"
-                              className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                              className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                             />
                           </label>
                           <label className="block">
-                            <span className="mb-2 block text-sm text-text-secondary">
+                            <span className="mb-2 block text-sm text-text-2">
                               Portal summary
                             </span>
                             <textarea
@@ -1573,7 +1567,7 @@ export default function ProjectEditWorkspace({
                                 )
                               }
                               placeholder="What client and partner portal users should see"
-                              className="min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                              className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                             />
                           </label>
                         </div>
@@ -1583,18 +1577,18 @@ export default function ProjectEditWorkspace({
                 </div>
               </section>
 
-              <section className="brand-surface rounded-3xl border p-6">
+              <section className="brand-surface rounded-[14px] border p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-xl font-semibold text-white">
                         Internal commercials
                       </h2>
-                      <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                      <span className="rounded-full border border-ink-4 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-text-3">
                         Internal only
                       </span>
                     </div>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       Track Muloo base numbers and partner-marked-up numbers here.
                       These figures stay on the operator side and never show in
                       the client or partner portals.
@@ -1603,7 +1597,7 @@ export default function ProjectEditWorkspace({
                   <button
                     type="button"
                     onClick={addCommercialLine}
-                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-2 text-sm font-medium text-white"
+                    className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-2 text-sm font-medium text-white"
                   >
                     Add commercial line
                   </button>
@@ -1611,7 +1605,7 @@ export default function ProjectEditWorkspace({
 
                 <div className="mt-6 grid gap-4 lg:grid-cols-3">
                   <label className="block">
-                    <span className="mb-2 block text-sm text-text-secondary">
+                    <span className="mb-2 block text-sm text-text-2">
                       Billing route
                     </span>
                     <select
@@ -1619,7 +1613,7 @@ export default function ProjectEditWorkspace({
                       onChange={(event) =>
                         updateCommercialsField("billingRoute", event.target.value)
                       }
-                      className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                     >
                       {billingRouteOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -1629,7 +1623,7 @@ export default function ProjectEditWorkspace({
                     </select>
                   </label>
                   <label className="block">
-                    <span className="mb-2 block text-sm text-text-secondary">
+                    <span className="mb-2 block text-sm text-text-2">
                       Partner name
                     </span>
                     <input
@@ -1638,11 +1632,11 @@ export default function ProjectEditWorkspace({
                         updateCommercialsField("partnerName", event.target.value)
                       }
                       placeholder="Tusk"
-                      className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                     />
                   </label>
                   <label className="block">
-                    <span className="mb-2 block text-sm text-text-secondary">
+                    <span className="mb-2 block text-sm text-text-2">
                       Notes
                     </span>
                     <input
@@ -1651,14 +1645,14 @@ export default function ProjectEditWorkspace({
                         updateCommercialsField("notes", event.target.value)
                       }
                       placeholder="Markup handled through partner"
-                      className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                     />
                   </label>
                 </div>
 
                 <div className="mt-6 space-y-4">
                   {form.internalCommercials.lines.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[#0b1126] p-5 text-sm text-text-secondary">
+                    <div className="rounded-[14px] border border-dashed border-ink-4 bg-ink-2 p-5 text-sm text-text-2">
                       No commercial lines yet. Add the streams you want to track,
                       like Discovery fixed fee, Website build, HubSpot rollout,
                       pass-through theme cost, or partner markup lines.
@@ -1667,12 +1661,12 @@ export default function ProjectEditWorkspace({
                     form.internalCommercials.lines.map((line) => (
                       <div
                         key={line.id}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5"
+                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-5"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="grid flex-1 gap-4 lg:grid-cols-3">
                             <label className="block lg:col-span-2">
-                              <span className="mb-2 block text-sm text-text-secondary">
+                              <span className="mb-2 block text-sm text-text-2">
                                 Line item
                               </span>
                               <input
@@ -1685,11 +1679,11 @@ export default function ProjectEditWorkspace({
                                   )
                                 }
                                 placeholder="HubSpot rollout"
-                                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                               />
                             </label>
                             <label className="block">
-                              <span className="mb-2 block text-sm text-text-secondary">
+                              <span className="mb-2 block text-sm text-text-2">
                                 Workstream
                               </span>
                               <select
@@ -1701,7 +1695,7 @@ export default function ProjectEditWorkspace({
                                     event.target.value
                                   )
                                 }
-                                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                               >
                                 <option value="">Unlinked</option>
                                 {form.deliveryWorkstreams.map((workstream) => (
@@ -1715,7 +1709,7 @@ export default function ProjectEditWorkspace({
                               </select>
                             </label>
                             <label className="block">
-                              <span className="mb-2 block text-sm text-text-secondary">
+                              <span className="mb-2 block text-sm text-text-2">
                                 Pricing model
                               </span>
                               <select
@@ -1727,7 +1721,7 @@ export default function ProjectEditWorkspace({
                                     event.target.value
                                   )
                                 }
-                                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                               >
                                 {commercialPricingModelOptions.map((option) => (
                                   <option key={option.value} value={option.value}>
@@ -1737,7 +1731,7 @@ export default function ProjectEditWorkspace({
                               </select>
                             </label>
                             <label className="block">
-                              <span className="mb-2 block text-sm text-text-secondary">
+                              <span className="mb-2 block text-sm text-text-2">
                                 Currency
                               </span>
                               <input
@@ -1749,11 +1743,11 @@ export default function ProjectEditWorkspace({
                                     event.target.value.toUpperCase()
                                   )
                                 }
-                                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                               />
                             </label>
                             <label className="block">
-                              <span className="mb-2 block text-sm text-text-secondary">
+                              <span className="mb-2 block text-sm text-text-2">
                                 Muloo base
                               </span>
                               <input
@@ -1766,11 +1760,11 @@ export default function ProjectEditWorkspace({
                                   )
                                 }
                                 placeholder="12000"
-                                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                               />
                             </label>
                             <label className="block">
-                              <span className="mb-2 block text-sm text-text-secondary">
+                              <span className="mb-2 block text-sm text-text-2">
                                 Partner sell / markup
                               </span>
                               <input
@@ -1783,11 +1777,11 @@ export default function ProjectEditWorkspace({
                                   )
                                 }
                                 placeholder="15000"
-                                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                               />
                             </label>
                             <label className="block">
-                              <span className="mb-2 block text-sm text-text-secondary">
+                              <span className="mb-2 block text-sm text-text-2">
                                 Billing owner
                               </span>
                               <select
@@ -1799,7 +1793,7 @@ export default function ProjectEditWorkspace({
                                     event.target.value
                                   )
                                 }
-                                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                               >
                                 {commercialOwnerOptions.map((option) => (
                                   <option key={option.value} value={option.value}>
@@ -1812,13 +1806,13 @@ export default function ProjectEditWorkspace({
                           <button
                             type="button"
                             onClick={() => removeCommercialLine(line.id)}
-                            className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-text-secondary hover:text-white"
+                            className="rounded-xl border border-ink-4 px-3 py-2 text-sm text-text-2 hover:text-white"
                           >
                             Remove
                           </button>
                         </div>
                         <label className="mt-4 block">
-                          <span className="mb-2 block text-sm text-text-secondary">
+                          <span className="mb-2 block text-sm text-text-2">
                             Notes
                           </span>
                           <textarea
@@ -1831,7 +1825,7 @@ export default function ProjectEditWorkspace({
                               )
                             }
                             placeholder="Internal-only context for billing, pass-throughs, or partner handling"
-                            className="min-h-[100px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-elevated px-4 py-3 text-white outline-none"
+                            className="min-h-[100px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                           />
                         </label>
                       </div>
@@ -1842,11 +1836,11 @@ export default function ProjectEditWorkspace({
             </div>
 
             <aside className="space-y-6">
-              <section className="brand-surface rounded-3xl border p-6">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              <section className="brand-surface rounded-[14px] border p-6">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   Current shape
                 </p>
-                <div className="mt-4 space-y-3 text-sm text-text-secondary">
+                <div className="mt-4 space-y-3 text-sm text-text-2">
                   <p>
                     <span className="font-medium text-white">Type:</span>{" "}
                     {formatTokenLabel(project.engagementType)}
@@ -1868,26 +1862,26 @@ export default function ProjectEditWorkspace({
                 </div>
               </section>
 
-              <section className="brand-surface rounded-3xl border p-6">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              <section className="brand-surface rounded-[14px] border p-6">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   Save changes
                 </p>
-                <p className="mt-3 text-sm text-text-secondary">
+                <p className="mt-3 text-sm text-text-2">
                   This updates the existing project record in place.
                 </p>
                 {project.scopeLockedAt ? (
-                  <div className="mt-4 rounded-2xl border border-[rgba(255,211,139,0.25)] bg-[rgba(255,211,139,0.08)] px-4 py-3 text-sm text-[#ffd38b]">
+                  <div className="mt-4 rounded-[14px] border border-[rgba(255,211,139,0.25)] bg-[rgba(255,211,139,0.08)] px-4 py-3 text-sm text-[#ffd38b]">
                     This project has a locked approved scope. If the save is blocked,
                     switch to change management for formal revisions.
                   </div>
                 ) : null}
                 {validationError ? (
-                  <div className="mt-4 rounded-2xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-white">
+                  <div className="mt-4 rounded-[14px] border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-white">
                     {validationError}
                   </div>
                 ) : null}
                 {error ? (
-                  <div className="mt-4 rounded-2xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-white">
+                  <div className="mt-4 rounded-[14px] border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-white">
                     {error}
                   </div>
                 ) : null}
@@ -1901,7 +1895,7 @@ export default function ProjectEditWorkspace({
                   </button>
                   <Link
                     href={`/projects/${project.id}`}
-                    className="brand-input rounded-xl px-4 py-3 text-center text-sm font-medium text-text-secondary"
+                    className="brand-input rounded-xl px-4 py-3 text-center text-sm font-medium text-text-2"
                   >
                     Back without saving
                   </Link>

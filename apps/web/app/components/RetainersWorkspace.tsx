@@ -253,21 +253,21 @@ export default function RetainersWorkspace() {
         />
 
         {error ? (
-          <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <div className="rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             {error}
           </div>
         ) : null}
         {feedback ? (
-          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          <div className="rounded-[14px] border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
             {feedback}
           </div>
         ) : null}
 
         <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-          <div className="rounded-2xl border border-white/10 bg-background-card p-5">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   Existing retainers
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-white">
@@ -292,7 +292,7 @@ export default function RetainersWorkspace() {
                   <Link
                     key={retainer.id}
                     href={`/retainers/${retainer.id}`}
-                    className="block rounded-2xl border border-white/8 bg-white/[0.03] p-4 transition hover:border-white/15 hover:bg-white/[0.05]"
+                    className="block rounded-[14px] border border-white/8 bg-white/[0.03] p-4 transition hover:border-white/15 hover:bg-white/[0.05]"
                   >
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div>
@@ -300,20 +300,20 @@ export default function RetainersWorkspace() {
                           <p className="text-base font-semibold text-white">
                             {retainer.client?.name ?? "Unknown client"}
                           </p>
-                          <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                          <span className="rounded-full border border-ink-4 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-3">
                             {retainer.status}
                           </span>
                         </div>
-                        <p className="mt-2 text-sm text-text-secondary">
+                        <p className="mt-2 text-sm text-text-2">
                           {formatServiceLine(retainer.serviceLine)} · {retainer.blockSize}h/month ·{" "}
                           {formatMoney(retainer.rate, retainer.currency)}
                         </p>
-                        <p className="mt-1 text-sm text-text-secondary">
+                        <p className="mt-1 text-sm text-text-2">
                           Bill to {retainer.billToEntity?.name ?? "Unknown bill-to"}
                         </p>
                       </div>
 
-                      <div className="text-sm text-text-secondary md:text-right">
+                      <div className="text-sm text-text-2 md:text-right">
                         <p>
                           Start {formatDate(retainer.startDate)}
                         </p>
@@ -333,7 +333,7 @@ export default function RetainersWorkspace() {
 
               {!loading && visibleRetainers.length === 0 ? (
                 <EmptyState
-                  className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/12 p-5 text-center"
+                  className="flex flex-col items-center justify-center rounded-[14px] border border-dashed border-white/12 p-5 text-center"
                   title="No retainers match this filter"
                   description="Try a different status or service-line filter, or create a new retainer below."
                 />
@@ -343,9 +343,9 @@ export default function RetainersWorkspace() {
 
           <form
             onSubmit={handleCreateRetainer}
-            className="rounded-2xl border border-white/10 bg-background-card p-5"
+            className="rounded-[14px] border border-ink-4 bg-ink-1 p-5"
           >
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               New retainer
             </p>
             <h2 className="mt-2 text-xl font-semibold text-white">
@@ -353,14 +353,14 @@ export default function RetainersWorkspace() {
             </h2>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Client
                 <select
                   value={form.clientId}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, clientId: event.target.value }))
                   }
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   required
                 >
                   <option value="">Select a client</option>
@@ -372,7 +372,7 @@ export default function RetainersWorkspace() {
                 </select>
               </label>
 
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Bill to
                 <select
                   value={form.billToMode === "agency" ? form.agencyId : form.billToMode}
@@ -402,7 +402,7 @@ export default function RetainersWorkspace() {
                       agencyId: value
                     }));
                   }}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                 >
                   <option value="client">Selected client (direct)</option>
                   {agencies.map((agency) => (
@@ -414,7 +414,7 @@ export default function RetainersWorkspace() {
                 </select>
               </label>
 
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Service line
                 <select
                   value={form.serviceLine}
@@ -424,7 +424,7 @@ export default function RetainersWorkspace() {
                       serviceLine: event.target.value as RetainerServiceLine
                     }))
                   }
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                 >
                   {serviceLineOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -434,7 +434,7 @@ export default function RetainersWorkspace() {
                 </select>
               </label>
 
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Block size
                 <input
                   type="number"
@@ -447,12 +447,12 @@ export default function RetainersWorkspace() {
                       blockSize: Number(event.target.value)
                     }))
                   }
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   required
                 />
               </label>
 
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Currency
                 <select
                   value={form.currency}
@@ -462,7 +462,7 @@ export default function RetainersWorkspace() {
                       currency: event.target.value as RetainerCurrency
                     }))
                   }
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                 >
                   {currencyOptions.map((currency) => (
                     <option key={currency} value={currency}>
@@ -472,7 +472,7 @@ export default function RetainersWorkspace() {
                 </select>
               </label>
 
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Start date
                 <input
                   type="date"
@@ -480,12 +480,12 @@ export default function RetainersWorkspace() {
                   onChange={(event) =>
                     setForm((current) => ({ ...current, startDate: event.target.value }))
                   }
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   required
                 />
               </label>
 
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Status
                 <select
                   value={form.status}
@@ -495,7 +495,7 @@ export default function RetainersWorkspace() {
                       status: event.target.value as RetainerStatus
                     }))
                   }
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                 >
                   {statusOptions.map((status) => (
                     <option key={status} value={status}>
@@ -506,10 +506,10 @@ export default function RetainersWorkspace() {
               </label>
             </div>
 
-            <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <section className="mt-6 rounded-[14px] border border-ink-4 bg-white/[0.03] p-4">
               <p className="mb-4 text-sm font-medium text-white">Scope & Terms</p>
               
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Scope summary
                 <textarea
                   value={form.scopeSummary}
@@ -520,13 +520,13 @@ export default function RetainersWorkspace() {
                     }))
                   }
                   placeholder="High-level overview of what will be delivered..."
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white placeholder-text-muted"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white placeholder-text-muted"
                   rows={3}
                 />
               </label>
 
               <div className="mt-4">
-                <p className="mb-2 text-sm text-text-secondary">Deliverables</p>
+                <p className="mb-2 text-sm text-text-2">Deliverables</p>
                 <div className="space-y-3">
                   {form.deliverables.map((deliverable, idx) => (
                     <div key={idx} className="flex gap-2">
@@ -542,7 +542,7 @@ export default function RetainersWorkspace() {
                           }));
                         }}
                         placeholder="Deliverable title (required)"
-                        className="flex-1 rounded-xl border border-white/10 bg-background-primary px-3 py-2 text-white placeholder-text-muted text-sm"
+                        className="flex-1 rounded-xl border border-ink-4 bg-ink-0 px-3 py-2 text-white placeholder-text-muted text-sm"
                       />
                       <button
                         type="button"
@@ -573,7 +573,7 @@ export default function RetainersWorkspace() {
                 </button>
               </div>
 
-              <label className="mt-4 text-sm text-text-secondary">
+              <label className="mt-4 text-sm text-text-2">
                 Requirements
                 <textarea
                   value={form.requirements}
@@ -584,12 +584,12 @@ export default function RetainersWorkspace() {
                     }))
                   }
                   placeholder="Specific requirements or constraints..."
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white placeholder-text-muted"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white placeholder-text-muted"
                   rows={3}
                 />
               </label>
 
-              <label className="mt-4 text-sm text-text-secondary">
+              <label className="mt-4 text-sm text-text-2">
                 Approval terms
                 <textarea
                   value={form.approvalTerms}
@@ -600,17 +600,17 @@ export default function RetainersWorkspace() {
                     }))
                   }
                   placeholder="Terms for approval and sign-off..."
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white placeholder-text-muted"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white placeholder-text-muted"
                   rows={3}
                 />
               </label>
             </section>
 
             {form.billToMode === "new-agency" ? (
-              <div className="mt-4 grid gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="mt-4 grid gap-4 rounded-[14px] border border-ink-4 bg-white/[0.03] p-4">
                 <p className="text-sm font-medium text-white">New partner agency</p>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="text-sm text-text-secondary">
+                  <label className="text-sm text-text-2">
                     Agency name
                     <input
                       type="text"
@@ -621,11 +621,11 @@ export default function RetainersWorkspace() {
                           agencyName: event.target.value
                         }))
                       }
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                      className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                       required
                     />
                   </label>
-                  <label className="text-sm text-text-secondary">
+                  <label className="text-sm text-text-2">
                     VAT number
                     <input
                       type="text"
@@ -636,10 +636,10 @@ export default function RetainersWorkspace() {
                           agencyVatNumber: event.target.value
                         }))
                       }
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                      className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                     />
                   </label>
-                  <label className="text-sm text-text-secondary sm:col-span-2">
+                  <label className="text-sm text-text-2 sm:col-span-2">
                     Address
                     <input
                       type="text"
@@ -650,10 +650,10 @@ export default function RetainersWorkspace() {
                           agencyAddress: event.target.value
                         }))
                       }
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                      className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                     />
                   </label>
-                  <label className="text-sm text-text-secondary">
+                  <label className="text-sm text-text-2">
                     Primary contact email
                     <input
                       type="email"
@@ -664,10 +664,10 @@ export default function RetainersWorkspace() {
                           agencyPrimaryContactEmail: event.target.value
                         }))
                       }
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                      className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                     />
                   </label>
-                  <label className="text-sm text-text-secondary">
+                  <label className="text-sm text-text-2">
                     Primary contact name
                     <input
                       type="text"
@@ -678,7 +678,7 @@ export default function RetainersWorkspace() {
                           agencyPrimaryContactName: event.target.value
                         }))
                       }
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                      className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                     />
                   </label>
                 </div>

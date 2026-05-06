@@ -87,7 +87,7 @@ export default function ProjectReadinessSummary(props: ReadinessProps) {
   }, [props.projectId]);
 
   if (loading) {
-    return <p className="text-sm text-text-secondary">Loading readiness…</p>;
+    return <p className="text-sm text-text-2">Loading readiness…</p>;
   }
 
   const completedWorkbooks = workbooks.filter(
@@ -180,26 +180,26 @@ export default function ProjectReadinessSummary(props: ReadinessProps) {
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className="brand-surface-soft rounded-2xl border p-3"
+            className="brand-surface-soft rounded-[14px] border p-3"
           >
-            <p className="text-xs uppercase tracking-wide text-text-secondary">
+            <p className="text-xs uppercase tracking-wide text-text-2">
               {stat.label}
             </p>
             <p className="mt-1 text-2xl font-semibold text-white">{stat.value}</p>
             {stat.detail ? (
-              <p className="text-[11px] text-text-secondary">{stat.detail}</p>
+              <p className="text-[11px] text-text-2">{stat.detail}</p>
             ) : null}
           </div>
         ))}
       </div>
 
       {ownership.some((o) => o.value) ? (
-        <div className="brand-surface-soft flex flex-wrap gap-3 rounded-2xl border p-3 text-xs">
+        <div className="brand-surface-soft flex flex-wrap gap-3 rounded-[14px] border p-3 text-xs">
           {ownership
             .filter((o) => o.value)
             .map((o) => (
               <span key={o.label}>
-                <span className="text-text-secondary">{o.label}:</span>{" "}
+                <span className="text-text-2">{o.label}:</span>{" "}
                 <span className="text-white">{o.value}</span>
               </span>
             ))}
@@ -207,7 +207,7 @@ export default function ProjectReadinessSummary(props: ReadinessProps) {
       ) : null}
 
       {overCapWorkstreams.length > 0 || atRiskWorkstreams.length > 0 ? (
-        <div className="space-y-1 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-3">
+        <div className="space-y-1 rounded-[14px] border border-rose-500/40 bg-rose-500/10 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-rose-300">
             Scope risk
           </p>

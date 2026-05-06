@@ -103,7 +103,7 @@ export default function AddMeetingNoteModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4">
-      <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-background-card p-6 shadow-xl">
+      <div className="w-full max-w-2xl rounded-[14px] border border-ink-4 bg-ink-1 p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white">
             Add latest meeting
@@ -111,19 +111,19 @@ export default function AddMeetingNoteModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-text-secondary hover:bg-white/5 hover:text-white"
+            className="rounded-md p-1 text-text-2 hover:bg-white/5 hover:text-white"
           >
             <X size={18} />
           </button>
         </div>
-        <p className="mb-4 text-xs text-text-secondary">
+        <p className="mb-4 text-xs text-text-2">
           Capture meeting notes against this project. You'll be able to convert
           them into tasks, workbook questions, and follow-ups from the Meetings
           tab.
         </p>
         <form onSubmit={handleSubmit} className="space-y-3">
           <label className="block text-xs">
-            <span className="mb-1 block font-medium text-text-secondary">
+            <span className="mb-1 block font-medium text-text-2">
               Meeting title *
             </span>
             <input
@@ -137,7 +137,7 @@ export default function AddMeetingNoteModal({
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-xs">
-              <span className="mb-1 block font-medium text-text-secondary">
+              <span className="mb-1 block font-medium text-text-2">
                 Date
               </span>
               <input
@@ -148,7 +148,7 @@ export default function AddMeetingNoteModal({
               />
             </label>
             <label className="block text-xs">
-              <span className="mb-1 block font-medium text-text-secondary">
+              <span className="mb-1 block font-medium text-text-2">
                 Attendees (comma or newline separated)
               </span>
               <input
@@ -161,7 +161,7 @@ export default function AddMeetingNoteModal({
             </label>
           </div>
           <label className="block text-xs">
-            <span className="mb-1 block font-medium text-text-secondary">
+            <span className="mb-1 block font-medium text-text-2">
               Notes
             </span>
             <textarea
@@ -173,7 +173,7 @@ export default function AddMeetingNoteModal({
             />
           </label>
           <label className="block text-xs">
-            <span className="mb-1 block font-medium text-text-secondary">
+            <span className="mb-1 block font-medium text-text-2">
               Transcript (optional)
             </span>
             <textarea
@@ -185,7 +185,7 @@ export default function AddMeetingNoteModal({
             />
           </label>
           <label className="block text-xs">
-            <span className="mb-1 block font-medium text-text-secondary">
+            <span className="mb-1 block font-medium text-text-2">
               Links mentioned (one per line or comma-separated)
             </span>
             <textarea
@@ -198,7 +198,7 @@ export default function AddMeetingNoteModal({
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-xs">
-              <span className="mb-1 block font-medium text-text-secondary">
+              <span className="mb-1 block font-medium text-text-2">
                 Related workstream (optional)
               </span>
               <select
@@ -215,7 +215,7 @@ export default function AddMeetingNoteModal({
               </select>
             </label>
             <label className="block text-xs">
-              <span className="mb-1 block font-medium text-text-secondary">
+              <span className="mb-1 block font-medium text-text-2">
                 Related workbook (optional)
               </span>
               <select
@@ -241,7 +241,7 @@ export default function AddMeetingNoteModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-white/10 px-3 py-2 text-sm text-text-secondary hover:bg-white/5"
+              className="rounded-lg border border-ink-4 px-3 py-2 text-sm text-text-2 hover:bg-white/5"
             >
               Cancel
             </button>

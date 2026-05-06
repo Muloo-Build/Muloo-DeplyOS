@@ -78,15 +78,15 @@ const REVIEW_BADGE: Record<string, { label: string; className: string }> = {
   },
   answered: {
     label: "Answered",
-    className: "border-white/10 bg-white/5 text-text-secondary"
+    className: "border-ink-4 bg-white/5 text-text-2"
   },
   unanswered: {
     label: "Unanswered",
-    className: "border-white/10 bg-white/[0.02] text-text-secondary"
+    className: "border-ink-4 bg-white/[0.02] text-text-2"
   },
   not_applicable: {
     label: "N/A",
-    className: "border-white/10 bg-white/[0.02] text-text-secondary"
+    className: "border-ink-4 bg-white/[0.02] text-text-2"
   }
 };
 
@@ -103,7 +103,7 @@ function ContributorChips(props: {
   // here directly.
   if (props.contributors.length === 0) {
     return (
-      <p className="text-[10px] text-text-secondary">
+      <p className="text-[10px] text-text-2">
         Add project contributors first to control assignment.
       </p>
     );
@@ -128,7 +128,7 @@ function ContributorChips(props: {
             className={`rounded-full border px-2 py-0.5 text-[10px] transition ${
               active
                 ? "border-brand-teal/50 bg-brand-teal/10 text-brand-teal"
-                : "border-white/10 text-text-secondary hover:border-white/30 hover:text-white"
+                : "border-ink-4 text-text-2 hover:border-ink-5 hover:text-white"
             }`}
           >
             {contributor.label}
@@ -136,7 +136,7 @@ function ContributorChips(props: {
         );
       })}
       {props.selected.length === 0 && props.inheritedLabel ? (
-        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] italic text-text-secondary">
+        <span className="rounded-full border border-ink-4 bg-white/5 px-2 py-0.5 text-[10px] italic text-text-2">
           {props.inheritedLabel}
         </span>
       ) : null}
@@ -355,7 +355,7 @@ export default function WorkbookContentEditor(props: {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-text-secondary">
+        <p className="text-xs text-text-2">
           {content.sections.length} section
           {content.sections.length === 1 ? "" : "s"} ·{" "}
           {content.sections.reduce((acc, s) => acc + s.questions.length, 0)}{" "}
@@ -381,7 +381,7 @@ export default function WorkbookContentEditor(props: {
           <button
             type="button"
             onClick={props.onClose}
-            className="text-xs text-text-secondary hover:text-white"
+            className="text-xs text-text-2 hover:text-white"
           >
             Close
           </button>
@@ -391,7 +391,7 @@ export default function WorkbookContentEditor(props: {
       {error ? <p className="text-sm text-rose-400">{error}</p> : null}
 
       {content.sections.length === 0 ? (
-        <p className="text-sm text-text-secondary">
+        <p className="text-sm text-text-2">
           Empty workbook. Add a section, or import questions from the library.
         </p>
       ) : null}
@@ -401,7 +401,7 @@ export default function WorkbookContentEditor(props: {
         return (
           <div
             key={section.id}
-            className="brand-surface-soft space-y-3 rounded-2xl border p-3"
+            className="brand-surface-soft space-y-3 rounded-[14px] border p-3"
           >
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -428,7 +428,7 @@ export default function WorkbookContentEditor(props: {
               <button
                 type="button"
                 onClick={() => deleteSection(section.id)}
-                className="text-xs text-text-secondary hover:text-rose-400"
+                className="text-xs text-text-2 hover:text-rose-400"
               >
                 Delete section
               </button>
@@ -438,7 +438,7 @@ export default function WorkbookContentEditor(props: {
                 Anyone selected here can see every question in the section
                 via their /contributors/<token> link. */}
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-white/5 bg-black/10 px-2 py-1.5">
-              <span className="text-[10px] uppercase tracking-wide text-text-secondary">
+              <span className="text-[10px] uppercase tracking-wide text-text-2">
                 Section assigned to:
               </span>
               <ContributorChips
@@ -452,7 +452,7 @@ export default function WorkbookContentEditor(props: {
             </div>
 
             {section.questions.length === 0 ? (
-              <p className="text-xs text-text-secondary">
+              <p className="text-xs text-text-2">
                 No questions. Use the library picker or add manually.
               </p>
             ) : (
@@ -501,7 +501,7 @@ export default function WorkbookContentEditor(props: {
                         <button
                           type="button"
                           onClick={() => deleteQuestion(section.id, q.id)}
-                          className="text-[11px] text-text-secondary hover:text-rose-400"
+                          className="text-[11px] text-text-2 hover:text-rose-400"
                         >
                           ×
                         </button>
@@ -511,7 +511,7 @@ export default function WorkbookContentEditor(props: {
                           Overrides section + workbook assignment for this
                           single question. */}
                       <div className="flex flex-wrap items-center gap-2 px-1 pt-0.5">
-                        <span className="text-[10px] uppercase tracking-wide text-text-secondary">
+                        <span className="text-[10px] uppercase tracking-wide text-text-2">
                           Question assigned to:
                         </span>
                         <ContributorChips
@@ -560,7 +560,7 @@ export default function WorkbookContentEditor(props: {
                               {badge.label}
                             </span>
                             {q.reviewedAt ? (
-                              <span className="text-[10px] text-text-secondary">
+                              <span className="text-[10px] text-text-2">
                                 {q.reviewerName
                                   ? `by ${q.reviewerName} `
                                   : ""}
@@ -607,7 +607,7 @@ export default function WorkbookContentEditor(props: {
                                       null
                                     )
                                   }
-                                  className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-text-secondary hover:border-white/30 hover:text-white disabled:opacity-50"
+                                  className="rounded-full border border-ink-4 px-2 py-0.5 text-[10px] text-text-2 hover:border-ink-5 hover:text-white disabled:opacity-50"
                                 >
                                   Reset
                                 </button>
@@ -638,7 +638,7 @@ export default function WorkbookContentEditor(props: {
                                     setOpenNotesKey(null);
                                     setPendingNotes("");
                                   }}
-                                  className="text-[10px] text-text-secondary hover:text-white"
+                                  className="text-[10px] text-text-2 hover:text-white"
                                 >
                                   Cancel
                                 </button>
@@ -671,7 +671,7 @@ export default function WorkbookContentEditor(props: {
             <button
               type="button"
               onClick={() => addQuestion(section.id)}
-              className="text-xs text-text-secondary hover:text-white"
+              className="text-xs text-text-2 hover:text-white"
             >
               + Add question manually
             </button>

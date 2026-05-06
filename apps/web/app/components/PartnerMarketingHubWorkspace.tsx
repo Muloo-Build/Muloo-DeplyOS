@@ -79,64 +79,64 @@ export default function PartnerMarketingHubWorkspace({
         <div>
           <Link
             href={getPortalProjectPath("partner", projectId)}
-            className="text-sm text-text-muted transition hover:text-white"
+            className="text-sm text-text-3 transition hover:text-white"
           >
             Back to project
           </Link>
         </div>
 
         {loading ? (
-          <div className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8 text-text-secondary">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-8 text-text-2">
             Loading marketing hub workspace...
           </div>
         ) : error || !detail ? (
-          <div className="rounded-3xl border border-[rgba(224,80,96,0.35)] bg-background-card p-6 text-white">
+          <div className="rounded-[14px] border border-[rgba(224,80,96,0.35)] bg-ink-1 p-6 text-white">
             {error ?? "Marketing hub unavailable"}
           </div>
         ) : (
           <>
-            <section className="rounded-[28px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(17,23,43,0.98)_0%,rgba(11,17,38,0.98)_100%)] p-6">
+            <section className="rounded-[28px] border border-ink-4 bg-[linear-gradient(180deg,rgba(17,23,43,0.98)_0%,rgba(11,17,38,0.98)_100%)] p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     {detail.project.client.name}
                   </p>
                   <h1 className="mt-3 text-3xl font-semibold text-white">
                     Marketing Hub Delivery
                   </h1>
-                  <p className="mt-3 max-w-3xl text-sm text-text-secondary">
+                  <p className="mt-3 max-w-3xl text-sm text-text-2">
                     This is the partner-facing marketing execution layer for portal work:
                     SEO actions, content creation, campaign support, and recurring
                     marketing operations inside the HubSpot environments you already
                     have access to.
                   </p>
                 </div>
-                <div className="rounded-full border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.05)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#c3cad9]">
+                <div className="rounded-full border border-ink-4 bg-ink-2 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#c3cad9]">
                   Subscription required
                 </div>
               </div>
             </section>
 
             <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-              <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-6">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   What unlocks on subscription
                 </p>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   {lockedModules.map((module) => (
                     <div
                       key={module.title}
-                      className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.03)] p-5 opacity-70 grayscale-[0.25]"
+                      className="rounded-[14px] border border-dashed border-ink-5 bg-ink-2 p-5 opacity-70 grayscale-[0.25]"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-semibold text-white">
                           {module.title}
                         </p>
-                        <span className="rounded-full border border-[rgba(255,255,255,0.12)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                        <span className="rounded-full border border-ink-4 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-text-3">
                           Locked
                         </span>
                       </div>
-                      <p className="mt-3 text-sm text-text-secondary">
+                      <p className="mt-3 text-sm text-text-2">
                         {module.summary}
                       </p>
                     </div>
@@ -144,20 +144,20 @@ export default function PartnerMarketingHubWorkspace({
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-6">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   Phase 1 model
                 </p>
-                <div className="mt-4 space-y-4 text-sm text-text-secondary">
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4">
+                <div className="mt-4 space-y-4 text-sm text-text-2">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                     Partners will use this area in the same project context as technical
                     delivery, but for marketing execution across the portals they can already access.
                   </div>
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                     Access is intended to sit behind a monthly subscription so agencies
                     can unlock recurring SEO, blogs, content operations, and campaign work.
                   </div>
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] p-4">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                     Current project: <span className="text-white">{detail.project.name}</span>
                     {detail.project.selectedHubs.length > 0 ? (
                       <>
@@ -172,7 +172,7 @@ export default function PartnerMarketingHubWorkspace({
                 <button
                   type="button"
                   disabled
-                  className="mt-5 w-full cursor-not-allowed rounded-2xl border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.05)] px-4 py-3 text-sm font-medium text-text-muted opacity-80"
+                  className="mt-5 w-full cursor-not-allowed rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-text-3 opacity-80"
                 >
                   Monthly subscription setup required
                 </button>

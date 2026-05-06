@@ -450,7 +450,7 @@ export default function AgentDirectory() {
         <button
           type="button"
           onClick={() => toggleSort(key)}
-          className="text-left uppercase tracking-[0.16em] text-text-muted hover:text-white"
+          className="text-left uppercase tracking-[0.16em] text-text-3 hover:text-white"
         >
           {label}
           <span aria-hidden>{sortIndicator(active, sortDir)}</span>
@@ -462,21 +462,21 @@ export default function AgentDirectory() {
   return (
     <div className="space-y-4">
       {error ? (
-        <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-4 text-sm text-white">
+        <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-4 text-sm text-white">
           {error}
         </div>
       ) : null}
 
-      <div className="brand-surface rounded-3xl border p-6">
+      <div className="brand-surface rounded-[14px] border p-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Agent Directory
             </p>
             <h2 className="mt-2 text-xl font-semibold text-white">
               Operational agents
             </h2>
-            <p className="mt-1 text-sm text-text-secondary">
+            <p className="mt-1 text-sm text-text-2">
               {loading
                 ? "Loading…"
                 : `${displayed.length} of ${agents.length} agents`}
@@ -497,12 +497,12 @@ export default function AgentDirectory() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by name, purpose, provider, model, action…"
-            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+            className="rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none placeholder:text-text-3"
           />
           <select
             value={familyFilter}
             onChange={(event) => setFamilyFilter(event.target.value)}
-            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            className="rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
           >
             <option value="all">All service families</option>
             {SERVICE_FAMILY_OPTIONS.map((option) => (
@@ -514,7 +514,7 @@ export default function AgentDirectory() {
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+            className="rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
           >
             {STATUS_FILTER_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -539,16 +539,16 @@ export default function AgentDirectory() {
             <thead>
               <tr className="text-xs">
                 {renderSortableHeader("Name", "name")}
-                <th className="px-3 py-3 uppercase tracking-[0.16em] text-text-muted">
+                <th className="px-3 py-3 uppercase tracking-[0.16em] text-text-3">
                   Purpose
                 </th>
                 {renderSortableHeader("Service family", "serviceFamily")}
-                <th className="px-3 py-3 uppercase tracking-[0.16em] text-text-muted">
+                <th className="px-3 py-3 uppercase tracking-[0.16em] text-text-3">
                   Trigger
                 </th>
                 {renderSortableHeader("Last run", "lastRun")}
                 {renderSortableHeader("Status", "status")}
-                <th className="px-3 py-3 uppercase tracking-[0.16em] text-text-muted">
+                <th className="px-3 py-3 uppercase tracking-[0.16em] text-text-3">
                   Active
                 </th>
                 <th className="px-3 py-3" />
@@ -557,13 +557,13 @@ export default function AgentDirectory() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-3 py-6 text-text-muted">
+                  <td colSpan={8} className="px-3 py-6 text-text-3">
                     Loading agents…
                   </td>
                 </tr>
               ) : displayed.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-3 py-6 text-text-muted">
+                  <td colSpan={8} className="px-3 py-6 text-text-3">
                     No agents match these filters.
                   </td>
                 </tr>
@@ -579,7 +579,7 @@ export default function AgentDirectory() {
                       role="button"
                       tabIndex={0}
                       aria-label={`Edit ${agent.name}`}
-                      className="cursor-pointer border-t border-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.02)] focus:bg-[rgba(255,255,255,0.04)] focus:outline-none"
+                      className="cursor-pointer border-t border-[rgba(255,255,255,0.05)] hover:bg-ink-2 focus:bg-ink-2 focus:outline-none"
                       onClick={() => openEditPanel(agent)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
@@ -590,20 +590,20 @@ export default function AgentDirectory() {
                     >
                       <td className="px-3 py-3 align-top text-white">
                         <div className="font-medium">{agent.name}</div>
-                        <div className="mt-1 text-xs text-text-muted">
+                        <div className="mt-1 text-xs text-text-3">
                           {agent.provider} · {agent.model || "—"}
                         </div>
                       </td>
-                      <td className="px-3 py-3 align-top text-text-secondary">
+                      <td className="px-3 py-3 align-top text-text-2">
                         <div className="line-clamp-2">{agent.purpose}</div>
                       </td>
-                      <td className="px-3 py-3 align-top text-text-secondary">
+                      <td className="px-3 py-3 align-top text-text-2">
                         {serviceFamilyLabel(agent.serviceFamily)}
                       </td>
-                      <td className="px-3 py-3 align-top text-text-secondary capitalize">
+                      <td className="px-3 py-3 align-top text-text-2 capitalize">
                         {agent.triggerType}
                       </td>
-                      <td className="px-3 py-3 align-top text-text-secondary">
+                      <td className="px-3 py-3 align-top text-text-2">
                         {formatRelative(lastRun)}
                       </td>
                       <td className="px-3 py-3 align-top">
@@ -616,7 +616,7 @@ export default function AgentDirectory() {
                             {lastStatus.replace(/_/g, " ")}
                           </span>
                         ) : (
-                          <span className="text-xs text-text-muted">
+                          <span className="text-xs text-text-3">
                             Never run
                           </span>
                         )}
@@ -652,20 +652,20 @@ export default function AgentDirectory() {
                               openMenuId === agent.id ? null : agent.id
                             )
                           }
-                          className="rounded-lg px-2 py-1 text-text-muted hover:bg-[rgba(255,255,255,0.06)] hover:text-white"
+                          className="rounded-lg px-2 py-1 text-text-3 hover:bg-ink-3 hover:text-white"
                         >
                           ⋯
                         </button>
                         {openMenuId === agent.id ? (
                           <div
                             role="menu"
-                            className="absolute right-3 top-10 z-10 w-44 overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] shadow-lg"
+                            className="absolute right-3 top-10 z-10 w-44 overflow-hidden rounded-xl border border-ink-4 bg-ink-2 shadow-lg"
                           >
                             <button
                               type="button"
                               role="menuitem"
                               onClick={() => openEditPanel(agent)}
-                              className="block w-full px-4 py-2 text-left text-sm text-white hover:bg-[rgba(255,255,255,0.06)]"
+                              className="block w-full px-4 py-2 text-left text-sm text-white hover:bg-ink-3"
                             >
                               Edit
                             </button>
@@ -673,7 +673,7 @@ export default function AgentDirectory() {
                               type="button"
                               role="menuitem"
                               onClick={() => void toggleActive(agent)}
-                              className="block w-full px-4 py-2 text-left text-sm text-white hover:bg-[rgba(255,255,255,0.06)]"
+                              className="block w-full px-4 py-2 text-left text-sm text-white hover:bg-ink-3"
                             >
                               {agent.isActive ? "Deactivate" : "Activate"}
                             </button>
@@ -700,7 +700,7 @@ export default function AgentDirectory() {
             aria-label={
               panelMode === "create" ? "New agent" : "Edit agent"
             }
-            className="h-full w-full max-w-xl overflow-y-auto border-l border-[rgba(255,255,255,0.08)] bg-[#060e2b] p-6"
+            className="h-full w-full max-w-xl overflow-y-auto border-l border-ink-4 bg-ink-1 p-6"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-baseline justify-between">
@@ -712,7 +712,7 @@ export default function AgentDirectory() {
                 type="button"
                 onClick={closePanel}
                 disabled={saving}
-                className="text-sm text-text-muted hover:text-white disabled:opacity-50"
+                className="text-sm text-text-3 hover:text-white disabled:opacity-50"
               >
                 Close
               </button>
@@ -720,7 +720,7 @@ export default function AgentDirectory() {
 
             <div className="mt-5 space-y-4">
               <label className="block">
-                <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                <span className="text-xs uppercase tracking-[0.16em] text-text-3">
                   Name
                 </span>
                 <input
@@ -731,12 +731,12 @@ export default function AgentDirectory() {
                       name: event.target.value
                     }))
                   }
-                  className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                  className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                 />
               </label>
 
               <label className="block">
-                <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                <span className="text-xs uppercase tracking-[0.16em] text-text-3">
                   Purpose
                 </span>
                 <textarea
@@ -748,13 +748,13 @@ export default function AgentDirectory() {
                     }))
                   }
                   rows={3}
-                  className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                  className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                 />
               </label>
 
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="block">
-                  <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                  <span className="text-xs uppercase tracking-[0.16em] text-text-3">
                     Service family
                   </span>
                   <select
@@ -765,7 +765,7 @@ export default function AgentDirectory() {
                         serviceFamily: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                   >
                     {SERVICE_FAMILY_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -776,7 +776,7 @@ export default function AgentDirectory() {
                 </label>
 
                 <label className="block">
-                  <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                  <span className="text-xs uppercase tracking-[0.16em] text-text-3">
                     Provider
                   </span>
                   <select
@@ -792,7 +792,7 @@ export default function AgentDirectory() {
                         model: nextProvider?.defaultModel || current.model
                       }));
                     }}
-                    className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                   >
                     {providers.length === 0 ? (
                       <option value={draft.provider}>{draft.provider}</option>
@@ -810,7 +810,7 @@ export default function AgentDirectory() {
                 </label>
 
                 <label className="block">
-                  <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                  <span className="text-xs uppercase tracking-[0.16em] text-text-3">
                     Model
                   </span>
                   <input
@@ -821,12 +821,12 @@ export default function AgentDirectory() {
                         model: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                   />
                 </label>
 
                 <label className="block">
-                  <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                  <span className="text-xs uppercase tracking-[0.16em] text-text-3">
                     Trigger
                   </span>
                   <select
@@ -837,7 +837,7 @@ export default function AgentDirectory() {
                         triggerType: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                   >
                     {TRIGGER_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -848,7 +848,7 @@ export default function AgentDirectory() {
                 </label>
 
                 <label className="block">
-                  <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                  <span className="text-xs uppercase tracking-[0.16em] text-text-3">
                     Approval
                   </span>
                   <select
@@ -859,7 +859,7 @@ export default function AgentDirectory() {
                         approvalMode: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                   >
                     {APPROVAL_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -870,7 +870,7 @@ export default function AgentDirectory() {
                 </label>
 
                 <label className="block">
-                  <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                  <span className="text-xs uppercase tracking-[0.16em] text-text-3">
                     Sort order
                   </span>
                   <input
@@ -881,13 +881,13 @@ export default function AgentDirectory() {
                         sortOrder: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                    className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                   />
                 </label>
               </div>
 
               <label className="block">
-                <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                <span className="text-xs uppercase tracking-[0.16em] text-text-3">
                   Allowed actions (comma separated)
                 </span>
                 <input
@@ -898,12 +898,12 @@ export default function AgentDirectory() {
                       allowedActionsText: event.target.value
                     }))
                   }
-                  className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                  className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                 />
               </label>
 
               <label className="block">
-                <span className="text-xs uppercase tracking-[0.16em] text-text-muted">
+                <span className="text-xs uppercase tracking-[0.16em] text-text-3">
                   System prompt
                 </span>
                 <textarea
@@ -915,11 +915,11 @@ export default function AgentDirectory() {
                     }))
                   }
                   rows={5}
-                  className="mt-2 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                  className="mt-2 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                 />
               </label>
 
-              <label className="flex items-center gap-2 text-sm text-text-secondary">
+              <label className="flex items-center gap-2 text-sm text-text-2">
                 <input
                   type="checkbox"
                   checked={draft.isActive}
@@ -939,7 +939,7 @@ export default function AgentDirectory() {
                 type="button"
                 onClick={closePanel}
                 disabled={saving}
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] px-4 py-2 text-sm text-text-secondary hover:text-white disabled:opacity-50"
+                className="rounded-xl border border-ink-4 px-4 py-2 text-sm text-text-2 hover:text-white disabled:opacity-50"
               >
                 Cancel
               </button>

@@ -365,13 +365,13 @@ export default function RetainerDetailWorkspace({
             <Link href="/retainers" className="text-sm font-medium text-[#51d0b0] hover:underline">
               ← Back to retainers
             </Link>
-            <p className="mt-4 text-xs uppercase tracking-[0.18em] text-text-muted">
+            <p className="mt-4 text-xs uppercase tracking-[0.14em] text-text-3">
               Retainer detail
             </p>
             <h1 className="mt-2 text-3xl font-semibold text-white">
               {retainer?.client?.name ?? "Loading retainer"}
             </h1>
-            <p className="mt-2 text-sm text-text-secondary">
+            <p className="mt-2 text-sm text-text-2">
               {retainer
                 ? `${formatServiceLine(retainer.serviceLine)} · ${retainer.blockSize}h/month · ${formatMoney(retainer.rate, retainer.currency)}`
                 : "Loading commercial detail..."}
@@ -389,18 +389,18 @@ export default function RetainerDetailWorkspace({
         </header>
 
         {error ? (
-          <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <div className="rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             {error}
           </div>
         ) : null}
         {feedback ? (
-          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          <div className="rounded-[14px] border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
             {feedback}
           </div>
         ) : null}
         {lineage?.bornFromProject ? (
-          <div className="rounded-2xl border border-[rgba(73,205,225,0.3)] bg-[rgba(73,205,225,0.08)] px-4 py-3 text-sm text-[#7be2ef]">
-            <span className="text-xs uppercase tracking-[0.18em] text-text-muted">
+          <div className="rounded-[14px] border border-[rgba(73,205,225,0.3)] bg-[rgba(73,205,225,0.08)] px-4 py-3 text-sm text-[#7be2ef]">
+            <span className="text-xs uppercase tracking-[0.14em] text-text-3">
               Born from project
             </span>
             <Link
@@ -409,19 +409,19 @@ export default function RetainerDetailWorkspace({
             >
               {lineage.bornFromProject.name}
             </Link>
-            <span className="ml-2 text-xs text-text-secondary">
+            <span className="ml-2 text-xs text-text-2">
               · {lineage.bornFromProject.status}
             </span>
           </div>
         ) : null}
 
-        <div className="rounded-2xl border border-white/10 bg-background-card px-4 py-3">
+        <div className="rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Follow-on project
               </p>
-              <p className="mt-1 text-sm text-text-secondary">
+              <p className="mt-1 text-sm text-text-2">
                 Spawn a new project from this retainer. Carries scope, hubs,
                 and lineage forward from the source project.
               </p>
@@ -470,8 +470,8 @@ export default function RetainerDetailWorkspace({
             </button>
           </div>
           {retainer?.spawnedProjects && retainer.spawnedProjects.length > 0 ? (
-            <div className="mt-3 border-t border-white/10 pt-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="mt-3 border-t border-ink-4 pt-3">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Spawned projects
               </p>
               <ul className="mt-2 space-y-1.5">
@@ -483,7 +483,7 @@ export default function RetainerDetailWorkspace({
                     >
                       {p.name}
                     </Link>
-                    <span className="text-xs text-text-secondary">
+                    <span className="text-xs text-text-2">
                       · {p.status} · {formatDate(p.createdAt)}
                     </span>
                   </li>
@@ -496,14 +496,14 @@ export default function RetainerDetailWorkspace({
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
             <section className="grid gap-4 md:grid-cols-4">
-              <div className="rounded-2xl border border-white/10 bg-background-card p-5">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Status</p>
+              <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">Status</p>
                 <p className="mt-2 text-lg font-semibold text-white">
                   {retainer?.status ?? "—"}
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-background-card p-5">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Bill to</p>
+              <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">Bill to</p>
                 <p className="mt-2 text-base font-semibold text-white">
                   {retainer?.billToEntity?.name ?? "—"}
                 </p>
@@ -516,24 +516,24 @@ export default function RetainerDetailWorkspace({
                   </Link>
                 ) : null}
               </div>
-              <div className="rounded-2xl border border-white/10 bg-background-card p-5">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Start</p>
+              <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">Start</p>
                 <p className="mt-2 text-base font-semibold text-white">
                   {retainer ? formatDate(retainer.startDate) : "—"}
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-background-card p-5">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Open invoices</p>
+              <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">Open invoices</p>
                 <p className="mt-2 text-base font-semibold text-white">
                   {invoices.filter((invoice) => invoice.status === "SENT" || invoice.status === "OVERDUE").length}
                 </p>
               </div>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-background-card p-5">
+            <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Period history
                   </p>
                   <h2 className="mt-2 text-xl font-semibold text-white">
@@ -546,19 +546,19 @@ export default function RetainerDetailWorkspace({
                 {retainer?.periods.map((period) => (
                   <div
                     key={period.id}
-                    className="rounded-2xl border border-white/8 bg-white/[0.03] p-4"
+                    className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4"
                   >
                     <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                       <div>
                         <p className="text-base font-semibold text-white">
                           {formatDate(period.periodMonth)}
                         </p>
-                        <p className="mt-1 text-sm text-text-secondary">
+                        <p className="mt-1 text-sm text-text-2">
                           {period.blockHours}h block · {period.rolledInHours}h rolled in ·{" "}
                           {period.approvedTopUpHours}h approved top-ups
                         </p>
                       </div>
-                      <div className="text-sm text-text-secondary md:text-right">
+                      <div className="text-sm text-text-2 md:text-right">
                         <p className="text-white">{period.consumedHours}h consumed</p>
                         <p>Balance {period.balance}h</p>
                         <p>{period.status}</p>
@@ -570,7 +570,7 @@ export default function RetainerDetailWorkspace({
                         {period.topUps.map((topUp) => (
                           <span
                             key={topUp.id}
-                            className="rounded-full border border-white/10 px-3 py-1 text-xs text-text-secondary"
+                            className="rounded-full border border-ink-4 px-3 py-1 text-xs text-text-2"
                           >
                             Top-up {topUp.hours}h · {topUp.status}
                           </span>
@@ -582,10 +582,10 @@ export default function RetainerDetailWorkspace({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-background-card p-5">
+            <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Scope & Terms
                   </p>
                   <h2 className="mt-2 text-xl font-semibold text-white">
@@ -597,20 +597,20 @@ export default function RetainerDetailWorkspace({
               <div className="mt-5 space-y-4">
                 {retainer?.scopeSummary ? (
                   <div>
-                    <p className="text-sm font-medium text-text-secondary">Scope Summary</p>
+                    <p className="text-sm font-medium text-text-2">Scope Summary</p>
                     <p className="mt-2 text-sm text-white whitespace-pre-wrap">{retainer.scopeSummary}</p>
                   </div>
                 ) : null}
 
                 {retainer?.deliverables && Array.isArray(retainer.deliverables) && retainer.deliverables.length > 0 ? (
                   <div>
-                    <p className="text-sm font-medium text-text-secondary">Deliverables</p>
+                    <p className="text-sm font-medium text-text-2">Deliverables</p>
                     <ul className="mt-2 space-y-2">
                       {retainer.deliverables.map((deliverable: any, idx: number) => (
                         <li key={idx} className="text-sm text-white">
                           <span className="font-semibold">{deliverable.title}</span>
                           {deliverable.description ? (
-                            <p className="mt-1 text-text-secondary">{deliverable.description}</p>
+                            <p className="mt-1 text-text-2">{deliverable.description}</p>
                           ) : null}
                         </li>
                       ))}
@@ -620,28 +620,28 @@ export default function RetainerDetailWorkspace({
 
                 {retainer?.requirements ? (
                   <div>
-                    <p className="text-sm font-medium text-text-secondary">Requirements</p>
+                    <p className="text-sm font-medium text-text-2">Requirements</p>
                     <p className="mt-2 text-sm text-white whitespace-pre-wrap">{retainer.requirements}</p>
                   </div>
                 ) : null}
 
                 {retainer?.approvalTerms ? (
                   <div>
-                    <p className="text-sm font-medium text-text-secondary">Approval Terms</p>
+                    <p className="text-sm font-medium text-text-2">Approval Terms</p>
                     <p className="mt-2 text-sm text-white whitespace-pre-wrap">{retainer.approvalTerms}</p>
                   </div>
                 ) : null}
 
                 {!retainer?.scopeSummary && !retainer?.deliverables && !retainer?.requirements && !retainer?.approvalTerms ? (
-                  <p className="text-sm text-text-secondary">No scope or terms defined for this retainer.</p>
+                  <p className="text-sm text-text-2">No scope or terms defined for this retainer.</p>
                 ) : null}
               </div>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-background-card p-5">
+            <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Invoice records
                   </p>
                   <h2 className="mt-2 text-xl font-semibold text-white">
@@ -655,17 +655,17 @@ export default function RetainerDetailWorkspace({
                   <Link
                     key={invoice.id}
                     href={`/invoices/${invoice.id}`}
-                    className="flex flex-col gap-3 rounded-2xl border border-white/8 bg-white/[0.03] p-4 transition hover:border-white/15 hover:bg-white/[0.05] md:flex-row md:items-center md:justify-between"
+                    className="flex flex-col gap-3 rounded-[14px] border border-white/8 bg-white/[0.03] p-4 transition hover:border-white/15 hover:bg-white/[0.05] md:flex-row md:items-center md:justify-between"
                   >
                     <div>
                       <p className="text-base font-semibold text-white">
                         {invoice.reference}
                       </p>
-                      <p className="mt-1 text-sm text-text-secondary">
+                      <p className="mt-1 text-sm text-text-2">
                         {invoice.invoiceType.replace(/_/g, " ")} · {formatDate(invoice.issueDate)}
                       </p>
                     </div>
-                    <div className="text-sm text-text-secondary md:text-right">
+                    <div className="text-sm text-text-2 md:text-right">
                       <p className="text-white">
                         {formatMoney(invoice.amount, invoice.currency)}
                       </p>
@@ -675,7 +675,7 @@ export default function RetainerDetailWorkspace({
                 ))}
 
                 {!loading && invoices.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-white/12 p-4 text-sm text-text-secondary">
+                  <div className="rounded-[14px] border border-dashed border-white/12 p-4 text-sm text-text-2">
                     No invoice records yet for this retainer.
                   </div>
                 ) : null}
@@ -686,21 +686,21 @@ export default function RetainerDetailWorkspace({
           <div className="space-y-6">
             <form
               onSubmit={handleLogHours}
-              className="rounded-2xl border border-white/10 bg-background-card p-5"
+              className="rounded-[14px] border border-ink-4 bg-ink-1 p-5"
             >
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Log hours
               </p>
               <h2 className="mt-2 text-xl font-semibold text-white">
                 Deduct hours from this retainer
               </h2>
-              <p className="mt-1 text-sm text-text-secondary">
+              <p className="mt-1 text-sm text-text-2">
                 For ad-hoc work, calls or advisory time not tied to a delivery task. Hours land in the period that contains the work date.
               </p>
 
               <div className="mt-5 grid gap-4">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="text-sm text-text-secondary">
+                  <label className="text-sm text-text-2">
                     Hours
                     <input
                       type="number"
@@ -714,12 +714,12 @@ export default function RetainerDetailWorkspace({
                           hours: event.target.value
                         }))
                       }
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                      className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                       required
                       placeholder="e.g. 1.5"
                     />
                   </label>
-                  <label className="text-sm text-text-secondary">
+                  <label className="text-sm text-text-2">
                     Date worked
                     <input
                       type="date"
@@ -730,13 +730,13 @@ export default function RetainerDetailWorkspace({
                           occurredAt: event.target.value
                         }))
                       }
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                      className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                       required
                     />
                   </label>
                 </div>
 
-                <label className="text-sm text-text-secondary">
+                <label className="text-sm text-text-2">
                   Description (optional)
                   <textarea
                     value={hoursForm.description}
@@ -748,7 +748,7 @@ export default function RetainerDetailWorkspace({
                     }
                     rows={3}
                     placeholder="What did you work on?"
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   />
                 </label>
               </div>
@@ -775,9 +775,9 @@ export default function RetainerDetailWorkspace({
 
             <form
               onSubmit={handleCreateInvoice}
-              className="rounded-2xl border border-white/10 bg-background-card p-5"
+              className="rounded-[14px] border border-ink-4 bg-ink-1 p-5"
             >
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Record invoice
               </p>
               <h2 className="mt-2 text-xl font-semibold text-white">
@@ -785,7 +785,7 @@ export default function RetainerDetailWorkspace({
               </h2>
 
             <div className="mt-5 grid gap-4">
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Reference
                 <input
                   type="text"
@@ -793,13 +793,13 @@ export default function RetainerDetailWorkspace({
                   onChange={(event) =>
                     setInvoiceForm((current) => ({ ...current, reference: event.target.value }))
                   }
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   required
                 />
               </label>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-sm text-text-secondary">
+                <label className="text-sm text-text-2">
                   Invoice type
                   <select
                     value={invoiceForm.invoiceType}
@@ -809,7 +809,7 @@ export default function RetainerDetailWorkspace({
                         invoiceType: event.target.value as typeof current.invoiceType
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   >
                     <option value="RETAINER_BLOCK">Retainer block</option>
                     <option value="TOP_UP">Top-up</option>
@@ -817,7 +817,7 @@ export default function RetainerDetailWorkspace({
                   </select>
                 </label>
 
-                <label className="text-sm text-text-secondary">
+                <label className="text-sm text-text-2">
                   Linked period
                   <select
                     value={invoiceForm.retainerPeriodId}
@@ -827,7 +827,7 @@ export default function RetainerDetailWorkspace({
                         retainerPeriodId: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   >
                     {retainer?.periods.map((period) => (
                       <option key={period.id} value={period.id}>
@@ -839,7 +839,7 @@ export default function RetainerDetailWorkspace({
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-sm text-text-secondary">
+                <label className="text-sm text-text-2">
                   Issue date
                   <input
                     type="date"
@@ -847,11 +847,11 @@ export default function RetainerDetailWorkspace({
                     onChange={(event) =>
                       setInvoiceForm((current) => ({ ...current, issueDate: event.target.value }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                     required
                   />
                 </label>
-                <label className="text-sm text-text-secondary">
+                <label className="text-sm text-text-2">
                   Due date
                   <input
                     type="date"
@@ -859,14 +859,14 @@ export default function RetainerDetailWorkspace({
                     onChange={(event) =>
                       setInvoiceForm((current) => ({ ...current, dueDate: event.target.value }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                     required
                   />
                 </label>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-sm text-text-secondary">
+                <label className="text-sm text-text-2">
                   Amount
                   <input
                     type="number"
@@ -876,11 +876,11 @@ export default function RetainerDetailWorkspace({
                     onChange={(event) =>
                       setInvoiceForm((current) => ({ ...current, amount: event.target.value }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                     required
                   />
                 </label>
-                <label className="text-sm text-text-secondary">
+                <label className="text-sm text-text-2">
                   Status
                   <select
                     value={invoiceForm.status}
@@ -890,7 +890,7 @@ export default function RetainerDetailWorkspace({
                         status: event.target.value as "DRAFT" | "SENT"
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   >
                     <option value="DRAFT">DRAFT</option>
                     <option value="SENT">SENT</option>
@@ -898,17 +898,17 @@ export default function RetainerDetailWorkspace({
                 </label>
               </div>
 
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Currency
                 <input
                   type="text"
                   value={retainer?.currency ?? ""}
                   readOnly
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-white/[0.04] px-3 py-2.5 text-white"
                 />
               </label>
 
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Xero URL
                 <input
                   type="url"
@@ -917,11 +917,11 @@ export default function RetainerDetailWorkspace({
                     setInvoiceForm((current) => ({ ...current, xeroUrl: event.target.value }))
                   }
                   placeholder="https://go.xero.com/..."
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                 />
               </label>
 
-              <label className="text-sm text-text-secondary">
+              <label className="text-sm text-text-2">
                 Notes
                 <textarea
                   value={invoiceForm.notes}
@@ -929,7 +929,7 @@ export default function RetainerDetailWorkspace({
                     setInvoiceForm((current) => ({ ...current, notes: event.target.value }))
                   }
                   rows={4}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                 />
               </label>
             </div>

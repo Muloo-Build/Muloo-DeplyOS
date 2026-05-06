@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import AppShell from "../../../components/AppShell";
-import Breadcrumb from "../../../components/Breadcrumb";
+import { PageHead } from "../../../components/ui/PageHead";
 import { SkeletonBlock } from "../../../components/LoadingSkeleton";
 
 // T4.3 — landing page shown immediately after the wizard. Five-item
@@ -230,33 +230,24 @@ export default function ProjectOnboardingPage({
 
   return (
     <AppShell>
-      <div className="p-8">
-        <Breadcrumb
-          items={[
-            { label: "Projects", href: "/projects" },
-            {
-              label: project?.name ?? "Project",
-              href: `/projects/${projectId}`
-            },
-            { label: "Onboarding" }
-          ]}
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+        <PageHead
+          eyebrow={
+            <Link
+              href={`/projects/${projectId}`}
+              className="hover:text-text-1 transition-colors"
+            >
+              ← {project?.name ?? "Project"}
+            </Link>
+          }
+          title="Onboarding checklist"
+          lede="Five things to do now to get this project moving. Tick them off as you complete them — your progress is saved automatically."
         />
 
-        <div className="mt-6 max-w-4xl">
-          <p className="text-xs uppercase tracking-[0.32em] text-[#49cde1]">
-            Project setup · Step 4
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
-            Onboarding checklist
-          </h1>
-          <p className="mt-3 text-sm text-text-secondary">
-            Five things to do now to get this project moving. Tick them off as
-            you complete them — your progress is saved automatically.
-          </p>
-
+        <div className="max-w-4xl">
           {incomingWarning ? (
             <div
-              className="mt-6 rounded-2xl border border-[rgba(245,158,11,0.4)] bg-[rgba(245,158,11,0.08)] p-4 text-sm text-amber-100"
+              className="mt-6 rounded-[14px] border border-[rgba(245,158,11,0.4)] bg-[rgba(245,158,11,0.08)] p-4 text-sm text-amber-100"
               role="status"
             >
               {incomingWarning}
@@ -269,20 +260,20 @@ export default function ProjectOnboardingPage({
             <SkeletonBlock height="h-64" />
           </div>
         ) : error ? (
-          <div className="mt-8 max-w-4xl rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-6 text-rose-100">
+          <div className="mt-8 max-w-4xl rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-6 text-rose-100">
             {error}
           </div>
         ) : (
           <div className="mt-8 max-w-4xl space-y-6">
             {toggleError ? (
               <div
-                className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-rose-100"
+                className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-[rgba(58,21,32,0.7)] px-4 py-3 text-sm text-rose-100"
                 role="alert"
               >
                 {toggleError}
               </div>
             ) : null}
-            <div className="flex items-center justify-between rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-4 text-sm text-text-secondary">
+            <div className="flex items-center justify-between rounded-[14px] border border-ink-4 bg-ink-1 px-6 py-4 text-sm text-text-2">
               <span>
                 <span className="font-semibold text-white">
                   {completed}/{items.length}
@@ -291,7 +282,7 @@ export default function ProjectOnboardingPage({
               </span>
               <Link
                 href={`/projects/${projectId}`}
-                className="rounded-lg border border-[rgba(255,255,255,0.16)] px-3 py-1.5 text-xs text-text-secondary hover:bg-[rgba(255,255,255,0.05)]"
+                className="rounded-lg border border-ink-5 px-3 py-1.5 text-xs text-text-2 hover:bg-ink-2"
               >
                 Skip to project workspace
               </Link>
@@ -304,10 +295,10 @@ export default function ProjectOnboardingPage({
                 return (
                   <li
                     key={item.id}
-                    className={`rounded-2xl border p-5 transition-colors ${
+                    className={`rounded-[14px] border p-5 transition-colors ${
                       isComplete
                         ? "border-[rgba(73,205,225,0.35)] bg-[rgba(11,26,52,0.55)]"
-                        : "border-[rgba(255,255,255,0.07)] bg-background-card"
+                        : "border-ink-4 bg-ink-1"
                     }`}
                   >
                     <div className="flex items-start gap-4">
@@ -338,7 +329,7 @@ export default function ProjectOnboardingPage({
                         className={`mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border transition-colors ${
                           isComplete
                             ? "border-accent-solid bg-accent-solid text-[#03162a]"
-                            : "border-[rgba(255,255,255,0.16)] bg-transparent hover:border-[rgba(255,255,255,0.32)]"
+                            : "border-ink-5 bg-transparent hover:border-[rgba(255,255,255,0.32)]"
                         } ${
                           isSaving || item.id === "send_champion_welcome"
                             ? "opacity-60 cursor-not-allowed"
@@ -366,34 +357,34 @@ export default function ProjectOnboardingPage({
                           <p
                             className={`text-base font-semibold ${
                               isComplete
-                                ? "text-text-secondary line-through"
+                                ? "text-text-2 line-through"
                                 : "text-white"
                             }`}
                           >
                             {item.label}
                           </p>
                           {item.completedAt ? (
-                            <p className="text-xs text-text-muted">
+                            <p className="text-xs text-text-3">
                               Done{" "}
                               {new Date(item.completedAt).toLocaleString()}
                             </p>
                           ) : null}
                         </div>
-                        <p className="mt-1 text-sm text-text-secondary">
+                        <p className="mt-1 text-sm text-text-2">
                           {item.description}
                         </p>
                         <div className="mt-3">
                           {item.id === "send_champion_welcome" ? (
                             <a
                               href="#champion-invite"
-                              className="inline-flex rounded-lg border border-[rgba(255,255,255,0.16)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[rgba(255,255,255,0.05)]"
+                              className="inline-flex rounded-lg border border-ink-5 px-3 py-1.5 text-xs font-medium text-white hover:bg-ink-2"
                             >
                               Preview invite below
                             </a>
                           ) : (
                             <Link
                               href={item.href}
-                              className="inline-flex rounded-lg border border-[rgba(255,255,255,0.16)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[rgba(255,255,255,0.05)]"
+                              className="inline-flex rounded-lg border border-ink-5 px-3 py-1.5 text-xs font-medium text-white hover:bg-ink-2"
                             >
                               Open
                             </Link>
@@ -408,7 +399,7 @@ export default function ProjectOnboardingPage({
 
             <section
               id="champion-invite"
-              className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+              className="rounded-[14px] border border-ink-4 bg-ink-1 p-6"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-lg font-semibold text-white">
@@ -426,7 +417,7 @@ export default function ProjectOnboardingPage({
                   </p>
                 ) : null}
               </div>
-              <p className="mt-1 text-sm text-text-secondary">
+              <p className="mt-1 text-sm text-text-2">
                 The champion has been added to the client portal automatically.
                 Review the rendered email below and press send when you&apos;re
                 ready — nothing has been sent yet.
@@ -442,7 +433,7 @@ export default function ProjectOnboardingPage({
                       type="button"
                       onClick={() => void reprovisionChampion()}
                       disabled={sendingInvite}
-                      className="rounded-xl border border-[rgba(255,255,255,0.16)] px-4 py-2 text-sm text-white hover:bg-[rgba(255,255,255,0.05)] disabled:opacity-60"
+                      className="rounded-xl border border-ink-5 px-4 py-2 text-sm text-white hover:bg-ink-2 disabled:opacity-60"
                     >
                       {sendingInvite ? "Re-provisioning…" : "Re-provision champion"}
                     </button>
@@ -450,7 +441,7 @@ export default function ProjectOnboardingPage({
                 </div>
               ) : invite?.champion ? (
                 <div className="mt-4 space-y-4">
-                  <div className="grid gap-2 rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+                  <div className="grid gap-2 rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-text-2">
                     <div className="flex flex-wrap justify-between gap-2">
                       <span>To</span>
                       <span className="text-white">
@@ -468,7 +459,7 @@ export default function ProjectOnboardingPage({
                     {invite.accessUrl ? (
                       <div className="flex flex-wrap justify-between gap-2">
                         <span>Portal access link</span>
-                        <span className="break-all text-text-muted">
+                        <span className="break-all text-text-3">
                           {invite.accessUrl}
                         </span>
                       </div>
@@ -482,7 +473,7 @@ export default function ProjectOnboardingPage({
                       </span>
                     </div>
                   </div>
-                  <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3 text-sm text-text-secondary">
+                  <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-text-2">
                     {invite.body}
                   </pre>
                   {inviteError ? (
@@ -503,7 +494,7 @@ export default function ProjectOnboardingPage({
                           ? "Resend invite"
                           : "Send invite to champion"}
                     </button>
-                    <span className="text-xs text-text-muted">
+                    <span className="text-xs text-text-3">
                       Sending also ticks the checklist item.
                     </span>
                   </div>

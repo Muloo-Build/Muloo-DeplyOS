@@ -151,9 +151,9 @@ export default function WorkspaceUsersSettings() {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
         <p className="text-sm font-semibold text-white">Add team member</p>
-        <p className="mt-2 text-sm text-text-secondary">
+        <p className="mt-2 text-sm text-text-2">
           Set a password here when you want a Muloo user to be able to sign in
           directly, including agent-specific operator accounts.
         </p>
@@ -164,7 +164,7 @@ export default function WorkspaceUsersSettings() {
               setDraft((current) => ({ ...current, name: event.target.value }))
             }
             placeholder="Name"
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+            className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
           />
           <input
             value={draft.email}
@@ -172,7 +172,7 @@ export default function WorkspaceUsersSettings() {
               setDraft((current) => ({ ...current, email: event.target.value }))
             }
             placeholder="Email"
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+            className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
           />
           <input
             type="password"
@@ -184,7 +184,7 @@ export default function WorkspaceUsersSettings() {
               }))
             }
             placeholder="Password"
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+            className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
           />
           <input
             value={draft.role}
@@ -192,34 +192,34 @@ export default function WorkspaceUsersSettings() {
               setDraft((current) => ({ ...current, role: event.target.value }))
             }
             placeholder="Job title"
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+            className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
           />
           <button
             type="button"
             onClick={() => void createUser()}
             disabled={saving === "new"}
-            className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+            className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white"
           >
             {saving === "new" ? "Adding..." : "Add user"}
           </button>
         </div>
-        <p className="mt-3 text-xs text-text-muted">
+        <p className="mt-3 text-xs text-text-3">
           Use at least 8 characters when you set a password. Leave it blank if
           you only want the profile created for now.
         </p>
       </div>
 
       {loading ? (
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4 text-sm text-text-secondary">
+        <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4 text-sm text-text-2">
           Loading team...
         </div>
       ) : (
         users.map((user) => (
           <div
             key={user.id}
-            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+            className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
           >
-            <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-text-muted">
+            <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-text-3">
               <span>
                 {user.hasPassword ? "Password set" : "No password set yet"}
               </span>
@@ -231,14 +231,14 @@ export default function WorkspaceUsersSettings() {
                 onChange={(event) =>
                   updateUser(user.id, "name", event.target.value)
                 }
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               />
               <input
                 value={user.email}
                 onChange={(event) =>
                   updateUser(user.id, "email", event.target.value)
                 }
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               />
               <input
                 value={user.role}
@@ -246,7 +246,7 @@ export default function WorkspaceUsersSettings() {
                   updateUser(user.id, "role", event.target.value)
                 }
                 placeholder="Job title"
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               />
               <input
                 type="password"
@@ -262,13 +262,13 @@ export default function WorkspaceUsersSettings() {
                     ? "Leave blank to keep password"
                     : "Set password"
                 }
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
               />
               <button
                 type="button"
                 onClick={() => void saveUser(user.id)}
                 disabled={saving === user.id}
-                className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white"
               >
                 {saving === user.id ? "Saving..." : "Save"}
               </button>

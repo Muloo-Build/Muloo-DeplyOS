@@ -103,7 +103,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={entry.id}
             type="button"
             onClick={() => dismiss(entry.id)}
-            className={`pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3 text-left text-sm shadow-lg backdrop-blur transition hover:opacity-90 ${variantClasses[entry.variant]}`}
+            className={`pointer-events-auto flex items-start gap-3 rounded-[14px] border px-4 py-3 text-left text-sm shadow-lg backdrop-blur transition hover:opacity-90 ${variantClasses[entry.variant]}`}
             aria-live={entry.variant === "error" ? "assertive" : "polite"}
           >
             <span className="font-mono text-base leading-5">

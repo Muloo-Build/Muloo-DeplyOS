@@ -192,14 +192,14 @@ export default function ClientWorkRequestPortal({
       subtitle="Submit a quote request, job spec, project brief, or change request for Muloo to review."
     >
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-          <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+          <p className="text-sm uppercase tracking-[0.14em] text-text-3">
             Intake Form
           </p>
           <h3 className="mt-3 text-2xl font-bold font-heading text-white">
             Request new work
           </h3>
-          <p className="mt-3 max-w-2xl text-sm text-text-secondary">
+          <p className="mt-3 max-w-2xl text-sm text-text-2">
             Use this form when you need Muloo to quote, scope, or review a new
             piece of work. Support issues should still go through the support
             page so they land in the right workflow.
@@ -219,7 +219,7 @@ export default function ClientWorkRequestPortal({
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <label className="block md:col-span-2">
-              <span className="text-sm text-text-secondary">Request title</span>
+              <span className="text-sm text-text-2">Request title</span>
               <input
                 value={form.title}
                 onChange={(event) =>
@@ -228,12 +228,12 @@ export default function ClientWorkRequestPortal({
                     title: event.target.value
                   }))
                 }
-                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
               />
             </label>
 
             <label className="block">
-              <span className="text-sm text-text-secondary">
+              <span className="text-sm text-text-2">
                 Service family
               </span>
               <select
@@ -244,7 +244,7 @@ export default function ClientWorkRequestPortal({
                     serviceFamily: event.target.value
                   }))
                 }
-                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
               >
                 {serviceFamilies.map((family) => (
                   <option key={family.value} value={family.value}>
@@ -255,7 +255,7 @@ export default function ClientWorkRequestPortal({
             </label>
 
             <label className="block">
-              <span className="text-sm text-text-secondary">Request type</span>
+              <span className="text-sm text-text-2">Request type</span>
               <select
                 value={form.requestType}
                 onChange={(event) =>
@@ -264,7 +264,7 @@ export default function ClientWorkRequestPortal({
                     requestType: event.target.value
                   }))
                 }
-                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
               >
                 {requestTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -275,7 +275,7 @@ export default function ClientWorkRequestPortal({
             </label>
 
             <label className="block">
-              <span className="text-sm text-text-secondary">
+              <span className="text-sm text-text-2">
                 Related project
               </span>
               <select
@@ -286,7 +286,7 @@ export default function ClientWorkRequestPortal({
                     projectId: event.target.value
                   }))
                 }
-                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
               >
                 <option value="">Not linked yet</option>
                 {projects.map(({ project }) => (
@@ -297,20 +297,20 @@ export default function ClientWorkRequestPortal({
               </select>
             </label>
 
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-4 md:col-span-2">
-              <p className="text-sm text-text-secondary">Submitting as</p>
+            <div className="rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-4 md:col-span-2">
+              <p className="text-sm text-text-2">Submitting as</p>
               <p className="mt-2 text-sm font-semibold text-white">
                 {sessionUser
                   ? `${sessionUser.firstName} ${sessionUser.lastName}`
                   : "Signed-in client"}
               </p>
-              <p className="mt-1 text-sm text-text-secondary">
+              <p className="mt-1 text-sm text-text-2">
                 {sessionUser?.email ?? "Loading..."}
               </p>
             </div>
 
             <label className="block">
-              <span className="text-sm text-text-secondary">Company</span>
+              <span className="text-sm text-text-2">Company</span>
               <input
                 value={form.companyName}
                 onChange={(event) =>
@@ -319,12 +319,12 @@ export default function ClientWorkRequestPortal({
                     companyName: event.target.value
                   }))
                 }
-                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
               />
             </label>
 
             <label className="block">
-              <span className="text-sm text-text-secondary">Urgency</span>
+              <span className="text-sm text-text-2">Urgency</span>
               <input
                 value={form.urgency}
                 onChange={(event) =>
@@ -334,12 +334,12 @@ export default function ClientWorkRequestPortal({
                   }))
                 }
                 placeholder="e.g. this week, this month, no rush"
-                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
               />
             </label>
 
             <label className="block md:col-span-2">
-              <span className="text-sm text-text-secondary">
+              <span className="text-sm text-text-2">
                 Summary of the request
               </span>
               <textarea
@@ -350,12 +350,12 @@ export default function ClientWorkRequestPortal({
                     summary: event.target.value
                   }))
                 }
-                className="mt-3 min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                className="mt-3 min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
               />
             </label>
 
             <label className="block md:col-span-2">
-              <span className="text-sm text-text-secondary">
+              <span className="text-sm text-text-2">
                 Detail / specification
               </span>
               <textarea
@@ -366,12 +366,12 @@ export default function ClientWorkRequestPortal({
                     details: event.target.value
                   }))
                 }
-                className="mt-3 min-h-[150px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                className="mt-3 min-h-[150px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
               />
             </label>
 
             <label className="block">
-              <span className="text-sm text-text-secondary">Budget range</span>
+              <span className="text-sm text-text-2">Budget range</span>
               <input
                 value={form.budgetRange}
                 onChange={(event) =>
@@ -380,12 +380,12 @@ export default function ClientWorkRequestPortal({
                     budgetRange: event.target.value
                   }))
                 }
-                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
               />
             </label>
 
             <label className="block">
-              <span className="text-sm text-text-secondary">
+              <span className="text-sm text-text-2">
                 Portal or website
               </span>
               <input
@@ -396,12 +396,12 @@ export default function ClientWorkRequestPortal({
                     portalOrWebsite: event.target.value
                   }))
                 }
-                className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
               />
             </label>
 
             <label className="block md:col-span-2">
-              <span className="text-sm text-text-secondary">
+              <span className="text-sm text-text-2">
                 Links / references
               </span>
               <textarea
@@ -413,7 +413,7 @@ export default function ClientWorkRequestPortal({
                   }))
                 }
                 placeholder="One URL per line"
-                className="mt-3 min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none"
+                className="mt-3 min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
               />
             </label>
           </div>
@@ -428,8 +428,8 @@ export default function ClientWorkRequestPortal({
           </button>
         </section>
 
-        <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-          <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+          <p className="text-sm uppercase tracking-[0.14em] text-text-3">
             Submitted Requests
           </p>
           <h3 className="mt-3 text-2xl font-bold font-heading text-white">
@@ -438,37 +438,37 @@ export default function ClientWorkRequestPortal({
 
           <div className="mt-6 space-y-4">
             {requests.length === 0 ? (
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4 text-sm text-text-secondary">
+              <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4 text-sm text-text-2">
                 No work requests submitted yet.
               </div>
             ) : (
               requests.map((request) => (
                 <div
                   key={request.id}
-                  className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4"
+                  className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         {serviceFamilies.find(
                           (family) => family.value === request.serviceFamily
                         )?.label ?? request.serviceFamily}
                       </p>
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         {request.requestType.replace(/_/g, " ")}
                       </p>
                       <h4 className="mt-2 text-lg font-semibold text-white">
                         {request.title}
                       </h4>
                     </div>
-                    <span className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs font-medium text-text-secondary">
+                    <span className="rounded-full border border-ink-4 px-3 py-1 text-xs font-medium text-text-2">
                       {request.status}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm text-text-secondary">
+                  <p className="mt-3 text-sm text-text-2">
                     {request.summary}
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-3 text-xs text-text-muted">
+                  <div className="mt-4 flex flex-wrap gap-3 text-xs text-text-3">
                     <span>
                       {new Date(request.createdAt).toLocaleString("en-ZA")}
                     </span>

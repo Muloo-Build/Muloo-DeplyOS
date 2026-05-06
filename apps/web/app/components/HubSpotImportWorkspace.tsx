@@ -173,7 +173,7 @@ export default function HubSpotImportWorkspace() {
         </div>
       ) : null}
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex-1 min-w-[260px]">
             <span className="text-sm font-medium text-white">
@@ -186,7 +186,7 @@ export default function HubSpotImportWorkspace() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") void runSearch();
               }}
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <button
@@ -201,13 +201,13 @@ export default function HubSpotImportWorkspace() {
       </section>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-text-muted">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-3">
             Results
           </h3>
           <div className="mt-4 space-y-2">
             {companies.length === 0 && !searching ? (
-              <p className="text-sm text-text-muted">
+              <p className="text-sm text-text-3">
                 Run a search to see companies.
               </p>
             ) : null}
@@ -220,8 +220,8 @@ export default function HubSpotImportWorkspace() {
                   onClick={() => void selectCompany(company)}
                   className={`block w-full rounded-xl border px-4 py-3 text-left transition-colors ${
                     isActive
-                      ? "border-[rgba(255,255,255,0.25)] bg-[#141d3d]"
-                      : "border-[rgba(255,255,255,0.07)] bg-[#0b1126] hover:bg-[#141d3d]"
+                      ? "border-[rgba(255,255,255,0.25)] bg-ink-3"
+                      : "border-ink-4 bg-ink-2 hover:bg-ink-3"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -229,7 +229,7 @@ export default function HubSpotImportWorkspace() {
                       <p className="text-sm font-medium text-white">
                         {company.name ?? "Untitled company"}
                       </p>
-                      <p className="text-xs text-text-muted">
+                      <p className="text-xs text-text-3">
                         {[company.domain, company.industry, company.country]
                           .filter(Boolean)
                           .join(" · ") || "—"}
@@ -250,19 +250,19 @@ export default function HubSpotImportWorkspace() {
               type="button"
               onClick={() => void runSearch(paging.after ?? undefined)}
               disabled={searching}
-              className="mt-4 rounded-xl border border-[rgba(255,255,255,0.18)] px-3 py-2 text-xs text-white"
+              className="mt-4 rounded-xl border border-ink-5 px-3 py-2 text-xs text-white"
             >
               Load more
             </button>
           ) : null}
         </section>
 
-        <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-text-muted">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-3">
             Preview + import
           </h3>
           {!selected ? (
-            <p className="mt-4 text-sm text-text-muted">
+            <p className="mt-4 text-sm text-text-3">
               Select a company on the left to preview related records.
             </p>
           ) : (
@@ -271,7 +271,7 @@ export default function HubSpotImportWorkspace() {
                 <p className="text-lg font-semibold text-white">
                   {selected.name ?? "Untitled company"}
                 </p>
-                <p className="text-xs text-text-muted">
+                <p className="text-xs text-text-3">
                   {[selected.domain, selected.industry, selected.country]
                     .filter(Boolean)
                     .join(" · ") || "—"}
@@ -279,11 +279,11 @@ export default function HubSpotImportWorkspace() {
               </div>
 
               {loadingRelated ? (
-                <p className="text-sm text-text-muted">Loading related...</p>
+                <p className="text-sm text-text-3">Loading related...</p>
               ) : related ? (
                 <>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Contacts ({related.contacts.length})
                     </p>
                     <ul className="mt-2 space-y-1">
@@ -293,7 +293,7 @@ export default function HubSpotImportWorkspace() {
                             c.email ||
                             "Unnamed contact"}
                           {c.email ? (
-                            <span className="text-xs text-text-muted">
+                            <span className="text-xs text-text-3">
                               {" "}
                               · {c.email}
                             </span>
@@ -301,14 +301,14 @@ export default function HubSpotImportWorkspace() {
                         </li>
                       ))}
                       {related.contacts.length > 8 ? (
-                        <li className="text-xs text-text-muted">
+                        <li className="text-xs text-text-3">
                           + {related.contacts.length - 8} more
                         </li>
                       ) : null}
                     </ul>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Deals ({related.deals.length})
                     </p>
                     <ul className="mt-2 space-y-1">
@@ -316,7 +316,7 @@ export default function HubSpotImportWorkspace() {
                         <li key={d.id} className="text-sm text-white">
                           {d.name ?? "Untitled deal"}
                           {d.amount ? (
-                            <span className="text-xs text-text-muted">
+                            <span className="text-xs text-text-3">
                               {" "}
                               · {d.amount}
                             </span>
@@ -324,14 +324,14 @@ export default function HubSpotImportWorkspace() {
                         </li>
                       ))}
                       {related.deals.length === 0 ? (
-                        <li className="text-xs text-text-muted">No deals.</li>
+                        <li className="text-xs text-text-3">No deals.</li>
                       ) : null}
                     </ul>
                   </div>
                 </>
               ) : null}
 
-              <div className="space-y-2 rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+              <div className="space-y-2 rounded-xl border border-ink-4 bg-ink-2 p-4">
                 <label className="flex items-center gap-2 text-sm text-white">
                   <input
                     type="checkbox"

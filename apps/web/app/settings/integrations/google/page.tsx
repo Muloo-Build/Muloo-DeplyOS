@@ -12,13 +12,13 @@ export default function SettingsIntegrationsGooglePage() {
         <section className="bg-ink-1 border border-ink-4 rounded-[14px] p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Live today
               </p>
               <h2 className="mt-2 text-xl font-semibold text-white">
                 Email + calendar
               </h2>
-              <p className="mt-2 max-w-2xl text-sm text-text-secondary">
+              <p className="mt-2 max-w-2xl text-sm text-text-2">
                 Gmail mailbox routing and Google Calendar are configured
                 today. The OAuth connect lives under Email settings (mailbox
                 + filter label) and Workspace settings (calendar). Opening
@@ -34,7 +34,7 @@ export default function SettingsIntegrationsGooglePage() {
               </Link>
               <Link
                 href="/settings/workspace#calendar"
-                className="rounded-xl border border-[rgba(255,255,255,0.18)] px-4 py-3 text-sm font-medium text-white"
+                className="rounded-xl border border-ink-5 px-4 py-3 text-sm font-medium text-white"
               >
                 Open calendar connect →
               </Link>
@@ -43,10 +43,10 @@ export default function SettingsIntegrationsGooglePage() {
         </section>
 
         <section className="bg-ink-1 border border-ink-4 rounded-[14px] p-6">
-          <p className="text-xs uppercase tracking-[0.25em] text-text-muted">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
             Roadmap
           </p>
-          <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+          <ul className="mt-3 space-y-2 text-sm text-text-2">
             <li>✓ Gmail mailbox routing (send-as / reply-to)</li>
             <li>✓ Calendar context in Command Centre + project meetings</li>
             <li>· Drive — attach files to projects, search across client docs</li>

@@ -19,7 +19,7 @@ export default function Breadcrumb({
     <div className="space-y-1">
       <nav
         aria-label="Breadcrumb"
-        className="flex flex-wrap items-center gap-1 text-xs text-text-secondary"
+        className="flex flex-wrap items-center gap-1 text-xs text-text-2"
       >
         {items.map((item, index) => {
           const isLast = index === items.length - 1;
@@ -33,14 +33,14 @@ export default function Breadcrumb({
                 <span className={isLast ? "text-white" : ""}>{item.label}</span>
               )}
               {!isLast ? (
-                <ChevronRight size={12} className="text-text-secondary/50" />
+                <ChevronRight size={12} className="text-text-2/50" />
               ) : null}
             </span>
           );
         })}
       </nav>
       {helperText ? (
-        <p className="text-xs text-text-secondary">{helperText}</p>
+        <p className="text-xs text-text-2">{helperText}</p>
       ) : null}
     </div>
   );

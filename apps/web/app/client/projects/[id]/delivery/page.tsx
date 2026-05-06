@@ -12,7 +12,7 @@ export default function ClientProjectDeliveryBoardPage({
       <div className="mb-6">
         <Link
           href={`/client/projects/${params.id}`}
-          className="text-sm text-text-muted"
+          className="text-sm text-text-3"
         >
           Back to project
         </Link>

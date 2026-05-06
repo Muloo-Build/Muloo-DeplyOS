@@ -289,16 +289,16 @@ export default function ChangeTab({
 
   return (
     <div className="space-y-6">
-      <section className="brand-surface rounded-3xl border p-6">
+      <section className="brand-surface rounded-[14px] border p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+            <p className="text-sm uppercase tracking-[0.14em] text-text-3">
               Change management
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-white">
               Scope changes for this project
             </h2>
-            <p className="mt-2 max-w-2xl text-sm text-text-secondary">
+            <p className="mt-2 max-w-2xl text-sm text-text-2">
               Triage incoming change requests, price them, and capture the
               audit trail of approvals or rejections. Approved changes append
               to delivery; rejected changes carry the reason for the record.
@@ -314,15 +314,15 @@ export default function ChangeTab({
       </section>
 
       {error ? (
-        <section className="brand-surface rounded-3xl border p-6">
+        <section className="brand-surface rounded-[14px] border p-6">
           <p className="text-sm text-status-error">{error}</p>
         </section>
       ) : null}
 
-      <section className="brand-surface rounded-3xl border p-6">
+      <section className="brand-surface rounded-[14px] border p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="text-lg font-semibold text-white">Scope diff</h3>
-          <span className="text-xs text-text-muted">
+          <span className="text-xs text-text-3">
             {baseline.source === "quote"
               ? baseline.approvedAt
                 ? `Baseline: approved quote v${baseline.version} (${formatDate(baseline.approvedAt)})`
@@ -332,13 +332,13 @@ export default function ChangeTab({
                 : "Baseline: workstream estimates · scope not yet locked"}
           </span>
         </div>
-        <p className="mt-1 text-sm text-text-muted">
+        <p className="mt-1 text-sm text-text-3">
           Originally signed-off scope vs current scope, with approved
           change-request impact in between.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <div className="brand-surface-soft rounded-2xl border p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+          <div className="brand-surface-soft rounded-[14px] border p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Originally signed-off
             </p>
             <p className="mt-2 text-sm text-white">
@@ -346,8 +346,8 @@ export default function ChangeTab({
               {baseline.fee !== null ? ` · ${formatZar(baseline.fee)}` : ""}
             </p>
           </div>
-          <div className="brand-surface-soft rounded-2xl border p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+          <div className="brand-surface-soft rounded-[14px] border p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Approved changes
             </p>
             <p className="mt-2 text-sm text-white">
@@ -356,8 +356,8 @@ export default function ChangeTab({
                 : `${formatSignedHours(approvedDelta.hours)} · ${formatSignedZar(approvedDelta.fee)}`}
             </p>
           </div>
-          <div className="brand-surface-soft rounded-2xl border p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+          <div className="brand-surface-soft rounded-[14px] border p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Current scope
             </p>
             <p className="mt-2 text-sm text-white">
@@ -386,7 +386,7 @@ export default function ChangeTab({
           </span>
         )}
         renderRight={(request) => (
-          <span className="text-xs text-text-muted">
+          <span className="text-xs text-text-3">
             Raised {formatDate(request.createdAt)}
           </span>
         )}
@@ -412,7 +412,7 @@ export default function ChangeTab({
           const hasFee = typeof fee === "number" && fee !== 0;
           if (!hasHours && !hasFee) {
             return (
-              <span className="text-xs text-text-muted">Not priced</span>
+              <span className="text-xs text-text-3">Not priced</span>
             );
           }
           const parts: string[] = [];
@@ -431,7 +431,7 @@ export default function ChangeTab({
                   e.stopPropagation();
                   void navigator.clipboard.writeText(quoteLine);
                 }}
-                className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-text-secondary hover:bg-white/10 hover:text-white"
+                className="rounded-md border border-ink-4 bg-white/5 px-2 py-0.5 text-[10px] text-text-2 hover:bg-white/10 hover:text-white"
                 title="Copy as quote line"
               >
                 Copy as quote line
@@ -441,7 +441,7 @@ export default function ChangeTab({
         }}
         renderFooter={(request) =>
           request.approvedByName || request.approvedAt ? (
-            <p className="mt-2 text-xs text-text-muted">
+            <p className="mt-2 text-xs text-text-3">
               Approved
               {request.approvedByName ? ` by ${request.approvedByName}` : ""}
               {request.approvedAt
@@ -469,14 +469,14 @@ export default function ChangeTab({
           </span>
         )}
         renderRight={(request) => (
-          <span className="text-xs text-text-muted">
+          <span className="text-xs text-text-3">
             Rejected {formatDate(request.rejectedAt)}
           </span>
         )}
         renderFooter={(request) =>
           request.reason ? (
-            <p className="mt-2 text-xs text-text-secondary">
-              <span className="text-text-muted">Reason:</span> {request.reason}
+            <p className="mt-2 text-xs text-text-2">
+              <span className="text-text-3">Reason:</span> {request.reason}
             </p>
           ) : null
         }
@@ -505,25 +505,25 @@ function ChangeListSection({
   renderFooter?: (request: ChangeRequest) => ReactNode;
 }) {
   return (
-    <section className="brand-surface rounded-3xl border p-6">
+    <section className="brand-surface rounded-[14px] border p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-lg font-semibold text-white">
           {title}
           {!loading ? ` (${items.length})` : ""}
         </h3>
       </div>
-      <p className="mt-1 text-sm text-text-muted">{description}</p>
+      <p className="mt-1 text-sm text-text-3">{description}</p>
       <div className="mt-4">
         {loading ? (
           <SkeletonRows count={2} />
         ) : items.length === 0 ? (
-          <p className="text-sm text-text-secondary">{emptyText}</p>
+          <p className="text-sm text-text-2">{emptyText}</p>
         ) : (
           <ul className="space-y-3">
             {items.map((request) => (
               <li
                 key={request.id}
-                className="brand-surface-soft rounded-2xl border p-4"
+                className="brand-surface-soft rounded-[14px] border p-4"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -534,7 +534,7 @@ function ChangeListSection({
                       {renderMeta(request)}
                     </div>
                     {request.summary ? (
-                      <p className="mt-1 text-sm text-text-secondary">
+                      <p className="mt-1 text-sm text-text-2">
                         {request.summary}
                       </p>
                     ) : null}

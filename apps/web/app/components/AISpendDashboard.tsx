@@ -94,8 +94,8 @@ export default function AISpendDashboard() {
               onClick={() => setDays(range.days)}
               className={`rounded-xl px-4 py-2 text-sm font-medium ${
                 days === range.days
-                  ? "bg-[#141d3d] text-white"
-                  : "bg-background-card text-text-secondary"
+                  ? "bg-ink-3 text-white"
+                  : "bg-ink-1 text-text-2"
               }`}
             >
               {range.label}
@@ -103,7 +103,7 @@ export default function AISpendDashboard() {
           ))}
         </div>
         {summary ? (
-          <div className="text-xs text-text-muted">
+          <div className="text-xs text-text-3">
             {new Date(summary.fromDate).toLocaleDateString()} –{" "}
             {new Date(summary.toDate).toLocaleDateString()}
           </div>
@@ -117,38 +117,38 @@ export default function AISpendDashboard() {
       ) : null}
 
       {loading ? (
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+        <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
           Loading spend...
         </div>
       ) : !summary ? null : (
         <>
           <div className="grid gap-4 md:grid-cols-4">
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Total spend
               </p>
               <p className="mt-2 text-3xl font-bold text-white">
                 {fmtUsd(summary.totalCostUsd)}
               </p>
             </div>
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Tokens
               </p>
               <p className="mt-2 text-3xl font-bold text-white">
                 {fmtTokens(summary.totalTokens)}
               </p>
             </div>
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Calls
               </p>
               <p className="mt-2 text-3xl font-bold text-white">
                 {summary.callCount.toLocaleString()}
               </p>
             </div>
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Errors
               </p>
               <p className="mt-2 text-3xl font-bold text-white">
@@ -158,8 +158,8 @@ export default function AISpendDashboard() {
           </div>
 
           {summary.daily.length > 0 ? (
-            <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-text-muted">
+            <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-3">
                 Daily burn
               </h3>
               <div className="mt-4 flex items-end gap-1 h-32">
@@ -176,7 +176,7 @@ export default function AISpendDashboard() {
                   );
                 })}
               </div>
-              <div className="mt-2 flex justify-between text-xs text-text-muted">
+              <div className="mt-2 flex justify-between text-xs text-text-3">
                 <span>{summary.daily[0]?.date}</span>
                 <span>{summary.daily[summary.daily.length - 1]?.date}</span>
               </div>
@@ -203,24 +203,24 @@ function BucketTable({
   buckets: SpendBucket[];
 }) {
   return (
-    <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-      <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-text-muted">
+    <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+      <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-3">
         {title}
       </h3>
       <div className="mt-4 space-y-2">
         {buckets.length === 0 ? (
-          <p className="text-sm text-text-muted">No data in this range.</p>
+          <p className="text-sm text-text-3">No data in this range.</p>
         ) : (
           buckets.map((bucket) => (
             <div
               key={bucket.key}
-              className="flex items-center justify-between rounded-xl border border-[rgba(255,255,255,0.04)] bg-[#0b1126] px-4 py-3"
+              className="flex items-center justify-between rounded-xl border border-[rgba(255,255,255,0.04)] bg-ink-2 px-4 py-3"
             >
               <div>
                 <p className="text-sm font-medium text-white">
                   {bucket.label}
                 </p>
-                <p className="text-xs text-text-muted">
+                <p className="text-xs text-text-3">
                   {bucket.callCount} call(s) · {fmtTokens(bucket.totalTokens)} tokens
                   {bucket.erroredCount > 0 ? ` · ${bucket.erroredCount} errored` : ""}
                 </p>

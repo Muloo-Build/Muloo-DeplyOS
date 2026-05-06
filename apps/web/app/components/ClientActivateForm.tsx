@@ -76,43 +76,43 @@ export default function ClientActivateForm({
   }
 
   return (
-    <div className="min-h-screen bg-background-primary px-6 text-white">
+    <div className="min-h-screen bg-ink-0 px-6 text-white">
       <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center py-10">
-        <div className="w-full rounded-[32px] border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
+        <div className="w-full rounded-[32px] border border-ink-4 bg-ink-1 p-8">
           <img src="/muloo-logo.svg" alt="Muloo" className="h-10 w-auto" />
-          <p className="mt-6 text-sm uppercase tracking-[0.3em] text-text-muted">
+          <p className="mt-6 text-sm uppercase tracking-[0.3em] text-text-3">
             {portalLabel} access
           </p>
           <h1 className="mt-3 text-3xl font-bold font-heading text-white">
             Set your password
           </h1>
-          <p className="mt-3 text-text-secondary">
+          <p className="mt-3 text-text-2">
             Use this link to activate your Muloo portal access or reset your
             password.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <label className="block">
-              <span className="mb-2 block text-sm text-text-secondary">
+              <span className="mb-2 block text-sm text-text-2">
                 New password
               </span>
               <input
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
               />
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm text-text-secondary">
+              <span className="mb-2 block text-sm text-text-2">
                 Confirm password
               </span>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
-                className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
               />
             </label>
 
@@ -127,7 +127,7 @@ export default function ClientActivateForm({
             </button>
           </form>
 
-          <div className="mt-6 text-sm text-text-secondary">
+          <div className="mt-6 text-sm text-text-2">
             Already have access?{" "}
             <Link
               href={getPortalLoginPath(portalExperience)}

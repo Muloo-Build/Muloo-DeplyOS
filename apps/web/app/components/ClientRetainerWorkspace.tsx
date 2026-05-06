@@ -166,7 +166,7 @@ export default function ClientRetainerWorkspace({
           >
             ← Back to projects
           </Link>
-          <p className="mt-4 text-xs uppercase tracking-[0.18em] text-text-muted">
+          <p className="mt-4 text-xs uppercase tracking-[0.14em] text-text-3">
             Retainer
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-white">
@@ -175,40 +175,40 @@ export default function ClientRetainerWorkspace({
         </header>
 
         {error ? (
-          <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <div className="rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             {error}
           </div>
         ) : null}
 
         <section className="grid gap-4 xl:grid-cols-4">
-          <div className="rounded-2xl border border-white/10 bg-background-card p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Service line</p>
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">Service line</p>
             <p className="mt-2 text-lg font-semibold text-white">
               {retainer ? formatServiceLine(retainer.serviceLine) : "—"}
             </p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-background-card p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Current balance</p>
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">Current balance</p>
             <p className="mt-2 text-lg font-semibold text-white">
               {retainer?.currentPeriod ? `${retainer.currentPeriod.remainingHours}h` : "—"}
             </p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-background-card p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Refresh</p>
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">Refresh</p>
             <p className="mt-2 text-lg font-semibold text-white">
               {retainer?.currentPeriod ? `${retainer.currentPeriod.daysUntilRefresh} days` : "—"}
             </p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-background-card p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Status</p>
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">Status</p>
             <p className="mt-2 text-lg font-semibold text-white">
               {retainer?.status ?? "—"}
             </p>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-white/10 bg-background-card p-6">
-          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
             Current period
           </p>
           {retainer?.currentPeriod ? (
@@ -233,7 +233,7 @@ export default function ClientRetainerWorkspace({
               </p>
               {retainer.currentPeriod.rolledInHours > 0 &&
               retainer.rolloverBuckets.length > 0 ? (
-                <p className="mt-2 text-sm text-text-secondary">
+                <p className="mt-2 text-sm text-text-2">
                   Includes {retainer.currentPeriod.rolledInHours}h rolled forward.
                   Next expiry {formatDate(retainer.rolloverBuckets[0].expiresAt)}.
                 </p>
@@ -245,15 +245,15 @@ export default function ClientRetainerWorkspace({
               ) : null}
             </>
           ) : (
-            <p className="mt-4 text-sm text-text-secondary">
+            <p className="mt-4 text-sm text-text-2">
               No active period is available right now.
             </p>
           )}
         </section>
 
         {retainer?.currentPeriod?.topUps.some((topUp) => topUp.status === "QUOTED") ? (
-          <section className="rounded-2xl border border-[#f0c060]/35 bg-[#f0c060]/10 p-6">
-            <p className="text-xs uppercase tracking-[0.18em] text-[#f0c060]">
+          <section className="rounded-[14px] border border-[#f0c060]/35 bg-[#f0c060]/10 p-6">
+            <p className="text-xs uppercase tracking-[0.14em] text-[#f0c060]">
               Top-up pending approval
             </p>
             <div className="mt-4 space-y-3">
@@ -263,12 +263,12 @@ export default function ClientRetainerWorkspace({
                   <Link
                     key={topUp.id}
                     href={`/client/retainers/${retainer.id}/top-ups/${topUp.id}`}
-                    className="block rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-white/20 hover:bg-white/[0.06]"
+                    className="block rounded-[14px] border border-ink-4 bg-white/[0.04] p-4 transition hover:border-ink-5 hover:bg-white/[0.06]"
                   >
                     <p className="font-semibold text-white">
                       {topUp.hours} additional hours · {formatMoney(topUp.total, retainer.currency)}
                     </p>
-                    <p className="mt-1 text-sm text-text-secondary">
+                    <p className="mt-1 text-sm text-text-2">
                       Review and approve the quoted top-up to keep work moving.
                     </p>
                   </Link>
@@ -277,13 +277,13 @@ export default function ClientRetainerWorkspace({
           </section>
         ) : null}
 
-        <section className="rounded-2xl border border-white/10 bg-background-card p-6">
-          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
             Usage history
           </p>
           <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-left text-sm text-text-secondary">
-              <thead className="text-xs uppercase tracking-[0.16em] text-text-muted">
+            <table className="min-w-full text-left text-sm text-text-2">
+              <thead className="text-xs uppercase tracking-[0.16em] text-text-3">
                 <tr>
                   <th className="pb-3 pr-4">Month</th>
                   <th className="pb-3 pr-4">Block</th>
@@ -314,24 +314,24 @@ export default function ClientRetainerWorkspace({
         </section>
 
         {retainer && retainer.billToEntity.type === "CLIENT" ? (
-          <section className="rounded-2xl border border-white/10 bg-background-card p-6">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+          <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Invoices
             </p>
             <div className="mt-4 space-y-3">
               {retainer.visibleInvoices.map((invoice) => (
                 <div
                   key={invoice.id}
-                  className="rounded-2xl border border-white/8 bg-white/[0.03] p-4"
+                  className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4"
                 >
                   <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <div>
                       <p className="font-semibold text-white">{invoice.reference}</p>
-                      <p className="mt-1 text-sm text-text-secondary">
+                      <p className="mt-1 text-sm text-text-2">
                         Issued {formatDate(invoice.issueDate)} · Due {formatDate(invoice.dueDate)}
                       </p>
                     </div>
-                    <div className="text-sm text-text-secondary md:text-right">
+                    <div className="text-sm text-text-2 md:text-right">
                       <p className="text-white">
                         {formatMoney(invoice.amount, invoice.currency)}
                       </p>
@@ -351,7 +351,7 @@ export default function ClientRetainerWorkspace({
                 </div>
               ))}
               {!loading && retainer.visibleInvoices.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-white/12 p-4 text-sm text-text-secondary">
+                <div className="rounded-[14px] border border-dashed border-white/12 p-4 text-sm text-text-2">
                   No invoice records have been shared for this retainer yet.
                 </div>
               ) : null}

@@ -5,6 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
+import { Btn } from "./ui/Btn";
+import { Empty } from "./ui/Empty";
+import { PageHead } from "./ui/PageHead";
 import {
   createDefaultClientQuestionnaireDefinitionMap,
   type ClientQuestionnaireDefinitionMap
@@ -424,44 +427,37 @@ export default function ProjectInputsWorkspace({
 
   return (
     <AppShell>
-      <div className="px-8 py-8">
-        <div className="mx-auto max-w-7xl space-y-6">
-          <ProjectWorkflowNav projectId={projectId} showDiscovery />
-
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+        <div className="space-y-6">
           {loading ? (
-            <div className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8 text-text-secondary">
-              Loading project inputs...
-            </div>
+            <Empty title="Loading project inputs…" sub="One moment." />
           ) : error && !project ? (
-            <div className="rounded-3xl border border-[rgba(224,80,96,0.35)] bg-background-card p-8 text-white">
-              {error}
-            </div>
+            <Empty title="Inputs error" sub={error} />
           ) : project ? (
             <>
-              <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-text-muted">
-                      Project Inputs
-                    </p>
-                    <h1 className="mt-3 text-3xl font-semibold text-white">
-                      {project.name}
-                    </h1>
-                    <p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">
-                      Build the exact client input pack for this project, then
-                      assign sections to the people who should answer them. This
-                      is where we make the discovery or requirements flow fit
-                      the real job, not a generic template.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    <Link
-                      href={`/projects/${project.id}`}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-5 py-3 text-sm font-medium text-white"
-                    >
-                      Back to project summary
-                    </Link>
-                  </div>
+              <PageHead
+                eyebrow={
+                  <Link
+                    href={`/projects/${project.id}`}
+                    className="hover:text-text-1 transition-colors"
+                  >
+                    ← Project workspace
+                  </Link>
+                }
+                title={`Inputs — ${project.name}`}
+                lede="Build the exact client input pack for this project. Assign sections to the people who should answer them. This is where we make the discovery flow fit the real job, not a generic template."
+                actions={
+                  <Link href={`/projects/${project.id}`}>
+                    <Btn variant="ghost" size="md">
+                      Back to summary
+                    </Btn>
+                  </Link>
+                }
+              />
+              <ProjectWorkflowNav projectId={projectId} showDiscovery />
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <div className="hidden">
+                  <p>removed-legacy-header</p>
                 </div>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-4">
@@ -486,9 +482,9 @@ export default function ProjectInputsWorkspace({
                   ].map((item) => (
                     <div
                       key={item.label}
-                      className="rounded-2xl bg-[#0b1126] px-5 py-5"
+                      className="rounded-[14px] bg-ink-2 px-5 py-5"
                     >
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         {item.label}
                       </p>
                       <p className="mt-3 text-lg font-semibold text-white">
@@ -500,24 +496,24 @@ export default function ProjectInputsWorkspace({
               </section>
 
               {error ? (
-                <div className="rounded-2xl border border-[rgba(224,80,96,0.35)] bg-background-card px-5 py-4 text-sm text-[#ffb1ba]">
+                <div className="rounded-[14px] border border-[rgba(224,80,96,0.35)] bg-ink-1 px-5 py-4 text-sm text-[#ffb1ba]">
                   {error}
                 </div>
               ) : null}
 
               {feedback ? (
-                <div className="rounded-2xl border border-[rgba(81,208,176,0.25)] bg-background-card px-5 py-4 text-sm text-[#51d0b0]">
+                <div className="rounded-[14px] border border-[rgba(81,208,176,0.25)] bg-ink-1 px-5 py-4 text-sm text-[#51d0b0]">
                   {feedback}
                 </div>
               ) : null}
 
-              <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-semibold text-white">
                       Saved Client Answers
                     </h2>
-                    <p className="mt-2 max-w-3xl text-sm text-text-secondary">
+                    <p className="mt-2 max-w-3xl text-sm text-text-2">
                       This is the information your client team has already given
                       us in the portal. It stays here so nobody has to retype
                       good answers just because the project evolved.
@@ -537,18 +533,18 @@ export default function ProjectInputsWorkspace({
                       return (
                         <div
                           key={submission.id}
-                          className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5"
+                          className="rounded-[14px] border border-ink-4 bg-ink-2 p-5"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-4">
                             <div>
-                              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                                 Input Section {submission.sessionNumber}
                               </p>
                               <p className="mt-2 text-lg font-semibold text-white">
                                 {session?.title ??
                                   `Session ${submission.sessionNumber}`}
                               </p>
-                              <p className="mt-1 text-sm text-text-secondary">
+                              <p className="mt-1 text-sm text-text-2">
                                 {[
                                   submission.user.firstName,
                                   submission.user.lastName
@@ -558,7 +554,7 @@ export default function ProjectInputsWorkspace({
                                 · {new Date(submission.updatedAt).toLocaleString("en-ZA")}
                               </p>
                             </div>
-                            <div className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs uppercase tracking-[0.16em] text-text-muted">
+                            <div className="rounded-full border border-ink-4 px-3 py-1 text-xs uppercase tracking-[0.16em] text-text-3">
                               {submission.status}
                             </div>
                           </div>
@@ -567,12 +563,12 @@ export default function ProjectInputsWorkspace({
                             {(session?.questions ?? []).map((question) => (
                               <div
                                 key={`${submission.id}-${question.key}`}
-                                className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4"
+                                className="rounded-[14px] border border-ink-4 bg-ink-1 p-4"
                               >
                                 <p className="text-sm font-medium text-white">
                                   {question.label}
                                 </p>
-                                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-secondary">
+                                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-2">
                                   {formatAnswerValue(
                                     submission.answers?.[question.key]
                                   )}
@@ -584,12 +580,12 @@ export default function ProjectInputsWorkspace({
                               ? answeredEntries.map(([key, value]) => (
                                   <div
                                     key={`${submission.id}-${key}`}
-                                    className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4"
+                                    className="rounded-[14px] border border-ink-4 bg-ink-1 p-4"
                                   >
                                     <p className="text-sm font-medium text-white">
                                       {key.replace(/_/g, " ")}
                                     </p>
-                                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-secondary">
+                                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-2">
                                       {formatAnswerValue(value)}
                                     </p>
                                   </div>
@@ -600,20 +596,20 @@ export default function ProjectInputsWorkspace({
                       );
                     })
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-5 py-5 text-sm text-text-secondary">
+                    <div className="rounded-[14px] border border-dashed border-ink-4 px-5 py-5 text-sm text-text-2">
                       No client answers have been saved yet.
                     </div>
                   )}
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-semibold text-white">
                       Input Pack Builder
                     </h2>
-                    <p className="mt-2 max-w-3xl text-sm text-text-secondary">
+                    <p className="mt-2 max-w-3xl text-sm text-text-2">
                       Turn sections on or off, refine the questions, and add
                       one-off prompts for this specific project. If a section is
                       disabled or all its questions are off, clients will not
@@ -624,7 +620,7 @@ export default function ProjectInputsWorkspace({
                     type="button"
                     onClick={() => void saveQuestionnaireConfig()}
                     disabled={savingConfig || isScopeLocked}
-                    className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                    className="rounded-[14px] border border-ink-4 bg-ink-2 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                   >
                     {savingConfig ? "Saving..." : "Save input pack"}
                   </button>
@@ -640,11 +636,11 @@ export default function ProjectInputsWorkspace({
                     return (
                       <div
                         key={sessionNumber}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5"
+                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-5"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-4">
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                               Input Section {sessionNumber}
                             </p>
                             <input
@@ -656,7 +652,7 @@ export default function ProjectInputsWorkspace({
                                   event.target.value
                                 )
                               }
-                              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-lg font-semibold text-white outline-none"
+                              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-lg font-semibold text-white outline-none"
                             />
                             <textarea
                               value={session.description}
@@ -667,10 +663,10 @@ export default function ProjectInputsWorkspace({
                                   event.target.value
                                 )
                               }
-                              className="mt-3 min-h-[92px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                              className="mt-3 min-h-[92px] w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
                             />
                           </div>
-                          <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white">
+                          <label className="flex items-center gap-3 rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white">
                             <input
                               type="checkbox"
                               checked={session.enabled !== false}
@@ -690,7 +686,7 @@ export default function ProjectInputsWorkspace({
                           {session.questions.map((question, questionIndex) => (
                             <div
                               key={`${sessionNumber}-${question.key}-${questionIndex}`}
-                              className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4"
+                              className="rounded-[14px] border border-ink-4 bg-ink-1 p-4"
                             >
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div className="min-w-0 flex-1 space-y-3">
@@ -705,7 +701,7 @@ export default function ProjectInputsWorkspace({
                                       )
                                     }
                                     placeholder="Question label"
-                                    className="w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white outline-none"
+                                    className="w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-white outline-none"
                                   />
                                   <textarea
                                     value={question.hint}
@@ -718,11 +714,11 @@ export default function ProjectInputsWorkspace({
                                       )
                                     }
                                     placeholder="Help text or context for the client"
-                                    className="min-h-[84px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                                    className="min-h-[84px] w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                                   />
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                  <label className="flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white">
+                                  <label className="flex items-center gap-2 rounded-xl border border-ink-4 px-3 py-2 text-xs font-medium text-white">
                                     <input
                                       type="checkbox"
                                       checked={question.enabled !== false}
@@ -759,7 +755,7 @@ export default function ProjectInputsWorkspace({
                           <button
                             type="button"
                             onClick={() => addQuestion(sessionNumber)}
-                            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                            className="rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white"
                           >
                             Add ad hoc question
                           </button>
@@ -770,13 +766,13 @@ export default function ProjectInputsWorkspace({
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-semibold text-white">
                       Per-Contact Assignment
                     </h2>
-                    <p className="mt-2 max-w-3xl text-sm text-text-secondary">
+                    <p className="mt-2 max-w-3xl text-sm text-text-2">
                       Decide who should answer what. A client contact can stay
                       visibility-only, or be assigned only the sections relevant
                       to them. This keeps executive stakeholders out of
@@ -802,7 +798,7 @@ export default function ProjectInputsWorkspace({
                       return (
                         <div
                           key={clientUser.id}
-                          className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5"
+                          className="rounded-[14px] border border-ink-4 bg-ink-2 p-5"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-4">
                             <div>
@@ -811,14 +807,14 @@ export default function ProjectInputsWorkspace({
                                   .filter(Boolean)
                                   .join(" ") || clientUser.email}
                               </p>
-                              <p className="mt-1 text-sm text-text-secondary">
+                              <p className="mt-1 text-sm text-text-2">
                                 {clientUser.email} · {clientUser.role} ·{" "}
                                 {clientUser.authStatus === "active"
                                   ? "Portal active"
                                   : "Invite pending"}
                               </p>
                             </div>
-                            <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white">
+                            <label className="flex items-center gap-3 rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white">
                               <input
                                 type="checkbox"
                                 checked={assignmentDraft.questionnaireAccess}
@@ -858,10 +854,10 @@ export default function ProjectInputsWorkspace({
                               return (
                                 <label
                                   key={`${clientUser.id}-${sessionNumber}`}
-                                  className={`flex items-start gap-3 rounded-2xl border px-4 py-4 text-sm ${
+                                  className={`flex items-start gap-3 rounded-[14px] border px-4 py-4 text-sm ${
                                     assignmentDraft.questionnaireAccess
-                                      ? "border-[rgba(255,255,255,0.08)] bg-background-card text-white"
-                                      : "border-[rgba(255,255,255,0.05)] bg-background-card text-text-muted opacity-60"
+                                      ? "border-ink-4 bg-ink-1 text-white"
+                                      : "border-[rgba(255,255,255,0.05)] bg-ink-1 text-text-3 opacity-60"
                                   }`}
                                 >
                                   <input
@@ -900,7 +896,7 @@ export default function ProjectInputsWorkspace({
                                     <p className="font-medium">
                                       {session.title}
                                     </p>
-                                    <p className="mt-1 text-xs text-text-secondary">
+                                    <p className="mt-1 text-xs text-text-2">
                                       {
                                         session.questions.filter(
                                           (question) =>
@@ -916,7 +912,7 @@ export default function ProjectInputsWorkspace({
                           </div>
 
                           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                            <p className="text-sm text-text-secondary">
+                            <p className="text-sm text-text-2">
                               {assignmentDraft.questionnaireAccess
                                 ? `${assignmentDraft.assignedInputSections.length} section${
                                     assignmentDraft.assignedInputSections
@@ -935,7 +931,7 @@ export default function ProjectInputsWorkspace({
                                   assignmentDraft.assignedInputSections
                                     .length === 0)
                               }
-                              className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                              className="rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                             >
                               {savingAssignmentId === clientUser.id
                                 ? "Saving..."
@@ -946,7 +942,7 @@ export default function ProjectInputsWorkspace({
                       );
                     })
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-5 py-5 text-sm text-text-secondary">
+                    <div className="rounded-[14px] border border-dashed border-ink-4 px-5 py-5 text-sm text-text-2">
                       Add client portal users first, then assign sections here.
                     </div>
                   )}

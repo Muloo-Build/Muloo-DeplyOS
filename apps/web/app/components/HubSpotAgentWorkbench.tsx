@@ -245,14 +245,14 @@ export default function HubSpotAgentWorkbench() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+        <p className="text-sm uppercase tracking-[0.14em] text-text-3">
           HubSpot Execution
         </p>
         <h2 className="mt-3 text-2xl font-bold font-heading text-white">
           HubSpot Agent Workbench
         </h2>
-        <p className="mt-3 max-w-4xl text-text-secondary">
+        <p className="mt-3 max-w-4xl text-text-2">
           This maps the safest execution path for HubSpot work. Use direct REST
           APIs for CRM schema and record operations, prefer custom workflow or
           custom code actions when automation must live inside HubSpot, and use
@@ -262,58 +262,58 @@ export default function HubSpotAgentWorkbench() {
       </div>
 
       {error ? (
-        <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-4 text-sm text-white">
+        <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-4 text-sm text-white">
           {error}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-text-secondary">
+        <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-text-2">
           Loading HubSpot execution capabilities...
         </div>
       ) : capabilities ? (
         <>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Connection
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
                 {capabilities.connection.ready ? "Ready" : "Not configured"}
               </p>
-              <p className="mt-1 text-xs text-text-secondary">
+              <p className="mt-1 text-xs text-text-2">
                 Source: {formatLabel(capabilities.connection.source)}
               </p>
             </div>
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Direct Actions
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
                 {capabilities.supportedActions.length}
               </p>
-              <p className="mt-1 text-xs text-text-secondary">
+              <p className="mt-1 text-xs text-text-2">
                 Mature REST execution paths
               </p>
             </div>
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Base URL
               </p>
               <p className="mt-2 text-sm font-semibold text-white">
                 {capabilities.connection.baseUrl}
               </p>
             </div>
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Portal ID
               </p>
               <p className="mt-2 text-xl font-semibold text-white">
                 {capabilities.connection.portalId ?? "Not set"}
               </p>
             </div>
-            <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Active target
               </p>
               <p className="mt-2 text-sm font-semibold text-white">
@@ -323,16 +323,16 @@ export default function HubSpotAgentWorkbench() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
             <p className="text-sm font-medium text-white">Execution target</p>
-            <p className="mt-2 text-sm text-text-secondary">
+            <p className="mt-2 text-sm text-text-2">
               Pick a connected HubSpot portal for agent execution. Leave it on
               the fallback only if you still need the older single-token path.
             </p>
             <select
               value={portalRecordId}
               onChange={(event) => setPortalRecordId(event.target.value)}
-              className="mt-4 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none md:max-w-xl"
+              className="mt-4 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none md:max-w-xl"
             >
               <option value="">Global fallback token</option>
               {capabilities.portals.map((portal) => (
@@ -348,14 +348,14 @@ export default function HubSpotAgentWorkbench() {
             {capabilities.capabilities.map((capability) => (
               <div
                 key={capability.key}
-                className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+                className="rounded-[14px] border border-ink-4 bg-ink-1 p-6"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-white">
                       {capability.label}
                     </p>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       {capability.summary}
                     </p>
                   </div>
@@ -367,7 +367,7 @@ export default function HubSpotAgentWorkbench() {
                     {formatLabel(capability.support)}
                   </span>
                 </div>
-                <p className="mt-4 text-xs uppercase tracking-[0.18em] text-text-muted">
+                <p className="mt-4 text-xs uppercase tracking-[0.14em] text-text-3">
                   Best path
                 </p>
                 <p className="mt-2 text-sm text-white">
@@ -385,7 +385,7 @@ export default function HubSpotAgentWorkbench() {
                     ))}
                   </div>
                 ) : null}
-                <div className="mt-4 space-y-2 text-sm text-text-secondary">
+                <div className="mt-4 space-y-2 text-sm text-text-2">
                   {capability.notes.map((note) => (
                     <p key={note}>{note}</p>
                   ))}
@@ -397,7 +397,7 @@ export default function HubSpotAgentWorkbench() {
                       href={doc.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                      className="rounded-xl border border-ink-4 px-3 py-2 text-xs font-medium text-white"
                     >
                       {doc.label}
                     </a>
@@ -407,14 +407,14 @@ export default function HubSpotAgentWorkbench() {
             ))}
           </div>
 
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-            <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+            <p className="text-sm uppercase tracking-[0.14em] text-text-3">
               Portal Ops
             </p>
             <h3 className="mt-2 text-xl font-semibold text-white">
               Natural-language portal requests now live in Projects
             </h3>
-            <p className="mt-3 max-w-3xl text-sm text-text-secondary">
+            <p className="mt-3 max-w-3xl text-sm text-text-2">
               Use the dedicated Portal Ops tool when you want to select a
               client portal and ask for a dashboard build, workflow plan, or
               scoped execution request without creating a PMO task first.
@@ -427,10 +427,10 @@ export default function HubSpotAgentWorkbench() {
             </Link>
           </div>
 
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                   Execution Console
                 </p>
                 <h3 className="mt-2 text-xl font-semibold text-white">
@@ -459,7 +459,7 @@ export default function HubSpotAgentWorkbench() {
                       setAction(nextAction);
                       setPayloadText(actionExamples[nextAction]);
                     }}
-                    className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                    className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                   >
                     {capabilities.supportedActions.map((supportedAction) => (
                       <option key={supportedAction} value={supportedAction}>
@@ -480,7 +480,7 @@ export default function HubSpotAgentWorkbench() {
                       ? "Run dry preview"
                       : "Execute action"}
                 </button>
-                <p className="text-xs text-text-muted">
+                <p className="text-xs text-text-3">
                   Live execution now prefers the selected connected HubSpot
                   portal. If no portal is selected, it falls back to the legacy
                   global token path.
@@ -495,12 +495,12 @@ export default function HubSpotAgentWorkbench() {
                   <textarea
                     value={payloadText}
                     onChange={(event) => setPayloadText(event.target.value)}
-                    className="mt-3 min-h-[360px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 font-mono text-sm text-white outline-none"
+                    className="mt-3 min-h-[360px] w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 font-mono text-sm text-white outline-none"
                   />
                 </label>
                 <div className="block">
                   <span className="text-sm font-medium text-white">Result</span>
-                  <pre className="mt-3 min-h-[360px] overflow-auto rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4 font-mono text-sm text-[#d5ddff]">
+                  <pre className="mt-3 min-h-[360px] overflow-auto rounded-[14px] border border-ink-4 bg-ink-2 p-4 font-mono text-sm text-[#d5ddff]">
                     {resultText || "Execution output will appear here."}
                   </pre>
                 </div>

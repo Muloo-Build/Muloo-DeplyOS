@@ -7,6 +7,8 @@ import { useEffect, useRef, useState } from "react";
 import AppShell from "./AppShell";
 import { SkeletonRows } from "./LoadingSkeleton";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
+import { Btn } from "./ui/Btn";
+import { PageHead } from "./ui/PageHead";
 import {
   getDisplayKeyRisks,
   getDisplayNextQuestions,
@@ -320,38 +322,37 @@ export default function BlueprintWorkspace({
     <AppShell>
       <div className="p-8">
         {loading ? (
-          <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-2xl" />
+          <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-[14px]" />
         ) : error && !project ? (
-          <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-8 text-white">
+          <div className="rounded-[14px] border border-[rgba(224,80,96,0.4)] bg-ink-1 p-8 text-white">
             {error}
           </div>
         ) : (
           <>
+            <PageHead
+              eyebrow={
+                <Link
+                  href={`/projects/${projectId}`}
+                  className="hover:text-text-1 transition-colors"
+                >
+                  ← Project workspace
+                </Link>
+              }
+              title={`${isStandaloneQuote ? "Technical blueprint" : "Blueprint"} — ${project?.name ?? ""}`}
+              lede={
+                blueprint
+                  ? `Generated ${formatDate(blueprint.generatedAt)}`
+                  : isStandaloneQuote
+                    ? "No technical blueprint generated yet."
+                    : "No blueprint generated yet."
+              }
+              actions={null}
+            />
             <ProjectWorkflowNav
               projectId={projectId}
               showDiscovery={!isStandaloneQuote}
             />
-            <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <Link
-                  href={`/projects/${projectId}`}
-                  className="text-sm text-text-muted"
-                >
-                  Back to overview
-                </Link>
-                <h1 className="mt-3 text-3xl font-bold font-heading text-white">
-                  {isStandaloneQuote ? "Technical Blueprint" : "Blueprint"} -{" "}
-                  {project?.name}
-                </h1>
-                <p className="mt-2 text-text-secondary">
-                  {blueprint
-                    ? `Generated ${formatDate(blueprint.generatedAt)}`
-                    : isStandaloneQuote
-                      ? "No technical blueprint generated yet"
-                      : "No blueprint generated yet"}
-                </p>
-              </div>
-
+            <div className="mb-6 flex flex-wrap items-start justify-end gap-4">
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -377,13 +378,13 @@ export default function BlueprintWorkspace({
             ) : null}
 
             {missingBlueprint && !blueprint ? (
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-10 text-center">
+              <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-10 text-center">
                 <h2 className="text-2xl font-semibold text-white">
                   {isStandaloneQuote
                     ? "No technical blueprint yet"
                     : "No blueprint yet"}
                 </h2>
-                <p className="mt-3 text-text-secondary">
+                <p className="mt-3 text-text-2">
                   {isStandaloneQuote
                     ? "Generate a phased technical implementation plan from the scoped brief and supporting context."
                     : "Generate a phased implementation plan from the completed discovery sessions."}
@@ -432,15 +433,15 @@ export default function BlueprintWorkspace({
                   ].map(([label, value, supporting, valueClass]) => (
                     <div
                       key={label}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6"
+                      className="rounded-[14px] border border-ink-4 bg-ink-1 p-6"
                     >
-                      <p className="text-sm text-text-muted">{label}</p>
+                      <p className="text-sm text-text-3">{label}</p>
                       <p
                         className={`mt-3 text-2xl font-semibold ${valueClass}`}
                       >
                         {value}
                       </p>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         {supporting}
                       </p>
                     </div>
@@ -448,11 +449,11 @@ export default function BlueprintWorkspace({
                 </section>
 
                 {isStandaloneQuote ? (
-                  <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                     <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
                       <div className="space-y-4">
-                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <div className="rounded-xl bg-ink-2 px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Recommendation context
                           </p>
                           <p className="mt-3 text-sm text-white">
@@ -462,24 +463,24 @@ export default function BlueprintWorkspace({
                               "Regenerate the technical blueprint after refreshing the scoped summary to pull a clearer recommendation through."}
                           </p>
                           {summary?.whyThisApproach ? (
-                            <p className="mt-3 text-sm text-text-secondary">
+                            <p className="mt-3 text-sm text-text-2">
                               {summary.whyThisApproach}
                             </p>
                           ) : null}
                         </div>
 
                         <div className="grid gap-4 md:grid-cols-2">
-                          <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          <div className="rounded-xl bg-ink-2 px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                               Phase 1 focus
                             </p>
-                            <p className="mt-2 text-sm text-text-secondary">
+                            <p className="mt-2 text-sm text-text-2">
                               {summary?.phaseOneFocus ||
                                 "Use the first phase to prove the boxed solution and confirm packaging, data access, and operating fit before expanding the scope."}
                             </p>
                           </div>
-                          <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          <div className="rounded-xl bg-ink-2 px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                               Platform packaging
                             </p>
                             <p className="mt-2 text-sm text-white">
@@ -488,7 +489,7 @@ export default function BlueprintWorkspace({
                                 : "No customer platform selected"}
                             </p>
                             {project?.packagingAssessment ? (
-                              <p className="mt-3 text-sm text-text-secondary">
+                              <p className="mt-3 text-sm text-text-2">
                                 {project.packagingAssessment.summary}
                               </p>
                             ) : null}
@@ -497,11 +498,11 @@ export default function BlueprintWorkspace({
                       </div>
 
                       <div className="space-y-4">
-                        <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                        <div className="rounded-xl bg-ink-2 px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                             Supporting tools
                           </p>
-                          <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                          <ul className="mt-2 space-y-2 text-sm text-text-2">
                             {(supportingTools.length
                               ? supportingTools
                               : [
@@ -514,7 +515,7 @@ export default function BlueprintWorkspace({
                         </div>
                         {recommendDocumentationPack ? (
                           <div className="rounded-xl border border-[rgba(73,205,225,0.18)] bg-[rgba(73,205,225,0.08)] px-4 py-4">
-                            <p className="text-xs uppercase tracking-[0.2em] text-[#49cde1]">
+                            <p className="text-xs uppercase tracking-[0.14em] text-[#49cde1]">
                               Optional bolt-on
                             </p>
                             <p className="mt-2 text-sm text-white">
@@ -526,11 +527,11 @@ export default function BlueprintWorkspace({
                           </div>
                         ) : null}
                         <div className="grid gap-4 md:grid-cols-2">
-                          <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          <div className="rounded-xl bg-ink-2 px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                               Key risks
                             </p>
-                            <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            <ul className="mt-2 space-y-2 text-sm text-text-2">
                               {(keyRisks.length
                                 ? keyRisks
                                 : ["No key risks loaded yet."]
@@ -539,11 +540,11 @@ export default function BlueprintWorkspace({
                               ))}
                             </ul>
                           </div>
-                          <div className="rounded-xl bg-[#0b1126] px-4 py-4">
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          <div className="rounded-xl bg-ink-2 px-4 py-4">
+                            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                               Next questions
                             </p>
-                            <ul className="mt-2 space-y-2 text-sm text-text-secondary">
+                            <ul className="mt-2 space-y-2 text-sm text-text-2">
                               {(nextQuestions.length
                                 ? nextQuestions
                                 : ["No follow-up questions loaded yet."]
@@ -572,10 +573,10 @@ export default function BlueprintWorkspace({
                       return (
                         <div
                           key={phaseGroup.phase}
-                          className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card"
+                          className="rounded-[14px] border border-ink-4 bg-ink-1"
                         >
-                          <div className="border-b border-[rgba(255,255,255,0.07)] px-6 py-5">
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                          <div className="border-b border-ink-4 px-6 py-5">
+                            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                               Phase {phaseGroup.phase}
                             </p>
                             <h2 className="mt-2 text-xl font-semibold text-white">
@@ -583,7 +584,7 @@ export default function BlueprintWorkspace({
                             </h2>
                           </div>
 
-                          <div className="grid grid-cols-[1.6fr_120px_120px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-6 py-3 text-xs uppercase tracking-[0.2em] text-text-muted">
+                          <div className="grid grid-cols-[1.6fr_120px_120px] gap-4 border-b border-[rgba(255,255,255,0.05)] px-6 py-3 text-xs uppercase tracking-[0.14em] text-text-3">
                             <span>Task Name</span>
                             <span>Type</span>
                             <span className="text-right">Effort</span>
@@ -610,11 +611,11 @@ export default function BlueprintWorkspace({
                             </div>
                           ))}
 
-                          <div className="grid grid-cols-[1.6fr_120px_120px] gap-4 border-t border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.02)] px-6 py-4 text-sm">
+                          <div className="grid grid-cols-[1.6fr_120px_120px] gap-4 border-t border-ink-4 bg-ink-2 px-6 py-4 text-sm">
                             <span className="font-medium text-white">
                               Phase total
                             </span>
-                            <span className="text-text-secondary">
+                            <span className="text-text-2">
                               {formatHours(phaseHumanHours)} human hrs
                             </span>
                             <span className="text-right font-medium text-white">
@@ -625,9 +626,9 @@ export default function BlueprintWorkspace({
                       );
                     })}
 
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card px-6 py-5">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-1 px-6 py-5">
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                        <span className="text-sm uppercase tracking-[0.14em] text-text-3">
                           Grand total human hours
                         </span>
                         <span className="text-2xl font-semibold text-white">
@@ -637,10 +638,10 @@ export default function BlueprintWorkspace({
                     </div>
                   </section>
 
-                  <aside className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+                  <aside className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                        <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                           Fee Calculator
                         </p>
                         <h2 className="mt-2 text-xl font-semibold text-white">
@@ -651,7 +652,7 @@ export default function BlueprintWorkspace({
 
                     <div className="mt-6 grid gap-4">
                       <label className="block">
-                        <span className="mb-2 block text-sm text-text-secondary">
+                        <span className="mb-2 block text-sm text-text-2">
                           Currency
                         </span>
                         <select
@@ -659,7 +660,7 @@ export default function BlueprintWorkspace({
                           onChange={(event) =>
                             setCurrency(event.target.value as CurrencyCode)
                           }
-                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                         >
                           {Object.keys(exchangeRatesToZar).map((option) => (
                             <option key={option} value={option}>
@@ -670,7 +671,7 @@ export default function BlueprintWorkspace({
                       </label>
 
                       <label className="block">
-                        <span className="mb-2 block text-sm text-text-secondary">
+                        <span className="mb-2 block text-sm text-text-2">
                           Rate tier
                         </span>
                         <select
@@ -678,7 +679,7 @@ export default function BlueprintWorkspace({
                           onChange={(event) =>
                             setRateTier(event.target.value as RateTierKey)
                           }
-                          className="w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-white outline-none focus:border-accent-solid"
+                          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                         >
                           {Object.entries(rateTiers).map(([key, tier]) => (
                             <option key={key} value={key}>
@@ -690,8 +691,8 @@ export default function BlueprintWorkspace({
                     </div>
 
                     <div className="mt-6 grid gap-4">
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                        <p className="text-sm text-text-secondary">
+                      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                        <p className="text-sm text-text-2">
                           Total Human Hours
                         </p>
                         <p className="mt-2 text-2xl font-semibold text-white">
@@ -699,8 +700,8 @@ export default function BlueprintWorkspace({
                         </p>
                       </div>
 
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                        <p className="text-sm text-text-secondary">
+                      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                        <p className="text-sm text-text-2">
                           Estimated Fee
                         </p>
                         <p className="mt-2 text-2xl font-semibold text-white">
@@ -710,7 +711,7 @@ export default function BlueprintWorkspace({
                     </div>
 
                     <div className="mt-6">
-                      <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                      <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                         Breakdown by phase
                       </p>
                       <div className="mt-4 space-y-3">
@@ -727,14 +728,14 @@ export default function BlueprintWorkspace({
                           return (
                             <div
                               key={phaseGroup.phase}
-                              className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
+                              className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3"
                             >
                               <div className="flex items-center justify-between gap-4">
                                 <span className="text-sm text-white">
                                   Phase {phaseGroup.phase} -{" "}
                                   {phaseGroup.phaseName}
                                 </span>
-                                <span className="text-sm text-text-secondary">
+                                <span className="text-sm text-text-2">
                                   {formatHours(phaseHumanHours)} hrs
                                 </span>
                               </div>
@@ -750,8 +751,8 @@ export default function BlueprintWorkspace({
                 </div>
 
                 <section className="grid gap-6 xl:grid-cols-3">
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                    <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                       Human delivery queue
                     </p>
                     <div className="mt-5 space-y-3">
@@ -759,26 +760,26 @@ export default function BlueprintWorkspace({
                         humanTasks.map((task) => (
                           <div
                             key={task.id}
-                            className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
+                            className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3"
                           >
                             <p className="text-sm font-medium text-white">
                               {task.name}
                             </p>
-                            <p className="mt-1 text-xs text-text-secondary">
+                            <p className="mt-1 text-xs text-text-2">
                               Phase {task.phase} - {task.phaseName}
                             </p>
                           </div>
                         ))
                       ) : (
-                        <p className="text-sm text-text-secondary">
+                        <p className="text-sm text-text-2">
                           No human-led tasks in this blueprint.
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                    <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                       Agent execution queue
                     </p>
                     <div className="mt-5 space-y-3">
@@ -786,26 +787,26 @@ export default function BlueprintWorkspace({
                         agentTasks.map((task) => (
                           <div
                             key={task.id}
-                            className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
+                            className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3"
                           >
                             <p className="text-sm font-medium text-white">
                               {task.name}
                             </p>
-                            <p className="mt-1 text-xs text-text-secondary">
+                            <p className="mt-1 text-xs text-text-2">
                               Phase {task.phase} - {task.phaseName}
                             </p>
                           </div>
                         ))
                       ) : (
-                        <p className="text-sm text-text-secondary">
+                        <p className="text-sm text-text-2">
                           No agent-owned tasks in this blueprint yet.
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                    <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                       Client dependency list
                     </p>
                     <div className="mt-5 space-y-3">
@@ -813,18 +814,18 @@ export default function BlueprintWorkspace({
                         clientTasks.map((task) => (
                           <div
                             key={task.id}
-                            className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] px-4 py-3"
+                            className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3"
                           >
                             <p className="text-sm font-medium text-white">
                               {task.name}
                             </p>
-                            <p className="mt-1 text-xs text-text-secondary">
+                            <p className="mt-1 text-xs text-text-2">
                               Phase {task.phase} - {task.phaseName}
                             </p>
                           </div>
                         ))
                       ) : (
-                        <p className="text-sm text-text-secondary">
+                        <p className="text-sm text-text-2">
                           No client-owned dependencies were identified.
                         </p>
                       )}

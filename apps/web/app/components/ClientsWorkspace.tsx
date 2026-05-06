@@ -1238,11 +1238,11 @@ export default function ClientsWorkspace({
     return (
       <div
         key={client.id}
-        className="group rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card transition hover:border-[rgba(255,255,255,0.14)]"
+        className="group rounded-[14px] border border-ink-4 bg-ink-1 transition hover:border-ink-5"
       >
         <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-5 md:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] text-sm font-semibold text-white">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px] border border-ink-4 bg-ink-2 text-sm font-semibold text-white">
               {logoUrl ? (
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white p-1.5 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
                   <img
@@ -1270,14 +1270,14 @@ export default function ClientsWorkspace({
                   </span>
                 ) : null}
                 {client.industry ? (
-                  <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-1 text-[11px] font-medium text-text-secondary">
+                  <span className="rounded-full bg-ink-3 px-3 py-1 text-[11px] font-medium text-text-2">
                     {client.industry}
                   </span>
                 ) : null}
                 {client.clientRoles.map((role) => (
                   <span
                     key={role}
-                    className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-[11px] font-medium text-text-secondary"
+                    className="rounded-full border border-ink-4 px-3 py-1 text-[11px] font-medium text-text-2"
                   >
                     {clientRoleOptions.find((option) => option.value === role)
                       ?.label ?? role}
@@ -1285,7 +1285,7 @@ export default function ClientsWorkspace({
                 ))}
               </div>
 
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-2">
                 <span>{websiteHost || client.region || "No website yet"}</span>
                 <span>{client.contacts.length} contacts</span>
                 <span>{client.projects.length} linked projects</span>
@@ -1300,7 +1300,7 @@ export default function ClientsWorkspace({
                 <span>Updated {formatDate(getClientLastActivity(client))}</span>
               </div>
 
-              <div className="mt-2 flex flex-wrap gap-2 text-xs text-text-muted">
+              <div className="mt-2 flex flex-wrap gap-2 text-xs text-text-3">
                 {recommendedContact ? (
                   <span>
                     Primary:{" "}
@@ -1325,14 +1325,14 @@ export default function ClientsWorkspace({
           <div className="flex flex-wrap gap-3 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
             <Link
               href={buildProjectLink(client, recommendedContact ?? undefined)}
-              className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white"
+              className="rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-white"
             >
               New Project
             </Link>
             <button
               type="button"
               onClick={() => toggleExpanded(client.id)}
-              className="rounded-2xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
+              className="rounded-[14px] border border-ink-4 px-4 py-3 text-sm font-medium text-white"
             >
               {isExpanded ? "Close editor" : "Edit client"}
             </button>
@@ -1346,13 +1346,13 @@ export default function ClientsWorkspace({
                 <Link
                   key={project.id}
                   href={`/projects/${project.id}`}
-                  className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-xs text-text-secondary transition hover:text-white"
+                  className="rounded-full border border-ink-4 bg-ink-2 px-3 py-2 text-xs text-text-2 transition hover:text-white"
                 >
                   {project.name}
                 </Link>
               ))}
               {client.projects.length > 4 ? (
-                <span className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-xs text-text-muted">
+                <span className="rounded-full border border-ink-4 bg-ink-2 px-3 py-2 text-xs text-text-3">
                   +{client.projects.length - 4} more
                 </span>
               ) : null}
@@ -1364,20 +1364,20 @@ export default function ClientsWorkspace({
           <div className="border-t border-[rgba(255,255,255,0.06)] px-5 py-5 md:px-6">
             <div className="grid gap-5 xl:grid-cols-[0.95fr,1.05fr]">
               <div className="space-y-5">
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         Company Profile
                       </p>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         Use role tags for partner/client/group behavior, keep
                         region controlled, and refresh enrichment from the
                         website when you want overview, socials, and a detected
                         logo candidate.
                       </p>
                       {!canDeleteClient ? (
-                        <p className="mt-3 text-xs text-text-muted">
+                        <p className="mt-3 text-xs text-text-3">
                           Delete is only available once this {workspaceLabel.toLowerCase()} has no
                           linked projects.
                         </p>
@@ -1387,7 +1387,7 @@ export default function ClientsWorkspace({
                       type="button"
                       onClick={() => void refreshClientEnrichment(client.id)}
                       disabled={isEnriching || isDeleting}
-                      className="rounded-2xl border border-[rgba(81,208,176,0.22)] bg-[rgba(81,208,176,0.08)] px-4 py-3 text-sm font-medium text-[#8de7d1] disabled:cursor-not-allowed disabled:text-text-muted"
+                      className="rounded-[14px] border border-[rgba(81,208,176,0.22)] bg-[rgba(81,208,176,0.08)] px-4 py-3 text-sm font-medium text-[#8de7d1] disabled:cursor-not-allowed disabled:text-text-3"
                     >
                       {isEnriching ? "Refreshing..." : "Refresh enrichment"}
                     </button>
@@ -1407,7 +1407,7 @@ export default function ClientsWorkspace({
                             event.target.value
                           )
                         }
-                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                        className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block">
@@ -1424,7 +1424,7 @@ export default function ClientsWorkspace({
                           )
                         }
                         placeholder="client.com"
-                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                        className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block md:col-span-2">
@@ -1441,7 +1441,7 @@ export default function ClientsWorkspace({
                           )
                         }
                         placeholder="One per line"
-                        className="mt-3 min-h-[88px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                        className="mt-3 min-h-[88px] w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
                       />
                     </label>
                     <label className="block md:col-span-2">
@@ -1458,9 +1458,9 @@ export default function ClientsWorkspace({
                           )
                         }
                         placeholder="https://..."
-                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                        className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
                       />
-                      <p className="mt-2 text-xs text-text-muted">
+                      <p className="mt-2 text-xs text-text-3">
                         Manual logo always wins over the enriched logo.
                       </p>
                     </label>
@@ -1477,7 +1477,7 @@ export default function ClientsWorkspace({
                             event.target.value
                           )
                         }
-                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                        className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
                       >
                         <option value="">Select industry</option>
                         {!industryOptions.includes(profileDraft.industry) &&
@@ -1506,7 +1506,7 @@ export default function ClientsWorkspace({
                             event.target.value
                           )
                         }
-                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                        className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
                       >
                         <option value="">Select region</option>
                         {!clientRegionOptions.includes(profileDraft.region) &&
@@ -1536,9 +1536,9 @@ export default function ClientsWorkspace({
                           )
                         }
                         placeholder="EPIUSE"
-                        className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+                        className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
                       />
-                      <p className="mt-2 text-xs text-text-muted">
+                      <p className="mt-2 text-xs text-text-3">
                         Match the Gmail label used in your mailbox filters for
                         this client.
                       </p>
@@ -1546,7 +1546,7 @@ export default function ClientsWorkspace({
                   </div>
 
                   <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
                       <p className="text-sm font-medium text-white">
                         {workspaceLabel} roles
                       </p>
@@ -1554,7 +1554,7 @@ export default function ClientsWorkspace({
                         {clientRoleOptions.map((role) => (
                           <label
                             key={role.value}
-                            className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
+                            className="inline-flex items-center gap-2 rounded-full border border-ink-4 px-3 py-2 text-sm text-white"
                           >
                             <input
                               type="checkbox"
@@ -1571,7 +1571,7 @@ export default function ClientsWorkspace({
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-4">
                       <label className="block">
                         <span className="text-sm font-medium text-white">
                           Parent group
@@ -1585,7 +1585,7 @@ export default function ClientsWorkspace({
                               event.target.value
                             )
                           }
-                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                         >
                           <option value="">No parent group</option>
                           {availableParentGroups.map((groupClient) => (
@@ -1600,7 +1600,7 @@ export default function ClientsWorkspace({
                           {client.childClients.map((childClient) => (
                             <span
                               key={childClient.id}
-                              className="rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-1 text-xs text-text-secondary"
+                              className="rounded-full border border-ink-4 px-3 py-1 text-xs text-text-2"
                             >
                               {childClient.name}
                             </span>
@@ -1610,11 +1610,11 @@ export default function ClientsWorkspace({
                     </div>
                   </div>
 
-                  <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
+                  <div className="mt-5 rounded-[14px] border border-ink-4 bg-ink-1 p-4">
                     <p className="text-sm font-medium text-white">
                       {workspaceLabel} HubSpot portal
                     </p>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       Connect the {workspaceLabel.toLowerCase()}'s HubSpot portal once here. Every
                       project for this {workspaceLabel.toLowerCase()} will use the same canonical portal
                       automatically.
@@ -1634,7 +1634,7 @@ export default function ClientsWorkspace({
                               event.target.value
                             )
                           }
-                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                         >
                           <option value="">Not linked yet</option>
                           {portalOptions.map((portalOption) => (
@@ -1650,7 +1650,7 @@ export default function ClientsWorkspace({
                             </option>
                           ))}
                         </select>
-                        <p className="mt-2 text-xs text-text-muted">
+                        <p className="mt-2 text-xs text-text-3">
                           Select an existing installed portal here, or run OAuth
                           below to connect a new one.
                         </p>
@@ -1669,7 +1669,7 @@ export default function ClientsWorkspace({
                                 .value as HubSpotInstallProfile
                             }))
                           }
-                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                         >
                           {hubSpotInstallProfileOptions.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -1677,7 +1677,7 @@ export default function ClientsWorkspace({
                             </option>
                           ))}
                         </select>
-                        <p className="mt-2 text-xs text-text-muted">
+                        <p className="mt-2 text-xs text-text-3">
                           Start with `Core CRM install` for most portal installs.
                         </p>
                       </label>
@@ -1686,7 +1686,7 @@ export default function ClientsWorkspace({
                         type="button"
                         onClick={() => void connectClientHubSpotPortal(client)}
                         disabled={isConnectingPortal || isDeleting}
-                        className="w-full rounded-2xl border border-[rgba(81,208,176,0.22)] bg-[rgba(81,208,176,0.08)] px-5 py-3 text-sm font-medium text-[#8de7d1] disabled:cursor-not-allowed disabled:text-text-muted lg:w-auto"
+                        className="w-full rounded-[14px] border border-[rgba(81,208,176,0.22)] bg-[rgba(81,208,176,0.08)] px-5 py-3 text-sm font-medium text-[#8de7d1] disabled:cursor-not-allowed disabled:text-text-3 lg:w-auto"
                       >
                         {isConnectingPortal
                           ? "Connecting..."
@@ -1696,7 +1696,7 @@ export default function ClientsWorkspace({
                       </button>
                     </div>
 
-                    <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4 text-sm text-text-secondary">
+                    <div className="mt-4 rounded-[14px] border border-ink-4 bg-ink-2 p-4 text-sm text-text-2">
                       {selectedHubSpotPortal ? (
                         <div className="space-y-2">
                           <p className="font-medium text-white">
@@ -1728,11 +1728,11 @@ export default function ClientsWorkspace({
                     </div>
                   </div>
 
-                  <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
+                  <div className="mt-5 rounded-[14px] border border-ink-4 bg-ink-1 p-4">
                     <p className="text-sm font-medium text-white">
                       Partner visibility
                     </p>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       Choose which partner-tagged companies should be able to
                       see this {workspaceLabel.toLowerCase()}'s downstream work.
                     </p>
@@ -1741,7 +1741,7 @@ export default function ClientsWorkspace({
                         availablePartnerOptions.map((partnerClient) => (
                           <label
                             key={partnerClient.id}
-                            className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
+                            className="inline-flex items-center gap-2 rounded-full border border-ink-4 px-3 py-2 text-sm text-white"
                           >
                             <input
                               type="checkbox"
@@ -1759,7 +1759,7 @@ export default function ClientsWorkspace({
                           </label>
                         ))
                       ) : (
-                        <p className="text-sm text-text-muted">
+                        <p className="text-sm text-text-3">
                           Tag another company as a partner first to enable
                           visibility links.
                         </p>
@@ -1779,11 +1779,11 @@ export default function ClientsWorkspace({
                     ) : null}
                   </div>
 
-                  <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
+                  <div className="mt-5 rounded-[14px] border border-ink-4 bg-ink-1 p-4">
                     <p className="text-sm font-medium text-white">
                       Enrichment overview
                     </p>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       {client.companyOverview ??
                         "No enriched company overview yet. Refresh enrichment after adding a website."}
                     </p>
@@ -1802,7 +1802,7 @@ export default function ClientsWorkspace({
                             )
                           }
                           placeholder="https://linkedin.com/..."
-                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                         />
                       </label>
                       <label className="block">
@@ -1819,7 +1819,7 @@ export default function ClientsWorkspace({
                             )
                           }
                           placeholder="https://facebook.com/..."
-                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                         />
                       </label>
                       <label className="block">
@@ -1836,7 +1836,7 @@ export default function ClientsWorkspace({
                             )
                           }
                           placeholder="https://instagram.com/..."
-                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                         />
                       </label>
                       <label className="block">
@@ -1853,7 +1853,7 @@ export default function ClientsWorkspace({
                             )
                           }
                           placeholder="https://x.com/..."
-                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                         />
                       </label>
                       <label className="block md:col-span-2">
@@ -1870,11 +1870,11 @@ export default function ClientsWorkspace({
                             )
                           }
                           placeholder="https://youtube.com/..."
-                          className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                          className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                         />
                       </label>
                     </div>
-                    <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-text-muted">
+                    <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-text-3">
                       {client.lastEnrichedAt ? (
                         <span>
                           Last enriched {formatDate(client.lastEnrichedAt)}
@@ -1894,7 +1894,7 @@ export default function ClientsWorkspace({
 
                   <div className="mt-5 flex items-center justify-between gap-4">
                     <div className="space-y-2">
-                      <p className="text-xs text-text-muted">
+                      <p className="text-xs text-text-3">
                         We’ll use the website or first contact domain for a logo
                         when no manual URL is set.
                       </p>
@@ -1920,7 +1920,7 @@ export default function ClientsWorkspace({
                             setError(null);
                           }}
                           disabled={isDeleting}
-                          className="rounded-2xl border border-[rgba(255,143,156,0.22)] bg-[rgba(255,143,156,0.08)] px-5 py-3 text-sm font-medium text-[#ffb1ba] disabled:cursor-not-allowed disabled:text-text-muted"
+                          className="rounded-[14px] border border-[rgba(255,143,156,0.22)] bg-[rgba(255,143,156,0.08)] px-5 py-3 text-sm font-medium text-[#ffb1ba] disabled:cursor-not-allowed disabled:text-text-3"
                         >
                           {isDeleting
                             ? "Deleting..."
@@ -1934,7 +1934,7 @@ export default function ClientsWorkspace({
                           type="button"
                           onClick={() => setConfirmingDeleteClientId(null)}
                           disabled={isDeleting}
-                          className="rounded-2xl border border-[rgba(255,255,255,0.08)] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                          className="rounded-[14px] border border-ink-4 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                         >
                           Cancel
                         </button>
@@ -1945,7 +1945,7 @@ export default function ClientsWorkspace({
                         disabled={
                           savingProfileForClient === client.id || isDeleting
                         }
-                        className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                        className="rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                       >
                         {savingProfileForClient === client.id
                           ? "Saving..."
@@ -1955,13 +1955,13 @@ export default function ClientsWorkspace({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         Contacts
                       </p>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         Keep the approver and key stakeholders here, then pull
                         them straight into projects and portal access.
                       </p>
@@ -1969,7 +1969,7 @@ export default function ClientsWorkspace({
                     <button
                       type="button"
                       onClick={() => toggleContactForm(client.id)}
-                      className="rounded-2xl border border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm font-medium text-white"
+                      className="rounded-[14px] border border-ink-4 px-4 py-3 text-sm font-medium text-white"
                     >
                       {showContactForm ? "Hide add contact" : "Add contact"}
                     </button>
@@ -1988,7 +1988,7 @@ export default function ClientsWorkspace({
                         return (
                           <div
                             key={contact.id}
-                            className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4"
+                            className="rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-4"
                           >
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div>
@@ -1997,7 +1997,7 @@ export default function ClientsWorkspace({
                                     .filter(Boolean)
                                     .join(" ")}
                                 </p>
-                                <p className="mt-1 text-xs text-text-secondary">
+                                <p className="mt-1 text-xs text-text-2">
                                   {contact.email}
                                   {contact.title ? ` · ${contact.title}` : ""}
                                 </p>
@@ -2008,7 +2008,7 @@ export default function ClientsWorkspace({
                                     </span>
                                   ) : null}
                                   {contact.portalAssignments.length > 0 ? (
-                                    <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-2 text-[11px] font-medium text-text-secondary">
+                                    <span className="rounded-full bg-ink-3 px-3 py-2 text-[11px] font-medium text-text-2">
                                       {contact.portalAssignments.length} portal
                                       project
                                       {contact.portalAssignments.length === 1
@@ -2025,7 +2025,7 @@ export default function ClientsWorkspace({
                                     void toggleApprover(client.id, contact)
                                   }
                                   disabled={updatingContactId === contact.id}
-                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                                  className="rounded-xl border border-ink-4 px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                                 >
                                   {updatingContactId === contact.id
                                     ? "Saving..."
@@ -2038,7 +2038,7 @@ export default function ClientsWorkspace({
                                   onClick={() =>
                                     togglePortalInvite(client, contact)
                                   }
-                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                  className="rounded-xl border border-ink-4 px-3 py-2 text-xs font-medium text-white"
                                 >
                                   {showPortalInvite
                                     ? "Hide portal access"
@@ -2046,7 +2046,7 @@ export default function ClientsWorkspace({
                                 </button>
                                 <Link
                                   href={buildProjectLink(client, contact)}
-                                  className="rounded-xl border border-[rgba(255,255,255,0.08)] px-3 py-2 text-xs font-medium text-white"
+                                  className="rounded-xl border border-ink-4 px-3 py-2 text-xs font-medium text-white"
                                 >
                                   Use in project
                                 </Link>
@@ -2054,20 +2054,20 @@ export default function ClientsWorkspace({
                             </div>
 
                             {showPortalInvite ? (
-                              <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+                              <div className="mt-4 rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                                 <div className="flex flex-wrap items-start justify-between gap-4">
                                   <div>
                                     <p className="text-sm font-semibold text-white">
                                       Portal access and onboarding
                                     </p>
-                                    <p className="mt-2 max-w-2xl text-sm text-text-secondary">
+                                    <p className="mt-2 max-w-2xl text-sm text-text-2">
                                       Choose which linked projects this contact
                                       should see, whether they need to complete
                                       the active project inputs, and send the
                                       onboarding email in one step.
                                     </p>
                                   </div>
-                                  <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-2 text-[11px] font-medium text-text-secondary">
+                                  <div className="rounded-full bg-ink-3 px-3 py-2 text-[11px] font-medium text-text-2">
                                     Role:{" "}
                                     {contact.canApproveQuotes
                                       ? "Approver"
@@ -2091,7 +2091,7 @@ export default function ClientsWorkspace({
                                       return (
                                         <label
                                           key={project.id}
-                                          className="flex cursor-pointer flex-wrap items-start justify-between gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4"
+                                          className="flex cursor-pointer flex-wrap items-start justify-between gap-3 rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-4"
                                         >
                                           <div className="flex items-start gap-3">
                                             <input
@@ -2124,7 +2124,7 @@ export default function ClientsWorkspace({
                                               <p className="text-sm font-medium text-white">
                                                 {project.name}
                                               </p>
-                                              <p className="mt-1 text-xs text-text-secondary">
+                                              <p className="mt-1 text-xs text-text-2">
                                                 {project.scopeType.replace(
                                                   /_/g,
                                                   " "
@@ -2134,7 +2134,7 @@ export default function ClientsWorkspace({
                                             </div>
                                           </div>
                                           {existingAssignment ? (
-                                            <div className="text-right text-xs text-text-secondary">
+                                            <div className="text-right text-xs text-text-2">
                                               <p>
                                                 {existingAssignment.authStatus ===
                                                 "active"
@@ -2148,7 +2148,7 @@ export default function ClientsWorkspace({
                                               </p>
                                             </div>
                                           ) : (
-                                            <span className="text-xs text-text-muted">
+                                            <span className="text-xs text-text-3">
                                               Not yet assigned
                                             </span>
                                           )}
@@ -2156,7 +2156,7 @@ export default function ClientsWorkspace({
                                       );
                                     })
                                   ) : (
-                                    <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-4 py-4 text-sm text-text-secondary">
+                                    <div className="rounded-[14px] border border-dashed border-ink-4 px-4 py-4 text-sm text-text-2">
                                       This {workspaceLabel.toLowerCase()} does not have any linked
                                       projects yet.
                                     </div>
@@ -2164,7 +2164,7 @@ export default function ClientsWorkspace({
                                 </div>
 
                                 <div className="mt-4 grid gap-3 md:grid-cols-2">
-                                  <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4 text-sm text-white">
+                                  <label className="flex items-center gap-3 rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-4 text-sm text-white">
                                     <input
                                       type="checkbox"
                                       checked={
@@ -2183,7 +2183,7 @@ export default function ClientsWorkspace({
                                     />
                                     This contact should complete project inputs
                                   </label>
-                                  <label className="flex items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4 text-sm text-white">
+                                  <label className="flex items-center gap-3 rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-4 text-sm text-white">
                                     <input
                                       type="checkbox"
                                       checked={portalInviteDraft.sendEmail}
@@ -2201,7 +2201,7 @@ export default function ClientsWorkspace({
                                   </label>
                                 </div>
 
-                                <div className="mt-4 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4 text-sm text-text-secondary">
+                                <div className="mt-4 rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-4 text-sm text-text-2">
                                   The onboarding email explains the portal,
                                   required next step, and that project inputs
                                   save automatically so the client can stop and
@@ -2209,7 +2209,7 @@ export default function ClientsWorkspace({
                                 </div>
 
                                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                                  <p className="text-sm text-text-secondary">
+                                  <p className="text-sm text-text-2">
                                     {portalInviteDraft.projectIds.length}{" "}
                                     project
                                     {portalInviteDraft.projectIds.length === 1
@@ -2229,7 +2229,7 @@ export default function ClientsWorkspace({
                                       invitingContactId === contact.id ||
                                       portalInviteDraft.projectIds.length === 0
                                     }
-                                    className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                                    className="rounded-[14px] border border-ink-4 bg-ink-2 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                                   >
                                     {invitingContactId === contact.id
                                       ? "Updating access..."
@@ -2244,14 +2244,14 @@ export default function ClientsWorkspace({
                         );
                       })
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-4 py-4 text-sm text-text-secondary">
+                      <div className="rounded-[14px] border border-dashed border-ink-4 px-4 py-4 text-sm text-text-2">
                         No contacts added yet for this {workspaceLabel.toLowerCase()}.
                       </div>
                     )}
                   </div>
 
                   {showContactForm ? (
-                    <div className="mt-5 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card p-4">
+                    <div className="mt-5 rounded-[14px] border border-ink-4 bg-ink-1 p-4">
                       <div className="grid gap-4 md:grid-cols-2">
                         <label className="block">
                           <span className="text-sm font-medium text-white">
@@ -2266,7 +2266,7 @@ export default function ClientsWorkspace({
                                 event.target.value
                               )
                             }
-                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                            className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                           />
                         </label>
                         <label className="block">
@@ -2282,7 +2282,7 @@ export default function ClientsWorkspace({
                                 event.target.value
                               )
                             }
-                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                            className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                           />
                         </label>
                         <label className="block">
@@ -2298,7 +2298,7 @@ export default function ClientsWorkspace({
                                 event.target.value
                               )
                             }
-                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                            className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                           />
                         </label>
                         <label className="block">
@@ -2314,7 +2314,7 @@ export default function ClientsWorkspace({
                                 event.target.value
                               )
                             }
-                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                            className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                           />
                         </label>
                         <label className="block">
@@ -2331,7 +2331,7 @@ export default function ClientsWorkspace({
                               )
                             }
                             placeholder="+44 7700 900000"
-                            className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+                            className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none placeholder:text-text-3"
                           />
                         </label>
                       </div>
@@ -2354,7 +2354,7 @@ export default function ClientsWorkspace({
                           type="button"
                           onClick={() => void addContact(client.id)}
                           disabled={savingContactForClient === client.id}
-                          className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-muted"
+                          className="rounded-[14px] border border-ink-4 bg-ink-2 px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:text-text-3"
                         >
                           {savingContactForClient === client.id
                             ? "Saving..."
@@ -2366,13 +2366,13 @@ export default function ClientsWorkspace({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-5">
+              <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Linked Projects
                     </p>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       We pull projects in from the direct {workspaceLabel.toLowerCase()} link plus any
                       matching contact emails already used in portal access or
                       client champion fields.
@@ -2386,29 +2386,29 @@ export default function ClientsWorkspace({
                       <Link
                         key={project.id}
                         href={`/projects/${project.id}`}
-                        className="block rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-4 transition hover:border-[rgba(255,255,255,0.16)]"
+                        className="block rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-4 transition hover:border-ink-5"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-medium text-white">
                               {project.name}
                             </p>
-                            <p className="mt-1 text-xs text-text-secondary">
+                            <p className="mt-1 text-xs text-text-2">
                               {project.scopeType.replace(/_/g, " ")} ·{" "}
                               {project.status}
                             </p>
                           </div>
-                          <span className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-1 text-[11px] font-medium text-text-secondary">
+                          <span className="rounded-full bg-ink-3 px-3 py-1 text-[11px] font-medium text-text-2">
                             {project.quoteApprovalStatus}
                           </span>
                         </div>
-                        <p className="mt-3 text-xs text-text-muted">
+                        <p className="mt-3 text-xs text-text-3">
                           Updated {formatDate(project.updatedAt)}
                         </p>
                       </Link>
                     ))
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-4 py-4 text-sm text-text-secondary">
+                    <div className="rounded-[14px] border border-dashed border-ink-4 px-4 py-4 text-sm text-text-2">
                       No linked projects yet.
                     </div>
                   )}
@@ -2425,7 +2425,7 @@ export default function ClientsWorkspace({
   function renderNewClientForm() {
     return (
       <div className="space-y-5">
-        <p className="text-sm text-text-secondary">
+        <p className="text-sm text-text-2">
           Add the company once, then keep everything else inside the {workspaceLabel.toLowerCase()}
           record when you need it.
         </p>
@@ -2441,7 +2441,7 @@ export default function ClientsWorkspace({
                   name: event.target.value
                 }))
               }
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -2455,7 +2455,7 @@ export default function ClientsWorkspace({
                 }))
               }
               placeholder="client.com"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -2469,7 +2469,7 @@ export default function ClientsWorkspace({
                 }))
               }
               placeholder="https://..."
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -2482,7 +2482,7 @@ export default function ClientsWorkspace({
                   industry: event.target.value
                 }))
               }
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             >
               <option value="">Select industry</option>
               {industryOptions.map((industry) => (
@@ -2502,7 +2502,7 @@ export default function ClientsWorkspace({
                   region: event.target.value
                 }))
               }
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             >
               <option value="">Select region</option>
               {clientRegionOptions.map((region) => (
@@ -2523,9 +2523,9 @@ export default function ClientsWorkspace({
                 }))
               }
               placeholder="EPIUSE"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
-            <p className="mt-2 text-xs text-text-muted">
+            <p className="mt-2 text-xs text-text-3">
               Optional. Match the Gmail label you use for this client so the
               command centre can watch unread mail in that queue.
             </p>
@@ -2543,19 +2543,19 @@ export default function ClientsWorkspace({
                 }))
               }
               placeholder="One per line"
-              className="mt-3 min-h-[88px] w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 min-h-[88px] w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
             <p className="text-sm font-medium text-white">{workspaceLabel} roles</p>
             <div className="mt-3 flex flex-wrap gap-3">
               {clientRoleOptions.map((role) => (
                 <label
                   key={role.value}
-                  className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
+                  className="inline-flex items-center gap-2 rounded-full border border-ink-4 px-3 py-2 text-sm text-white"
                 >
                   <input
                     type="checkbox"
@@ -2568,7 +2568,7 @@ export default function ClientsWorkspace({
             </div>
           </div>
 
-          <label className="block rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+          <label className="block rounded-[14px] border border-ink-4 bg-ink-2 p-4">
             <span className="text-sm font-medium text-white">Parent group</span>
             <select
               value={clientDraft.parentClientId}
@@ -2578,7 +2578,7 @@ export default function ClientsWorkspace({
                   parentClientId: event.target.value
                 }))
               }
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 text-sm text-white outline-none"
             >
               <option value="">No parent group</option>
               {groupClientOptions.map((groupClient) => (
@@ -2590,14 +2590,14 @@ export default function ClientsWorkspace({
           </label>
         </div>
 
-        <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4">
+        <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
           <p className="text-sm font-medium text-white">Visible to partners</p>
           <div className="mt-3 flex flex-wrap gap-3">
             {partnerClientOptions.length > 0 ? (
               partnerClientOptions.map((partnerClient) => (
                 <label
                   key={partnerClient.id}
-                  className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] px-3 py-2 text-sm text-white"
+                  className="inline-flex items-center gap-2 rounded-full border border-ink-4 px-3 py-2 text-sm text-white"
                 >
                   <input
                     type="checkbox"
@@ -2612,7 +2612,7 @@ export default function ClientsWorkspace({
                 </label>
               ))
             ) : (
-              <p className="text-sm text-text-muted">
+              <p className="text-sm text-text-3">
                 No partner-tagged companies yet.
               </p>
             )}
@@ -2631,7 +2631,7 @@ export default function ClientsWorkspace({
                 }))
               }
               placeholder="https://linkedin.com/..."
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -2645,7 +2645,7 @@ export default function ClientsWorkspace({
                 }))
               }
               placeholder="https://facebook.com/..."
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -2659,7 +2659,7 @@ export default function ClientsWorkspace({
                 }))
               }
               placeholder="https://instagram.com/..."
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -2673,7 +2673,7 @@ export default function ClientsWorkspace({
                 }))
               }
               placeholder="https://x.com/..."
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block md:col-span-2">
@@ -2687,17 +2687,17 @@ export default function ClientsWorkspace({
                 }))
               }
               placeholder="https://youtube.com/..."
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[rgba(255,255,255,0.07)] pt-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-ink-4 pt-5">
           <div>
             {error ? (
               <p className="text-sm text-[#ff8f9c]">{error}</p>
             ) : (
-              <p className="text-sm text-text-secondary">
+              <p className="text-sm text-text-2">
                 Search keeps the directory clean, regions stay controlled, and
                 profiles can model partner and group relationships without
                 flattening everything into one company type.
@@ -2711,7 +2711,7 @@ export default function ClientsWorkspace({
                 setNewClientPanelOpen(false);
                 setClientDraft(createEmptyClientDraft(workspaceMode));
               }}
-              className="rounded-2xl border border-[rgba(255,255,255,0.08)] px-5 py-3 text-sm font-medium text-white"
+              className="rounded-[14px] border border-ink-4 px-5 py-3 text-sm font-medium text-white"
             >
               Cancel
             </button>
@@ -2719,7 +2719,7 @@ export default function ClientsWorkspace({
               type="button"
               onClick={() => void createClient()}
               disabled={creatingClient}
-              className="rounded-2xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-[14px] bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {creatingClient ? "Saving..." : `Add ${workspaceLabel.toLowerCase()}`}
             </button>
@@ -2735,16 +2735,16 @@ export default function ClientsWorkspace({
     <AppShell>
       <div className="px-8 py-8">
         <div className="mx-auto max-w-7xl space-y-6">
-          <div className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-text-muted">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   {workspaceLabel} Workspace
                 </p>
                 <h1 className="mt-3 text-3xl font-semibold text-white">
                   {workspaceLabelPlural} and key contacts
                 </h1>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-text-2">
                   {workspaceDescription}
                 </p>
               </div>
@@ -2752,13 +2752,13 @@ export default function ClientsWorkspace({
                 <button
                   type="button"
                   onClick={() => setNewClientPanelOpen(true)}
-                  className="rounded-2xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white"
+                  className="rounded-[14px] bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white"
                 >
                   + New {workspaceLabel}
                 </button>
                 <Link
                   href="/projects/new"
-                  className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-5 py-3 text-sm font-medium text-white"
+                  className="rounded-[14px] border border-ink-4 bg-ink-2 px-5 py-3 text-sm font-medium text-white"
                 >
                   New Project
                 </Link>
@@ -2774,9 +2774,9 @@ export default function ClientsWorkspace({
               ].map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-2xl bg-[#0b1126] px-4 py-4"
+                  className="rounded-[14px] bg-ink-2 px-4 py-4"
                 >
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     {item.label}
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-white">
@@ -2788,16 +2788,16 @@ export default function ClientsWorkspace({
           </div>
 
           {!hasNoClients ? (
-            <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-6">
+            <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
               <div className="flex flex-wrap items-center gap-4 lg:flex-nowrap">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-white">Directory</p>
-                  <p className="mt-2 text-sm text-text-secondary">
+                  <p className="mt-2 text-sm text-text-2">
                     Search by company, contact, email, or project.
                   </p>
                 </div>
                 {refreshing ? (
-                  <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-4 py-2 text-xs font-medium text-text-secondary">
+                  <div className="rounded-full bg-ink-3 px-4 py-2 text-xs font-medium text-text-2">
                     Refreshing...
                   </div>
                 ) : null}
@@ -2809,11 +2809,11 @@ export default function ClientsWorkspace({
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder={`Search ${workspaceLabel.toLowerCase()}, contact, email, or project`}
-                    className="w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+                    className="w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
                   />
                 </label>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.18em] text-text-muted">
+                  <span className="text-xs font-medium uppercase tracking-[0.14em] text-text-3">
                     A–Z
                   </span>
                   {alphabet.map((item) => (
@@ -2824,7 +2824,7 @@ export default function ClientsWorkspace({
                       className={`rounded-xl border px-3 py-2 text-xs font-medium ${
                         alphabetFilter === item
                           ? "border-[rgba(81,208,176,0.35)] bg-[rgba(81,208,176,0.14)] text-white"
-                          : "border-[rgba(255,255,255,0.08)] bg-[#0b1126] text-text-secondary"
+                          : "border-ink-4 bg-ink-2 text-text-2"
                       }`}
                     >
                       {item}
@@ -2836,18 +2836,18 @@ export default function ClientsWorkspace({
           ) : null}
 
           {loading ? (
-            <div className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8 text-text-secondary">
+            <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-8 text-text-2">
               Loading clients...
             </div>
           ) : hasNoClients ? (
-            <div className="rounded-3xl border border-dashed border-[rgba(255,255,255,0.12)] bg-background-card px-8 py-16 text-center">
-              <p className="text-sm uppercase tracking-[0.22em] text-text-muted">
+            <div className="rounded-[14px] border border-dashed border-ink-4 bg-ink-1 px-8 py-16 text-center">
+              <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                 {workspaceLabelPlural}
               </p>
               <h2 className="mt-3 text-2xl font-semibold text-white">
                 No {workspaceLabelPlural.toLowerCase()} in the directory yet
               </h2>
-              <p className="mx-auto mt-3 max-w-2xl text-sm text-text-secondary">
+              <p className="mx-auto mt-3 max-w-2xl text-sm text-text-2">
                 Add the first {workspaceLabel.toLowerCase()} company to start linking projects,
                 contacts, and portal history without cluttering the workspace.
               </p>
@@ -2855,36 +2855,36 @@ export default function ClientsWorkspace({
                 <button
                   type="button"
                   onClick={() => setNewClientPanelOpen(true)}
-                  className="rounded-2xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white"
+                  className="rounded-[14px] bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-5 py-3 text-sm font-medium text-white"
                 >
                   + New {workspaceLabel}
                 </button>
               </div>
             </div>
           ) : filteredClients.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-[rgba(255,255,255,0.12)] bg-background-card p-8 text-text-secondary">
+            <div className="rounded-[14px] border border-dashed border-ink-4 bg-ink-1 p-8 text-text-2">
               No {workspaceLabelPlural.toLowerCase()} match this search yet.
             </div>
           ) : (
             <>
-              <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
-                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[rgba(255,255,255,0.07)] pb-4">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-8">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-ink-4 pb-4">
                   <div>
                     <h2 className="text-xl font-semibold text-white">
                       Active {workspaceLabelPlural}
                     </h2>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       {workspaceLabelPlural} with linked projects stay at the top so current
                       work is always easier to reach.
                     </p>
                   </div>
-                  <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-4 py-2 text-xs font-medium text-text-secondary">
+                  <div className="rounded-full bg-ink-3 px-4 py-2 text-xs font-medium text-text-2">
                     {activeClients.length} active
                   </div>
                 </div>
 
                 {activeClients.length === 0 ? (
-                  <div className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-5 py-5 text-sm text-text-secondary">
+                  <div className="mt-5 rounded-[14px] border border-dashed border-ink-4 px-5 py-5 text-sm text-text-2">
                     No active {workspaceLabelPlural.toLowerCase()} match the current search or filter.
                   </div>
                 ) : (
@@ -2894,24 +2894,24 @@ export default function ClientsWorkspace({
                 )}
               </section>
 
-              <section className="rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-8">
-                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[rgba(255,255,255,0.07)] pb-4">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-8">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-ink-4 pb-4">
                   <div>
                     <h2 className="text-xl font-semibold text-white">
                       Other {workspaceLabelPlural}
                     </h2>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       The rest of the directory stays lighter and alphabetised
                       so it does not drown the active work.
                     </p>
                   </div>
-                  <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-4 py-2 text-xs font-medium text-text-secondary">
+                  <div className="rounded-full bg-ink-3 px-4 py-2 text-xs font-medium text-text-2">
                     {otherClients.length} {workspaceLabelPlural.toLowerCase()}
                   </div>
                 </div>
 
                 {otherClients.length === 0 ? (
-                  <div className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] px-5 py-5 text-sm text-text-secondary">
+                  <div className="mt-5 rounded-[14px] border border-dashed border-ink-4 px-5 py-5 text-sm text-text-2">
                     No other {workspaceLabelPlural.toLowerCase()} match the current search or filter.
                   </div>
                 ) : (
@@ -2919,7 +2919,7 @@ export default function ClientsWorkspace({
                     {otherClientInitials.map((initial) => (
                       <div key={initial}>
                         <div className="mb-3 flex items-center gap-3">
-                          <div className="rounded-full bg-[rgba(255,255,255,0.06)] px-3 py-1 text-xs font-semibold text-white">
+                          <div className="rounded-full bg-ink-3 px-3 py-1 text-xs font-semibold text-white">
                             {initial}
                           </div>
                           <div className="h-px flex-1 bg-[rgba(255,255,255,0.08)]" />

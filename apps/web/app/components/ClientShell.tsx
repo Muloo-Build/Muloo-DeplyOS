@@ -84,13 +84,13 @@ export default function ClientShell({
 
   return (
     <ToastProvider>
-    <div className="min-h-screen overflow-x-clip bg-background-primary text-white">
+    <div className="min-h-screen overflow-x-clip bg-ink-0 text-white">
       <header className="border-b border-[rgba(255,255,255,0.06)] bg-[#060c1e]">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link href={projectsPath} className="flex flex-shrink-0 items-center gap-3">
             <img src="/muloo-logo.svg" alt="Muloo" className="h-7 w-auto sm:h-8" />
             <div className="hidden sm:block">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-text-muted">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
                 {portalLabel} portal
               </p>
             </div>
@@ -106,7 +106,7 @@ export default function ClientShell({
                   className={`relative flex items-center gap-2 rounded-xl px-4 py-2 font-medium transition-colors ${
                     isActive
                       ? "bg-white/10 text-white"
-                      : "text-text-secondary hover:bg-white/5 hover:text-white"
+                      : "text-text-2 hover:bg-white/5 hover:text-white"
                   }`}
                 >
                   {item.label}
@@ -123,7 +123,7 @@ export default function ClientShell({
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="hidden flex-shrink-0 text-sm text-text-muted transition-colors hover:text-white md:block"
+            className="hidden flex-shrink-0 text-sm text-text-3 transition-colors hover:text-white md:block"
           >
             Sign out
           </button>
@@ -131,7 +131,7 @@ export default function ClientShell({
           <button
             type="button"
             onClick={() => setMobileMenuOpen((current) => !current)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(255,255,255,0.08)] bg-white/5 text-sm text-white transition hover:bg-white/10 md:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-ink-4 bg-white/5 text-sm text-white transition hover:bg-white/10 md:hidden"
             aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileMenuOpen}
           >
@@ -143,7 +143,7 @@ export default function ClientShell({
       {mobileMenuOpen ? (
         <div className="fixed inset-0 z-40 bg-[rgba(4,8,18,0.72)] backdrop-blur-sm md:hidden">
           <div className="absolute inset-x-0 top-0 border-b border-[rgba(255,255,255,0.06)] bg-[#081127] px-4 pb-5 pt-20 shadow-2xl">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-text-muted">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
               {portalLabel} portal
             </p>
             <nav className="mt-5 space-y-2">
@@ -154,10 +154,10 @@ export default function ClientShell({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                    className={`flex items-center justify-between rounded-[14px] px-4 py-3 text-sm font-medium transition ${
                       isActive
                         ? "bg-white/12 text-white"
-                        : "bg-white/4 text-text-secondary hover:bg-white/8 hover:text-white"
+                        : "bg-white/4 text-text-2 hover:bg-white/8 hover:text-white"
                     }`}
                   >
                     <span>{item.label}</span>
@@ -173,7 +173,7 @@ export default function ClientShell({
             <button
               type="button"
               onClick={() => void handleLogout()}
-              className="mt-5 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10"
+              className="mt-5 w-full rounded-[14px] border border-ink-4 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10"
             >
               Sign out
             </button>
@@ -185,7 +185,7 @@ export default function ClientShell({
         {children}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[rgba(255,255,255,0.08)] bg-[#081127]/95 px-2 py-2 backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-4 bg-[#081127]/95 px-2 py-2 backdrop-blur md:hidden">
         <div className="mx-auto grid max-w-7xl grid-cols-4 gap-2">
           {navItems.map((item) => {
             const isActive =
@@ -194,10 +194,10 @@ export default function ClientShell({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex min-h-[56px] flex-col items-center justify-center rounded-2xl px-2 py-2 text-center text-[11px] font-medium transition ${
+                className={`flex min-h-[56px] flex-col items-center justify-center rounded-[14px] px-2 py-2 text-center text-[11px] font-medium transition ${
                   isActive
                     ? "bg-white/12 text-white"
-                    : "text-text-secondary hover:bg-white/8 hover:text-white"
+                    : "text-text-2 hover:bg-white/8 hover:text-white"
                 }`}
               >
                 <span>{item.label}</span>

@@ -151,7 +151,7 @@ function CurrencyMix({ buckets }: { buckets: CurrencyBucket[] }) {
       {buckets.map((bucket) => (
         <span
           key={bucket.currency}
-          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium tabular-nums text-text-secondary"
+          className="inline-flex items-center gap-1 rounded-full border border-ink-4 bg-white/5 px-2 py-0.5 text-[10px] font-medium tabular-nums text-text-2"
           title={`${bucket.count} quote${bucket.count === 1 ? "" : "s"} in ${bucket.currency}`}
         >
           {formatMoney(bucket.nativeValue, bucket.currency)}
@@ -179,7 +179,7 @@ function DeltaBadge({
 }) {
   if (delta === null) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-text-muted">
+      <span className="inline-flex items-center gap-1 rounded-full border border-ink-4 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-text-3">
         — no prior
       </span>
     );
@@ -190,7 +190,7 @@ function DeltaBadge({
     ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
     : negative
       ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
-      : "border-white/10 bg-white/5 text-text-secondary";
+      : "border-ink-4 bg-white/5 text-text-2";
   const arrow = delta > 0 ? "▲" : delta < 0 ? "▼" : "■";
   const sign = delta > 0 ? "+" : "";
   return (
@@ -290,7 +290,7 @@ export default function FinancialsWorkspace() {
         />
 
         {/* T6.2 — Range picker */}
-        <section className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-background-card px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <section className="flex flex-col gap-3 rounded-[14px] border border-ink-4 bg-ink-1 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             {(
               [
@@ -306,7 +306,7 @@ export default function FinancialsWorkspace() {
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                   rangeKey === opt.value
                     ? "border-[#51d0b0]/50 bg-[#51d0b0]/10 text-[#9be4d2]"
-                    : "border-white/10 bg-background-primary text-text-secondary hover:border-white/20 hover:text-white"
+                    : "border-ink-4 bg-ink-0 text-text-2 hover:border-ink-5 hover:text-white"
                 }`}
               >
                 {opt.label}
@@ -319,33 +319,33 @@ export default function FinancialsWorkspace() {
                   value={customFrom}
                   max={customTo}
                   onChange={(e) => setCustomFrom(e.target.value)}
-                  className="rounded-lg border border-white/10 bg-background-primary px-3 py-1.5 text-xs text-white"
+                  className="rounded-lg border border-ink-4 bg-ink-0 px-3 py-1.5 text-xs text-white"
                 />
-                <span className="text-xs text-text-muted">to</span>
+                <span className="text-xs text-text-3">to</span>
                 <input
                   type="date"
                   value={customTo}
                   min={customFrom}
                   max={todayIso()}
                   onChange={(e) => setCustomTo(e.target.value)}
-                  className="rounded-lg border border-white/10 bg-background-primary px-3 py-1.5 text-xs text-white"
+                  className="rounded-lg border border-ink-4 bg-ink-0 px-3 py-1.5 text-xs text-white"
                 />
               </div>
             ) : null}
           </div>
           {summary ? (
             <div className="flex flex-col gap-1 lg:items-end">
-              <p className="text-xs text-text-muted">
-                <span className="text-text-secondary">
+              <p className="text-xs text-text-3">
+                <span className="text-text-2">
                   {summary.range.label}
                 </span>{" "}
                 · vs prior{" "}
-                <span className="text-text-secondary">
+                <span className="text-text-2">
                   {summary.priorRange.label}
                 </span>
               </p>
               {/* T22 — FX disclosure so operators know amounts are converted. */}
-              <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-text-3">
                 Converted to {summary.fx.baseCurrency} · FX as of{" "}
                 {summary.fx.asOf}
               </p>
@@ -354,13 +354,13 @@ export default function FinancialsWorkspace() {
         </section>
 
         {error ? (
-          <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <div className="rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             {error}
           </div>
         ) : null}
 
         {loading || !summary ? (
-          <div className="rounded-2xl border border-white/10 bg-background-card px-5 py-8 text-sm text-text-secondary">
+          <div className="rounded-[14px] border border-ink-4 bg-ink-1 px-5 py-8 text-sm text-text-2">
             Loading financials...
           </div>
         ) : (
@@ -374,21 +374,21 @@ export default function FinancialsWorkspace() {
           <>
             {/* Headline metrics */}
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-white/10 bg-background-card p-5">
-                <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
+              <div className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-text-3">
                   Pipeline (sent)
                 </p>
                 <p className="mt-3 text-2xl font-semibold text-white">
                   {fmt(summary.headline.pipelineValue)}
                 </p>
-                <p className="mt-1 text-xs text-text-muted">
+                <p className="mt-1 text-xs text-text-3">
                   {formatCount(summary.headline.pipelineCount, "open quote")}
                 </p>
                 <CurrencyMix buckets={summary.fx.byCurrency.pipeline} />
               </div>
 
-              <div className="rounded-2xl border border-amber-400/30 bg-amber-500/5 p-5">
-                <p className="text-[10px] uppercase tracking-[0.32em] text-amber-200/80">
+              <div className="rounded-[14px] border border-amber-400/30 bg-amber-500/5 p-5">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-amber-200/80">
                   Approved (awaiting close)
                 </p>
                 <p className="mt-3 text-2xl font-semibold text-white">
@@ -400,9 +400,9 @@ export default function FinancialsWorkspace() {
                 <CurrencyMix buckets={summary.fx.byCurrency.approved} />
               </div>
 
-              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/5 p-5">
+              <div className="rounded-[14px] border border-emerald-400/30 bg-emerald-500/5 p-5">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/80">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-emerald-200/80">
                     Won · {summary.range.label}
                   </p>
                   <DeltaBadge delta={summary.prior.deltas.wonValue} />
@@ -417,8 +417,8 @@ export default function FinancialsWorkspace() {
                 <CurrencyMix buckets={summary.fx.byCurrency.wonInRange} />
               </div>
 
-              <div className="rounded-2xl border border-[#49cde1]/30 bg-[#49cde1]/5 p-5">
-                <p className="text-[10px] uppercase tracking-[0.32em] text-[#9be4f0]/80">
+              <div className="rounded-[14px] border border-[#49cde1]/30 bg-[#49cde1]/5 p-5">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-[#9be4f0]/80">
                   Monthly recurring
                 </p>
                 <p className="mt-3 text-2xl font-semibold text-white">
@@ -435,16 +435,16 @@ export default function FinancialsWorkspace() {
             </section>
 
             {/* T6.3 — 90-day forecast block */}
-            <section className="rounded-2xl border border-[#51d0b0]/30 bg-[linear-gradient(135deg,rgba(81,208,176,0.08)_0%,rgba(73,205,225,0.08)_100%)] p-6">
+            <section className="rounded-[14px] border border-[#51d0b0]/30 bg-[linear-gradient(135deg,rgba(81,208,176,0.08)_0%,rgba(73,205,225,0.08)_100%)] p-6">
               <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.32em] text-[#9be4d2]">
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-[#9be4d2]">
                     90-day forecast
                   </p>
                   <h2 className="mt-2 text-xl font-semibold text-white">
                     Recurring + weighted pipeline
                   </h2>
-                  <p className="mt-1 text-xs text-text-muted">
+                  <p className="mt-1 text-xs text-text-3">
                     Sent {Math.round(summary.forecast90.breakdown.sentWeight * 100)}% ·
                     Approved {Math.round(summary.forecast90.breakdown.approvedWeight * 100)}% ·
                     Won {Math.round(summary.forecast90.breakdown.wonWeight * 100)}% · ±
@@ -455,7 +455,7 @@ export default function FinancialsWorkspace() {
                   <p className="text-3xl font-semibold text-white tabular-nums">
                     {fmt(summary.forecast90.combinedZar)}
                   </p>
-                  <p className="mt-1 text-xs text-text-muted">
+                  <p className="mt-1 text-xs text-text-3">
                     {fmt(summary.forecast90.confidenceLowerZar)} –{" "}
                     {fmt(summary.forecast90.confidenceUpperZar)}
                   </p>
@@ -463,7 +463,7 @@ export default function FinancialsWorkspace() {
               </div>
 
               {/* Stacked composition bar (recurring vs pipeline). */}
-              <div className="mt-5 h-3 w-full overflow-hidden rounded-full border border-white/10 bg-white/5">
+              <div className="mt-5 h-3 w-full overflow-hidden rounded-full border border-ink-4 bg-white/5">
                 <div className="flex h-full">
                   <div
                     className="h-full bg-[#49cde1]"
@@ -479,25 +479,25 @@ export default function FinancialsWorkspace() {
               </div>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl border border-white/10 bg-background-primary/40 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-[#9be4f0]/80">
+                <div className="rounded-xl border border-ink-4 bg-ink-0/40 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-[#9be4f0]/80">
                     Recurring (committed)
                   </p>
                   <p className="mt-1 text-lg font-semibold text-white tabular-nums">
                     {fmt(summary.forecast90.recurringZar)}
                   </p>
-                  <p className="text-xs text-text-muted">
+                  <p className="text-xs text-text-3">
                     MRR {fmt(summary.forecast90.breakdown.mrrZar)} × 3 mo
                   </p>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-background-primary/40 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-text-muted">
+                <div className="rounded-xl border border-ink-4 bg-ink-0/40 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-text-3">
                     Sent · 30%
                   </p>
                   <p className="mt-1 text-lg font-semibold text-white tabular-nums">
                     {fmt(summary.forecast90.breakdown.sentWeightedZar)}
                   </p>
-                  <p className="text-xs text-text-muted">
+                  <p className="text-xs text-text-3">
                     {fmt(summary.forecast90.breakdown.sentValue)} ·{" "}
                     {formatCount(
                       summary.forecast90.breakdown.sentCount,
@@ -506,7 +506,7 @@ export default function FinancialsWorkspace() {
                   </p>
                 </div>
                 <div className="rounded-xl border border-amber-400/30 bg-amber-500/5 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-amber-200/80">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-amber-200/80">
                     Approved · 70%
                   </p>
                   <p className="mt-1 text-lg font-semibold text-white tabular-nums">
@@ -526,7 +526,7 @@ export default function FinancialsWorkspace() {
                   </p>
                 </div>
                 <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/5 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/80">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-emerald-200/80">
                     Won · 100%
                   </p>
                   <p className="mt-1 text-lg font-semibold text-white tabular-nums">
@@ -544,17 +544,17 @@ export default function FinancialsWorkspace() {
 
             <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
               {/* Won by month chart */}
-              <section className="rounded-2xl border border-white/10 bg-background-card p-6">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <div className="flex items-end justify-between">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.32em] text-text-muted">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
                       Won deals by month
                     </p>
                     <h2 className="mt-2 text-xl font-semibold text-white">
                       {summary.range.label}
                     </h2>
                   </div>
-                  <p className="text-sm text-text-muted">
+                  <p className="text-sm text-text-3">
                     Total{" "}
                     {fmt(
                       summary.monthly.reduce((sum, m) => sum + m.wonValue, 0)
@@ -593,7 +593,7 @@ export default function FinancialsWorkspace() {
                           style={{ height: `${height}px` }}
                           title={`${bucket.wonCount} deal(s) · ${fmt(bucket.wonValue)}`}
                         />
-                        <span className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-text-3">
                           {bucket.month}
                         </span>
                       </div>
@@ -603,8 +603,8 @@ export default function FinancialsWorkspace() {
               </section>
 
               {/* Quote funnel */}
-              <section className="rounded-2xl border border-white/10 bg-background-card p-6">
-                <p className="text-[11px] uppercase tracking-[0.32em] text-text-muted">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
                   Quote funnel
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-white">
@@ -631,7 +631,7 @@ export default function FinancialsWorkspace() {
                       key={row.label}
                       className="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5"
                     >
-                      <span className="text-sm text-text-secondary">
+                      <span className="text-sm text-text-2">
                         {row.label}
                       </span>
                       <span className="text-sm font-semibold text-white tabular-nums">
@@ -644,7 +644,7 @@ export default function FinancialsWorkspace() {
                 {summary.quoteFunnel.winRateInRange !== null ? (
                   <div className="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[10px] uppercase tracking-[0.32em] text-emerald-200/80">
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-emerald-200/80">
                         Win rate · {summary.range.label}
                       </p>
                       <DeltaBadge
@@ -667,8 +667,8 @@ export default function FinancialsWorkspace() {
 
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Recurring revenue by client */}
-              <section className="rounded-2xl border border-white/10 bg-background-card p-6">
-                <p className="text-[11px] uppercase tracking-[0.32em] text-text-muted">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
                   Recurring revenue
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-white">
@@ -676,7 +676,7 @@ export default function FinancialsWorkspace() {
                 </h2>
 
                 {summary.recurring.retainersByClient.length === 0 ? (
-                  <p className="mt-5 text-sm text-text-secondary">
+                  <p className="mt-5 text-sm text-text-2">
                     No active retainers yet.
                   </p>
                 ) : (
@@ -690,7 +690,7 @@ export default function FinancialsWorkspace() {
                           <p className="text-sm font-medium text-white">
                             {row.clientName}
                           </p>
-                          <p className="text-xs text-text-muted">
+                          <p className="text-xs text-text-3">
                             {formatCount(row.retainers, "retainer")}
                           </p>
                         </div>
@@ -704,8 +704,8 @@ export default function FinancialsWorkspace() {
               </section>
 
               {/* Top clients by total revenue */}
-              <section className="rounded-2xl border border-white/10 bg-background-card p-6">
-                <p className="text-[11px] uppercase tracking-[0.32em] text-text-muted">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
                   Top clients
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-white">
@@ -713,7 +713,7 @@ export default function FinancialsWorkspace() {
                 </h2>
 
                 {summary.topClients.length === 0 ? (
-                  <p className="mt-5 text-sm text-text-secondary">
+                  <p className="mt-5 text-sm text-text-2">
                     No revenue captured yet.
                   </p>
                 ) : (
@@ -731,7 +731,7 @@ export default function FinancialsWorkspace() {
                             {fmt(row.totalZar)}
                           </p>
                         </div>
-                        <div className="mt-1 flex gap-3 text-xs text-text-muted">
+                        <div className="mt-1 flex gap-3 text-xs text-text-3">
                           <span>Won {fmt(row.wonZar)}</span>
                           <span>·</span>
                           <span>Recurring {fmt(row.recurringZar)}</span>

@@ -86,7 +86,7 @@ function getRunStatusTone(status: string | null | undefined) {
 function getTypeBadgeClass(type: ExecutionRun["type"]) {
   return type === "agent"
     ? "border border-brand-purple/30 bg-brand-purple/12 text-white"
-    : "border border-white/10 bg-white/5 text-text-secondary";
+    : "border border-ink-4 bg-white/5 text-text-2";
 }
 
 function getRunTimeLabel(value: string) {
@@ -322,8 +322,8 @@ export default function RunsPage() {
     <AppShell>
       <div className="brand-page min-h-screen px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl space-y-6">
-          <section className="brand-surface rounded-3xl border p-6 sm:p-8">
-            <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
+          <section className="brand-surface rounded-[14px] border p-6 sm:p-8">
+            <p className="text-sm uppercase tracking-[0.14em] text-text-3">
               Runs
             </p>
             <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -331,19 +331,19 @@ export default function RunsPage() {
                 <h1 className="text-3xl font-semibold text-white">
                   Unified execution feed
                 </h1>
-                <p className="mt-3 max-w-3xl text-sm text-text-secondary sm:text-base">
+                <p className="mt-3 max-w-3xl text-sm text-text-2 sm:text-base">
                   Review workflow and agent activity in one place, filter by
                   status, and expand any row to inspect logs, operator context,
                   and delivery controls.
                 </p>
               </div>
-              <div className="brand-surface-soft rounded-2xl border px-4 py-3 text-sm text-text-secondary">
+              <div className="brand-surface-soft rounded-[14px] border px-4 py-3 text-sm text-text-2">
                 {loading ? "Loading runs..." : `${filteredRuns.length} matching runs`}
               </div>
             </div>
           </section>
 
-          <section className="brand-surface rounded-3xl border p-4 sm:p-6">
+          <section className="brand-surface rounded-[14px] border p-4 sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap gap-2">
                 {statusTabs.map((tab) => {
@@ -356,7 +356,7 @@ export default function RunsPage() {
                       className={`rounded-full border px-4 py-2 text-sm transition ${
                         active
                           ? "border-brand-teal bg-brand-teal/12 text-white"
-                          : "brand-surface-soft text-text-secondary hover:border-brand-teal/55 hover:text-white"
+                          : "brand-surface-soft text-text-2 hover:border-brand-teal/55 hover:text-white"
                       }`}
                     >
                       {tab.label}
@@ -371,13 +371,13 @@ export default function RunsPage() {
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search by project or module key"
-                  className="brand-input w-full rounded-2xl px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted focus:border-brand-teal/60"
+                  className="brand-input w-full rounded-[14px] px-4 py-3 text-sm text-white outline-none placeholder:text-text-3 focus:border-brand-teal/60"
                 />
               </label>
             </div>
 
             {error ? (
-              <div className="mt-4 rounded-2xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-white">
+              <div className="mt-4 rounded-[14px] border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-white">
                 {error}
               </div>
             ) : null}
@@ -385,7 +385,7 @@ export default function RunsPage() {
             <div className="mt-6 space-y-6">
               {!loading && filteredRuns.length === 0 ? (
                 <EmptyState
-                  className="brand-surface-soft flex flex-col items-center justify-center rounded-2xl border p-6 text-center"
+                  className="brand-surface-soft flex flex-col items-center justify-center rounded-[14px] border p-6 text-center"
                   title={
                     runs.length === 0
                       ? "No runs yet"
@@ -403,7 +403,7 @@ export default function RunsPage() {
                 groupRuns.length > 0 ? (
                   <section key={groupLabel} className="space-y-3">
                     <div className="flex items-center gap-3">
-                      <p className="text-xs uppercase tracking-[0.22em] text-text-muted">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         {groupLabel}
                       </p>
                       <div className="h-px flex-1 bg-white/10" />
@@ -417,7 +417,7 @@ export default function RunsPage() {
                         return (
                           <div
                             key={run.id}
-                            className="brand-surface-soft overflow-hidden rounded-2xl border"
+                            className="brand-surface-soft overflow-hidden rounded-[14px] border"
                           >
                             <button
                               type="button"
@@ -433,14 +433,14 @@ export default function RunsPage() {
                                     {run.name}
                                   </p>
                                   <span
-                                    className={`rounded-full px-2 py-1 text-[11px] uppercase tracking-[0.18em] ${getTypeBadgeClass(
+                                    className={`rounded-full px-2 py-1 text-[11px] uppercase tracking-[0.14em] ${getTypeBadgeClass(
                                       run.type
                                     )}`}
                                   >
                                     {run.type}
                                   </span>
                                 </div>
-                                <p className="mt-2 truncate text-sm text-text-secondary">
+                                <p className="mt-2 truncate text-sm text-text-2">
                                   {run.projectName ?? "Workspace run"}
                                   {run.workflowKey ? ` · ${run.workflowKey}` : ""}
                                 </p>
@@ -448,59 +448,59 @@ export default function RunsPage() {
 
                               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                                 <span
-                                  className={`rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.18em] ${statusTone.badge}`}
+                                  className={`rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.14em] ${statusTone.badge}`}
                                 >
                                   {formatLabel(run.status)}
                                 </span>
                                 {run.resultStatus ? (
-                                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs uppercase tracking-[0.18em] text-text-secondary">
+                                  <span className="rounded-full border border-ink-4 bg-white/5 px-2.5 py-1 text-xs uppercase tracking-[0.14em] text-text-2">
                                     {formatLabel(run.resultStatus)}
                                   </span>
                                 ) : null}
-                                <span className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                <span className="text-xs uppercase tracking-[0.14em] text-text-3">
                                   {getRunTimeLabel(run.createdAt)}
                                 </span>
                               </div>
                             </button>
 
                             {expanded ? (
-                              <div className="border-t border-white/10 px-4 py-4">
+                              <div className="border-t border-ink-4 px-4 py-4">
                                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)]">
                                   <div className="space-y-4">
                                     {run.summary ? (
-                                      <div className="brand-surface rounded-2xl border p-4">
-                                        <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                      <div className="brand-surface rounded-[14px] border p-4">
+                                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                                           Summary
                                         </p>
-                                        <p className="mt-3 text-sm text-text-secondary">
+                                        <p className="mt-3 text-sm text-text-2">
                                           {run.summary}
                                         </p>
                                       </div>
                                     ) : null}
 
                                     {run.requestText ? (
-                                      <div className="brand-surface rounded-2xl border p-4">
-                                        <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                      <div className="brand-surface rounded-[14px] border p-4">
+                                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                                           Request
                                         </p>
-                                        <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-text-secondary">
+                                        <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-text-2">
                                           {run.requestText}
                                         </pre>
                                       </div>
                                     ) : null}
 
-                                    <div className="brand-surface rounded-2xl border p-4">
-                                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                    <div className="brand-surface rounded-[14px] border p-4">
+                                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                                         Output Log
                                       </p>
-                                      <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-text-secondary">
+                                      <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-text-2">
                                         {run.outputLog ?? "No output log captured yet."}
                                       </pre>
                                     </div>
 
                                     {run.errorLog ? (
-                                      <div className="rounded-2xl border border-status-error/30 bg-status-error/10 p-4">
-                                        <p className="text-xs uppercase tracking-[0.18em] text-white/80">
+                                      <div className="rounded-[14px] border border-status-error/30 bg-status-error/10 p-4">
+                                        <p className="text-xs uppercase tracking-[0.14em] text-white/80">
                                           Error Log
                                         </p>
                                         <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-white">
@@ -510,11 +510,11 @@ export default function RunsPage() {
                                     ) : null}
 
                                     {run.type === "agent" ? (
-                                      <div className="brand-surface rounded-2xl border p-4">
-                                        <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                      <div className="brand-surface rounded-[14px] border p-4">
+                                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                                           Cowork Instruction
                                         </p>
-                                        <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-text-secondary">
+                                        <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-6 text-text-2">
                                           {coworkInstructions[run.id] ??
                                             coworkErrors[run.id] ??
                                             "Loading cowork instruction..."}
@@ -524,11 +524,11 @@ export default function RunsPage() {
                                   </div>
 
                                   <div className="space-y-4">
-                                    <div className="brand-surface rounded-2xl border p-4">
-                                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                    <div className="brand-surface rounded-[14px] border p-4">
+                                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                                         Run Meta
                                       </p>
-                                      <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                                      <div className="mt-3 space-y-2 text-sm text-text-2">
                                         <p>Queued: {getRunDateLabel(run.createdAt)}</p>
                                         <p>
                                           Started:{" "}
@@ -553,11 +553,11 @@ export default function RunsPage() {
 
                                     {run.type === "agent" ? (
                                       <>
-                                        <div className="brand-surface rounded-2xl border p-4">
-                                          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                        <div className="brand-surface rounded-[14px] border p-4">
+                                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                                             Execution Profile
                                           </p>
-                                          <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                                          <div className="mt-3 space-y-2 text-sm text-text-2">
                                             <p>
                                               Execution:{" "}
                                               {formatLabel(run.executionMethod)}
@@ -594,8 +594,8 @@ export default function RunsPage() {
                                           </div>
                                         </div>
 
-                                        <div className="brand-surface rounded-2xl border p-4">
-                                          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                                        <div className="brand-surface rounded-[14px] border p-4">
+                                          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                                             Run Controls
                                           </p>
                                           <div className="mt-4 grid gap-2">
@@ -671,8 +671,8 @@ export default function RunsPage() {
             </div>
 
             {filteredRuns.length > runsPerPage ? (
-              <div className="mt-6 flex flex-col gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-text-secondary">
+              <div className="mt-6 flex flex-col gap-3 border-t border-ink-4 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-text-2">
                   Page {currentPage} of {totalPages}
                 </p>
                 <div className="flex gap-2">

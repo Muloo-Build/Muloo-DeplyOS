@@ -6,6 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 import AppShell from "./AppShell";
 import { SkeletonRows } from "./LoadingSkeleton";
 import ProjectWorkflowNav from "./ProjectWorkflowNav";
+import { Empty } from "./ui/Empty";
+import { PageHead } from "./ui/PageHead";
+import { Pill } from "./ui/Pill";
 import { resolveProjectWorkspaceMode } from "./projectWorkspaceConfig";
 
 interface ProjectRecord {
@@ -669,45 +672,39 @@ export default function ProjectPrepareWorkspace({
 
   return (
     <AppShell>
-      <div className="p-8">
+      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
         {loading ? (
-          <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-2xl" />
+          <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-[14px]" />
         ) : error || !project ? (
-          <div className="rounded-2xl border border-[rgba(224,80,96,0.4)] bg-background-card p-8 text-white">
-            {error ?? "Project not found"}
-          </div>
+          <Empty title="Prepare error" sub={error ?? "Project not found"} />
         ) : (
           <>
+            <PageHead
+              eyebrow={
+                <Link
+                  href={`/projects/${project.id}`}
+                  className="hover:text-text-1 transition-colors"
+                >
+                  ← Project workspace
+                </Link>
+              }
+              title={`Prepare — ${project.name}`}
+              lede="Pull the portal into view, load prior work, capture new context, and decide what needs to be unpacked onsite before scoping further."
+              actions={
+                <Pill tone="info" dot>
+                  {workspaceMode.label}
+                </Pill>
+              }
+            />
             <ProjectWorkflowNav
               projectId={project.id}
               showDiscovery
               engagementType={project.engagementType}
             />
 
-            <div className="mb-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-8">
-              <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
-                Prepare
-              </p>
-              <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-3xl font-bold font-heading text-white">
-                    {project.name}
-                  </h1>
-                  <p className="mt-3 max-w-3xl text-text-secondary">
-                    Move ahead of the meeting. Pull the portal into view, load
-                    prior work, capture new context, and decide what needs to
-                    be unpacked onsite before you scope anything further.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[rgba(123,226,239,0.2)] bg-[rgba(123,226,239,0.08)] px-4 py-3 text-sm text-[#b7f5ff]">
-                  {workspaceMode.label}
-                </div>
-              </div>
-            </div>
-
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.7fr)]">
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                   Meeting Readiness
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">
@@ -717,16 +714,16 @@ export default function ProjectPrepareWorkspace({
                   {prepChecklist.map((item) => (
                     <div
                       key={item.label}
-                      className={`rounded-2xl border p-4 ${
+                      className={`rounded-[14px] border p-4 ${
                         item.complete
                           ? "border-[rgba(45,212,160,0.22)] bg-[rgba(45,212,160,0.08)]"
-                          : "border-[rgba(255,255,255,0.07)] bg-[#0b1126]"
+                          : "border-ink-4 bg-ink-2"
                       }`}
                     >
                       <p className="text-sm font-medium text-white">
                         {item.label}
                       </p>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         {item.complete ? "Ready" : "Still needs attention"}
                       </p>
                     </div>
@@ -734,20 +731,20 @@ export default function ProjectPrepareWorkspace({
                 </div>
 
                 <div className="mt-6 grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Problem Framing
                     </p>
-                    <p className="mt-3 text-sm text-text-secondary">
+                    <p className="mt-3 text-sm text-text-2">
                       {project.problemStatement?.trim() ||
                         "No formal problem statement saved yet. Use the context notes below to capture what the client is now asking for."}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Current Direction
                     </p>
-                    <p className="mt-3 text-sm text-text-secondary">
+                    <p className="mt-3 text-sm text-text-2">
                       {project.scopeExecutiveSummary?.trim() ||
                         project.solutionRecommendation?.trim() ||
                         "No scoped direction has been saved yet. Run audit, add context, and use the working doc to shape the next phase."}
@@ -756,8 +753,8 @@ export default function ProjectPrepareWorkspace({
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                   Quick Launch
                 </p>
                 <div className="mt-4 space-y-3">
@@ -796,12 +793,12 @@ export default function ProjectPrepareWorkspace({
                     <Link
                       key={item.href}
                       href={item.href}
-                      className="block rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4 transition hover:border-[rgba(255,255,255,0.14)]"
+                      className="block rounded-[14px] border border-ink-4 bg-ink-2 p-4 transition hover:border-ink-5"
                     >
                       <p className="text-sm font-semibold text-white">
                         {item.title}
                       </p>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         {item.description}
                       </p>
                     </Link>
@@ -811,17 +808,17 @@ export default function ProjectPrepareWorkspace({
             </div>
 
             <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                    <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                       Prior Client Work
                     </p>
                     <h2 className="mt-2 text-2xl font-semibold text-white">
                       What have we already done?
                     </h2>
                   </div>
-                  <div className="rounded-xl bg-[#0b1126] px-4 py-2 text-sm text-text-secondary">
+                  <div className="rounded-xl bg-ink-2 px-4 py-2 text-sm text-text-2">
                     {relatedProjects.length} prior project
                     {relatedProjects.length === 1 ? "" : "s"}
                   </div>
@@ -836,85 +833,85 @@ export default function ProjectPrepareWorkspace({
                           relatedProject.defaultWorkspacePath ??
                           `/projects/${relatedProject.id}`
                         }
-                        className="block rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4 transition hover:border-[rgba(255,255,255,0.14)]"
+                        className="block rounded-[14px] border border-ink-4 bg-ink-2 p-4 transition hover:border-ink-5"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold text-white">
                               {relatedProject.name}
                             </p>
-                            <p className="mt-2 text-sm text-text-secondary">
+                            <p className="mt-2 text-sm text-text-2">
                               {formatLabel(relatedProject.engagementType)} ·{" "}
                               {formatLabel(relatedProject.status)}
                             </p>
                           </div>
-                          <p className="text-xs text-text-muted">
+                          <p className="text-xs text-text-3">
                             {formatRelativeDate(relatedProject.updatedAt)}
                           </p>
                         </div>
                       </Link>
                     ))
                   ) : (
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 text-sm text-text-secondary">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5 text-sm text-text-2">
                       No prior project records were found for this client yet.
                     </div>
                   )}
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                   Portal Posture
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">
                   Current portal picture
                 </h2>
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Portal
                     </p>
                     <p className="mt-2 text-lg font-semibold text-white">
                       {project.portal?.displayName ?? "Not connected"}
                     </p>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       {project.portal
                         ? `Portal ID ${project.portal.portalId}`
                         : "Connect the client portal to prepare against live data."}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Latest Snapshot
                     </p>
                     <p className="mt-2 text-lg font-semibold text-white">
                       {snapshot ? formatRelativeDate(snapshot.capturedAt) : "Not captured"}
                     </p>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       {snapshot
                         ? `${snapshot.activeHubs.length} active hubs · ${snapshot.dealPipelineCount ?? 0} deal pipelines`
                         : "Run the portal audit workspace to capture the latest footprint."}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Open Findings
                     </p>
                     <p className="mt-2 text-lg font-semibold text-white">
                       {findings.filter((finding) => finding.status !== "resolved").length}
                     </p>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       {findings.filter((finding) => finding.quickWin).length} quick wins identified
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                       Recommendations
                     </p>
                     <p className="mt-2 text-lg font-semibold text-white">
                       {recommendations.length}
                     </p>
-                    <p className="mt-2 text-sm text-text-secondary">
+                    <p className="mt-2 text-sm text-text-2">
                       {recommendations
                         .slice(0, 2)
                         .map((recommendation) => recommendation.title)
@@ -926,17 +923,17 @@ export default function ProjectPrepareWorkspace({
             </div>
 
             <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                    <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                       Client Memory
                     </p>
                     <h2 className="mt-2 text-2xl font-semibold text-white">
                       Recent signals across the account
                     </h2>
                   </div>
-                  <div className="rounded-xl bg-[#0b1126] px-4 py-2 text-sm text-text-secondary">
+                  <div className="rounded-xl bg-ink-2 px-4 py-2 text-sm text-text-2">
                     {(clientMemory?.recentFindings.length ?? 0) +
                       (clientMemory?.recentRecommendations.length ?? 0)}{" "}
                     memory items
@@ -944,30 +941,30 @@ export default function ProjectPrepareWorkspace({
                 </div>
 
                 <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                     <p className="text-sm font-semibold text-white">
                       Recent findings
                     </p>
                     <div className="mt-3 space-y-3">
                       {clientMemory?.recentFindings.length ? (
                         clientMemory.recentFindings.slice(0, 4).map((finding) => (
-                          <div key={finding.id} className="rounded-xl border border-[rgba(255,255,255,0.07)] px-3 py-3">
+                          <div key={finding.id} className="rounded-xl border border-ink-4 px-3 py-3">
                             <p className="text-sm text-white">{finding.title}</p>
-                            <p className="mt-2 text-xs text-text-muted">
+                            <p className="mt-2 text-xs text-text-3">
                               {finding.project.name} · {formatLabel(finding.area)} ·{" "}
                               {formatLabel(finding.severity)}
                             </p>
                           </div>
                         ))
                       ) : (
-                        <p className="text-sm text-text-secondary">
+                        <p className="text-sm text-text-2">
                           No previous client findings captured yet.
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                     <p className="text-sm font-semibold text-white">
                       Recent recommendations
                     </p>
@@ -978,12 +975,12 @@ export default function ProjectPrepareWorkspace({
                           .map((recommendation) => (
                             <div
                               key={recommendation.id}
-                              className="rounded-xl border border-[rgba(255,255,255,0.07)] px-3 py-3"
+                              className="rounded-xl border border-ink-4 px-3 py-3"
                             >
                               <p className="text-sm text-white">
                                 {recommendation.title}
                               </p>
-                              <p className="mt-2 text-xs text-text-muted">
+                              <p className="mt-2 text-xs text-text-3">
                                 {recommendation.project.name} ·{" "}
                                 {formatLabel(recommendation.area)} ·{" "}
                                 {formatLabel(recommendation.impact)}
@@ -991,7 +988,7 @@ export default function ProjectPrepareWorkspace({
                             </div>
                           ))
                       ) : (
-                        <p className="text-sm text-text-secondary">
+                        <p className="text-sm text-text-2">
                           No previous recommendations captured yet.
                         </p>
                       )}
@@ -1000,8 +997,8 @@ export default function ProjectPrepareWorkspace({
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                   Memory Timeline
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">
@@ -1009,7 +1006,7 @@ export default function ProjectPrepareWorkspace({
                 </h2>
 
                 <div className="mt-5 grid gap-4">
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                     <p className="text-sm font-semibold text-white">
                       Portal snapshots
                     </p>
@@ -1020,12 +1017,12 @@ export default function ProjectPrepareWorkspace({
                           .map((memorySnapshot) => (
                             <div
                               key={memorySnapshot.capturedAt}
-                              className="rounded-xl border border-[rgba(255,255,255,0.07)] px-3 py-3"
+                              className="rounded-xl border border-ink-4 px-3 py-3"
                             >
                               <p className="text-sm text-white">
                                 {formatRelativeDate(memorySnapshot.capturedAt)}
                               </p>
-                              <p className="mt-2 text-xs text-text-muted">
+                              <p className="mt-2 text-xs text-text-3">
                                 {(memorySnapshot.hubTier ?? "Unknown tier").toUpperCase()} ·{" "}
                                 {memorySnapshot.activeHubs.length} hubs ·{" "}
                                 {memorySnapshot.dealPipelineCount ?? 0} pipelines
@@ -1033,42 +1030,42 @@ export default function ProjectPrepareWorkspace({
                             </div>
                           ))
                       ) : (
-                        <p className="text-sm text-text-secondary">
+                        <p className="text-sm text-text-2">
                           No snapshot history captured for this client yet.
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                     <p className="text-sm font-semibold text-white">
                       Portal diff
                     </p>
                     <div className="mt-3 space-y-3">
                       {clientMemory?.portalDiff ? (
                         <>
-                          <p className="text-xs text-text-muted">
+                          <p className="text-xs text-text-3">
                             {formatRelativeDate(clientMemory.portalDiff.fromCapturedAt)}
                             {" "}to{" "}
                             {formatRelativeDate(clientMemory.portalDiff.toCapturedAt)}
                           </p>
                           <div className="grid gap-3 lg:grid-cols-2">
-                            <div className="rounded-xl border border-[rgba(255,255,255,0.07)] px-3 py-3">
-                              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                            <div className="rounded-xl border border-ink-4 px-3 py-3">
+                              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                                 Hubs changed
                               </p>
                               <p className="mt-2 text-sm text-white">
                                 +{clientMemory.portalDiff.newHubs.length} / -
                                 {clientMemory.portalDiff.removedHubs.length}
                               </p>
-                              <p className="mt-2 text-xs text-text-muted">
+                              <p className="mt-2 text-xs text-text-3">
                                 {clientMemory.portalDiff.newHubs.length
                                   ? `Added: ${clientMemory.portalDiff.newHubs
                                       .map((hub) => formatLabel(hub))
                                       .join(", ")}`
                                   : "No new hubs detected"}
                               </p>
-                              <p className="mt-1 text-xs text-text-muted">
+                              <p className="mt-1 text-xs text-text-3">
                                 {clientMemory.portalDiff.removedHubs.length
                                   ? `Removed: ${clientMemory.portalDiff.removedHubs
                                       .map((hub) => formatLabel(hub))
@@ -1077,11 +1074,11 @@ export default function ProjectPrepareWorkspace({
                               </p>
                             </div>
 
-                            <div className="rounded-xl border border-[rgba(255,255,255,0.07)] px-3 py-3">
-                              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                            <div className="rounded-xl border border-ink-4 px-3 py-3">
+                              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                                 Structure delta
                               </p>
-                              <div className="mt-2 space-y-1 text-xs text-text-muted">
+                              <div className="mt-2 space-y-1 text-xs text-text-3">
                                 <p>
                                   Contact properties:{" "}
                                   {formatSignedCount(
@@ -1131,7 +1128,7 @@ export default function ProjectPrepareWorkspace({
                           </div>
                         </>
                       ) : (
-                        <p className="text-sm text-text-secondary">
+                        <p className="text-sm text-text-2">
                           Capture at least two portal snapshots to compare how
                           the client environment has changed over time.
                         </p>
@@ -1139,7 +1136,7 @@ export default function ProjectPrepareWorkspace({
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4">
+                  <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
                     <p className="text-sm font-semibold text-white">
                       Recent AI runs
                     </p>
@@ -1148,22 +1145,22 @@ export default function ProjectPrepareWorkspace({
                         clientMemory?.recentRuns.slice(0, 4).map((run) => (
                           <div
                             key={run.id}
-                            className="rounded-xl border border-[rgba(255,255,255,0.07)] px-3 py-3"
+                            className="rounded-xl border border-ink-4 px-3 py-3"
                           >
                             <div className="flex items-center justify-between gap-3">
                               <p className="text-sm text-white">{run.title}</p>
-                              <span className="text-xs text-text-muted">
+                              <span className="text-xs text-text-3">
                                 {formatLabel(run.status)}
                               </span>
                             </div>
-                            <p className="mt-2 text-xs text-text-muted">
+                            <p className="mt-2 text-xs text-text-3">
                               {formatRelativeDate(run.createdAt)}
                               {run.summary ? ` · ${run.summary}` : ""}
                             </p>
                           </div>
                         ))
                       ) : (
-                        <p className="text-sm text-text-secondary">
+                        <p className="text-sm text-text-2">
                           No Prepare, Audit, or Portal Ops runs recorded yet for
                           this client.
                         </p>
@@ -1174,16 +1171,16 @@ export default function ProjectPrepareWorkspace({
               </section>
             </div>
 
-            <section className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+            <section className="mt-6 rounded-[14px] border border-ink-4 bg-ink-1 p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                     Scope From Notes
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold text-white">
                     Turn meeting notes into a working project
                   </h2>
-                  <p className="mt-3 max-w-3xl text-text-secondary">
+                  <p className="mt-3 max-w-3xl text-text-2">
                     When discovery is not needed, save what you already know here,
                     generate the AI summary from those notes, draft the first task
                     plan, and move into quote and client approval.
@@ -1194,7 +1191,7 @@ export default function ProjectPrepareWorkspace({
                     type="button"
                     onClick={() => void generateSummary()}
                     disabled={summaryBusy}
-                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
+                    className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
                   >
                     {summaryBusy ? "Generating summary..." : "Generate AI summary"}
                   </button>
@@ -1208,7 +1205,7 @@ export default function ProjectPrepareWorkspace({
                   </button>
                   <Link
                     href={`/projects/${project.id}/quote`}
-                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-4 py-3 text-sm font-medium text-white"
+                    className="rounded-xl border border-ink-4 bg-ink-1 px-4 py-3 text-sm font-medium text-white"
                   >
                     Open quote
                   </Link>
@@ -1216,21 +1213,21 @@ export default function ProjectPrepareWorkspace({
               </div>
 
               <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Current summary
                   </p>
-                  <p className="mt-3 text-sm leading-7 text-text-secondary">
+                  <p className="mt-3 text-sm leading-7 text-text-2">
                     {project.scopeExecutiveSummary?.trim() ||
                       project.solutionRecommendation?.trim() ||
                       "No AI summary has been saved yet. Paste the Gemini meeting summary into the notes below, then generate the summary from context."}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Next flow
                   </p>
-                  <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                  <div className="mt-3 space-y-2 text-sm text-text-2">
                     <p>1. Save meeting notes and known blockers.</p>
                     <p>2. Generate the AI summary from that context.</p>
                     <p>3. Generate a draft task plan if you want a delivery view.</p>
@@ -1253,16 +1250,16 @@ export default function ProjectPrepareWorkspace({
               ) : null}
             </section>
 
-            <section className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[rgba(255,255,255,0.07)] pb-4">
+            <section className="mt-6 rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-ink-4 pb-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                  <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                     Consultant Context
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold text-white">
                     Notes that feed the AI
                   </h2>
-                  <p className="mt-3 max-w-3xl text-sm text-text-secondary">
+                  <p className="mt-3 max-w-3xl text-sm text-text-2">
                     These notes are auto-saved on blur and injected into the
                     audit and prepare brief so the platform understands what you
                     already know, what has been done, and what to avoid
@@ -1277,20 +1274,20 @@ export default function ProjectPrepareWorkspace({
                   return (
                     <label
                       key={section.contextType}
-                      className="block rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                      className="block rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-white">
                             {section.title}
                           </p>
-                          <p className="mt-2 text-xs text-text-muted">
+                          <p className="mt-2 text-xs text-text-3">
                             {section.description}
                           </p>
                         </div>
                         <div className="text-xs">
                           {savingContextType === section.contextType ? (
-                            <span className="text-text-secondary">Saving...</span>
+                            <span className="text-text-2">Saving...</span>
                           ) : savedContextType === section.contextType ? (
                             <span className="text-[#54e1b1]">Saved</span>
                           ) : null}
@@ -1306,14 +1303,14 @@ export default function ProjectPrepareWorkspace({
                         }
                         onBlur={() => void saveProjectContextEntry(section.contextType)}
                         placeholder={section.description}
-                        className="mt-4 min-h-[156px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-background-card px-3 py-3 text-sm text-white outline-none"
+                        className="mt-4 min-h-[156px] w-full rounded-xl border border-ink-4 bg-ink-1 px-3 py-3 text-sm text-white outline-none"
                       />
                       {entry?.updatedAt ? (
-                        <p className="mt-3 text-xs text-text-muted">
+                        <p className="mt-3 text-xs text-text-3">
                           {formatLastUpdated(entry.updatedAt)}
                         </p>
                       ) : (
-                        <p className="mt-3 text-xs text-text-muted">
+                        <p className="mt-3 text-xs text-text-3">
                           No notes saved yet.
                         </p>
                       )}
@@ -1324,16 +1321,16 @@ export default function ProjectPrepareWorkspace({
             </section>
 
             <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+                    <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                       AI Meeting Brief
                     </p>
                     <h2 className="mt-2 text-2xl font-semibold text-white">
                       Generate a prep pack before the session
                     </h2>
-                    <p className="mt-3 max-w-3xl text-text-secondary">
+                    <p className="mt-3 max-w-3xl text-text-2">
                       Pull together the current portal picture, prior client
                       work, findings, recommendations, and prep notes into a
                       meeting brief you can actually use.
@@ -1357,36 +1354,36 @@ export default function ProjectPrepareWorkspace({
 
                 {prepareBrief ? (
                   <div className="mt-5 space-y-5">
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                      <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
+                      <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                         Executive Summary
                       </p>
-                      <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
+                      <p className="mt-3 whitespace-pre-wrap text-sm text-text-2">
                         {prepareBrief.executiveSummary}
                       </p>
                     </div>
 
                     <div className="grid gap-4 lg:grid-cols-2">
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                        <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           Meeting Goal
                         </p>
-                        <p className="mt-3 text-sm text-text-secondary">
+                        <p className="mt-3 text-sm text-text-2">
                           {prepareBrief.meetingGoal}
                         </p>
                       </div>
-                      <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5">
-                        <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           Recommended Approach
                         </p>
-                        <p className="mt-3 text-sm text-text-secondary">
+                        <p className="mt-3 text-sm text-text-2">
                           {prepareBrief.recommendedApproach}
                         </p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-5 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[#0b1126] p-6 text-sm text-text-secondary">
+                  <div className="mt-5 rounded-[14px] border border-dashed border-ink-4 bg-ink-2 p-6 text-sm text-text-2">
                     Generate the brief to get an executive summary, open
                     questions, and a suggested meeting structure before you head
                     into the session.
@@ -1394,8 +1391,8 @@ export default function ProjectPrepareWorkspace({
                 )}
               </section>
 
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                   Brief Outputs
                 </p>
                 {prepareBrief ? (
@@ -1424,19 +1421,19 @@ export default function ProjectPrepareWorkspace({
                     ].map(({ label, items }) => (
                       <div
                         key={label}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                       >
                         <p className="text-sm font-semibold text-white">
                           {label}
                         </p>
-                        <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+                        <ul className="mt-3 space-y-2 text-sm text-text-2">
                           {items.map((item) => (
                             <li key={item}>{item}</li>
                           ))}
                         </ul>
                       </div>
                     ))}
-                    <div className="rounded-2xl border border-[rgba(123,226,239,0.22)] bg-[rgba(123,226,239,0.08)] p-4">
+                    <div className="rounded-[14px] border border-[rgba(123,226,239,0.22)] bg-[rgba(123,226,239,0.08)] p-4">
                       <p className="text-sm font-semibold text-white">
                         Suggested next step
                       </p>
@@ -1446,7 +1443,7 @@ export default function ProjectPrepareWorkspace({
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-4 rounded-2xl border border-dashed border-[rgba(255,255,255,0.12)] bg-[#0b1126] p-5 text-sm text-text-secondary">
+                  <div className="mt-4 rounded-[14px] border border-dashed border-ink-4 bg-ink-2 p-5 text-sm text-text-2">
                     The generated prep outputs will land here once you run the
                     briefing assistant.
                   </div>
@@ -1455,8 +1452,8 @@ export default function ProjectPrepareWorkspace({
             </div>
 
             <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                   Prep Notes & Source Material
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">
@@ -1474,7 +1471,7 @@ export default function ProjectPrepareWorkspace({
                           evidenceType: event.target.value as EvidenceItem["evidenceType"]
                         }))
                       }
-                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-3 text-sm text-white outline-none"
                     >
                       {evidenceTypeOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -1494,7 +1491,7 @@ export default function ProjectPrepareWorkspace({
                         }))
                       }
                       placeholder="Example: client email summary"
-                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-3 text-sm text-white outline-none"
                     />
                   </label>
                   <label className="block md:col-span-2">
@@ -1510,7 +1507,7 @@ export default function ProjectPrepareWorkspace({
                         }))
                       }
                       placeholder="Paste a doc link, website, file reference, or screenshot URL"
-                      className="mt-3 w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-3 text-sm text-white outline-none"
+                      className="mt-3 w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-3 text-sm text-white outline-none"
                     />
                   </label>
                   <label className="block md:col-span-2">
@@ -1526,7 +1523,7 @@ export default function ProjectPrepareWorkspace({
                         }))
                       }
                       placeholder="Paste meeting prep notes, prior requirements, technical constraints, or questions to validate onsite."
-                      className="mt-3 min-h-[180px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-3 text-sm text-white outline-none"
+                      className="mt-3 min-h-[180px] w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-3 text-sm text-white outline-none"
                     />
                   </label>
                 </div>
@@ -1535,7 +1532,7 @@ export default function ProjectPrepareWorkspace({
                   {contextError ? (
                     <p className="text-sm text-[#ff8f9c]">{contextError}</p>
                   ) : (
-                    <p className="text-sm text-text-secondary">
+                    <p className="text-sm text-text-2">
                       Add what the client already sent, what Muloo already knows,
                       and what needs to be validated in the room.
                     </p>
@@ -1544,15 +1541,15 @@ export default function ProjectPrepareWorkspace({
                     type="button"
                     onClick={() => void addSupportingContext()}
                     disabled={savingContext}
-                    className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
+                    className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
                   >
                     {savingContext ? "Adding..." : "Add prep context"}
                   </button>
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
-                <p className="text-sm uppercase tracking-[0.2em] text-text-muted">
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <p className="text-sm uppercase tracking-[0.14em] text-text-3">
                   Current Notes
                 </p>
                 <div className="mt-4 space-y-3">
@@ -1560,12 +1557,12 @@ export default function ProjectPrepareWorkspace({
                     supportingContext.map((item) => (
                       <div
                         key={item.id}
-                        className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-4"
                       >
                         <p className="text-sm font-semibold text-white">
                           {item.sourceLabel}
                         </p>
-                        <p className="mt-2 text-xs text-text-muted">
+                        <p className="mt-2 text-xs text-text-3">
                           {formatLabel(item.evidenceType)} ·{" "}
                           {formatRelativeDate(item.createdAt)}
                         </p>
@@ -1575,14 +1572,14 @@ export default function ProjectPrepareWorkspace({
                           </p>
                         ) : null}
                         {item.content ? (
-                          <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
+                          <p className="mt-3 whitespace-pre-wrap text-sm text-text-2">
                             {item.content}
                           </p>
                         ) : null}
                       </div>
                     ))
                   ) : (
-                    <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-5 text-sm text-text-secondary">
+                    <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-5 text-sm text-text-2">
                       No prep notes captured yet. Add the client’s latest asks,
                       prior decisions, and meeting context here first.
                     </div>

@@ -70,7 +70,7 @@ export default function ProjectCopilotPanel({ projectId }: { projectId: string }
               className={`rounded-md border px-2.5 py-1 text-xs ${
                 intent === i && text
                   ? "border-amber-400/40 bg-amber-400/10 text-amber-100"
-                  : "border-white/10 bg-white/5 text-white hover:bg-white/10"
+                  : "border-ink-4 bg-white/5 text-white hover:bg-white/10"
               }`}
             >
               {INTENT_LABEL[i]}
@@ -81,26 +81,26 @@ export default function ProjectCopilotPanel({ projectId }: { projectId: string }
 
       {error ? <p className="text-xs text-status-error">{error}</p> : null}
 
-      <div className="rounded-2xl border border-white/10 bg-background-elevated p-4">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
         {loading ? (
-          <p className="text-xs text-text-secondary">Thinking…</p>
+          <p className="text-xs text-text-2">Thinking…</p>
         ) : text ? (
           <pre className="whitespace-pre-wrap text-sm text-white">{text}</pre>
         ) : (
-          <p className="text-xs text-text-secondary">
+          <p className="text-xs text-text-2">
             Pick a question above to ask the copilot about this project.
           </p>
         )}
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-background-elevated p-4">
+      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-semibold text-white">Weekly client status — draft</p>
           <div className="flex items-center gap-2">
             {draft ? (
               <button
                 onClick={() => void navigator.clipboard?.writeText(draft).catch(() => {})}
-                className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-white hover:bg-white/10"
+                className="inline-flex items-center gap-1 rounded-md border border-ink-4 bg-white/5 px-2 py-1 text-xs text-white hover:bg-white/10"
               >
                 <Copy className="h-3 w-3" /> Copy
               </button>
@@ -117,7 +117,7 @@ export default function ProjectCopilotPanel({ projectId }: { projectId: string }
         {draft ? (
           <pre className="mt-3 whitespace-pre-wrap text-sm text-white">{draft}</pre>
         ) : (
-          <p className="mt-2 text-xs text-text-secondary">
+          <p className="mt-2 text-xs text-text-2">
             Draft a clean weekly client update from the live project state.
           </p>
         )}

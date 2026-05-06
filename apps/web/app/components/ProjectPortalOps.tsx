@@ -519,46 +519,46 @@ export default function ProjectPortalOps() {
 
   return (
     <div className="space-y-6">
-      <section className="brand-surface rounded-3xl border p-6 sm:p-8">
-        <p className="text-sm uppercase tracking-[0.25em] text-text-muted">
+      <section className="brand-surface rounded-[14px] border p-6 sm:p-8">
+        <p className="text-sm uppercase tracking-[0.14em] text-text-3">
           Automation
         </p>
         <h1 className="mt-3 text-3xl font-semibold text-white">Portal Ops</h1>
-        <p className="mt-3 max-w-4xl text-sm text-text-secondary sm:text-base">
+        <p className="mt-3 max-w-4xl text-sm text-text-2 sm:text-base">
           Run HubSpot operations directly against a connected client portal. Check the portal connection health, execute requests, and review the execution log as you work.
         </p>
       </section>
 
       {error ? (
-        <div className="rounded-2xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-white">
+        <div className="rounded-[14px] border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-white">
           {error}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="brand-surface rounded-3xl border p-6 text-sm text-text-secondary">
+        <div className="brand-surface rounded-[14px] border p-6 text-sm text-text-2">
           Loading connected client portals...
         </div>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_22rem]">
           <div className="space-y-6">
-            <section className="brand-surface rounded-3xl border p-6">
+            <section className="brand-surface rounded-[14px] border p-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Client Portal
                   </p>
                   <h2 className="mt-2 text-xl font-semibold text-white">
                     Choose the portal to work against
                   </h2>
-                  <p className="mt-2 max-w-2xl text-sm text-text-secondary">
+                  <p className="mt-2 max-w-2xl text-sm text-text-2">
                     This is still the same Portal Ops request flow, just with
                     stronger visibility into connection health and recent
                     execution history.
                   </p>
                 </div>
                 <div
-                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs uppercase tracking-[0.18em] ${portalHealth.badge}`}
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs uppercase tracking-[0.14em] ${portalHealth.badge}`}
                 >
                   <span className={`inline-block h-2.5 w-2.5 rounded-full ${portalHealth.dot}`} />
                   {portalHealth.label}
@@ -569,7 +569,7 @@ export default function ProjectPortalOps() {
                 <select
                   value={portalRecordId}
                   onChange={(event) => setPortalRecordId(event.target.value)}
-                  className="brand-input w-full rounded-2xl px-4 py-3 text-sm text-white outline-none"
+                  className="brand-input w-full rounded-[14px] px-4 py-3 text-sm text-white outline-none"
                 >
                   <option value="">Select a client portal</option>
                   {portalOptions.map((portal) => (
@@ -580,23 +580,23 @@ export default function ProjectPortalOps() {
                   ))}
                 </select>
 
-                <div className="brand-surface-soft rounded-2xl border px-4 py-3 text-sm text-text-secondary">
+                <div className="brand-surface-soft rounded-[14px] border px-4 py-3 text-sm text-text-2">
                   {portalOptions.filter((portal) => portal.connected).length} connected
                 </div>
               </div>
 
               {selectedPortal ? (
-                <div className="brand-surface-soft mt-5 rounded-2xl border p-5">
+                <div className="brand-surface-soft mt-5 rounded-[14px] border p-5">
                   <div className="flex flex-col gap-5">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div>
-                        <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                           Selected Portal
                         </p>
                         <p className="mt-2 text-lg font-semibold text-white">
                           {selectedPortal.displayName}
                         </p>
-                        <p className="mt-1 text-sm text-text-secondary">
+                        <p className="mt-1 text-sm text-text-2">
                           Portal ID {selectedPortal.portalId}
                           {selectedPortal.connectedEmail
                             ? ` · Connected as ${selectedPortal.connectedEmail}`
@@ -604,7 +604,7 @@ export default function ProjectPortalOps() {
                         </p>
                       </div>
                       <div
-                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs uppercase tracking-[0.18em] ${portalHealth.badge}`}
+                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs uppercase tracking-[0.14em] ${portalHealth.badge}`}
                       >
                         <span
                           className={`inline-block h-2.5 w-2.5 rounded-full ${portalHealth.dot}`}
@@ -613,8 +613,8 @@ export default function ProjectPortalOps() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="mb-4 text-xs text-text-secondary">
+                    <div className="rounded-[14px] border border-ink-4 bg-white/5 p-4">
+                      <p className="mb-4 text-xs text-text-2">
                         <span className="font-semibold text-white">Optional.</span>{" "}
                         Your existing OAuth connection already supports property and workflow creation — you don't need to add anything here unless you want a long-lived token for automated runs that won't need re-authentication.
                       </p>
@@ -622,10 +622,10 @@ export default function ProjectPortalOps() {
                         <div className="min-w-0 flex-1">
                           <label
                             htmlFor="portal-private-app-token"
-                            className="text-xs uppercase tracking-[0.18em] text-text-muted"
+                            className="text-xs uppercase tracking-[0.14em] text-text-3"
                           >
                             Private App Token{" "}
-                            <span className="ml-1 normal-case tracking-normal text-text-muted">
+                            <span className="ml-1 normal-case tracking-normal text-text-3">
                               — optional
                             </span>
                           </label>
@@ -646,9 +646,9 @@ export default function ProjectPortalOps() {
                               setPrivateAppTokenSaved(false);
                             }}
                             placeholder="pat-na1-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                            className="brand-input mt-3 w-full rounded-2xl px-4 py-3 text-sm text-white outline-none placeholder:text-text-muted"
+                            className="brand-input mt-3 w-full rounded-[14px] px-4 py-3 text-sm text-white outline-none placeholder:text-text-3"
                           />
-                          <p className="mt-3 text-xs text-text-secondary">
+                          <p className="mt-3 text-xs text-text-2">
                             To create one: in the client's HubSpot go to{" "}
                             <strong className="text-white">Settings → Integrations → Private Apps → Create app</strong>.
                             Name it "Muloo DeployOS", add scopes:{" "}
@@ -676,16 +676,16 @@ export default function ProjectPortalOps() {
                           </button>
                           <div className="flex flex-wrap gap-2">
                             {privateAppTokenConfigured ? (
-                              <span className="brand-status-success rounded-full px-3 py-1 text-xs uppercase tracking-[0.18em]">
+                              <span className="brand-status-success rounded-full px-3 py-1 text-xs uppercase tracking-[0.14em]">
                                 Configured
                               </span>
                             ) : (
-                              <span className="brand-status-warning rounded-full px-3 py-1 text-xs uppercase tracking-[0.18em]">
+                              <span className="brand-status-warning rounded-full px-3 py-1 text-xs uppercase tracking-[0.14em]">
                                 Not saved yet
                               </span>
                             )}
                             {privateAppTokenSaved ? (
-                              <span className="rounded-full border border-status-success/30 bg-status-success/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-white">
+                              <span className="rounded-full border border-status-success/30 bg-status-success/10 px-3 py-1 text-xs uppercase tracking-[0.14em] text-white">
                                 Saved
                               </span>
                             ) : null}
@@ -696,16 +696,16 @@ export default function ProjectPortalOps() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-white/5 p-5 text-sm text-text-secondary">
+                <div className="mt-5 rounded-[14px] border border-dashed border-ink-4 bg-white/5 p-5 text-sm text-text-2">
                   Select a portal to start a direct execution request.
                 </div>
               )}
             </section>
 
-            <section className="brand-surface rounded-3xl border p-6">
+            <section className="brand-surface rounded-[14px] border p-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Request
                   </p>
                   <h2 className="mt-2 text-xl font-semibold text-white">
@@ -724,7 +724,7 @@ export default function ProjectPortalOps() {
               <textarea
                 value={requestText}
                 onChange={(event) => setRequestText(event.target.value)}
-                className="brand-input mt-5 min-h-[360px] w-full rounded-2xl px-4 py-4 text-sm text-white outline-none placeholder:text-text-muted"
+                className="brand-input mt-5 min-h-[360px] w-full rounded-[14px] px-4 py-4 text-sm text-white outline-none placeholder:text-text-3"
               />
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -749,8 +749,8 @@ export default function ProjectPortalOps() {
               </div>
             </section>
 
-            <section className="brand-surface rounded-3xl border p-6">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <section className="brand-surface rounded-[14px] border p-6">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Outcome
               </p>
               <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -758,11 +758,11 @@ export default function ProjectPortalOps() {
                 {responseBody ? (
                   <div className="flex flex-wrap gap-2">
                     {responseBody.plan.capabilityKey ? (
-                      <span className="rounded-full border border-brand-purple/30 bg-brand-purple/12 px-3 py-1 text-xs uppercase tracking-[0.18em] text-white">
+                      <span className="rounded-full border border-brand-purple/30 bg-brand-purple/12 px-3 py-1 text-xs uppercase tracking-[0.14em] text-white">
                         {responseBody.plan.capabilityKey}
                       </span>
                     ) : null}
-                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-secondary">
+                    <span className="rounded-full border border-ink-4 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.14em] text-text-2">
                       {inferExecutionTier(responseBody)}
                     </span>
                   </div>
@@ -771,12 +771,12 @@ export default function ProjectPortalOps() {
 
               {responseBody ? (
                 <div className="mt-5 space-y-5">
-                  <div className="brand-surface-soft rounded-2xl border p-5">
+                  <div className="brand-surface-soft rounded-[14px] border p-5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-secondary">
+                      <span className="rounded-full border border-ink-4 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.14em] text-text-2">
                         {formatSupportMode(responseBody.plan.mode)}
                       </span>
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-secondary">
+                      <span className="rounded-full border border-ink-4 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.14em] text-text-2">
                         {inferExecutionTier(responseBody)}
                       </span>
                     </div>
@@ -784,7 +784,7 @@ export default function ProjectPortalOps() {
                       {responseBody.plan.summary}
                     </p>
                     {responseBody.plan.action ? (
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         Direct action:{" "}
                         <span className="text-white">{responseBody.plan.action}</span>
                       </p>
@@ -792,11 +792,11 @@ export default function ProjectPortalOps() {
                   </div>
 
                   {responseBody.plan.manualPlan.length > 0 ? (
-                    <div className="brand-surface-soft rounded-2xl border p-5">
+                    <div className="brand-surface-soft rounded-[14px] border p-5">
                       <p className="text-sm font-semibold text-white">
                         Recommended steps
                       </p>
-                      <ol className="mt-3 space-y-3 text-sm text-text-secondary">
+                      <ol className="mt-3 space-y-3 text-sm text-text-2">
                         {responseBody.plan.manualPlan.map((step, index) => (
                           <li key={`${index}-${step}`}>
                             <span className="mr-2 text-white">{index + 1}.</span>
@@ -808,7 +808,7 @@ export default function ProjectPortalOps() {
                   ) : null}
 
                   {responseBody.plan.cautions.length > 0 ? (
-                    <div className="rounded-2xl border border-status-warning/25 bg-status-warning/10 p-5">
+                    <div className="rounded-[14px] border border-status-warning/25 bg-status-warning/10 p-5">
                       <p className="text-sm font-semibold text-white">Cautions</p>
                       <ul className="mt-3 space-y-2 text-sm text-white">
                         {responseBody.plan.cautions.map((caution) => (
@@ -819,28 +819,28 @@ export default function ProjectPortalOps() {
                   ) : null}
 
                   {responseBody.execution ? (
-                    <div className="rounded-2xl border border-status-success/25 bg-status-success/10 p-5">
+                    <div className="rounded-[14px] border border-status-success/25 bg-status-success/10 p-5">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-semibold text-white">
                           Execution result
                         </p>
-                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-secondary">
+                        <span className="rounded-full border border-ink-4 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.14em] text-text-2">
                           {inferExecutionTier(responseBody)}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm text-text-secondary">
+                      <p className="mt-2 text-sm text-text-2">
                         {responseBody.execution.dryRun
                           ? "Dry run preview returned."
                           : "Live execution completed."}
                       </p>
-                      <pre className="brand-surface mt-4 max-h-[280px] overflow-auto rounded-2xl border p-4 text-xs text-text-secondary">
+                      <pre className="brand-surface mt-4 max-h-[280px] overflow-auto rounded-[14px] border p-4 text-xs text-text-2">
                         {JSON.stringify(responseBody.execution, null, 2)}
                       </pre>
                     </div>
                   ) : null}
                 </div>
               ) : (
-                <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-white/5 p-5 text-sm text-text-secondary">
+                <div className="mt-5 rounded-[14px] border border-dashed border-ink-4 bg-white/5 p-5 text-sm text-text-2">
                   Submit a plan or execution request to render the outcome path here.
                 </div>
               )}
@@ -848,8 +848,8 @@ export default function ProjectPortalOps() {
           </div>
 
           <div className="space-y-6">
-            <section className="brand-surface rounded-3xl border p-6">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <section className="brand-surface rounded-[14px] border p-6">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Portal Health
               </p>
               <div className="mt-3 flex items-center gap-3">
@@ -861,7 +861,7 @@ export default function ProjectPortalOps() {
                 </p>
               </div>
 
-              <div className="mt-5 space-y-2 text-sm text-text-secondary">
+              <div className="mt-5 space-y-2 text-sm text-text-2">
                 <p>
                   Provider:{" "}
                   {capabilities?.connection.providerEnabled ? "Enabled" : "Disabled"}
@@ -882,33 +882,33 @@ export default function ProjectPortalOps() {
               </div>
 
               {snapshotLoading ? (
-                <p className="mt-4 text-sm text-text-muted">Refreshing portal metadata...</p>
+                <p className="mt-4 text-sm text-text-3">Refreshing portal metadata...</p>
               ) : null}
             </section>
 
-            <section className="brand-surface rounded-3xl border p-6">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+            <section className="brand-surface rounded-[14px] border p-6">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Snapshot
               </p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                <div className="brand-surface-soft rounded-2xl border p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                <div className="brand-surface-soft rounded-[14px] border p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Contacts
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-white">
                     {snapshot?.contactPropertyCount ?? "—"}
                   </p>
                 </div>
-                <div className="brand-surface-soft rounded-2xl border p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                <div className="brand-surface-soft rounded-[14px] border p-4">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Deals
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-white">
                     {snapshot?.dealPropertyCount ?? "—"}
                   </p>
                 </div>
-                <div className="brand-surface-soft rounded-2xl border p-4 sm:col-span-2 xl:col-span-1">
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                <div className="brand-surface-soft rounded-[14px] border p-4 sm:col-span-2 xl:col-span-1">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Custom objects
                   </p>
                   <p className="mt-2 text-2xl font-semibold text-white">
@@ -918,17 +918,17 @@ export default function ProjectPortalOps() {
               </div>
             </section>
 
-            <section className="brand-surface rounded-3xl border p-6">
+            <section className="brand-surface rounded-[14px] border p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                  <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                     Recent Runs
                   </p>
                   <h3 className="mt-2 text-lg font-semibold text-white">
                     Latest portal activity
                   </h3>
                 </div>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.18em] text-text-secondary">
+                <span className="rounded-full border border-ink-4 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.14em] text-text-2">
                   {recentRuns.length} runs
                 </span>
               </div>
@@ -938,22 +938,22 @@ export default function ProjectPortalOps() {
                   recentRuns.map((run) => (
                     <div
                       key={run.id}
-                      className="brand-surface-soft rounded-2xl border p-4"
+                      className="brand-surface-soft rounded-[14px] border p-4"
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-semibold text-white">{run.name}</p>
                         <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${getStatusTone(
+                          className={`rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] ${getStatusTone(
                             run.status
                           )}`}
                         >
                           {formatLabel(run.status)}
                         </span>
-                        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
+                        <span className="rounded-full border border-ink-4 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-text-2">
                           {inferRunExecutionTier(run)}
                         </span>
                       </div>
-                      <p className="mt-2 text-xs text-text-secondary">
+                      <p className="mt-2 text-xs text-text-2">
                         {new Date(run.createdAt).toLocaleString("en-ZA")}
                         {run.resultStatus ? ` · ${formatLabel(run.resultStatus)}` : ""}
                       </p>
@@ -963,30 +963,30 @@ export default function ProjectPortalOps() {
                   workflowRuns.slice(0, 5).map((run) => (
                     <div
                       key={run.id}
-                      className="brand-surface-soft rounded-2xl border p-4"
+                      className="brand-surface-soft rounded-[14px] border p-4"
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-semibold text-white">
                           {run.summary || run.title}
                         </p>
                         <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${getStatusTone(
+                          className={`rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] ${getStatusTone(
                             run.status
                           )}`}
                         >
                           {formatLabel(run.status)}
                         </span>
-                        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-text-secondary">
+                        <span className="rounded-full border border-ink-4 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-text-2">
                           {run.resultStatus === "manual_plan" ? "Manual" : "API"}
                         </span>
                       </div>
-                      <p className="mt-2 text-xs text-text-secondary">
+                      <p className="mt-2 text-xs text-text-2">
                         {new Date(run.createdAt).toLocaleString("en-ZA")}
                       </p>
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-4 text-sm text-text-secondary">
+                  <div className="rounded-[14px] border border-dashed border-ink-4 bg-white/5 p-4 text-sm text-text-2">
                     No portal runs recorded yet for this selection.
                   </div>
                 )}

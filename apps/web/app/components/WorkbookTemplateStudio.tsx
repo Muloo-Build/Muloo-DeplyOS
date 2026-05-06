@@ -180,7 +180,7 @@ function TemplateListView(props: { onOpen: (templateId: string) => void }) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
         <div className="grid gap-3 sm:grid-cols-4">
           <input
             type="text"
@@ -213,7 +213,7 @@ function TemplateListView(props: { onOpen: (templateId: string) => void }) {
               </option>
             ))}
           </select>
-          <label className="flex items-center gap-2 text-xs text-text-secondary">
+          <label className="flex items-center gap-2 text-xs text-text-2">
             <input
               type="checkbox"
               checked={showArchived}
@@ -223,7 +223,7 @@ function TemplateListView(props: { onOpen: (templateId: string) => void }) {
           </label>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-text-secondary">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-text-2">
           <span>
             {templates ? `${templates.length} templates` : "Loading…"}
           </span>
@@ -249,9 +249,9 @@ function TemplateListView(props: { onOpen: (templateId: string) => void }) {
       ) : null}
 
       {creating ? (
-        <section className="space-y-3 rounded-2xl border border-brand-teal/30 bg-background-elevated p-5">
+        <section className="space-y-3 rounded-[14px] border border-brand-teal/30 bg-ink-2 p-5">
           <h3 className="text-sm font-semibold text-white">New template</h3>
-          <label className="block text-xs text-text-secondary">
+          <label className="block text-xs text-text-2">
             Title *
             <input
               type="text"
@@ -262,7 +262,7 @@ function TemplateListView(props: { onOpen: (templateId: string) => void }) {
             />
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-xs text-text-secondary">
+            <label className="block text-xs text-text-2">
               Category
               <select
                 value={draftCategory}
@@ -277,7 +277,7 @@ function TemplateListView(props: { onOpen: (templateId: string) => void }) {
                 ))}
               </select>
             </label>
-            <label className="block text-xs text-text-secondary">
+            <label className="block text-xs text-text-2">
               Suggested project type
               <select
                 value={draftProjectType}
@@ -301,7 +301,7 @@ function TemplateListView(props: { onOpen: (templateId: string) => void }) {
                 setError(null);
               }}
               disabled={busy}
-              className="text-xs text-text-secondary hover:text-white disabled:opacity-50"
+              className="text-xs text-text-2 hover:text-white disabled:opacity-50"
             >
               Cancel
             </button>
@@ -318,9 +318,9 @@ function TemplateListView(props: { onOpen: (templateId: string) => void }) {
       ) : null}
 
       {!templates ? (
-        <p className="text-sm text-text-secondary">Loading templates…</p>
+        <p className="text-sm text-text-2">Loading templates…</p>
       ) : templates.length === 0 ? (
-        <p className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-sm text-text-secondary">
+        <p className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-sm text-text-2">
           No templates yet. Click "New template" to create your first reusable
           workbook template — projects will pull copies from these.
         </p>
@@ -331,7 +331,7 @@ function TemplateListView(props: { onOpen: (templateId: string) => void }) {
               <button
                 type="button"
                 onClick={() => props.onOpen(t.id)}
-                className="block w-full rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5 text-left transition hover:border-brand-teal/40 hover:bg-background-elevated"
+                className="block w-full rounded-[14px] border border-ink-4 bg-ink-1 p-5 text-left transition hover:border-brand-teal/40 hover:bg-ink-2"
               >
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="text-base font-semibold text-white">
@@ -344,11 +344,11 @@ function TemplateListView(props: { onOpen: (templateId: string) => void }) {
                   ) : null}
                 </div>
                 {t.description ? (
-                  <p className="mt-2 line-clamp-2 text-xs text-text-secondary">
+                  <p className="mt-2 line-clamp-2 text-xs text-text-2">
                     {t.description}
                   </p>
                 ) : null}
-                <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-text-secondary">
+                <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-text-2">
                   {t.category ? <Tag>{t.category}</Tag> : null}
                   {t.suggestedProjectType ? (
                     <Tag>{t.suggestedProjectType}</Tag>
@@ -358,7 +358,7 @@ function TemplateListView(props: { onOpen: (templateId: string) => void }) {
                   ) : null}
                   <Tag>{visibilityLabel(t.defaultVisibility)}</Tag>
                 </div>
-                <p className="mt-3 text-[11px] text-text-muted">
+                <p className="mt-3 text-[11px] text-text-3">
                   {t.sectionCount} section{t.sectionCount === 1 ? "" : "s"} ·{" "}
                   {t.questionCount} question
                   {t.questionCount === 1 ? "" : "s"}
@@ -555,14 +555,14 @@ function TemplateDetailView(props: {
         <button
           type="button"
           onClick={props.onBack}
-          className="text-xs text-text-secondary hover:text-white"
+          className="text-xs text-text-2 hover:text-white"
         >
           ← Back to templates
         </button>
         {error ? (
           <p className="text-sm text-rose-300">{error}</p>
         ) : (
-          <p className="text-sm text-text-secondary">Loading template…</p>
+          <p className="text-sm text-text-2">Loading template…</p>
         )}
       </div>
     );
@@ -574,7 +574,7 @@ function TemplateDetailView(props: {
         <button
           type="button"
           onClick={props.onBack}
-          className="text-xs text-text-secondary hover:text-white"
+          className="text-xs text-text-2 hover:text-white"
         >
           ← Back to templates
         </button>
@@ -585,7 +585,7 @@ function TemplateDetailView(props: {
               void patchTemplate({ isArchived: !template.isArchived })
             }
             disabled={busy}
-            className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/5 disabled:opacity-50"
+            className="rounded-full border border-ink-4 px-3 py-1.5 text-xs text-white hover:bg-white/5 disabled:opacity-50"
           >
             {template.isArchived ? "Unarchive" : "Archive"}
           </button>
@@ -593,7 +593,7 @@ function TemplateDetailView(props: {
             type="button"
             onClick={() => void duplicateTemplate()}
             disabled={busy}
-            className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/5 disabled:opacity-50"
+            className="rounded-full border border-ink-4 px-3 py-1.5 text-xs text-white hover:bg-white/5 disabled:opacity-50"
           >
             Duplicate
           </button>
@@ -620,13 +620,13 @@ function TemplateDetailView(props: {
         onSave={(patch) => void patchTemplate(patch)}
       />
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h3 className="text-base font-semibold text-white">
               Sections & questions
             </h3>
-            <p className="mt-1 text-xs text-text-secondary">
+            <p className="mt-1 text-xs text-text-2">
               {template.sections.length} section
               {template.sections.length === 1 ? "" : "s"} ·{" "}
               {template.questionCount} question
@@ -644,7 +644,7 @@ function TemplateDetailView(props: {
         </div>
 
         {template.sections.length === 0 ? (
-          <p className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-elevated p-4 text-sm text-text-secondary">
+          <p className="rounded-xl border border-ink-4 bg-ink-2 p-4 text-sm text-text-2">
             No sections yet. Add one to start grouping questions.
           </p>
         ) : (
@@ -700,18 +700,18 @@ function TemplateMetadataEditor(props: {
 
   if (!editing) {
     return (
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-white">
               {props.template.title}
             </h2>
             {props.template.description ? (
-              <p className="mt-2 max-w-3xl text-sm text-text-secondary">
+              <p className="mt-2 max-w-3xl text-sm text-text-2">
                 {props.template.description}
               </p>
             ) : null}
-            <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-text-secondary">
+            <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-text-2">
               {props.template.category ? (
                 <Tag>{props.template.category}</Tag>
               ) : null}
@@ -732,7 +732,7 @@ function TemplateMetadataEditor(props: {
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/5"
+            className="rounded-full border border-ink-4 px-3 py-1.5 text-xs text-white hover:bg-white/5"
           >
             Edit details
           </button>
@@ -742,9 +742,9 @@ function TemplateMetadataEditor(props: {
   }
 
   return (
-    <section className="space-y-3 rounded-2xl border border-brand-teal/30 bg-background-elevated p-5">
+    <section className="space-y-3 rounded-[14px] border border-brand-teal/30 bg-ink-2 p-5">
       <h3 className="text-sm font-semibold text-white">Edit template details</h3>
-      <label className="block text-xs text-text-secondary">
+      <label className="block text-xs text-text-2">
         Title *
         <input
           type="text"
@@ -753,7 +753,7 @@ function TemplateMetadataEditor(props: {
           className="brand-input mt-1 w-full rounded-lg border px-3 py-2 text-sm text-white"
         />
       </label>
-      <label className="block text-xs text-text-secondary">
+      <label className="block text-xs text-text-2">
         Description
         <textarea
           value={description}
@@ -764,7 +764,7 @@ function TemplateMetadataEditor(props: {
         />
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Category
           <select
             value={category}
@@ -779,7 +779,7 @@ function TemplateMetadataEditor(props: {
             ))}
           </select>
         </label>
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Suggested project type
           <select
             value={projectType}
@@ -796,7 +796,7 @@ function TemplateMetadataEditor(props: {
         </label>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Suggested contributor role
           <select
             value={contributorRole}
@@ -811,7 +811,7 @@ function TemplateMetadataEditor(props: {
             ))}
           </select>
         </label>
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Default visibility when added to a project
           <select
             value={visibility}
@@ -826,7 +826,7 @@ function TemplateMetadataEditor(props: {
           </select>
         </label>
       </div>
-      <label className="block text-xs text-text-secondary">
+      <label className="block text-xs text-text-2">
         Tags (comma-separated)
         <input
           type="text"
@@ -841,7 +841,7 @@ function TemplateMetadataEditor(props: {
           type="button"
           onClick={() => setEditing(false)}
           disabled={props.busy}
-          className="text-xs text-text-secondary hover:text-white disabled:opacity-50"
+          className="text-xs text-text-2 hover:text-white disabled:opacity-50"
         >
           Cancel
         </button>
@@ -985,7 +985,7 @@ function SectionEditor(props: {
   }
 
   return (
-    <div className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-background-elevated">
+    <div className="rounded-xl border border-ink-4 bg-ink-2">
       <header className="flex items-start justify-between gap-3 border-b border-white/5 p-4">
         {editing ? (
           <div className="flex-1 space-y-2">
@@ -1010,11 +1010,11 @@ function SectionEditor(props: {
               {section.title}
             </h4>
             {section.description ? (
-              <p className="mt-1 text-xs text-text-secondary">
+              <p className="mt-1 text-xs text-text-2">
                 {section.description}
               </p>
             ) : null}
-            <p className="mt-1 text-[11px] text-text-muted">
+            <p className="mt-1 text-[11px] text-text-3">
               {section.questions.length} question
               {section.questions.length === 1 ? "" : "s"}
             </p>
@@ -1040,7 +1040,7 @@ function SectionEditor(props: {
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white hover:bg-white/5"
+                className="rounded-full border border-ink-4 px-3 py-1 text-[11px] text-white hover:bg-white/5"
               >
                 Edit
               </button>
@@ -1059,7 +1059,7 @@ function SectionEditor(props: {
                 type="button"
                 onClick={() => setEditing(false)}
                 disabled={busy}
-                className="text-[11px] text-text-secondary hover:text-white disabled:opacity-50"
+                className="text-[11px] text-text-2 hover:text-white disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1239,7 +1239,7 @@ function QuestionRow(props: {
               </option>
             ))}
           </select>
-          <label className="flex items-center gap-2 text-xs text-text-secondary">
+          <label className="flex items-center gap-2 text-xs text-text-2">
             <input
               type="checkbox"
               checked={required}
@@ -1265,7 +1265,7 @@ function QuestionRow(props: {
             type="button"
             onClick={() => setEditing(false)}
             disabled={busy}
-            className="text-[11px] text-text-secondary hover:text-white disabled:opacity-50"
+            className="text-[11px] text-text-2 hover:text-white disabled:opacity-50"
           >
             Cancel
           </button>
@@ -1287,11 +1287,11 @@ function QuestionRow(props: {
       <div className="min-w-0 flex-1">
         <p className="text-sm text-white">{question.questionText}</p>
         {question.helpText ? (
-          <p className="mt-1 text-xs text-text-secondary">
+          <p className="mt-1 text-xs text-text-2">
             {question.helpText}
           </p>
         ) : null}
-        <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px] text-text-secondary">
+        <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px] text-text-2">
           <Tag>{answerTypeLabel(question.answerType)}</Tag>
           {question.libraryQuestionId ? (
             <Tag>Linked to library</Tag>
@@ -1322,7 +1322,7 @@ function QuestionRow(props: {
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-white hover:bg-white/5"
+          className="rounded-full border border-ink-4 px-3 py-1 text-[11px] text-white hover:bg-white/5"
         >
           Edit
         </button>
@@ -1452,7 +1452,7 @@ function AddQuestionForm(props: {
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-brand-teal/30 bg-background-card p-3">
+    <div className="space-y-3 rounded-lg border border-brand-teal/30 bg-ink-1 p-3">
       <div className="flex items-center justify-between">
         <div className="flex gap-1">
           <TabButton active={tab === "library"} onClick={() => setTab("library")}>
@@ -1466,7 +1466,7 @@ function AddQuestionForm(props: {
           type="button"
           onClick={props.onCancel}
           disabled={busy}
-          className="text-[11px] text-text-secondary hover:text-white disabled:opacity-50"
+          className="text-[11px] text-text-2 hover:text-white disabled:opacity-50"
         >
           Cancel
         </button>
@@ -1485,9 +1485,9 @@ function AddQuestionForm(props: {
           />
           <div className="max-h-64 overflow-y-auto rounded-lg border border-white/5">
             {!libraryResults ? (
-              <p className="p-3 text-xs text-text-secondary">Loading…</p>
+              <p className="p-3 text-xs text-text-2">Loading…</p>
             ) : libraryResults.length === 0 ? (
-              <p className="p-3 text-xs text-text-secondary">
+              <p className="p-3 text-xs text-text-2">
                 No matching library questions. Create one in the Question
                 Library page first, or add a custom question.
               </p>
@@ -1500,7 +1500,7 @@ function AddQuestionForm(props: {
                   >
                     <div className="min-w-0 flex-1">
                       <p>{q.questionText}</p>
-                      <p className="mt-0.5 text-[10px] text-text-secondary">
+                      <p className="mt-0.5 text-[10px] text-text-2">
                         {q.category} · {answerTypeLabel(q.answerType)}
                       </p>
                     </div>
@@ -1546,7 +1546,7 @@ function AddQuestionForm(props: {
                 </option>
               ))}
             </select>
-            <label className="flex items-center gap-2 text-xs text-text-secondary">
+            <label className="flex items-center gap-2 text-xs text-text-2">
               <input
                 type="checkbox"
                 checked={customRequired}
@@ -1582,7 +1582,7 @@ function AddQuestionForm(props: {
 
 function Tag(props: { children: React.ReactNode }) {
   return (
-    <span className="rounded-full border border-white/10 bg-background-elevated px-2 py-0.5">
+    <span className="rounded-full border border-ink-4 bg-ink-2 px-2 py-0.5">
       {props.children}
     </span>
   );
@@ -1600,7 +1600,7 @@ function IconButton(props: {
       title={props.title}
       onClick={props.onClick}
       disabled={props.disabled}
-      className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 text-xs text-white hover:bg-white/5 disabled:opacity-30"
+      className="flex h-7 w-7 items-center justify-center rounded-full border border-ink-4 text-xs text-white hover:bg-white/5 disabled:opacity-30"
     >
       {props.children}
     </button>
@@ -1619,7 +1619,7 @@ function TabButton(props: {
       className={`rounded-full px-3 py-1 text-[11px] ${
         props.active
           ? "bg-brand-teal text-background-primary"
-          : "border border-white/10 text-text-secondary hover:text-white"
+          : "border border-ink-4 text-text-2 hover:text-white"
       }`}
     >
       {props.children}

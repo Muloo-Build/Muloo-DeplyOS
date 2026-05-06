@@ -109,9 +109,9 @@ export default function AIBudgetsSettings() {
         </div>
       ) : null}
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <h2 className="text-lg font-semibold text-white">Add or update a budget</h2>
-        <p className="mt-2 text-sm text-text-secondary">
+        <p className="mt-2 text-sm text-text-2">
           Soft caps only — calls are not blocked. Alerts surface in this UI when 50/80/100% of the monthly cap is reached.
         </p>
         <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -120,7 +120,7 @@ export default function AIBudgetsSettings() {
             <select
               value={scopeInput}
               onChange={(e) => setScopeInput(e.target.value)}
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             >
               {PRESET_SCOPES.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -137,7 +137,7 @@ export default function AIBudgetsSettings() {
               type="number"
               min="0"
               step="0.01"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
           <label className="block">
@@ -146,7 +146,7 @@ export default function AIBudgetsSettings() {
               value={notesInput}
               onChange={(e) => setNotesInput(e.target.value)}
               placeholder="Optional"
-              className="mt-3 w-full rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-4 py-3 text-sm text-white outline-none"
+              className="mt-3 w-full rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-3 text-sm text-white outline-none"
             />
           </label>
         </div>
@@ -160,20 +160,20 @@ export default function AIBudgetsSettings() {
         </button>
       </section>
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
         <h2 className="text-lg font-semibold text-white">Active budgets</h2>
         <div className="mt-4 space-y-3">
           {loading ? (
-            <p className="text-sm text-text-muted">Loading...</p>
+            <p className="text-sm text-text-3">Loading...</p>
           ) : budgets.length === 0 ? (
-            <p className="text-sm text-text-muted">
+            <p className="text-sm text-text-3">
               No budgets configured. Add one above to start tracking.
             </p>
           ) : (
             budgets.map((budget) => (
               <div
                 key={budget.scope}
-                className="rounded-xl border border-[rgba(255,255,255,0.07)] bg-[#0b1126] p-4"
+                className="rounded-xl border border-ink-4 bg-ink-2 p-4"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -181,11 +181,11 @@ export default function AIBudgetsSettings() {
                       {PRESET_SCOPES.find((s) => s.value === budget.scope)
                         ?.label ?? budget.scope}
                     </p>
-                    <p className="text-xs text-text-muted">
+                    <p className="text-xs text-text-3">
                       {fmtUsd(budget.spentUsd)} of {fmtUsd(budget.monthlyCapUsd)} this month
                     </p>
                     {budget.notes ? (
-                      <p className="mt-1 text-xs text-text-muted">
+                      <p className="mt-1 text-xs text-text-3">
                         {budget.notes}
                       </p>
                     ) : null}
@@ -211,7 +211,7 @@ export default function AIBudgetsSettings() {
                     </button>
                   </div>
                 </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,0.06)]">
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink-3">
                   <div
                     className={`h-full ${
                       budget.percent >= 100

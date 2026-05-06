@@ -93,7 +93,7 @@ export default function AgencyProfileWorkspace({
           <Link href="/retainers" className="text-sm font-medium text-[#51d0b0] hover:underline">
             ← Back to retainers
           </Link>
-          <p className="mt-4 text-xs uppercase tracking-[0.18em] text-text-muted">
+          <p className="mt-4 text-xs uppercase tracking-[0.14em] text-text-3">
             Agency profile
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-white">
@@ -102,44 +102,44 @@ export default function AgencyProfileWorkspace({
         </header>
 
         {error ? (
-          <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <div className="rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             {error}
           </div>
         ) : null}
 
         <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-2xl border border-white/10 bg-background-card p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+          <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               Commercial identity
             </p>
-            <div className="mt-4 space-y-3 text-sm text-text-secondary">
+            <div className="mt-4 space-y-3 text-sm text-text-2">
               <p>
-                <span className="text-text-muted">VAT:</span> {agency?.vatNumber ?? "Not set"}
+                <span className="text-text-3">VAT:</span> {agency?.vatNumber ?? "Not set"}
               </p>
               <p>
-                <span className="text-text-muted">Primary contact:</span>{" "}
+                <span className="text-text-3">Primary contact:</span>{" "}
                 {agency?.primaryContactName ?? "Not set"}
               </p>
               <p>
-                <span className="text-text-muted">Email:</span>{" "}
+                <span className="text-text-3">Email:</span>{" "}
                 {agency?.primaryContactEmail ?? "Not set"}
               </p>
               <p>
-                <span className="text-text-muted">Address:</span> {agency?.address ?? "Not set"}
+                <span className="text-text-3">Address:</span> {agency?.address ?? "Not set"}
               </p>
             </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   Outstanding
                 </p>
                 <p className="mt-2 text-xl font-semibold text-white">
                   {formatMoney(agency?.outstanding ?? 0)}
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+              <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                   YTD invoiced
                 </p>
                 <p className="mt-2 text-xl font-semibold text-white">
@@ -149,8 +149,8 @@ export default function AgencyProfileWorkspace({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/10 bg-background-card p-5">
-            <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+          <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
               End clients billed through this agency
             </p>
             <div className="mt-4 space-y-3">
@@ -158,16 +158,16 @@ export default function AgencyProfileWorkspace({
                 <Link
                   key={client.id}
                   href={`/clients/${client.id}`}
-                  className="block rounded-2xl border border-white/8 bg-white/[0.03] p-4 transition hover:border-white/15 hover:bg-white/[0.05]"
+                  className="block rounded-[14px] border border-white/8 bg-white/[0.03] p-4 transition hover:border-white/15 hover:bg-white/[0.05]"
                 >
                   <p className="font-semibold text-white">{client.name}</p>
-                  <p className="mt-1 text-sm text-text-secondary">
+                  <p className="mt-1 text-sm text-text-2">
                     {client.retainerIds.length} linked retainers
                   </p>
                 </Link>
               ))}
               {!loading && agency && agency.billedClients.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-white/12 p-4 text-sm text-text-secondary">
+                <div className="rounded-[14px] border border-dashed border-white/12 p-4 text-sm text-text-2">
                   No end clients are currently billed through this agency.
                 </div>
               ) : null}
@@ -175,8 +175,8 @@ export default function AgencyProfileWorkspace({
           </section>
         </div>
 
-        <section className="rounded-2xl border border-white/10 bg-background-card p-5">
-          <p className="text-xs uppercase tracking-[0.18em] text-text-muted">
+        <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
             Invoice records
           </p>
           <div className="mt-4 space-y-3">
@@ -184,15 +184,15 @@ export default function AgencyProfileWorkspace({
               <Link
                 key={invoice.id}
                 href={`/invoices/${invoice.id}`}
-                className="flex flex-col gap-3 rounded-2xl border border-white/8 bg-white/[0.03] p-4 transition hover:border-white/15 hover:bg-white/[0.05] md:flex-row md:items-center md:justify-between"
+                className="flex flex-col gap-3 rounded-[14px] border border-white/8 bg-white/[0.03] p-4 transition hover:border-white/15 hover:bg-white/[0.05] md:flex-row md:items-center md:justify-between"
               >
                 <div>
                   <p className="font-semibold text-white">{invoice.reference}</p>
-                  <p className="mt-1 text-sm text-text-secondary">
+                  <p className="mt-1 text-sm text-text-2">
                     {invoice.retainer?.client?.name ?? "Unknown client"} · issued {formatDate(invoice.issueDate)}
                   </p>
                 </div>
-                <div className="text-sm text-text-secondary md:text-right">
+                <div className="text-sm text-text-2 md:text-right">
                   <p className="text-white">{formatMoney(invoice.amount, invoice.currency)}</p>
                   <p>{invoice.status}</p>
                   <p>Due {formatDate(invoice.dueDate)}</p>
@@ -200,7 +200,7 @@ export default function AgencyProfileWorkspace({
               </Link>
             ))}
             {!loading && agency && agency.invoices.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-white/12 p-4 text-sm text-text-secondary">
+              <div className="rounded-[14px] border border-dashed border-white/12 p-4 text-sm text-text-2">
                 No invoices have been recorded for this agency yet.
               </div>
             ) : null}

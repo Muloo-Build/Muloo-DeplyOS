@@ -331,7 +331,7 @@ function ProductsCatalogContent() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search products..."
-            className="w-full max-w-sm rounded-xl border border-white/10 bg-background-card px-3 py-2.5 text-sm text-white placeholder:text-text-muted"
+            className="w-full max-w-sm rounded-xl border border-ink-4 bg-ink-1 px-3 py-2.5 text-sm text-white placeholder:text-text-3"
           />
           <div className="flex flex-wrap gap-2">
             {[
@@ -351,18 +351,18 @@ function ProductsCatalogContent() {
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                     active
                       ? "border-[#51d0b0]/50 bg-[#51d0b0]/10 text-[#9be4d2]"
-                      : "border-white/10 bg-background-card text-text-secondary hover:border-white/20 hover:text-white"
+                      : "border-ink-4 bg-ink-1 text-text-2 hover:border-ink-5 hover:text-white"
                   }`}
                 >
                   {opt.label}
-                  <span className="text-[10px] text-text-muted">{count}</span>
+                  <span className="text-[10px] text-text-3">{count}</span>
                 </button>
               );
             })}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-full border border-white/10 bg-background-card p-1 text-xs">
+          <div className="flex rounded-full border border-ink-4 bg-ink-1 p-1 text-xs">
             {(
               [
                 { value: "active", label: `Active · ${counts.active}` },
@@ -377,7 +377,7 @@ function ProductsCatalogContent() {
                 className={`rounded-full px-3 py-1.5 transition ${
                   statusFilter === opt.value
                     ? "bg-white/10 text-white"
-                    : "text-text-secondary hover:text-white"
+                    : "text-text-2 hover:text-white"
                 }`}
               >
                 {opt.label}
@@ -395,25 +395,25 @@ function ProductsCatalogContent() {
       </div>
 
       {error ? (
-        <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+        <div className="rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
           {error}
         </div>
       ) : null}
       {feedback ? (
-        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-100">
+        <div className="rounded-[14px] border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-100">
           {feedback}
         </div>
       ) : null}
 
       {/* List */}
-      <section className="rounded-2xl border border-white/10 bg-background-card">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1">
         {loading ? (
-          <div className="px-5 py-8 text-sm text-text-secondary">
+          <div className="px-5 py-8 text-sm text-text-2">
             Loading products...
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
-            <p className="text-sm text-text-secondary">
+            <p className="text-sm text-text-2">
               {products.length === 0
                 ? "No products yet. Add your first."
                 : "No products match the current filters."}
@@ -446,22 +446,22 @@ function ProductsCatalogContent() {
                     {product.name}
                   </p>
                   {product.description ? (
-                    <p className="mt-1 truncate text-xs text-text-muted">
+                    <p className="mt-1 truncate text-xs text-text-3">
                       {product.description}
                     </p>
                   ) : null}
                 </button>
                 <div>
                   <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
                       categoryStyles[product.category] ??
-                      "bg-white/5 text-text-secondary border border-white/10"
+                      "bg-white/5 text-text-2 border border-ink-4"
                     }`}
                   >
                     {formatLabel(product.category, categoryOptions)}
                   </span>
                 </div>
-                <div className="text-sm text-text-secondary">
+                <div className="text-sm text-text-2">
                   {formatLabel(product.billingModel, billingOptions)}
                 </div>
                 <div className="text-sm text-white tabular-nums">
@@ -473,7 +473,7 @@ function ProductsCatalogContent() {
                     );
                     if (!margin) {
                       return (
-                        <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-text-muted">
+                        <p className="mt-0.5 text-[10px] uppercase tracking-[0.14em] text-text-3">
                           No cost set
                         </p>
                       );
@@ -483,7 +483,7 @@ function ProductsCatalogContent() {
                       target === null || margin.pct >= target;
                     return (
                       <p
-                        className={`mt-0.5 text-[10px] uppercase tracking-[0.18em] ${
+                        className={`mt-0.5 text-[10px] uppercase tracking-[0.14em] ${
                           meetsTarget
                             ? "text-emerald-300"
                             : "text-amber-300"
@@ -497,7 +497,7 @@ function ProductsCatalogContent() {
                     );
                   })()}
                 </div>
-                <div className="text-xs text-text-muted">
+                <div className="text-xs text-text-3">
                   {product.defaultQuantity} {product.unitLabel}
                 </div>
                 <div className="flex items-center gap-2">
@@ -507,7 +507,7 @@ function ProductsCatalogContent() {
                     className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition ${
                       product.isActive
                         ? "border border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20"
-                        : "border border-white/10 bg-white/5 text-text-secondary hover:bg-white/10"
+                        : "border border-ink-4 bg-white/5 text-text-2 hover:bg-white/10"
                     }`}
                   >
                     {product.isActive ? "Active" : "Inactive"}
@@ -515,7 +515,7 @@ function ProductsCatalogContent() {
                   <button
                     type="button"
                     onClick={() => openEditDrawer(product)}
-                    className="rounded-lg border border-white/10 bg-background-primary/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary transition hover:bg-white/10 hover:text-white"
+                    className="rounded-lg border border-ink-4 bg-ink-0/60 px-2.5 py-1 text-[11px] font-medium text-text-2 transition hover:bg-white/10 hover:text-white"
                   >
                     Edit
                   </button>
@@ -535,10 +535,10 @@ function ProductsCatalogContent() {
           }}
         >
           <div className="absolute inset-0 bg-black/50" />
-          <div className="relative h-full w-full max-w-xl overflow-y-auto bg-[#0b1126] shadow-2xl">
-            <div className="flex items-start justify-between border-b border-white/10 px-6 py-5">
+          <div className="relative h-full w-full max-w-xl overflow-y-auto bg-ink-2 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-ink-4 px-6 py-5">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.32em] text-[#49cde1]">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-[#49cde1]">
                   {drawerMode === "create" ? "New product" : "Edit product"}
                 </p>
                 <h2 className="mt-1 text-xl font-semibold text-white">
@@ -548,14 +548,14 @@ function ProductsCatalogContent() {
               <button
                 type="button"
                 onClick={closeDrawer}
-                className="rounded-lg border border-white/10 bg-background-card px-3 py-1.5 text-sm text-text-secondary hover:bg-white/5 hover:text-white"
+                className="rounded-lg border border-ink-4 bg-ink-1 px-3 py-1.5 text-sm text-text-2 hover:bg-white/5 hover:text-white"
               >
                 Close
               </button>
             </div>
 
             <div className="space-y-5 px-6 py-5">
-              <label className="block text-sm text-text-secondary">
+              <label className="block text-sm text-text-2">
                 Name
                 <input
                   type="text"
@@ -563,12 +563,12 @@ function ProductsCatalogContent() {
                   onChange={(event) =>
                     setDraft((d) => ({ ...d, name: event.target.value }))
                   }
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   placeholder="e.g. Monthly HubSpot retainer"
                 />
               </label>
 
-              <label className="block text-sm text-text-secondary">
+              <label className="block text-sm text-text-2">
                 Description
                 <textarea
                   value={draft.description}
@@ -576,20 +576,20 @@ function ProductsCatalogContent() {
                     setDraft((d) => ({ ...d, description: event.target.value }))
                   }
                   rows={3}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   placeholder="What's included?"
                 />
               </label>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block text-sm text-text-secondary">
+                <label className="block text-sm text-text-2">
                   Category
                   <select
                     value={draft.category}
                     onChange={(event) =>
                       setDraft((d) => ({ ...d, category: event.target.value }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   >
                     {categoryOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -599,7 +599,7 @@ function ProductsCatalogContent() {
                   </select>
                 </label>
 
-                <label className="block text-sm text-text-secondary">
+                <label className="block text-sm text-text-2">
                   Billing model
                   <select
                     value={draft.billingModel}
@@ -609,7 +609,7 @@ function ProductsCatalogContent() {
                         billingModel: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   >
                     {billingOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -620,7 +620,7 @@ function ProductsCatalogContent() {
                 </label>
               </div>
 
-              <label className="block text-sm text-text-secondary">
+              <label className="block text-sm text-text-2">
                 Service family
                 <select
                   value={draft.serviceFamily}
@@ -630,7 +630,7 @@ function ProductsCatalogContent() {
                       serviceFamily: event.target.value
                     }))
                   }
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                  className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                 >
                   {serviceFamilies.map((family) => (
                     <option key={family.value} value={family.value}>
@@ -641,7 +641,7 @@ function ProductsCatalogContent() {
               </label>
 
               <div className="grid gap-4 sm:grid-cols-3">
-                <label className="block text-sm text-text-secondary">
+                <label className="block text-sm text-text-2">
                   Unit price
                   <input
                     type="number"
@@ -651,10 +651,10 @@ function ProductsCatalogContent() {
                     onChange={(event) =>
                       setDraft((d) => ({ ...d, unitPrice: event.target.value }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   />
                 </label>
-                <label className="block text-sm text-text-secondary">
+                <label className="block text-sm text-text-2">
                   Default qty
                   <input
                     type="number"
@@ -667,10 +667,10 @@ function ProductsCatalogContent() {
                         defaultQuantity: event.target.value
                       }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   />
                 </label>
-                <label className="block text-sm text-text-secondary">
+                <label className="block text-sm text-text-2">
                   Unit label
                   <input
                     type="text"
@@ -678,7 +678,7 @@ function ProductsCatalogContent() {
                     onChange={(event) =>
                       setDraft((d) => ({ ...d, unitLabel: event.target.value }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   />
                 </label>
               </div>
@@ -687,7 +687,7 @@ function ProductsCatalogContent() {
                   internal delivery cost per unit; the drawer shows the live
                   gross margin so operators see margin slip in real time. */}
               <div className="grid gap-4 sm:grid-cols-3">
-                <label className="block text-sm text-text-secondary">
+                <label className="block text-sm text-text-2">
                   Unit cost
                   <input
                     type="number"
@@ -698,17 +698,17 @@ function ProductsCatalogContent() {
                       setDraft((d) => ({ ...d, cost: event.target.value }))
                     }
                     placeholder="Leave blank if unknown"
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   />
                 </label>
-                <label className="block text-sm text-text-secondary">
+                <label className="block text-sm text-text-2">
                   Currency
                   <select
                     value={draft.currency}
                     onChange={(event) =>
                       setDraft((d) => ({ ...d, currency: event.target.value }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   >
                     {currencyOptions.map((code) => (
                       <option key={code} value={code}>
@@ -717,7 +717,7 @@ function ProductsCatalogContent() {
                     ))}
                   </select>
                 </label>
-                <label className="block text-sm text-text-secondary">
+                <label className="block text-sm text-text-2">
                   Margin target (%)
                   <input
                     type="number"
@@ -732,7 +732,7 @@ function ProductsCatalogContent() {
                       }))
                     }
                     placeholder="e.g. 60"
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   />
                 </label>
               </div>
@@ -748,7 +748,7 @@ function ProductsCatalogContent() {
                     : Number(draft.marginTarget);
                 if (!margin) {
                   return (
-                    <p className="text-xs text-text-muted">
+                    <p className="text-xs text-text-3">
                       Add a unit price and a cost to see live gross margin.
                     </p>
                   );
@@ -765,7 +765,7 @@ function ProductsCatalogContent() {
                         : "border-amber-400/30 bg-amber-500/10 text-amber-100"
                     }`}
                   >
-                    <p className="text-[10px] uppercase tracking-[0.32em] opacity-80">
+                    <p className="text-[10px] uppercase tracking-[0.14em] opacity-80">
                       Live gross margin
                     </p>
                     <p className="mt-1 text-lg font-semibold">
@@ -787,7 +787,7 @@ function ProductsCatalogContent() {
               })()}
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block text-sm text-text-secondary">
+                <label className="block text-sm text-text-2">
                   Sort order
                   <input
                     type="number"
@@ -796,13 +796,13 @@ function ProductsCatalogContent() {
                     onChange={(event) =>
                       setDraft((d) => ({ ...d, sortOrder: event.target.value }))
                     }
-                    className="mt-2 w-full rounded-xl border border-white/10 bg-background-primary px-3 py-2.5 text-white"
+                    className="mt-2 w-full rounded-xl border border-ink-4 bg-ink-0 px-3 py-2.5 text-white"
                   />
-                  <p className="mt-1 text-xs text-text-muted">
+                  <p className="mt-1 text-xs text-text-3">
                     Lower numbers appear first.
                   </p>
                 </label>
-                <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-background-primary/40 px-4 py-3 text-sm text-text-secondary">
+                <label className="flex items-center gap-3 rounded-xl border border-ink-4 bg-ink-0/40 px-4 py-3 text-sm text-text-2">
                   <input
                     type="checkbox"
                     checked={draft.isActive}
@@ -812,7 +812,7 @@ function ProductsCatalogContent() {
                   />
                   <span>
                     <span className="block font-medium text-white">Active</span>
-                    <span className="text-xs text-text-muted">
+                    <span className="text-xs text-text-3">
                       Active products are pickable from quotes.
                     </span>
                   </span>
@@ -820,7 +820,7 @@ function ProductsCatalogContent() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-6 py-4">
+            <div className="flex flex-wrap items-center gap-2 border-t border-ink-4 px-6 py-4">
               <button
                 type="button"
                 onClick={() => void saveDraft()}
@@ -836,7 +836,7 @@ function ProductsCatalogContent() {
               <button
                 type="button"
                 onClick={closeDrawer}
-                className="rounded-xl border border-white/10 bg-background-card px-5 py-2.5 text-sm text-text-secondary hover:bg-white/5 hover:text-white"
+                className="rounded-xl border border-ink-4 bg-ink-1 px-5 py-2.5 text-sm text-text-2 hover:bg-white/5 hover:text-white"
               >
                 Cancel
               </button>

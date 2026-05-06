@@ -10,8 +10,8 @@ export default function ClientPortalError({
   reset: () => void;
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background-primary p-6 text-white">
-      <div className="w-full max-w-lg rounded-3xl border border-[rgba(255,255,255,0.08)] bg-background-card p-6 text-center">
+    <div className="flex min-h-screen items-center justify-center bg-ink-0 p-6 text-white">
+      <div className="w-full max-w-lg rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-center">
         <img
           src="/muloo-mark.svg"
           alt="Muloo"
@@ -20,12 +20,12 @@ export default function ClientPortalError({
         <h1 className="mt-4 text-2xl font-semibold">
           We hit a snag loading your portal.
         </h1>
-        <p className="mt-3 text-sm text-text-secondary">
+        <p className="mt-3 text-sm text-text-2">
           The Muloo team has been notified. Try refreshing — if it keeps
           happening, drop us a message and we'll sort it out.
         </p>
         {error.digest ? (
-          <p className="mt-3 font-mono text-xs text-text-muted">
+          <p className="mt-3 font-mono text-xs text-text-3">
             Reference: {error.digest}
           </p>
         ) : null}
@@ -39,7 +39,7 @@ export default function ClientPortalError({
           </button>
           <Link
             href="/client"
-            className="rounded-xl border border-[rgba(255,255,255,0.12)] bg-white/5 px-4 py-3 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.2)]"
+            className="rounded-xl border border-ink-4 bg-white/5 px-4 py-3 text-sm font-medium text-white hover:border-[rgba(255,255,255,0.2)]"
           >
             Back to portal home
           </Link>

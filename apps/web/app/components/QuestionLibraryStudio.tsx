@@ -265,7 +265,7 @@ export default function QuestionLibraryStudio() {
     <div className="space-y-6">
       {stats && stats.total > 0 ? (
         stats.nonCanonicalCount > 0 ? (
-          <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
+          <section className="rounded-[14px] border border-amber-500/30 bg-amber-500/10 p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-amber-200">
@@ -292,7 +292,7 @@ export default function QuestionLibraryStudio() {
           // T3 — explicit success state. Replaces the previous "panel just
           // disappears" behaviour so the operator can see at a glance that
           // every question is sitting in the canonical list.
-          <section className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
+          <section className="rounded-[14px] border border-emerald-500/30 bg-emerald-500/10 p-5">
             <h2 className="text-sm font-semibold text-emerald-200">
               Categorisation health
             </h2>
@@ -305,7 +305,7 @@ export default function QuestionLibraryStudio() {
         )
       ) : null}
 
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-5">
+      <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-5">
         <div className="grid gap-3 sm:grid-cols-4">
           <input
             type="text"
@@ -352,7 +352,7 @@ export default function QuestionLibraryStudio() {
           </select>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-text-secondary">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-text-2">
           <span>
             {stats
               ? `${visible.length} shown · ${stats.total} total · ${stats.categoriesUsed} distinct categories`
@@ -397,16 +397,16 @@ export default function QuestionLibraryStudio() {
       ) : null}
 
       {!items ? (
-        <p className="text-sm text-text-secondary">Loading library…</p>
+        <p className="text-sm text-text-2">Loading library…</p>
       ) : grouped.length === 0 ? (
-        <p className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card p-6 text-sm text-text-secondary">
+        <p className="rounded-[14px] border border-ink-4 bg-ink-1 p-6 text-sm text-text-2">
           No questions match. Try clearing filters or adding a new question.
         </p>
       ) : (
         grouped.map(([category, rows]) => (
           <section
             key={category}
-            className="rounded-2xl border border-[rgba(255,255,255,0.07)] bg-background-card"
+            className="rounded-[14px] border border-ink-4 bg-ink-1"
           >
             <header className="flex items-center justify-between gap-3 border-b border-white/5 p-4">
               <div className="flex items-center gap-2">
@@ -422,7 +422,7 @@ export default function QuestionLibraryStudio() {
                   </span>
                 ) : null}
               </div>
-              <span className="text-xs text-text-secondary">
+              <span className="text-xs text-text-2">
                 {rows.length} question{rows.length === 1 ? "" : "s"}
               </span>
             </header>
@@ -477,9 +477,9 @@ function ReadRow(props: { item: LibraryItem; onEdit: () => void }) {
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-white">{item.questionText}</p>
         {item.helpText ? (
-          <p className="mt-1 text-xs text-text-secondary">{item.helpText}</p>
+          <p className="mt-1 text-xs text-text-2">{item.helpText}</p>
         ) : null}
-        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-text-secondary">
+        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-text-2">
           <Tag>{answerTypeLabel(item.answerType)}</Tag>
           {item.subcategory ? <Tag>{item.subcategory}</Tag> : null}
           {stakeholder ? <Tag>{stakeholder}</Tag> : null}
@@ -505,7 +505,7 @@ function ReadRow(props: { item: LibraryItem; onEdit: () => void }) {
       <button
         type="button"
         onClick={props.onEdit}
-        className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/5"
+        className="rounded-full border border-ink-4 px-3 py-1.5 text-xs text-white hover:bg-white/5"
       >
         Edit
       </button>
@@ -515,7 +515,7 @@ function ReadRow(props: { item: LibraryItem; onEdit: () => void }) {
 
 function Tag(props: { children: React.ReactNode }) {
   return (
-    <span className="rounded-full border border-white/10 bg-background-elevated px-2 py-0.5">
+    <span className="rounded-full border border-ink-4 bg-ink-2 px-2 py-0.5">
       {props.children}
     </span>
   );
@@ -550,7 +550,7 @@ function DraftForm(props: {
   }, [draft.category, props.restrictToCanonical]);
 
   return (
-    <div className="space-y-3 rounded-xl border border-brand-teal/30 bg-background-elevated p-4">
+    <div className="space-y-3 rounded-xl border border-brand-teal/30 bg-ink-2 p-4">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold text-white">{props.title}</h4>
         <div className="flex gap-2">
@@ -568,14 +568,14 @@ function DraftForm(props: {
             type="button"
             onClick={props.onCancel}
             disabled={props.busy}
-            className="text-xs text-text-secondary hover:text-white disabled:opacity-50"
+            className="text-xs text-text-2 hover:text-white disabled:opacity-50"
           >
             Cancel
           </button>
         </div>
       </div>
 
-      <label className="block text-xs text-text-secondary">
+      <label className="block text-xs text-text-2">
         Question text *
         <textarea
           value={draft.questionText}
@@ -586,7 +586,7 @@ function DraftForm(props: {
         />
       </label>
 
-      <label className="block text-xs text-text-secondary">
+      <label className="block text-xs text-text-2">
         Helper text
         <input
           type="text"
@@ -598,7 +598,7 @@ function DraftForm(props: {
       </label>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Category *
           <select
             value={draft.category}
@@ -613,7 +613,7 @@ function DraftForm(props: {
             ))}
           </select>
         </label>
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Subcategory
           <input
             type="text"
@@ -628,7 +628,7 @@ function DraftForm(props: {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Answer type
           <select
             value={draft.answerType}
@@ -644,7 +644,7 @@ function DraftForm(props: {
             ))}
           </select>
         </label>
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Suggested contributor
           <select
             value={draft.recommendedStakeholderType}
@@ -667,7 +667,7 @@ function DraftForm(props: {
       </div>
 
       {draft.answerType === "multiple_choice" ? (
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Options (one per line)
           <textarea
             value={draft.optionsText}
@@ -681,7 +681,7 @@ function DraftForm(props: {
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Linked HubSpot area
           <select
             value={draft.linkedHubSpotArea}
@@ -698,7 +698,7 @@ function DraftForm(props: {
             ))}
           </select>
         </label>
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Linked website area
           <input
             type="text"
@@ -713,7 +713,7 @@ function DraftForm(props: {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Complexity
           <select
             value={draft.complexityLevel}
@@ -729,7 +729,7 @@ function DraftForm(props: {
             ))}
           </select>
         </label>
-        <label className="block text-xs text-text-secondary">
+        <label className="block text-xs text-text-2">
           Tags (comma-separated)
           <input
             type="text"
@@ -741,7 +741,7 @@ function DraftForm(props: {
         </label>
       </div>
 
-      <label className="flex items-center gap-2 text-xs text-text-secondary">
+      <label className="flex items-center gap-2 text-xs text-text-2">
         <input
           type="checkbox"
           checked={draft.defaultRequired}

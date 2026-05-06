@@ -35,7 +35,7 @@ const STATUS_LABEL: Record<string, { label: string; className: string }> = {
   },
   archived: {
     label: "Archived",
-    className: "border-white/10 bg-white/5 text-text-secondary"
+    className: "border-ink-4 bg-white/5 text-text-2"
   }
 };
 
@@ -193,11 +193,11 @@ export default function WorkbookPublicSharePanel(props: {
   ).length;
 
   return (
-    <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+    <div className="mt-3 rounded-lg border border-ink-4 bg-white/[0.02] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-semibold text-white">Public share link</p>
-          <p className="mt-0.5 text-[11px] text-text-secondary">
+          <p className="mt-0.5 text-[11px] text-text-2">
             Anyone with the link can fill in their name, email and answers.
             Submissions land here for review.
           </p>
@@ -210,7 +210,7 @@ export default function WorkbookPublicSharePanel(props: {
             onChange={(e) => patchShare({ enabled: e.target.checked })}
             className="accent-brand-teal"
           />
-          <span className="text-text-secondary">
+          <span className="text-text-2">
             {props.publicShareEnabled ? "Enabled" : "Disabled"}
           </span>
         </label>
@@ -224,12 +224,12 @@ export default function WorkbookPublicSharePanel(props: {
               readOnly
               value={shareUrl}
               onFocus={(e) => e.currentTarget.select()}
-              className="min-w-0 flex-1 rounded-md border border-white/10 bg-bg-primary px-2 py-1 text-[11px] text-text-primary"
+              className="min-w-0 flex-1 rounded-md border border-ink-4 bg-bg-primary px-2 py-1 text-[11px] text-text-primary"
             />
             <button
               type="button"
               onClick={copyShareLink}
-              className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-text-primary hover:border-brand-teal/40 hover:text-brand-teal"
+              className="rounded-md border border-ink-4 px-2 py-1 text-[11px] text-text-primary hover:border-brand-teal/40 hover:text-brand-teal"
             >
               Copy
             </button>
@@ -245,21 +245,21 @@ export default function WorkbookPublicSharePanel(props: {
                   void patchShare({ regenerate: true });
                 }
               }}
-              className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-text-secondary hover:border-rose-500/40 hover:text-rose-300"
+              className="rounded-md border border-ink-4 px-2 py-1 text-[11px] text-text-2 hover:border-rose-500/40 hover:text-rose-300"
             >
               Regenerate
             </button>
           </div>
           {copyHint ? (
-            <p className="text-[11px] text-text-secondary">{copyHint}</p>
+            <p className="text-[11px] text-text-2">{copyHint}</p>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
-            <label className="text-[11px] text-text-secondary">Expires:</label>
+            <label className="text-[11px] text-text-2">Expires:</label>
             <input
               type="datetime-local"
               value={expiresDraft}
               onChange={(e) => setExpiresDraft(e.target.value)}
-              className="rounded-md border border-white/10 bg-bg-primary px-2 py-1 text-[11px] text-text-primary"
+              className="rounded-md border border-ink-4 bg-bg-primary px-2 py-1 text-[11px] text-text-primary"
             />
             <button
               type="button"
@@ -271,7 +271,7 @@ export default function WorkbookPublicSharePanel(props: {
                     : null
                 })
               }
-              className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-text-primary hover:border-brand-teal/40 hover:text-brand-teal"
+              className="rounded-md border border-ink-4 px-2 py-1 text-[11px] text-text-primary hover:border-brand-teal/40 hover:text-brand-teal"
             >
               Save
             </button>
@@ -283,7 +283,7 @@ export default function WorkbookPublicSharePanel(props: {
                   setExpiresDraft("");
                   void patchShare({ expiresAt: null });
                 }}
-                className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-text-secondary hover:text-white"
+                className="rounded-md border border-ink-4 px-2 py-1 text-[11px] text-text-2 hover:text-white"
               >
                 Clear
               </button>
@@ -308,9 +308,9 @@ export default function WorkbookPublicSharePanel(props: {
           </p>
         </div>
         {submissions === null ? (
-          <p className="mt-2 text-[11px] text-text-secondary">Loading…</p>
+          <p className="mt-2 text-[11px] text-text-2">Loading…</p>
         ) : submissions.length === 0 ? (
-          <p className="mt-2 text-[11px] text-text-secondary">
+          <p className="mt-2 text-[11px] text-text-2">
             No submissions yet.
           </p>
         ) : (
@@ -321,17 +321,17 @@ export default function WorkbookPublicSharePanel(props: {
               return (
                 <li
                   key={sub.id}
-                  className="rounded-md border border-white/10 bg-white/[0.02] p-2"
+                  className="rounded-md border border-ink-4 bg-white/[0.02] p-2"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-xs text-white">
                         {sub.firstName} {sub.lastName}{" "}
-                        <span className="text-text-secondary">
+                        <span className="text-text-2">
                           · {sub.email}
                         </span>
                       </p>
-                      <p className="text-[10px] text-text-secondary">
+                      <p className="text-[10px] text-text-2">
                         {sub.organisation ? `${sub.organisation} · ` : ""}
                         {new Date(sub.createdAt).toLocaleString()}
                       </p>
@@ -356,7 +356,7 @@ export default function WorkbookPublicSharePanel(props: {
                       <ul className="space-y-2">
                         {sub.responses.map((r) => (
                           <li key={r.questionId} className="text-[11px]">
-                            <p className="text-text-secondary">
+                            <p className="text-text-2">
                               {r.questionText}
                             </p>
                             <p className="mt-0.5 whitespace-pre-wrap text-white">
@@ -379,7 +379,7 @@ export default function WorkbookPublicSharePanel(props: {
                             [sub.id]: e.target.value
                           }))
                         }
-                        className="w-full rounded-md border border-white/10 bg-bg-primary px-2 py-1 text-[11px] text-text-primary"
+                        className="w-full rounded-md border border-ink-4 bg-bg-primary px-2 py-1 text-[11px] text-text-primary"
                       />
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -404,7 +404,7 @@ export default function WorkbookPublicSharePanel(props: {
                                 notesDraft[sub.id] ?? sub.reviewerNotes
                             })
                           }
-                          className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-text-secondary hover:text-white"
+                          className="rounded-md border border-ink-4 px-2 py-1 text-[11px] text-text-2 hover:text-white"
                         >
                           Archive
                         </button>
@@ -418,7 +418,7 @@ export default function WorkbookPublicSharePanel(props: {
                                   notesDraft[sub.id] ?? sub.reviewerNotes
                               })
                             }
-                            className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-text-secondary hover:text-white"
+                            className="rounded-md border border-ink-4 px-2 py-1 text-[11px] text-text-2 hover:text-white"
                           >
                             Reset to pending
                           </button>
