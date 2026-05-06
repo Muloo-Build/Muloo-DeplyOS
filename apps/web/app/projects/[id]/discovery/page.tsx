@@ -1,9 +1,9 @@
-import DiscoveryWorkspace from "../../../components/DiscoveryWorkspace";
+import DiscoveryHubView from "../../../components/DiscoveryHubView";
 
 export default function ProjectDiscoveryPage({
   params
 }: {
   params: { id: string };
 }) {
-  return <DiscoveryWorkspace projectId={params.id} />;
+  return <DiscoveryHubView projectId={params.id} />;
 }
