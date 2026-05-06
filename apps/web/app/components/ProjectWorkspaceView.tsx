@@ -19,7 +19,9 @@ import {
   Home,
   Info,
   KanbanSquare,
+  Loader2,
   MessageSquare,
+  Mic,
   Plus,
   Receipt,
   Search,
@@ -138,6 +140,19 @@ interface QuoteRecord {
   sharedAt?: string | null;
   approvedAt?: string | null;
   updatedAt?: string;
+}
+
+interface MeetingNote {
+  id: string;
+  projectId: string;
+  title: string;
+  meetingDate: string;
+  attendees: string[];
+  notes: string | null;
+  transcript: string | null;
+  links: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 const projectTabs: Array<{
@@ -292,11 +307,41 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
   const [workstreamHours, setWorkstreamHours] = useState<WorkstreamHoursEntry[]>([]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
+  const [meetings, setMeetings] = useState<MeetingNote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [connectingPortal, setConnectingPortal] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleConnectPortal() {
+    if (!project) return;
+    setConnectingPortal(true);
+    setPortalError(null);
+    try {
+      const r = await fetch("/api/hubspot/oauth/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          projectId: project.id,
+          clientId: project.client?.id,
+          installProfile: "core_crm",
+          returnTo: `/projects/${project.id}`
+        })
+      });
+      const body = await r.json().catch(() => null);
+      if (!r.ok || !body?.authUrl) {
+        throw new Error(body?.error ?? "Connect failed");
+      }
+      window.location.href = body.authUrl;
+    } catch (err) {
+      setPortalError(err instanceof Error ? err.message : "Connect failed");
+      setConnectingPortal(false);
+    }
+  }
 
   async function handleDelete() {
     if (!project || deleteConfirm.trim() !== project.name) {
@@ -327,7 +372,7 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
     async function run() {
       setLoading(true);
       try {
-        const [projRes, hoursRes, quotesRes] = await Promise.all([
+        const [projRes, hoursRes, quotesRes, meetingsRes] = await Promise.all([
           fetch(`/api/projects/${encodeURIComponent(projectId)}`)
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null),
@@ -337,6 +382,11 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null),
           fetch("/api/quotes")
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null),
+          fetch(
+            `/api/projects/${encodeURIComponent(projectId)}/meeting-notes`
+          )
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null)
         ]);
@@ -355,6 +405,11 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
           ? (quotesRes.quotes as QuoteRecord[])
           : [];
         setQuotes(allQuotes.filter((q) => q.projectId === projectId));
+
+        const meetingNotes: MeetingNote[] = Array.isArray(meetingsRes?.notes)
+          ? (meetingsRes.notes as MeetingNote[])
+          : [];
+        setMeetings(meetingNotes);
 
         // Synthesise activity from project record
         const acts: ActivityEntry[] = [];
@@ -1040,10 +1095,35 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
                       />
                       {portalConnected ? "Connected" : "Disconnected"}
                     </span>
-                    <Btn variant="ghost" size="sm">
-                      {portalConnected ? "Manage" : "Connect"}
-                    </Btn>
+                    {portalConnected ? (
+                      <Link
+                        href={`/projects/${projectId}/audit`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <Btn variant="ghost" size="sm">
+                          Manage
+                        </Btn>
+                      </Link>
+                    ) : (
+                      <Btn
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void handleConnectPortal()}
+                        disabled={connectingPortal}
+                      >
+                        {connectingPortal ? (
+                          <Loader2 size={11} className="animate-spin" />
+                        ) : null}
+                        {connectingPortal ? "Starting…" : "Connect"}
+                      </Btn>
+                    )}
                   </div>
+                  {portalError && (
+                    <p className="mt-1.5 text-[11.5px] text-status-danger">
+                      {portalError}
+                    </p>
+                  )}
                 </div>
               </PanelBody>
             </Panel>
@@ -1112,6 +1192,72 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
                         </div>
                         <ChevronRight size={13} className="text-text-3" />
                       </Link>
+                    );
+                  })
+                )}
+              </PanelBody>
+            </Panel>
+
+            <Panel>
+              <PanelHead
+                title="Meeting summaries"
+                right={
+                  <Link
+                    href={`/projects/${projectId}/meetings`}
+                    aria-label="Open meeting notes"
+                  >
+                    <Btn variant="ghost" size="icon">
+                      <Plus size={12} />
+                    </Btn>
+                  </Link>
+                }
+              />
+              <PanelBody flush>
+                {meetings.length === 0 ? (
+                  <div className="px-4 py-4 text-text-3 text-[12.5px]">
+                    No meeting notes captured yet.
+                  </div>
+                ) : (
+                  meetings.slice(0, 5).map((m, i) => {
+                    const summary = (m.notes ?? "").trim();
+                    const preview =
+                      summary.length > 0
+                        ? summary.length > 140
+                          ? `${summary.slice(0, 140)}…`
+                          : summary
+                        : "(no summary)";
+                    const date = new Date(m.meetingDate);
+                    return (
+                      <div
+                        key={m.id}
+                        className={`px-4 py-3 ${
+                          i < Math.min(meetings.length, 5) - 1
+                            ? "border-b border-ink-4"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-start gap-2 mb-1">
+                          <Mic
+                            size={12}
+                            className="text-text-3 mt-0.5 flex-shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 text-[12.5px] font-medium text-text-1 truncate">
+                              {m.title || "Untitled meeting"}
+                            </div>
+                            <div className="font-mono text-[10.5px] text-text-3 mt-0.5">
+                              {date.toLocaleDateString()} ·{" "}
+                              {(m.attendees ?? []).slice(0, 3).join(", ")}
+                              {(m.attendees ?? []).length > 3
+                                ? ` +${m.attendees.length - 3}`
+                                : ""}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-[12px] text-text-2 m-0 mt-1.5 leading-[1.5] whitespace-pre-wrap line-clamp-3">
+                          {preview}
+                        </p>
+                      </div>
                     );
                   })
                 )}
