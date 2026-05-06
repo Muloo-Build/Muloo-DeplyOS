@@ -163,7 +163,7 @@ const projectTabs: Array<{
 }> = [
   { id: "overview", label: "Overview", icon: <Home size={13} />, path: "" },
   { id: "discovery", label: "Discovery", icon: <Search size={13} />, path: "/discovery" },
-  { id: "scope", label: "Scope", icon: <HelpCircle size={13} />, path: "/proposal" },
+  { id: "scope", label: "Scope", icon: <HelpCircle size={13} />, path: "/scope" },
   { id: "delivery", label: "Delivery", icon: <KanbanSquare size={13} />, path: "/delivery" },
   { id: "comms", label: "Comms", icon: <MessageSquare size={13} />, path: "/inputs" },
   { id: "files", label: "Files", icon: <Folder size={13} />, path: "/audit" },
