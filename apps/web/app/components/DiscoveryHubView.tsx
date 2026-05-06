@@ -187,6 +187,60 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
   const [sessionSaving, setSessionSaving] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
+  const [contextOpen, setContextOpen] = useState(false);
+  const [contextDraft, setContextDraft] = useState({
+    resourceType: "miro_board",
+    sourceLabel: "",
+    sourceUrl: "",
+    content: ""
+  });
+  const [contextSaving, setContextSaving] = useState(false);
+  const [contextError, setContextError] = useState<string | null>(null);
+
+  async function handleAddContext() {
+    if (!contextDraft.sourceLabel.trim()) {
+      setContextError("Label required");
+      return;
+    }
+    setContextSaving(true);
+    setContextError(null);
+    try {
+      const r = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            evidenceType: "context",
+            kind: "context",
+            sourceLabel: contextDraft.sourceLabel.trim(),
+            sourceUrl: contextDraft.sourceUrl.trim() || null,
+            content: contextDraft.content.trim() || null,
+            resourceType: contextDraft.resourceType,
+            status: "linked"
+          })
+        }
+      );
+      if (!r.ok) {
+        const body = await r.json().catch(() => null);
+        throw new Error(body?.error ?? "Add context failed");
+      }
+      await loadAll();
+      setContextOpen(false);
+      setContextDraft({
+        resourceType: "miro_board",
+        sourceLabel: "",
+        sourceUrl: "",
+        content: ""
+      });
+    } catch (err) {
+      setContextError(err instanceof Error ? err.message : "Add context failed");
+    } finally {
+      setContextSaving(false);
+    }
+  }
+
   async function handleAddSession() {
     if (!sessionDraft.title.trim() && !sessionDraft.notes.trim()) {
       setSessionError("Add a title or notes to capture this session");
@@ -726,12 +780,17 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
                       Recrawl Miro
                     </Btn>
                   )}
-                  <Link href={`/projects/${projectId}/inputs?upload=1`}>
-                    <Btn variant="ghost" size="sm">
-                      <Upload size={11} />
-                      Upload context
-                    </Btn>
-                  </Link>
+                  <Btn
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setContextError(null);
+                      setContextOpen(true);
+                    }}
+                  >
+                    <Upload size={11} />
+                    Add context source
+                  </Btn>
                 </div>
               </div>
               {contextItems.length === 0 ? (
@@ -787,6 +846,115 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
                 </Panel>
               )}
             </section>
+
+            {/* SYNTHESIS */}
+            <section>
+              <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
+                <div>
+                  <h2 className="text-[16px] font-semibold m-0 -tracking-[0.01em]">
+                    Synthesis
+                  </h2>
+                  <p className="text-[12.5px] text-text-3 m-0 mt-0.5">
+                    AI-generated key findings and delivery implications across
+                    every workbook, session, and context source above.
+                  </p>
+                </div>
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void handleGenerateSummary()}
+                  disabled={generatingSummary}
+                >
+                  <Sparkles size={11} />
+                  {generatingSummary
+                    ? "Generating…"
+                    : summary
+                      ? "Regenerate"
+                      : "Generate"}
+                </Btn>
+              </div>
+              {!summary || !summary.sections || summary.sections.length === 0 ? (
+                <Empty
+                  icon={<Sparkles size={20} />}
+                  title="No synthesis yet"
+                  sub="Capture sessions, link context sources, complete workbooks — then regenerate to get key findings + delivery implications."
+                  action={
+                    <Btn
+                      variant="primary"
+                      size="sm"
+                      onClick={() => void handleGenerateSummary()}
+                      disabled={generatingSummary}
+                    >
+                      <Sparkles size={11} />
+                      {generatingSummary ? "Generating…" : "Generate synthesis"}
+                    </Btn>
+                  }
+                />
+              ) : (
+                <Panel>
+                  <PanelBody>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold mb-2">
+                          Key findings
+                        </p>
+                        <ul className="m-0 pl-5 space-y-1.5 text-[12.5px] text-text-2 leading-[1.6]">
+                          {summary.sections.slice(0, 6).map((s) => (
+                            <li key={`finding_${s.sessionNumber}`}>
+                              <span className="text-text-1 font-medium">
+                                {s.title ?? `Section ${s.sessionNumber}`}
+                              </span>
+                              {s.fields && s.fields.length > 0 && (
+                                <span className="text-text-3">
+                                  {" "}
+                                  · {s.fields.length} captured
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold mb-2">
+                          Implications for delivery
+                        </p>
+                        <ul className="m-0 pl-5 space-y-1.5 text-[12.5px] text-text-2 leading-[1.6]">
+                          <li>
+                            {workbooks.length} workbook
+                            {workbooks.length === 1 ? "" : "s"} feeding scope
+                          </li>
+                          <li>
+                            {sessions.length} session
+                            {sessions.length === 1 ? "" : "s"} captured —
+                            {sessions.length === 0
+                              ? " run mini discovery sessions for unstructured findings"
+                              : " mine these for delivery context"}
+                          </li>
+                          <li>
+                            {contextItems.length} context source
+                            {contextItems.length === 1 ? "" : "s"}{" "}
+                            {miroBoards.length > 0
+                              ? `(${miroBoards.length} Miro board${miroBoards.length === 1 ? "" : "s"})`
+                              : "linked"}
+                          </li>
+                          <li>
+                            {summary.totalQuestions
+                              ? `${summary.answeredQuestions ?? 0}/${summary.totalQuestions} sections answered — ${
+                                  Math.round(
+                                    ((summary.answeredQuestions ?? 0) /
+                                      summary.totalQuestions) *
+                                      100
+                                  )
+                                }% complete`
+                              : "Sections not yet structured"}
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </PanelBody>
+                </Panel>
+              )}
+            </section>
           </div>
 
           {/* RIGHT RAIL */}
@@ -806,12 +974,18 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
                     Invite contributor
                   </Btn>
                 </Link>
-                <Link href={`/projects/${projectId}/inputs?upload=1`}>
-                  <Btn variant="ghost" size="sm" className="w-full justify-start">
-                    <Upload size={12} />
-                    Upload context item
-                  </Btn>
-                </Link>
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setContextError(null);
+                    setContextOpen(true);
+                  }}
+                >
+                  <Upload size={12} />
+                  Add context source
+                </Btn>
                 <Btn
                   variant="ghost"
                   size="sm"
@@ -831,33 +1005,6 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
               </PanelBody>
             </Panel>
 
-            {summary?.sections && summary.sections.length > 0 && (
-              <Panel>
-                <PanelHead title="Synthesis" />
-                <PanelBody flush>
-                  {summary.sections.slice(0, 6).map((s, i, arr) => (
-                    <div
-                      key={s.sessionNumber}
-                      className={`px-4 py-3 ${
-                        i < arr.length - 1 ? "border-b border-ink-4" : ""
-                      }`}
-                    >
-                      <div className="text-[12.5px] font-medium">
-                        {s.title ?? `Section ${s.sessionNumber}`}
-                      </div>
-                      {s.fields && s.fields.length > 0 && (
-                        <div className="text-[11.5px] text-text-3 mt-0.5">
-                          {s.fields.length} field
-                          {s.fields.length === 1 ? "" : "s"}
-                          {s.status ? ` · ${s.status}` : ""}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </PanelBody>
-              </Panel>
-            )}
-
             <Panel>
               <PanelHead title="Deep editor" />
               <PanelBody>
@@ -876,6 +1023,170 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
           </aside>
         </div>
       </div>
+
+      {contextOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close context source"
+            onClick={() => !contextSaving && setContextOpen(false)}
+            className="fixed inset-0 z-40 bg-black/70"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(560px,92vw)] bg-ink-1 border border-ink-4 rounded-[14px] p-6 shadow-elev-pop"
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <p className="text-[10px] tracking-[0.14em] uppercase text-text-3 font-semibold">
+                  Discovery context
+                </p>
+                <h3 className="text-[16px] font-semibold mt-1 -tracking-[0.01em]">
+                  Add context source
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !contextSaving && setContextOpen(false)}
+                className="text-text-3 hover:text-text-1 p-1 rounded-md transition-colors"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-[12.5px] text-text-2 m-0 mb-3">
+              Link a Miro board, Google Doc/Sheet, PDF, or any URL we should
+              pull into discovery context. Synthesis will pick it up next time
+              you regenerate.
+            </p>
+            <div className="grid gap-3">
+              <div>
+                <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold block mb-1.5">
+                  Source type
+                </span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: "miro_board", label: "Miro board" },
+                    { id: "google_doc", label: "Google Doc" },
+                    { id: "google_sheet", label: "Google Sheet" },
+                    { id: "google_form", label: "Google Form" },
+                    { id: "pdf", label: "PDF" },
+                    { id: "external_url", label: "Other URL" }
+                  ].map((opt) => {
+                    const isActive = contextDraft.resourceType === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() =>
+                          setContextDraft((d) => ({
+                            ...d,
+                            resourceType: opt.id
+                          }))
+                        }
+                        className={`px-2.5 py-1.5 rounded-[10px] text-[12px] border transition-colors ${
+                          isActive
+                            ? "bg-[rgba(74,219,192,0.12)] text-status-ok border-[rgba(74,219,192,0.35)]"
+                            : "bg-ink-2 text-text-2 border-ink-4 hover:border-ink-5 hover:text-text-1"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                  Label <span className="text-status-danger">*</span>
+                </span>
+                <input
+                  autoFocus
+                  value={contextDraft.sourceLabel}
+                  onChange={(e) =>
+                    setContextDraft((d) => ({
+                      ...d,
+                      sourceLabel: e.target.value
+                    }))
+                  }
+                  placeholder={
+                    contextDraft.resourceType === "miro_board"
+                      ? "e.g. Sales process Miro board"
+                      : contextDraft.resourceType === "google_doc"
+                        ? "e.g. Brand guidelines v3"
+                        : contextDraft.resourceType === "google_sheet"
+                          ? "e.g. Lifecycle stages spreadsheet"
+                          : "Source label"
+                  }
+                  className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                  URL
+                </span>
+                <input
+                  type="url"
+                  value={contextDraft.sourceUrl}
+                  onChange={(e) =>
+                    setContextDraft((d) => ({
+                      ...d,
+                      sourceUrl: e.target.value
+                    }))
+                  }
+                  placeholder={
+                    contextDraft.resourceType === "miro_board"
+                      ? "https://miro.com/app/board/..."
+                      : "https://"
+                  }
+                  className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4 font-mono"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                  Notes (optional)
+                </span>
+                <textarea
+                  value={contextDraft.content}
+                  onChange={(e) =>
+                    setContextDraft((d) => ({
+                      ...d,
+                      content: e.target.value
+                    }))
+                  }
+                  placeholder="What's in here, why it matters for discovery, anything for the synthesiser to pick up…"
+                  className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4 min-h-[100px] resize-y"
+                />
+              </label>
+              {contextError && (
+                <p className="text-[12px] text-status-danger m-0">
+                  {contextError}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <Btn
+                variant="ghost"
+                size="md"
+                onClick={() => setContextOpen(false)}
+                disabled={contextSaving}
+              >
+                Cancel
+              </Btn>
+              <Btn
+                variant="primary"
+                size="md"
+                onClick={() => void handleAddContext()}
+                disabled={contextSaving || !contextDraft.sourceLabel.trim()}
+              >
+                <Upload size={12} />
+                {contextSaving ? "Adding…" : "Add source"}
+              </Btn>
+            </div>
+          </div>
+        </>
+      )}
 
       {sessionOpen && (
         <>
