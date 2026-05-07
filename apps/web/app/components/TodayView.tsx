@@ -175,7 +175,7 @@ export default function TodayView() {
     setRefreshing(true);
     try {
       const [me, attn, projRes, inboxRes, calRes, capRes, gmailRes] = await Promise.all([
-        fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch("/api/auth/session").then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch("/api/projects/needs-attention")
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null),

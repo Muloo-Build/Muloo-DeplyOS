@@ -206,7 +206,7 @@ export default function Sidebar() {
   useEffect(() => {
     async function loadMe() {
       try {
-        const response = await fetch("/api/auth/me");
+        const response = await fetch("/api/auth/session");
         if (!response.ok) return;
         const body = await response.json();
         const name: string | undefined = body?.user?.name ?? body?.name;

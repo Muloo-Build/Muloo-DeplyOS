@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Download, Filter, Plus } from "lucide-react";
+import { ChevronRight, Download, ExternalLink, Filter, Plus, X } from "lucide-react";
 
 import AppShell from "./AppShell";
 import { Avatar } from "./ui/Avatar";
@@ -94,9 +95,60 @@ function formatDate(iso?: string | null): string {
 }
 
 export default function ClientsListView() {
+  const router = useRouter();
   const [active, setActive] = useState("all");
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [newOpen, setNewOpen] = useState(false);
+  const [newDraft, setNewDraft] = useState({
+    name: "",
+    website: "",
+    industry: "",
+    region: ""
+  });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  async function handleCreate() {
+    if (!newDraft.name.trim()) {
+      setCreateError("Client name required");
+      return;
+    }
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const r = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: newDraft.name.trim(),
+          website: newDraft.website.trim() || undefined,
+          industry: newDraft.industry.trim() || undefined,
+          region: newDraft.region.trim() || undefined
+        })
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => null);
+        throw new Error(body?.error ?? `Create failed (${r.status})`);
+      }
+      const body = await r.json();
+      const clientId: string | undefined = body?.client?.id;
+      if (clientId) {
+        router.push(`/clients/${clientId}`);
+      } else {
+        setNewOpen(false);
+        setNewDraft({ name: "", website: "", industry: "", region: "" });
+        // re-fetch the list
+        const list = await fetch("/api/clients").then((res) => res.json());
+        setClients(Array.isArray(list?.clients) ? list.clients : []);
+      }
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Create failed");
+    } finally {
+      setCreating(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -175,16 +227,23 @@ export default function ClientsListView() {
                 <Filter size={14} />
                 Filter
               </Btn>
-              <Btn variant="ghost" size="md">
-                <Download size={14} />
-                Export
-              </Btn>
-              <Link href="/clients?new=1">
-                <Btn variant="primary" size="md">
-                  <Plus size={14} />
-                  New client
+              <Link href="/settings/integrations/hubspot/import">
+                <Btn variant="ghost" size="md">
+                  <Download size={14} />
+                  Import from HubSpot
                 </Btn>
               </Link>
+              <Btn
+                variant="primary"
+                size="md"
+                onClick={() => {
+                  setCreateError(null);
+                  setNewOpen(true);
+                }}
+              >
+                <Plus size={14} />
+                New client
+              </Btn>
             </>
           }
         />
@@ -239,10 +298,25 @@ export default function ClientsListView() {
             }
             action={
               active === "all" ? (
-                <Btn variant="primary" size="sm">
-                  <Plus size={14} />
-                  New client
-                </Btn>
+                <div className="flex items-center gap-2 justify-center">
+                  <Link href="/settings/integrations/hubspot/import">
+                    <Btn variant="ghost" size="sm">
+                      <Download size={12} />
+                      Import from HubSpot
+                    </Btn>
+                  </Link>
+                  <Btn
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      setCreateError(null);
+                      setNewOpen(true);
+                    }}
+                  >
+                    <Plus size={14} />
+                    New client
+                  </Btn>
+                </div>
               ) : undefined
             }
           />
@@ -318,6 +392,134 @@ export default function ClientsListView() {
           </Tbl>
         )}
       </div>
+
+      {newOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close new client"
+            onClick={() => !creating && setNewOpen(false)}
+            className="fixed inset-0 z-40 bg-black/70"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(520px,92vw)] bg-ink-1 border border-ink-4 rounded-[14px] p-6 shadow-elev-pop"
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <p className="text-[10px] tracking-[0.14em] uppercase text-text-3 font-semibold">
+                  Clients
+                </p>
+                <h3 className="text-[16px] font-semibold mt-1 -tracking-[0.01em]">
+                  New client
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !creating && setNewOpen(false)}
+                className="text-text-3 hover:text-text-1 p-1 rounded-md transition-colors"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-[12.5px] text-text-2 m-0 mb-3">
+              Add a client manually. Already in HubSpot?{" "}
+              <Link
+                href="/settings/integrations/hubspot/import"
+                className="text-status-ok hover:underline inline-flex items-center gap-1"
+              >
+                Import from HubSpot
+                <ExternalLink size={11} />
+              </Link>{" "}
+              to pull companies + contacts in one shot.
+            </p>
+            <div className="grid gap-3">
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                  Client name <span className="text-status-danger">*</span>
+                </span>
+                <input
+                  autoFocus
+                  value={newDraft.name}
+                  onChange={(e) =>
+                    setNewDraft((d) => ({ ...d, name: e.target.value }))
+                  }
+                  placeholder="e.g. Magnisol"
+                  className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)]"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                  Website
+                </span>
+                <input
+                  type="url"
+                  value={newDraft.website}
+                  onChange={(e) =>
+                    setNewDraft((d) => ({ ...d, website: e.target.value }))
+                  }
+                  placeholder="https://"
+                  className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] font-mono"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                    Industry
+                  </span>
+                  <input
+                    value={newDraft.industry}
+                    onChange={(e) =>
+                      setNewDraft((d) => ({ ...d, industry: e.target.value }))
+                    }
+                    placeholder="e.g. Logistics"
+                    className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                    Region
+                  </span>
+                  <input
+                    value={newDraft.region}
+                    onChange={(e) =>
+                      setNewDraft((d) => ({ ...d, region: e.target.value }))
+                    }
+                    placeholder="e.g. ZA"
+                    className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)]"
+                  />
+                </label>
+              </div>
+              {createError && (
+                <p className="text-[12px] text-status-danger m-0">
+                  {createError}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <Btn
+                variant="ghost"
+                size="md"
+                onClick={() => setNewOpen(false)}
+                disabled={creating}
+              >
+                Cancel
+              </Btn>
+              <Btn
+                variant="primary"
+                size="md"
+                onClick={() => void handleCreate()}
+                disabled={creating || !newDraft.name.trim()}
+              >
+                <Plus size={12} />
+                {creating ? "Creating…" : "Create client"}
+              </Btn>
+            </div>
+          </div>
+        </>
+      )}
     </AppShell>
   );
 }
