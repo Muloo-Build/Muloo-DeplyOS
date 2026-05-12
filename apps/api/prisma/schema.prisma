@@ -510,6 +510,7 @@ model Project {
   workbookPublicSubmissions     WorkbookPublicSubmission[]
   timeEntries                   TimeEntry[]
   risks                         ProjectRisk[]
+  uploadedFiles                 UploadedFile[]
 
   @@index([retainerId])
   @@index([bornFromProjectId])
@@ -1024,12 +1025,31 @@ model DiscoveryEvidence {
   project                Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sourceTemplate         WorkbookTemplate? @relation(fields: [sourceTemplateId], references: [id], onDelete: SetNull)
   publicSubmissions      WorkbookPublicSubmission[]
+  uploadedFile           UploadedFile?
 
   @@index([projectId, sessionNumber, createdAt])
   @@index([projectId, kind])
   @@index([projectId, resourceType])
   @@index([projectId, isArchived])
   @@index([sourceTemplateId])
+}
+
+model UploadedFile {
+  id           String   @id @default(cuid())
+  projectId    String
+  uploaderName String?
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  storagePath  String
+  checksum     String?
+  evidenceId   String?  @unique
+  createdAt    DateTime @default(now())
+
+  project  Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  evidence DiscoveryEvidence? @relation(fields: [evidenceId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
 }
 
 model WorkbookPublicSubmission {
