@@ -933,7 +933,7 @@ export default function ProjectWorkspaceView({
                   type="button"
                   onClick={() => void handleDelete()}
                   disabled={deleting || deleteConfirm.trim() !== project.name}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12.5px] font-semibold bg-status-danger text-[#2a0810] hover:bg-[#ff8090] border border-transparent t[...]
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12.5px] font-semibold bg-status-danger text-[#2a0810] hover:bg-[#ff8090] border border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Trash2 size={13} />
                   {deleting ? "Deleting…" : "Delete project"}
