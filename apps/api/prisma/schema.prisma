@@ -510,9 +510,13 @@ model Project {
   workbookPublicSubmissions     WorkbookPublicSubmission[]
   timeEntries                   TimeEntry[]
   risks                         ProjectRisk[]
+  googleDriveFolderId           String?
+  googleDriveFolderUrl          String?
+  googleDriveLastSyncedAt       DateTime?
 
   @@index([retainerId])
   @@index([bornFromProjectId])
+  @@index([googleDriveFolderId])
 }
 
 model ReportTemplate {

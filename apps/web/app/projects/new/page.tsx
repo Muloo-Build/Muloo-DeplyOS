@@ -41,6 +41,7 @@ interface FormData {
   hubsInScope: string[];
   useTemplate: boolean;
   templateId: string;
+  googleDriveFolderUrl: string;
 }
 
 type WizardErrors = Partial<Record<keyof FormData | "step2", string>>;
@@ -479,7 +480,8 @@ export default function NewProjectPage() {
     includesPortalAudit: false,
     hubsInScope: [],
     useTemplate: false,
-    templateId: ""
+    templateId: "",
+    googleDriveFolderUrl: ""
   });
   const projectNameRef = useRef<HTMLInputElement>(null);
   const clientNameRef = useRef<HTMLInputElement>(null);
@@ -1189,6 +1191,25 @@ export default function NewProjectPage() {
             "Project created, but applying the selected template failed. You can re-seed it from the project workspace.";
         }
       }
+      // Optional: link a Google Drive folder if the operator captured one.
+      // Failure here is non-fatal — they can retry from Project settings.
+      if (formData.googleDriveFolderUrl.trim() && body.project?.id) {
+        try {
+          await fetch(
+            `/api/projects/${encodeURIComponent(body.project.id)}/drive-folder`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                folderUrl: formData.googleDriveFolderUrl.trim()
+              })
+            }
+          );
+        } catch (driveError) {
+          console.warn("[new project] drive folder link failed", driveError);
+        }
+      }
+
       // T4.3 — after step 3 every newly created project lands on the
       // onboarding checklist (5-item now-do-these-things list). Optimisation
       // projects can still reach the audit workspace from the checklist /
@@ -1854,6 +1875,28 @@ export default function NewProjectPage() {
                       {fieldErrors.clientChampionEmail}
                     </p>
                   ) : null}
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-2 flex items-center gap-1 text-sm text-text-2">
+                    Google Drive folder
+                    <span className="text-text-3">(optional)</span>
+                  </span>
+                  <input
+                    type="url"
+                    value={formData.googleDriveFolderUrl}
+                    onChange={(event) =>
+                      updateField("googleDriveFolderUrl", event.target.value)
+                    }
+                    placeholder="https://drive.google.com/drive/folders/..."
+                    className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  />
+                  <p className="mt-2 text-xs text-text-3">
+                    Link a Drive folder now and the project's discovery context
+                    will auto-sync PDFs, Docs, Sheets, Slides, and DOCX files
+                    inside it every 5 minutes. You can change this later from
+                    Project Edit.
+                  </p>
                 </label>
               </div>
             </div>

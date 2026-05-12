@@ -376,6 +376,12 @@ import {
   verifyPassword
 } from "./server";
 import {
+  clearProjectDriveFolder,
+  linkProjectDriveFolder,
+  startDriveSyncScheduler,
+  syncProjectDriveFolder
+} from "./driveSync";
+import {
   deleteHubSpotPrivateApp,
   getHubSpotCompanyRelated,
   importHubSpotCompany,
@@ -2207,6 +2213,53 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ error: "Method Not Allowed" }, 405);
+  });
+
+  app.post("/api/projects/:projectId/drive-folder", async (c) => {
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as { folderUrl?: unknown };
+      if (typeof body.folderUrl !== "string" || !body.folderUrl.trim()) {
+        return c.json({ error: "folderUrl is required" }, 400);
+      }
+      const project = await linkProjectDriveFolder(
+        c.req.param("projectId"),
+        body.folderUrl
+      );
+      return c.json({ project });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to link Drive folder";
+      const status = message === "Project not found" ? 404 : 400;
+      return c.json({ error: message }, status);
+    }
+  });
+
+  app.delete("/api/projects/:projectId/drive-folder", async (c) => {
+    try {
+      const project = await clearProjectDriveFolder(c.req.param("projectId"));
+      return c.json({ project });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to clear Drive folder";
+      const status = message === "Project not found" ? 404 : 400;
+      return c.json({ error: message }, status);
+    }
+  });
+
+  app.post("/api/projects/:projectId/drive-folder/sync", async (c) => {
+    try {
+      const result = await syncProjectDriveFolder(c.req.param("projectId"));
+      return c.json({ result });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Drive sync failed";
+      const status = message === "Project not found" ? 404 : 400;
+      return c.json({ error: message }, status);
+    }
   });
 
   app.get("/api/projects/:projectId/workflow-runs", async (c) =>
@@ -10180,6 +10233,8 @@ export function createApiApp(config: BaseConfig) {
   if (process.env.NODE_ENV !== "test") {
     startWorker();
     console.info("[worker] BullMQ execution worker started");
+    startDriveSyncScheduler();
+    console.info("[drive-sync] 5-min Drive folder sweep scheduled");
   }
 
   return app;
