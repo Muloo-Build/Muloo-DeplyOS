@@ -187,39 +187,76 @@ async function exportGoogleFile(
   return response.text();
 }
 
+type ExtractResult = string | { skipReason: string } | null;
+
+function loadOfficeParser():
+  | ((buf: Buffer | string, config?: Record<string, unknown>) => Promise<string>)
+  | null {
+  // officeparser v6 publishes both a CJS named export and an ESM default
+  // export. Some bundlers / Node versions surface only one; check both.
+  const mod = require("officeparser") as {
+    parseOfficeAsync?: (
+      buf: Buffer | string,
+      config?: Record<string, unknown>
+    ) => Promise<string>;
+    default?: {
+      parseOfficeAsync?: (
+        buf: Buffer | string,
+        config?: Record<string, unknown>
+      ) => Promise<string>;
+    };
+  };
+  const fn = mod.parseOfficeAsync ?? mod.default?.parseOfficeAsync;
+  return typeof fn === "function" ? fn : null;
+}
+
 async function extractText(
   file: DriveFile,
   accessToken: string
-): Promise<string | null> {
+): Promise<ExtractResult> {
   switch (file.mimeType) {
     case "application/pdf": {
       const buffer = await downloadBinary(file.id, accessToken);
-      // pdf-parse executes a debug fixture-load on bare import in some
-      // environments — require the implementation module directly to avoid it.
-      const pdfParse: (data: Buffer) => Promise<{ text: string }> =
-        require("pdf-parse/lib/pdf-parse.js");
-      const parsed = await pdfParse(buffer);
-      return parsed.text ?? "";
+      try {
+        // pdf-parse executes a debug fixture-load on bare import in some
+        // environments — require the implementation module directly to avoid it.
+        const pdfParse: (data: Buffer) => Promise<{ text: string }> =
+          require("pdf-parse/lib/pdf-parse.js");
+        const parsed = await pdfParse(buffer);
+        return parsed.text ?? "";
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[drive-sync] pdf parse failed for ${file.id} ${file.name}: ${message}`
+        );
+        return { skipReason: `PDF parse failed: ${message}` };
+      }
     }
     case "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
       const buffer = await downloadBinary(file.id, accessToken);
-      const mammoth = require("mammoth") as {
-        extractRawText(input: { buffer: Buffer }): Promise<{ value: string }>;
-      };
-      const parsed = await mammoth.extractRawText({ buffer });
-      return parsed.value ?? "";
+      try {
+        const mammoth = require("mammoth") as {
+          extractRawText(input: { buffer: Buffer }): Promise<{ value: string }>;
+        };
+        const parsed = await mammoth.extractRawText({ buffer });
+        return parsed.value ?? "";
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[drive-sync] docx parse failed for ${file.id} ${file.name}: ${message}`
+        );
+        return { skipReason: `DOCX parse failed: ${message}` };
+      }
     }
     case "application/vnd.openxmlformats-officedocument.presentationml.presentation": {
       const buffer = await downloadBinary(file.id, accessToken);
-      // officeparser also handles docx/xlsx/odt; we keep the explicit mimetype
-      // switch so unsupported binary types still fall through to `null` and are
-      // skipped rather than producing noisy partial extracts.
-      const { parseOfficeAsync } = require("officeparser") as {
-        parseOfficeAsync: (
-          buffer: Buffer | string,
-          config?: Record<string, unknown>
-        ) => Promise<string>;
-      };
+      const parseOfficeAsync = loadOfficeParser();
+      if (!parseOfficeAsync) {
+        return {
+          skipReason:
+            "officeparser exported no parseOfficeAsync — install/upgrade may be needed"
+        };
+      }
       try {
         const text = await parseOfficeAsync(buffer);
         return text ?? "";
@@ -228,7 +265,7 @@ async function extractText(
         console.warn(
           `[drive-sync] pptx parse failed for ${file.id} ${file.name}: ${message}`
         );
-        return null;
+        return { skipReason: `PPTX parse failed: ${message}` };
       }
     }
     case "application/vnd.google-apps.document":
@@ -385,8 +422,8 @@ async function applyDriveFileToProject(
       return;
     }
 
-    const text = await extractText(file, accessToken);
-    if (text === null) {
+    const extracted = await extractText(file, accessToken);
+    if (extracted === null) {
       result.skipped += 1;
       result.skippedDetails.push({
         name: file.name,
@@ -394,8 +431,16 @@ async function applyDriveFileToProject(
       });
       return;
     }
+    if (typeof extracted !== "string") {
+      result.skipped += 1;
+      result.skippedDetails.push({
+        name: file.name,
+        reason: extracted.skipReason
+      });
+      return;
+    }
 
-    const truncated = text.slice(0, MAX_EXTRACTED_CHARS);
+    const truncated = extracted.slice(0, MAX_EXTRACTED_CHARS);
 
     if (existing) {
       await prisma.discoveryEvidence.update({
