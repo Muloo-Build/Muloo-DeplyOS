@@ -331,8 +331,12 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
           fetch(`/api/projects/${encodeURIComponent(projectId)}/workbooks`)
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null),
-          // Pull all evidence (not just workbooks) to populate Context items
-          fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery`)
+          // Pull all evidence (not just workbooks) to populate Context items.
+          // Add context source POSTs to sessions/0/evidence, so that's where
+          // context rows live. GET returns { evidenceItems: [...] }.
+          fetch(
+            `/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`
+          )
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null),
           fetch(
@@ -354,11 +358,13 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
       setWorkbooks(wb);
 
       // Context items = evidence not classified as workbook
-      const allEvidence = Array.isArray(evidenceRes?.evidence)
-        ? (evidenceRes.evidence as WorkbookRecord[])
-        : Array.isArray(evidenceRes?.items)
-          ? (evidenceRes.items as WorkbookRecord[])
-          : [];
+      const allEvidence = Array.isArray(evidenceRes?.evidenceItems)
+        ? (evidenceRes.evidenceItems as WorkbookRecord[])
+        : Array.isArray(evidenceRes?.evidence)
+          ? (evidenceRes.evidence as WorkbookRecord[])
+          : Array.isArray(evidenceRes?.items)
+            ? (evidenceRes.items as WorkbookRecord[])
+            : [];
       setContextItems(
         allEvidence.filter((e) => !wb.some((w) => w.id === e.id))
       );

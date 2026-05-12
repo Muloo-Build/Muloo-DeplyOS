@@ -540,20 +540,37 @@ export default function PortalAuditWorkspace({
 
   async function pollAuditJobStatus(jobId: string) {
     let keepPolling = true;
+    let consecutiveFailures = 0;
+    const maxFailures = 5;
 
     while (keepPolling) {
       await new Promise((resolve) => {
         window.setTimeout(resolve, 3000);
       });
 
-      const response = await fetch(
-        `/api/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(jobId)}/status`
-      );
+      let response: Response;
+      try {
+        response = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(jobId)}/status`,
+          { credentials: "include" }
+        );
+      } catch {
+        consecutiveFailures += 1;
+        if (consecutiveFailures >= maxFailures) {
+          throw new Error("Lost connection to audit job status");
+        }
+        continue;
+      }
       const body = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to load audit job status");
+        consecutiveFailures += 1;
+        if (consecutiveFailures >= maxFailures) {
+          throw new Error(body?.error ?? "Failed to load audit job status");
+        }
+        continue;
       }
+      consecutiveFailures = 0;
 
       const nextJob = body?.job ?? null;
       setAuditJob(nextJob);
@@ -564,14 +581,25 @@ export default function PortalAuditWorkspace({
         return;
       }
 
-      if (nextJob.status === "COMPLETED") {
+      // Server status values come from the worker layer in lowercase:
+      // queued / running / complete / dry_run_complete / failed. Older
+      // callers used uppercase "COMPLETED" / "FAILED". Accept both.
+      const status = String(nextJob.status ?? "").toLowerCase();
+
+      if (
+        status === "complete" ||
+        status === "completed" ||
+        status === "dry_run_complete"
+      ) {
         setAiAuditBusy(false);
         setAiAuditFeedback(nextJob.outputSummary ?? "Portal audit completed.");
         await loadAuditData();
         keepPolling = false;
-      } else if (nextJob.status === "FAILED") {
+      } else if (status === "failed") {
         setAiAuditBusy(false);
-        setError(nextJob.outputSummary ?? "Portal audit failed");
+        setError(
+          nextJob.errorLog ?? nextJob.outputSummary ?? "Portal audit failed"
+        );
         keepPolling = false;
       }
     }
@@ -654,6 +682,7 @@ export default function PortalAuditWorkspace({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ providerKey: auditProviderKey })
         }
       );
