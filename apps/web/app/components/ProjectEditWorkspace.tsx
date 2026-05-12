@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import AppShell from "./AppShell";
 import { SkeletonRows } from "./LoadingSkeleton";
+import ProjectWorkspaceView from "./ProjectWorkspaceView";
 import { PageHead } from "./ui/PageHead";
 import { Pill } from "./ui/Pill";
 
@@ -155,7 +155,8 @@ const serviceFamilies = [
   {
     id: "custom_engineering",
     label: "Custom Engineering",
-    description: "CMS, integrations, websites, and technical implementation work."
+    description:
+      "CMS, integrations, websites, and technical implementation work."
   },
   {
     id: "ai_automation",
@@ -201,7 +202,8 @@ const scopeTypes = [
   {
     id: "standalone_quote",
     label: "Standalone quote job",
-    description: "Capture a specific job brief without a full discovery process."
+    description:
+      "Capture a specific job brief without a full discovery process."
   },
   {
     id: "optimisation",
@@ -453,8 +455,7 @@ function buildInitialForm(project: ProjectDetail): FormState {
             extended.estimatedHours == null
               ? ""
               : String(extended.estimatedHours),
-          hourCap:
-            extended.hourCap == null ? "" : String(extended.hourCap),
+          hourCap: extended.hourCap == null ? "" : String(extended.hourCap),
           billingOwner: extended.billingOwner ?? "",
           deliveryOwner: extended.deliveryOwner ?? "",
           scopeRisk: extended.scopeRisk ?? "",
@@ -506,7 +507,9 @@ export default function ProjectEditWorkspace({
   useEffect(() => {
     async function loadProject() {
       try {
-        const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}`);
+        const response = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}`
+        );
         const body = await response.json().catch(() => null);
 
         if (!response.ok) {
@@ -538,7 +541,9 @@ export default function ProjectEditWorkspace({
 
       setLoadingRetainers(true);
       try {
-        const response = await fetch(`/api/clients/${encodeURIComponent(project.clientId)}/retainers`);
+        const response = await fetch(
+          `/api/clients/${encodeURIComponent(project.clientId)}/retainers`
+        );
         const body = await response.json().catch(() => null);
 
         if (response.ok && Array.isArray(body?.retainers)) {
@@ -637,10 +642,11 @@ export default function ProjectEditWorkspace({
       current
         ? {
             ...current,
-            deliveryWorkstreams: current.deliveryWorkstreams.map((workstream) =>
-              workstream.id === workstreamId
-                ? { ...workstream, [field]: value }
-                : workstream
+            deliveryWorkstreams: current.deliveryWorkstreams.map(
+              (workstream) =>
+                workstream.id === workstreamId
+                  ? { ...workstream, [field]: value }
+                  : workstream
             )
           }
         : current
@@ -730,7 +736,9 @@ export default function ProjectEditWorkspace({
               ...current.internalCommercials,
               lines: [
                 ...current.internalCommercials.lines,
-                createCommercialLineDraft(current.internalCommercials.lines.length)
+                createCommercialLineDraft(
+                  current.internalCommercials.lines.length
+                )
               ]
             }
           }
@@ -766,7 +774,10 @@ export default function ProjectEditWorkspace({
       return;
     }
 
-    if (form.scopeType !== "standalone_quote" && form.selectedHubs.length === 0) {
+    if (
+      form.scopeType !== "standalone_quote" &&
+      form.selectedHubs.length === 0
+    ) {
       setValidationError(
         "Pick at least one hub unless this is a standalone quote."
       );
@@ -778,73 +789,73 @@ export default function ProjectEditWorkspace({
     setError(null);
 
     try {
-      const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          name: form.name,
-          clientName: form.clientName,
-          retainerId: form.retainerId,
-          type: form.engagementType,
-          scopeType: form.scopeType,
-          serviceFamily: form.serviceFamily,
-          implementationApproach: form.implementationApproach,
-          customerPlatformTier: form.customerPlatformTier,
-          platformConfiguration: form.platformConfiguration.map((item) => ({
-            productKey: item.productKey,
-            label: item.label,
-            tier: item.tier,
-            quantity:
-              item.quantity.trim().length > 0
-                ? Number(item.quantity)
-                : null,
-            unitLabel: item.unitLabel,
-            notes: item.notes
-          })),
-          platformTierSelections: Object.fromEntries(
-            form.platformConfiguration
-              .filter((item) => item.tier.trim().length > 0)
-              .map((item) => [item.productKey, item.tier])
-          ),
-          includesPortalAudit: form.includesPortalAudit,
-          hubs: form.selectedHubs,
-          billingOwner: form.billingOwner.trim() || null,
-          deliveryOwner: form.deliveryOwner.trim() || null,
-          partnerName: form.partnerName.trim() || null,
-          deliveryWorkstreams: form.deliveryWorkstreams.map((ws) => ({
-            ...ws,
-            estimatedHours:
-              ws.estimatedHours.trim().length > 0
-                ? Number(ws.estimatedHours)
-                : null,
-            hourCap:
-              ws.hourCap.trim().length > 0 ? Number(ws.hourCap) : null,
-            billingOwner: ws.billingOwner.trim() || null,
-            deliveryOwner: ws.deliveryOwner.trim() || null,
-            scopeRisk: ws.scopeRisk.trim() || null,
-            notes: ws.notes.trim() || null
-          })),
-          internalCommercials: {
-            billingRoute: form.internalCommercials.billingRoute,
-            partnerName: form.internalCommercials.partnerName,
-            notes: form.internalCommercials.notes,
-            lines: form.internalCommercials.lines.map((line) => ({
-              ...line,
-              workstreamId: line.workstreamId || null,
-              mulooBaseAmount:
-                line.mulooBaseAmount.trim().length > 0
-                  ? Number(line.mulooBaseAmount)
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            name: form.name,
+            clientName: form.clientName,
+            retainerId: form.retainerId,
+            type: form.engagementType,
+            scopeType: form.scopeType,
+            serviceFamily: form.serviceFamily,
+            implementationApproach: form.implementationApproach,
+            customerPlatformTier: form.customerPlatformTier,
+            platformConfiguration: form.platformConfiguration.map((item) => ({
+              productKey: item.productKey,
+              label: item.label,
+              tier: item.tier,
+              quantity:
+                item.quantity.trim().length > 0 ? Number(item.quantity) : null,
+              unitLabel: item.unitLabel,
+              notes: item.notes
+            })),
+            platformTierSelections: Object.fromEntries(
+              form.platformConfiguration
+                .filter((item) => item.tier.trim().length > 0)
+                .map((item) => [item.productKey, item.tier])
+            ),
+            includesPortalAudit: form.includesPortalAudit,
+            hubs: form.selectedHubs,
+            billingOwner: form.billingOwner.trim() || null,
+            deliveryOwner: form.deliveryOwner.trim() || null,
+            partnerName: form.partnerName.trim() || null,
+            deliveryWorkstreams: form.deliveryWorkstreams.map((ws) => ({
+              ...ws,
+              estimatedHours:
+                ws.estimatedHours.trim().length > 0
+                  ? Number(ws.estimatedHours)
                   : null,
-              partnerSellAmount:
-                line.partnerSellAmount.trim().length > 0
-                  ? Number(line.partnerSellAmount)
-                  : null
-            }))
-          }
-        })
-      });
+              hourCap: ws.hourCap.trim().length > 0 ? Number(ws.hourCap) : null,
+              billingOwner: ws.billingOwner.trim() || null,
+              deliveryOwner: ws.deliveryOwner.trim() || null,
+              scopeRisk: ws.scopeRisk.trim() || null,
+              notes: ws.notes.trim() || null
+            })),
+            internalCommercials: {
+              billingRoute: form.internalCommercials.billingRoute,
+              partnerName: form.internalCommercials.partnerName,
+              notes: form.internalCommercials.notes,
+              lines: form.internalCommercials.lines.map((line) => ({
+                ...line,
+                workstreamId: line.workstreamId || null,
+                mulooBaseAmount:
+                  line.mulooBaseAmount.trim().length > 0
+                    ? Number(line.mulooBaseAmount)
+                    : null,
+                partnerSellAmount:
+                  line.partnerSellAmount.trim().length > 0
+                    ? Number(line.partnerSellAmount)
+                    : null
+              }))
+            }
+          })
+        }
+      );
 
       const body = await response.json().catch(() => null);
 
@@ -867,502 +878,618 @@ export default function ProjectEditWorkspace({
 
   if (loading) {
     return (
-      <AppShell>
-        <div className="brand-page p-4 sm:p-6 xl:p-8">
-          <SkeletonRows count={3} height="h-28" gap="gap-4" rounded="rounded-[14px]" />
-        </div>
-      </AppShell>
+      <ProjectWorkspaceView projectId={projectId} activeTab="settings">
+        <SkeletonRows
+          count={3}
+          height="h-28"
+          gap="gap-4"
+          rounded="rounded-[14px]"
+        />
+      </ProjectWorkspaceView>
     );
   }
 
   if (!project || !form) {
     return (
-      <AppShell>
-        <div className="brand-page p-4 sm:p-6 xl:p-8">
-          <div className="rounded-[14px] border border-status-error/30 bg-status-error/10 p-8 text-white">
-            {error ?? "Project not found"}
-          </div>
+      <ProjectWorkspaceView projectId={projectId} activeTab="settings">
+        <div className="rounded-[14px] border border-status-error/30 bg-status-error/10 p-8 text-white">
+          {error ?? "Project not found"}
         </div>
-      </AppShell>
+      </ProjectWorkspaceView>
     );
   }
 
   return (
-    <AppShell>
-      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
-        <div className="space-y-6">
-          <PageHead
-            eyebrow={
+    <ProjectWorkspaceView projectId={projectId} activeTab="settings">
+      <div className="space-y-6">
+        <PageHead
+          eyebrow={
+            <Link
+              href={`/projects/${project.id}`}
+              className="hover:text-text-1 transition-colors"
+            >
+              ← Project workspace
+            </Link>
+          }
+          title="Edit project"
+          lede="Update this project in place when the work changes shape. No more cloning the whole thing just to move it into the right project type."
+          actions={
+            <>
+              <Pill tone="info" dot>
+                {formatTokenLabel(project.status)}
+              </Pill>
               <Link
                 href={`/projects/${project.id}`}
-                className="hover:text-text-1 transition-colors"
+                className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
               >
-                ← Project workspace
+                Cancel
               </Link>
-            }
-            title="Edit project"
-            lede="Update this project in place when the work changes shape. No more cloning the whole thing just to move it into the right project type."
-            actions={
-              <>
-                <Pill tone="info" dot>
-                  {formatTokenLabel(project.status)}
-                </Pill>
+            </>
+          }
+        />
+
+        <form
+          onSubmit={handleSubmit}
+          className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]"
+        >
+          <div className="space-y-6">
+            <section className="brand-surface rounded-[14px] border p-6">
+              <h2 className="text-xl font-semibold text-white">Core details</h2>
+              <div className="mt-6 grid gap-5 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm text-text-2">
+                    Project name
+                  </span>
+                  <input
+                    value={form.name}
+                    onChange={(event) =>
+                      updateField("name", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm text-text-2">
+                    Client name
+                  </span>
+                  <input
+                    value={form.clientName}
+                    onChange={(event) =>
+                      updateField("clientName", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-sm text-text-2">
+                    Service family
+                  </span>
+                  <select
+                    value={form.serviceFamily}
+                    onChange={(event) =>
+                      updateField("serviceFamily", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  >
+                    {serviceFamilies.map((family) => (
+                      <option key={family.id} value={family.id}>
+                        {family.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-xs text-text-3">
+                    {
+                      serviceFamilies.find(
+                        (family) => family.id === form.serviceFamily
+                      )?.description
+                    }
+                  </p>
+                </label>
+              </div>
+            </section>
+
+            <section className="brand-surface rounded-[14px] border p-6">
+              <h2 className="text-xl font-semibold text-white">
+                Engagement shape
+              </h2>
+              <div className="mt-6 space-y-6">
+                <div>
+                  <p className="mb-3 text-sm text-text-2">Project type</p>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {engagementTypes.map((type) => (
+                      <button
+                        key={type.id}
+                        type="button"
+                        onClick={() =>
+                          setForm((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  engagementType: type.id,
+                                  includesPortalAudit:
+                                    type.id === "OPTIMISATION" ||
+                                    type.id === "AUDIT"
+                                      ? true
+                                      : current.includesPortalAudit
+                                }
+                              : current
+                          )
+                        }
+                        className={`rounded-[14px] border p-4 text-left transition-colors ${
+                          form.engagementType === type.id
+                            ? "border-accent-solid bg-ink-2"
+                            : "border-ink-4 bg-ink-2"
+                        }`}
+                      >
+                        <p className="font-semibold text-white">{type.label}</p>
+                        <p className="mt-1 text-sm text-text-2">
+                          {type.description}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-3 text-sm text-text-2">Project container</p>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {scopeTypes.map((type) => (
+                      <button
+                        key={type.id}
+                        type="button"
+                        onClick={() =>
+                          setForm((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  scopeType: type.id,
+                                  selectedHubs:
+                                    type.id === "standalone_quote"
+                                      ? current.selectedHubs
+                                      : current.selectedHubs
+                                }
+                              : current
+                          )
+                        }
+                        className={`rounded-[14px] border p-4 text-left transition-colors ${
+                          form.scopeType === type.id
+                            ? "border-accent-solid bg-ink-2"
+                            : "border-ink-4 bg-ink-2"
+                        }`}
+                      >
+                        <p className="font-semibold text-white">{type.label}</p>
+                        <p className="mt-1 text-sm text-text-2">
+                          {type.description}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-3 rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-4 text-sm text-white">
+                  <input
+                    type="checkbox"
+                    checked={form.includesPortalAudit}
+                    onChange={(event) =>
+                      updateField("includesPortalAudit", event.target.checked)
+                    }
+                  />
+                  Include portal audit
+                </label>
+              </div>
+            </section>
+
+            <section className="brand-surface rounded-[14px] border p-6">
+              <h2 className="text-xl font-semibold text-white">
+                Linked retainer
+              </h2>
+              <p className="mt-2 text-sm text-text-2">
+                Link this project to an existing retainer for the client, or
+                leave unlinked.
+              </p>
+              <div className="mt-6 space-y-6">
+                <label className="block">
+                  <span className="mb-2 block text-sm text-text-2">
+                    Select retainer
+                  </span>
+                  <select
+                    value={form.retainerId ?? ""}
+                    onChange={(event) =>
+                      updateField(
+                        "retainerId",
+                        event.target.value ? event.target.value : null
+                      )
+                    }
+                    disabled={loadingRetainers}
+                    className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid disabled:opacity-60"
+                  >
+                    <option value="">No retainer linked</option>
+                    {retainers.map((retainer) => {
+                      const label = `${
+                        retainer.serviceLine === "TECHNICAL_DELIVERY"
+                          ? "Technical Delivery"
+                          : "Consulting"
+                      } · ${retainer.blockSize}h/month · R${retainer.rate}/hr · ${retainer.status}`;
+                      return (
+                        <option key={retainer.id} value={retainer.id}>
+                          {label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+
+                {form.retainerId &&
+                  (() => {
+                    const selectedRetainer = retainers.find(
+                      (r) => r.id === form.retainerId
+                    );
+                    if (!selectedRetainer) return null;
+
+                    return (
+                      <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <p className="text-xs text-text-3">Service line</p>
+                            <p className="mt-1 text-sm text-white">
+                              {selectedRetainer.serviceLine ===
+                              "TECHNICAL_DELIVERY"
+                                ? "Technical Delivery"
+                                : "Consulting"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-3">Block size</p>
+                            <p className="mt-1 text-sm text-white">
+                              {selectedRetainer.blockSize}h/month
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-3">Rate</p>
+                            <p className="mt-1 text-sm text-white">
+                              {selectedRetainer.currency}{" "}
+                              {selectedRetainer.rate}/hr
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-3">Currency</p>
+                            <p className="mt-1 text-sm text-white">
+                              {selectedRetainer.currency}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-text-3">Start date</p>
+                            <p className="mt-1 text-sm text-white">
+                              {new Date(
+                                selectedRetainer.startDate
+                              ).toLocaleDateString("en-ZA", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric"
+                              })}
+                            </p>
+                          </div>
+                          {selectedRetainer.endDate ? (
+                            <div>
+                              <p className="text-xs text-text-3">End date</p>
+                              <p className="mt-1 text-sm text-white">
+                                {new Date(
+                                  selectedRetainer.endDate
+                                ).toLocaleDateString("en-ZA", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric"
+                                })}
+                              </p>
+                            </div>
+                          ) : null}
+                          <div>
+                            <p className="text-xs text-text-3">Status</p>
+                            <p className="mt-1 text-sm text-white">
+                              {selectedRetainer.status}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                 <Link
-                  href={`/projects/${project.id}`}
-                  className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2"
+                  href={`/retainers?clientId=${encodeURIComponent(
+                    project?.clientId ?? ""
+                  )}`}
+                  className="inline-flex items-center gap-2 text-sm text-accent-solid hover:text-accent-solid/80"
                 >
-                  Cancel
+                  Create new retainer →
                 </Link>
-              </>
-            }
-          />
+              </div>
+            </section>
 
-          <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
-            <div className="space-y-6">
-              <section className="brand-surface rounded-[14px] border p-6">
-                <h2 className="text-xl font-semibold text-white">
-                  Core details
-                </h2>
-                <div className="mt-6 grid gap-5 md:grid-cols-2">
+            <section className="brand-surface rounded-[14px] border p-6">
+              <h2 className="text-xl font-semibold text-white">
+                Delivery settings
+              </h2>
+              <div className="mt-6 grid gap-6 lg:grid-cols-[0.42fr_0.58fr]">
+                <div className="space-y-5">
+                  <div>
+                    <span className="mb-2 block text-sm text-text-2">
+                      Delivery approach
+                    </span>
+                    <div className="grid gap-3">
+                      {implementationApproachOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            updateField("implementationApproach", option.value)
+                          }
+                          className={`rounded-[14px] border p-4 text-left transition-colors ${
+                            form.implementationApproach === option.value
+                              ? "border-accent-solid bg-ink-2"
+                              : "border-ink-4 bg-ink-2"
+                          }`}
+                        >
+                          <p className="font-semibold text-white">
+                            {option.label}
+                          </p>
+                          <p className="mt-1 text-sm text-text-2">
+                            {option.description}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <label className="block">
                     <span className="mb-2 block text-sm text-text-2">
-                      Project name
-                    </span>
-                    <input
-                      value={form.name}
-                      onChange={(event) => updateField("name", event.target.value)}
-                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="mb-2 block text-sm text-text-2">
-                      Client name
-                    </span>
-                    <input
-                      value={form.clientName}
-                      onChange={(event) =>
-                        updateField("clientName", event.target.value)
-                      }
-                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
-                    />
-                  </label>
-
-                  <label className="block md:col-span-2">
-                    <span className="mb-2 block text-sm text-text-2">
-                      Service family
+                      Overall HubSpot plan tier
                     </span>
                     <select
-                      value={form.serviceFamily}
+                      value={form.customerPlatformTier}
                       onChange={(event) =>
-                        updateField("serviceFamily", event.target.value)
+                        updateField("customerPlatformTier", event.target.value)
                       }
                       className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
                     >
-                      {serviceFamilies.map((family) => (
-                        <option key={family.id} value={family.id}>
-                          {family.label}
+                      {customerPlatformTierOptions.map((option) => (
+                        <option
+                          key={option.value || "blank"}
+                          value={option.value}
+                        >
+                          {option.label}
                         </option>
                       ))}
                     </select>
-                    <p className="mt-2 text-xs text-text-3">
-                      {
-                        serviceFamilies.find(
-                          (family) => family.id === form.serviceFamily
-                        )?.description
-                      }
-                    </p>
                   </label>
                 </div>
-              </section>
 
-              <section className="brand-surface rounded-[14px] border p-6">
-                <h2 className="text-xl font-semibold text-white">
-                  Engagement shape
-                </h2>
-                <div className="mt-6 space-y-6">
-                  <div>
-                    <p className="mb-3 text-sm text-text-2">
-                      Project type
-                    </p>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {engagementTypes.map((type) => (
-                        <button
-                          key={type.id}
-                          type="button"
-                          onClick={() =>
-                            setForm((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    engagementType: type.id,
-                                    includesPortalAudit:
-                                      type.id === "OPTIMISATION" ||
-                                      type.id === "AUDIT"
-                                        ? true
-                                        : current.includesPortalAudit
-                                  }
-                                : current
-                            )
-                          }
-                          className={`rounded-[14px] border p-4 text-left transition-colors ${
-                            form.engagementType === type.id
-                              ? "border-accent-solid bg-ink-2"
-                              : "border-ink-4 bg-ink-2"
-                          }`}
-                        >
-                          <p className="font-semibold text-white">{type.label}</p>
-                          <p className="mt-1 text-sm text-text-2">
-                            {type.description}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-sm text-text-2">
+                    <span>Hubs in scope</span>
                   </div>
-
-                  <div>
-                    <p className="mb-3 text-sm text-text-2">
-                      Project container
-                    </p>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      {scopeTypes.map((type) => (
-                        <button
-                          key={type.id}
-                          type="button"
-                          onClick={() =>
-                            setForm((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    scopeType: type.id,
-                                    selectedHubs:
-                                      type.id === "standalone_quote"
-                                        ? current.selectedHubs
-                                        : current.selectedHubs
-                                  }
-                                : current
-                            )
-                          }
-                          className={`rounded-[14px] border p-4 text-left transition-colors ${
-                            form.scopeType === type.id
-                              ? "border-accent-solid bg-ink-2"
-                              : "border-ink-4 bg-ink-2"
-                          }`}
-                        >
-                          <p className="font-semibold text-white">{type.label}</p>
-                          <p className="mt-1 text-sm text-text-2">
-                            {type.description}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-3 rounded-[14px] border border-ink-4 bg-ink-2 px-4 py-4 text-sm text-white">
-                    <input
-                      type="checkbox"
-                      checked={form.includesPortalAudit}
-                      onChange={(event) =>
-                        updateField("includesPortalAudit", event.target.checked)
-                      }
-                    />
-                    Include portal audit
-                  </label>
-                </div>
-              </section>
-
-              <section className="brand-surface rounded-[14px] border p-6">
-                <h2 className="text-xl font-semibold text-white">
-                  Linked retainer
-                </h2>
-                <p className="mt-2 text-sm text-text-2">
-                  Link this project to an existing retainer for the client, or leave unlinked.
-                </p>
-                <div className="mt-6 space-y-6">
-                  <label className="block">
-                    <span className="mb-2 block text-sm text-text-2">
-                      Select retainer
-                    </span>
-                    <select
-                      value={form.retainerId ?? ""}
-                      onChange={(event) =>
-                        updateField(
-                          "retainerId",
-                          event.target.value ? event.target.value : null
-                        )
-                      }
-                      disabled={loadingRetainers}
-                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid disabled:opacity-60"
-                    >
-                      <option value="">No retainer linked</option>
-                      {retainers.map((retainer) => {
-                        const label = `${
-                          retainer.serviceLine === "TECHNICAL_DELIVERY"
-                            ? "Technical Delivery"
-                            : "Consulting"
-                        } · ${retainer.blockSize}h/month · R${retainer.rate}/hr · ${retainer.status}`;
-                        return (
-                          <option key={retainer.id} value={retainer.id}>
-                            {label}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </label>
-
-                  {form.retainerId && (
-                    (() => {
-                      const selectedRetainer = retainers.find(
-                        (r) => r.id === form.retainerId
-                      );
-                      if (!selectedRetainer) return null;
-
-                      return (
-                        <div className="rounded-[14px] border border-ink-4 bg-ink-2 p-4">
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <div>
-                              <p className="text-xs text-text-3">Service line</p>
-                              <p className="mt-1 text-sm text-white">
-                                {selectedRetainer.serviceLine === "TECHNICAL_DELIVERY"
-                                  ? "Technical Delivery"
-                                  : "Consulting"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-text-3">Block size</p>
-                              <p className="mt-1 text-sm text-white">
-                                {selectedRetainer.blockSize}h/month
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-text-3">Rate</p>
-                              <p className="mt-1 text-sm text-white">
-                                {selectedRetainer.currency} {selectedRetainer.rate}/hr
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-text-3">Currency</p>
-                              <p className="mt-1 text-sm text-white">
-                                {selectedRetainer.currency}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-text-3">Start date</p>
-                              <p className="mt-1 text-sm text-white">
-                                {new Date(selectedRetainer.startDate).toLocaleDateString(
-                                  "en-ZA",
-                                  {
-                                    day: "2-digit",
-                                    month: "short",
-                                    year: "numeric"
-                                  }
-                                )}
-                              </p>
-                            </div>
-                            {selectedRetainer.endDate ? (
-                              <div>
-                                <p className="text-xs text-text-3">End date</p>
-                                <p className="mt-1 text-sm text-white">
-                                  {new Date(selectedRetainer.endDate).toLocaleDateString(
-                                    "en-ZA",
-                                    {
-                                      day: "2-digit",
-                                      month: "short",
-                                      year: "numeric"
-                                    }
-                                  )}
-                                </p>
-                              </div>
-                            ) : null}
-                            <div>
-                              <p className="text-xs text-text-3">Status</p>
-                              <p className="mt-1 text-sm text-white">
-                                {selectedRetainer.status}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()
-                  )}
-
-                  <Link
-                    href={`/retainers?clientId=${encodeURIComponent(
-                      project?.clientId ?? ""
-                    )}`}
-                    className="inline-flex items-center gap-2 text-sm text-accent-solid hover:text-accent-solid/80"
-                  >
-                    Create new retainer →
-                  </Link>
-                </div>
-              </section>
-
-              <section className="brand-surface rounded-[14px] border p-6">
-                <h2 className="text-xl font-semibold text-white">
-                  Delivery settings
-                </h2>
-                <div className="mt-6 grid gap-6 lg:grid-cols-[0.42fr_0.58fr]">
-                  <div className="space-y-5">
-                    <div>
-                      <span className="mb-2 block text-sm text-text-2">
-                        Delivery approach
-                      </span>
-                      <div className="grid gap-3">
-                        {implementationApproachOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() =>
-                              updateField("implementationApproach", option.value)
-                            }
-                            className={`rounded-[14px] border p-4 text-left transition-colors ${
-                              form.implementationApproach === option.value
-                                ? "border-accent-solid bg-ink-2"
-                                : "border-ink-4 bg-ink-2"
-                            }`}
-                          >
-                            <p className="font-semibold text-white">
-                              {option.label}
-                            </p>
-                            <p className="mt-1 text-sm text-text-2">
-                              {option.description}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <label className="block">
-                      <span className="mb-2 block text-sm text-text-2">
-                        Overall HubSpot plan tier
-                      </span>
-                      <select
-                        value={form.customerPlatformTier}
-                        onChange={(event) =>
-                          updateField("customerPlatformTier", event.target.value)
-                        }
-                        className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+                  <p className="mb-3 text-sm text-text-3">
+                    {form.scopeType === "standalone_quote"
+                      ? "Optional for standalone quotes."
+                      : "Pick the hubs this project actually covers now."}
+                  </p>
+                  <p className="mb-3 text-xs uppercase tracking-[0.14em] text-text-3">
+                    Core hubs
+                  </p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {coreHubOptions.map((hub) => (
+                      <button
+                        key={hub.id}
+                        type="button"
+                        onClick={() => toggleHub(hub.id)}
+                        className={`rounded-[14px] border p-4 text-left transition-colors ${
+                          form.selectedHubs.includes(hub.id)
+                            ? "border-accent-solid bg-ink-2"
+                            : "border-ink-4 bg-ink-2"
+                        }`}
                       >
-                        {customerPlatformTierOptions.map((option) => (
-                          <option key={option.value || "blank"} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        <p className="font-semibold text-white">{hub.label}</p>
+                      </button>
+                    ))}
                   </div>
-
-                  <div>
-                    <div className="mb-2 flex items-center gap-2 text-sm text-text-2">
-                      <span>Hubs in scope</span>
-                    </div>
-                    <p className="mb-3 text-sm text-text-3">
-                      {form.scopeType === "standalone_quote"
-                        ? "Optional for standalone quotes."
-                        : "Pick the hubs this project actually covers now."}
-                    </p>
-                    <p className="mb-3 text-xs uppercase tracking-[0.14em] text-text-3">
-                      Core hubs
-                    </p>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {coreHubOptions.map((hub) => (
-                        <button
-                          key={hub.id}
-                          type="button"
-                          onClick={() => toggleHub(hub.id)}
-                          className={`rounded-[14px] border p-4 text-left transition-colors ${
-                            form.selectedHubs.includes(hub.id)
-                              ? "border-accent-solid bg-ink-2"
-                              : "border-ink-4 bg-ink-2"
-                          }`}
-                        >
-                          <p className="font-semibold text-white">{hub.label}</p>
-                        </button>
-                      ))}
-                    </div>
-                    <p className="mb-3 mt-5 text-xs uppercase tracking-[0.14em] text-text-3">
-                      Add-ons in scope
-                    </p>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      {addOnHubOptions.map((hub) => (
-                        <button
-                          key={hub.id}
-                          type="button"
-                          onClick={() => toggleHub(hub.id)}
-                          className={`rounded-[14px] border p-4 text-left transition-colors ${
-                            form.selectedHubs.includes(hub.id)
-                              ? "border-accent-solid bg-ink-2"
-                              : "border-ink-4 bg-ink-2"
-                          }`}
-                        >
-                          <p className="font-semibold text-white">{hub.label}</p>
-                        </button>
-                      ))}
-                    </div>
+                  <p className="mb-3 mt-5 text-xs uppercase tracking-[0.14em] text-text-3">
+                    Add-ons in scope
+                  </p>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {addOnHubOptions.map((hub) => (
+                      <button
+                        key={hub.id}
+                        type="button"
+                        onClick={() => toggleHub(hub.id)}
+                        className={`rounded-[14px] border p-4 text-left transition-colors ${
+                          form.selectedHubs.includes(hub.id)
+                            ? "border-accent-solid bg-ink-2"
+                            : "border-ink-4 bg-ink-2"
+                        }`}
+                      >
+                        <p className="font-semibold text-white">{hub.label}</p>
+                      </button>
+                    ))}
                   </div>
                 </div>
+              </div>
 
-                {form.platformConfiguration.length > 0 ? (
-                  <div className="mt-6 rounded-[14px] border border-ink-4 bg-ink-2 p-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-white">
-                          Hub package detail
-                        </p>
-                        <p className="mt-1 text-sm text-text-2">
-                          Set the actual package per product. This is where a
-                          build like Magnisol can mix Content Pro, Marketing
-                          Starter, and Sales Pro with license counts.
-                        </p>
-                      </div>
-                      <span className="rounded-full border border-ink-4 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-text-3">
-                        Operator only
-                      </span>
+              {form.platformConfiguration.length > 0 ? (
+                <div className="mt-6 rounded-[14px] border border-ink-4 bg-ink-2 p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        Hub package detail
+                      </p>
+                      <p className="mt-1 text-sm text-text-2">
+                        Set the actual package per product. This is where a
+                        build like Magnisol can mix Content Pro, Marketing
+                        Starter, and Sales Pro with license counts.
+                      </p>
                     </div>
-                    <div className="mt-4 space-y-4">
-                      {form.platformConfiguration.map((item) => (
-                        <div
-                          key={item.productKey}
-                          className="grid gap-4 rounded-[14px] border border-ink-4 bg-ink-2 p-4 lg:grid-cols-[minmax(0,1.1fr)_repeat(3,minmax(0,0.6fr))]"
-                        >
-                          <div>
-                            <p className="font-medium text-white">{item.label}</p>
-                            <p className="mt-1 text-xs text-text-3">
-                              {formatTokenLabel(item.productKey)}
-                            </p>
-                            <textarea
-                              value={item.notes}
-                              onChange={(event) =>
-                                updatePackageField(
-                                  item.productKey,
-                                  "notes",
-                                  event.target.value
-                                )
-                              }
-                              placeholder="Notes, constraints, or packaging context"
-                              className="mt-3 min-h-[90px] w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2.5 text-sm text-white outline-none"
-                            />
-                          </div>
+                    <span className="rounded-full border border-ink-4 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-text-3">
+                      Operator only
+                    </span>
+                  </div>
+                  <div className="mt-4 space-y-4">
+                    {form.platformConfiguration.map((item) => (
+                      <div
+                        key={item.productKey}
+                        className="grid gap-4 rounded-[14px] border border-ink-4 bg-ink-2 p-4 lg:grid-cols-[minmax(0,1.1fr)_repeat(3,minmax(0,0.6fr))]"
+                      >
+                        <div>
+                          <p className="font-medium text-white">{item.label}</p>
+                          <p className="mt-1 text-xs text-text-3">
+                            {formatTokenLabel(item.productKey)}
+                          </p>
+                          <textarea
+                            value={item.notes}
+                            onChange={(event) =>
+                              updatePackageField(
+                                item.productKey,
+                                "notes",
+                                event.target.value
+                              )
+                            }
+                            placeholder="Notes, constraints, or packaging context"
+                            className="mt-3 min-h-[90px] w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2.5 text-sm text-white outline-none"
+                          />
+                        </div>
+                        <label className="block">
+                          <span className="mb-2 block text-sm text-text-2">
+                            Tier
+                          </span>
+                          <select
+                            value={item.tier}
+                            onChange={(event) =>
+                              updatePackageField(
+                                item.productKey,
+                                "tier",
+                                event.target.value
+                              )
+                            }
+                            className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2.5 text-white outline-none"
+                          >
+                            {hubTierOptions.map((option) => (
+                              <option
+                                key={`${item.productKey}-${option.value || "blank"}`}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="mb-2 block text-sm text-text-2">
+                            Quantity
+                          </span>
+                          <input
+                            value={item.quantity}
+                            onChange={(event) =>
+                              updatePackageField(
+                                item.productKey,
+                                "quantity",
+                                event.target.value
+                              )
+                            }
+                            placeholder="1"
+                            className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2.5 text-white outline-none"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-2 block text-sm text-text-2">
+                            Unit label
+                          </span>
+                          <input
+                            value={item.unitLabel}
+                            onChange={(event) =>
+                              updatePackageField(
+                                item.productKey,
+                                "unitLabel",
+                                event.target.value
+                              )
+                            }
+                            placeholder="licenses"
+                            className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2.5 text-white outline-none"
+                          />
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="brand-surface rounded-[14px] border p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-white">
+                    Delivery workstreams
+                  </h2>
+                  <p className="mt-2 text-sm text-text-2">
+                    Model one project as multiple overlapping streams so
+                    discovery, website, and HubSpot implementation can stay
+                    together without flattening the delivery shape.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addWorkstream}
+                  className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-2 text-sm font-medium text-white"
+                >
+                  Add workstream
+                </button>
+              </div>
+              <div className="mt-6 space-y-4">
+                {form.deliveryWorkstreams.length === 0 ? (
+                  <div className="rounded-[14px] border border-dashed border-ink-4 bg-ink-2 p-5 text-sm text-text-2">
+                    No workstreams yet. For Magnisol you’d typically break this
+                    into Discovery, Website, and HubSpot implementation.
+                  </div>
+                ) : (
+                  form.deliveryWorkstreams.map((workstream) => (
+                    <div
+                      key={workstream.id}
+                      className="rounded-[14px] border border-ink-4 bg-ink-2 p-5"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="grid flex-1 gap-4 lg:grid-cols-2">
                           <label className="block">
                             <span className="mb-2 block text-sm text-text-2">
-                              Tier
+                              Workstream name
                             </span>
-                            <select
-                              value={item.tier}
+                            <input
+                              value={workstream.name}
                               onChange={(event) =>
-                                updatePackageField(
-                                  item.productKey,
-                                  "tier",
+                                updateWorkstreamField(
+                                  workstream.id,
+                                  "name",
                                   event.target.value
                                 )
                               }
-                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2.5 text-white outline-none"
+                              placeholder="Discovery"
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-2 block text-sm text-text-2">
+                              Category
+                            </span>
+                            <select
+                              value={workstream.category}
+                              onChange={(event) =>
+                                updateWorkstreamField(
+                                  workstream.id,
+                                  "category",
+                                  event.target.value
+                                )
+                              }
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                             >
-                              {hubTierOptions.map((option) => (
-                                <option
-                                  key={`${item.productKey}-${option.value || "blank"}`}
-                                  value={option.value}
-                                >
+                              {workstreamCategoryOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
                                   {option.label}
                                 </option>
                               ))}
@@ -1370,541 +1497,432 @@ export default function ProjectEditWorkspace({
                           </label>
                           <label className="block">
                             <span className="mb-2 block text-sm text-text-2">
-                              Quantity
+                              Status
                             </span>
-                            <input
-                              value={item.quantity}
-                              onChange={(event) =>
-                                updatePackageField(
-                                  item.productKey,
-                                  "quantity",
-                                  event.target.value
-                                )
-                              }
-                              placeholder="1"
-                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2.5 text-white outline-none"
-                            />
-                          </label>
-                          <label className="block">
-                            <span className="mb-2 block text-sm text-text-2">
-                              Unit label
-                            </span>
-                            <input
-                              value={item.unitLabel}
-                              onChange={(event) =>
-                                updatePackageField(
-                                  item.productKey,
-                                  "unitLabel",
-                                  event.target.value
-                                )
-                              }
-                              placeholder="licenses"
-                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-3 py-2.5 text-white outline-none"
-                            />
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </section>
-
-              <section className="brand-surface rounded-[14px] border p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-semibold text-white">
-                      Delivery workstreams
-                    </h2>
-                    <p className="mt-2 text-sm text-text-2">
-                      Model one project as multiple overlapping streams so
-                      discovery, website, and HubSpot implementation can stay
-                      together without flattening the delivery shape.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={addWorkstream}
-                    className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-2 text-sm font-medium text-white"
-                  >
-                    Add workstream
-                  </button>
-                </div>
-                <div className="mt-6 space-y-4">
-                  {form.deliveryWorkstreams.length === 0 ? (
-                    <div className="rounded-[14px] border border-dashed border-ink-4 bg-ink-2 p-5 text-sm text-text-2">
-                      No workstreams yet. For Magnisol you’d typically break
-                      this into Discovery, Website, and HubSpot implementation.
-                    </div>
-                  ) : (
-                    form.deliveryWorkstreams.map((workstream) => (
-                      <div
-                        key={workstream.id}
-                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-5"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="grid flex-1 gap-4 lg:grid-cols-2">
-                            <label className="block">
-                              <span className="mb-2 block text-sm text-text-2">
-                                Workstream name
-                              </span>
-                              <input
-                                value={workstream.name}
-                                onChange={(event) =>
-                                  updateWorkstreamField(
-                                    workstream.id,
-                                    "name",
-                                    event.target.value
-                                  )
-                                }
-                                placeholder="Discovery"
-                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                              />
-                            </label>
-                            <label className="block">
-                              <span className="mb-2 block text-sm text-text-2">
-                                Category
-                              </span>
-                              <select
-                                value={workstream.category}
-                                onChange={(event) =>
-                                  updateWorkstreamField(
-                                    workstream.id,
-                                    "category",
-                                    event.target.value
-                                  )
-                                }
-                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                              >
-                                {workstreamCategoryOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label className="block">
-                              <span className="mb-2 block text-sm text-text-2">
-                                Status
-                              </span>
-                              <select
-                                value={workstream.status}
-                                onChange={(event) =>
-                                  updateWorkstreamField(
-                                    workstream.id,
-                                    "status",
-                                    event.target.value
-                                  )
-                                }
-                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                              >
-                                {workstreamStatusOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label className="block">
-                              <span className="mb-2 block text-sm text-text-2">
-                                Delivery owner
-                              </span>
-                              <select
-                                value={workstream.owner}
-                                onChange={(event) =>
-                                  updateWorkstreamField(
-                                    workstream.id,
-                                    "owner",
-                                    event.target.value
-                                  )
-                                }
-                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                              >
-                                {workstreamOwnerOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeWorkstream(workstream.id)}
-                            className="rounded-xl border border-ink-4 px-3 py-2 text-sm text-text-2 hover:text-white"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                          <label className="block">
-                            <span className="mb-2 block text-sm text-text-2">
-                              Internal summary
-                            </span>
-                            <textarea
-                              value={workstream.summary}
+                            <select
+                              value={workstream.status}
                               onChange={(event) =>
                                 updateWorkstreamField(
                                   workstream.id,
-                                  "summary",
+                                  "status",
                                   event.target.value
                                 )
                               }
-                              placeholder="What this stream covers internally"
-                              className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                            />
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                            >
+                              {workstreamStatusOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
                           </label>
                           <label className="block">
                             <span className="mb-2 block text-sm text-text-2">
-                              Portal summary
+                              Delivery owner
                             </span>
-                            <textarea
-                              value={workstream.portalSummary}
+                            <select
+                              value={workstream.owner}
                               onChange={(event) =>
                                 updateWorkstreamField(
                                   workstream.id,
-                                  "portalSummary",
+                                  "owner",
                                   event.target.value
                                 )
                               }
-                              placeholder="What client and partner portal users should see"
-                              className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                            />
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                            >
+                              {workstreamOwnerOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
                           </label>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => removeWorkstream(workstream.id)}
+                          className="rounded-xl border border-ink-4 px-3 py-2 text-sm text-text-2 hover:text-white"
+                        >
+                          Remove
+                        </button>
                       </div>
-                    ))
-                  )}
-                </div>
-              </section>
-
-              <section className="brand-surface rounded-[14px] border p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-semibold text-white">
-                        Internal commercials
-                      </h2>
-                      <span className="rounded-full border border-ink-4 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-text-3">
-                        Internal only
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm text-text-2">
-                      Track Muloo base numbers and partner-marked-up numbers here.
-                      These figures stay on the operator side and never show in
-                      the client or partner portals.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={addCommercialLine}
-                    className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-2 text-sm font-medium text-white"
-                  >
-                    Add commercial line
-                  </button>
-                </div>
-
-                <div className="mt-6 grid gap-4 lg:grid-cols-3">
-                  <label className="block">
-                    <span className="mb-2 block text-sm text-text-2">
-                      Billing route
-                    </span>
-                    <select
-                      value={form.internalCommercials.billingRoute}
-                      onChange={(event) =>
-                        updateCommercialsField("billingRoute", event.target.value)
-                      }
-                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                    >
-                      {billingRouteOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="mb-2 block text-sm text-text-2">
-                      Partner name
-                    </span>
-                    <input
-                      value={form.internalCommercials.partnerName}
-                      onChange={(event) =>
-                        updateCommercialsField("partnerName", event.target.value)
-                      }
-                      placeholder="Tusk"
-                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="mb-2 block text-sm text-text-2">
-                      Notes
-                    </span>
-                    <input
-                      value={form.internalCommercials.notes}
-                      onChange={(event) =>
-                        updateCommercialsField("notes", event.target.value)
-                      }
-                      placeholder="Markup handled through partner"
-                      className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                    />
-                  </label>
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  {form.internalCommercials.lines.length === 0 ? (
-                    <div className="rounded-[14px] border border-dashed border-ink-4 bg-ink-2 p-5 text-sm text-text-2">
-                      No commercial lines yet. Add the streams you want to track,
-                      like Discovery fixed fee, Website build, HubSpot rollout,
-                      pass-through theme cost, or partner markup lines.
-                    </div>
-                  ) : (
-                    form.internalCommercials.lines.map((line) => (
-                      <div
-                        key={line.id}
-                        className="rounded-[14px] border border-ink-4 bg-ink-2 p-5"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="grid flex-1 gap-4 lg:grid-cols-3">
-                            <label className="block lg:col-span-2">
-                              <span className="mb-2 block text-sm text-text-2">
-                                Line item
-                              </span>
-                              <input
-                                value={line.label}
-                                onChange={(event) =>
-                                  updateCommercialLineField(
-                                    line.id,
-                                    "label",
-                                    event.target.value
-                                  )
-                                }
-                                placeholder="HubSpot rollout"
-                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                              />
-                            </label>
-                            <label className="block">
-                              <span className="mb-2 block text-sm text-text-2">
-                                Workstream
-                              </span>
-                              <select
-                                value={line.workstreamId}
-                                onChange={(event) =>
-                                  updateCommercialLineField(
-                                    line.id,
-                                    "workstreamId",
-                                    event.target.value
-                                  )
-                                }
-                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                              >
-                                <option value="">Unlinked</option>
-                                {form.deliveryWorkstreams.map((workstream) => (
-                                  <option
-                                    key={workstream.id}
-                                    value={workstream.id}
-                                  >
-                                    {workstream.name || workstream.id}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label className="block">
-                              <span className="mb-2 block text-sm text-text-2">
-                                Pricing model
-                              </span>
-                              <select
-                                value={line.pricingModel}
-                                onChange={(event) =>
-                                  updateCommercialLineField(
-                                    line.id,
-                                    "pricingModel",
-                                    event.target.value
-                                  )
-                                }
-                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                              >
-                                {commercialPricingModelOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label className="block">
-                              <span className="mb-2 block text-sm text-text-2">
-                                Currency
-                              </span>
-                              <input
-                                value={line.currency}
-                                onChange={(event) =>
-                                  updateCommercialLineField(
-                                    line.id,
-                                    "currency",
-                                    event.target.value.toUpperCase()
-                                  )
-                                }
-                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                              />
-                            </label>
-                            <label className="block">
-                              <span className="mb-2 block text-sm text-text-2">
-                                Muloo base
-                              </span>
-                              <input
-                                value={line.mulooBaseAmount}
-                                onChange={(event) =>
-                                  updateCommercialLineField(
-                                    line.id,
-                                    "mulooBaseAmount",
-                                    event.target.value
-                                  )
-                                }
-                                placeholder="12000"
-                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                              />
-                            </label>
-                            <label className="block">
-                              <span className="mb-2 block text-sm text-text-2">
-                                Partner sell / markup
-                              </span>
-                              <input
-                                value={line.partnerSellAmount}
-                                onChange={(event) =>
-                                  updateCommercialLineField(
-                                    line.id,
-                                    "partnerSellAmount",
-                                    event.target.value
-                                  )
-                                }
-                                placeholder="15000"
-                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                              />
-                            </label>
-                            <label className="block">
-                              <span className="mb-2 block text-sm text-text-2">
-                                Billing owner
-                              </span>
-                              <select
-                                value={line.billingOwner}
-                                onChange={(event) =>
-                                  updateCommercialLineField(
-                                    line.id,
-                                    "billingOwner",
-                                    event.target.value
-                                  )
-                                }
-                                className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
-                              >
-                                {commercialOwnerOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeCommercialLine(line.id)}
-                            className="rounded-xl border border-ink-4 px-3 py-2 text-sm text-text-2 hover:text-white"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                        <label className="mt-4 block">
+                      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                        <label className="block">
                           <span className="mb-2 block text-sm text-text-2">
-                            Notes
+                            Internal summary
                           </span>
                           <textarea
-                            value={line.notes}
+                            value={workstream.summary}
                             onChange={(event) =>
-                              updateCommercialLineField(
-                                line.id,
-                                "notes",
+                              updateWorkstreamField(
+                                workstream.id,
+                                "summary",
                                 event.target.value
                               )
                             }
-                            placeholder="Internal-only context for billing, pass-throughs, or partner handling"
-                            className="min-h-[100px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                            placeholder="What this stream covers internally"
+                            className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-2 block text-sm text-text-2">
+                            Portal summary
+                          </span>
+                          <textarea
+                            value={workstream.portalSummary}
+                            onChange={(event) =>
+                              updateWorkstreamField(
+                                workstream.id,
+                                "portalSummary",
+                                event.target.value
+                              )
+                            }
+                            placeholder="What client and partner portal users should see"
+                            className="min-h-[120px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                           />
                         </label>
                       </div>
-                    ))
-                  )}
-                </div>
-              </section>
-            </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
 
-            <aside className="space-y-6">
-              <section className="brand-surface rounded-[14px] border p-6">
-                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
-                  Current shape
-                </p>
-                <div className="mt-4 space-y-3 text-sm text-text-2">
-                  <p>
-                    <span className="font-medium text-white">Type:</span>{" "}
-                    {formatTokenLabel(project.engagementType)}
-                  </p>
-                  <p>
-                    <span className="font-medium text-white">Container:</span>{" "}
-                    {formatTokenLabel(project.scopeType)}
-                  </p>
-                  <p>
-                    <span className="font-medium text-white">Service family:</span>{" "}
-                    {formatTokenLabel(project.serviceFamily)}
-                  </p>
-                  <p>
-                    <span className="font-medium text-white">Hubs:</span>{" "}
-                    {project.selectedHubs.length > 0
-                      ? project.selectedHubs.map((hub) => formatTokenLabel(hub)).join(", ")
-                      : "None"}
+            <section className="brand-surface rounded-[14px] border p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-semibold text-white">
+                      Internal commercials
+                    </h2>
+                    <span className="rounded-full border border-ink-4 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-text-3">
+                      Internal only
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-text-2">
+                    Track Muloo base numbers and partner-marked-up numbers here.
+                    These figures stay on the operator side and never show in
+                    the client or partner portals.
                   </p>
                 </div>
-              </section>
+                <button
+                  type="button"
+                  onClick={addCommercialLine}
+                  className="rounded-xl border border-ink-4 bg-ink-2 px-4 py-2 text-sm font-medium text-white"
+                >
+                  Add commercial line
+                </button>
+              </div>
 
-              <section className="brand-surface rounded-[14px] border p-6">
-                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
-                  Save changes
-                </p>
-                <p className="mt-3 text-sm text-text-2">
-                  This updates the existing project record in place.
-                </p>
-                {project.scopeLockedAt ? (
-                  <div className="mt-4 rounded-[14px] border border-[rgba(255,211,139,0.25)] bg-[rgba(255,211,139,0.08)] px-4 py-3 text-sm text-[#ffd38b]">
-                    This project has a locked approved scope. If the save is blocked,
-                    switch to change management for formal revisions.
-                  </div>
-                ) : null}
-                {validationError ? (
-                  <div className="mt-4 rounded-[14px] border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-white">
-                    {validationError}
-                  </div>
-                ) : null}
-                {error ? (
-                  <div className="mt-4 rounded-[14px] border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-white">
-                    {error}
-                  </div>
-                ) : null}
-                <div className="mt-5 flex flex-col gap-3">
-                  <button
-                    type="submit"
-                    disabled={saving || !dirty}
-                    className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+              <div className="mt-6 grid gap-4 lg:grid-cols-3">
+                <label className="block">
+                  <span className="mb-2 block text-sm text-text-2">
+                    Billing route
+                  </span>
+                  <select
+                    value={form.internalCommercials.billingRoute}
+                    onChange={(event) =>
+                      updateCommercialsField("billingRoute", event.target.value)
+                    }
+                    className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
                   >
-                    {saving ? "Saving..." : dirty ? "Save changes" : "No changes yet"}
-                  </button>
-                  <Link
-                    href={`/projects/${project.id}`}
-                    className="brand-input rounded-xl px-4 py-3 text-center text-sm font-medium text-text-2"
-                  >
-                    Back without saving
-                  </Link>
+                    {billingRouteOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm text-text-2">
+                    Partner name
+                  </span>
+                  <input
+                    value={form.internalCommercials.partnerName}
+                    onChange={(event) =>
+                      updateCommercialsField("partnerName", event.target.value)
+                    }
+                    placeholder="Tusk"
+                    className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm text-text-2">Notes</span>
+                  <input
+                    value={form.internalCommercials.notes}
+                    onChange={(event) =>
+                      updateCommercialsField("notes", event.target.value)
+                    }
+                    placeholder="Markup handled through partner"
+                    className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                {form.internalCommercials.lines.length === 0 ? (
+                  <div className="rounded-[14px] border border-dashed border-ink-4 bg-ink-2 p-5 text-sm text-text-2">
+                    No commercial lines yet. Add the streams you want to track,
+                    like Discovery fixed fee, Website build, HubSpot rollout,
+                    pass-through theme cost, or partner markup lines.
+                  </div>
+                ) : (
+                  form.internalCommercials.lines.map((line) => (
+                    <div
+                      key={line.id}
+                      className="rounded-[14px] border border-ink-4 bg-ink-2 p-5"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="grid flex-1 gap-4 lg:grid-cols-3">
+                          <label className="block lg:col-span-2">
+                            <span className="mb-2 block text-sm text-text-2">
+                              Line item
+                            </span>
+                            <input
+                              value={line.label}
+                              onChange={(event) =>
+                                updateCommercialLineField(
+                                  line.id,
+                                  "label",
+                                  event.target.value
+                                )
+                              }
+                              placeholder="HubSpot rollout"
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-2 block text-sm text-text-2">
+                              Workstream
+                            </span>
+                            <select
+                              value={line.workstreamId}
+                              onChange={(event) =>
+                                updateCommercialLineField(
+                                  line.id,
+                                  "workstreamId",
+                                  event.target.value
+                                )
+                              }
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                            >
+                              <option value="">Unlinked</option>
+                              {form.deliveryWorkstreams.map((workstream) => (
+                                <option
+                                  key={workstream.id}
+                                  value={workstream.id}
+                                >
+                                  {workstream.name || workstream.id}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="block">
+                            <span className="mb-2 block text-sm text-text-2">
+                              Pricing model
+                            </span>
+                            <select
+                              value={line.pricingModel}
+                              onChange={(event) =>
+                                updateCommercialLineField(
+                                  line.id,
+                                  "pricingModel",
+                                  event.target.value
+                                )
+                              }
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                            >
+                              {commercialPricingModelOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="block">
+                            <span className="mb-2 block text-sm text-text-2">
+                              Currency
+                            </span>
+                            <input
+                              value={line.currency}
+                              onChange={(event) =>
+                                updateCommercialLineField(
+                                  line.id,
+                                  "currency",
+                                  event.target.value.toUpperCase()
+                                )
+                              }
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-2 block text-sm text-text-2">
+                              Muloo base
+                            </span>
+                            <input
+                              value={line.mulooBaseAmount}
+                              onChange={(event) =>
+                                updateCommercialLineField(
+                                  line.id,
+                                  "mulooBaseAmount",
+                                  event.target.value
+                                )
+                              }
+                              placeholder="12000"
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-2 block text-sm text-text-2">
+                              Partner sell / markup
+                            </span>
+                            <input
+                              value={line.partnerSellAmount}
+                              onChange={(event) =>
+                                updateCommercialLineField(
+                                  line.id,
+                                  "partnerSellAmount",
+                                  event.target.value
+                                )
+                              }
+                              placeholder="15000"
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-2 block text-sm text-text-2">
+                              Billing owner
+                            </span>
+                            <select
+                              value={line.billingOwner}
+                              onChange={(event) =>
+                                updateCommercialLineField(
+                                  line.id,
+                                  "billingOwner",
+                                  event.target.value
+                                )
+                              }
+                              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                            >
+                              {commercialOwnerOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeCommercialLine(line.id)}
+                          className="rounded-xl border border-ink-4 px-3 py-2 text-sm text-text-2 hover:text-white"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <label className="mt-4 block">
+                        <span className="mb-2 block text-sm text-text-2">
+                          Notes
+                        </span>
+                        <textarea
+                          value={line.notes}
+                          onChange={(event) =>
+                            updateCommercialLineField(
+                              line.id,
+                              "notes",
+                              event.target.value
+                            )
+                          }
+                          placeholder="Internal-only context for billing, pass-throughs, or partner handling"
+                          className="min-h-[100px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none"
+                        />
+                      </label>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </div>
+
+          <aside className="space-y-6">
+            <section className="brand-surface rounded-[14px] border p-6">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
+                Current shape
+              </p>
+              <div className="mt-4 space-y-3 text-sm text-text-2">
+                <p>
+                  <span className="font-medium text-white">Type:</span>{" "}
+                  {formatTokenLabel(project.engagementType)}
+                </p>
+                <p>
+                  <span className="font-medium text-white">Container:</span>{" "}
+                  {formatTokenLabel(project.scopeType)}
+                </p>
+                <p>
+                  <span className="font-medium text-white">
+                    Service family:
+                  </span>{" "}
+                  {formatTokenLabel(project.serviceFamily)}
+                </p>
+                <p>
+                  <span className="font-medium text-white">Hubs:</span>{" "}
+                  {project.selectedHubs.length > 0
+                    ? project.selectedHubs
+                        .map((hub) => formatTokenLabel(hub))
+                        .join(", ")
+                    : "None"}
+                </p>
+              </div>
+            </section>
+
+            <section className="brand-surface rounded-[14px] border p-6">
+              <p className="text-xs uppercase tracking-[0.14em] text-text-3">
+                Save changes
+              </p>
+              <p className="mt-3 text-sm text-text-2">
+                This updates the existing project record in place.
+              </p>
+              {project.scopeLockedAt ? (
+                <div className="mt-4 rounded-[14px] border border-[rgba(255,211,139,0.25)] bg-[rgba(255,211,139,0.08)] px-4 py-3 text-sm text-[#ffd38b]">
+                  This project has a locked approved scope. If the save is
+                  blocked, switch to change management for formal revisions.
                 </div>
-              </section>
-            </aside>
-          </form>
-        </div>
+              ) : null}
+              {validationError ? (
+                <div className="mt-4 rounded-[14px] border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-white">
+                  {validationError}
+                </div>
+              ) : null}
+              {error ? (
+                <div className="mt-4 rounded-[14px] border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-white">
+                  {error}
+                </div>
+              ) : null}
+              <div className="mt-5 flex flex-col gap-3">
+                <button
+                  type="submit"
+                  disabled={saving || !dirty}
+                  className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving
+                    ? "Saving..."
+                    : dirty
+                      ? "Save changes"
+                      : "No changes yet"}
+                </button>
+                <Link
+                  href={`/projects/${project.id}`}
+                  className="brand-input rounded-xl px-4 py-3 text-center text-sm font-medium text-text-2"
+                >
+                  Back without saving
+                </Link>
+              </div>
+            </section>
+          </aside>
+        </form>
       </div>
-    </AppShell>
+    </ProjectWorkspaceView>
   );
 }

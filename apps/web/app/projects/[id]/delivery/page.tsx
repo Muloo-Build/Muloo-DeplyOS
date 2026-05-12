@@ -1,6 +1,6 @@
 import Link from "next/link";
-import AppShell from "../../../components/AppShell";
 import DeliveryBoard from "../../../components/DeliveryBoard";
+import ProjectWorkspaceView from "../../../components/ProjectWorkspaceView";
 import { Btn } from "../../../components/ui/Btn";
 import { PageHead } from "../../../components/ui/PageHead";
 
@@ -10,8 +10,8 @@ export default function ProjectDeliveryBoardPage({
   params: { id: string };
 }) {
   return (
-    <AppShell>
-      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+    <ProjectWorkspaceView projectId={params.id} activeTab="delivery">
+      <div className="space-y-6">
         <PageHead
           eyebrow={
             <Link
@@ -40,6 +40,6 @@ export default function ProjectDeliveryBoardPage({
         />
         <DeliveryBoard projectId={params.id} />
       </div>
-    </AppShell>
+    </ProjectWorkspaceView>
   );
 }

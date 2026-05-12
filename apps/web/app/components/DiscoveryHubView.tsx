@@ -15,14 +15,13 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Send,
   Sparkles,
   Upload,
   UserPlus,
   X
 } from "lucide-react";
 
-import AppShell from "./AppShell";
+import ProjectWorkspaceView from "./ProjectWorkspaceView";
 import { Btn } from "./ui/Btn";
 import { Empty } from "./ui/Empty";
 import { PageHead } from "./ui/PageHead";
@@ -90,7 +89,10 @@ const resourceIcon: Record<string, React.ReactNode> = {
   external_url: <ExternalLink size={13} className="text-text-2" />
 };
 
-const statusToneMap: Record<string, "ok" | "warn" | "danger" | "info" | "neutral"> = {
+const statusToneMap: Record<
+  string,
+  "ok" | "warn" | "danger" | "info" | "neutral"
+> = {
   submitted: "ok",
   complete: "ok",
   approved: "ok",
@@ -102,19 +104,25 @@ const statusToneMap: Record<string, "ok" | "warn" | "danger" | "info" | "neutral
 
 function statusLabel(status?: string | null): string {
   if (!status) return "Draft";
-  return status
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (m) => m.toUpperCase());
+  return status.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
 function workbookProgress(w: WorkbookRecord): number {
   // Workbook content shape varies — try to extract answered / total counts
   const c = w.workbookContent as
-    | { answered?: number; total?: number; sections?: Array<{ answered?: number; total?: number }> }
+    | {
+        answered?: number;
+        total?: number;
+        sections?: Array<{ answered?: number; total?: number }>;
+      }
     | null
     | undefined;
   if (!c) return 0;
-  if (typeof c.answered === "number" && typeof c.total === "number" && c.total > 0) {
+  if (
+    typeof c.answered === "number" &&
+    typeof c.total === "number" &&
+    c.total > 0
+  ) {
     return Math.round((c.answered / c.total) * 100);
   }
   if (Array.isArray(c.sections)) {
@@ -133,9 +141,16 @@ function workbookProgress(w: WorkbookRecord): number {
   return 0;
 }
 
-function progressFraction(w: WorkbookRecord): { answered: number; total: number } {
+function progressFraction(w: WorkbookRecord): {
+  answered: number;
+  total: number;
+} {
   const c = w.workbookContent as
-    | { answered?: number; total?: number; sections?: Array<{ answered?: number; total?: number }> }
+    | {
+        answered?: number;
+        total?: number;
+        sections?: Array<{ answered?: number; total?: number }>;
+      }
     | null
     | undefined;
   if (c?.total && typeof c.answered === "number") {
@@ -235,7 +250,9 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
         content: ""
       });
     } catch (err) {
-      setContextError(err instanceof Error ? err.message : "Add context failed");
+      setContextError(
+        err instanceof Error ? err.message : "Add context failed"
+      );
     } finally {
       setContextSaving(false);
     }
@@ -302,9 +319,7 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
           )
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null),
-          fetch(
-            `/api/projects/${encodeURIComponent(projectId)}/meeting-notes`
-          )
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/meeting-notes`)
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null)
         ]);
@@ -324,9 +339,7 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
           ? (evidenceRes.items as WorkbookRecord[])
           : [];
       setContextItems(
-        allEvidence.filter(
-          (e) => !wb.some((w) => w.id === e.id)
-        )
+        allEvidence.filter((e) => !wb.some((w) => w.id === e.id))
       );
 
       setSummary(
@@ -390,9 +403,10 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
   const filteredWorkbooks = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return workbooks;
-    return workbooks.filter((w) =>
-      w.sourceLabel.toLowerCase().includes(q) ||
-      (w.ownerName ?? "").toLowerCase().includes(q)
+    return workbooks.filter(
+      (w) =>
+        w.sourceLabel.toLowerCase().includes(q) ||
+        (w.ownerName ?? "").toLowerCase().includes(q)
     );
   }, [workbooks, search]);
 
@@ -400,7 +414,9 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
     const submitted = workbooks.filter(
       (w) => w.status === "submitted" || w.status === "complete"
     ).length;
-    const inProgress = workbooks.filter((w) => w.status === "in_progress").length;
+    const inProgress = workbooks.filter(
+      (w) => w.status === "in_progress"
+    ).length;
     const invited = workbooks.filter((w) => w.status === "invited").length;
     return {
       submitted,
@@ -416,8 +432,8 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
   );
 
   return (
-    <AppShell>
-      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+    <ProjectWorkspaceView projectId={projectId} activeTab="discovery">
+      <div className="space-y-6">
         <PageHead
           eyebrow={
             <Link
@@ -437,7 +453,10 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
                 onClick={() => void loadAll()}
                 disabled={refreshing}
               >
-                <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
+                <RefreshCw
+                  size={13}
+                  className={refreshing ? "animate-spin" : ""}
+                />
                 Refresh
               </Btn>
               <Btn
@@ -463,7 +482,7 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
           <p className="mb-3 text-[12px] text-status-danger">{summaryError}</p>
         )}
 
-        <StatsGrid cols={4} className="mb-6">
+        <StatsGrid cols={4}>
           <Stat
             label="Workbooks"
             value={`${stats.submitted}/${stats.total}`}
@@ -475,7 +494,11 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
                   : "all submitted"
             }
             deltaTone={
-              stats.invited > 0 ? "down" : stats.inProgress > 0 ? "neutral" : "up"
+              stats.invited > 0
+                ? "down"
+                : stats.inProgress > 0
+                  ? "neutral"
+                  : "up"
             }
           />
           <Stat
@@ -507,520 +530,451 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
           />
         </StatsGrid>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
-          <div className="min-w-0 flex flex-col gap-6">
-            {/* WORKBOOKS */}
-            <section>
-              <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
-                <div>
-                  <h2 className="text-[16px] font-semibold m-0 -tracking-[0.01em]">
-                    Discovery workbooks
-                  </h2>
-                  <p className="text-[12.5px] text-text-3 m-0 mt-0.5">
-                    Structured packs assigned to contributors. Click Open to
-                    review or edit.
-                  </p>
+        <div className="flex min-w-0 flex-col gap-6">
+          {/* WORKBOOKS */}
+          <section>
+            <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
+              <div>
+                <h2 className="text-[16px] font-semibold m-0 -tracking-[0.01em]">
+                  Discovery workbooks
+                </h2>
+                <p className="text-[12.5px] text-text-3 m-0 mt-0.5">
+                  Structured packs assigned to contributors. Click Open to
+                  review or edit.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search
+                    size={13}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-3 pointer-events-none"
+                  />
+                  <input
+                    type="search"
+                    placeholder="Search workbooks…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="bg-ink-2 border border-ink-4 rounded-[10px] pl-8 pr-3 py-1.5 text-[12px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4"
+                  />
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search
-                      size={13}
-                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-3 pointer-events-none"
-                    />
-                    <input
-                      type="search"
-                      placeholder="Search workbooks…"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="bg-ink-2 border border-ink-4 rounded-[10px] pl-8 pr-3 py-1.5 text-[12px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4"
-                    />
-                  </div>
+                <Link href={`/projects/${projectId}/inputs`}>
+                  <Btn variant="ghost" size="sm">
+                    <UserPlus size={11} />
+                    Invite contributor
+                  </Btn>
+                </Link>
+              </div>
+            </div>
+
+            {loading ? (
+              <Empty title="Loading workbooks…" sub="One moment." />
+            ) : filteredWorkbooks.length === 0 ? (
+              <Empty
+                icon={<FileText size={20} />}
+                title="No workbooks yet"
+                sub="Create discovery packs and assign them to the people who can answer."
+                action={
                   <Link href={`/projects/${projectId}/inputs`}>
-                    <Btn variant="ghost" size="sm">
-                      <UserPlus size={11} />
-                      Invite contributor
+                    <Btn variant="primary" size="sm">
+                      <Plus size={12} />
+                      Create workbook
                     </Btn>
                   </Link>
-                </div>
-              </div>
-
-              {loading ? (
-                <Empty title="Loading workbooks…" sub="One moment." />
-              ) : filteredWorkbooks.length === 0 ? (
-                <Empty
-                  icon={<FileText size={20} />}
-                  title="No workbooks yet"
-                  sub="Create discovery packs and assign them to the people who can answer."
-                  action={
-                    <Link href={`/projects/${projectId}/inputs`}>
-                      <Btn variant="primary" size="sm">
-                        <Plus size={12} />
-                        Create workbook
-                      </Btn>
-                    </Link>
-                  }
-                />
-              ) : (
-                <Panel>
-                  <PanelBody flush>
-                    {filteredWorkbooks.map((w, i) => {
-                      const pct = workbookProgress(w);
-                      const frac = progressFraction(w);
-                      const tone = statusToneMap[w.status ?? "draft"] ?? "neutral";
-                      return (
-                        <div
-                          key={w.id}
-                          className={`grid grid-cols-[minmax(0,1fr)_180px_120px_auto_auto] gap-3.5 items-center px-[18px] py-3 ${
-                            i < filteredWorkbooks.length - 1
-                              ? "border-b border-ink-4"
-                              : ""
-                          }`}
-                        >
-                          <div className="min-w-0 flex items-center gap-2">
-                            {resourceIcon[w.resourceType ?? ""] ?? (
-                              <FileText size={13} className="text-text-3" />
-                            )}
-                            <div className="min-w-0">
-                              <div className="text-[13px] font-medium truncate">
-                                {w.sourceLabel}
-                              </div>
-                              {w.ownerName && (
-                                <div className="text-[11.5px] text-text-3 truncate">
-                                  Owner: {w.ownerName}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10.5px] font-mono text-text-3">
-                                {frac.total > 0
-                                  ? `${frac.answered}/${frac.total}`
-                                  : ""}
-                              </span>
-                              <span className="text-[10.5px] font-mono text-text-2">
-                                {pct}%
-                              </span>
-                            </div>
-                            <div className="h-1.5 bg-ink-3 rounded">
-                              <div
-                                className={`h-full rounded ${
-                                  tone === "danger"
-                                    ? "bg-status-danger"
-                                    : tone === "warn"
-                                      ? "bg-status-warn"
-                                      : "bg-status-ok"
-                                }`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <Pill tone={tone} dot>
-                              {statusLabel(w.status)}
-                            </Pill>
-                          </div>
-                          {w.sourceUrl ? (
-                            <a
-                              href={w.sourceUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              <Btn variant="ghost" size="sm">
-                                Open
-                                <ExternalLink size={11} />
-                              </Btn>
-                            </a>
-                          ) : (
-                            <Link
-                              href={`/projects/${projectId}/inputs?workbook=${w.id}`}
-                            >
-                              <Btn variant="ghost" size="sm">
-                                Open
-                              </Btn>
-                            </Link>
-                          )}
-                          <ChevronRight size={14} className="text-text-3" />
-                        </div>
-                      );
-                    })}
-                  </PanelBody>
-                </Panel>
-              )}
-            </section>
-
-            {/* MINI DISCOVERY SESSIONS */}
-            <section>
-              <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
-                <div>
-                  <h2 className="text-[16px] font-semibold m-0 -tracking-[0.01em]">
-                    Discovery sessions
-                  </h2>
-                  <p className="text-[12.5px] text-text-3 m-0 mt-0.5">
-                    Mini sessions, ad-hoc calls, hallway findings — capture
-                    context as you go without needing a full workbook.
-                  </p>
-                </div>
-                <Btn
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    setSessionError(null);
-                    setSessionOpen(true);
-                  }}
-                >
-                  <NotebookPen size={11} />
-                  Capture session
-                </Btn>
-              </div>
-              {sessions.length === 0 ? (
-                <Empty
-                  icon={<Mic size={20} />}
-                  title="No sessions captured yet"
-                  sub="Quick-capture findings from a call, workshop, or unstructured chat. Title + notes is enough."
-                  action={
-                    <Btn
-                      variant="primary"
-                      size="sm"
-                      onClick={() => setSessionOpen(true)}
-                    >
-                      <NotebookPen size={11} />
-                      Capture first session
-                    </Btn>
-                  }
-                />
-              ) : (
-                <Panel>
-                  <PanelBody flush>
-                    {sessions.slice(0, 6).map((s, i, arr) => {
-                      const body = (s.notes ?? "").trim();
-                      const preview =
-                        body.length > 0
-                          ? body.length > 280
-                            ? `${body.slice(0, 280)}…`
-                            : body
-                          : "(no notes)";
-                      return (
-                        <div
-                          key={s.id}
-                          className={`px-[18px] py-3.5 ${
-                            i < Math.min(sessions.length, 6) - 1
-                              ? "border-b border-ink-4"
-                              : ""
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Mic
-                                size={12}
-                                className="text-text-3 flex-shrink-0"
-                              />
-                              <span className="text-[13px] font-medium text-text-1 truncate">
-                                {s.title || "Mini discovery session"}
-                              </span>
-                            </div>
-                            <span className="text-[11px] text-text-3 font-mono whitespace-nowrap">
-                              {new Date(s.meetingDate).toLocaleDateString()}
-                            </span>
-                          </div>
-                          {s.attendees && s.attendees.length > 0 && (
-                            <div className="text-[11.5px] text-text-3 mb-1.5">
-                              {s.attendees.slice(0, 4).join(", ")}
-                              {s.attendees.length > 4
-                                ? ` +${s.attendees.length - 4}`
-                                : ""}
-                            </div>
-                          )}
-                          <p className="text-[12.5px] text-text-2 m-0 leading-[1.5] whitespace-pre-wrap">
-                            {preview}
-                          </p>
-                        </div>
-                      );
-                    })}
-                    {sessions.length > 6 && (
-                      <div className="px-[18px] py-2.5 border-t border-ink-4 text-center">
-                        <Link
-                          href={`/projects/${projectId}/meetings`}
-                          className="text-[12px] text-text-3 hover:text-text-1 transition-colors"
-                        >
-                          View all {sessions.length} sessions →
-                        </Link>
-                      </div>
-                    )}
-                  </PanelBody>
-                </Panel>
-              )}
-            </section>
-
-            {/* CONTEXT ITEMS */}
-            <section>
-              <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
-                <div>
-                  <h2 className="text-[16px] font-semibold m-0 -tracking-[0.01em]">
-                    Context items
-                  </h2>
-                  <p className="text-[12.5px] text-text-3 m-0 mt-0.5">
-                    Miro boards, Google Docs, PDFs, and links pulled into
-                    discovery for synthesis.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {miroBoards.length > 0 && (
-                    <Btn
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleRecrawlMiro()}
-                      disabled={refreshing}
-                    >
-                      {refreshing ? (
-                        <Loader2 size={11} className="animate-spin" />
-                      ) : (
-                        <RefreshCw size={11} />
-                      )}
-                      Recrawl Miro
-                    </Btn>
-                  )}
-                  <Btn
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setContextError(null);
-                      setContextOpen(true);
-                    }}
-                  >
-                    <Upload size={11} />
-                    Add context source
-                  </Btn>
-                </div>
-              </div>
-              {contextItems.length === 0 ? (
-                <Empty
-                  icon={<ImageIcon size={20} />}
-                  title="No context items yet"
-                  sub="Upload PDFs, link Google Docs, or pull in Miro boards as discovery context."
-                />
-              ) : (
-                <Panel>
-                  <PanelBody flush>
-                    {contextItems.map((c, i) => (
+                }
+              />
+            ) : (
+              <Panel>
+                <PanelBody flush>
+                  {filteredWorkbooks.map((w, i) => {
+                    const pct = workbookProgress(w);
+                    const frac = progressFraction(w);
+                    const tone =
+                      statusToneMap[w.status ?? "draft"] ?? "neutral";
+                    return (
                       <div
-                        key={c.id}
-                        className={`grid grid-cols-[auto_minmax(0,1fr)_auto_auto] gap-3 items-center px-[18px] py-2.5 ${
-                          i < contextItems.length - 1
+                        key={w.id}
+                        className={`grid grid-cols-[minmax(0,1fr)_180px_120px_auto_auto] gap-3.5 items-center px-[18px] py-3 ${
+                          i < filteredWorkbooks.length - 1
                             ? "border-b border-ink-4"
                             : ""
                         }`}
                       >
-                        {resourceIcon[c.resourceType ?? ""] ?? (
-                          <FileText size={13} className="text-text-3" />
-                        )}
-                        <div className="min-w-0">
-                          <div className="text-[13px] font-medium truncate">
-                            {c.sourceLabel}
-                          </div>
-                          <div className="text-[11px] text-text-3 mt-0.5 truncate">
-                            {c.resourceType?.replace(/_/g, " ") ?? c.evidenceType}
-                            {" · "}
-                            {relativeTime(c.updatedAt)}
+                        <div className="min-w-0 flex items-center gap-2">
+                          {resourceIcon[w.resourceType ?? ""] ?? (
+                            <FileText size={13} className="text-text-3" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-[13px] font-medium truncate">
+                              {w.sourceLabel}
+                            </div>
+                            {w.ownerName && (
+                              <div className="text-[11.5px] text-text-3 truncate">
+                                Owner: {w.ownerName}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <Pill tone={statusToneMap[c.status ?? "draft"] ?? "neutral"} dot>
-                          {statusLabel(c.status)}
-                        </Pill>
-                        {c.sourceUrl ? (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10.5px] font-mono text-text-3">
+                              {frac.total > 0
+                                ? `${frac.answered}/${frac.total}`
+                                : ""}
+                            </span>
+                            <span className="text-[10.5px] font-mono text-text-2">
+                              {pct}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-ink-3 rounded">
+                            <div
+                              className={`h-full rounded ${
+                                tone === "danger"
+                                  ? "bg-status-danger"
+                                  : tone === "warn"
+                                    ? "bg-status-warn"
+                                    : "bg-status-ok"
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Pill tone={tone} dot>
+                            {statusLabel(w.status)}
+                          </Pill>
+                        </div>
+                        {w.sourceUrl ? (
                           <a
-                            href={c.sourceUrl}
+                            href={w.sourceUrl}
                             target="_blank"
                             rel="noreferrer"
                           >
                             <Btn variant="ghost" size="sm">
+                              Open
                               <ExternalLink size={11} />
                             </Btn>
                           </a>
                         ) : (
-                          <span />
+                          <Link
+                            href={`/projects/${projectId}/inputs?workbook=${w.id}`}
+                          >
+                            <Btn variant="ghost" size="sm">
+                              Open
+                            </Btn>
+                          </Link>
                         )}
+                        <ChevronRight size={14} className="text-text-3" />
                       </div>
-                    ))}
-                  </PanelBody>
-                </Panel>
-              )}
-            </section>
+                    );
+                  })}
+                </PanelBody>
+              </Panel>
+            )}
+          </section>
 
-            {/* SYNTHESIS */}
-            <section>
-              <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
-                <div>
-                  <h2 className="text-[16px] font-semibold m-0 -tracking-[0.01em]">
-                    Synthesis
-                  </h2>
-                  <p className="text-[12.5px] text-text-3 m-0 mt-0.5">
-                    AI-generated key findings and delivery implications across
-                    every workbook, session, and context source above.
-                  </p>
-                </div>
-                <Btn
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void handleGenerateSummary()}
-                  disabled={generatingSummary}
-                >
-                  <Sparkles size={11} />
-                  {generatingSummary
-                    ? "Generating…"
-                    : summary
-                      ? "Regenerate"
-                      : "Generate"}
-                </Btn>
+          {/* MINI DISCOVERY SESSIONS */}
+          <section>
+            <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
+              <div>
+                <h2 className="text-[16px] font-semibold m-0 -tracking-[0.01em]">
+                  Discovery sessions
+                </h2>
+                <p className="text-[12.5px] text-text-3 m-0 mt-0.5">
+                  Mini sessions, ad-hoc calls, hallway findings — capture
+                  context as you go without needing a full workbook.
+                </p>
               </div>
-              {!summary || !summary.sections || summary.sections.length === 0 ? (
-                <Empty
-                  icon={<Sparkles size={20} />}
-                  title="No synthesis yet"
-                  sub="Capture sessions, link context sources, complete workbooks — then regenerate to get key findings + delivery implications."
-                  action={
-                    <Btn
-                      variant="primary"
-                      size="sm"
-                      onClick={() => void handleGenerateSummary()}
-                      disabled={generatingSummary}
-                    >
-                      <Sparkles size={11} />
-                      {generatingSummary ? "Generating…" : "Generate synthesis"}
-                    </Btn>
-                  }
-                />
-              ) : (
-                <Panel>
-                  <PanelBody>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold mb-2">
-                          Key findings
+              <Btn
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setSessionError(null);
+                  setSessionOpen(true);
+                }}
+              >
+                <NotebookPen size={11} />
+                Capture session
+              </Btn>
+            </div>
+            {sessions.length === 0 ? (
+              <Empty
+                icon={<Mic size={20} />}
+                title="No sessions captured yet"
+                sub="Quick-capture findings from a call, workshop, or unstructured chat. Title + notes is enough."
+                action={
+                  <Btn
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setSessionOpen(true)}
+                  >
+                    <NotebookPen size={11} />
+                    Capture first session
+                  </Btn>
+                }
+              />
+            ) : (
+              <Panel>
+                <PanelBody flush>
+                  {sessions.slice(0, 6).map((s, i, arr) => {
+                    const body = (s.notes ?? "").trim();
+                    const preview =
+                      body.length > 0
+                        ? body.length > 280
+                          ? `${body.slice(0, 280)}…`
+                          : body
+                        : "(no notes)";
+                    return (
+                      <div
+                        key={s.id}
+                        className={`px-[18px] py-3.5 ${
+                          i < Math.min(sessions.length, 6) - 1
+                            ? "border-b border-ink-4"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Mic
+                              size={12}
+                              className="text-text-3 flex-shrink-0"
+                            />
+                            <span className="text-[13px] font-medium text-text-1 truncate">
+                              {s.title || "Mini discovery session"}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-text-3 font-mono whitespace-nowrap">
+                            {new Date(s.meetingDate).toLocaleDateString()}
+                          </span>
+                        </div>
+                        {s.attendees && s.attendees.length > 0 && (
+                          <div className="text-[11.5px] text-text-3 mb-1.5">
+                            {s.attendees.slice(0, 4).join(", ")}
+                            {s.attendees.length > 4
+                              ? ` +${s.attendees.length - 4}`
+                              : ""}
+                          </div>
+                        )}
+                        <p className="text-[12.5px] text-text-2 m-0 leading-[1.5] whitespace-pre-wrap">
+                          {preview}
                         </p>
-                        <ul className="m-0 pl-5 space-y-1.5 text-[12.5px] text-text-2 leading-[1.6]">
-                          {summary.sections.slice(0, 6).map((s) => (
-                            <li key={`finding_${s.sessionNumber}`}>
-                              <span className="text-text-1 font-medium">
-                                {s.title ?? `Section ${s.sessionNumber}`}
-                              </span>
-                              {s.fields && s.fields.length > 0 && (
-                                <span className="text-text-3">
-                                  {" "}
-                                  · {s.fields.length} captured
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
                       </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold mb-2">
-                          Implications for delivery
-                        </p>
-                        <ul className="m-0 pl-5 space-y-1.5 text-[12.5px] text-text-2 leading-[1.6]">
-                          <li>
-                            {workbooks.length} workbook
-                            {workbooks.length === 1 ? "" : "s"} feeding scope
-                          </li>
-                          <li>
-                            {sessions.length} session
-                            {sessions.length === 1 ? "" : "s"} captured —
-                            {sessions.length === 0
-                              ? " run mini discovery sessions for unstructured findings"
-                              : " mine these for delivery context"}
-                          </li>
-                          <li>
-                            {contextItems.length} context source
-                            {contextItems.length === 1 ? "" : "s"}{" "}
-                            {miroBoards.length > 0
-                              ? `(${miroBoards.length} Miro board${miroBoards.length === 1 ? "" : "s"})`
-                              : "linked"}
-                          </li>
-                          <li>
-                            {summary.totalQuestions
-                              ? `${summary.answeredQuestions ?? 0}/${summary.totalQuestions} sections answered — ${
-                                  Math.round(
-                                    ((summary.answeredQuestions ?? 0) /
-                                      summary.totalQuestions) *
-                                      100
-                                  )
-                                }% complete`
-                              : "Sections not yet structured"}
-                          </li>
-                        </ul>
-                      </div>
+                    );
+                  })}
+                  {sessions.length > 6 && (
+                    <div className="px-[18px] py-2.5 border-t border-ink-4 text-center">
+                      <Link
+                        href={`/projects/${projectId}/meetings`}
+                        className="text-[12px] text-text-3 hover:text-text-1 transition-colors"
+                      >
+                        View all {sessions.length} sessions →
+                      </Link>
                     </div>
-                  </PanelBody>
-                </Panel>
-              )}
-            </section>
-          </div>
+                  )}
+                </PanelBody>
+              </Panel>
+            )}
+          </section>
 
-          {/* RIGHT RAIL */}
-          <aside className="flex flex-col gap-3.5 xl:sticky xl:top-[80px] self-start">
-            <Panel>
-              <PanelHead title="Quick actions" />
-              <PanelBody className="grid gap-2">
-                <Link href={`/projects/${projectId}/inputs`}>
-                  <Btn variant="primary" size="sm" className="w-full justify-start">
-                    <Plus size={12} />
-                    Create workbook
+          {/* CONTEXT ITEMS */}
+          <section>
+            <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
+              <div>
+                <h2 className="text-[16px] font-semibold m-0 -tracking-[0.01em]">
+                  Context items
+                </h2>
+                <p className="text-[12.5px] text-text-3 m-0 mt-0.5">
+                  Miro boards, Google Docs, PDFs, and links pulled into
+                  discovery for synthesis.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {miroBoards.length > 0 && (
+                  <Btn
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void handleRecrawlMiro()}
+                    disabled={refreshing}
+                  >
+                    {refreshing ? (
+                      <Loader2 size={11} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={11} />
+                    )}
+                    Recrawl Miro
                   </Btn>
-                </Link>
-                <Link href={`/projects/${projectId}/inputs`}>
-                  <Btn variant="ghost" size="sm" className="w-full justify-start">
-                    <UserPlus size={12} />
-                    Invite contributor
-                  </Btn>
-                </Link>
+                )}
                 <Btn
                   variant="ghost"
                   size="sm"
-                  className="w-full justify-start"
                   onClick={() => {
                     setContextError(null);
                     setContextOpen(true);
                   }}
                 >
-                  <Upload size={12} />
+                  <Upload size={11} />
                   Add context source
                 </Btn>
-                <Btn
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => void handleRecrawlMiro()}
-                  disabled={refreshing}
-                >
-                  <RefreshCw size={12} />
-                  Recrawl Miro boards
-                </Btn>
-                <Link href={`/projects/${projectId}/proposal`}>
-                  <Btn variant="ghost" size="sm" className="w-full justify-start">
-                    <Send size={12} />
-                    Open discovery doc
-                  </Btn>
-                </Link>
-              </PanelBody>
-            </Panel>
+              </div>
+            </div>
+            {contextItems.length === 0 ? (
+              <Empty
+                icon={<ImageIcon size={20} />}
+                title="No context items yet"
+                sub="Upload PDFs, link Google Docs, or pull in Miro boards as discovery context."
+              />
+            ) : (
+              <Panel>
+                <PanelBody flush>
+                  {contextItems.map((c, i) => (
+                    <div
+                      key={c.id}
+                      className={`grid grid-cols-[auto_minmax(0,1fr)_auto_auto] gap-3 items-center px-[18px] py-2.5 ${
+                        i < contextItems.length - 1
+                          ? "border-b border-ink-4"
+                          : ""
+                      }`}
+                    >
+                      {resourceIcon[c.resourceType ?? ""] ?? (
+                        <FileText size={13} className="text-text-3" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-[13px] font-medium truncate">
+                          {c.sourceLabel}
+                        </div>
+                        <div className="text-[11px] text-text-3 mt-0.5 truncate">
+                          {c.resourceType?.replace(/_/g, " ") ?? c.evidenceType}
+                          {" · "}
+                          {relativeTime(c.updatedAt)}
+                        </div>
+                      </div>
+                      <Pill
+                        tone={statusToneMap[c.status ?? "draft"] ?? "neutral"}
+                        dot
+                      >
+                        {statusLabel(c.status)}
+                      </Pill>
+                      {c.sourceUrl ? (
+                        <a href={c.sourceUrl} target="_blank" rel="noreferrer">
+                          <Btn variant="ghost" size="sm">
+                            <ExternalLink size={11} />
+                          </Btn>
+                        </a>
+                      ) : (
+                        <span />
+                      )}
+                    </div>
+                  ))}
+                </PanelBody>
+              </Panel>
+            )}
+          </section>
 
-            <Panel>
-              <PanelHead title="Deep editor" />
-              <PanelBody>
-                <p className="text-[12.5px] text-text-2 m-0 mb-2.5">
-                  Need to edit individual session fields, manage evidence, or
-                  generate the blueprint?
+          {/* SYNTHESIS */}
+          <section>
+            <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
+              <div>
+                <h2 className="text-[16px] font-semibold m-0 -tracking-[0.01em]">
+                  Synthesis
+                </h2>
+                <p className="text-[12.5px] text-text-3 m-0 mt-0.5">
+                  AI-generated key findings and delivery implications across
+                  every workbook, session, and context source above.
                 </p>
-                <Link href={`/projects/${projectId}/discovery/edit`}>
-                  <Btn variant="ghost" size="sm" className="w-full justify-start">
-                    Open discovery studio
-                    <ChevronRight size={12} />
+              </div>
+              <Btn
+                variant="ghost"
+                size="sm"
+                onClick={() => void handleGenerateSummary()}
+                disabled={generatingSummary}
+              >
+                <Sparkles size={11} />
+                {generatingSummary
+                  ? "Generating…"
+                  : summary
+                    ? "Regenerate"
+                    : "Generate"}
+              </Btn>
+            </div>
+            {!summary || !summary.sections || summary.sections.length === 0 ? (
+              <Empty
+                icon={<Sparkles size={20} />}
+                title="No synthesis yet"
+                sub="Capture sessions, link context sources, complete workbooks — then regenerate to get key findings + delivery implications."
+                action={
+                  <Btn
+                    variant="primary"
+                    size="sm"
+                    onClick={() => void handleGenerateSummary()}
+                    disabled={generatingSummary}
+                  >
+                    <Sparkles size={11} />
+                    {generatingSummary ? "Generating…" : "Generate synthesis"}
                   </Btn>
-                </Link>
-              </PanelBody>
-            </Panel>
-          </aside>
+                }
+              />
+            ) : (
+              <Panel>
+                <PanelBody>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold mb-2">
+                        Key findings
+                      </p>
+                      <ul className="m-0 pl-5 space-y-1.5 text-[12.5px] text-text-2 leading-[1.6]">
+                        {summary.sections.slice(0, 6).map((s) => (
+                          <li key={`finding_${s.sessionNumber}`}>
+                            <span className="text-text-1 font-medium">
+                              {s.title ?? `Section ${s.sessionNumber}`}
+                            </span>
+                            {s.fields && s.fields.length > 0 && (
+                              <span className="text-text-3">
+                                {" "}
+                                · {s.fields.length} captured
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold mb-2">
+                        Implications for delivery
+                      </p>
+                      <ul className="m-0 pl-5 space-y-1.5 text-[12.5px] text-text-2 leading-[1.6]">
+                        <li>
+                          {workbooks.length} workbook
+                          {workbooks.length === 1 ? "" : "s"} feeding scope
+                        </li>
+                        <li>
+                          {sessions.length} session
+                          {sessions.length === 1 ? "" : "s"} captured —
+                          {sessions.length === 0
+                            ? " run mini discovery sessions for unstructured findings"
+                            : " mine these for delivery context"}
+                        </li>
+                        <li>
+                          {contextItems.length} context source
+                          {contextItems.length === 1 ? "" : "s"}{" "}
+                          {miroBoards.length > 0
+                            ? `(${miroBoards.length} Miro board${miroBoards.length === 1 ? "" : "s"})`
+                            : "linked"}
+                        </li>
+                        <li>
+                          {summary.totalQuestions
+                            ? `${summary.answeredQuestions ?? 0}/${summary.totalQuestions} sections answered — ${Math.round(
+                                ((summary.answeredQuestions ?? 0) /
+                                  summary.totalQuestions) *
+                                  100
+                              )}% complete`
+                            : "Sections not yet structured"}
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </PanelBody>
+              </Panel>
+            )}
+          </section>
         </div>
       </div>
 
@@ -1220,9 +1174,9 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
               </button>
             </div>
             <p className="text-[12.5px] text-text-2 m-0 mb-3">
-              No structured questions, no workbook. Just title + raw notes
-              from a call, workshop, hallway chat, Slack thread — anything
-              worth capturing.
+              No structured questions, no workbook. Just title + raw notes from
+              a call, workshop, hallway chat, Slack thread — anything worth
+              capturing.
             </p>
             <div className="grid gap-3">
               <label className="block">
@@ -1296,6 +1250,6 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
           </div>
         </>
       )}
-    </AppShell>
+    </ProjectWorkspaceView>
   );
 }

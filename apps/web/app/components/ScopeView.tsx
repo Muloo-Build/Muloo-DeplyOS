@@ -12,22 +12,14 @@ import {
   X
 } from "lucide-react";
 
-import AppShell from "./AppShell";
+import ProjectWorkspaceView from "./ProjectWorkspaceView";
 import { Btn } from "./ui/Btn";
 import { Empty } from "./ui/Empty";
 import { PageHead } from "./ui/PageHead";
 import { Panel, PanelBody, PanelHead } from "./ui/Panel";
 import { Pill } from "./ui/Pill";
 import { Stat, StatsGrid } from "./ui/Stat";
-import {
-  CellPrimary,
-  TBody,
-  Tbl,
-  Td,
-  Th,
-  THead,
-  Tr
-} from "./ui/Tbl";
+import { CellPrimary, TBody, Tbl, Td, Th, THead, Tr } from "./ui/Tbl";
 
 interface Workstream {
   id: string;
@@ -220,17 +212,14 @@ export default function ScopeView({ projectId }: ScopeViewProps) {
           ? Number(draft.estimatedHours)
           : null
       };
-      const r = await fetch(
-        `/api/projects/${encodeURIComponent(project.id)}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            deliveryWorkstreams: [...(project.deliveryWorkstreams ?? []), next]
-          })
-        }
-      );
+      const r = await fetch(`/api/projects/${encodeURIComponent(project.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          deliveryWorkstreams: [...(project.deliveryWorkstreams ?? []), next]
+        })
+      });
       if (!r.ok) {
         const body = await r.json().catch(() => null);
         throw new Error(body?.error ?? "Add failed");
@@ -261,8 +250,8 @@ export default function ScopeView({ projectId }: ScopeViewProps) {
     project?.engagementType === "GUIDED_DEPLOYMENT";
 
   return (
-    <AppShell>
-      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+    <ProjectWorkspaceView projectId={projectId} activeTab="scope">
+      <div className="space-y-6">
         <PageHead
           eyebrow={
             <Link
@@ -288,7 +277,10 @@ export default function ScopeView({ projectId }: ScopeViewProps) {
                 onClick={() => void loadAll()}
                 disabled={refreshing}
               >
-                <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
+                <RefreshCw
+                  size={13}
+                  className={refreshing ? "animate-spin" : ""}
+                />
                 Refresh
               </Btn>
               {latestQuote && (
@@ -314,7 +306,7 @@ export default function ScopeView({ projectId }: ScopeViewProps) {
           }
         />
 
-        <StatsGrid cols={3} className="mb-6">
+        <StatsGrid cols={3}>
           <Stat
             label="In scope"
             value={`${scopeItems.length} items`}
@@ -358,7 +350,7 @@ export default function ScopeView({ projectId }: ScopeViewProps) {
         </StatsGrid>
 
         {(blockedItems.length > 0 || varianceItems.length > 0) && (
-          <Panel className="mb-6">
+          <Panel>
             <PanelHead
               title={
                 blockedItems.length > 0
@@ -497,55 +489,57 @@ export default function ScopeView({ projectId }: ScopeViewProps) {
           )}
         </section>
 
-        {latestQuote && Array.isArray(latestQuote.productLines) && latestQuote.productLines.length > 0 && (
-          <section className="mt-6">
-            <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
-              <div>
-                <h2 className="text-[16px] font-semibold m-0 -tracking-[0.01em]">
-                  Quote line items
-                </h2>
-                <p className="text-[12.5px] text-text-3 m-0 mt-0.5">
-                  From {latestQuote.reference ?? latestQuote.id.slice(0, 8)}.
-                  These reconcile against the scope items above.
-                </p>
+        {latestQuote &&
+          Array.isArray(latestQuote.productLines) &&
+          latestQuote.productLines.length > 0 && (
+            <section>
+              <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
+                <div>
+                  <h2 className="text-[16px] font-semibold m-0 -tracking-[0.01em]">
+                    Quote line items
+                  </h2>
+                  <p className="text-[12.5px] text-text-3 m-0 mt-0.5">
+                    From {latestQuote.reference ?? latestQuote.id.slice(0, 8)}.
+                    These reconcile against the scope items above.
+                  </p>
+                </div>
+                <Link href={`/quotes/${latestQuote.id}`}>
+                  <Btn variant="ghost" size="sm">
+                    Open quote
+                    <ExternalLink size={11} />
+                  </Btn>
+                </Link>
               </div>
-              <Link href={`/quotes/${latestQuote.id}`}>
-                <Btn variant="ghost" size="sm">
-                  Open quote
-                  <ExternalLink size={11} />
-                </Btn>
-              </Link>
-            </div>
-            <Tbl>
-              <THead>
-                <Tr>
-                  <Th>Item</Th>
-                  <Th>Category</Th>
-                  <Th>Quantity</Th>
-                  <Th>Total</Th>
-                </Tr>
-              </THead>
-              <TBody>
-                {latestQuote.productLines.map((line) => (
-                  <Tr key={line.id}>
-                    <Td>
-                      <CellPrimary>{line.name}</CellPrimary>
-                    </Td>
-                    <Td muted>{line.category}</Td>
-                    <Td>
-                      <span className="font-mono">{line.quantity}</span>
-                    </Td>
-                    <Td>
-                      <span className="font-mono">
-                        {fmtMoney(line.lineTotalZar, latestQuote.currency)}
-                      </span>
-                    </Td>
+              <Tbl>
+                <THead>
+                  <Tr>
+                    <Th>Item</Th>
+                    <Th>Category</Th>
+                    <Th>Quantity</Th>
+                    <Th>Total</Th>
                   </Tr>
-                ))}
-              </TBody>
-            </Tbl>
-          </section>
-        )}
+                </THead>
+                <TBody>
+                  {latestQuote.productLines.map((line) => (
+                    <Tr key={line.id}>
+                      <Td>
+                        <CellPrimary>{line.name}</CellPrimary>
+                      </Td>
+                      <Td muted>{line.category}</Td>
+                      <Td>
+                        <span className="font-mono">{line.quantity}</span>
+                      </Td>
+                      <Td>
+                        <span className="font-mono">
+                          {fmtMoney(line.lineTotalZar, latestQuote.currency)}
+                        </span>
+                      </Td>
+                    </Tr>
+                  ))}
+                </TBody>
+              </Tbl>
+            </section>
+          )}
       </div>
 
       {addOpen && project && (
@@ -665,6 +659,6 @@ export default function ScopeView({ projectId }: ScopeViewProps) {
           </div>
         </>
       )}
-    </AppShell>
+    </ProjectWorkspaceView>
   );
 }

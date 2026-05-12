@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import AppShell from "../../../components/AppShell";
+import ProjectWorkspaceView from "../../../components/ProjectWorkspaceView";
 import ProjectMeetingsPanel from "../../../components/project/panels/ProjectMeetingsPanel";
 import { Btn } from "../../../components/ui/Btn";
 import { PageHead } from "../../../components/ui/PageHead";
@@ -27,9 +27,7 @@ export default function ProjectMeetingsPage({
     let cancelled = false;
     async function run() {
       try {
-        const r = await fetch(
-          `/api/projects/${encodeURIComponent(params.id)}`
-        );
+        const r = await fetch(`/api/projects/${encodeURIComponent(params.id)}`);
         if (!r.ok) return;
         const body = await r.json();
         if (cancelled) return;
@@ -45,8 +43,8 @@ export default function ProjectMeetingsPage({
   }, [params.id]);
 
   return (
-    <AppShell>
-      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+    <ProjectWorkspaceView projectId={params.id} activeTab="comms">
+      <div className="space-y-6">
         <PageHead
           eyebrow={
             <Link
@@ -59,11 +57,7 @@ export default function ProjectMeetingsPage({
           title="Meeting notes & summaries"
           lede="Capture meeting outcomes, attendees, and AI-extracted actions/decisions/risks against this project."
           actions={
-            <Btn
-              variant="primary"
-              size="md"
-              onClick={() => setModalOpen(true)}
-            >
+            <Btn variant="primary" size="md" onClick={() => setModalOpen(true)}>
               + Add meeting note
             </Btn>
           }
@@ -75,6 +69,6 @@ export default function ProjectMeetingsPage({
           setModalOpen={setModalOpen}
         />
       </div>
-    </AppShell>
+    </ProjectWorkspaceView>
   );
 }

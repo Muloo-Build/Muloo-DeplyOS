@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -41,15 +41,7 @@ import { Panel, PanelBody, PanelHead } from "./ui/Panel";
 import { Pill } from "./ui/Pill";
 import { SectionHead } from "./ui/SectionHead";
 import { Tag } from "./ui/Tag";
-import {
-  CellPrimary,
-  TBody,
-  Tbl,
-  Td,
-  Th,
-  THead,
-  Tr
-} from "./ui/Tbl";
+import { CellPrimary, TBody, Tbl, Td, Th, THead, Tr } from "./ui/Tbl";
 
 interface Workstream {
   id: string;
@@ -162,13 +154,47 @@ const projectTabs: Array<{
   path: string;
 }> = [
   { id: "overview", label: "Overview", icon: <Home size={13} />, path: "" },
-  { id: "discovery", label: "Discovery", icon: <Search size={13} />, path: "/discovery" },
-  { id: "scope", label: "Scope", icon: <HelpCircle size={13} />, path: "/scope" },
-  { id: "delivery", label: "Delivery", icon: <KanbanSquare size={13} />, path: "/delivery" },
-  { id: "comms", label: "Comms", icon: <MessageSquare size={13} />, path: "/inputs" },
+  {
+    id: "discovery",
+    label: "Discovery",
+    icon: <Search size={13} />,
+    path: "/discovery"
+  },
+  {
+    id: "scope",
+    label: "Scope",
+    icon: <HelpCircle size={13} />,
+    path: "/scope"
+  },
+  {
+    id: "delivery",
+    label: "Delivery",
+    icon: <KanbanSquare size={13} />,
+    path: "/delivery"
+  },
+  {
+    id: "comms",
+    label: "Comms",
+    icon: <MessageSquare size={13} />,
+    path: "/meetings"
+  },
   { id: "files", label: "Files", icon: <Folder size={13} />, path: "/audit" },
-  { id: "settings", label: "Settings", icon: <SettingsIcon size={13} />, path: "/edit" }
+  {
+    id: "settings",
+    label: "Settings",
+    icon: <SettingsIcon size={13} />,
+    path: "/edit"
+  }
 ];
+
+type ProjectWorkspaceTabId =
+  | "overview"
+  | "discovery"
+  | "scope"
+  | "delivery"
+  | "comms"
+  | "files"
+  | "settings";
 
 const pipelineDefs = [
   { id: "context", label: "Context" },
@@ -280,7 +306,10 @@ function workstreamPill(status?: string): {
     case "at_risk":
       return { tone: "warn", label: "At risk" };
     default:
-      return { tone: "neutral", label: status?.replace(/_/g, " ") ?? "Planned" };
+      return {
+        tone: "neutral",
+        label: status?.replace(/_/g, " ") ?? "Planned"
+      };
   }
 }
 
@@ -299,12 +328,20 @@ function workstreamProgress(
 
 interface ProjectWorkspaceViewProps {
   projectId: string;
+  activeTab?: ProjectWorkspaceTabId;
+  children?: ReactNode;
 }
 
-export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceViewProps) {
+export default function ProjectWorkspaceView({
+  projectId,
+  activeTab = "overview",
+  children
+}: ProjectWorkspaceViewProps) {
   const router = useRouter();
   const [project, setProject] = useState<ProjectRecord | null>(null);
-  const [workstreamHours, setWorkstreamHours] = useState<WorkstreamHoursEntry[]>([]);
+  const [workstreamHours, setWorkstreamHours] = useState<
+    WorkstreamHoursEntry[]
+  >([]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
   const [meetings, setMeetings] = useState<MeetingNote[]>([]);
@@ -346,17 +383,14 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
           ? Number(wsDraft.estimatedHours)
           : null
       };
-      const r = await fetch(
-        `/api/projects/${encodeURIComponent(project.id)}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            deliveryWorkstreams: [...(project.deliveryWorkstreams ?? []), next]
-          })
-        }
-      );
+      const r = await fetch(`/api/projects/${encodeURIComponent(project.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          deliveryWorkstreams: [...(project.deliveryWorkstreams ?? []), next]
+        })
+      });
       if (!r.ok) {
         const body = await r.json().catch(() => null);
         throw new Error(body?.error ?? "Add workstream failed");
@@ -414,10 +448,10 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
     setDeleting(true);
     setDeleteError(null);
     try {
-      const r = await fetch(
-        `/api/projects/${encodeURIComponent(projectId)}`,
-        { method: "DELETE", credentials: "include" }
-      );
+      const r = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, {
+        method: "DELETE",
+        credentials: "include"
+      });
       if (!r.ok) {
         const body = await r.json().catch(() => null);
         throw new Error(body?.error ?? `Delete failed (${r.status})`);
@@ -447,9 +481,7 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
           fetch("/api/quotes")
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null),
-          fetch(
-            `/api/projects/${encodeURIComponent(projectId)}/meeting-notes`
-          )
+          fetch(`/api/projects/${encodeURIComponent(projectId)}/meeting-notes`)
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null)
         ]);
@@ -522,15 +554,13 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
   const workstreams: Workstream[] = project?.deliveryWorkstreams ?? [];
   const hubs = project?.hubsInScope ?? project?.selectedHubs ?? [];
 
-  const totalUsed = workstreamHours.reduce(
-    (sum, h) => sum + (h.used ?? 0),
-    0
-  );
+  const totalUsed = workstreamHours.reduce((sum, h) => sum + (h.used ?? 0), 0);
   const totalBudgeted = workstreamHours.reduce(
     (sum, h) => sum + (h.budgeted ?? h.estimated ?? 0),
     0
   );
-  const hoursPct = totalBudgeted > 0 ? Math.round((totalUsed / totalBudgeted) * 100) : 0;
+  const hoursPct =
+    totalBudgeted > 0 ? Math.round((totalUsed / totalBudgeted) * 100) : 0;
 
   const workstreamRiskCount = workstreams.filter(
     (w) => w.scopeRisk === "high" || w.status === "blocked"
@@ -544,8 +574,7 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
     return "Discovery";
   })();
 
-  const stageTone =
-    workstreamRiskCount > 0 ? "warn" : "ok";
+  const stageTone = workstreamRiskCount > 0 ? "warn" : "ok";
 
   const portalConnected = Boolean(
     project?.portal?.connected || project?.portal?.portalId
@@ -559,7 +588,8 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
     return name ? { name, email: project.clientChampionEmail ?? null } : null;
   })();
 
-  const isDraft = project?.quoteApprovalStatus === "draft" || !project?.scopeLockedAt;
+  const isDraft =
+    project?.quoteApprovalStatus === "draft" || !project?.scopeLockedAt;
 
   const summaryText =
     project?.scopeExecutiveSummary ||
@@ -574,7 +604,10 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
         <header className="flex items-start justify-between gap-6 mb-4 flex-wrap">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 text-[12px] text-text-3 mb-2">
-              <Link href="/projects" className="hover:text-text-1 transition-colors">
+              <Link
+                href="/projects"
+                className="hover:text-text-1 transition-colors"
+              >
                 Projects
               </Link>
               {project?.client?.name && (
@@ -620,7 +653,8 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
                     <span className="font-mono">
                       {totalUsed}/{totalBudgeted}h
                     </span>
-                    {project.retainer?.serviceLine && ` · ${project.retainer.serviceLine}`}
+                    {project.retainer?.serviceLine &&
+                      ` · ${project.retainer.serviceLine}`}
                   </span>
                 )}
                 {project.updatedAt && (
@@ -633,7 +667,11 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
             )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Link href={`/client/${projectId}`} target="_blank" rel="noreferrer">
+            <Link
+              href={`/client/${projectId}`}
+              target="_blank"
+              rel="noreferrer"
+            >
               <Btn variant="ghost" size="md">
                 <ExternalLink size={13} />
                 Client portal
@@ -851,7 +889,9 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
                 portal access, and discovery data tied to this project are
                 removed. Type the project name to confirm.
               </p>
-              <div className="text-[11.5px] text-text-3 mb-1.5">Project name</div>
+              <div className="text-[11.5px] text-text-3 mb-1.5">
+                Project name
+              </div>
               <div className="font-mono text-[12.5px] bg-ink-2 border border-ink-4 rounded-[10px] px-2.5 py-1.5 mb-3 select-all">
                 {project.name}
               </div>
@@ -881,9 +921,7 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
                 <button
                   type="button"
                   onClick={() => void handleDelete()}
-                  disabled={
-                    deleting || deleteConfirm.trim() !== project.name
-                  }
+                  disabled={deleting || deleteConfirm.trim() !== project.name}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12.5px] font-semibold bg-status-danger text-[#2a0810] hover:bg-[#ff8090] border border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Trash2 size={13} />
@@ -909,9 +947,7 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
             />
             <HealthCell
               label="Hours"
-              value={
-                totalBudgeted > 0 ? `${totalUsed}/${totalBudgeted}h` : "—"
-              }
+              value={totalBudgeted > 0 ? `${totalUsed}/${totalBudgeted}h` : "—"}
               sub={
                 totalBudgeted > 0
                   ? `${hoursPct}% of phase budget`
@@ -926,11 +962,7 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
                   ? `${workstreamRiskCount} open`
                   : "all clear"
               }
-              sub={
-                workstreamRiskCount > 0
-                  ? "see workstreams"
-                  : "no blockers"
-              }
+              sub={workstreamRiskCount > 0 ? "see workstreams" : "no blockers"}
               tone={workstreamRiskCount > 0 ? "warn" : "ok"}
             />
             <HealthCell
@@ -944,8 +976,8 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
               value={portalConnected ? "Connected" : "Disconnected"}
               sub={
                 portalConnected
-                  ? project.portal?.displayName ??
-                    `Portal ${project.portal?.portalId ?? ""}`.trim()
+                  ? (project.portal?.displayName ??
+                    `Portal ${project.portal?.portalId ?? ""}`.trim())
                   : "HubSpot not yet linked"
               }
               tone={portalConnected ? "ok" : "muted"}
@@ -993,7 +1025,9 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
               Workstreams
             </div>
             {workstreams.length === 0 ? (
-              <div className="px-3 py-1.5 text-[12px] text-text-4">None yet.</div>
+              <div className="px-3 py-1.5 text-[12px] text-text-4">
+                None yet.
+              </div>
             ) : (
               workstreams.slice(0, 8).map((w, i) => (
                 <div
@@ -1017,7 +1051,7 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
             {/* Tab bar */}
             <div className="flex gap-0.5 border-b border-ink-4 overflow-x-auto -mx-1 px-1">
               {projectTabs.map((t) => {
-                const isActive = t.id === "overview";
+                const isActive = t.id === activeTab;
                 const href = `/projects/${projectId}${t.path}`;
                 return (
                   <Link
@@ -1036,161 +1070,176 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
               })}
             </div>
 
-            {/* OVERVIEW CONTENT */}
-            <Panel>
-              <PanelHead
-                title="Project summary"
-                right={
-                  <Link href={`/projects/${projectId}/edit`}>
-                    <Btn variant="ghost" size="icon" aria-label="Edit summary">
-                      <Edit3 size={12} />
-                    </Btn>
-                  </Link>
-                }
-              />
-              <PanelBody className="grid gap-3.5">
-                <p className="m-0 text-[13.5px] text-text-2 leading-[1.6]">
-                  {summaryText}
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                  {project?.problemStatement && (
-                    <MetaItem
-                      k="Why we're doing this"
-                      v={project.problemStatement}
-                    />
-                  )}
-                  {hubs.length > 0 && (
-                    <MetaItem k="Hubs" v={hubs.join(" + ")} />
-                  )}
-                  {project?.engagementType && (
-                    <MetaItem
-                      k="Engagement"
-                      v={
-                        statusLabel(project.engagementType.toLowerCase()) ??
-                        project.engagementType
-                      }
-                    />
-                  )}
-                  {champion && (
-                    <MetaItem
-                      k="Champion"
-                      v={champion.name}
-                    />
-                  )}
-                  {project?.retainer && (
-                    <MetaItem
-                      k="Retainer"
-                      v={`${project.retainer.blockSize ?? "—"}h · ${
-                        project.retainer.currency ?? "ZAR"
-                      } ${project.retainer.rate ?? "—"}/h`}
-                    />
-                  )}
-                  {project?.commercialBrief && (
-                    <MetaItem k="Commercial" v={project.commercialBrief} />
-                  )}
-                </div>
-              </PanelBody>
-            </Panel>
-
-            {/* WORKSTREAMS */}
-            <section>
-              <SectionHead
-                title="Workstreams"
-                right={
-                  <Btn
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setWsError(null);
-                      setWsModalOpen(true);
-                    }}
-                  >
-                    <Plus size={12} />
-                    Add workstream
-                  </Btn>
-                }
-              />
-              {workstreams.length === 0 ? (
-                <Empty
-                  icon={<KanbanSquare size={20} />}
-                  title="No workstreams yet"
-                  sub="Add workstreams to break this project into deliverable units."
-                />
-              ) : (
-                <div className="flex flex-col gap-2.5">
-                  {workstreams.map((w, idx) => {
-                    const pill = workstreamPill(w.status);
-                    const progress = workstreamProgress(w.id, workstreamHours);
-                    const owner = w.deliveryOwner ?? w.owner ?? "—";
-                    const hours = w.estimatedHours ?? w.hourCap ?? 0;
-                    const risks =
-                      (w.scopeRisk === "high" ? 1 : 0) +
-                      (w.status === "blocked" ? 1 : 0);
-                    return (
-                      <div
-                        key={w.id}
-                        className="bg-ink-1 border border-ink-4 rounded-[14px] p-4 grid grid-cols-[minmax(0,1fr)_auto] gap-3.5 items-center hover:border-ink-5 transition-colors"
-                      >
-                        <div className="min-w-0">
-                          <div className="text-[14px] font-semibold m-0 mb-1 flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-[10.5px] text-text-4 bg-ink-2 px-1.5 py-0.5 rounded font-medium">
-                              WS-{String(idx + 1).padStart(2, "0")}
-                            </span>
-                            <span className="truncate">{w.name}</span>
-                            <Pill tone={pill.tone} dot>
-                              {pill.label}
-                            </Pill>
-                          </div>
-                          {w.summary && (
-                            <p className="text-[12.5px] text-text-3 m-0 mb-2.5 line-clamp-2">
-                              {w.summary}
-                            </p>
-                          )}
-                          <Bar value={progress} tone={pill.tone === "danger" ? "danger" : pill.tone === "warn" ? "warn" : "ok"} />
-                          <div className="flex items-center gap-4 text-[11.5px] text-text-3 mt-2 flex-wrap">
-                            <span>
-                              <span className="text-text-2 font-medium">
-                                {owner}
-                              </span>{" "}
-                              owner
-                            </span>
-                            {hours > 0 && (
-                              <span className="font-mono">{hours}h</span>
-                            )}
-                            <span>{progress}% complete</span>
-                            {risks > 0 && (
-                              <span className="text-status-warn flex items-center gap-1">
-                                <AlertTriangle size={11} />
-                                {risks} risk{risks > 1 ? "s" : ""}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <Btn variant="ghost" size="sm">
-                          <ArrowRight size={12} />
+            {children ?? (
+              <>
+                {/* OVERVIEW CONTENT */}
+                <Panel>
+                  <PanelHead
+                    title="Project summary"
+                    right={
+                      <Link href={`/projects/${projectId}/edit`}>
+                        <Btn
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Edit summary"
+                        >
+                          <Edit3 size={12} />
                         </Btn>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+                      </Link>
+                    }
+                  />
+                  <PanelBody className="grid gap-3.5">
+                    <p className="m-0 text-[13.5px] text-text-2 leading-[1.6]">
+                      {summaryText}
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                      {project?.problemStatement && (
+                        <MetaItem
+                          k="Why we're doing this"
+                          v={project.problemStatement}
+                        />
+                      )}
+                      {hubs.length > 0 && (
+                        <MetaItem k="Hubs" v={hubs.join(" + ")} />
+                      )}
+                      {project?.engagementType && (
+                        <MetaItem
+                          k="Engagement"
+                          v={
+                            statusLabel(project.engagementType.toLowerCase()) ??
+                            project.engagementType
+                          }
+                        />
+                      )}
+                      {champion && <MetaItem k="Champion" v={champion.name} />}
+                      {project?.retainer && (
+                        <MetaItem
+                          k="Retainer"
+                          v={`${project.retainer.blockSize ?? "—"}h · ${
+                            project.retainer.currency ?? "ZAR"
+                          } ${project.retainer.rate ?? "—"}/h`}
+                        />
+                      )}
+                      {project?.commercialBrief && (
+                        <MetaItem k="Commercial" v={project.commercialBrief} />
+                      )}
+                    </div>
+                  </PanelBody>
+                </Panel>
 
-            {/* SOLD VS DISCOVERED */}
-            <section>
-              <SectionHead
-                title="Sold vs discovered"
-                right={
-                  <span className="text-[12px] text-text-3">
-                    Variance check between proposal and discovery
-                  </span>
-                }
-              />
-              <SoldVsDiscovered
-                workstreams={workstreams}
-                hours={workstreamHours}
-              />
-            </section>
+                {/* WORKSTREAMS */}
+                <section>
+                  <SectionHead
+                    title="Workstreams"
+                    right={
+                      <Btn
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setWsError(null);
+                          setWsModalOpen(true);
+                        }}
+                      >
+                        <Plus size={12} />
+                        Add workstream
+                      </Btn>
+                    }
+                  />
+                  {workstreams.length === 0 ? (
+                    <Empty
+                      icon={<KanbanSquare size={20} />}
+                      title="No workstreams yet"
+                      sub="Add workstreams to break this project into deliverable units."
+                    />
+                  ) : (
+                    <div className="flex flex-col gap-2.5">
+                      {workstreams.map((w, idx) => {
+                        const pill = workstreamPill(w.status);
+                        const progress = workstreamProgress(
+                          w.id,
+                          workstreamHours
+                        );
+                        const owner = w.deliveryOwner ?? w.owner ?? "—";
+                        const hours = w.estimatedHours ?? w.hourCap ?? 0;
+                        const risks =
+                          (w.scopeRisk === "high" ? 1 : 0) +
+                          (w.status === "blocked" ? 1 : 0);
+                        return (
+                          <div
+                            key={w.id}
+                            className="bg-ink-1 border border-ink-4 rounded-[14px] p-4 grid grid-cols-[minmax(0,1fr)_auto] gap-3.5 items-center hover:border-ink-5 transition-colors"
+                          >
+                            <div className="min-w-0">
+                              <div className="text-[14px] font-semibold m-0 mb-1 flex items-center gap-2 flex-wrap">
+                                <span className="font-mono text-[10.5px] text-text-4 bg-ink-2 px-1.5 py-0.5 rounded font-medium">
+                                  WS-{String(idx + 1).padStart(2, "0")}
+                                </span>
+                                <span className="truncate">{w.name}</span>
+                                <Pill tone={pill.tone} dot>
+                                  {pill.label}
+                                </Pill>
+                              </div>
+                              {w.summary && (
+                                <p className="text-[12.5px] text-text-3 m-0 mb-2.5 line-clamp-2">
+                                  {w.summary}
+                                </p>
+                              )}
+                              <Bar
+                                value={progress}
+                                tone={
+                                  pill.tone === "danger"
+                                    ? "danger"
+                                    : pill.tone === "warn"
+                                      ? "warn"
+                                      : "ok"
+                                }
+                              />
+                              <div className="flex items-center gap-4 text-[11.5px] text-text-3 mt-2 flex-wrap">
+                                <span>
+                                  <span className="text-text-2 font-medium">
+                                    {owner}
+                                  </span>{" "}
+                                  owner
+                                </span>
+                                {hours > 0 && (
+                                  <span className="font-mono">{hours}h</span>
+                                )}
+                                <span>{progress}% complete</span>
+                                {risks > 0 && (
+                                  <span className="text-status-warn flex items-center gap-1">
+                                    <AlertTriangle size={11} />
+                                    {risks} risk{risks > 1 ? "s" : ""}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <Btn variant="ghost" size="sm">
+                              <ArrowRight size={12} />
+                            </Btn>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                {/* SOLD VS DISCOVERED */}
+                <section>
+                  <SectionHead
+                    title="Sold vs discovered"
+                    right={
+                      <span className="text-[12px] text-text-3">
+                        Variance check between proposal and discovery
+                      </span>
+                    }
+                  />
+                  <SoldVsDiscovered
+                    workstreams={workstreams}
+                    hours={workstreamHours}
+                  />
+                </section>
+              </>
+            )}
           </div>
 
           {/* RIGHT RAIL */}
@@ -1268,14 +1317,19 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
               <PanelBody className="grid gap-3">
                 {project?.client && (
                   <div className="flex items-center gap-2.5">
-                    <Avatar size="lg" initials={project.client.name.slice(0, 2)} />
+                    <Avatar
+                      size="lg"
+                      initials={project.client.name.slice(0, 2)}
+                    />
                     <div className="min-w-0">
                       <div className="text-[13px] font-semibold truncate">
                         {project.client.name}
                       </div>
                       <div className="text-[11.5px] text-text-3 truncate">
                         {project.client.industry ?? "—"}
-                        {project.client.region ? ` · ${project.client.region}` : ""}
+                        {project.client.region
+                          ? ` · ${project.client.region}`
+                          : ""}
                       </div>
                     </div>
                   </div>
@@ -1303,7 +1357,9 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
                   <div className="flex items-center justify-between bg-ink-2 border border-ink-4 rounded-[10px] px-2.5 py-2">
                     <span
                       className={`text-[12px] flex items-center gap-1.5 ${
-                        portalConnected ? "text-status-ok" : "text-status-danger"
+                        portalConnected
+                          ? "text-status-ok"
+                          : "text-status-danger"
                       }`}
                     >
                       <span
@@ -1422,7 +1478,10 @@ export default function ProjectWorkspaceView({ projectId }: ProjectWorkspaceView
                       >
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 text-[12.5px] font-medium truncate">
-                            <Receipt size={11} className="text-text-3 flex-shrink-0" />
+                            <Receipt
+                              size={11}
+                              className="text-text-3 flex-shrink-0"
+                            />
                             <span className="font-mono">
                               {q.reference ?? q.id.slice(0, 8)}
                             </span>
@@ -1622,14 +1681,11 @@ function SoldVsDiscovered({
           const quoted = w.estimatedHours ?? w.hourCap ?? entry?.budgeted ?? 0;
           const used = entry?.used ?? 0;
           const variance = used - quoted;
-          const tone =
-            variance > 0 ? "warn" : variance < 0 ? "ok" : "neutral";
+          const tone = variance > 0 ? "warn" : variance < 0 ? "ok" : "neutral";
           return (
             <Tr key={w.id}>
               <Td>
-                <CellPrimary
-                  sub={`WS-${String(idx + 1).padStart(2, "0")}`}
-                >
+                <CellPrimary sub={`WS-${String(idx + 1).padStart(2, "0")}`}>
                   {w.name}
                 </CellPrimary>
               </Td>

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { SkeletonRows } from "./LoadingSkeleton";
-import ProjectWorkflowNav from "./ProjectWorkflowNav";
 
 interface ProjectSummary {
   id: string;
@@ -189,9 +188,15 @@ function inferWorkstreamIdForFinding(
   const normalizedArea = area.toLowerCase();
 
   if (
-    ["crm", "pipelines", "properties", "workflows", "reporting", "integrations", "data_quality"].includes(
-      normalizedArea
-    )
+    [
+      "crm",
+      "pipelines",
+      "properties",
+      "workflows",
+      "reporting",
+      "integrations",
+      "data_quality"
+    ].includes(normalizedArea)
   ) {
     return (
       workstreams.find((workstream) =>
@@ -401,13 +406,19 @@ export default function PortalAuditWorkspace({
   const [aiAuditBusy, setAiAuditBusy] = useState(false);
   const [aiAuditFeedback, setAiAuditFeedback] = useState<string | null>(null);
   const [standardPackBusy, setStandardPackBusy] = useState(false);
-  const [standardPackFeedback, setStandardPackFeedback] = useState<string | null>(
-    null
-  );
+  const [standardPackFeedback, setStandardPackFeedback] = useState<
+    string | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [auditProviderKey, setAuditProviderKey] = useState("anthropic");
   const [availableProviders, setAvailableProviders] = useState<
-    Array<{ providerKey: string; label: string; defaultModel: string | null; isEnabled: boolean; hasApiKey: boolean }>
+    Array<{
+      providerKey: string;
+      label: string;
+      defaultModel: string | null;
+      isEnabled: boolean;
+      hasApiKey: boolean;
+    }>
   >([]);
   const [activeFindingArea, setActiveFindingArea] = useState<
     (typeof auditAreas)[number] | null
@@ -415,9 +426,9 @@ export default function PortalAuditWorkspace({
   const [expandedAreas, setExpandedAreas] = useState<Record<string, boolean>>(
     () => Object.fromEntries(auditAreas.map((area) => [area.key, true]))
   );
-  const [creatingTaskFindingId, setCreatingTaskFindingId] = useState<string | null>(
-    null
-  );
+  const [creatingTaskFindingId, setCreatingTaskFindingId] = useState<
+    string | null
+  >(null);
 
   async function loadAuditData() {
     setLoading(true);
@@ -501,15 +512,29 @@ export default function PortalAuditWorkspace({
     void loadAuditData();
     fetch("/api/provider-connections")
       .then((r) => r.json())
-      .then((body: { providers?: Array<{ providerKey: string; label: string; defaultModel: string | null; isEnabled: boolean; hasApiKey: boolean }> }) => {
-        const aiProviders = (body.providers ?? []).filter(
-          (p) => p.isEnabled && p.hasApiKey && p.providerKey !== "hubspot_oauth"
-        );
-        setAvailableProviders(aiProviders);
-        if (aiProviders.length > 0 && !aiProviders.find((p) => p.providerKey === "anthropic")) {
-          setAuditProviderKey(aiProviders[0].providerKey);
+      .then(
+        (body: {
+          providers?: Array<{
+            providerKey: string;
+            label: string;
+            defaultModel: string | null;
+            isEnabled: boolean;
+            hasApiKey: boolean;
+          }>;
+        }) => {
+          const aiProviders = (body.providers ?? []).filter(
+            (p) =>
+              p.isEnabled && p.hasApiKey && p.providerKey !== "hubspot_oauth"
+          );
+          setAvailableProviders(aiProviders);
+          if (
+            aiProviders.length > 0 &&
+            !aiProviders.find((p) => p.providerKey === "anthropic")
+          ) {
+            setAuditProviderKey(aiProviders[0].providerKey);
+          }
         }
-      })
+      )
       .catch(() => null);
   }, [projectId]);
 
@@ -781,7 +806,10 @@ export default function PortalAuditWorkspace({
 
   const activeContextLabels = Object.entries(projectContext)
     .filter(([, entry]) => Boolean(entry?.content?.trim()))
-    .map(([contextType]) => projectContextLabels[contextType] ?? formatLabel(contextType));
+    .map(
+      ([contextType]) =>
+        projectContextLabels[contextType] ?? formatLabel(contextType)
+    );
 
   return (
     <>
@@ -798,11 +826,6 @@ export default function PortalAuditWorkspace({
         />
       ) : null}
       <div className="space-y-6">
-        <ProjectWorkflowNav
-          projectId={projectId}
-          engagementType={project?.engagementType}
-        />
-
         <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -845,7 +868,8 @@ export default function PortalAuditWorkspace({
                 >
                   {availableProviders.map((p) => (
                     <option key={p.providerKey} value={p.providerKey}>
-                      {p.label}{p.defaultModel ? ` (${p.defaultModel})` : ""}
+                      {p.label}
+                      {p.defaultModel ? ` (${p.defaultModel})` : ""}
                     </option>
                   ))}
                 </select>
@@ -864,7 +888,9 @@ export default function PortalAuditWorkspace({
                 disabled={standardPackBusy}
                 className="rounded-xl border border-[rgba(81,208,176,0.2)] bg-[rgba(81,208,176,0.12)] px-4 py-3 text-sm font-medium text-[#51d0b0] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {standardPackBusy ? "Applying standard pack..." : "Launch standard pack"}
+                {standardPackBusy
+                  ? "Applying standard pack..."
+                  : "Launch standard pack"}
               </button>
               <button
                 type="button"
@@ -879,7 +905,12 @@ export default function PortalAuditWorkspace({
 
           {loading ? (
             <div className="mt-6">
-              <SkeletonRows count={3} height="h-24" gap="gap-3" rounded="rounded-[14px]" />
+              <SkeletonRows
+                count={3}
+                height="h-24"
+                gap="gap-3"
+                rounded="rounded-[14px]"
+              />
             </div>
           ) : (
             <>
@@ -1136,8 +1167,12 @@ export default function PortalAuditWorkspace({
                               <div className="mt-3 flex flex-wrap gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => void createTaskFromFinding(finding)}
-                                  disabled={creatingTaskFindingId === finding.id}
+                                  onClick={() =>
+                                    void createTaskFromFinding(finding)
+                                  }
+                                  disabled={
+                                    creatingTaskFindingId === finding.id
+                                  }
                                   className="rounded-xl border border-ink-4 px-3 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {creatingTaskFindingId === finding.id

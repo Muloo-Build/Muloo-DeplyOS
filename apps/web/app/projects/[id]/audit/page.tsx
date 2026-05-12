@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import AppShell from "../../../components/AppShell";
 import { SkeletonBlock } from "../../../components/LoadingSkeleton";
 import PortalAuditWorkspace from "../../../components/PortalAuditWorkspace";
+import ProjectWorkspaceView from "../../../components/ProjectWorkspaceView";
 import { Btn } from "../../../components/ui/Btn";
 import { Empty } from "../../../components/ui/Empty";
 import { PageHead } from "../../../components/ui/PageHead";
@@ -86,8 +86,8 @@ export default function ProjectAuditPage({
   }, [error, loading, params.id, project, router]);
 
   return (
-    <AppShell>
-      <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
+    <ProjectWorkspaceView projectId={params.id} activeTab="files">
+      <div className="space-y-6">
         <PageHead
           eyebrow={
             <Link
@@ -119,9 +119,12 @@ export default function ProjectAuditPage({
             }
           />
         ) : (
-          <Empty title="Redirecting…" sub="Audit is not enabled for this project." />
+          <Empty
+            title="Redirecting…"
+            sub="Audit is not enabled for this project."
+          />
         )}
       </div>
-    </AppShell>
+    </ProjectWorkspaceView>
   );
 }
