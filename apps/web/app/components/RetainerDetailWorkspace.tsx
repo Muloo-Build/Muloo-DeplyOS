@@ -132,6 +132,75 @@ export default function RetainerDetailWorkspace({
     description: ""
   });
   const [loggingHours, setLoggingHours] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    serviceLine: "TECHNICAL_DELIVERY" as "TECHNICAL_DELIVERY" | "CONSULTING",
+    blockSize: 20,
+    status: "DRAFT",
+    startDate: toDateInputValue(new Date()),
+    scopeSummary: "",
+    requirements: "",
+    approvalTerms: ""
+  });
+
+  function openEdit() {
+    if (!retainer) return;
+    setEditForm({
+      serviceLine: retainer.serviceLine,
+      blockSize: retainer.blockSize,
+      status: retainer.status,
+      startDate: retainer.startDate.slice(0, 10),
+      scopeSummary: retainer.scopeSummary ?? "",
+      requirements: retainer.requirements ?? "",
+      approvalTerms: retainer.approvalTerms ?? ""
+    });
+    setEditOpen(true);
+  }
+
+  async function handleSaveEdit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!retainer) return;
+    setSavingEdit(true);
+    setError(null);
+    setFeedback(null);
+    try {
+      const response = await fetch(
+        `/api/retainers/${encodeURIComponent(retainerId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            serviceLine: editForm.serviceLine,
+            blockSize: Number(editForm.blockSize),
+            status: editForm.status,
+            startDate: editForm.startDate,
+            scopeSummary: editForm.scopeSummary || null,
+            requirements: editForm.requirements || null,
+            approvalTerms: editForm.approvalTerms || null
+          })
+        }
+      );
+      const body = (await response.json().catch(() => null)) as
+        | { retainer?: RetainerDetail; error?: string }
+        | null;
+      if (!response.ok || !body?.retainer) {
+        throw new Error(body?.error ?? "Failed to update retainer");
+      }
+      setFeedback("Retainer updated.");
+      setEditOpen(false);
+      await loadDetail();
+    } catch (editError) {
+      setError(
+        editError instanceof Error
+          ? editError.message
+          : "Failed to update retainer"
+      );
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   async function loadDetail() {
     setLoading(true);
@@ -378,13 +447,22 @@ export default function RetainerDetailWorkspace({
             </p>
           </div>
           {retainer ? (
-            <button
-              type="button"
-              onClick={() => void handleDeleteRetainer()}
-              className="inline-flex items-center justify-center rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-2.5 text-sm font-medium text-rose-100 transition hover:bg-rose-500/20"
-            >
-              Delete retainer
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={openEdit}
+                className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/10"
+              >
+                Edit retainer
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteRetainer()}
+                className="inline-flex items-center justify-center rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-2.5 text-sm font-medium text-rose-100 transition hover:bg-rose-500/20"
+              >
+                Delete retainer
+              </button>
+            </div>
           ) : null}
         </header>
 
@@ -945,6 +1023,142 @@ export default function RetainerDetailWorkspace({
           </div>
         </div>
       </div>
+      {editOpen && retainer ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <form
+            onSubmit={handleSaveEdit}
+            className="w-full max-w-2xl rounded-[18px] border border-ink-4 bg-ink-1 p-6"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">
+                  Edit retainer
+                </p>
+                <h2 className="mt-1 text-xl font-semibold text-white">
+                  {retainer.client?.name ?? "Retainer"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditOpen(false)}
+                className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-text-2 hover:bg-white/10"
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-sm text-text-2">
+                Service line
+                <select
+                  value={editForm.serviceLine}
+                  onChange={(e) =>
+                    setEditForm((f) => ({
+                      ...f,
+                      serviceLine: e.target.value as
+                        | "TECHNICAL_DELIVERY"
+                        | "CONSULTING"
+                    }))
+                  }
+                  className="rounded-lg border border-ink-4 bg-ink-2 px-3 py-2 text-white"
+                >
+                  <option value="TECHNICAL_DELIVERY">Technical Delivery</option>
+                  <option value="CONSULTING">Consulting</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-text-2">
+                Block size (hours / month)
+                <input
+                  type="number"
+                  min={10}
+                  value={editForm.blockSize}
+                  onChange={(e) =>
+                    setEditForm((f) => ({
+                      ...f,
+                      blockSize: Number(e.target.value)
+                    }))
+                  }
+                  className="rounded-lg border border-ink-4 bg-ink-2 px-3 py-2 text-white"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-text-2">
+                Status
+                <select
+                  value={editForm.status}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, status: e.target.value }))
+                  }
+                  className="rounded-lg border border-ink-4 bg-ink-2 px-3 py-2 text-white"
+                >
+                  <option value="DRAFT">DRAFT</option>
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="PAUSED">PAUSED</option>
+                  <option value="ENDED">ENDED</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-text-2">
+                Start date
+                <input
+                  type="date"
+                  value={editForm.startDate}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, startDate: e.target.value }))
+                  }
+                  className="rounded-lg border border-ink-4 bg-ink-2 px-3 py-2 text-white"
+                />
+              </label>
+            </div>
+            <label className="mt-4 flex flex-col gap-1 text-sm text-text-2">
+              Scope summary
+              <textarea
+                rows={4}
+                value={editForm.scopeSummary}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, scopeSummary: e.target.value }))
+                }
+                className="rounded-lg border border-ink-4 bg-ink-2 px-3 py-2 text-white"
+              />
+            </label>
+            <label className="mt-4 flex flex-col gap-1 text-sm text-text-2">
+              Requirements
+              <textarea
+                rows={3}
+                value={editForm.requirements}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, requirements: e.target.value }))
+                }
+                className="rounded-lg border border-ink-4 bg-ink-2 px-3 py-2 text-white"
+              />
+            </label>
+            <label className="mt-4 flex flex-col gap-1 text-sm text-text-2">
+              Approval terms
+              <textarea
+                rows={3}
+                value={editForm.approvalTerms}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, approvalTerms: e.target.value }))
+                }
+                className="rounded-lg border border-ink-4 bg-ink-2 px-3 py-2 text-white"
+              />
+            </label>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditOpen(false)}
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingEdit}
+                className="rounded-xl bg-[#51d0b0] px-4 py-2 text-sm font-semibold text-[#0a1411] hover:bg-[#6fdcc0] disabled:opacity-50"
+              >
+                {savingEdit ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </AppShell>
   );
 }

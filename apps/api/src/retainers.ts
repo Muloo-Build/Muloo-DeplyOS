@@ -269,10 +269,6 @@ export function validateRetainerStartDate(startDate: Date) {
   if (Number.isNaN(startDate.getTime())) {
     throw new Error("Retainer start date must be valid.");
   }
-
-  if (startDate.getUTCDate() !== 1) {
-    throw new Error("Retainer start date must be the first of a month.");
-  }
 }
 
 export function getUtcMonthStart(date: Date) {

@@ -88,6 +88,7 @@ import {
   createPortalSnapshotForPortal,
   createRetainerRecord,
   deleteRetainerRecord,
+  updateRetainerRecord,
   createRetainerTopUpQuote,
   createWorkRequest,
   createWorkspaceUser,
@@ -6568,6 +6569,21 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ retainer });
+  });
+
+  app.patch("/api/retainers/:retainerId", async (c) => {
+    try {
+      const retainer = await updateRetainerRecord(
+        c.req.param("retainerId"),
+        await readJsonBodyOrEmpty(c)
+      );
+      return c.json({ retainer });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update retainer";
+      const statusCode = message === "Retainer not found" ? 404 : 400;
+      return c.json({ error: message }, statusCode);
+    }
   });
 
   app.delete("/api/retainers/:retainerId", async (c) => {

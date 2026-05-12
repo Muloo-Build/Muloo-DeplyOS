@@ -3496,6 +3496,29 @@ const retainerListFilterSchema = z.object({
   serviceLine: z.enum(retainerServiceLines).optional()
 });
 
+const retainerUpdateSchema = z
+  .object({
+    serviceLine: z.enum(retainerServiceLines).optional(),
+    blockSize: z.number().int().min(10).optional(),
+    startDate: z.coerce.date().optional(),
+    status: z.enum(retainerStatuses).optional(),
+    scopeSummary: z.string().trim().optional().nullable(),
+    deliverables: z
+      .array(
+        z.object({
+          title: z.string().trim().min(1),
+          description: z.string().trim().optional().nullable()
+        })
+      )
+      .optional()
+      .nullable(),
+    approvalTerms: z.string().trim().optional().nullable(),
+    requirements: z.string().trim().optional().nullable()
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "No fields provided to update."
+  });
+
 const retainerTopUpQuoteSchema = z.object({
   hours: z.number().int().positive().default(10),
   fxRateFromZar: z.number().finite().positive().optional()
@@ -3914,6 +3937,75 @@ export async function deleteRetainerRecord(retainerId: string) {
       draftInvoices: retainer.invoices.length
     }
   };
+}
+
+export async function updateRetainerRecord(
+  retainerId: string,
+  payload: unknown
+) {
+  const input = retainerUpdateSchema.parse(payload);
+
+  const existing = await prisma.retainer.findUnique({
+    where: { id: retainerId },
+    select: {
+      id: true,
+      serviceLine: true,
+      blockSize: true,
+      currency: true
+    }
+  });
+
+  if (!existing) {
+    throw new Error("Retainer not found");
+  }
+
+  if (input.startDate) {
+    validateRetainerStartDate(input.startDate);
+  }
+
+  if (input.blockSize !== undefined) {
+    assertValidBlockSize(input.blockSize);
+  }
+
+  const data: Record<string, unknown> = {};
+
+  if (input.serviceLine !== undefined) data.serviceLine = input.serviceLine;
+  if (input.blockSize !== undefined) data.blockSize = input.blockSize;
+  if (input.startDate !== undefined) data.startDate = input.startDate;
+  if (input.status !== undefined) data.status = input.status;
+  if (input.scopeSummary !== undefined) data.scopeSummary = input.scopeSummary;
+  if (input.deliverables !== undefined) data.deliverables = input.deliverables;
+  if (input.approvalTerms !== undefined)
+    data.approvalTerms = input.approvalTerms;
+  if (input.requirements !== undefined) data.requirements = input.requirements;
+
+  const rateInputsChanged =
+    input.serviceLine !== undefined || input.blockSize !== undefined;
+
+  if (rateInputsChanged && existing.currency === "ZAR") {
+    data.rate = deriveRetainerRate({
+      serviceLine: (input.serviceLine ??
+        existing.serviceLine) as RetainerServiceLine,
+      blockSize: input.blockSize ?? existing.blockSize,
+      currency: "ZAR" as RetainerCurrency
+    });
+  }
+
+  const retainer = await prisma.retainer.update({
+    where: { id: retainerId },
+    data,
+    include: {
+      client: { select: { id: true, name: true, slug: true } },
+      billToEntity: { select: { id: true, name: true, type: true } },
+      periods: {
+        orderBy: { periodMonth: "desc" },
+        take: 1,
+        include: { topUps: true }
+      }
+    }
+  });
+
+  return serializeRetainer(retainer);
 }
 
 export async function createRetainerTopUpQuote(
