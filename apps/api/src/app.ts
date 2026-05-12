@@ -432,6 +432,13 @@ import {
   AI_MODEL_CATALOG,
   listProviders as listAICatalogProviders
 } from "@muloo/shared";
+import { Readable } from "node:stream";
+import {
+  deleteProjectFile,
+  storeProjectFile,
+  streamProjectFile
+} from "./fileStorage";
+import { extractTextFromBuffer } from "./textExtraction";
 
 type HonoBindings = {
   Bindings: HttpBindings;
@@ -1255,6 +1262,7 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/workbook-templates/*", internalAuth);
   app.use("/api/projects", internalAuth);
   app.use("/api/projects/*", internalAuth);
+  app.use("/api/files/*", internalAuth);
   app.use("/api/report-installations", internalAuth);
   app.use("/api/report-installations/*", internalAuth);
   app.use("/api/tasks", internalAuth);
@@ -2744,6 +2752,259 @@ export function createApiApp(config: BaseConfig) {
       return c.json({ error: "Method Not Allowed" }, 405);
     }
   );
+
+  const UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
+  const UPLOAD_ALLOWED_MIME = new Set([
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain",
+    "text/markdown",
+    "text/csv"
+  ]);
+
+  app.post("/api/projects/:projectId/uploads", async (c) => {
+    const projectId = c.req.param("projectId");
+
+    try {
+      await ensureProjectScopeUnlocked(projectId);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to accept upload"
+        },
+        error instanceof Error && error.message === "Project not found"
+          ? 404
+          : 409
+      );
+    }
+
+    let formData: FormData;
+    try {
+      formData = await c.req.raw.formData();
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Invalid multipart payload"
+        },
+        400
+      );
+    }
+
+    const fileEntry = formData.get("file");
+    if (!(fileEntry instanceof File)) {
+      return c.json({ error: "file field is required" }, 400);
+    }
+
+    if (fileEntry.size > UPLOAD_MAX_BYTES) {
+      return c.json(
+        { error: `File exceeds ${UPLOAD_MAX_BYTES} bytes` },
+        413
+      );
+    }
+
+    const mimeType = fileEntry.type || "application/octet-stream";
+    if (!UPLOAD_ALLOWED_MIME.has(mimeType)) {
+      return c.json({ error: `Unsupported file type: ${mimeType}` }, 415);
+    }
+
+    const originalName = fileEntry.name || "upload";
+    const sourceLabelRaw = formData.get("sourceLabel");
+    const sourceLabel =
+      typeof sourceLabelRaw === "string" && sourceLabelRaw.trim().length > 0
+        ? sourceLabelRaw.trim()
+        : originalName;
+    const notesRaw = formData.get("content");
+    const notes =
+      typeof notesRaw === "string" && notesRaw.trim().length > 0
+        ? notesRaw.trim()
+        : null;
+
+    const buffer = Buffer.from(await fileEntry.arrayBuffer());
+
+    let stored;
+    try {
+      stored = await storeProjectFile({
+        projectId,
+        originalName,
+        mimeType,
+        buffer
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to store file"
+        },
+        500
+      );
+    }
+
+    const extractedText = await extractTextFromBuffer({
+      buffer,
+      mimeType,
+      originalName
+    });
+
+    // Compose evidence content: prefer extracted body, fall back to notes,
+    // append notes after a divider when both exist so synthesis sees both.
+    const content =
+      extractedText && notes
+        ? `${notes}\n\n---\n\n${extractedText}`
+        : (extractedText ?? notes);
+
+    let evidence;
+    let uploadedFile;
+    try {
+      uploadedFile = await prisma.uploadedFile.create({
+        data: {
+          projectId,
+          originalName,
+          mimeType,
+          sizeBytes: stored.sizeBytes,
+          storagePath: stored.storagePath,
+          checksum: stored.checksum
+        }
+      });
+
+      const evidenceItem = await createDiscoveryEvidence(projectId, 0, {
+        evidenceType: "uploaded-doc",
+        kind: "context",
+        sourceLabel,
+        sourceUrl: `/api/files/${uploadedFile.id}`,
+        content: content ?? "",
+        resourceType: "upload",
+        status: "linked"
+      });
+
+      uploadedFile = await prisma.uploadedFile.update({
+        where: { id: uploadedFile.id },
+        data: { evidenceId: evidenceItem.id }
+      });
+
+      evidence = evidenceItem;
+    } catch (error) {
+      // Roll back the file on disk if DB writes failed mid-flight.
+      try {
+        await deleteProjectFile(stored.storagePath);
+      } catch {
+        /* ignore */
+      }
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to record uploaded file"
+        },
+        400
+      );
+    }
+
+    return c.json(
+      {
+        uploadedFile: {
+          id: uploadedFile.id,
+          projectId: uploadedFile.projectId,
+          originalName: uploadedFile.originalName,
+          mimeType: uploadedFile.mimeType,
+          sizeBytes: uploadedFile.sizeBytes,
+          checksum: uploadedFile.checksum,
+          createdAt: uploadedFile.createdAt.toISOString(),
+          downloadUrl: `/api/files/${uploadedFile.id}`,
+          evidenceId: uploadedFile.evidenceId
+        },
+        evidence
+      },
+      201
+    );
+  });
+
+  app.get("/api/files/:uploadedFileId", async (c) => {
+    const uploadedFileId = c.req.param("uploadedFileId");
+
+    const record = await prisma.uploadedFile.findUnique({
+      where: { id: uploadedFileId }
+    });
+
+    if (!record) {
+      return c.json({ error: "File not found" }, 404);
+    }
+
+    // Confirm caller has internal access to the project. internalAuth
+    // middleware already gated workspace auth — this re-check verifies the
+    // project still exists; project-level ACLs (if added later) hook here.
+    const project = await prisma.project.findUnique({
+      where: { id: record.projectId },
+      select: { id: true }
+    });
+    if (!project) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    let nodeStream: NodeJS.ReadableStream;
+    try {
+      nodeStream = streamProjectFile(record.storagePath);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to read file"
+        },
+        404
+      );
+    }
+
+    const safeName = record.originalName.replace(/"/g, "");
+    c.header("Content-Type", record.mimeType);
+    c.header(
+      "Content-Disposition",
+      `attachment; filename="${safeName}"`
+    );
+    c.header("Content-Length", String(record.sizeBytes));
+
+    // Convert Node Readable -> Web ReadableStream for Hono response body.
+    const webStream = Readable.toWeb(
+      nodeStream as Readable
+    ) as unknown as ReadableStream;
+    return c.body(webStream);
+  });
+
+  app.delete("/api/files/:uploadedFileId", async (c) => {
+    const uploadedFileId = c.req.param("uploadedFileId");
+
+    const record = await prisma.uploadedFile.findUnique({
+      where: { id: uploadedFileId }
+    });
+
+    if (!record) {
+      return c.json({ error: "File not found" }, 404);
+    }
+
+    try {
+      await deleteProjectFile(record.storagePath);
+    } catch (error) {
+      // Log but continue — DB row should still be removed.
+      process.stderr.write(
+        `[uploads] delete-on-disk failed for ${record.storagePath}: ${
+          error instanceof Error ? error.message : String(error)
+        }\n`
+      );
+    }
+
+    await prisma.uploadedFile.delete({ where: { id: uploadedFileId } });
+    if (record.evidenceId) {
+      await prisma.discoveryEvidence
+        .delete({ where: { id: record.evidenceId } })
+        .catch(() => undefined);
+    }
+
+    return c.json({ success: true });
+  });
 
   app.all("/api/projects/:projectId/workbooks", async (c) => {
     const projectId = c.req.param("projectId");

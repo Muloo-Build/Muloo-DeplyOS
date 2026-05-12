@@ -28053,7 +28053,8 @@ const VALID_WORKBOOK_RESOURCE_TYPES = [
   "pdf",
   "miro_board",
   "internal_workbook",
-  "external_url"
+  "external_url",
+  "upload"
 ] as const;
 
 function normalizeWorkbookResourceType(value: unknown): string | null {
