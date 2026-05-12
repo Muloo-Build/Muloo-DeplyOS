@@ -35,10 +35,16 @@ interface DriveFile {
   size?: string;
 }
 
+export interface DriveSyncResultDetail {
+  name: string;
+  reason: string;
+}
+
 export interface DriveSyncResult {
   added: number;
   updated: number;
   skipped: number;
+  skippedDetails: DriveSyncResultDetail[];
   errors: string[];
 }
 
@@ -372,12 +378,20 @@ async function applyDriveFileToProject(
 
     if (existing && fileModifiedAt && existing.updatedAt >= fileModifiedAt) {
       result.skipped += 1;
+      result.skippedDetails.push({
+        name: file.name,
+        reason: "Already up-to-date"
+      });
       return;
     }
 
     const text = await extractText(file, accessToken);
     if (text === null) {
       result.skipped += 1;
+      result.skippedDetails.push({
+        name: file.name,
+        reason: `Unsupported file type: ${file.mimeType}`
+      });
       return;
     }
 
@@ -572,6 +586,7 @@ export async function syncProjectDriveFolder(
     added: 0,
     updated: 0,
     skipped: 0,
+    skippedDetails: [],
     errors: []
   };
 
@@ -635,6 +650,7 @@ export async function processDriveChangesForProject(
     added: 0,
     updated: 0,
     skipped: 0,
+    skippedDetails: [],
     errors: []
   };
 
@@ -679,6 +695,10 @@ export async function processDriveChangesForProject(
 
       if (!file?.parents?.includes(project.googleDriveFolderId)) {
         result.skipped += 1;
+        result.skippedDetails.push({
+          name: file?.name ?? fileId,
+          reason: "File moved out of folder"
+        });
         continue;
       }
 
