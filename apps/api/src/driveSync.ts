@@ -3,10 +3,13 @@
  *
  * Lists files in the linked Drive folder via the Drive REST API (reusing the
  * workspace Google OAuth connection that already powers Gmail/Calendar), pulls
- * text from supported formats (PDF / DOCX / Google Doc / Sheet / Slides), and
- * upserts one DiscoveryEvidence row per file (kind=context, evidenceType=uploaded-doc).
- * PPTX and other binary formats are skipped — extraction would require a heavier
- * dependency and is tracked as a known limitation.
+ * text from supported formats (PDF / DOCX / PPTX / Google Doc / Sheet / Slides),
+ * and upserts one DiscoveryEvidence row per file
+ * (kind=context, evidenceType=uploaded-doc).
+ *
+ * Realtime updates come from Drive's `changes.watch` push notifications
+ * (see webhook handler in app.ts). The scheduler below is a fallback heartbeat
+ * for projects whose channel expired or whose webhooks were missed.
  */
 import { prisma } from "./prisma";
 import { refreshGoogleWorkspaceEmailAccessTokenIfNeeded } from "./server";
@@ -192,6 +195,28 @@ async function extractText(
       };
       const parsed = await mammoth.extractRawText({ buffer });
       return parsed.value ?? "";
+    }
+    case "application/vnd.openxmlformats-officedocument.presentationml.presentation": {
+      const buffer = await downloadBinary(file.id, accessToken);
+      // officeparser also handles docx/xlsx/odt; we keep the explicit mimetype
+      // switch so unsupported binary types still fall through to `null` and are
+      // skipped rather than producing noisy partial extracts.
+      const { parseOfficeAsync } = require("officeparser") as {
+        parseOfficeAsync: (
+          buffer: Buffer | string,
+          config?: Record<string, unknown>
+        ) => Promise<string>;
+      };
+      try {
+        const text = await parseOfficeAsync(buffer);
+        return text ?? "";
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[drive-sync] pptx parse failed for ${file.id} ${file.name}: ${message}`
+        );
+        return null;
+      }
     }
     case "application/vnd.google-apps.document":
       return exportGoogleFile(file.id, "text/plain", accessToken);
