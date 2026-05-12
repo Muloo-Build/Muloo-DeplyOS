@@ -217,9 +217,23 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
       setContextError("Label required");
       return;
     }
+    if (!contextDraft.sourceUrl.trim() && !contextDraft.content.trim()) {
+      setContextError("Provide a URL or paste content");
+      return;
+    }
     setContextSaving(true);
     setContextError(null);
     try {
+      const evidenceTypeByResource: Record<string, string> = {
+        miro_board: "miro-note",
+        google_doc: "uploaded-doc",
+        google_sheet: "uploaded-doc",
+        google_form: "uploaded-doc",
+        pdf: "uploaded-doc",
+        other_url: "website-link"
+      };
+      const evidenceType =
+        evidenceTypeByResource[contextDraft.resourceType] ?? "uploaded-doc";
       const r = await fetch(
         `/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`,
         {
@@ -227,7 +241,7 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            evidenceType: "context",
+            evidenceType,
             kind: "context",
             sourceLabel: contextDraft.sourceLabel.trim(),
             sourceUrl: contextDraft.sourceUrl.trim() || null,
