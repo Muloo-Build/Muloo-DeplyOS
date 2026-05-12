@@ -925,7 +925,7 @@ export default function ProjectWorkspaceView({
                   type="button"
                   onClick={() => void handleDelete()}
                   disabled={deleting || deleteConfirm.trim() !== project.name}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12.5px] font-semibold bg-status-danger text-[#2a0810] hover:bg-[#ff8090] border border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12.5px] font-semibold bg-status-danger text-[#2a0810] hover:bg-[#ff8090] border border-transparent t[...]
                 >
                   <Trash2 size={13} />
                   {deleting ? "Deleting…" : "Delete project"}
@@ -1123,10 +1123,17 @@ export default function ProjectWorkspaceView({
                           } ${project.retainer.rate ?? "—"}/h`}
                         />
                       )}
-                      {project?.commercialBrief && (
-                        <MetaItem k="Commercial" v={project.commercialBrief} />
-                      )}
                     </div>
+                    {project?.commercialBrief && (
+                      <div className="pt-2 border-t border-ink-4">
+                        <div className="text-[10px] tracking-[0.14em] uppercase text-text-3 font-semibold mb-2">
+                          Commercial brief
+                        </div>
+                        <div className="text-[12.5px] text-text-2 whitespace-pre-wrap leading-[1.6]">
+                          {project.commercialBrief}
+                        </div>
+                      </div>
+                    )}
                   </PanelBody>
                 </Panel>
 
