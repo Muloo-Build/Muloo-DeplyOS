@@ -92,11 +92,14 @@ interface ProjectRecord {
     hubDomain?: string | null;
   } | null;
   retainer?: {
+    id?: string;
     blockSize?: number;
-    rate?: number;
+    rate?: number | string;
     currency?: string;
     serviceLine?: string;
     status?: string;
+    startDate?: string | null;
+    endDate?: string | null;
   } | null;
   defaultWorkspacePath?: string;
   updatedAt?: string;
@@ -922,7 +925,7 @@ export default function ProjectWorkspaceView({
                   type="button"
                   onClick={() => void handleDelete()}
                   disabled={deleting || deleteConfirm.trim() !== project.name}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12.5px] font-semibold bg-status-danger text-[#2a0810] hover:bg-[#ff8090] border border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12.5px] font-semibold bg-status-danger text-[#2a0810] hover:bg-[#ff8090] border border-transparent t[...]
                 >
                   <Trash2 size={13} />
                   {deleting ? "Deleting…" : "Delete project"}
@@ -1120,10 +1123,17 @@ export default function ProjectWorkspaceView({
                           } ${project.retainer.rate ?? "—"}/h`}
                         />
                       )}
-                      {project?.commercialBrief && (
-                        <MetaItem k="Commercial" v={project.commercialBrief} />
-                      )}
                     </div>
+                    {project?.commercialBrief && (
+                      <div className="pt-2 border-t border-ink-4">
+                        <div className="text-[10px] tracking-[0.14em] uppercase text-text-3 font-semibold mb-2">
+                          Commercial brief
+                        </div>
+                        <div className="text-[12.5px] text-text-2 whitespace-pre-wrap leading-[1.6]">
+                          {project.commercialBrief}
+                        </div>
+                      </div>
+                    )}
                   </PanelBody>
                 </Panel>
 
@@ -1438,6 +1448,115 @@ export default function ProjectWorkspaceView({
                     </p>
                   )}
                 </div>
+              </PanelBody>
+            </Panel>
+
+            <Panel>
+              <PanelHead
+                title="Retainer"
+                right={
+                  project?.retainer?.id ? (
+                    <Link
+                      href={`/retainers/${project.retainer.id}`}
+                      aria-label="Open retainer"
+                    >
+                      <Btn variant="ghost" size="icon">
+                        <ExternalLink size={12} />
+                      </Btn>
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/projects/${projectId}/edit`}
+                      aria-label="Link retainer"
+                    >
+                      <Btn variant="ghost" size="sm">
+                        <Plus size={12} />
+                      </Btn>
+                    </Link>
+                  )
+                }
+              />
+              <PanelBody>
+                {project?.retainer ? (
+                  <div className="grid gap-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[13px] font-semibold text-text-1">
+                        {project.retainer.serviceLine === "TECHNICAL_DELIVERY"
+                          ? "Technical Delivery"
+                          : project.retainer.serviceLine === "CONSULTING"
+                            ? "Consulting"
+                            : (project.retainer.serviceLine ?? "—")}
+                      </span>
+                      {project.retainer.status && (
+                        <Pill
+                          tone={
+                            project.retainer.status === "ACTIVE"
+                              ? "ok"
+                              : project.retainer.status === "ENDED"
+                                ? "danger"
+                                : project.retainer.status === "PAUSED"
+                                  ? "warn"
+                                  : "neutral"
+                          }
+                          dot
+                        >
+                          {project.retainer.status}
+                        </Pill>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px]">
+                      <span className="text-text-3 uppercase tracking-[0.12em] text-[10px] font-semibold">
+                        Block
+                      </span>
+                      <span className="text-text-1 font-mono text-right">
+                        {project.retainer.blockSize ?? "—"}h / month
+                      </span>
+                      <span className="text-text-3 uppercase tracking-[0.12em] text-[10px] font-semibold">
+                        Rate
+                      </span>
+                      <span className="text-text-1 font-mono text-right">
+                        {project.retainer.currency ?? "ZAR"}{" "}
+                        {project.retainer.rate ?? "—"}/h
+                      </span>
+                      {project.retainer.startDate && (
+                        <>
+                          <span className="text-text-3 uppercase tracking-[0.12em] text-[10px] font-semibold">
+                            Start
+                          </span>
+                          <span className="text-text-1 font-mono text-right">
+                            {new Date(
+                              project.retainer.startDate
+                            ).toLocaleDateString("en-ZA", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric"
+                            })}
+                          </span>
+                        </>
+                      )}
+                      {project.retainer.endDate && (
+                        <>
+                          <span className="text-text-3 uppercase tracking-[0.12em] text-[10px] font-semibold">
+                            End
+                          </span>
+                          <span className="text-text-1 font-mono text-right">
+                            {new Date(
+                              project.retainer.endDate
+                            ).toLocaleDateString("en-ZA", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric"
+                            })}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-text-3 text-[12.5px]">
+                    No retainer linked. Use Edit to attach one.
+                  </div>
+                )}
               </PanelBody>
             </Panel>
 

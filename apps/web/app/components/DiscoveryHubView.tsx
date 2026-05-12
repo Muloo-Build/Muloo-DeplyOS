@@ -34,6 +34,9 @@ interface ProjectSummary {
   name: string;
   client?: { id: string; name: string };
   selectedHubs?: string[];
+  googleDriveFolderId?: string | null;
+  googleDriveFolderUrl?: string | null;
+  googleDriveLastSyncedAt?: string | null;
 }
 
 interface WorkbookRecord {
@@ -203,6 +206,10 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
   const [sessionSaving, setSessionSaving] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
+  const [driveSyncing, setDriveSyncing] = useState(false);
+  const [driveSyncSummary, setDriveSyncSummary] = useState<string | null>(null);
+  const [driveSyncError, setDriveSyncError] = useState<string | null>(null);
+
   const [contextOpen, setContextOpen] = useState(false);
   const [contextDraft, setContextDraft] = useState({
     resourceType: "miro_board",
@@ -366,8 +373,12 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
           fetch(`/api/projects/${encodeURIComponent(projectId)}/workbooks`)
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null),
-          // Pull all evidence (not just workbooks) to populate Context items
-          fetch(`/api/projects/${encodeURIComponent(projectId)}/discovery`)
+          // Pull all evidence (not just workbooks) to populate Context items.
+          // Add context source POSTs to sessions/0/evidence, so that's where
+          // context rows live. GET returns { evidenceItems: [...] }.
+          fetch(
+            `/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`
+          )
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null),
           fetch(
@@ -389,11 +400,13 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
       setWorkbooks(wb);
 
       // Context items = evidence not classified as workbook
-      const allEvidence = Array.isArray(evidenceRes?.evidence)
-        ? (evidenceRes.evidence as WorkbookRecord[])
-        : Array.isArray(evidenceRes?.items)
-          ? (evidenceRes.items as WorkbookRecord[])
-          : [];
+      const allEvidence = Array.isArray(evidenceRes?.evidenceItems)
+        ? (evidenceRes.evidenceItems as WorkbookRecord[])
+        : Array.isArray(evidenceRes?.evidence)
+          ? (evidenceRes.evidence as WorkbookRecord[])
+          : Array.isArray(evidenceRes?.items)
+            ? (evidenceRes.items as WorkbookRecord[])
+            : [];
       setContextItems(
         allEvidence.filter((e) => !wb.some((w) => w.id === e.id))
       );
@@ -435,6 +448,31 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
     }
   }
 
+  async function handleDriveSync() {
+    setDriveSyncing(true);
+    setDriveSyncError(null);
+    setDriveSyncSummary(null);
+    try {
+      const r = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/drive-folder/sync`,
+        { method: "POST" }
+      );
+      const body = await r.json().catch(() => null);
+      if (!r.ok) {
+        throw new Error(body?.error ?? "Sync failed");
+      }
+      const result = body?.result ?? {};
+      setDriveSyncSummary(
+        `Added ${result.added ?? 0} · updated ${result.updated ?? 0} · skipped ${result.skipped ?? 0}`
+      );
+      await loadAll();
+    } catch (err) {
+      setDriveSyncError(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setDriveSyncing(false);
+    }
+  }
+
   async function handleGenerateSummary() {
     setGeneratingSummary(true);
     setSummaryError(null);
@@ -444,8 +482,18 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
         { method: "POST", credentials: "include" }
       );
       if (!r.ok) {
-        const body = await r.json().catch(() => null);
-        throw new Error(body?.error ?? "Generate failed");
+        const raw = await r.text();
+        let parsed: { error?: string } | null = null;
+        try {
+          parsed = raw ? (JSON.parse(raw) as { error?: string }) : null;
+        } catch {
+          parsed = null;
+        }
+        const detail =
+          parsed?.error ||
+          (raw && raw.length < 400 ? raw : null) ||
+          "no body";
+        throw new Error(`Generate failed (${r.status}): ${detail}`);
       }
       const body = await r.json();
       setSummary(body?.summary ?? null);
@@ -537,6 +585,48 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
         {summaryError && (
           <p className="mb-3 text-[12px] text-status-danger">{summaryError}</p>
         )}
+
+        {project?.googleDriveFolderId ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-[14px] border border-ink-4 bg-ink-2/40 px-4 py-2 text-[12px] text-text-2">
+            <Pill tone="info" dot>
+              Drive folder linked
+            </Pill>
+            {project.googleDriveFolderUrl ? (
+              <a
+                href={project.googleDriveFolderUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-text-1 underline-offset-2 hover:underline"
+              >
+                Open in Drive
+              </a>
+            ) : null}
+            <span className="text-text-3">
+              Last sync:{" "}
+              {project.googleDriveLastSyncedAt
+                ? new Date(project.googleDriveLastSyncedAt).toLocaleString()
+                : "never"}
+            </span>
+            <Btn
+              variant="ghost"
+              size="sm"
+              onClick={() => void handleDriveSync()}
+              disabled={driveSyncing}
+            >
+              <RefreshCw
+                size={12}
+                className={driveSyncing ? "animate-spin" : ""}
+              />
+              {driveSyncing ? "Syncing…" : "Sync now"}
+            </Btn>
+            {driveSyncSummary ? (
+              <span className="text-status-ok">{driveSyncSummary}</span>
+            ) : null}
+            {driveSyncError ? (
+              <span className="text-status-danger">{driveSyncError}</span>
+            ) : null}
+          </div>
+        ) : null}
 
         <StatsGrid cols={4}>
           <Stat

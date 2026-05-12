@@ -70,6 +70,9 @@ interface ProjectDetail {
   } | null;
   status: string;
   scopeLockedAt?: string | null;
+  googleDriveFolderId?: string | null;
+  googleDriveFolderUrl?: string | null;
+  googleDriveLastSyncedAt?: string | null;
 }
 
 interface RetainerOption {
@@ -489,6 +492,200 @@ function buildInitialForm(project: ProjectDetail): FormState {
   };
 }
 
+function DriveFolderSection({
+  projectId,
+  initialFolderUrl,
+  initialFolderId,
+  initialLastSyncedAt,
+  onChange
+}: {
+  projectId: string;
+  initialFolderUrl: string;
+  initialFolderId: string | null;
+  initialLastSyncedAt: string | null;
+  onChange: (next: {
+    googleDriveFolderId: string | null;
+    googleDriveFolderUrl: string | null;
+    googleDriveLastSyncedAt: string | null;
+  }) => void;
+}) {
+  const [folderUrl, setFolderUrl] = useState(initialFolderUrl);
+  const [folderId, setFolderId] = useState<string | null>(initialFolderId);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(
+    initialLastSyncedAt
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [syncSummary, setSyncSummary] = useState<string | null>(null);
+
+  async function handleSave() {
+    setBusy(true);
+    setError(null);
+    setSyncSummary(null);
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/drive-folder`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ folderUrl })
+        }
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to link Drive folder");
+      }
+      setFolderId(body?.project?.googleDriveFolderId ?? null);
+      setFolderUrl(body?.project?.googleDriveFolderUrl ?? folderUrl);
+      setLastSyncedAt(body?.project?.googleDriveLastSyncedAt ?? null);
+      onChange({
+        googleDriveFolderId: body?.project?.googleDriveFolderId ?? null,
+        googleDriveFolderUrl: body?.project?.googleDriveFolderUrl ?? null,
+        googleDriveLastSyncedAt:
+          body?.project?.googleDriveLastSyncedAt ?? null
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to link folder");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleClear() {
+    setBusy(true);
+    setError(null);
+    setSyncSummary(null);
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/drive-folder`,
+        { method: "DELETE" }
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Failed to clear Drive folder");
+      }
+      setFolderId(null);
+      setFolderUrl("");
+      setLastSyncedAt(null);
+      onChange({
+        googleDriveFolderId: null,
+        googleDriveFolderUrl: null,
+        googleDriveLastSyncedAt: null
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clear folder");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSyncNow() {
+    setBusy(true);
+    setError(null);
+    setSyncSummary(null);
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/drive-folder/sync`,
+        { method: "POST" }
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Sync failed");
+      }
+      const r = body?.result ?? {};
+      setSyncSummary(
+        `Added ${r.added ?? 0} · updated ${r.updated ?? 0} · skipped ${r.skipped ?? 0}` +
+          (Array.isArray(r.errors) && r.errors.length
+            ? ` · ${r.errors.length} error${r.errors.length === 1 ? "" : "s"}`
+            : "")
+      );
+      setLastSyncedAt(new Date().toISOString());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="brand-surface rounded-[14px] border p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold text-white">
+            Discovery context: Google Drive folder
+          </h2>
+          <p className="mt-2 text-sm text-text-2">
+            Link a Drive folder so PDFs, Docs, Sheets, Slides, and DOCX files
+            inside it auto-sync into the Discovery context every 5 minutes. The
+            workspace Google connection must have drive.readonly granted —
+            reconnect Google in Settings if this is the first project to use it.
+          </p>
+        </div>
+        <Pill tone={folderId ? "ok" : "neutral"} dot>
+          {folderId ? "Linked" : "Not linked"}
+        </Pill>
+      </div>
+
+      <label className="mt-5 block">
+        <span className="mb-2 block text-sm text-text-2">
+          Folder URL or ID
+        </span>
+        <input
+          value={folderUrl}
+          onChange={(event) => setFolderUrl(event.target.value)}
+          placeholder="https://drive.google.com/drive/folders/..."
+          className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+        />
+      </label>
+
+      {lastSyncedAt ? (
+        <p className="mt-2 text-xs text-text-3">
+          Last synced: {new Date(lastSyncedAt).toLocaleString()}
+        </p>
+      ) : null}
+
+      {syncSummary ? (
+        <p className="mt-2 text-xs text-status-ok">{syncSummary}</p>
+      ) : null}
+
+      {error ? (
+        <p className="mt-2 text-xs text-status-error">{error}</p>
+      ) : null}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => void handleSave()}
+          disabled={busy || !folderUrl.trim()}
+          className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-2 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {busy ? "Working..." : folderId ? "Update link" : "Link folder"}
+        </button>
+        {folderId ? (
+          <button
+            type="button"
+            onClick={() => void handleSyncNow()}
+            disabled={busy}
+            className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Sync now
+          </button>
+        ) : null}
+        {folderId ? (
+          <button
+            type="button"
+            onClick={() => void handleClear()}
+            disabled={busy}
+            className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export default function ProjectEditWorkspace({
   projectId
 }: {
@@ -863,6 +1060,24 @@ export default function ProjectEditWorkspace({
         throw new Error(body?.error ?? "Failed to update project");
       }
 
+      // updateProjectRecord ignores retainerId; route it through the
+      // dedicated PATCH /retainer endpoint so the link actually persists.
+      const retainerResponse = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/retainer`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ retainerId: form.retainerId ?? null })
+        }
+      );
+      const retainerBody = await retainerResponse.json().catch(() => null);
+      if (!retainerResponse.ok) {
+        throw new Error(
+          retainerBody?.error ?? "Failed to link retainer to project"
+        );
+      }
+
       router.push(`/projects/${projectId}`);
       router.refresh();
     } catch (saveError) {
@@ -989,6 +1204,25 @@ export default function ProjectEditWorkspace({
                 </label>
               </div>
             </section>
+
+            <DriveFolderSection
+              projectId={project.id}
+              initialFolderUrl={project.googleDriveFolderUrl ?? ""}
+              initialFolderId={project.googleDriveFolderId ?? null}
+              initialLastSyncedAt={project.googleDriveLastSyncedAt ?? null}
+              onChange={(next) => {
+                setProject((current) =>
+                  current
+                    ? {
+                        ...current,
+                        googleDriveFolderId: next.googleDriveFolderId,
+                        googleDriveFolderUrl: next.googleDriveFolderUrl,
+                        googleDriveLastSyncedAt: next.googleDriveLastSyncedAt
+                      }
+                    : current
+                );
+              }}
+            />
 
             <section className="brand-surface rounded-[14px] border p-6">
               <h2 className="text-xl font-semibold text-white">
