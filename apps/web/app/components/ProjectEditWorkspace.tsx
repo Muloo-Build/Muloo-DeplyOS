@@ -1060,6 +1060,24 @@ export default function ProjectEditWorkspace({
         throw new Error(body?.error ?? "Failed to update project");
       }
 
+      // updateProjectRecord ignores retainerId; route it through the
+      // dedicated PATCH /retainer endpoint so the link actually persists.
+      const retainerResponse = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/retainer`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ retainerId: form.retainerId ?? null })
+        }
+      );
+      const retainerBody = await retainerResponse.json().catch(() => null);
+      if (!retainerResponse.ok) {
+        throw new Error(
+          retainerBody?.error ?? "Failed to link retainer to project"
+        );
+      }
+
       router.push(`/projects/${projectId}`);
       router.refresh();
     } catch (saveError) {

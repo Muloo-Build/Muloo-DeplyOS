@@ -440,8 +440,18 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
         { method: "POST", credentials: "include" }
       );
       if (!r.ok) {
-        const body = await r.json().catch(() => null);
-        throw new Error(body?.error ?? "Generate failed");
+        const raw = await r.text();
+        let parsed: { error?: string } | null = null;
+        try {
+          parsed = raw ? (JSON.parse(raw) as { error?: string }) : null;
+        } catch {
+          parsed = null;
+        }
+        const detail =
+          parsed?.error ||
+          (raw && raw.length < 400 ? raw : null) ||
+          "no body";
+        throw new Error(`Generate failed (${r.status}): ${detail}`);
       }
       const body = await r.json();
       setSummary(body?.summary ?? null);
