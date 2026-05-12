@@ -477,6 +477,13 @@ model Project {
   npsNote                       String?
   npsCapturedAt                 DateTime?
   completedAt                   DateTime?
+  googleDriveFolderId           String?
+  googleDriveFolderUrl          String?
+  googleDriveLastSyncedAt       DateTime?
+  googleDriveChannelId          String?
+  googleDriveResourceId         String?
+  googleDriveStartPageToken     String?
+  googleDriveChannelExpiresAt   DateTime?
   bornFromProjectId             String?
   bornFromProject               Project?                @relation("ProjectLineage", fields: [bornFromProjectId], references: [id], onDelete: SetNull)
   spawnedProjects               Project[]               @relation("ProjectLineage")
