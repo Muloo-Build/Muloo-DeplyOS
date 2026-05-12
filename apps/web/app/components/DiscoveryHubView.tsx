@@ -86,7 +86,8 @@ const resourceIcon: Record<string, React.ReactNode> = {
   pdf: <FileText size={13} className="text-status-warn" />,
   miro_board: <Layers size={13} className="text-[#FFC766]" />,
   internal_workbook: <FileText size={13} className="text-text-2" />,
-  external_url: <ExternalLink size={13} className="text-text-2" />
+  external_url: <ExternalLink size={13} className="text-text-2" />,
+  upload: <Upload size={13} className="text-status-info" />
 };
 
 const statusToneMap: Record<
@@ -209,60 +210,101 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
     sourceUrl: "",
     content: ""
   });
+  const [contextFile, setContextFile] = useState<File | null>(null);
   const [contextSaving, setContextSaving] = useState(false);
   const [contextError, setContextError] = useState<string | null>(null);
 
+  function resetContextDraft() {
+    setContextDraft({
+      resourceType: "miro_board",
+      sourceLabel: "",
+      sourceUrl: "",
+      content: ""
+    });
+    setContextFile(null);
+  }
+
   async function handleAddContext() {
-    if (!contextDraft.sourceLabel.trim()) {
-      setContextError("Label required");
-      return;
-    }
-    if (!contextDraft.sourceUrl.trim() && !contextDraft.content.trim()) {
-      setContextError("Provide a URL or paste content");
-      return;
+    const isUpload = contextDraft.resourceType === "upload";
+    if (isUpload) {
+      if (!contextFile) {
+        setContextError("Choose a file to upload");
+        return;
+      }
+      if (contextFile.size > 20 * 1024 * 1024) {
+        setContextError("File exceeds 20 MB limit");
+        return;
+      }
+    } else {
+      if (!contextDraft.sourceLabel.trim()) {
+        setContextError("Label required");
+        return;
+      }
+      if (!contextDraft.sourceUrl.trim() && !contextDraft.content.trim()) {
+        setContextError("Provide a URL or paste content");
+        return;
+      }
     }
     setContextSaving(true);
     setContextError(null);
     try {
-      const evidenceTypeByResource: Record<string, string> = {
-        miro_board: "miro-note",
-        google_doc: "uploaded-doc",
-        google_sheet: "uploaded-doc",
-        google_form: "uploaded-doc",
-        pdf: "uploaded-doc",
-        other_url: "website-link"
-      };
-      const evidenceType =
-        evidenceTypeByResource[contextDraft.resourceType] ?? "uploaded-doc";
-      const r = await fetch(
-        `/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            evidenceType,
-            kind: "context",
-            sourceLabel: contextDraft.sourceLabel.trim(),
-            sourceUrl: contextDraft.sourceUrl.trim() || null,
-            content: contextDraft.content.trim() || null,
-            resourceType: contextDraft.resourceType,
-            status: "linked"
-          })
+      if (isUpload && contextFile) {
+        const fd = new FormData();
+        fd.append("file", contextFile);
+        const label =
+          contextDraft.sourceLabel.trim() || contextFile.name;
+        fd.append("sourceLabel", label);
+        if (contextDraft.content.trim()) {
+          fd.append("content", contextDraft.content.trim());
         }
-      );
-      if (!r.ok) {
-        const body = await r.json().catch(() => null);
-        throw new Error(body?.error ?? "Add context failed");
+        const r = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}/uploads`,
+          {
+            method: "POST",
+            credentials: "include",
+            body: fd
+          }
+        );
+        if (!r.ok) {
+          const body = await r.json().catch(() => null);
+          throw new Error(body?.error ?? "Upload failed");
+        }
+      } else {
+        const evidenceTypeByResource: Record<string, string> = {
+          miro_board: "miro-note",
+          google_doc: "uploaded-doc",
+          google_sheet: "uploaded-doc",
+          google_form: "uploaded-doc",
+          pdf: "uploaded-doc",
+          other_url: "website-link"
+        };
+        const evidenceType =
+          evidenceTypeByResource[contextDraft.resourceType] ?? "uploaded-doc";
+        const r = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}/sessions/0/evidence`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              evidenceType,
+              kind: "context",
+              sourceLabel: contextDraft.sourceLabel.trim(),
+              sourceUrl: contextDraft.sourceUrl.trim() || null,
+              content: contextDraft.content.trim() || null,
+              resourceType: contextDraft.resourceType,
+              status: "linked"
+            })
+          }
+        );
+        if (!r.ok) {
+          const body = await r.json().catch(() => null);
+          throw new Error(body?.error ?? "Add context failed");
+        }
       }
       await loadAll();
       setContextOpen(false);
-      setContextDraft({
-        resourceType: "miro_board",
-        sourceLabel: "",
-        sourceUrl: "",
-        content: ""
-      });
+      resetContextDraft();
     } catch (err) {
       setContextError(
         err instanceof Error ? err.message : "Add context failed"
@@ -870,7 +912,15 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
                       {c.sourceUrl ? (
                         <a href={c.sourceUrl} target="_blank" rel="noreferrer">
                           <Btn variant="ghost" size="sm">
-                            <ExternalLink size={11} />
+                            {c.resourceType === "upload" ||
+                            c.sourceUrl.startsWith("/api/files/") ? (
+                              <>
+                                <Upload size={11} />
+                                Download
+                              </>
+                            ) : (
+                              <ExternalLink size={11} />
+                            )}
                           </Btn>
                         </a>
                       ) : (
@@ -1039,8 +1089,9 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
                     { id: "google_doc", label: "Google Doc" },
                     { id: "google_sheet", label: "Google Sheet" },
                     { id: "google_form", label: "Google Form" },
-                    { id: "pdf", label: "PDF" },
-                    { id: "external_url", label: "Other URL" }
+                    { id: "pdf", label: "PDF (link)" },
+                    { id: "external_url", label: "Other URL" },
+                    { id: "upload", label: "File upload" }
                   ].map((opt) => {
                     const isActive = contextDraft.resourceType === opt.id;
                     return (
@@ -1090,27 +1141,53 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
                   className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4"
                 />
               </label>
-              <label className="block">
-                <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
-                  URL
-                </span>
-                <input
-                  type="url"
-                  value={contextDraft.sourceUrl}
-                  onChange={(e) =>
-                    setContextDraft((d) => ({
-                      ...d,
-                      sourceUrl: e.target.value
-                    }))
-                  }
-                  placeholder={
-                    contextDraft.resourceType === "miro_board"
-                      ? "https://miro.com/app/board/..."
-                      : "https://"
-                  }
-                  className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4 font-mono"
-                />
-              </label>
+              {contextDraft.resourceType === "upload" ? (
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                    File <span className="text-status-danger">*</span>
+                  </span>
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.pptx,.txt,.md,.csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/markdown,text/csv"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      setContextFile(f);
+                      if (f && !contextDraft.sourceLabel.trim()) {
+                        setContextDraft((d) => ({
+                          ...d,
+                          sourceLabel: f.name
+                        }));
+                      }
+                    }}
+                    className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[12px] text-text-2 outline-none focus:border-[rgba(74,219,192,0.35)] file:mr-3 file:py-1 file:px-2 file:rounded-md file:border-0 file:bg-ink-3 file:text-text-1 file:text-[12px]"
+                  />
+                  <span className="block mt-1 text-[11px] text-text-3">
+                    PDF, DOCX, PPTX, TXT, MD, or CSV · max 20 MB
+                  </span>
+                </label>
+              ) : (
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
+                    URL
+                  </span>
+                  <input
+                    type="url"
+                    value={contextDraft.sourceUrl}
+                    onChange={(e) =>
+                      setContextDraft((d) => ({
+                        ...d,
+                        sourceUrl: e.target.value
+                      }))
+                    }
+                    placeholder={
+                      contextDraft.resourceType === "miro_board"
+                        ? "https://miro.com/app/board/..."
+                        : "https://"
+                    }
+                    className="mt-1.5 w-full bg-ink-2 border border-ink-4 rounded-[10px] px-3 py-2 text-[13px] text-text-1 outline-none focus:border-[rgba(74,219,192,0.35)] placeholder:text-text-4 font-mono"
+                  />
+                </label>
+              )}
               <label className="block">
                 <span className="text-[10px] uppercase tracking-[0.14em] text-text-3 font-semibold">
                   Notes (optional)
@@ -1137,7 +1214,10 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
               <Btn
                 variant="ghost"
                 size="md"
-                onClick={() => setContextOpen(false)}
+                onClick={() => {
+                  setContextOpen(false);
+                  resetContextDraft();
+                }}
                 disabled={contextSaving}
               >
                 Cancel
@@ -1146,10 +1226,21 @@ export default function DiscoveryHubView({ projectId }: DiscoveryHubViewProps) {
                 variant="primary"
                 size="md"
                 onClick={() => void handleAddContext()}
-                disabled={contextSaving || !contextDraft.sourceLabel.trim()}
+                disabled={
+                  contextSaving ||
+                  (contextDraft.resourceType === "upload"
+                    ? !contextFile
+                    : !contextDraft.sourceLabel.trim())
+                }
               >
                 <Upload size={12} />
-                {contextSaving ? "Adding…" : "Add source"}
+                {contextSaving
+                  ? contextDraft.resourceType === "upload"
+                    ? "Uploading…"
+                    : "Adding…"
+                  : contextDraft.resourceType === "upload"
+                    ? "Upload file"
+                    : "Add source"}
               </Btn>
             </div>
           </div>
