@@ -86,7 +86,7 @@ export default function ProjectAuditPage({
   }, [error, loading, params.id, project, router]);
 
   return (
-    <ProjectWorkspaceView projectId={params.id} activeTab="files">
+    <ProjectWorkspaceView projectId={params.id} activeTab="audit">
       <div className="space-y-6">
         <PageHead
           eyebrow={

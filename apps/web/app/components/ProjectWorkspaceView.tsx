@@ -10,6 +10,7 @@ import {
   Calendar,
   Check,
   ChevronRight,
+  ClipboardCheck,
   Clock,
   Edit3,
   ExternalLink,
@@ -181,7 +182,13 @@ const projectTabs: Array<{
     icon: <MessageSquare size={13} />,
     path: "/meetings"
   },
-  { id: "files", label: "Files", icon: <Folder size={13} />, path: "/audit" },
+  { id: "files", label: "Files", icon: <Folder size={13} />, path: "/files" },
+  {
+    id: "audit",
+    label: "Audit",
+    icon: <ClipboardCheck size={13} />,
+    path: "/audit"
+  },
   {
     id: "settings",
     label: "Settings",
@@ -197,6 +204,7 @@ type ProjectWorkspaceTabId =
   | "delivery"
   | "comms"
   | "files"
+  | "audit"
   | "settings";
 
 const pipelineDefs = [
