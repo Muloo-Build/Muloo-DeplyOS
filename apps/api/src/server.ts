@@ -4936,6 +4936,9 @@ function serializeProject<
     latestClientSubmissionSeenAt?: Date | null;
     latestClientSubmissionSession?: number | null;
     latestClientSubmissionByName?: string | null;
+    googleDriveFolderId?: string | null;
+    googleDriveFolderUrl?: string | null;
+    googleDriveLastSyncedAt?: Date | null;
     client: {
       id: string;
       name: string;
@@ -5048,7 +5051,11 @@ function serializeProject<
     latestClientSubmissionSession:
       normalizedProject.latestClientSubmissionSession ?? null,
     latestClientSubmissionByName:
-      normalizedProject.latestClientSubmissionByName ?? null
+      normalizedProject.latestClientSubmissionByName ?? null,
+    googleDriveFolderId: normalizedProject.googleDriveFolderId ?? null,
+    googleDriveFolderUrl: normalizedProject.googleDriveFolderUrl ?? null,
+    googleDriveLastSyncedAt:
+      normalizedProject.googleDriveLastSyncedAt?.toISOString() ?? null
   };
 }
 
@@ -19007,15 +19014,18 @@ async function resolveWorkspaceGoogleEmailOauthConfig() {
     emailConnection?.redirectUri
   );
   const scopes = ensureScope(
-    emailConnection?.scopes.length
-      ? emailConnection.scopes
-      : [
-          "openid",
-          "email",
-          "profile",
-          "https://www.googleapis.com/auth/gmail.send"
-        ],
-    "https://www.googleapis.com/auth/gmail.readonly"
+    ensureScope(
+      emailConnection?.scopes.length
+        ? emailConnection.scopes
+        : [
+            "openid",
+            "email",
+            "profile",
+            "https://www.googleapis.com/auth/gmail.send"
+          ],
+      "https://www.googleapis.com/auth/gmail.readonly"
+    ),
+    "https://www.googleapis.com/auth/drive.readonly"
   );
 
   return {
@@ -19104,7 +19114,7 @@ function formatWorkflowLabel(workflowKey: string) {
     .join(" ");
 }
 
-async function refreshGoogleWorkspaceEmailAccessTokenIfNeeded(
+export async function refreshGoogleWorkspaceEmailAccessTokenIfNeeded(
   minimumValidityMs = 60_000
 ) {
   const connection = await getGoogleWorkspaceEmailOAuthConnectionRecord();
@@ -26637,8 +26647,11 @@ export async function updateWorkspaceEmailOAuthConnection(value: {
       .filter(Boolean);
 
     const nextScopes = ensureScope(
-      normalizedScopes,
-      "https://www.googleapis.com/auth/gmail.readonly"
+      ensureScope(
+        normalizedScopes,
+        "https://www.googleapis.com/auth/gmail.readonly"
+      ),
+      "https://www.googleapis.com/auth/drive.readonly"
     );
 
     if (nextScopes.length === 0) {
