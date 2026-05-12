@@ -377,7 +377,9 @@ import {
 } from "./server";
 import {
   clearProjectDriveFolder,
+  findProjectIdByDriveChannelId,
   linkProjectDriveFolder,
+  processDriveChangesForProject,
   startDriveSyncScheduler,
   syncProjectDriveFolder
 } from "./driveSync";
@@ -2259,6 +2261,48 @@ export function createApiApp(config: BaseConfig) {
         error instanceof Error ? error.message : "Drive sync failed";
       const status = message === "Project not found" ? 404 : 400;
       return c.json({ error: message }, status);
+    }
+  });
+
+  // Drive push-notification webhook. Public — Drive cannot send our auth header.
+  // Validation: the channel id (header) must match a project we registered, and
+  // the token (also a header) must match that project's id.
+  app.post("/api/integrations/google-drive/webhook", async (c) => {
+    const channelId = c.req.header("x-goog-channel-id");
+    const channelToken = c.req.header("x-goog-channel-token");
+    const resourceState = c.req.header("x-goog-resource-state");
+
+    if (!channelId) {
+      return c.json({ error: "missing channel id" }, 400);
+    }
+
+    // Initial sync ack — Drive sends this once when the channel is created.
+    if (resourceState === "sync") {
+      return c.body(null, 200);
+    }
+
+    try {
+      const projectId = await findProjectIdByDriveChannelId(channelId);
+      if (!projectId || projectId !== channelToken) {
+        return c.json({ error: "unknown channel" }, 404);
+      }
+
+      // Drive expects a fast ack — return immediately and process in the
+      // background so a long extract doesn't trip the webhook timeout.
+      void processDriveChangesForProject(projectId).catch((error) => {
+        const message =
+          error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[drive-sync] webhook processing for ${projectId} failed: ${message}`
+        );
+      });
+
+      return c.body(null, 200);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Drive webhook failed";
+      console.warn(`[drive-sync] webhook error: ${message}`);
+      return c.json({ error: message }, 500);
     }
   });
 
@@ -10234,7 +10278,9 @@ export function createApiApp(config: BaseConfig) {
     startWorker();
     console.info("[worker] BullMQ execution worker started");
     startDriveSyncScheduler();
-    console.info("[drive-sync] 5-min Drive folder sweep scheduled");
+    console.info(
+      "[drive-sync] 30-min Drive folder fallback sweep + channel renewal scheduled"
+    );
   }
 
   return app;

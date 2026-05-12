@@ -513,10 +513,15 @@ model Project {
   googleDriveFolderId           String?
   googleDriveFolderUrl          String?
   googleDriveLastSyncedAt       DateTime?
+  googleDriveChannelId          String?
+  googleDriveResourceId         String?
+  googleDriveStartPageToken     String?
+  googleDriveChannelExpiresAt   DateTime?
 
   @@index([retainerId])
   @@index([bornFromProjectId])
   @@index([googleDriveFolderId])
+  @@index([googleDriveChannelId])
 }
 
 model ReportTemplate {
