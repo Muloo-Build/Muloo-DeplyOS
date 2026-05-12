@@ -1388,15 +1388,29 @@ export default function ProjectWorkspaceView({
                       {portalConnected ? "Connected" : "Disconnected"}
                     </span>
                     {portalConnected ? (
-                      <Link
-                        href={`/projects/${projectId}/audit`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <Btn variant="ghost" size="sm">
-                          Manage
+                      <>
+                        <Btn
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => void handleConnectPortal()}
+                          disabled={connectingPortal}
+                          title="Re-run the public app OAuth install for this portal — needed if the access/refresh token is missing or expired."
+                        >
+                          {connectingPortal ? (
+                            <Loader2 size={11} className="animate-spin" />
+                          ) : null}
+                          {connectingPortal ? "Starting…" : "Reconnect"}
                         </Btn>
-                      </Link>
+                        <Link
+                          href={`/projects/${projectId}/audit`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <Btn variant="ghost" size="sm">
+                            Manage
+                          </Btn>
+                        </Link>
+                      </>
                     ) : (
                       <Btn
                         variant="ghost"
