@@ -13311,6 +13311,26 @@ const SUPPORTED_EXTERNAL_APPROVAL_CURRENCIES = [
   "CAD"
 ] as const;
 
+function normaliseOptionalDocUrl(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  // Users routinely paste links without the protocol prefix (e.g. Drive,
+  // HubSpot tracking URLs). Add https:// when missing so the URL parser can
+  // validate the rest of the string without rejecting an otherwise sensible
+  // value.
+  const withProtocol = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+  try {
+    const parsed = new URL(withProtocol);
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 const markExternallyApprovedSchema = z.object({
   value: z.number().positive().max(1_000_000_000),
   currency: z.enum(SUPPORTED_EXTERNAL_APPROVAL_CURRENCIES).default("ZAR"),
@@ -13319,8 +13339,20 @@ const markExternallyApprovedSchema = z.object({
     .datetime({ offset: true })
     .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
   approvedByName: z.string().trim().min(1).max(160),
-  approvedByEmail: z.string().trim().email().max(254).optional().nullable(),
-  docUrl: z.string().trim().url().max(2048).optional().nullable(),
+  approvedByEmail: z
+    .string()
+    .trim()
+    .max(254)
+    .email()
+    .optional()
+    .nullable()
+    .or(z.literal("").transform(() => null)),
+  docUrl: z
+    .string()
+    .max(2048)
+    .optional()
+    .nullable()
+    .transform((value) => normaliseOptionalDocUrl(value)),
   source: z.string().trim().max(160).optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable()
 });

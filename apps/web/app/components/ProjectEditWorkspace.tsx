@@ -721,6 +721,37 @@ function formatExternalApprovalAmount(value: number, currency: string) {
   }
 }
 
+function readApiError(body: unknown, fallback: string): string {
+  if (!body || typeof body !== "object") return fallback;
+  const errorField = (body as { error?: unknown }).error;
+  if (typeof errorField === "string") return errorField;
+  if (errorField && typeof errorField === "object") {
+    const flattened = errorField as {
+      formErrors?: string[];
+      fieldErrors?: Record<string, string[] | undefined>;
+    };
+    const messages: string[] = [];
+    if (Array.isArray(flattened.formErrors)) {
+      messages.push(...flattened.formErrors.filter(Boolean));
+    }
+    if (flattened.fieldErrors) {
+      for (const [field, fieldMessages] of Object.entries(
+        flattened.fieldErrors
+      )) {
+        if (Array.isArray(fieldMessages)) {
+          for (const msg of fieldMessages) {
+            if (typeof msg === "string" && msg.trim()) {
+              messages.push(`${field}: ${msg}`);
+            }
+          }
+        }
+      }
+    }
+    if (messages.length > 0) return messages.join("; ");
+  }
+  return fallback;
+}
+
 function ExternalApprovalSection({
   projectId,
   initial,
@@ -798,7 +829,7 @@ function ExternalApprovalSection({
       );
       const body = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to save external approval");
+        throw new Error(readApiError(body, "Failed to save external approval"));
       }
       const nextApproval: ExternalApproval | null =
         body?.project?.externalApproval ?? null;
@@ -831,7 +862,9 @@ function ExternalApprovalSection({
       );
       const body = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(body?.error ?? "Failed to clear external approval");
+        throw new Error(
+          readApiError(body, "Failed to clear external approval")
+        );
       }
       setCurrent(null);
       resetFormFromCurrent(null);
