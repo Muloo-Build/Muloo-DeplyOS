@@ -4939,6 +4939,14 @@ function serializeProject<
     googleDriveFolderId?: string | null;
     googleDriveFolderUrl?: string | null;
     googleDriveLastSyncedAt?: Date | null;
+    externalApprovalValue?: unknown | null;
+    externalApprovalCurrency?: string | null;
+    externalApprovedAt?: Date | null;
+    externalApprovedByName?: string | null;
+    externalApprovedByEmail?: string | null;
+    externalApprovalDocUrl?: string | null;
+    externalApprovalSource?: string | null;
+    externalApprovalNotes?: string | null;
     client: {
       id: string;
       name: string;
@@ -5055,7 +5063,35 @@ function serializeProject<
     googleDriveFolderId: normalizedProject.googleDriveFolderId ?? null,
     googleDriveFolderUrl: normalizedProject.googleDriveFolderUrl ?? null,
     googleDriveLastSyncedAt:
-      normalizedProject.googleDriveLastSyncedAt?.toISOString() ?? null
+      normalizedProject.googleDriveLastSyncedAt?.toISOString() ?? null,
+    externalApproval: serializeExternalApproval(normalizedProject)
+  };
+}
+
+function serializeExternalApproval<
+  T extends {
+    externalApprovalValue?: unknown | null;
+    externalApprovalCurrency?: string | null;
+    externalApprovedAt?: Date | null;
+    externalApprovedByName?: string | null;
+    externalApprovedByEmail?: string | null;
+    externalApprovalDocUrl?: string | null;
+    externalApprovalSource?: string | null;
+    externalApprovalNotes?: string | null;
+  }
+>(project: T) {
+  if (!project.externalApprovedAt && project.externalApprovalValue == null) {
+    return null;
+  }
+  return {
+    value: decimalToNumber(project.externalApprovalValue),
+    currency: project.externalApprovalCurrency ?? "ZAR",
+    approvedAt: project.externalApprovedAt?.toISOString() ?? null,
+    approvedByName: project.externalApprovedByName ?? null,
+    approvedByEmail: project.externalApprovedByEmail ?? null,
+    docUrl: project.externalApprovalDocUrl ?? null,
+    source: project.externalApprovalSource ?? null,
+    notes: project.externalApprovalNotes ?? null
   };
 }
 
@@ -13264,6 +13300,177 @@ export async function approveProjectQuote(
     project: serializeProject(updatedProject),
     quote: serializeProjectQuote(approvedQuote)
   };
+}
+
+const SUPPORTED_EXTERNAL_APPROVAL_CURRENCIES = [
+  "ZAR",
+  "USD",
+  "GBP",
+  "EUR",
+  "AUD",
+  "CAD"
+] as const;
+
+const markExternallyApprovedSchema = z.object({
+  value: z.number().positive().max(1_000_000_000),
+  currency: z.enum(SUPPORTED_EXTERNAL_APPROVAL_CURRENCIES).default("ZAR"),
+  approvedAt: z
+    .string()
+    .datetime({ offset: true })
+    .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+  approvedByName: z.string().trim().min(1).max(160),
+  approvedByEmail: z.string().trim().email().max(254).optional().nullable(),
+  docUrl: z.string().trim().url().max(2048).optional().nullable(),
+  source: z.string().trim().max(160).optional().nullable(),
+  notes: z.string().trim().max(2000).optional().nullable()
+});
+
+export async function markProjectExternallyApproved(
+  projectId: string,
+  payload: unknown
+) {
+  const parsed = markExternallyApprovedSchema.parse(payload);
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      status: true,
+      quoteApprovalStatus: true,
+      scopeLockedAt: true,
+      quoteApprovedAt: true,
+      quoteApprovedByName: true,
+      quoteApprovedByEmail: true,
+      externalApprovedAt: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const latestApprovedQuote = await prisma.projectQuote.findFirst({
+    where: { projectId, status: { in: ["approved", "won"] } },
+    select: { id: true }
+  });
+  if (latestApprovedQuote) {
+    throw new Error(
+      "Project already has an approved in-platform quote. Update that quote instead of marking external approval."
+    );
+  }
+
+  const approvedAt = new Date(parsed.approvedAt);
+  if (Number.isNaN(approvedAt.getTime())) {
+    throw new Error("approvedAt must be a valid date");
+  }
+
+  const updatedProject = await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      externalApprovalValue: parsed.value,
+      externalApprovalCurrency: parsed.currency,
+      externalApprovedAt: approvedAt,
+      externalApprovedByName: parsed.approvedByName,
+      externalApprovedByEmail: parsed.approvedByEmail ?? null,
+      externalApprovalDocUrl: parsed.docUrl ?? null,
+      externalApprovalSource: parsed.source ?? null,
+      externalApprovalNotes: parsed.notes ?? null,
+      quoteApprovalStatus: "approved",
+      quoteApprovedAt: project.quoteApprovedAt ?? approvedAt,
+      quoteApprovedByName: project.quoteApprovedByName ?? parsed.approvedByName,
+      quoteApprovedByEmail:
+        project.quoteApprovedByEmail ?? parsed.approvedByEmail ?? null,
+      scopeLockedAt: project.scopeLockedAt ?? approvedAt,
+      status:
+        project.status === "complete" ? project.status : "ready-for-execution"
+    },
+    include: {
+      client: true,
+      portal: true,
+      retainer: true
+    }
+  });
+
+  await createProjectMessage({
+    projectId,
+    senderType: "system",
+    senderName: "Deploy OS",
+    body: `Marked externally approved (${parsed.currency} ${parsed.value.toLocaleString(
+      "en-GB"
+    )}) by ${parsed.approvedByName}.`
+  });
+
+  return { project: serializeProject(updatedProject) };
+}
+
+export async function clearProjectExternalApproval(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      id: true,
+      status: true,
+      externalApprovedAt: true,
+      quoteApprovalStatus: true
+    }
+  });
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (!project.externalApprovedAt) {
+    throw new Error("Project has no external approval to clear");
+  }
+
+  const latestInPlatformQuote = await prisma.projectQuote.findFirst({
+    where: { projectId, status: { in: ["approved", "won", "shared"] } },
+    select: { id: true }
+  });
+
+  const baseClearData: Prisma.Prisma.ProjectUpdateInput = {
+    externalApprovalValue: null,
+    externalApprovalCurrency: null,
+    externalApprovedAt: null,
+    externalApprovedByName: null,
+    externalApprovedByEmail: null,
+    externalApprovalDocUrl: null,
+    externalApprovalSource: null,
+    externalApprovalNotes: null
+  };
+
+  const revertApprovalData: Prisma.Prisma.ProjectUpdateInput =
+    latestInPlatformQuote
+      ? {}
+      : {
+          quoteApprovalStatus: "draft",
+          quoteApprovedAt: null,
+          quoteApprovedByName: null,
+          quoteApprovedByEmail: null,
+          scopeLockedAt: null,
+          status: project.status === "complete" ? project.status : "draft"
+        };
+
+  const updatedProject = await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      ...baseClearData,
+      ...revertApprovalData
+    },
+    include: {
+      client: true,
+      portal: true,
+      retainer: true
+    }
+  });
+
+  await createProjectMessage({
+    projectId,
+    senderType: "system",
+    senderName: "Deploy OS",
+    body: "Cleared external approval on this project."
+  });
+
+  return { project: serializeProject(updatedProject) };
 }
 
 const ALLOWED_QUOTE_STATUSES = [
@@ -31806,6 +32013,19 @@ export async function loadFinancialsSummary(input?: {
     }
   });
 
+  const externallyApprovedProjects = await prisma.project.findMany({
+    where: { externalApprovedAt: { not: null } },
+    select: {
+      id: true,
+      name: true,
+      externalApprovalValue: true,
+      externalApprovalCurrency: true,
+      externalApprovedAt: true,
+      externalApprovalSource: true,
+      client: { select: { id: true, name: true, slug: true } }
+    }
+  });
+
   const now = new Date();
   const ninetyDaysFromNow = new Date(
     now.getTime() + 90 * 24 * 60 * 60 * 1000
@@ -31949,6 +32169,64 @@ export async function loadFinancialsSummary(input?: {
     return 0;
   };
 
+  // External-approved deals: revenue committed outside the platform (signed
+  // PDF, e-sign, etc.). We treat each one as a closed/won line item and feed
+  // it into the same headline + per-currency mix as ProjectQuote wins.
+  const externalApprovedByCurrency = new Map<string, CurrencyBucket>();
+  let externalApprovedTotalNativeZar = 0;
+  let externalApprovedCount = 0;
+  let externalApprovedInRangeValue = 0;
+  let externalApprovedInRangeCount = 0;
+  const externalApprovedByClient = new Map<
+    string,
+    { clientId: string; clientName: string; wonZar: number }
+  >();
+  for (const extProject of externallyApprovedProjects) {
+    const nativeAmount = decimalToNumber(extProject.externalApprovalValue);
+    if (!Number.isFinite(nativeAmount) || nativeAmount <= 0) continue;
+    const currency = normaliseCurrency(extProject.externalApprovalCurrency);
+    const zarAmount = convertToBaseZar(nativeAmount, currency);
+    externalApprovedTotalNativeZar += zarAmount;
+    externalApprovedCount += 1;
+    bumpCurrencyBucket(externalApprovedByCurrency, currency, nativeAmount);
+
+    const closedDate = extProject.externalApprovedAt ?? null;
+    if (closedDate && closedDate >= range.from && closedDate <= range.to) {
+      externalApprovedInRangeValue += zarAmount;
+      externalApprovedInRangeCount += 1;
+      wonInRangeValue += zarAmount;
+      wonInRangeCount += 1;
+      bumpCurrencyBucket(wonInRangeByCurrency, currency, nativeAmount);
+      const key = `${closedDate.getFullYear()}-${String(closedDate.getMonth() + 1).padStart(2, "0")}`;
+      const bucket = monthBuckets.get(key);
+      if (bucket) {
+        bucket.wonValue += zarAmount;
+        bucket.wonCount += 1;
+      }
+    }
+    if (
+      closedDate &&
+      closedDate >= range.priorFrom &&
+      closedDate <= range.priorTo
+    ) {
+      wonInPriorValue += zarAmount;
+      wonInPriorCount += 1;
+    }
+    wonValue += zarAmount;
+    wonCount += 1;
+
+    const clientId = extProject.client?.id;
+    if (clientId) {
+      const existing = externalApprovedByClient.get(clientId) ?? {
+        clientId,
+        clientName: extProject.client?.name ?? "—",
+        wonZar: 0
+      };
+      existing.wonZar += zarAmount;
+      externalApprovedByClient.set(clientId, existing);
+    }
+  }
+
   let mrrZar = 0;
   const retainersByClient = new Map<
     string,
@@ -32008,6 +32286,17 @@ export async function loadFinancialsSummary(input?: {
       recurringZar: 0
     };
     existing.recurringZar = data.monthlyZar * 12;
+    clientRevenue.set(clientId, existing);
+  }
+
+  for (const [clientId, data] of externalApprovedByClient.entries()) {
+    const existing = clientRevenue.get(clientId) ?? {
+      clientId,
+      clientName: data.clientName,
+      wonZar: 0,
+      recurringZar: 0
+    };
+    existing.wonZar += data.wonZar;
     clientRevenue.set(clientId, existing);
   }
 
@@ -32124,7 +32413,11 @@ export async function loadFinancialsSummary(input?: {
       wonInRangeCount,
       mrrZar,
       activeRetainers: activeRetainers.length,
-      annualisedRecurringZar: mrrZar * 12
+      annualisedRecurringZar: mrrZar * 12,
+      externalApprovedTotalZar: externalApprovedTotalNativeZar,
+      externalApprovedCount,
+      externalApprovedInRangeValue,
+      externalApprovedInRangeCount
     },
     prior: {
       wonValue: wonInPriorValue,
@@ -32185,9 +32478,29 @@ export async function loadFinancialsSummary(input?: {
       byCurrency: {
         pipeline: dumpCurrencyBuckets(pipelineByCurrency),
         approved: dumpCurrencyBuckets(approvedByCurrency),
-        wonInRange: dumpCurrencyBuckets(wonInRangeByCurrency)
+        wonInRange: dumpCurrencyBuckets(wonInRangeByCurrency),
+        externalApproved: dumpCurrencyBuckets(externalApprovedByCurrency)
       }
-    }
+    },
+    externalApproved: externallyApprovedProjects
+      .map((p) => {
+        const native = decimalToNumber(p.externalApprovalValue);
+        const currency = normaliseCurrency(p.externalApprovalCurrency);
+        return {
+          projectId: p.id,
+          projectName: p.name,
+          clientId: p.client?.id ?? null,
+          clientName: p.client?.name ?? "—",
+          clientSlug: p.client?.slug ?? null,
+          nativeValue: native,
+          currency,
+          zarValue: convertToBaseZar(native, currency),
+          approvedAt: p.externalApprovedAt?.toISOString() ?? null,
+          source: p.externalApprovalSource ?? null
+        };
+      })
+      .filter((row) => Number.isFinite(row.nativeValue) && row.nativeValue > 0)
+      .sort((a, b) => b.zarValue - a.zarValue)
   };
 }
 

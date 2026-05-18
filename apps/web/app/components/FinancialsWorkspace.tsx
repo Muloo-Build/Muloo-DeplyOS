@@ -27,6 +27,10 @@ interface FinancialsSummary {
     mrrZar: number;
     activeRetainers: number;
     annualisedRecurringZar: number;
+    externalApprovedTotalZar: number;
+    externalApprovedCount: number;
+    externalApprovedInRangeValue: number;
+    externalApprovedInRangeCount: number;
   };
   prior: {
     wonValue: number;
@@ -114,8 +118,21 @@ interface FinancialsSummary {
       pipeline: CurrencyBucket[];
       approved: CurrencyBucket[];
       wonInRange: CurrencyBucket[];
+      externalApproved: CurrencyBucket[];
     };
   };
+  externalApproved: Array<{
+    projectId: string;
+    projectName: string;
+    clientId: string | null;
+    clientName: string;
+    clientSlug: string | null;
+    nativeValue: number;
+    currency: string;
+    zarValue: number;
+    approvedAt: string | null;
+    source: string | null;
+  }>;
 }
 
 interface CurrencyBucket {
@@ -414,6 +431,16 @@ export default function FinancialsWorkspace() {
                   {formatCount(summary.headline.wonInRangeCount, "deal")} · prior{" "}
                   {fmt(summary.prior.wonValue)}
                 </p>
+                {summary.headline.externalApprovedInRangeCount > 0 ? (
+                  <p className="mt-1 text-[11px] text-emerald-200/60">
+                    Incl.{" "}
+                    {formatCount(
+                      summary.headline.externalApprovedInRangeCount,
+                      "external"
+                    )}{" "}
+                    · {fmt(summary.headline.externalApprovedInRangeValue)}
+                  </p>
+                ) : null}
                 <CurrencyMix buckets={summary.fx.byCurrency.wonInRange} />
               </div>
 
@@ -665,7 +692,7 @@ export default function FinancialsWorkspace() {
               </section>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
               {/* Recurring revenue by client */}
               <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
                 <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
@@ -701,6 +728,81 @@ export default function FinancialsWorkspace() {
                     ))}
                   </ul>
                 )}
+              </section>
+
+              {/* External-approved deals — revenue committed outside the
+                  platform (signed PDF, email, etc.) feeds Won totals but is
+                  surfaced here so operators can trace the source. */}
+              <section className="rounded-[14px] border border-ink-4 bg-ink-1 p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-text-3">
+                      Externally approved
+                    </p>
+                    <h2 className="mt-2 text-xl font-semibold text-white">
+                      Deals approved off-platform
+                    </h2>
+                  </div>
+                  {summary.headline.externalApprovedCount > 0 ? (
+                    <div className="text-right">
+                      <p className="text-lg font-semibold text-white tabular-nums">
+                        {fmt(summary.headline.externalApprovedTotalZar)}
+                      </p>
+                      <p className="text-xs text-text-3">
+                        {formatCount(
+                          summary.headline.externalApprovedCount,
+                          "deal"
+                        )}{" "}
+                        · {fmt(summary.headline.externalApprovedInRangeValue)}{" "}
+                        in range
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+
+                {summary.externalApproved.length === 0 ? (
+                  <p className="mt-5 text-sm text-text-2">
+                    Nothing marked externally approved yet. Use the project edit
+                    page to log a signed PDF or off-platform agreement.
+                  </p>
+                ) : (
+                  <ul className="mt-5 space-y-2">
+                    {summary.externalApproved.map((row) => (
+                      <li
+                        key={row.projectId}
+                        className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-3"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium text-white">
+                              {row.projectName}
+                            </p>
+                            <p className="text-xs text-text-3">
+                              {row.clientName}
+                              {row.approvedAt
+                                ? ` · ${new Date(row.approvedAt).toLocaleDateString("en-GB")}`
+                                : ""}
+                              {row.source ? ` · ${row.source}` : ""}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-white tabular-nums">
+                              {formatMoney(row.nativeValue, row.currency)}
+                            </p>
+                            {row.currency !== summary.fx.baseCurrency ? (
+                              <p className="text-[10px] text-text-3">
+                                ≈ {fmt(row.zarValue)}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <CurrencyMix
+                  buckets={summary.fx.byCurrency.externalApproved}
+                />
               </section>
 
               {/* Top clients by total revenue */}
