@@ -8602,6 +8602,37 @@ export function createApiApp(config: BaseConfig) {
     c.json({ clients: await loadClientsDirectory() })
   );
 
+  // Hand Muloo Hub Command the portal's HubSpot OAuth token so it can read
+  // reporting data without a second authorize (shared HubSpot app — tokens are
+  // valid for any caller). Hub Command seeds its own HubSpotConnection from this
+  // and refreshes thereafter. Guarded by externalTokenAuth (service JWT).
+  app.get("/api/external/portal-token/:portalId", async (c) => {
+    const portalId = c.req.param("portalId");
+    const portal = await prisma.hubSpotPortal.findUnique({
+      where: { portalId },
+      select: {
+        portalId: true,
+        connected: true,
+        accessToken: true,
+        refreshToken: true,
+        tokenType: true,
+        scopes: true,
+        tokenExpiresAt: true,
+      },
+    });
+    if (!portal || !portal.connected || !portal.accessToken || !portal.refreshToken) {
+      return c.json({ error: "Portal not connected" }, 404);
+    }
+    return c.json({
+      portalId: portal.portalId,
+      accessToken: portal.accessToken,
+      refreshToken: portal.refreshToken,
+      tokenType: portal.tokenType ?? "bearer",
+      scopes: portal.scopes,
+      expiresAt: portal.tokenExpiresAt ? portal.tokenExpiresAt.toISOString() : null,
+    });
+  });
+
   app.get("/api/clients/:clientId/memory", async (c) => {
     try {
       const excludeProjectId = c.req.query("excludeProjectId");
