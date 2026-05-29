@@ -41,6 +41,7 @@ import { type Context, Hono, type Next } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
 import { z, ZodError } from "zod";
 import { prisma } from "./prisma";
+import { signJwt, verifyJwt } from "./lib/ssoToken";
 import { executionQueue } from "./queue/index";
 import { startWorker } from "./queue/worker";
 import {
@@ -1193,6 +1194,20 @@ export function createApiApp(config: BaseConfig) {
     c.set("clientUserId", clientUserId);
     await next();
   };
+  // Bearer-token guard for Muloo Hub Command's service reads (/api/external/*).
+  // Verifies an HS256 service JWT (aud "deploy") against the shared secret.
+  const externalTokenAuth = async (c: Context<HonoBindings>, next: Next) => {
+    const secret = process.env.MULOO_SSO_SHARED_SECRET;
+    if (!secret || secret.length < 32) return c.json({ error: "SSO not configured" }, 503);
+    const header = c.req.header("authorization") ?? "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+    try {
+      verifyJwt(token, secret, "deploy");
+    } catch {
+      return c.json({ error: "Invalid service token" }, 401);
+    }
+    await next();
+  };
 
   app.onError((error, c) => {
     const message =
@@ -1213,6 +1228,7 @@ export function createApiApp(config: BaseConfig) {
   app.use("/api/*", apiLimiter);
   app.use("/api/auth/*", authLimiter);
   app.use("/api/client-auth/*", authLimiter);
+  app.use("/api/external/*", externalTokenAuth);
 
   app.use("/api/modules", internalAuth);
   app.use("/api/settings", internalAuth);
@@ -1292,6 +1308,53 @@ export function createApiApp(config: BaseConfig) {
   app.all("/api/auth/session", async (c) =>
     c.json(await loadAuthenticatedWorkspaceSession(c.env.incoming))
   );
+
+  // Mint a short-lived launch token for Muloo Hub Command (reporting). Authed by
+  // the existing workspace cookie; returns a deep-link the browser follows into
+  // Hub Command's /api/sso/exchange. Same shared HubSpot app, no shared DB.
+  app.post("/api/auth/launch-token", async (c) => {
+    if (!(await isAuthenticated(c.env.incoming))) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    const secret = process.env.MULOO_SSO_SHARED_SECRET;
+    const hubUrl = process.env.HUB_COMMAND_URL;
+    if (!secret || secret.length < 32 || !hubUrl) {
+      return c.json({ error: "SSO not configured" }, 503);
+    }
+    const actor = await resolveInternalActor(c.env.incoming);
+    const user = actor.userId
+      ? await prisma.workspaceUser.findUnique({
+          where: { id: actor.userId },
+          select: { email: true, name: true, role: true },
+        })
+      : null;
+
+    const body = (await c.req.json().catch(() => ({}))) as {
+      portalId?: unknown;
+      clientId?: unknown;
+      clientName?: unknown;
+    };
+    const portalId = typeof body?.portalId === "string" ? body.portalId : undefined;
+    const clientId = typeof body?.clientId === "string" ? body.clientId : undefined;
+    const clientName = typeof body?.clientName === "string" ? body.clientName : undefined;
+
+    const token = signJwt(
+      {
+        aud: "hub-command",
+        iss: "deployos",
+        email: (user?.email ?? actor.actor).toLowerCase(),
+        name: user?.name ?? undefined,
+        role: user?.role ?? undefined,
+        portalId,
+        clientId,
+        clientName,
+      },
+      secret,
+      120,
+    );
+    const url = `${hubUrl.replace(/\/$/, "")}/api/sso/exchange?token=${encodeURIComponent(token)}`;
+    return c.json({ url });
+  });
 
   app.post("/api/auth/login", async (c) => {
     const parsed = authLoginSchema.safeParse(await readJsonBodyOrEmpty(c));
@@ -8531,6 +8594,12 @@ export function createApiApp(config: BaseConfig) {
     c.json({
       clients: await loadClientsDirectory()
     })
+  );
+
+  // Token-authed read for Muloo Hub Command (service JWT via externalTokenAuth).
+  // Same payload as /api/clients; consumed by Hub Command's mirror page.
+  app.get("/api/external/clients", async (c) =>
+    c.json({ clients: await loadClientsDirectory() })
   );
 
   app.get("/api/clients/:clientId/memory", async (c) => {
