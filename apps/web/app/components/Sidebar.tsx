@@ -189,6 +189,26 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+  // Launch Muloo Hub Command (reporting) with the current workspace identity.
+  // No payload → lands on the Hub Command company mirror list.
+  async function launchReporting() {
+    try {
+      const res = await fetch("/api/auth/launch-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (!res.ok) {
+        alert("Reporting unavailable");
+        return;
+      }
+      const { url } = (await res.json()) as { url: string };
+      window.location.href = url;
+    } catch {
+      alert("Reporting unavailable");
+    }
+  }
+
   useEffect(() => {
     async function loadSummary() {
       try {
@@ -388,6 +408,25 @@ export default function Sidebar() {
               </div>
             </div>
           ))}
+
+          {/* Reporting — launches Muloo Hub Command via signed SSO (POST then redirect). */}
+          <div className="pt-3.5 pb-1.5">
+            <div className="px-2 pb-1.5 text-[10px] tracking-[0.14em] uppercase text-text-4 font-semibold">
+              Reporting
+            </div>
+            <div className="space-y-px">
+              <button
+                type="button"
+                onClick={launchReporting}
+                className="relative flex w-full items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-text-2 transition-colors hover:bg-ink-2 hover:text-text-1"
+              >
+                <span className="opacity-85 flex-shrink-0">
+                  <LineChart size={15} />
+                </span>
+                <span className="truncate">Reporting</span>
+              </button>
+            </div>
+          </div>
         </nav>
 
         {/* Footer: user + settings */}

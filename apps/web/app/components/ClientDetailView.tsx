@@ -12,6 +12,7 @@ import {
   Folder,
   Globe,
   Home,
+  LineChart,
   Mail,
   MapPin,
   MessageSquare,
@@ -270,6 +271,27 @@ export default function ClientDetailView({ clientId }: ClientDetailViewProps) {
     Boolean(client?.hubSpotPortal?.portalId) ||
     Boolean(client?.portal?.connected);
 
+  // Launch Muloo Hub Command reporting for this client (signed SSO + portalId
+  // deep-link). Requires a connected HubSpot portal.
+  async function launchReporting() {
+    const portalId = client?.hubSpotPortal?.portalId;
+    try {
+      const res = await fetch("/api/auth/launch-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, portalId, clientName: client?.name }),
+      });
+      if (!res.ok) {
+        alert("Reporting unavailable");
+        return;
+      }
+      const { url } = (await res.json()) as { url: string };
+      window.location.href = url;
+    } catch {
+      alert("Reporting unavailable");
+    }
+  }
+
   const activity = useMemo<ActivityEntry[]>(() => {
     const out: ActivityEntry[] = [];
     if (client?.updatedAt) {
@@ -436,6 +458,20 @@ export default function ClientDetailView({ clientId }: ClientDetailViewProps) {
                 </Btn>
               </a>
             )}
+            <Btn
+              variant="ghost"
+              size="md"
+              onClick={launchReporting}
+              disabled={!client?.hubSpotPortal?.portalId}
+              title={
+                client?.hubSpotPortal?.portalId
+                  ? "Open reporting in Muloo Hub Command"
+                  : "Connect a HubSpot portal first"
+              }
+            >
+              <LineChart size={13} />
+              Launch reporting
+            </Btn>
             <Link href={`/projects/new?clientId=${clientId}`}>
               <Btn variant="primary" size="md">
                 <Plus size={13} />
