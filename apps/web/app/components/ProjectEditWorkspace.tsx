@@ -70,9 +70,22 @@ interface ProjectDetail {
   } | null;
   status: string;
   scopeLockedAt?: string | null;
+  quoteApprovalStatus?: string | null;
   googleDriveFolderId?: string | null;
   googleDriveFolderUrl?: string | null;
   googleDriveLastSyncedAt?: string | null;
+  externalApproval?: ExternalApproval | null;
+}
+
+interface ExternalApproval {
+  value: number;
+  currency: string;
+  approvedAt: string | null;
+  approvedByName: string | null;
+  approvedByEmail: string | null;
+  docUrl: string | null;
+  source: string | null;
+  notes: string | null;
 }
 
 interface RetainerOption {
@@ -681,6 +694,429 @@ function DriveFolderSection({
             Clear
           </button>
         ) : null}
+      </div>
+    </section>
+  );
+}
+
+const EXTERNAL_APPROVAL_CURRENCIES: RetainerCurrency[] = [
+  "ZAR",
+  "USD",
+  "GBP",
+  "EUR",
+  "AUD",
+  "CAD"
+];
+
+function formatExternalApprovalAmount(value: number, currency: string) {
+  if (!Number.isFinite(value) || value === 0) return `${currency} 0`;
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 2
+    }).format(value);
+  } catch {
+    return `${currency} ${value.toLocaleString("en-GB")}`;
+  }
+}
+
+function readApiError(body: unknown, fallback: string): string {
+  if (!body || typeof body !== "object") return fallback;
+  const errorField = (body as { error?: unknown }).error;
+  if (typeof errorField === "string") return errorField;
+  if (errorField && typeof errorField === "object") {
+    const flattened = errorField as {
+      formErrors?: string[];
+      fieldErrors?: Record<string, string[] | undefined>;
+    };
+    const messages: string[] = [];
+    if (Array.isArray(flattened.formErrors)) {
+      messages.push(...flattened.formErrors.filter(Boolean));
+    }
+    if (flattened.fieldErrors) {
+      for (const [field, fieldMessages] of Object.entries(
+        flattened.fieldErrors
+      )) {
+        if (Array.isArray(fieldMessages)) {
+          for (const msg of fieldMessages) {
+            if (typeof msg === "string" && msg.trim()) {
+              messages.push(`${field}: ${msg}`);
+            }
+          }
+        }
+      }
+    }
+    if (messages.length > 0) return messages.join("; ");
+  }
+  return fallback;
+}
+
+function ExternalApprovalSection({
+  projectId,
+  initial,
+  hasInPlatformApprovedQuote,
+  onChange
+}: {
+  projectId: string;
+  initial: ExternalApproval | null;
+  hasInPlatformApprovedQuote: boolean;
+  onChange: (next: ExternalApproval | null) => void;
+}) {
+  const [current, setCurrent] = useState<ExternalApproval | null>(initial);
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [valueInput, setValueInput] = useState<string>(
+    current?.value ? String(current.value) : ""
+  );
+  const [currency, setCurrency] = useState<string>(current?.currency ?? "ZAR");
+  const [approvedAt, setApprovedAt] = useState<string>(
+    current?.approvedAt ? current.approvedAt.slice(0, 10) : todayIso
+  );
+  const [approvedByName, setApprovedByName] = useState<string>(
+    current?.approvedByName ?? ""
+  );
+  const [approvedByEmail, setApprovedByEmail] = useState<string>(
+    current?.approvedByEmail ?? ""
+  );
+  const [docUrl, setDocUrl] = useState<string>(current?.docUrl ?? "");
+  const [source, setSource] = useState<string>(current?.source ?? "");
+  const [notes, setNotes] = useState<string>(current?.notes ?? "");
+
+  function resetFormFromCurrent(next: ExternalApproval | null) {
+    setValueInput(next?.value ? String(next.value) : "");
+    setCurrency(next?.currency ?? "ZAR");
+    setApprovedAt(
+      next?.approvedAt ? next.approvedAt.slice(0, 10) : todayIso
+    );
+    setApprovedByName(next?.approvedByName ?? "");
+    setApprovedByEmail(next?.approvedByEmail ?? "");
+    setDocUrl(next?.docUrl ?? "");
+    setSource(next?.source ?? "");
+    setNotes(next?.notes ?? "");
+  }
+
+  async function handleSave() {
+    setBusy(true);
+    setError(null);
+    try {
+      const parsedValue = Number(valueInput);
+      if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+        throw new Error("Amount must be greater than zero.");
+      }
+      if (!approvedByName.trim()) {
+        throw new Error("Approver name is required.");
+      }
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/external-approval`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            value: parsedValue,
+            currency,
+            approvedAt,
+            approvedByName: approvedByName.trim(),
+            approvedByEmail: approvedByEmail.trim() || null,
+            docUrl: docUrl.trim() || null,
+            source: source.trim() || null,
+            notes: notes.trim() || null
+          })
+        }
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(readApiError(body, "Failed to save external approval"));
+      }
+      const nextApproval: ExternalApproval | null =
+        body?.project?.externalApproval ?? null;
+      setCurrent(nextApproval);
+      resetFormFromCurrent(nextApproval);
+      onChange(nextApproval);
+      setEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleClear() {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Clear external approval? Project will revert to draft unless an in-platform quote is also approved."
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/external-approval`,
+        { method: "DELETE" }
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          readApiError(body, "Failed to clear external approval")
+        );
+      }
+      setCurrent(null);
+      resetFormFromCurrent(null);
+      onChange(null);
+      setEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clear");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!editing && current) {
+    return (
+      <section className="brand-surface rounded-[14px] border p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.14em] text-text-3">
+              External approval
+            </p>
+            <h3 className="mt-1 text-lg font-semibold text-white">
+              {formatExternalApprovalAmount(current.value, current.currency)}
+            </h3>
+          </div>
+          <Pill tone="ok" dot>
+            Approved
+          </Pill>
+        </div>
+        <dl className="mt-4 space-y-2 text-sm text-text-2">
+          <div>
+            <dt className="text-text-3">Approved by</dt>
+            <dd className="text-white">
+              {current.approvedByName ?? "—"}
+              {current.approvedByEmail ? (
+                <span className="ml-2 text-text-3">
+                  &lt;{current.approvedByEmail}&gt;
+                </span>
+              ) : null}
+            </dd>
+          </div>
+          {current.approvedAt ? (
+            <div>
+              <dt className="text-text-3">Approved on</dt>
+              <dd className="text-white">
+                {new Date(current.approvedAt).toLocaleDateString("en-GB")}
+              </dd>
+            </div>
+          ) : null}
+          {current.source ? (
+            <div>
+              <dt className="text-text-3">Source</dt>
+              <dd className="text-white">{current.source}</dd>
+            </div>
+          ) : null}
+          {current.docUrl ? (
+            <div>
+              <dt className="text-text-3">Document</dt>
+              <dd>
+                <a
+                  href={current.docUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-accent-solid underline"
+                >
+                  Open
+                </a>
+              </dd>
+            </div>
+          ) : null}
+          {current.notes ? (
+            <div>
+              <dt className="text-text-3">Notes</dt>
+              <dd className="whitespace-pre-wrap text-white">
+                {current.notes}
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            disabled={busy}
+            className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-text-2 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleClear()}
+            disabled={busy}
+            className="brand-input rounded-xl px-4 py-2 text-sm font-medium text-status-error disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy ? "Clearing..." : "Clear"}
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (!editing) {
+    return (
+      <section className="brand-surface rounded-[14px] border p-6">
+        <p className="text-xs uppercase tracking-[0.14em] text-text-3">
+          External approval
+        </p>
+        <p className="mt-3 text-sm text-text-2">
+          Use this when a quote was approved outside the platform (signed PDF,
+          email, etc.). Marks the project as approved, locks scope, and feeds
+          the value into Financials.
+        </p>
+        {hasInPlatformApprovedQuote ? (
+          <p className="mt-3 text-xs text-text-3">
+            This project already has an approved in-platform quote, so external
+            approval is disabled to avoid double-counting.
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          disabled={hasInPlatformApprovedQuote}
+          className="mt-5 w-full rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Mark externally approved
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="brand-surface rounded-[14px] border p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.14em] text-text-3">
+            External approval
+          </p>
+          <h3 className="mt-1 text-lg font-semibold text-white">
+            {current ? "Edit approval" : "Mark externally approved"}
+          </h3>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3">
+        <label className="block">
+          <span className="mb-2 block text-sm text-text-2">
+            Approved amount
+          </span>
+          <div className="flex gap-2">
+            <input
+              value={valueInput}
+              onChange={(event) => setValueInput(event.target.value)}
+              inputMode="decimal"
+              placeholder="120000"
+              className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+            />
+            <select
+              value={currency}
+              onChange={(event) => setCurrency(event.target.value)}
+              className="rounded-xl border border-ink-4 bg-ink-2 px-3 py-3 text-white outline-none focus:border-accent-solid"
+            >
+              {EXTERNAL_APPROVAL_CURRENCIES.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-sm text-text-2">Approved on</span>
+          <input
+            type="date"
+            value={approvedAt}
+            max={todayIso}
+            onChange={(event) => setApprovedAt(event.target.value)}
+            className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-sm text-text-2">Approver name</span>
+          <input
+            value={approvedByName}
+            onChange={(event) => setApprovedByName(event.target.value)}
+            placeholder="Khanyisile Mathebula"
+            className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-sm text-text-2">
+            Approver email (optional)
+          </span>
+          <input
+            type="email"
+            value={approvedByEmail}
+            onChange={(event) => setApprovedByEmail(event.target.value)}
+            placeholder="name@client.com"
+            className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-sm text-text-2">
+            Document URL (PDF, Drive link)
+          </span>
+          <input
+            value={docUrl}
+            onChange={(event) => setDocUrl(event.target.value)}
+            placeholder="https://drive.google.com/file/d/..."
+            className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-sm text-text-2">Source label</span>
+          <input
+            value={source}
+            onChange={(event) => setSource(event.target.value)}
+            placeholder="Email reply 12 May 2026"
+            className="w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-sm text-text-2">Notes</span>
+          <textarea
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="Optional context — discovery workstream approved, payment terms, etc."
+            className="min-h-[80px] w-full rounded-xl border border-ink-4 bg-ink-2 px-4 py-3 text-white outline-none focus:border-accent-solid"
+          />
+        </label>
+      </div>
+      {error ? (
+        <p className="mt-3 text-sm text-status-error">{error}</p>
+      ) : null}
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => void handleSave()}
+          disabled={busy}
+          className="rounded-xl bg-[linear-gradient(135deg,#7c5cbf_0%,#e0529c_55%,#f0824a_100%)] px-4 py-3 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {busy ? "Saving..." : current ? "Save changes" : "Mark approved"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            resetFormFromCurrent(current);
+            setEditing(false);
+            setError(null);
+          }}
+          disabled={busy}
+          className="brand-input rounded-xl px-4 py-3 text-sm font-medium text-text-2 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Cancel
+        </button>
       </div>
     </section>
   );
@@ -2081,6 +2517,19 @@ export default function ProjectEditWorkspace({
           </div>
 
           <aside className="space-y-6">
+            <ExternalApprovalSection
+              projectId={project.id}
+              initial={project.externalApproval ?? null}
+              hasInPlatformApprovedQuote={
+                project.quoteApprovalStatus === "approved" &&
+                !project.externalApproval
+              }
+              onChange={(next) =>
+                setProject((current) =>
+                  current ? { ...current, externalApproval: next } : current
+                )
+              }
+            />
             <section className="brand-surface rounded-[14px] border p-6">
               <p className="text-xs uppercase tracking-[0.14em] text-text-3">
                 Current shape

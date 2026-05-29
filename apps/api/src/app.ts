@@ -181,6 +181,8 @@ import {
   updateWorkspaceTodo,
   updateWorkspaceAiRouting,
   approveProjectQuote,
+  clearProjectExternalApproval,
+  markProjectExternallyApproved,
   createProjectMessage,
   updateClientContact,
   updateClientDirectoryRecord,
@@ -5721,6 +5723,47 @@ export function createApiApp(config: BaseConfig) {
         error instanceof Error ? error.message : "Failed to update quote";
       const statusCode = message === "Quote not found for this project" ? 404 : 400;
 
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
+  app.post("/api/projects/:projectId/external-approval", async (c) => {
+    try {
+      const result = await markProjectExternallyApproved(
+        c.req.param("projectId"),
+        await readJsonBodyOrEmpty(c)
+      );
+      return c.json(result);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return c.json({ error: error.flatten() }, 400);
+      }
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to mark project externally approved";
+      const statusCode =
+        message === "Project not found"
+          ? 404
+          : message.startsWith("Project already has an approved")
+            ? 409
+            : 400;
+      return c.json({ error: message }, statusCode);
+    }
+  });
+
+  app.delete("/api/projects/:projectId/external-approval", async (c) => {
+    try {
+      const result = await clearProjectExternalApproval(
+        c.req.param("projectId")
+      );
+      return c.json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to clear external approval";
+      const statusCode = message === "Project not found" ? 404 : 400;
       return c.json({ error: message }, statusCode);
     }
   });

@@ -484,6 +484,14 @@ model Project {
   googleDriveResourceId         String?
   googleDriveStartPageToken     String?
   googleDriveChannelExpiresAt   DateTime?
+  externalApprovalValue         Decimal?                @db.Decimal(14, 2)
+  externalApprovalCurrency      String?
+  externalApprovedAt            DateTime?
+  externalApprovedByName        String?
+  externalApprovedByEmail       String?
+  externalApprovalDocUrl        String?
+  externalApprovalSource        String?
+  externalApprovalNotes         String?
   bornFromProjectId             String?
   bornFromProject               Project?                @relation("ProjectLineage", fields: [bornFromProjectId], references: [id], onDelete: SetNull)
   spawnedProjects               Project[]               @relation("ProjectLineage")
@@ -523,6 +531,7 @@ model Project {
   @@index([bornFromProjectId])
   @@index([googleDriveFolderId])
   @@index([googleDriveChannelId])
+  @@index([externalApprovedAt])
 }
 
 model ReportTemplate {
