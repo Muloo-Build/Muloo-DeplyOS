@@ -32,6 +32,23 @@ interface InvoiceDetail {
     periodMonth: string;
     blockHours: number;
   } | null;
+  origin?: "RETAINER" | "MANUAL";
+  client?: { id: string; name: string } | null;
+  championContact?: {
+    id: string;
+    firstName: string;
+    lastName: string | null;
+    email: string;
+    title: string | null;
+  } | null;
+  lineItems?: Array<{
+    id: string;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    sortOrder: number;
+  }>;
 }
 
 function formatDate(value: string | null) {
@@ -157,6 +174,12 @@ export default function InvoiceDetailWorkspace({
           <h1 className="mt-2 text-3xl font-semibold text-white">
             {invoice?.reference ?? "Loading invoice"}
           </h1>
+          <a
+            href={`/api/invoices/${encodeURIComponent(invoiceId)}/pdf`}
+            className="mt-3 inline-flex items-center rounded-xl border border-[#51d0b0]/50 bg-[#51d0b0]/10 px-4 py-2 text-sm font-semibold text-[#9be4d2] transition hover:bg-[#51d0b0]/20"
+          >
+            Download PDF
+          </a>
         </header>
 
         {error ? (
@@ -188,6 +211,18 @@ export default function InvoiceDetailWorkspace({
                 <span className="text-text-3">Retainer client:</span>{" "}
                 {invoice?.retainer?.client?.name ?? "—"}
               </p>
+              {invoice?.championContact ? (
+                <p>
+                  <span className="text-text-3">Champion:</span>{" "}
+                  {invoice.championContact.firstName} {invoice.championContact.lastName ?? ""} ·{" "}
+                  {invoice.championContact.email}
+                </p>
+              ) : null}
+              {invoice?.client ? (
+                <p>
+                  <span className="text-text-3">Customer:</span> {invoice.client.name}
+                </p>
+              ) : null}
               <p>
                 <span className="text-text-3">Issue date:</span>{" "}
                 {invoice ? formatDate(invoice.issueDate) : "—"}
@@ -215,6 +250,30 @@ export default function InvoiceDetailWorkspace({
                 </p>
               ) : null}
             </div>
+
+            {invoice?.lineItems && invoice.lineItems.length > 0 ? (
+              <div className="mt-5">
+                <p className="text-xs uppercase tracking-[0.14em] text-text-3">Line items</p>
+                <ul className="mt-2 divide-y divide-white/5 text-sm">
+                  {invoice.lineItems
+                    .slice()
+                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                    .map((line) => (
+                      <li key={line.id} className="flex items-center justify-between py-2">
+                        <span className="text-text-2">
+                          {line.description}{" "}
+                          <span className="text-text-3">
+                            ({line.quantity} × {formatMoney(line.unitPrice, invoice.currency)})
+                          </span>
+                        </span>
+                        <span className="text-white tabular-nums">
+                          {formatMoney(line.lineTotal, invoice.currency)}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            ) : null}
 
             {invoice?.billToEntity?.type === "PARTNER_AGENCY" ? (
               <Link
