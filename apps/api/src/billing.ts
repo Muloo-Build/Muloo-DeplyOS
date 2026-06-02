@@ -239,6 +239,25 @@ function serializeInvoice<
       periodMonth: Date;
       blockHours: number;
     } | null;
+    origin?: string;
+    clientId?: string | null;
+    championContactId?: string | null;
+    client?: { id: string; name: string } | null;
+    championContact?: {
+      id: string;
+      firstName: string;
+      lastName: string | null;
+      email: string;
+      title: string | null;
+    } | null;
+    lineItems?: Array<{
+      id: string;
+      description: string;
+      quantity: unknown;
+      unitPrice: unknown;
+      lineTotal: unknown;
+      sortOrder: number;
+    }>;
   }
 >(invoice: T) {
   return {
@@ -287,7 +306,28 @@ function serializeInvoice<
           periodMonth: invoice.retainerPeriod.periodMonth.toISOString(),
           blockHours: invoice.retainerPeriod.blockHours
         }
-      : null
+      : null,
+    origin: invoice.origin ?? "RETAINER",
+    clientId: invoice.clientId ?? null,
+    championContactId: invoice.championContactId ?? null,
+    client: invoice.client ? { id: invoice.client.id, name: invoice.client.name } : null,
+    championContact: invoice.championContact
+      ? {
+          id: invoice.championContact.id,
+          firstName: invoice.championContact.firstName,
+          lastName: invoice.championContact.lastName,
+          email: invoice.championContact.email,
+          title: invoice.championContact.title
+        }
+      : null,
+    lineItems: (invoice.lineItems ?? []).map((line) => ({
+      id: line.id,
+      description: line.description,
+      quantity: decimalToNumber(line.quantity),
+      unitPrice: decimalToNumber(line.unitPrice),
+      lineTotal: decimalToNumber(line.lineTotal),
+      sortOrder: line.sortOrder
+    }))
   };
 }
 
@@ -955,7 +995,12 @@ export async function loadInvoiceDetail(invoiceId: string) {
           rolledOutHours: true,
           status: true
         }
-      }
+      },
+      client: { select: { id: true, name: true } },
+      championContact: {
+        select: { id: true, firstName: true, lastName: true, email: true, title: true }
+      },
+      lineItems: { orderBy: { sortOrder: "asc" } }
     }
   });
 
