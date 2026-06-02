@@ -83,6 +83,40 @@ function decimalToNumber(value: unknown) {
   return 0;
 }
 
+export interface ManualLineInput {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface ComputedLine extends ManualLineInput {
+  lineTotal: number;
+  sortOrder: number;
+}
+
+function round2(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+export function computeInvoiceTotals(items: ManualLineInput[]) {
+  const lines: ComputedLine[] = items.map((item, index) => ({
+    description: item.description,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    lineTotal: round2(item.quantity * item.unitPrice),
+    sortOrder: index
+  }));
+  const amount = round2(lines.reduce((sum, line) => sum + line.lineTotal, 0));
+  return { lines, amount };
+}
+
+export function generateInvoiceReference(issueDate: Date, idSeed: string) {
+  const y = issueDate.getUTCFullYear();
+  const m = String(issueDate.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(issueDate.getUTCDate()).padStart(2, "0");
+  return `INV-${y}${m}${d}-${idSeed.slice(0, 6).toUpperCase()}`;
+}
+
 function addDays(date: Date, days: number) {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
@@ -152,7 +186,7 @@ function serializeInvoice<
     id: string;
     reference: string;
     billToEntityId: string;
-    retainerId: string;
+    retainerId: string | null;
     retainerPeriodId: string | null;
     invoiceType: string;
     amount: unknown;
@@ -285,7 +319,7 @@ function serializeClientFacingRetainer(input: {
       id: string;
       reference: string;
       billToEntityId: string;
-      retainerId: string;
+      retainerId: string | null;
       retainerPeriodId: string | null;
       invoiceType: string;
       amount: unknown;
