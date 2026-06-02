@@ -55,6 +55,7 @@ import {
   assertClientRetainerAccess,
   createAgencyRecord,
   createInvoiceRecord,
+  createManualInvoiceRecord,
   getClientVisibleTopUpDetail,
   listBillToEntities,
   listInvoices,
@@ -67,6 +68,7 @@ import {
   updateAgencyRecord,
   updateInvoiceRecord
 } from "./billing";
+import { renderInvoicePdf } from "./invoicePdf";
 import {
   clientAuthCookieName,
   createAgentDefinition,
@@ -7269,6 +7271,29 @@ export function createApiApp(config: BaseConfig) {
     }
   });
 
+  app.post("/api/invoices/manual", async (c) => {
+    try {
+      const actor = await resolveInternalActor(c.env.incoming);
+      return c.json(
+        {
+          invoice: await createManualInvoiceRecord(
+            await readJsonBodyOrEmpty(c),
+            actor.actor
+          )
+        },
+        201
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to create invoice"
+        },
+        400
+      );
+    }
+  });
+
   app.get("/api/invoices/summary", async (c) =>
     c.json({
       summary: await loadInvoiceDashboardSummary()
@@ -7304,6 +7329,31 @@ export function createApiApp(config: BaseConfig) {
     }
 
     return c.json({ invoice });
+  });
+
+  app.get("/api/invoices/:invoiceId/pdf", async (c) => {
+    try {
+      const invoice = await loadInvoiceDetail(c.req.param("invoiceId"));
+      if (!invoice) {
+        return c.json({ error: "Invoice not found" }, 404);
+      }
+      const buffer = await renderInvoicePdf(invoice);
+      return new Response(new Uint8Array(buffer), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${invoice.reference}.pdf"`
+        }
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to generate invoice PDF"
+        },
+        500
+      );
+    }
   });
 
   app.patch("/api/invoices/:invoiceId", async (c) => {
