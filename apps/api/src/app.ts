@@ -7284,6 +7284,17 @@ export function createApiApp(config: BaseConfig) {
         201
       );
     } catch (error) {
+      const isDuplicateReference =
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error as { code?: string }).code === "P2002";
+      if (isDuplicateReference) {
+        return c.json(
+          { error: "An invoice with that reference already exists." },
+          409
+        );
+      }
       return c.json(
         {
           error:
@@ -7338,11 +7349,15 @@ export function createApiApp(config: BaseConfig) {
         return c.json({ error: "Invoice not found" }, 404);
       }
       const buffer = await renderInvoicePdf(invoice);
+      // Sanitize the (operator-supplyable) reference before it lands in the
+      // Content-Disposition header to avoid header injection via quotes/CRLF.
+      const safeName =
+        invoice.reference.replace(/[^A-Za-z0-9._-]/g, "_") || "invoice";
       return new Response(new Uint8Array(buffer), {
         status: 200,
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${invoice.reference}.pdf"`
+          "Content-Disposition": `attachment; filename="${safeName}.pdf"`
         }
       });
     } catch (error) {

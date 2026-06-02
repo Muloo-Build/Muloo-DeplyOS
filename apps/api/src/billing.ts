@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import Prisma from "@prisma/client";
 import { z } from "zod";
 
@@ -874,8 +876,12 @@ export async function createManualInvoiceRecord(payload: unknown, actorId: strin
 
     const issueDate = input.issueDate;
     const dueDate = input.dueDate ?? addDays(issueDate, 14);
+    // Seed the auto reference with a per-invoice random token, NOT the (stable)
+    // BillToEntity id — otherwise two manual invoices for the same client on the
+    // same day would generate an identical reference and hit the unique index.
     const reference =
-      input.reference?.trim() || generateInvoiceReference(issueDate, billToEntity.id);
+      input.reference?.trim() ||
+      generateInvoiceReference(issueDate, randomUUID().replace(/-/g, ""));
 
     const invoice = await transaction.invoice.create({
       data: {
