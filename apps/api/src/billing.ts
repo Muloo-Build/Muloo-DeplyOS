@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import Prisma from "@prisma/client";
 import { z } from "zod";
 
@@ -46,6 +48,24 @@ const createInvoiceSchema = z.object({
   notes: z.string().trim().optional().nullable()
 });
 
+const manualLineItemSchema = z.object({
+  description: z.string().trim().min(1),
+  quantity: z.number().finite().positive(),
+  unitPrice: z.number().finite().nonnegative()
+});
+
+const manualInvoiceSchema = z.object({
+  clientId: z.string().trim().min(1),
+  retainerId: z.string().trim().min(1).optional().nullable(),
+  championContactId: z.string().trim().min(1).optional().nullable(),
+  reference: z.string().trim().min(1).optional(),
+  currency: z.enum(["ZAR", "USD", "GBP", "EUR", "AUD", "CAD"]).default("ZAR"),
+  issueDate: z.coerce.date(),
+  dueDate: z.coerce.date().optional(),
+  notes: z.string().trim().optional().nullable(),
+  lineItems: z.array(manualLineItemSchema).min(1)
+});
+
 const updateInvoiceSchema = z
   .object({
     status: z.enum(invoiceStatuses).optional(),
@@ -81,6 +101,40 @@ function decimalToNumber(value: unknown) {
   }
 
   return 0;
+}
+
+export interface ManualLineInput {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface ComputedLine extends ManualLineInput {
+  lineTotal: number;
+  sortOrder: number;
+}
+
+function round2(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+export function computeInvoiceTotals(items: ManualLineInput[]) {
+  const lines: ComputedLine[] = items.map((item, index) => ({
+    description: item.description,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    lineTotal: round2(item.quantity * item.unitPrice),
+    sortOrder: index
+  }));
+  const amount = round2(lines.reduce((sum, line) => sum + line.lineTotal, 0));
+  return { lines, amount };
+}
+
+export function generateInvoiceReference(issueDate: Date, idSeed: string) {
+  const y = issueDate.getUTCFullYear();
+  const m = String(issueDate.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(issueDate.getUTCDate()).padStart(2, "0");
+  return `INV-${y}${m}${d}-${idSeed.slice(0, 6).toUpperCase()}`;
 }
 
 function addDays(date: Date, days: number) {
@@ -152,7 +206,7 @@ function serializeInvoice<
     id: string;
     reference: string;
     billToEntityId: string;
-    retainerId: string;
+    retainerId: string | null;
     retainerPeriodId: string | null;
     invoiceType: string;
     amount: unknown;
@@ -187,6 +241,25 @@ function serializeInvoice<
       periodMonth: Date;
       blockHours: number;
     } | null;
+    origin?: string;
+    clientId?: string | null;
+    championContactId?: string | null;
+    client?: { id: string; name: string } | null;
+    championContact?: {
+      id: string;
+      firstName: string;
+      lastName: string | null;
+      email: string;
+      title: string | null;
+    } | null;
+    lineItems?: Array<{
+      id: string;
+      description: string;
+      quantity: unknown;
+      unitPrice: unknown;
+      lineTotal: unknown;
+      sortOrder: number;
+    }>;
   }
 >(invoice: T) {
   return {
@@ -235,7 +308,28 @@ function serializeInvoice<
           periodMonth: invoice.retainerPeriod.periodMonth.toISOString(),
           blockHours: invoice.retainerPeriod.blockHours
         }
-      : null
+      : null,
+    origin: invoice.origin ?? "RETAINER",
+    clientId: invoice.clientId ?? null,
+    championContactId: invoice.championContactId ?? null,
+    client: invoice.client ? { id: invoice.client.id, name: invoice.client.name } : null,
+    championContact: invoice.championContact
+      ? {
+          id: invoice.championContact.id,
+          firstName: invoice.championContact.firstName,
+          lastName: invoice.championContact.lastName,
+          email: invoice.championContact.email,
+          title: invoice.championContact.title
+        }
+      : null,
+    lineItems: (invoice.lineItems ?? []).map((line) => ({
+      id: line.id,
+      description: line.description,
+      quantity: decimalToNumber(line.quantity),
+      unitPrice: decimalToNumber(line.unitPrice),
+      lineTotal: decimalToNumber(line.lineTotal),
+      sortOrder: line.sortOrder
+    }))
   };
 }
 
@@ -285,7 +379,7 @@ function serializeClientFacingRetainer(input: {
       id: string;
       reference: string;
       billToEntityId: string;
-      retainerId: string;
+      retainerId: string | null;
       retainerPeriodId: string | null;
       invoiceType: string;
       amount: unknown;
@@ -749,6 +843,93 @@ export async function createInvoiceRecord(payload: unknown, actorId: string) {
   });
 }
 
+export async function createManualInvoiceRecord(payload: unknown, actorId: string) {
+  const input = manualInvoiceSchema.parse(payload);
+  const { lines, amount } = computeInvoiceTotals(input.lineItems);
+
+  return prisma.$transaction(async (transaction) => {
+    const billToEntity = await ensureClientBillToEntity(transaction, input.clientId);
+
+    let currency = input.currency;
+    let retainerId: string | null = input.retainerId?.trim() || null;
+    if (retainerId) {
+      const retainer = await transaction.retainer.findUnique({
+        where: { id: retainerId },
+        select: { id: true, clientId: true, currency: true }
+      });
+      if (!retainer || retainer.clientId !== input.clientId) {
+        throw new Error("Selected retainer does not belong to this client.");
+      }
+      currency = retainer.currency;
+    }
+
+    const championContactId = input.championContactId?.trim() || null;
+    if (championContactId) {
+      const champion = await transaction.clientContact.findFirst({
+        where: { id: championContactId, clientId: input.clientId },
+        select: { id: true }
+      });
+      if (!champion) {
+        throw new Error("Champion contact does not belong to this client.");
+      }
+    }
+
+    const issueDate = input.issueDate;
+    const dueDate = input.dueDate ?? addDays(issueDate, 14);
+    // Seed the auto reference with a per-invoice random token, NOT the (stable)
+    // BillToEntity id — otherwise two manual invoices for the same client on the
+    // same day would generate an identical reference and hit the unique index.
+    const reference =
+      input.reference?.trim() ||
+      generateInvoiceReference(issueDate, randomUUID().replace(/-/g, ""));
+
+    const invoice = await transaction.invoice.create({
+      data: {
+        reference,
+        billToEntityId: billToEntity.id,
+        retainerId,
+        retainerPeriodId: null,
+        clientId: input.clientId,
+        championContactId,
+        origin: "MANUAL",
+        invoiceType: "OTHER",
+        amount,
+        currency,
+        issueDate,
+        dueDate,
+        status: "DRAFT",
+        notes: input.notes?.trim() || null,
+        createdByUserId: actorId,
+        lineItems: {
+          create: lines.map((line) => ({
+            description: line.description,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            lineTotal: line.lineTotal,
+            sortOrder: line.sortOrder
+          }))
+        }
+      },
+      include: {
+        billToEntity: { select: { id: true, name: true, type: true } },
+        retainer: {
+          include: {
+            client: { select: { id: true, name: true } }
+          }
+        },
+        retainerPeriod: { select: { id: true, periodMonth: true, blockHours: true } },
+        client: { select: { id: true, name: true } },
+        championContact: {
+          select: { id: true, firstName: true, lastName: true, email: true, title: true }
+        },
+        lineItems: { orderBy: { sortOrder: "asc" } }
+      }
+    });
+
+    return serializeInvoice(invoice);
+  });
+}
+
 export async function listInvoices(filters: unknown = {}) {
   const input = invoiceListFilterSchema.parse(filters);
   const invoices = await prisma.invoice.findMany({
@@ -820,7 +1001,12 @@ export async function loadInvoiceDetail(invoiceId: string) {
           rolledOutHours: true,
           status: true
         }
-      }
+      },
+      client: { select: { id: true, name: true } },
+      championContact: {
+        select: { id: true, firstName: true, lastName: true, email: true, title: true }
+      },
+      lineItems: { orderBy: { sortOrder: "asc" } }
     }
   });
 

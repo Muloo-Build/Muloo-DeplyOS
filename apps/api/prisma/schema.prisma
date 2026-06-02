@@ -42,6 +42,7 @@ model Client {
   workflowRuns       WorkflowRun[]
   agreements         ClientAgreement[]
   securityProfile    ClientSecurityProfile?
+  invoices           Invoice[]            @relation("ClientInvoices")
 
   @@index([hubSpotPortalId])
 }
@@ -72,9 +73,10 @@ model ClientContact {
   canApproveQuotes Boolean              @default(false)
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
-  client           Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  notes            ClientContactNote[]
+  client                  Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  notes                   ClientContactNote[]
   projectContributorRoles ProjectContributor[]
+  championInvoices        Invoice[]            @relation("ChampionInvoices")
 
   @@unique([clientId, email])
   @@index([clientId, createdAt])
@@ -1348,32 +1350,52 @@ model BillToEntity {
 }
 
 model Invoice {
-  id               String           @id @default(cuid())
-  reference        String           @unique
-  billToEntityId   String
-  retainerId       String
-  retainerPeriodId String?
-  invoiceType      InvoiceType
-  amount           Decimal          @db.Decimal(12, 2)
-  currency         RetainerCurrency
-  issueDate        DateTime
-  dueDate          DateTime
-  xeroUrl          String?
-  status           InvoiceStatus    @default(DRAFT)
-  notes            String?
-  createdByUserId  String
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  sentAt           DateTime?
-  paidAt           DateTime?
-  billToEntity     BillToEntity     @relation(fields: [billToEntityId], references: [id])
-  retainer         Retainer         @relation(fields: [retainerId], references: [id], onDelete: Cascade)
-  retainerPeriod   RetainerPeriod?  @relation(fields: [retainerPeriodId], references: [id])
+  id                String           @id @default(cuid())
+  reference         String           @unique
+  billToEntityId    String
+  retainerId        String?
+  clientId          String?
+  championContactId String?
+  origin            InvoiceOrigin    @default(RETAINER)
+  retainerPeriodId  String?
+  invoiceType       InvoiceType
+  amount            Decimal          @db.Decimal(12, 2)
+  currency          RetainerCurrency
+  issueDate         DateTime
+  dueDate           DateTime
+  xeroUrl           String?
+  status            InvoiceStatus    @default(DRAFT)
+  notes             String?
+  createdByUserId   String
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  sentAt            DateTime?
+  paidAt            DateTime?
+  billToEntity      BillToEntity     @relation(fields: [billToEntityId], references: [id])
+  retainer          Retainer?        @relation(fields: [retainerId], references: [id], onDelete: Cascade)
+  client            Client?          @relation("ClientInvoices", fields: [clientId], references: [id], onDelete: SetNull)
+  championContact   ClientContact?   @relation("ChampionInvoices", fields: [championContactId], references: [id], onDelete: SetNull)
+  lineItems         InvoiceLineItem[]
+  retainerPeriod    RetainerPeriod?  @relation(fields: [retainerPeriodId], references: [id])
 
   @@index([billToEntityId, status])
   @@index([retainerId, issueDate])
   @@index([retainerPeriodId])
   @@index([status, dueDate])
+  @@index([clientId, issueDate])
+}
+
+model InvoiceLineItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Decimal  @db.Decimal(12, 2)
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  lineTotal   Decimal  @db.Decimal(12, 2)
+  sortOrder   Int      @default(0)
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, sortOrder])
 }
 
 model ExecutionJob {
@@ -1622,6 +1644,11 @@ enum InvoiceStatus {
   PAID
   OVERDUE
   VOID
+}
+
+enum InvoiceOrigin {
+  RETAINER
+  MANUAL
 }
 
 enum RolloverBucketStatus {
