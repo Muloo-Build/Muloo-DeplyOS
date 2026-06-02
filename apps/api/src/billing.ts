@@ -46,6 +46,24 @@ const createInvoiceSchema = z.object({
   notes: z.string().trim().optional().nullable()
 });
 
+const manualLineItemSchema = z.object({
+  description: z.string().trim().min(1),
+  quantity: z.number().finite().positive(),
+  unitPrice: z.number().finite().nonnegative()
+});
+
+const manualInvoiceSchema = z.object({
+  clientId: z.string().trim().min(1),
+  retainerId: z.string().trim().min(1).optional().nullable(),
+  championContactId: z.string().trim().min(1).optional().nullable(),
+  reference: z.string().trim().min(1).optional(),
+  currency: z.enum(["ZAR", "USD", "GBP", "EUR", "AUD", "CAD"]).default("ZAR"),
+  issueDate: z.coerce.date(),
+  dueDate: z.coerce.date().optional(),
+  notes: z.string().trim().optional().nullable(),
+  lineItems: z.array(manualLineItemSchema).min(1)
+});
+
 const updateInvoiceSchema = z
   .object({
     status: z.enum(invoiceStatuses).optional(),
@@ -776,6 +794,89 @@ export async function createInvoiceRecord(payload: unknown, actorId: string) {
         retainerPeriod: {
           select: { id: true, periodMonth: true, blockHours: true }
         }
+      }
+    });
+
+    return serializeInvoice(invoice);
+  });
+}
+
+export async function createManualInvoiceRecord(payload: unknown, actorId: string) {
+  const input = manualInvoiceSchema.parse(payload);
+  const { lines, amount } = computeInvoiceTotals(input.lineItems);
+
+  return prisma.$transaction(async (transaction) => {
+    const billToEntity = await ensureClientBillToEntity(transaction, input.clientId);
+
+    let currency = input.currency;
+    let retainerId: string | null = input.retainerId?.trim() || null;
+    if (retainerId) {
+      const retainer = await transaction.retainer.findUnique({
+        where: { id: retainerId },
+        select: { id: true, clientId: true, currency: true }
+      });
+      if (!retainer || retainer.clientId !== input.clientId) {
+        throw new Error("Selected retainer does not belong to this client.");
+      }
+      currency = retainer.currency;
+    }
+
+    const championContactId = input.championContactId?.trim() || null;
+    if (championContactId) {
+      const champion = await transaction.clientContact.findFirst({
+        where: { id: championContactId, clientId: input.clientId },
+        select: { id: true }
+      });
+      if (!champion) {
+        throw new Error("Champion contact does not belong to this client.");
+      }
+    }
+
+    const issueDate = input.issueDate;
+    const dueDate = input.dueDate ?? addDays(issueDate, 14);
+    const reference =
+      input.reference?.trim() || generateInvoiceReference(issueDate, billToEntity.id);
+
+    const invoice = await transaction.invoice.create({
+      data: {
+        reference,
+        billToEntityId: billToEntity.id,
+        retainerId,
+        retainerPeriodId: null,
+        clientId: input.clientId,
+        championContactId,
+        origin: "MANUAL",
+        invoiceType: "OTHER",
+        amount,
+        currency,
+        issueDate,
+        dueDate,
+        status: "DRAFT",
+        notes: input.notes?.trim() || null,
+        createdByUserId: actorId,
+        lineItems: {
+          create: lines.map((line) => ({
+            description: line.description,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            lineTotal: line.lineTotal,
+            sortOrder: line.sortOrder
+          }))
+        }
+      },
+      include: {
+        billToEntity: { select: { id: true, name: true, type: true } },
+        retainer: {
+          include: {
+            client: { select: { id: true, name: true } }
+          }
+        },
+        retainerPeriod: { select: { id: true, periodMonth: true, blockHours: true } },
+        client: { select: { id: true, name: true } },
+        championContact: {
+          select: { id: true, firstName: true, lastName: true, email: true, title: true }
+        },
+        lineItems: { orderBy: { sortOrder: "asc" } }
       }
     });
 
