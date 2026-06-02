@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "./AppShell";
 import EmptyState from "./EmptyState";
 import { SkeletonRows } from "./LoadingSkeleton";
+import NewInvoiceDrawer from "./NewInvoiceDrawer";
 import { HealthCell, HealthStrip } from "./ui/HealthStrip";
 import { PageHead } from "./ui/PageHead";
 
@@ -67,6 +69,8 @@ function formatType(type: string) {
 }
 
 export default function InvoicesWorkspace() {
+  const router = useRouter();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -238,6 +242,13 @@ export default function InvoicesWorkspace() {
             placeholder="Search by reference or client..."
             className="w-full max-w-xs rounded-xl border border-ink-4 bg-ink-1 px-3 py-2.5 text-sm text-white placeholder:text-text-3"
           />
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="inline-flex items-center justify-center rounded-xl bg-[#51d0b0] px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-[#6be0c1]"
+          >
+            New invoice
+          </button>
         </div>
 
         <section className="rounded-[14px] border border-ink-4 bg-ink-1">
@@ -310,6 +321,14 @@ export default function InvoicesWorkspace() {
           )}
         </section>
       </div>
+        <NewInvoiceDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          onCreated={(invoiceId) => {
+            setDrawerOpen(false);
+            router.push(`/invoices/${invoiceId}`);
+          }}
+        />
     </AppShell>
   );
 }
