@@ -45,7 +45,14 @@ const tabDefs = [
   {
     id: "active",
     label: "Active",
-    statuses: ["draft", "scoping", "designed", "ready-for-execution", "in-flight"]
+    statuses: [
+      "draft",
+      "active",
+      "scoping",
+      "designed",
+      "ready-for-execution",
+      "in-flight"
+    ]
   },
   {
     id: "awaiting",
@@ -329,16 +336,18 @@ function projectInTab(
   // raw status sits in the active set but the operator is really "awaiting client"
   if (tab.id === "active") {
     return Boolean(
-      status && ["draft", "scoping", "designed", "ready-for-execution", "in-flight"].includes(status)
+      status && ["draft", "active", "scoping", "designed", "ready-for-execution", "in-flight"].includes(status)
     );
   }
   return false;
 }
 
+// statusLabel(status?) remains the centralized status copy map for this view.
 function statusLabel(status?: string): string {
   if (!status) return "Active";
-  const map: Record<string, string> = {
+  const labels: Record<string, string> = {
     draft: "Draft",
+    active: "Active",
     scoping: "Scoping",
     designed: "Designed",
     "ready-for-execution": "Ready for execution",
@@ -351,5 +360,5 @@ function statusLabel(status?: string): string {
     completed: "Completed",
     archived: "Archived"
   };
-  return map[status] ?? status.replace(/_/g, " ").replace(/-/g, " ");
+  return labels[status] ?? status.replace(/_/g, " ").replace(/-/g, " ");
 }

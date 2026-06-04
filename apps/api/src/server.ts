@@ -123,7 +123,8 @@ const validTaskOriginValues = [
   "seeded_pack",
   "change_request",
   "workstream_seed",
-  "implementation_template"
+  "implementation_template",
+  "gemini_meeting"
 ] as const;
 const validTaskValidationStatusValues = [
   "pending",
@@ -11392,6 +11393,171 @@ export async function generateProjectTaskPlan(projectId: string) {
   return (await generateProjectPlan(projectId)).map((task) =>
     serializeTask(task)
   );
+}
+
+export async function loadProjectSkippyCommandCentre(projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      client: { select: { id: true, name: true } },
+      portal: {
+        select: {
+          id: true,
+          portalId: true,
+          displayName: true,
+          connected: true,
+          hubDomain: true
+        }
+      }
+    }
+  });
+  if (!project) throw new Error("Project not found");
+
+  const [tasks, notes, risks] = await Promise.all([
+    loadProjectTasks(projectId),
+    loadProjectMeetingNotes(projectId),
+    loadProjectRisks(projectId)
+  ]);
+
+  const openTasks = tasks.filter((task) => task.status !== "done");
+  const geminiTasks = tasks.filter((task) => task.taskOrigin === "gemini_meeting");
+  const blockedTasks = openTasks.filter((task) => task.status === "blocked");
+  const approvalTasks = openTasks.filter((task) => task.approvalRequired);
+  const latestNotes = notes.slice(0, 5);
+
+  const nextActions = [
+    latestNotes.length > 0
+      ? "Review latest meeting intelligence and confirm source evidence."
+      : "Import Gemini meeting notes to create a reviewed project intelligence thread.",
+    approvalTasks.length > 0
+      ? "Clear approval-required tasks before Skippy executes client-impacting work."
+      : "Generate the next approval-gated execution task from current discovery evidence.",
+    blockedTasks.length > 0
+      ? "Resolve blocked tasks before adding new automation."
+      : "Run HubSpot checks as dry-runs before any write action."
+  ];
+
+  return {
+    project: {
+      id: project.id,
+      name: project.name,
+      status: project.status,
+      client: project.client,
+      portal: project.portal
+    },
+    synthesis:
+      latestNotes[0]?.notes ||
+      latestNotes[0]?.transcript ||
+      project.scopeExecutiveSummary ||
+      project.solutionRecommendation ||
+      project.problemStatement ||
+      "Skippy command centre is ready. Import meeting evidence, then execute with review and approval gates.",
+    nextActions,
+    executionQueue: openTasks.slice(0, 8),
+    risks: risks.filter((risk) => risk.status !== "closed").slice(0, 6),
+    meetingIntelligence: {
+      latestNotes,
+      importedTaskCount: geminiTasks.length
+    },
+    hubspotGuardrails: {
+      portalConnected: Boolean(project.portal?.connected || project.portal?.portalId),
+      posture: "Dry-run first. Approval before HubSpot writes, client-visible changes, or completion claims.",
+      allowed: ["read checks", "draft plans", "internal notes", "approval-gated tasks"],
+      requiresApproval: [
+        "HubSpot data writes",
+        "properties, pipelines, workflows or lists",
+        "client-visible portal updates",
+        "sent client communications"
+      ]
+    }
+  };
+}
+
+export async function importGeminiMeetingIntelligence(
+  projectId: string,
+  value: Record<string, unknown>
+) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true }
+  });
+  if (!project) throw new Error("Project not found");
+
+  let note = null;
+  const shouldCreateNote =
+    typeof value.title === "string" ||
+    typeof value.notes === "string" ||
+    typeof value.transcript === "string";
+  if (shouldCreateNote) {
+    note = await createProjectMeetingNote(projectId, {
+      title:
+        typeof value.title === "string" && value.title.trim()
+          ? value.title
+          : "Gemini meeting intelligence import",
+      meetingDate: value.meetingDate,
+      attendees: value.attendees,
+      notes: value.notes,
+      transcript: value.transcript,
+      links: value.links
+    });
+  }
+
+  const rawTasks = Array.isArray(value.tasks) ? value.tasks : [];
+  const sourceTitle =
+    typeof value.sourceTitle === "string" && value.sourceTitle.trim()
+      ? value.sourceTitle.trim()
+      : note?.title ?? "Gemini meeting intelligence";
+  const taskInputs = rawTasks.length > 0 ? rawTasks : [{ title: `[Gemini] Review ${sourceTitle}` }];
+
+  const createdTasks = [];
+  for (const rawTask of taskInputs.slice(0, 6)) {
+    const task =
+      rawTask && typeof rawTask === "object"
+        ? (rawTask as Record<string, unknown>)
+        : {};
+    const title =
+      typeof task.title === "string" && task.title.trim()
+        ? task.title.trim()
+        : `[Gemini] Review ${sourceTitle}`;
+    createdTasks.push(
+      await createProjectTask(projectId, {
+        title,
+        description:
+          typeof task.description === "string" && task.description.trim()
+            ? task.description.trim()
+            : "Review Gemini meeting intelligence, confirm evidence, and decide the next safe project action.",
+        category:
+          typeof task.category === "string" && task.category.trim()
+            ? task.category.trim()
+            : "Meeting intelligence",
+        taskOrigin: "gemini_meeting",
+        executionType: "meeting_intelligence_review",
+        executionLaneRationale:
+          "Gemini imports create internal, auditable Skippy work that requires human review before client-facing or HubSpot write actions.",
+        priority: "medium",
+        status: "todo",
+        assigneeType: "Agent",
+        executionReadiness: "ready_with_review",
+        approvalRequired: true,
+        qaRequired: true,
+        sourceWorkstreamItemId:
+          typeof value.sourceMeetingNoteId === "string" && value.sourceMeetingNoteId.trim()
+            ? value.sourceMeetingNoteId.trim()
+            : note?.id ?? null,
+        validationEvidence:
+          typeof value.source === "string" && value.source.trim()
+            ? value.source.trim()
+            : "manual_gemini_import"
+      })
+    );
+  }
+
+  return {
+    note,
+    createdTasks,
+    taskOrigin: "gemini_meeting",
+    approvalRequired: true
+  };
 }
 
 export async function loadProjectTaskTemplates(
