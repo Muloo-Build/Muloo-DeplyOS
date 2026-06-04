@@ -4970,7 +4970,10 @@ function serializeProject<
       connectedEmail: string | null;
       connectedName: string | null;
       hubDomain: string | null;
+      tokenExpiresAt: Date | null;
       installedAt: Date | null;
+      updatedAt: Date;
+      createdAt: Date;
     } | null;
     retainer?: {
       id: string;
@@ -5010,6 +5013,9 @@ function serializeProject<
 
   return {
     ...normalizedProject,
+    portal: normalizedProject.portal
+      ? serializeHubSpotPortal(normalizedProject.portal)
+      : null,
     quoteApprovalStatus: normalizedProject.quoteApprovalStatus ?? "draft",
     quoteSharedAt: normalizedProject.quoteSharedAt?.toISOString() ?? null,
     quoteApprovedAt: normalizedProject.quoteApprovedAt?.toISOString() ?? null,
