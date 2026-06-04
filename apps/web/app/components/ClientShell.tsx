@@ -67,19 +67,18 @@ export default function ClientShell({
   }
 
   const navItems = [
-    { href: projectsPath, label: "Projects" },
+    { href: projectsPath, label: "Overview" },
     {
       href: getPortalInboxPath(resolvedPortalExperience),
-      label: "Inbox",
+      label: "Updates",
       badge: inboxCount
     },
-    { href: "/client/governance", label: "Governance" },
-    { href: "/client/security", label: "Security" },
-    { href: getPortalSupportPath(resolvedPortalExperience), label: "Support" },
+    { href: "/client/governance", label: "Approvals" },
     {
       href: getPortalRequestWorkPath(resolvedPortalExperience),
-      label: "Request Work"
-    }
+      label: "Requests"
+    },
+    { href: getPortalSupportPath(resolvedPortalExperience), label: "Support" }
   ];
 
   return (
@@ -186,7 +185,7 @@ export default function ClientShell({
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-4 bg-[#081127]/95 px-2 py-2 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-7xl grid-cols-4 gap-2">
+        <div className="mx-auto grid max-w-7xl grid-cols-5 gap-2">
           {navItems.map((item) => {
             const isActive =
               pathname === item.href || pathname?.startsWith(item.href + "/");

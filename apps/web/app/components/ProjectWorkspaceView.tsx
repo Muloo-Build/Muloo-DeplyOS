@@ -152,7 +152,7 @@ interface MeetingNote {
   updatedAt: string;
 }
 
-const projectTabs: Array<{
+const primaryProjectTabs: Array<{
   id: string;
   label: string;
   icon: React.ReactNode;
@@ -160,36 +160,50 @@ const projectTabs: Array<{
 }> = [
   { id: "overview", label: "Overview", icon: <Home size={13} />, path: "" },
   {
+    id: "scope",
+    label: "Plan",
+    icon: <HelpCircle size={13} />,
+    path: "/scope"
+  },
+  {
+    id: "delivery",
+    label: "Tasks",
+    icon: <KanbanSquare size={13} />,
+    path: "/delivery"
+  },
+  {
+    id: "approvals",
+    label: "Approvals",
+    icon: <Receipt size={13} />,
+    path: "/approvals"
+  },
+  { id: "files", label: "Files", icon: <Folder size={13} />, path: "/files" },
+  {
+    id: "command",
+    label: "Skippy",
+    icon: <Sparkles size={13} />,
+    path: "/command"
+  }
+];
+
+const secondaryProjectTabs: Array<{
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  path: string;
+}> = [
+  {
     id: "discovery",
     label: "Discovery",
     icon: <Search size={13} />,
     path: "/discovery"
   },
   {
-    id: "scope",
-    label: "Scope",
-    icon: <HelpCircle size={13} />,
-    path: "/scope"
-  },
-  {
-    id: "delivery",
-    label: "Delivery",
-    icon: <KanbanSquare size={13} />,
-    path: "/delivery"
-  },
-  {
     id: "comms",
-    label: "Comms",
+    label: "Meetings",
     icon: <MessageSquare size={13} />,
     path: "/meetings"
   },
-  {
-    id: "command",
-    label: "Skippy",
-    icon: <Sparkles size={13} />,
-    path: "/command"
-  },
-  { id: "files", label: "Files", icon: <Folder size={13} />, path: "/files" },
   {
     id: "audit",
     label: "Audit",
@@ -209,6 +223,7 @@ type ProjectWorkspaceTabId =
   | "discovery"
   | "scope"
   | "delivery"
+  | "approvals"
   | "comms"
   | "command"
   | "files"
@@ -1069,7 +1084,7 @@ export default function ProjectWorkspaceView({
           <div className="flex flex-col gap-6 min-w-0">
             {/* Tab bar */}
             <div className="flex gap-0.5 border-b border-ink-4 overflow-x-auto -mx-1 px-1">
-              {projectTabs.map((t) => {
+              {primaryProjectTabs.map((t) => {
                 const isActive = t.id === activeTab;
                 const href = `/projects/${projectId}${t.path}`;
                 return (
@@ -1087,6 +1102,31 @@ export default function ProjectWorkspaceView({
                   </Link>
                 );
               })}
+              <details className="relative group">
+                <summary className="list-none px-3.5 py-2.5 text-[13px] cursor-pointer border-b-2 -mb-px border-transparent transition-colors flex items-center gap-1.5 whitespace-nowrap text-text-3 hover:text-text-2">
+                  More
+                </summary>
+                <div className="absolute right-0 z-20 mt-2 min-w-[180px] rounded-[14px] border border-ink-4 bg-ink-1 p-2 shadow-2xl">
+                  {secondaryProjectTabs.map((t) => {
+                    const isActive = t.id === activeTab;
+                    const href = `/projects/${projectId}${t.path}`;
+                    return (
+                      <Link
+                        key={t.id}
+                        href={href}
+                        className={`flex items-center gap-2 rounded-[10px] px-3 py-2 text-[13px] transition-colors ${
+                          isActive
+                            ? "bg-white/10 text-text-1"
+                            : "text-text-3 hover:bg-white/5 hover:text-text-2"
+                        }`}
+                      >
+                        {t.icon}
+                        <span>{t.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </details>
             </div>
 
             {children ?? (

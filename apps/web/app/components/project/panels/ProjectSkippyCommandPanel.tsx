@@ -13,6 +13,13 @@ type CommandCentre = {
   hubspotGuardrails?: { portalConnected: boolean; posture: string; allowed: string[]; requiresApproval: string[] };
 };
 
+const safeActionLabels = [
+  "Draft internal note",
+  "Prepare HubSpot dry-run",
+  "Summarise meeting evidence",
+  "Generate approval-gated task"
+];
+
 export default function ProjectSkippyCommandPanel({ projectId }: { projectId: string }) {
   const [data, setData] = useState<CommandCentre | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,9 +88,18 @@ export default function ProjectSkippyCommandPanel({ projectId }: { projectId: st
   }, [projectId]);
 
   const queue = data?.executionQueue ?? [];
-  const approvalCount = useMemo(
-    () => queue.filter((task) => task.approvalRequired).length,
+  const risks = data?.risks ?? [];
+  const nextActions = (data?.nextActions ?? []).slice(0, 3);
+  const approvalTasks = useMemo(
+    () => queue.filter((task) => task.approvalRequired),
     [queue]
+  );
+  const blockedItems = useMemo(
+    () => [
+      ...queue.filter((task) => task.status === "blocked").map((task) => task.title),
+      ...risks.map((risk) => risk.title)
+    ].slice(0, 4),
+    [queue, risks]
   );
 
   if (loading) {
@@ -99,11 +115,11 @@ export default function ProjectSkippyCommandPanel({ projectId }: { projectId: st
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-status-warning">
-              <Sparkles size={14} /> Skippy operator
+              <Sparkles size={14} /> Skippy operator · Execution queue
             </p>
             <h2 className="mt-2 text-lg font-semibold text-white">Command centre</h2>
             <p className="mt-1 max-w-3xl text-sm text-text-2">
-              {data?.synthesis ?? "No synthesis yet — import notes or generate next actions to build the project command thread."}
+              One surface for state, next actions, approvals, blockers and safe Skippy moves. No dashboard soup.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -126,77 +142,82 @@ export default function ProjectSkippyCommandPanel({ projectId }: { projectId: st
         </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <section className="rounded-[16px] border border-ink-4 bg-ink-2 p-5 xl:col-span-2">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-white">Execution queue</h3>
-            <span className="rounded-full border border-ink-4 px-2 py-0.5 text-xs text-text-2">{approvalCount} Approval required</span>
-          </div>
-          {queue.length > 0 ? (
-            <div className="space-y-2">
-              {queue.map((task) => (
-                <div key={task.id} className="rounded-[12px] border border-ink-4 bg-black/10 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-white">{task.title}</p>
-                    <span className="text-xs text-text-3">{task.status}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-text-2">
-                    {task.executionReadiness ?? "not_ready"} · {task.taskOrigin ?? "manual"}
-                    {task.approvalRequired ? " · Approval required" : ""}
-                  </p>
-                </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="rounded-[16px] border border-ink-4 bg-ink-2 p-5">
+          <h3 className="mb-3 text-sm font-semibold text-white">Current state</h3>
+          <p className="text-sm leading-6 text-text-2">
+            {data?.synthesis ?? "No synthesis yet — import meeting notes or create reviewed tasks to build the project command thread."}
+          </p>
+          <p className="mt-3 text-xs text-text-3">
+            Gemini imports: {data?.meetingIntelligence?.importedTaskCount ?? 0} task(s) · Portal {data?.hubspotGuardrails?.portalConnected ? "connected" : "not connected"}
+          </p>
+        </section>
+
+        <section className="rounded-[16px] border border-ink-4 bg-ink-2 p-5">
+          <h3 className="mb-3 text-sm font-semibold text-white">Next actions</h3>
+          {nextActions.length > 0 ? (
+            <ol className="space-y-2 text-sm text-text-2">
+              {nextActions.map((action, index) => (
+                <li key={action} className="flex gap-2">
+                  <span className="text-status-warning">{index + 1}.</span>
+                  <span>{action}</span>
+                </li>
               ))}
-            </div>
+            </ol>
           ) : (
-            <p className="text-sm text-text-2">No active execution tasks yet.</p>
+            <p className="text-sm text-text-2">No next actions yet. Import evidence first, then let Skippy shape the queue.</p>
           )}
         </section>
 
         <section className="rounded-[16px] border border-ink-4 bg-ink-2 p-5">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
-            <ShieldCheck size={15} /> HubSpot guardrails
+            <ShieldCheck size={15} /> Needs approval
           </h3>
-          <p className="text-sm text-text-2">{data?.hubspotGuardrails?.posture ?? "Dry-run first. Approval before writes."}</p>
-          <div className="mt-3 space-y-2 text-xs text-text-2">
-            <p><CheckCircle2 className="mr-1 inline h-3.5 w-3.5 text-status-success" /> Dry-run first for portal checks.</p>
-            <p><AlertTriangle className="mr-1 inline h-3.5 w-3.5 text-status-warning" /> Client data, properties, workflows and portal writes need approval.</p>
-          </div>
-        </section>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-[16px] border border-ink-4 bg-ink-2 p-5">
-          <h3 className="mb-3 text-sm font-semibold text-white">Meeting intelligence</h3>
-          {(data?.meetingIntelligence?.latestNotes ?? []).length > 0 ? (
+          <p className="mb-3 text-xs text-text-3">Approval required before HubSpot writes or client-visible changes.</p>
+          {approvalTasks.length > 0 ? (
             <div className="space-y-2">
-              {data?.meetingIntelligence?.latestNotes.map((note) => (
-                <div key={note.id} className="rounded-[12px] border border-ink-4 bg-black/10 p-3">
-                  <p className="text-sm font-medium text-white">{note.title}</p>
-                  <p className="text-xs text-text-3">{note.meetingDate ?? "No date"}</p>
+              {approvalTasks.slice(0, 4).map((task) => (
+                <div key={task.id} className="rounded-[12px] border border-ink-4 bg-black/10 p-3">
+                  <p className="text-sm font-medium text-white">{task.title}</p>
+                  <p className="mt-1 text-xs text-text-3">{task.executionReadiness ?? "ready_with_review"} · {task.taskOrigin ?? "manual"}</p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-text-2">No meeting notes imported yet.</p>
+            <p className="text-sm text-text-2">No approval-required execution tasks currently queued.</p>
           )}
         </section>
 
         <section className="rounded-[16px] border border-ink-4 bg-ink-2 p-5">
-          <h3 className="mb-3 text-sm font-semibold text-white">Risks and blockers</h3>
-          {(data?.risks ?? []).length > 0 ? (
-            <div className="space-y-2">
-              {data?.risks?.map((risk) => (
-                <div key={risk.id} className="rounded-[12px] border border-ink-4 bg-black/10 p-3">
-                  <p className="text-sm font-medium text-white">{risk.title}</p>
-                  <p className="text-xs text-text-3">{risk.severity ?? "medium"} · {risk.status ?? "open"}</p>
-                </div>
-              ))}
-            </div>
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+            <AlertTriangle size={15} /> Blocked
+          </h3>
+          {blockedItems.length > 0 ? (
+            <ul className="space-y-2 text-sm text-text-2">
+              {blockedItems.map((item) => <li key={item}>• {item}</li>)}
+            </ul>
           ) : (
-            <p className="text-sm text-text-2">No open risks logged. Suspiciously calm, but we’ll take it.</p>
+            <p className="text-sm text-text-2">No open blockers logged. Suspiciously calm, but we’ll take it.</p>
           )}
         </section>
       </div>
+
+      <section className="rounded-[16px] border border-ink-4 bg-ink-2 p-5">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+          <CheckCircle2 size={15} /> Safe actions · HubSpot guardrails
+        </h3>
+        <p className="text-sm text-text-2">{data?.hubspotGuardrails?.posture ?? "Dry-run first. Approval before writes."}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {safeActionLabels.map((label) => (
+            <span key={label} className="rounded-full border border-ink-4 bg-black/10 px-3 py-1 text-xs text-text-2">
+              {label}
+            </span>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-text-3">
+          HubSpot writes, client-visible changes, properties, pipelines, workflows, lists and sent communications still require approval.
+        </p>
+      </section>
     </div>
   );
 }
