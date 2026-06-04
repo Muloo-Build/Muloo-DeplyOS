@@ -1,5 +1,5 @@
 import { extractUsage, logAIUsageEvent } from "../../aiUsage";
-import { JobPayload, JobResult } from "../jobRouter";
+import type { JobPayload, JobResult } from "../jobRouter";
 
 export async function runResearchAgent(data: JobPayload): Promise<JobResult> {
   const query =

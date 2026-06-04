@@ -1,4 +1,4 @@
-import { ReportTemplate, TemplateConfig, ReportDefinition } from '../../types';
+import type { ReportTemplate, TemplateConfig, ReportDefinition } from '../../types';
 
 export const lastKeyActionDistribution: ReportTemplate = {
   id: 'last_key_action_distribution',

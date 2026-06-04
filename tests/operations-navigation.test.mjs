@@ -43,6 +43,6 @@ test("Sidebar uses Operations for reusable delivery assets", async () => {
 test("Templates page is explicitly named Implementation templates", async () => {
   const source = await readFile(templatesPagePath, "utf8");
 
-  assert.match(source, /title=\"Implementation templates\"/);
+  assert.match(source, /title="Implementation templates"/);
   assert.match(source, /reusable HubSpot delivery patterns/i);
 });

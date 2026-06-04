@@ -1,5 +1,6 @@
-import { Prisma } from '@prisma/client';
-import { Worker, Job } from 'bullmq';
+import type { Prisma } from '@prisma/client';
+import type { Job } from 'bullmq';
+import { Worker } from 'bullmq';
 import { connection } from './index';
 import { routeJob } from './jobRouter';
 import { prisma } from '../prisma';

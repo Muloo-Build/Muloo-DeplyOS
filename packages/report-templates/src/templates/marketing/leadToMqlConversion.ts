@@ -1,4 +1,4 @@
-import { ReportTemplate, TemplateConfig, ReportDefinition } from '../../types';
+import type { ReportTemplate, TemplateConfig, ReportDefinition } from '../../types';
 
 export const leadToMqlConversion: ReportTemplate = {
   id: 'lead_to_mql_conversion',

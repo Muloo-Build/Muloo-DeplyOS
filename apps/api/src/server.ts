@@ -33640,7 +33640,7 @@ async function buildHandoverDocContent(
   // Decisions Log: project messages whose body starts with "Decision:"
   // (operator convention). A dedicated decisions table is YAGNI for T5.
   const decisionMessages = messages.filter((m) =>
-    /^decision[:\-]/i.test(m.body.trim())
+    /^decision[:-]/i.test(m.body.trim())
   );
   sections.push({
     key: "decisions",
@@ -33674,7 +33674,7 @@ async function buildHandoverDocContent(
   // the "Decision:" pattern used above. Falls back to an empty list which
   // the renderer hides.
   const trainingMessages = messages.filter((m) =>
-    /^training[:\-]/i.test(m.body.trim())
+    /^training[:-]/i.test(m.body.trim())
   );
   const urlRegex = /(https?:\/\/\S+)/i;
   const trainingLinks: Array<{ label: string; url: string }> = [];
@@ -33684,7 +33684,7 @@ async function buildHandoverDocContent(
     const url = (match[1] ?? "").replace(/[),.]+$/, "");
     if (!url) continue;
     const label = m.body
-      .replace(/^training[:\-]\s*/i, "")
+      .replace(/^training[:-]\s*/i, "")
       .replace(url, "")
       .trim()
       .replace(/[\s\-–:]+$/, "")
