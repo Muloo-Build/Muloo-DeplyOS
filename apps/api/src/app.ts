@@ -169,6 +169,7 @@ import {
   generateHandoverDoc,
   loadHandoverDoc,
   loadProjectLineage,
+  loadProjectSkippyCommandCentre,
   loadReportPack,
   installReportTemplates,
   retryReportInstallation,
@@ -281,6 +282,7 @@ import {
   loadProjectExecutionJobStatus,
   loadProjectTaskBoard,
   loadProjectsDirectory,
+  importGeminiMeetingIntelligence,
   loadProjectTasks,
   loadProjectClientInputSubmissions,
   loadTaskApproval,
@@ -3517,6 +3519,36 @@ export function createApiApp(config: BaseConfig) {
     }
     try {
       const result = await generateWeeklyStatusDraft(c.req.param("projectId"));
+      return c.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed";
+      return c.json({ error: message }, message === "Project not found" ? 404 : 400);
+    }
+  });
+
+  app.all("/api/projects/:projectId/skippy/command-centre", async (c) => {
+    if (c.req.method !== "GET") {
+      return c.json({ error: "Method not allowed" }, 405);
+    }
+    try {
+      const result = await loadProjectSkippyCommandCentre(c.req.param("projectId"));
+      return c.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed";
+      return c.json({ error: message }, message === "Project not found" ? 404 : 400);
+    }
+  });
+
+  app.all("/api/projects/:projectId/gemini/import", async (c) => {
+    if (c.req.method !== "POST") {
+      return c.json({ error: "Method not allowed" }, 405);
+    }
+    try {
+      const body = (await readJsonBodyOrEmpty(c)) as Record<string, unknown>;
+      const result = await importGeminiMeetingIntelligence(
+        c.req.param("projectId"),
+        body
+      );
       return c.json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed";

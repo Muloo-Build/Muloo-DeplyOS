@@ -27,6 +27,7 @@ import {
   Receipt,
   Search,
   Settings as SettingsIcon,
+  Sparkles,
   Trash2,
   User,
   X
@@ -182,6 +183,12 @@ const projectTabs: Array<{
     icon: <MessageSquare size={13} />,
     path: "/meetings"
   },
+  {
+    id: "command",
+    label: "Skippy",
+    icon: <Sparkles size={13} />,
+    path: "/command"
+  },
   { id: "files", label: "Files", icon: <Folder size={13} />, path: "/files" },
   {
     id: "audit",
@@ -203,6 +210,7 @@ type ProjectWorkspaceTabId =
   | "scope"
   | "delivery"
   | "comms"
+  | "command"
   | "files"
   | "audit"
   | "settings";
