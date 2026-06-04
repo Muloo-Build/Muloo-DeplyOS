@@ -144,8 +144,14 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    label: "Library",
+    label: "Operations",
     items: [
+      {
+        href: "/operations",
+        label: "Operations overview",
+        icon: <Layers size={15} />,
+        isActive: (p) => p === "/operations" || p.startsWith("/operations/")
+      },
       {
         href: "/workbooks",
         label: "Workbooks",
@@ -161,7 +167,7 @@ const navGroups: NavGroup[] = [
       },
       {
         href: "/templates",
-        label: "Templates",
+        label: "Implementation templates",
         icon: <Layers size={15} />,
         isActive: (p) => p === "/templates" || p.startsWith("/templates/")
       },
