@@ -34,3 +34,17 @@ test("Skippy world gives Jarrud a portal-level Muloo client work radar", async (
   assert.match(source, /\/api\/projects\/needs-attention/);
   assert.match(source, /\/api\/workspace\/emails\/client-queues/);
 });
+
+test("Skippy world exposes a messaging tool to ask Skippy or pick up a project", async () => {
+  const source = await readFile(skippyWorldPath, "utf8");
+
+  assert.match(source, /Chat to Skippy/);
+  assert.match(source, /Pick up a project/);
+  assert.match(source, /Ask Skippy/);
+  assert.match(
+    source,
+    /\/api\/projects\/\$\{encodeURIComponent\(selectedProjectId\)\}\/messages/
+  );
+  assert.match(source, /senderName:\s*"Skippy intake"/);
+  assert.match(source, /Open project command centre/);
+});

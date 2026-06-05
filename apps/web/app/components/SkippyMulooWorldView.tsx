@@ -10,8 +10,10 @@ import {
   Building2,
   CheckCircle2,
   Inbox,
+  MessageSquare,
   Radar,
   RefreshCw,
+  Send,
   ShieldCheck,
   Sparkles,
   Users
@@ -207,6 +209,13 @@ export default function SkippyMulooWorldView() {
   const [emailQueues, setEmailQueues] = useState<ClientEmailQueue[]>([]);
   const [capacity, setCapacity] = useState<CapacitySegment[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [chatMode, setChatMode] = useState<"ask" | "pickup">("pickup");
+  const [chatDraft, setChatDraft] = useState("");
+  const [chatStatus, setChatStatus] = useState<{
+    tone: "ok" | "warn" | "danger";
+    message: string;
+  } | null>(null);
 
   async function loadWorld() {
     setRefreshing(true);
@@ -317,6 +326,79 @@ export default function SkippyMulooWorldView() {
       }
     ] as const;
   }, [activeProjects, attention, emailQueues, inbox.length]);
+
+  useEffect(() => {
+    if (!selectedProjectId && activeProjects.length > 0) {
+      setSelectedProjectId(activeProjects[0].id);
+    }
+  }, [activeProjects, selectedProjectId]);
+
+  const selectedProject = useMemo(
+    () =>
+      activeProjects.find((project) => project.id === selectedProjectId) ??
+      null,
+    [activeProjects, selectedProjectId]
+  );
+
+  async function sendSkippyIntake() {
+    if (!selectedProjectId) {
+      setChatStatus({
+        tone: "warn",
+        message: "Pick a project first so the thread has a home."
+      });
+      return;
+    }
+    const trimmed = chatDraft.trim();
+    if (!trimmed) {
+      setChatStatus({
+        tone: "warn",
+        message:
+          "Give Skippy something to work with. Mind-reading module is still in procurement."
+      });
+      return;
+    }
+
+    setChatStatus(null);
+    const selectedName = selectedProject?.name ?? "selected project";
+    const prefix =
+      chatMode === "pickup" ? "[Skippy pickup request]" : "[Skippy question]";
+    const body = `${prefix}
+Project: ${selectedName}
+
+${trimmed}`;
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(selectedProjectId)}/messages`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ senderName: "Skippy intake", body })
+        }
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          payload?.error ?? "Could not send this to Skippy intake"
+        );
+      }
+      setChatDraft("");
+      setChatStatus({
+        tone: "ok",
+        message:
+          chatMode === "pickup"
+            ? `Captured. Skippy has a pickup request parked on ${selectedName}.`
+            : `Captured. Your question is logged against ${selectedName}.`
+      });
+      await loadWorld();
+    } catch (error) {
+      setChatStatus({
+        tone: "danger",
+        message: error instanceof Error ? error.message : "Skippy intake failed"
+      });
+    }
+  }
 
   const topClientLanes = useMemo(() => {
     const byClient = new Map<
@@ -536,6 +618,116 @@ export default function SkippyMulooWorldView() {
           </div>
 
           <div className="flex flex-col gap-3.5 self-start xl:sticky xl:top-[80px]">
+            <Panel>
+              <PanelHead
+                title="Chat to Skippy"
+                right={<MessageSquare size={15} className="text-status-ok" />}
+              />
+              <PanelBody className="grid gap-3.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setChatMode("pickup")}
+                    className={`rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${
+                      chatMode === "pickup"
+                        ? "border-status-ok bg-status-ok/15 text-status-ok"
+                        : "border-ink-4 bg-ink-2 text-text-2 hover:bg-ink-3"
+                    }`}
+                  >
+                    Pick up a project
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChatMode("ask")}
+                    className={`rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${
+                      chatMode === "ask"
+                        ? "border-status-ok bg-status-ok/15 text-status-ok"
+                        : "border-ink-4 bg-ink-2 text-text-2 hover:bg-ink-3"
+                    }`}
+                  >
+                    Ask Skippy
+                  </button>
+                </div>
+
+                <label className="grid gap-1.5">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-3">
+                    Project context
+                  </span>
+                  <select
+                    value={selectedProjectId}
+                    onChange={(event) =>
+                      setSelectedProjectId(event.target.value)
+                    }
+                    className="w-full rounded-md border border-ink-4 bg-ink-2 px-3 py-2 text-sm text-text-1 outline-none focus:border-status-ok"
+                  >
+                    {activeProjects.length === 0 ? (
+                      <option value="">No active projects</option>
+                    ) : (
+                      activeProjects.map((project) => (
+                        <option key={project.id} value={project.id}>
+                          {project.clientName ? `${project.clientName} · ` : ""}
+                          {project.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </label>
+
+                <textarea
+                  value={chatDraft}
+                  onChange={(event) => setChatDraft(event.target.value)}
+                  rows={5}
+                  placeholder={
+                    chatMode === "pickup"
+                      ? "Example: Pick up this project, check the latest blockers, and tell me the next useful move."
+                      : "Example: What is the client waiting on, and what should I do next?"
+                  }
+                  className="w-full resize-none rounded-md border border-ink-4 bg-black/20 px-3 py-2 text-sm text-text-1 outline-none placeholder:text-text-3 focus:border-status-ok"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => void sendSkippyIntake()}
+                  disabled={!selectedProjectId}
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-status-ok px-3 py-2 text-sm font-semibold text-background-card hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Send size={14} /> Send to Skippy
+                </button>
+
+                {chatStatus ? (
+                  <div
+                    className={`rounded-[10px] border px-3 py-2 text-xs leading-5 ${
+                      chatStatus.tone === "ok"
+                        ? "border-status-ok/30 bg-status-ok/10 text-status-ok"
+                        : chatStatus.tone === "danger"
+                          ? "border-status-danger/30 bg-status-danger/10 text-status-danger"
+                          : "border-status-warn/30 bg-status-warn/10 text-status-warn"
+                    }`}
+                  >
+                    {chatStatus.message}
+                  </div>
+                ) : null}
+
+                <div className="rounded-[12px] border border-ink-4 bg-black/10 p-3 text-[12px] leading-5 text-text-2">
+                  Messages are logged to the project thread as an auditable
+                  Skippy intake. For deep execution, open the project Skippy
+                  tab.
+                </div>
+
+                {selectedProject ? (
+                  <Link href={`/projects/${selectedProject.id}/command`}>
+                    <Btn
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-center"
+                    >
+                      Open project command centre <ArrowRight size={12} />
+                    </Btn>
+                  </Link>
+                ) : null}
+              </PanelBody>
+            </Panel>
+
             <Panel>
               <PanelHead
                 title="Skippy can do this"
