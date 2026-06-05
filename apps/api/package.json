@@ -32,10 +32,10 @@
     "nodemailer": "^8.0.3",
     "officeparser": "^5.2.2",
     "pdf-parse": "^1.1.1",
+    "prisma": "5.22.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/pdf-parse": "^1.1.4",
-    "prisma": "5.22.0"
+    "@types/pdf-parse": "^1.1.4"
   }
 }
