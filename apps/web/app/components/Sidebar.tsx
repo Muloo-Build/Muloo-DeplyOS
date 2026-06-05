@@ -18,6 +18,7 @@ import {
   LineChart,
   LogOut,
   Menu,
+  Radar,
   Receipt,
   RefreshCw,
   Search,
@@ -71,6 +72,12 @@ const navGroups: NavGroup[] = [
         label: "Today",
         icon: <Home size={15} />,
         isActive: isTodayRoute
+      },
+      {
+        href: "/skippy-world",
+        label: "Skippy world",
+        icon: <Radar size={15} />,
+        isActive: (p) => p === "/skippy-world" || p.startsWith("/skippy-world/")
       }
     ]
   },
@@ -202,7 +209,7 @@ export default function Sidebar() {
       const res = await fetch("/api/auth/launch-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        body: "{}"
       });
       if (!res.ok) {
         alert("Reporting unavailable");
@@ -300,7 +307,9 @@ export default function Sidebar() {
           type="button"
           onClick={() => setMobileOpen((open) => !open)}
           className="flex h-10 w-10 items-center justify-center rounded-md border border-ink-4 bg-ink-2 text-text-1 transition-colors hover:bg-ink-3"
-          aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-label={
+            mobileOpen ? "Close navigation menu" : "Open navigation menu"
+          }
         >
           {mobileOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
@@ -311,7 +320,9 @@ export default function Sidebar() {
         aria-label="Close navigation menu"
         onClick={() => setMobileOpen(false)}
         className={`fixed inset-0 z-40 bg-black/72 transition-opacity lg:hidden ${
-          mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+          mobileOpen
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
         }`}
       />
 
@@ -369,7 +380,8 @@ export default function Sidebar() {
               <div className="space-y-px">
                 {group.items.map((item) => {
                   const active = item.isActive(pathname);
-                  const showInboxBadge = item.badge === "inbox" && inboxCount > 0;
+                  const showInboxBadge =
+                    item.badge === "inbox" && inboxCount > 0;
 
                   return (
                     <Link
@@ -384,7 +396,9 @@ export default function Sidebar() {
                       {active && (
                         <span className="absolute -left-3 top-1/2 -translate-y-1/2 w-[3px] h-[18px] bg-status-ok rounded-r" />
                       )}
-                      <span className="opacity-85 flex-shrink-0">{item.icon}</span>
+                      <span className="opacity-85 flex-shrink-0">
+                        {item.icon}
+                      </span>
                       <span className="truncate">{item.label}</span>
                       {showInboxBadge && (
                         <span
