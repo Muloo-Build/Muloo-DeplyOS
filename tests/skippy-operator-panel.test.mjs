@@ -33,7 +33,7 @@ test("Project workspace exposes an embedded Skippy command tab", async () => {
   assert.match(workspace, /id:\s*["']command["']/);
   assert.match(workspace, /label:\s*["']Skippy["']/);
   assert.match(commandPage, /ProjectSkippyCommandPanel/);
-  assert.match(commandPage, /activeTab=\"command\"/);
+  assert.match(commandPage, /activeTab="command"/);
 });
 
 test("Skippy panel shows meeting import, execution queue, HubSpot guardrails and approvals", async () => {

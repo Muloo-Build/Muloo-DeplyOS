@@ -1,4 +1,4 @@
-import { ReportTemplate, TemplateConfig, ReportDefinition, ReportHub } from './types';
+import type { ReportTemplate, TemplateConfig, ReportDefinition, ReportHub } from './types';
 import { MARKETING_TEMPLATES } from './templates/marketing';
 import { SALES_TEMPLATES } from './templates/sales';
 import { SERVICE_TEMPLATES } from './templates/service';

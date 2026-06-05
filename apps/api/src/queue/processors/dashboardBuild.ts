@@ -1,5 +1,5 @@
 import { BrowserSessionExecutor } from "@muloo/browser-session-executor";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import {
   TemplateEngine,
   type ReportTemplate,
@@ -7,7 +7,7 @@ import {
 } from "@muloo/report-templates";
 import type { CoworkInstruction } from "@muloo/shared";
 import { prisma } from "../../prisma";
-import { JobPayload, JobResult } from "../jobRouter";
+import type { JobPayload, JobResult } from "../jobRouter";
 
 interface DashboardBuildFailure {
   templateId: string;

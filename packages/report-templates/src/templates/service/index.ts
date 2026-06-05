@@ -1,4 +1,4 @@
-import { ReportTemplate, TemplateConfig, ReportDefinition } from '../../types';
+import type { ReportTemplate, TemplateConfig, ReportDefinition } from '../../types';
 
 const rolling90 = { type: 'ROLLING', rollingDays: 90 } as const;
 const rolling365 = { type: 'ROLLING', rollingDays: 365 } as const;

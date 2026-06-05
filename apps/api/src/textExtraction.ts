@@ -19,7 +19,7 @@ function truncate(value: string): string {
 // synthesis).
 function tryRequire(moduleName: string): unknown {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     return (eval("require") as NodeRequire)(moduleName);
   } catch {
     return null;
