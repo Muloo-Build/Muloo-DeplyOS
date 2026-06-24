@@ -1671,3 +1671,23 @@ model ClientErrorLog {
   @@index([createdAt])
   @@index([surface, createdAt])
 }
+
+model HubSpotMcpConnection {
+  id             String    @id @default(cuid())
+  portalId       String    @unique
+  displayName    String?
+  hubDomain      String?
+  connected      Boolean   @default(false)
+  accessToken    String?
+  refreshToken   String?
+  tokenType      String?
+  tokenExpiresAt DateTime?
+  scopes         String[]  @default([])
+  connectedEmail String?
+  connectedName  String?
+  installedAt    DateTime?
+  lastRefreshAt  DateTime?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
