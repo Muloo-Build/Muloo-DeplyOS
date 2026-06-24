@@ -192,3 +192,114 @@ export async function resolveHubSpotMcpToken(portalId: string): Promise<string> 
     throw error;
   }
 }
+
+// ---------------------------------------------------------------------------
+// OAuth start / callback orchestration (Task 6)
+// ---------------------------------------------------------------------------
+
+import { createSignedStateToken, verifySignedStateToken } from "./server";
+
+export interface McpOAuthStartInput {
+  portalId: string;
+  projectId?: string;
+  returnTo?: string;
+}
+
+export async function createHubSpotMcpOAuthStart(input: McpOAuthStartInput) {
+  if (!input.portalId) {
+    throw new Error("portalId is required to connect HubSpot MCP");
+  }
+  const cfg = await loadHubSpotMcpProviderConfig();
+  if (!cfg.clientId) {
+    throw new Error("HubSpot MCP client_id is not configured");
+  }
+
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = deriveCodeChallenge(codeVerifier);
+
+  const state = createSignedStateToken({
+    providerKey: "hubspot_mcp",
+    portalId: input.portalId,
+    projectId: input.projectId,
+    codeVerifier,
+    returnTo:
+      input.returnTo ??
+      (input.projectId ? `/projects/${input.projectId}` : "/settings/integrations/hubspot-mcp"),
+    expiresAt: Date.now() + 1000 * 60 * 10,
+  });
+
+  const authUrl =
+    `${HUBSPOT_MCP_AUTHORIZE_URL}?` +
+    new URLSearchParams({
+      client_id: cfg.clientId,
+      redirect_uri: cfg.redirectUri,
+      response_type: "code",
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+      state,
+    }).toString();
+
+  return { authUrl };
+}
+
+export interface McpOAuthCallbackInput {
+  code?: string;
+  state?: string;
+}
+
+export async function completeHubSpotMcpOAuthCallback(input: McpOAuthCallbackInput) {
+  if (!input.code || !input.state) {
+    throw new Error("HubSpot MCP callback is missing code or state");
+  }
+  const verified = verifySignedStateToken(input.state);
+  if (verified.providerKey !== "hubspot_mcp") {
+    throw new Error("State token is not a HubSpot MCP state");
+  }
+  if (typeof verified.expiresAt === "number" && verified.expiresAt < Date.now()) {
+    throw new Error("HubSpot MCP authorization expired — please retry");
+  }
+  const codeVerifier = String(verified.codeVerifier ?? "");
+  const portalId = String(verified.portalId ?? "");
+  if (!codeVerifier || !portalId) {
+    throw new Error("HubSpot MCP state is missing PKCE context");
+  }
+
+  const tokenBody = await exchangeMcpAuthorizationCode({ code: input.code, codeVerifier });
+
+  const record = mapTokenResponseToConnection(tokenBody, { portalId });
+  await prisma.hubSpotMcpConnection.upsert({
+    where: { portalId },
+    create: record,
+    update: record,
+  });
+
+  return {
+    portalId,
+    returnTo:
+      typeof verified.returnTo === "string"
+        ? verified.returnTo
+        : "/settings/integrations/hubspot-mcp",
+  };
+}
+
+export async function disconnectHubSpotMcp(portalId: string) {
+  await prisma.hubSpotMcpConnection.updateMany({
+    where: { portalId },
+    data: { connected: false, accessToken: null, refreshToken: null, lastError: "Disconnected" },
+  });
+  return { portalId, connected: false };
+}
+
+export async function getHubSpotMcpConnectionStatus(portalId: string) {
+  const conn = await prisma.hubSpotMcpConnection.findUnique({ where: { portalId } });
+  if (!conn) return { portalId, connected: false };
+  return {
+    portalId,
+    connected: conn.connected,
+    hubDomain: conn.hubDomain,
+    connectedEmail: conn.connectedEmail,
+    scopes: conn.scopes,
+    tokenExpiresAt: conn.tokenExpiresAt,
+    lastError: conn.lastError,
+  };
+}
