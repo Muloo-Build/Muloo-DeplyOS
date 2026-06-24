@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import HubSpotMcpConnectCard from "../../HubSpotMcpConnectCard";
+
 interface HubSpotAccessPanelProps {
   projectId: string;
   connectionReady: boolean;
@@ -89,6 +91,7 @@ export default function ProjectHubSpotAccessPanel(
   }
 
   return (
+    <>
     <div className="grid gap-4 md:grid-cols-2">
       {/* Client-facing action */}
       <div className="brand-surface-soft flex flex-col rounded-[14px] border p-4">
@@ -202,5 +205,14 @@ export default function ProjectHubSpotAccessPanel(
         </div>
       </div>
     </div>
+    {props.portalRecordId ? (
+      <div className="mt-4">
+        <HubSpotMcpConnectCard
+          portalId={props.portalRecordId}
+          projectId={props.projectId}
+        />
+      </div>
+    ) : null}
+    </>
   );
 }

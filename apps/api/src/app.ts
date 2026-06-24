@@ -349,6 +349,7 @@ import {
   runTrackedHubSpotAgentRequest,
   runTrackedProjectPortalAudit,
   runTrackedProjectPrepareBrief,
+  startMcpAgentJob,
   startProjectPortalAuditExecutionJob,
   sendWorkspaceEmail,
   shareProjectQuote,
@@ -446,6 +447,12 @@ import {
   streamProjectFile
 } from "./fileStorage";
 import { extractTextFromBuffer } from "./textExtraction";
+import {
+  createHubSpotMcpOAuthStart,
+  completeHubSpotMcpOAuthCallback,
+  disconnectHubSpotMcp,
+  getHubSpotMcpConnectionStatus,
+} from "./hubspotMcpOAuth";
 
 type HonoBindings = {
   Bindings: HttpBindings;
@@ -762,6 +769,18 @@ const hubSpotOAuthCallbackSchema = z
     code: z.string().optional(),
     state: z.string().optional()
   })
+  .passthrough();
+
+const hubSpotMcpStartSchema = z
+  .object({
+    portalId: z.string(),
+    projectId: z.string().optional(),
+    returnTo: z.string().optional(),
+  })
+  .passthrough();
+
+const hubSpotMcpCallbackSchema = z
+  .object({ code: z.string().optional(), state: z.string().optional() })
   .passthrough();
 
 const providerConnectionUpdateSchema = z
@@ -8354,6 +8373,60 @@ export function createApiApp(config: BaseConfig) {
               : "Failed to complete HubSpot OAuth"
         },
         400
+      );
+    }
+  });
+
+  app.post("/api/hubspot/mcp/oauth/start", async (c) => {
+    const body = hubSpotMcpStartSchema.parse(await readJsonBodyOrEmpty(c));
+    try {
+      return c.json(
+        await createHubSpotMcpOAuthStart(body as Parameters<typeof createHubSpotMcpOAuthStart>[0]),
+      );
+    } catch (error) {
+      return c.json(
+        { error: error instanceof Error ? error.message : "Failed to start HubSpot MCP OAuth" },
+        400,
+      );
+    }
+  });
+
+  app.post("/api/hubspot/mcp/oauth/callback", async (c) => {
+    const body = hubSpotMcpCallbackSchema.parse(await readJsonBodyOrEmpty(c));
+    try {
+      return c.json(
+        await completeHubSpotMcpOAuthCallback(
+          body as Parameters<typeof completeHubSpotMcpOAuthCallback>[0],
+        ),
+      );
+    } catch (error) {
+      return c.json(
+        { error: error instanceof Error ? error.message : "Failed to complete HubSpot MCP OAuth" },
+        400,
+      );
+    }
+  });
+
+  app.get("/api/hubspot/mcp/connection/:portalId", async (c) => {
+    return c.json(await getHubSpotMcpConnectionStatus(c.req.param("portalId")));
+  });
+
+  app.delete("/api/hubspot/mcp/connection/:portalId", async (c) => {
+    return c.json(await disconnectHubSpotMcp(c.req.param("portalId")));
+  });
+
+  const mcpAgentRunSchema = z
+    .object({ projectId: z.string(), task: z.string().min(1) })
+    .passthrough();
+
+  app.post("/api/hubspot/mcp/agent/run", async (c) => {
+    const body = mcpAgentRunSchema.parse(await readJsonBodyOrEmpty(c));
+    try {
+      return c.json(await startMcpAgentJob(body));
+    } catch (error) {
+      return c.json(
+        { error: error instanceof Error ? error.message : "Failed to start agent" },
+        400,
       );
     }
   });

@@ -12,6 +12,7 @@
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
     "@hono/node-server": "^1.19.11",
     "@muloo/browser-session-executor": "workspace:*",
     "@muloo/config": "workspace:*",
