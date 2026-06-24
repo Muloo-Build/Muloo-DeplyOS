@@ -44,7 +44,7 @@
 export const HUBSPOT_MCP_AUTHORIZE_URL = "https://mcp.hubspot.com/oauth/authorize/user";
 export const HUBSPOT_MCP_TOKEN_URL = "https://mcp.hubspot.com/oauth/v3/token";
 // CONFIRM exact streamable-HTTP path at first integration run; default below:
-export const HUBSPOT_MCP_SERVER_URL = process.env.HUBSPOT_MCP_SERVER_URL?.trim() || "https://mcp.hubspot.com/anthropic";
+export const HUBSPOT_MCP_SERVER_URL = process.env.HUBSPOT_MCP_SERVER_URL?.trim() || "https://mcp.hubspot.com";
 ```
 > Plan-time open item: confirm `HUBSPOT_MCP_SERVER_URL` against HubSpot docs / a live install before enabling for real portals. It is overridable by env so confirmation does not block earlier tasks.
 
@@ -178,7 +178,7 @@ export const HUBSPOT_MCP_AUTHORIZE_URL =
   "https://mcp.hubspot.com/oauth/authorize/user";
 export const HUBSPOT_MCP_TOKEN_URL = "https://mcp.hubspot.com/oauth/v3/token";
 export const HUBSPOT_MCP_SERVER_URL =
-  process.env.HUBSPOT_MCP_SERVER_URL?.trim() || "https://mcp.hubspot.com/anthropic";
+  process.env.HUBSPOT_MCP_SERVER_URL?.trim() || "https://mcp.hubspot.com";
 
 const base64url = (buf: Buffer) =>
   buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
