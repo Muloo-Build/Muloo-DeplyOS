@@ -51,6 +51,43 @@ export default function HubSpotOAuthCallback({
           return;
         }
 
+        // Chained MCP connect: if the unified "Connect HubSpot" flow set this flag,
+        // continue into the MCP grant for the just-connected portal before returning.
+        let chainRaw: string | null = null;
+        try {
+          chainRaw = window.sessionStorage.getItem("hubspot-chain-mcp");
+        } catch {
+          chainRaw = null;
+        }
+        if (chainRaw && body?.portal?.id) {
+          try {
+            window.sessionStorage.removeItem("hubspot-chain-mcp");
+          } catch {
+            // ignore
+          }
+          let chainProjectId: string | undefined;
+          try {
+            chainProjectId = JSON.parse(chainRaw)?.projectId;
+          } catch {
+            chainProjectId = undefined;
+          }
+          try {
+            const mcpResponse = await fetch("/api/hubspot/mcp/oauth/start", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ portalId: body.portal.id, projectId: chainProjectId }),
+            });
+            const mcpBody = await mcpResponse.json().catch(() => null);
+            if (mcpResponse.ok && mcpBody?.authUrl) {
+              window.location.href = mcpBody.authUrl;
+              return;
+            }
+            // MCP start failed — fall through to the normal REST returnTo.
+          } catch {
+            // network error — fall through to normal REST completion
+          }
+        }
+
         if (typeof window !== "undefined") {
           window.sessionStorage.setItem(
             "hubspot-oauth-feedback",
