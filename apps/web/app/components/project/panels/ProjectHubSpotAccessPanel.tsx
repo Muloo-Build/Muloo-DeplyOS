@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import HubSpotMcpConnectCard from "../../HubSpotMcpConnectCard";
+import HubSpotUnifiedConnectButton from "../../HubSpotUnifiedConnectButton";
 
 interface HubSpotAccessPanelProps {
   projectId: string;
@@ -188,6 +189,9 @@ export default function ProjectHubSpotAccessPanel(
           </span>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
+          {!props.connectionReady ? (
+            <HubSpotUnifiedConnectButton projectId={props.projectId} />
+          ) : null}
           {props.portalRecordId ? (
             <Link
               href={`/portals/${encodeURIComponent(props.portalRecordId)}`}
