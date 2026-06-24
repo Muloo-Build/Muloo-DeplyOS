@@ -79,9 +79,55 @@ export default function HubSpotMcpConnectCard({
           {busy ? "Connecting…" : "Connect AI agent"}
         </button>
       )}
+      {status?.connected && projectId ? (
+        <RunAgent projectId={projectId} />
+      ) : null}
       {status?.lastError ? (
         <p className="mt-2 text-xs text-status-error">{status.lastError}</p>
       ) : null}
+    </div>
+  );
+}
+
+function RunAgent({ projectId }: { projectId: string }) {
+  const [task, setTask] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const run = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await fetch("/api/hubspot/mcp/agent/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, task }),
+      });
+      const body = await r.json();
+      if (!r.ok) throw new Error(body?.error ?? "Failed");
+      setMsg("Agent queued.");
+      setTask("");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mt-3 space-y-2">
+      <textarea
+        value={task}
+        onChange={(e) => setTask(e.target.value)}
+        placeholder="Describe the delivery task for the agent…"
+        className="w-full rounded-lg border border-ink-4 bg-ink-1 p-2 text-xs text-white"
+      />
+      <button
+        onClick={() => void run()}
+        disabled={busy || !task.trim()}
+        className="rounded-lg border border-ink-4 bg-ink-1 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {busy ? "Queuing…" : "Run agent"}
+      </button>
+      {msg ? <p className="text-xs text-text-2">{msg}</p> : null}
     </div>
   );
 }

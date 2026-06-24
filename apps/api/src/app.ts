@@ -349,6 +349,7 @@ import {
   runTrackedHubSpotAgentRequest,
   runTrackedProjectPortalAudit,
   runTrackedProjectPrepareBrief,
+  startMcpAgentJob,
   startProjectPortalAuditExecutionJob,
   sendWorkspaceEmail,
   shareProjectQuote,
@@ -8412,6 +8413,22 @@ export function createApiApp(config: BaseConfig) {
 
   app.delete("/api/hubspot/mcp/connection/:portalId", async (c) => {
     return c.json(await disconnectHubSpotMcp(c.req.param("portalId")));
+  });
+
+  const mcpAgentRunSchema = z
+    .object({ projectId: z.string(), task: z.string().min(1) })
+    .passthrough();
+
+  app.post("/api/hubspot/mcp/agent/run", async (c) => {
+    const body = mcpAgentRunSchema.parse(await readJsonBodyOrEmpty(c));
+    try {
+      return c.json(await startMcpAgentJob(body));
+    } catch (error) {
+      return c.json(
+        { error: error instanceof Error ? error.message : "Failed to start agent" },
+        400,
+      );
+    }
   });
 
   app.get("/api/integrations/hubspot/private-app", async (c) => {

@@ -7695,6 +7695,55 @@ export async function startProjectPortalAuditExecutionJob(
   return serializeExecutionJob(job);
 }
 
+export async function startMcpAgentJob(input: {
+  projectId: string;
+  task: string;
+}) {
+  const project = await prisma.project.findUnique({
+    where: { id: input.projectId },
+    select: { id: true, name: true, portalId: true },
+  });
+  if (!project) throw new Error("Project not found");
+  if (!project.portalId) throw new Error("No portal connected to this project");
+
+  const job = await prisma.executionJob.create({
+    data: {
+      projectId: project.id,
+      jobType: "mcp_agent",
+      moduleKey: "mcp_agent",
+      executionMethod: "agent",
+      mode: "async",
+      status: "queued",
+      resultStatus: "pending",
+      outputSummary: "Queued MCP delivery agent.",
+      payload: {
+        projectId: project.id,
+        portalId: project.portalId,
+        task: input.task,
+      },
+    },
+    include: {
+      project: { select: { name: true } },
+      task: { select: { title: true } },
+    },
+  });
+
+  await executionQueue.add(
+    job.moduleKey,
+    {
+      executionJobId: job.id,
+      moduleKey: job.moduleKey,
+      projectId: project.id,
+      portalId: project.portalId,
+      dryRun: false,
+      payload: job.payload,
+    },
+    { jobId: job.id },
+  );
+
+  return serializeExecutionJob(job);
+}
+
 export async function updateAgentRun(
   runId: string,
   value: {
