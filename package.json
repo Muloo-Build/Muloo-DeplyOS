@@ -17,6 +17,7 @@
     "db:generate": "cd apps/api && npx prisma generate",
     "db:migrate": "cd apps/api && node ../../scripts/run-with-root-env.mjs npx prisma migrate deploy",
     "db:seed:retainers": "node scripts/run-seed-retainers.mjs",
+    "seed:hubspot-mcp": "cd apps/api && node ../../scripts/seed-hubspot-mcp.mjs",
     "lint": "node node_modules/eslint/bin/eslint.js . --ext .ts,.js,.mjs",
     "format": "node node_modules/prettier/bin/prettier.cjs --write .",
     "format:check": "node node_modules/prettier/bin/prettier.cjs --check .",
