@@ -7,9 +7,9 @@ export default function TemplatesPage() {
     <AppShell>
       <div className="px-8 pt-6 pb-16 max-w-[1480px] w-full">
         <PageHead
-          eyebrow="Library"
-          title="Templates"
-          lede="Reusable build & delivery patterns — prefill plans, anticipated hours, and default working patterns for common Muloo job types. Discovery questionnaires live under Workbooks + Question library."
+          eyebrow="Operations"
+          title="Implementation templates"
+          lede="Reusable HubSpot delivery patterns — prefill plans, anticipated hours, QA checks, handover tasks, and default working patterns for common Muloo job types. Discovery questionnaires live under Workbooks + Question library."
         />
         <DeliveryTemplatesStudio />
       </div>

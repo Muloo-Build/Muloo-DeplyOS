@@ -1,9 +1,9 @@
 import { BrowserSessionExecutor } from "@muloo/browser-session-executor";
 import { TemplateEngine, type TemplateConfig } from "@muloo/report-templates";
 import type { CoworkInstruction } from "@muloo/shared";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../../prisma";
-import { JobPayload, JobResult } from "../jobRouter";
+import type { JobPayload, JobResult } from "../jobRouter";
 
 interface ReportInstallOutput {
   status: "installed" | "failed" | "queued_for_cowork";

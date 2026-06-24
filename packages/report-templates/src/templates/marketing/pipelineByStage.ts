@@ -1,4 +1,4 @@
-import { ReportTemplate, TemplateConfig, ReportDefinition } from '../../types';
+import type { ReportTemplate, TemplateConfig, ReportDefinition } from '../../types';
 
 export const pipelineByStage: ReportTemplate = {
   id: 'pipeline_by_stage',

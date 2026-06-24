@@ -126,6 +126,9 @@ importers:
       pdfkit:
         specifier: ^0.18.0
         version: 0.18.0
+      prisma:
+        specifier: 5.22.0
+        version: 5.22.0
       zod:
         specifier: ^3.24.2
         version: 3.25.76
@@ -136,9 +139,6 @@ importers:
       '@types/pdfkit':
         specifier: ^0.17.6
         version: 0.17.6
-      prisma:
-        specifier: 5.22.0
-        version: 5.22.0
 
   apps/cli:
     dependencies:

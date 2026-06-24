@@ -1,4 +1,4 @@
-import { ReportTemplate, TemplateConfig, ReportDefinition } from '../../types';
+import type { ReportTemplate, TemplateConfig, ReportDefinition } from '../../types';
 
 export const closedWonByMonth: ReportTemplate = {
   id: 'closed_won_by_month',

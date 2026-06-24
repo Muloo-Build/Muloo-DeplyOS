@@ -1,9 +1,9 @@
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { HubSpotWriteClient } from "@muloo/hubspot-client";
 import type { CoworkInstruction } from "@muloo/shared";
 import { extractUsage, logAIUsageEvent } from "../../aiUsage";
 import { prisma } from "../../prisma";
-import { JobPayload, JobResult } from "../jobRouter";
+import type { JobPayload, JobResult } from "../jobRouter";
 import { resolveHubSpotWriteToken } from "./resolveHubSpotWriteToken";
 
 interface AuditIssue {
