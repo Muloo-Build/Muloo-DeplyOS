@@ -31,7 +31,8 @@ function ProjectMessagesPanel({ projectId }: { projectId: string }) {
         if (!res.ok) return;
         const body = await res.json();
         setMessages((body.messages ?? []).slice().reverse());
-      } catch {
+      } catch (error) {
+        console.warn("Failed to load project messages", error);
       }
     }
     void load();

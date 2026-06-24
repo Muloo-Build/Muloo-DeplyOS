@@ -43,6 +43,7 @@ import { z, ZodError } from "zod";
 import { prisma } from "./prisma";
 import { executionQueue } from "./queue/index";
 import { startWorker } from "./queue/worker";
+import type { TaskMutationFieldsInput } from "./taskTypes";
 import {
   approveRetainerTopUp,
   approveTaskToBill,
@@ -2445,34 +2446,8 @@ export function createApiApp(config: BaseConfig) {
       }
 
       try {
-        const body = (await readJsonBodyOrEmpty(c)) as {
-          title?: unknown;
-          description?: unknown;
-          category?: unknown;
-          workstreamId?: unknown;
-          taskOrigin?: unknown;
-          executionType?: unknown;
-          executionLaneRationale?: unknown;
-          hubspotTierRequired?: unknown;
-          coworkBrief?: unknown;
-          manualInstructions?: unknown;
-          apiPayload?: unknown;
-          agentModuleKey?: unknown;
-          executionPayload?: unknown;
-          validationStatus?: unknown;
-          validationEvidence?: unknown;
-          findingId?: unknown;
-          recommendationId?: unknown;
-          priority?: unknown;
-          status?: unknown;
-          plannedHours?: unknown;
-          actualHours?: unknown;
-          qaRequired?: unknown;
-          approvalRequired?: unknown;
-          assigneeType?: unknown;
-          executionReadiness?: unknown;
-          assignedAgentId?: unknown;
-        };
+        const body =
+          (await readJsonBodyOrEmpty(c)) as TaskMutationFieldsInput;
         const task = await createProjectTask(c.req.param("projectId"), body);
         return c.json({ task }, 201);
       } catch (error) {
@@ -2850,34 +2825,8 @@ export function createApiApp(config: BaseConfig) {
   app.all("/api/projects/:projectId/tasks/:taskId", async (c) => {
     if (c.req.method === "PATCH") {
       try {
-        const body = (await readJsonBodyOrEmpty(c)) as {
-          status?: unknown;
-          title?: unknown;
-          description?: unknown;
-          category?: unknown;
-          workstreamId?: unknown;
-          taskOrigin?: unknown;
-          executionType?: unknown;
-          executionLaneRationale?: unknown;
-          hubspotTierRequired?: unknown;
-          coworkBrief?: unknown;
-          manualInstructions?: unknown;
-          apiPayload?: unknown;
-          agentModuleKey?: unknown;
-          executionPayload?: unknown;
-          validationStatus?: unknown;
-          validationEvidence?: unknown;
-          findingId?: unknown;
-          recommendationId?: unknown;
-          priority?: unknown;
-          qaRequired?: unknown;
-          approvalRequired?: unknown;
-          assigneeType?: unknown;
-          executionReadiness?: unknown;
-          assignedAgentId?: unknown;
-          plannedHours?: unknown;
-          actualHours?: unknown;
-        };
+        const body =
+          (await readJsonBodyOrEmpty(c)) as TaskMutationFieldsInput;
         const task = await updateProjectTaskRecord(
           c.req.param("projectId"),
           c.req.param("taskId"),

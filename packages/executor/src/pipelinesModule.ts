@@ -7,7 +7,6 @@ import {
   moduleExecutionResultSchema,
   type ModuleInputRequirementStatus,
   type OnboardingProject,
-  type ProjectModulePlan,
   type ReadinessReason,
   type ValidationFinding
 } from "@muloo/shared";
@@ -22,53 +21,12 @@ import {
   executePipelineDryRun,
   type PipelineModuleInput
 } from "./pipelineDryRunExecutor";
-
-function createFinding(code: string, message: string): ValidationFinding {
-  return { code, message };
-}
-
-function createReason(
-  code: string,
-  message: string,
-  type: ReadinessReason["type"]
-): ReadinessReason {
-  return { code, message, type };
-}
-
-function createInputStatus(params: {
-  key: string;
-  label: string;
-  description: string;
-  required: boolean;
-  present: boolean;
-  message?: string;
-}): ModuleInputRequirementStatus {
-  return {
-    key: params.key,
-    label: params.label,
-    description: params.description,
-    required: params.required,
-    status: params.present ? "present" : "missing",
-    message: params.message
-  };
-}
-
-function findModulePlan(
-  project: OnboardingProject,
-  moduleId: string
-): ProjectModulePlan {
-  const modulePlan = project.modulePlanning.find(
-    (candidate) => candidate.moduleId === moduleId
-  );
-
-  if (!modulePlan) {
-    throw new Error(
-      `Project '${project.id}' does not include module '${moduleId}'.`
-    );
-  }
-
-  return modulePlan;
-}
+import {
+  createFinding,
+  createInputStatus,
+  createReason,
+  findModulePlan
+} from "./moduleHelpers";
 
 function groupDuplicateValues(values: string[]): string[] {
   const counts = new Map<string, number>();

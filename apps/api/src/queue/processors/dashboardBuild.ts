@@ -7,7 +7,7 @@ import {
 } from "@muloo/report-templates";
 import type { CoworkInstruction } from "@muloo/shared";
 import { prisma } from "../../prisma";
-import { JobPayload, JobResult } from "../jobRouter";
+import type { JobPayload, JobResult } from "../jobTypes";
 
 interface DashboardBuildFailure {
   templateId: string;

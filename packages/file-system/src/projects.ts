@@ -655,25 +655,6 @@ export async function loadProjectById(
   }
 }
 
-export async function createProject(
-  payload: CreateProjectRequest,
-  options?: { cwd?: string }
-): Promise<OnboardingProject> {
-  const cwd = options?.cwd ?? process.cwd();
-  const input = createProjectRequestSchema.parse(payload);
-
-  try {
-    await loadProjectById(input.id, { cwd });
-    throw new Error(`Project '${input.id}' already exists.`);
-  } catch (error) {
-    if (!(error instanceof Error) || !error.message.includes("was not found")) {
-      throw error;
-    }
-  }
-
-  return saveProject(cwd, buildBlankProject(input));
-}
-
 export async function createProjectFromTemplate(
   payload: CreateProjectFromTemplateRequest,
   options?: { cwd?: string }

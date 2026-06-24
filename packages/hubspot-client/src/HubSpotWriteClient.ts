@@ -1,3 +1,5 @@
+const DEFAULT_HUBSPOT_API_BASE_URL = "https://api.hubapi.com";
+
 export interface HSPropertyOption {
   label: string;
   value: string;
@@ -201,7 +203,7 @@ export class HubSpotWriteClient {
   public constructor(config: HubSpotWriteClientConfig) {
     this.portalId = config.portalId;
     this.privateAppToken = config.privateAppToken.trim();
-    this.baseUrl = (config.baseUrl ?? "https://api.hubapi.com").replace(/\/$/, "");
+    this.baseUrl = (config.baseUrl ?? DEFAULT_HUBSPOT_API_BASE_URL).replace(/\/$/, "");
 
     if (!this.portalId.trim()) {
       throw new Error("portalId is required");

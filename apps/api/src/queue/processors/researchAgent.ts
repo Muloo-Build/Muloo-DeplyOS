@@ -1,4 +1,4 @@
-import { JobPayload, JobResult } from "../jobRouter";
+import type { JobPayload, JobResult } from "../jobTypes";
 
 export async function runResearchAgent(data: JobPayload): Promise<JobResult> {
   const query =

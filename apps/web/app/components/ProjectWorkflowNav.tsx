@@ -61,8 +61,8 @@ export default function ProjectWorkflowNav({
               ? body.project.portalId
               : null
         });
-      } catch {
-        // Keep the existing navigation stable if this lightweight fetch fails.
+      } catch (error) {
+        console.warn("Failed to load project navigation state", error);
       }
     }
 

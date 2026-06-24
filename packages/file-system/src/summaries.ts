@@ -8,8 +8,8 @@ import {
 } from "@muloo/shared";
 
 import { loadProjectExecutions } from "./executions";
-import { loadAllProjects, loadProjectById } from "./projects";
-import { validateProject, validateProjectById } from "./validation";
+import { loadProjectById } from "./projects";
+import { validateProject } from "./validation";
 
 export function summarizeProjectModules(
   project: OnboardingProject
@@ -76,15 +76,6 @@ export async function summarizeProject(
     templateName: project.templateProvenance?.templateName,
     updatedAt: project.updatedAt
   });
-}
-
-export async function loadAllProjectSummaries(options?: {
-  cwd?: string;
-}): Promise<ProjectSummary[]> {
-  const projects = await loadAllProjects(options);
-  return Promise.all(
-    projects.map((project) => summarizeProject(project, options))
-  );
 }
 
 export async function loadProjectSummaryById(

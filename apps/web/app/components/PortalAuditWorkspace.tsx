@@ -509,7 +509,9 @@ export default function PortalAuditWorkspace({
           setAuditProviderKey(aiProviders[0].providerKey);
         }
       })
-      .catch(() => null);
+      .catch((error) => {
+        console.warn("Failed to load provider connections", error);
+      });
   }, [projectId]);
 
   async function pollAuditJobStatus(jobId: string) {

@@ -7,6 +7,8 @@ import type {
   PropertyOption
 } from "@muloo/core";
 
+const DEFAULT_HUBSPOT_API_BASE_URL = "https://api.hubapi.com";
+
 interface HubSpotClientOptions {
   accessToken: string;
   logger: Logger;
@@ -566,7 +568,7 @@ export class HubSpotClient {
 
   public constructor(options: HubSpotClientOptions) {
     this.accessToken = options.accessToken;
-    this.baseUrl = options.baseUrl ?? "https://api.hubapi.com";
+    this.baseUrl = options.baseUrl ?? DEFAULT_HUBSPOT_API_BASE_URL;
     this.grantedScopes =
       options.scopes && options.scopes.length > 0
         ? new Set(

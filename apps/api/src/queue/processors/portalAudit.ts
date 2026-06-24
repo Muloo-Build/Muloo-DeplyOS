@@ -2,8 +2,9 @@ import { Prisma } from "@prisma/client";
 import { HubSpotWriteClient } from "@muloo/hubspot-client";
 import type { CoworkInstruction } from "@muloo/shared";
 import { prisma } from "../../prisma";
-import { JobPayload, JobResult } from "../jobRouter";
+import type { JobPayload, JobResult } from "../jobTypes";
 import { resolveHubSpotWriteToken } from "./resolveHubSpotWriteToken";
+import { handleMissingHubSpotToken } from "./missingTokenOutput";
 
 interface AuditIssue {
   severity: "critical" | "medium" | "low";
@@ -166,27 +167,10 @@ export async function runPortalAudit(data: JobPayload): Promise<JobResult> {
   const resolvedToken = await resolveHubSpotWriteToken(data.portalId);
 
   if (!resolvedToken) {
-    const output: AuditOutput = {
-      status: "queued_for_cowork",
-      summary: "No HubSpot token available. Reconnect the portal in Settings → Providers.",
-      executionTier: 3,
-      coworkInstruction: buildCoworkInstruction(data.portalId)
-    };
-
-    await prisma.executionJob.update({
-      where: { id: data.executionJobId },
-      data: {
-        outputSummary: output.summary,
-        executionTier: 3,
-        coworkInstruction: output.coworkInstruction as Prisma.InputJsonValue
-      }
-    });
-
-    return {
-      success: true,
-      dryRun: data.dryRun ?? false,
-      output
-    };
+    return handleMissingHubSpotToken(
+      data,
+      buildCoworkInstruction(data.portalId)
+    );
   }
 
   const client = new HubSpotWriteClient({

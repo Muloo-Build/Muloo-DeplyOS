@@ -472,8 +472,8 @@ export default function NewProjectPage() {
           owner: current.owner || users[0]?.name || "",
           ownerEmail: current.ownerEmail || users[0]?.email || ""
         }));
-      } catch {
-        // Keep project creation usable even if the team list is unavailable.
+      } catch (error) {
+        console.warn("Failed to load team users", error);
       }
     }
 
@@ -491,8 +491,8 @@ export default function NewProjectPage() {
 
         const body = await response.json();
         setClients(body.clients ?? []);
-      } catch {
-        // Keep project creation usable even if the client directory is unavailable.
+      } catch (error) {
+        console.warn("Failed to load clients", error);
       }
     }
 
@@ -694,8 +694,8 @@ export default function NewProjectPage() {
 
         const body = await response.json();
         setDeliveryTemplates(body.templates ?? []);
-      } catch {
-        // Keep project creation usable if the template library is unavailable.
+      } catch (error) {
+        console.warn("Failed to load delivery templates", error);
       }
     }
 

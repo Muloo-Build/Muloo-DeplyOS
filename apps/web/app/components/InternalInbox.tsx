@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import InboxMessageCard from "./InboxMessageCard";
 import WorkRequestsInbox from "./WorkRequestsInbox";
 
 interface InboxProject {
@@ -243,27 +244,7 @@ export default function InternalInbox() {
             </div>
           ) : (
             filteredMessages.map((message) => (
-              <div
-                key={message.id}
-                className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                      {message.project.name}
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-white">
-                      {message.senderName}
-                    </p>
-                  </div>
-                  <span className="text-xs text-text-muted">
-                    {new Date(message.createdAt).toLocaleString("en-ZA")}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm text-text-secondary">
-                  {message.body}
-                </p>
-              </div>
+              <InboxMessageCard key={message.id} message={message} />
             ))
           )}
         </div>

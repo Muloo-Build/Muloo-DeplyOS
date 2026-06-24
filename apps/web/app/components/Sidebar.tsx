@@ -174,8 +174,8 @@ export default function Sidebar() {
 
         const body = await response.json();
         setInboxCount(body.summary?.total ?? 0);
-      } catch {
-        // Ignore nav badge failures.
+      } catch (error) {
+        console.warn("Failed to load inbox summary", error);
       }
     }
 

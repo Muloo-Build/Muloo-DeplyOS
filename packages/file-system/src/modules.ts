@@ -11,7 +11,7 @@ import {
 import { loadProjectExecutions } from "./executions";
 import { loadProjectById } from "./projects";
 import { summarizeProjectModules } from "./summaries";
-import { validateProject, validateProjectById } from "./validation";
+import { validateProject } from "./validation";
 
 function createFallbackContract(
   moduleId: string
@@ -101,21 +101,3 @@ export async function loadProjectModuleDetail(
   return summarizeProjectModuleDetail(project, moduleKey, executions);
 }
 
-export async function loadProjectModuleValidation(
-  projectId: string,
-  moduleKey: string,
-  options?: { cwd?: string }
-) {
-  const validation = await validateProjectById(projectId, options);
-  const moduleValidation = validation.modules.find(
-    (module) => module.moduleId === moduleKey
-  );
-
-  if (!moduleValidation) {
-    throw new Error(
-      `Project '${projectId}' does not include module '${moduleKey}'.`
-    );
-  }
-
-  return moduleValidation;
-}
