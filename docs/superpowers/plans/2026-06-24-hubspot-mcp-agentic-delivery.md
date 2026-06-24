@@ -937,6 +937,89 @@ git commit -m "feat(mcp): connect card, settings page, and project/integrations 
 
 ---
 
+### Task 9b: Seed script for the `hubspot_mcp` credential row
+
+**Files:**
+- Create: `scripts/seed-hubspot-mcp.mjs`
+- Modify: `package.json` (add a `seed:hubspot-mcp` script)
+
+- [ ] **Step 1: Write the seed script**
+
+Create `scripts/seed-hubspot-mcp.mjs`:
+
+```javascript
+// Upserts the workspaceProviderConnection row used by the HubSpot MCP OAuth flow.
+// Run once per environment:
+//   HUBSPOT_MCP_CLIENT_ID=... HUBSPOT_MCP_CLIENT_SECRET=... pnpm seed:hubspot-mcp
+import { PrismaClient } from "@prisma/client";
+
+const clientId = process.env.HUBSPOT_MCP_CLIENT_ID?.trim();
+const clientSecret = process.env.HUBSPOT_MCP_CLIENT_SECRET?.trim();
+
+if (!clientId || !clientSecret) {
+  console.error(
+    "Set HUBSPOT_MCP_CLIENT_ID and HUBSPOT_MCP_CLIENT_SECRET before running this seed.",
+  );
+  process.exit(1);
+}
+
+const prisma = new PrismaClient();
+
+try {
+  const row = await prisma.workspaceProviderConnection.upsert({
+    where: { providerKey: "hubspot_mcp" },
+    create: {
+      providerKey: "hubspot_mcp",
+      defaultModel: clientId,
+      apiKey: clientSecret,
+      isEnabled: true,
+    },
+    update: {
+      defaultModel: clientId,
+      apiKey: clientSecret,
+      isEnabled: true,
+    },
+  });
+  console.log(`Seeded hubspot_mcp provider connection (${row.id}).`);
+} finally {
+  await prisma.$disconnect();
+}
+```
+
+> Confirm `WorkspaceProviderConnection` exposes `isEnabled` (the existing
+> `hubspot_oauth` loader reads `provider.isEnabled`); drop the field from
+> create/update if the model has no such column.
+
+- [ ] **Step 2: Add the package script**
+
+In root `package.json` scripts, add:
+
+```json
+"seed:hubspot-mcp": "cd apps/api && node ../../scripts/seed-hubspot-mcp.mjs"
+```
+
+> Mirror the working-directory convention of the existing `db:migrate` script
+> (it `cd apps/api` first so Prisma resolves the schema/client).
+
+- [ ] **Step 3: Verify it runs (dry check against a local/staging DB)**
+
+Run: `HUBSPOT_MCP_CLIENT_ID=test-id HUBSPOT_MCP_CLIENT_SECRET=test-secret pnpm seed:hubspot-mcp`
+Expected: `Seeded hubspot_mcp provider connection (<id>).` Re-running updates the same row (idempotent).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add scripts/seed-hubspot-mcp.mjs package.json
+git commit -m "feat(mcp): seed script for hubspot_mcp provider credentials"
+```
+
+> **Production run:** in Railway, set `HUBSPOT_MCP_CLIENT_ID` =
+> `97e466ab-d6c5-4cfe-bbd5-9f2c65f6a9d7` and `HUBSPOT_MCP_CLIENT_SECRET` =
+> (the app's Client secret), then run `pnpm seed:hubspot-mcp` once. These two
+> env vars are only needed at seed time; the values live in the DB row after.
+
+---
+
 # Sub-project 2 — MCP agentic execution
 
 ### Task 10: Add the Anthropic SDK + tool-gating config
