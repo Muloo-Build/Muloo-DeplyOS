@@ -16,6 +16,10 @@ import DiscoveryTab from "./project/tabs/DiscoveryTab";
 import OverviewTab from "./project/tabs/OverviewTab";
 import PlanTab from "./project/tabs/PlanTab";
 import PortalTab from "./project/tabs/PortalTab";
+import ProjectWorkstreamsHoursPanel from "./project/panels/ProjectWorkstreamsHoursPanel";
+import ProjectWorkbooksPanel from "./project/panels/ProjectWorkbooksPanel";
+import ProjectContributorsPanel from "./project/panels/ProjectContributorsPanel";
+import ProjectReadinessSummary from "./project/panels/ProjectReadinessSummary";
 
 interface Project {
   id: string;
@@ -38,7 +42,14 @@ interface Project {
     owner: string;
     summary: string;
     portalSummary?: string | null;
+    estimatedHours?: number | null;
+    hourCap?: number | null;
+    billingOwner?: string | null;
+    deliveryOwner?: string | null;
   }> | null;
+  billingOwner?: string | null;
+  deliveryOwner?: string | null;
+  partnerName?: string | null;
   scopeType?: string | null;
   engagementType: string;
   updatedAt: string;
@@ -257,6 +268,13 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
     name: string;
     contacts: Array<{ id: string; firstName: string; lastName: string; email: string }>;
   }>>([]);
+  const [clientContacts, setClientContacts] = useState<Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    title: string | null;
+  }>>([]);
   const [supportingContext, setSupportingContext] = useState<EvidenceItem[]>([]);
   const [findings, setFindings] = useState<FindingRecord[]>([]);
   const [portalSnapshot, setPortalSnapshot] = useState<PortalSnapshot | null>(null);
@@ -368,6 +386,19 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
 
     setProject(projectBody.project ?? null);
     setPortalQuoteEnabled(projectBody.project?.portalQuoteEnabled !== false);
+    if (projectBody.project?.client?.id) {
+      try {
+        const contactsRes = await fetch(
+          `/api/clients/${encodeURIComponent(projectBody.project.client.id)}/contacts`
+        );
+        if (contactsRes.ok) {
+          const contactsBody = await contactsRes.json();
+          setClientContacts(contactsBody.contacts ?? []);
+        }
+      } catch {
+        setClientContacts([]);
+      }
+    }
     setSessions(sessionsBody.sessionDetails ?? []);
     setDiscoverySummary(summaryBody.summary ?? null);
     setClientUsers(clientUsersBody?.clientUsers ?? []);
@@ -1074,6 +1105,14 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       case "overview":
         return (
           <OverviewTab
+            readinessSummary={
+              <ProjectReadinessSummary
+                projectId={project.id}
+                billingOwner={project.billingOwner ?? null}
+                deliveryOwner={project.deliveryOwner ?? null}
+                partnerName={project.partnerName ?? null}
+              />
+            }
             statusCard={
               <div className="space-y-4">
                 <InfoGrid
@@ -1420,6 +1459,27 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       case "discovery":
         return (
           <DiscoveryTab
+            workbooksPanel={
+              <ProjectWorkbooksPanel
+                projectId={project.id}
+                workstreams={(project.deliveryWorkstreams ?? []).map((ws) => ({
+                  id: ws.id,
+                  name: ws.name
+                }))}
+              />
+            }
+            contributorsPanel={
+              <ProjectContributorsPanel
+                projectId={project.id}
+                contacts={clientContacts.map((c) => ({
+                  id: c.id,
+                  firstName: c.firstName,
+                  lastName: c.lastName,
+                  email: c.email,
+                  title: c.title
+                }))}
+              />
+            }
             sessionsTracker={
               <div className="space-y-3">
                 {sessions.map((session) => (
@@ -1504,6 +1564,9 @@ export default function ProjectOverview({ projectId }: { projectId: string }) {
       case "plan":
         return (
           <PlanTab
+            workstreamsHoursPanel={
+              <ProjectWorkstreamsHoursPanel projectId={project.id} />
+            }
             blueprintPanel={
               <div className="space-y-3">
                 <p className="text-sm text-text-secondary">

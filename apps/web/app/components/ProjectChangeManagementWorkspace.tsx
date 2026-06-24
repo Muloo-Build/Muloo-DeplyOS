@@ -24,6 +24,10 @@ interface ProjectDetail {
   ownerEmail?: string | null;
   clientChampionFirstName?: string | null;
   clientChampionEmail?: string | null;
+  deliveryWorkstreams?: Array<{
+    id: string;
+    name: string;
+  }> | null;
   client: {
     name: string;
   };
@@ -62,6 +66,8 @@ interface WorkRequest {
   approvedByName?: string | null;
   rejectedAt?: string | null;
   deliveryAppendedAt?: string | null;
+  reason?: string | null;
+  impactedWorkstreamIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -76,6 +82,8 @@ interface ChangeRequestDraft {
   approvedByName: string;
   status: ChangeRequestStatus;
   deliveryTasks: ChangeDeliveryTaskPlan[];
+  reason: string;
+  impactedWorkstreamIds: string[];
 }
 
 const changeStatuses: Array<{ value: ChangeRequestStatus; label: string }> = [
@@ -134,7 +142,9 @@ function createNewRequestDraft(
     commercialImpactFeeZar: "",
     approvedByName: project?.owner?.trim() || "Muloo",
     status: "new",
-    deliveryTasks: [createEmptyTask()]
+    deliveryTasks: [createEmptyTask()],
+    reason: "",
+    impactedWorkstreamIds: []
   };
 }
 
@@ -157,7 +167,9 @@ function createDraftFromRequest(request: WorkRequest): ChangeRequestDraft {
     deliveryTasks:
       request.deliveryTasks && request.deliveryTasks.length > 0
         ? request.deliveryTasks
-        : [createEmptyTask()]
+        : [createEmptyTask()],
+    reason: request.reason ?? "",
+    impactedWorkstreamIds: request.impactedWorkstreamIds ?? []
   };
 }
 
@@ -321,10 +333,9 @@ export default function ProjectChangeManagementWorkspace({
     });
   }
 
-  function updateNewDraft(
-    field: keyof Omit<ChangeRequestDraft, "deliveryTasks">,
-    value: string
-  ) {
+  function updateNewDraft<
+    K extends keyof Omit<ChangeRequestDraft, "deliveryTasks">
+  >(field: K, value: ChangeRequestDraft[K]) {
     setNewDraft((current) => ({
       ...current,
       [field]: value
@@ -407,7 +418,9 @@ export default function ProjectChangeManagementWorkspace({
                 : undefined,
             approvedByName: newDraft.approvedByName,
             status: newDraft.status,
-            deliveryTasks: cleanDeliveryTasks(newDraft.deliveryTasks)
+            deliveryTasks: cleanDeliveryTasks(newDraft.deliveryTasks),
+            reason: newDraft.reason.trim() || null,
+            impactedWorkstreamIds: newDraft.impactedWorkstreamIds
           })
         }
       );
@@ -476,7 +489,9 @@ export default function ProjectChangeManagementWorkspace({
                 : null,
             approvedByName: draft.approvedByName,
             status: draft.status,
-            deliveryTasks: cleanDeliveryTasks(draft.deliveryTasks)
+            deliveryTasks: cleanDeliveryTasks(draft.deliveryTasks),
+            reason: draft.reason.trim() || null,
+            impactedWorkstreamIds: draft.impactedWorkstreamIds
           })
         }
       );
@@ -700,6 +715,55 @@ export default function ProjectChangeManagementWorkspace({
                 className="mt-2 min-h-[120px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
               />
             </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm text-white">Reason</span>
+              <textarea
+                value={newDraft.reason}
+                onChange={(event) =>
+                  updateNewDraft("reason", event.target.value)
+                }
+                placeholder="Why is this change being made?"
+                className="mt-2 min-h-[80px] w-full rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#0b1126] px-3 py-2 text-sm text-white outline-none"
+              />
+            </label>
+            {project?.deliveryWorkstreams &&
+            project.deliveryWorkstreams.length > 0 ? (
+              <label className="block md:col-span-2">
+                <span className="text-sm text-white">Impacted workstreams</span>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {project.deliveryWorkstreams.map((ws) => {
+                    const checked = newDraft.impactedWorkstreamIds.includes(
+                      ws.id
+                    );
+                    return (
+                      <label
+                        key={ws.id}
+                        className={`cursor-pointer rounded-full border px-3 py-1 text-xs ${
+                          checked
+                            ? "border-brand-teal bg-[rgba(123,226,239,0.12)] text-[#7be2ef]"
+                            : "border-[rgba(255,255,255,0.12)] text-text-secondary"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={checked}
+                          onChange={() => {
+                            const next = checked
+                              ? newDraft.impactedWorkstreamIds.filter(
+                                  (id) => id !== ws.id
+                                )
+                              : [...newDraft.impactedWorkstreamIds, ws.id];
+                            updateNewDraft("impactedWorkstreamIds", next);
+                          }}
+                        />
+                        {ws.name}
+                      </label>
+                    );
+                  })}
+                </div>
+              </label>
+            ) : null}
             <label className="block md:col-span-2">
               <span className="text-sm text-white">Internal notes</span>
               <textarea
