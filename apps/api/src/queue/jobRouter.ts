@@ -3,6 +3,7 @@ import { runPropertyApply } from './processors/propertyApply';
 import { runDashboardBuild } from './processors/dashboardBuild';
 import { runResearchAgent } from './processors/researchAgent';
 import { runReportInstall } from './processors/reportInstall';
+import { runMcpAgent } from './processors/mcpAgent';
 
 export interface JobPayload {
   executionJobId: string;
@@ -34,6 +35,8 @@ export async function routeJob(data: JobPayload): Promise<JobResult> {
       return runResearchAgent(data);
     case 'report_install':
       return runReportInstall(data);
+    case 'mcp_agent':
+      return runMcpAgent(data);
     default:
       throw new Error(`Unknown moduleKey: ${data.moduleKey}`);
   }
