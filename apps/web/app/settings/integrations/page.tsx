@@ -38,6 +38,15 @@ const integrations: IntegrationCard[] = [
       "Sign in with Google, send mailbox-routed email, and pull calendar context into the Command Centre. Email + calendar are configured today; Drive surface coming next.",
     status: "live",
     cta: "Open settings →"
+  },
+  {
+    href: "/settings/integrations/hubspot-mcp",
+    title: "HubSpot Agentic (MCP)",
+    badge: "AI Agents",
+    description:
+      "Let Muloo agents deliver work inside connected client portals via HubSpot's MCP server.",
+    status: "preview",
+    cta: "Open settings →"
   }
 ];
 
