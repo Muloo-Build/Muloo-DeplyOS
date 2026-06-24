@@ -267,10 +267,11 @@ export async function completeHubSpotMcpOAuthCallback(input: McpOAuthCallbackInp
   const tokenBody = await exchangeMcpAuthorizationCode({ code: input.code, codeVerifier });
 
   const record = mapTokenResponseToConnection(tokenBody, { portalId });
+  const { installedAt: _installedAt, ...updatable } = record;
   await prisma.hubSpotMcpConnection.upsert({
     where: { portalId },
     create: record,
-    update: record,
+    update: updatable,
   });
 
   return {
