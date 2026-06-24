@@ -4514,7 +4514,7 @@ export function createClientAuthToken(userId: string) {
   return Buffer.from(`${userId}:${secret}`).toString("base64url");
 }
 
-function createSignedStateToken(value: Record<string, unknown>) {
+export function createSignedStateToken(value: Record<string, unknown>) {
   const payload = Buffer.from(JSON.stringify(value)).toString("base64url");
   const signature = crypto
     .createHmac(
@@ -4529,7 +4529,7 @@ function createSignedStateToken(value: Record<string, unknown>) {
   return `${payload}.${signature}`;
 }
 
-function verifySignedStateToken(value: string) {
+export function verifySignedStateToken(value: string) {
   const [payload, signature] = value.split(".");
 
   if (!payload || !signature) {
