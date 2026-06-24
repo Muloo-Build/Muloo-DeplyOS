@@ -42,11 +42,13 @@ Muloo's own portal.
    portal is delivery-ready for structured *and* agentic work; the client sees one
    connect (two HubSpot consent screens, clearly labelled).
 
-2. **Private-app (A) is reserved for Muloo's own portal only.** Client-portal
-   structured writes must use OAuth (B). This requires flipping the preference in
-   `resolveHubSpotWriteToken` so that, for client portals, OAuth (B) is used and the
-   per-portal `PortalSession.privateAppToken` is not the default write path.
-   (Muloo's own portal may still use A.)
+2. **Private-app (A) is reserved for Muloo's own portal only** (policy decision).
+   Client-portal structured writes should use OAuth (B). **The code flip is DEFERRED**
+   (2026-06-24) to avoid risk to current delivery — `resolveHubSpotWriteToken` keeps its
+   present private-app-first behavior for now. When implemented, the chosen signal for
+   "Muloo's own portal" is an env var `MULOO_OWN_PORTAL_ID=<hubId>`: that one portal stays
+   on private-app (A); all other (client) portals resolve OAuth (B) first. Tracked as a
+   separate follow-up, not part of the unified-connect build.
 
 3. **Browser-session capture (D)** remains a separate, occasional step, surfaced
    only when a project's scope includes dashboards/reports. It cannot be OAuth.
