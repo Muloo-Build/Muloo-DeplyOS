@@ -283,6 +283,29 @@ export async function completeHubSpotMcpOAuthCallback(input: McpOAuthCallbackInp
   };
 }
 
+// ---------------------------------------------------------------------------
+// Destructive-tool denylist (Task 10)
+// ---------------------------------------------------------------------------
+
+/**
+ * HubSpot MCP tool names disabled by default (hard-destructive).
+ * CONFIRM against HubSpot's live MCP tool catalog and extend as needed.
+ */
+export const HUBSPOT_MCP_DESTRUCTIVE_TOOLS = [
+  "delete_object",
+  "batch_delete_objects",
+  "delete_pipeline",
+  "delete_property",
+  "archive_object",
+] as const;
+
+/** mcp_toolset.configs that disables each destructive tool. */
+export function buildHubSpotMcpToolsetConfigs(): Record<string, { enabled: false }> {
+  return Object.fromEntries(
+    HUBSPOT_MCP_DESTRUCTIVE_TOOLS.map((name) => [name, { enabled: false as const }]),
+  );
+}
+
 export async function disconnectHubSpotMcp(portalId: string) {
   await prisma.hubSpotMcpConnection.updateMany({
     where: { portalId },
