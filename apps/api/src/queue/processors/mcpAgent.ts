@@ -19,6 +19,7 @@ interface McpAgentPayload {
 }
 
 interface McpToolAction {
+  id?: string;
   name: string;
   serverName?: string;
   input: unknown;
@@ -53,6 +54,7 @@ export async function runMcpAgent(data: JobPayload): Promise<JobResult> {
   let lastRawUsage: Anthropic.Beta.BetaUsage | undefined;
   let errored = false;
   let errorMessage: string | null = null;
+  let completed = false;
 
   try {
     for (let i = 0; i < MAX_CONTINUATIONS; i += 1) {
@@ -94,6 +96,7 @@ export async function runMcpAgent(data: JobPayload): Promise<JobResult> {
           // BetaMCPToolUseBlock — narrowed by block.type
           // Fields: id, name, server_name, input, type
           actions.push({
+            id: block.id,
             name: block.name,
             serverName: block.server_name,
             input: block.input,
@@ -101,9 +104,9 @@ export async function runMcpAgent(data: JobPayload): Promise<JobResult> {
         } else if (block.type === "mcp_tool_result") {
           // BetaMCPToolResultBlock — narrowed by block.type
           // Fields: tool_use_id, is_error, content, type
-          const last = actions[actions.length - 1];
-          if (last) {
-            last.isError = block.is_error;
+          const matched = actions.find((a) => a.id === block.tool_use_id);
+          if (matched) {
+            matched.isError = block.is_error ?? false;
           }
         }
       }
@@ -111,6 +114,7 @@ export async function runMcpAgent(data: JobPayload): Promise<JobResult> {
       if (response.stop_reason === "refusal") {
         errored = true;
         errorMessage = "Agent refused the task";
+        completed = true;
         break;
       }
       if (response.stop_reason === "pause_turn") {
@@ -119,7 +123,12 @@ export async function runMcpAgent(data: JobPayload): Promise<JobResult> {
         continue;
       }
       // end_turn, max_tokens, or any other terminal reason — stop looping.
+      completed = true;
       break;
+    }
+    if (!completed && !errored) {
+      errored = true;
+      errorMessage = "MCP agent did not finish within the continuation limit";
     }
   } catch (error) {
     errored = true;
