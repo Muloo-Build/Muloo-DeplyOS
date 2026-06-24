@@ -24,6 +24,7 @@ interface McpToolAction {
   serverName?: string;
   input: unknown;
   isError?: boolean;
+  result?: string;
 }
 
 export async function runMcpAgent(data: JobPayload): Promise<JobResult> {
@@ -107,6 +108,18 @@ export async function runMcpAgent(data: JobPayload): Promise<JobResult> {
           const matched = actions.find((a) => a.id === block.tool_use_id);
           if (matched) {
             matched.isError = block.is_error ?? false;
+            const resultText = Array.isArray(block.content)
+              ? block.content
+                  .map((c) =>
+                    c && typeof c === "object" && "text" in c
+                      ? String((c as { text?: unknown }).text ?? "")
+                      : "",
+                  )
+                  .join("")
+              : typeof block.content === "string"
+                ? block.content
+                : "";
+            matched.result = resultText.slice(0, 2000);
           }
         }
       }
