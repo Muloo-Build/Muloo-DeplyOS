@@ -40,6 +40,8 @@ export async function runMcpAgent(data: JobPayload): Promise<JobResult> {
   }
 
   const token = await resolveHubSpotMcpToken(portalId);
+  // Enumerate the live catalog once and gate destructive tools up front.
+  const toolsetConfigs = await buildHubSpotMcpToolsetConfigs({ token });
   const client = new Anthropic({ apiKey });
   const startedAt = Date.now();
 
@@ -82,7 +84,7 @@ export async function runMcpAgent(data: JobPayload): Promise<JobResult> {
           {
             type: "mcp_toolset",
             mcp_server_name: "hubspot",
-            configs: buildHubSpotMcpToolsetConfigs(),
+            configs: toolsetConfigs,
           },
         ],
       });
