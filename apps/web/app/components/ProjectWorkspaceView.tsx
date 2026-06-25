@@ -177,45 +177,7 @@ const primaryProjectTabs: Array<{
     icon: <Receipt size={13} />,
     path: "/approvals"
   },
-  { id: "files", label: "Files", icon: <Folder size={13} />, path: "/files" },
-  {
-    id: "command",
-    label: "Skippy",
-    icon: <Sparkles size={13} />,
-    path: "/command"
-  }
-];
-
-const secondaryProjectTabs: Array<{
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  path: string;
-}> = [
-  {
-    id: "discovery",
-    label: "Discovery",
-    icon: <Search size={13} />,
-    path: "/discovery"
-  },
-  {
-    id: "comms",
-    label: "Meetings",
-    icon: <MessageSquare size={13} />,
-    path: "/meetings"
-  },
-  {
-    id: "audit",
-    label: "Audit",
-    icon: <ClipboardCheck size={13} />,
-    path: "/audit"
-  },
-  {
-    id: "settings",
-    label: "Settings",
-    icon: <SettingsIcon size={13} />,
-    path: "/edit"
-  }
+  { id: "files", label: "Files", icon: <Folder size={13} />, path: "/files" }
 ];
 
 type ProjectWorkspaceTabId =
@@ -717,6 +679,12 @@ export default function ProjectWorkspaceView({
                 Edit
               </Btn>
             </Link>
+            <Link href={`/projects/${projectId}/command`}>
+              <Btn variant="ghost" size="md">
+                <Sparkles size={13} />
+                Skippy
+              </Btn>
+            </Link>
             <Btn variant="primary" size="md">
               <Plus size={13} />
               Log time
@@ -1102,31 +1070,6 @@ export default function ProjectWorkspaceView({
                   </Link>
                 );
               })}
-              <details className="relative group">
-                <summary className="list-none px-3.5 py-2.5 text-[13px] cursor-pointer border-b-2 -mb-px border-transparent transition-colors flex items-center gap-1.5 whitespace-nowrap text-text-3 hover:text-text-2">
-                  More
-                </summary>
-                <div className="absolute right-0 z-20 mt-2 min-w-[180px] rounded-[14px] border border-ink-4 bg-ink-1 p-2 shadow-2xl">
-                  {secondaryProjectTabs.map((t) => {
-                    const isActive = t.id === activeTab;
-                    const href = `/projects/${projectId}${t.path}`;
-                    return (
-                      <Link
-                        key={t.id}
-                        href={href}
-                        className={`flex items-center gap-2 rounded-[10px] px-3 py-2 text-[13px] transition-colors ${
-                          isActive
-                            ? "bg-white/10 text-text-1"
-                            : "text-text-3 hover:bg-white/5 hover:text-text-2"
-                        }`}
-                      >
-                        {t.icon}
-                        <span>{t.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </details>
             </div>
 
             {children ?? (

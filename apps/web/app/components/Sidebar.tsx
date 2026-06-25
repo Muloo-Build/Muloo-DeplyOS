@@ -5,10 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
+  Activity,
   Bot,
   BookOpen,
   Building2,
   Calendar,
+  ChevronDown,
   FileText,
   FolderKanban,
   HelpCircle,
@@ -72,12 +74,6 @@ const navGroups: NavGroup[] = [
         label: "Today",
         icon: <Home size={15} />,
         isActive: isTodayRoute
-      },
-      {
-        href: "/skippy-world",
-        label: "Skippy world",
-        icon: <Radar size={15} />,
-        isActive: (p) => p === "/skippy-world" || p.startsWith("/skippy-world/")
       }
     ]
   },
@@ -177,20 +173,37 @@ const navGroups: NavGroup[] = [
         label: "Implementation templates",
         icon: <Layers size={15} />,
         isActive: (p) => p === "/templates" || p.startsWith("/templates/")
+      }
+    ]
+  },
+  {
+    label: "AI",
+    items: [
+      {
+        href: "/skippy-world",
+        label: "Skippy world",
+        icon: <Radar size={15} />,
+        isActive: (p) => p === "/skippy-world" || p.startsWith("/skippy-world/")
       },
       {
         href: "/agents",
         label: "Agents",
         icon: <Bot size={15} />,
-        isActive: (p) =>
-          p === "/agents" ||
-          p.startsWith("/agents/") ||
-          p === "/runs" ||
-          p.startsWith("/runs/")
+        isActive: (p) => p === "/agents" || p.startsWith("/agents/")
+      },
+      {
+        href: "/runs",
+        label: "Runs",
+        icon: <Activity size={15} />,
+        isActive: (p) => p === "/runs" || p.startsWith("/runs/")
       }
     ]
   }
 ];
+
+function localStorageKey(label: string) {
+  return `sidebar-group-${label}`;
+}
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -201,6 +214,50 @@ export default function Sidebar() {
   const [userOrg, setUserOrg] = useState("muloo.co");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  // Track open/closed state for labelled groups. Default: all open (true).
+  const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
+
+  // On mount: hydrate from localStorage.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const initial: Record<string, boolean> = {};
+    for (const group of navGroups) {
+      if (!group.label) continue;
+      const stored = window.localStorage.getItem(localStorageKey(group.label));
+      initial[group.label] = stored !== null ? stored === "true" : true;
+    }
+    setGroupOpen(initial);
+  }, []);
+
+  // Auto-expand any group whose active item matches the current pathname.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setGroupOpen((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const group of navGroups) {
+        if (!group.label) continue;
+        const hasActive = group.items.some((item) => item.isActive(pathname));
+        if (hasActive && !next[group.label]) {
+          next[group.label] = true;
+          window.localStorage.setItem(localStorageKey(group.label), "true");
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [pathname]);
+
+  function toggleGroup(label: string) {
+    setGroupOpen((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(localStorageKey(label), String(next[label]));
+      }
+      return next;
+    });
+  }
 
   // Launch Muloo Hub Command (reporting) with the current workspace identity.
   // No payload → lands on the Hub Command company mirror list.
@@ -370,64 +427,81 @@ export default function Sidebar() {
 
         {/* Nav groups */}
         <nav className="flex-1 px-3 pb-3 pt-1.5 overflow-y-auto">
-          {navGroups.map((group, idx) => (
-            <div key={`${group.label ?? "_"}-${idx}`} className="pt-3.5 pb-1.5">
-              {group.label && (
-                <div className="px-2 pb-1.5 text-[10px] tracking-[0.14em] uppercase text-text-4 font-semibold">
-                  {group.label}
-                </div>
-              )}
-              <div className="space-y-px">
-                {group.items.map((item) => {
-                  const active = item.isActive(pathname);
-                  const showInboxBadge =
-                    item.badge === "inbox" && inboxCount > 0;
+          {navGroups.map((group, idx) => {
+            const isOpen = group.label ? (groupOpen[group.label] ?? true) : true;
 
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`relative flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${
-                        active
-                          ? "bg-ink-3 text-text-1"
-                          : "text-text-2 hover:bg-ink-2 hover:text-text-1"
+            return (
+              <div key={`${group.label ?? "_"}-${idx}`} className="pt-3.5 pb-1.5">
+                {group.label ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.label!)}
+                    aria-expanded={isOpen}
+                    className="flex w-full items-center justify-between px-2 pb-1.5 text-[10px] tracking-[0.14em] uppercase text-text-4 font-semibold hover:text-text-3 transition-colors"
+                  >
+                    <span>{group.label}</span>
+                    <ChevronDown
+                      size={12}
+                      className={`flex-shrink-0 transition-transform duration-200 ${
+                        isOpen ? "rotate-0" : "-rotate-90"
                       }`}
-                    >
-                      {active && (
-                        <span className="absolute -left-3 top-1/2 -translate-y-1/2 w-[3px] h-[18px] bg-status-ok rounded-r" />
-                      )}
-                      <span className="opacity-85 flex-shrink-0">
-                        {item.icon}
-                      </span>
-                      <span className="truncate">{item.label}</span>
-                      {showInboxBadge && (
-                        <span
-                          className={`ml-auto font-mono text-[11px] px-1.5 py-px rounded-[10px] min-w-5 text-center ${
+                    />
+                  </button>
+                ) : null}
+                {isOpen && (
+                  <div className="space-y-px">
+                    {group.items.map((item) => {
+                      const active = item.isActive(pathname);
+                      const showInboxBadge =
+                        item.badge === "inbox" && inboxCount > 0;
+
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`relative flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ${
                             active
-                              ? "bg-[rgba(74,219,192,0.12)] text-status-ok"
-                              : "bg-ink-3 text-text-3"
+                              ? "bg-ink-3 text-text-1"
+                              : "text-text-2 hover:bg-ink-2 hover:text-text-1"
                           }`}
                         >
-                          {inboxCount}
-                        </span>
-                      )}
-                      {typeof item.count === "number" && (
-                        <span
-                          className={`ml-auto font-mono text-[11px] px-1.5 py-px rounded-[10px] min-w-5 text-center ${
-                            active
-                              ? "bg-[rgba(74,219,192,0.12)] text-status-ok"
-                              : "bg-ink-3 text-text-3"
-                          }`}
-                        >
-                          {item.count}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
+                          {active && (
+                            <span className="absolute -left-3 top-1/2 -translate-y-1/2 w-[3px] h-[18px] bg-status-ok rounded-r" />
+                          )}
+                          <span className="opacity-85 flex-shrink-0">
+                            {item.icon}
+                          </span>
+                          <span className="truncate">{item.label}</span>
+                          {showInboxBadge && (
+                            <span
+                              className={`ml-auto font-mono text-[11px] px-1.5 py-px rounded-[10px] min-w-5 text-center ${
+                                active
+                                  ? "bg-[rgba(74,219,192,0.12)] text-status-ok"
+                                  : "bg-ink-3 text-text-3"
+                              }`}
+                            >
+                              {inboxCount}
+                            </span>
+                          )}
+                          {typeof item.count === "number" && (
+                            <span
+                              className={`ml-auto font-mono text-[11px] px-1.5 py-px rounded-[10px] min-w-5 text-center ${
+                                active
+                                  ? "bg-[rgba(74,219,192,0.12)] text-status-ok"
+                                  : "bg-ink-3 text-text-3"
+                              }`}
+                            >
+                              {item.count}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Reporting — launches Muloo Hub Command via signed SSO (POST then redirect). */}
           <div className="pt-3.5 pb-1.5">
