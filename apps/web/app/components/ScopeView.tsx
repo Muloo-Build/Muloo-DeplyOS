@@ -306,6 +306,23 @@ export default function ScopeView({ projectId }: ScopeViewProps) {
           }
         />
 
+        {/* Planning inputs sub-nav */}
+        <div className="flex items-center gap-2 text-xs text-text-3 -mt-2">
+          <span className="uppercase tracking-wide">Planning inputs</span>
+          <Link
+            href={`/projects/${projectId}/discovery`}
+            className="rounded-lg border border-ink-4 px-2.5 py-1 text-text-2 hover:bg-white/5 transition-colors"
+          >
+            Discovery
+          </Link>
+          <Link
+            href={`/projects/${projectId}/audit`}
+            className="rounded-lg border border-ink-4 px-2.5 py-1 text-text-2 hover:bg-white/5 transition-colors"
+          >
+            Portal audit
+          </Link>
+        </div>
+
         <StatsGrid cols={3}>
           <Stat
             label="In scope"
